@@ -1,7 +1,6 @@
 use std::fmt;
-use std::cmp::min;
 
-use combine::{StreamOnce, Positioned, Stream};
+use combine::{StreamOnce, Positioned};
 use combine::primitives::{UnexpectedParse, StreamError};
 use position::Pos;
 
@@ -37,26 +36,29 @@ impl<'a> StreamOnce for TokenStream<'a> {
     fn uncons<E>(&mut self) -> Result<Self::Item, E>
         where E: StreamError<Self::Item, Self::Range>
     {
-        let mut iter = self.buf[self.off..].chars();
-        'outer: while let Some(cur_char) = iter.next() {
-            match cur_char {
-                '\u{feff}' | '\t' | ' ' |
-                '\r' | '\n' |
-                // comma is also entirely ignored in spec
-                ',' => continue,
-                '#' => {
-                    while let Some(cur_char) = iter.next() {
-                        if cur_char == '\r' || cur_char == '\n' {
-                            break;
-                        }
+        use self::Kind::*;
+        let (kind, len) = {
+            let mut iter = self.buf[self.off..].chars();
+            loop {
+                let cur_char = match iter.next() {
+                    Some(x) => x,
+                    None => return Err(E::end_of_input()),
+                };
+                match cur_char {
+                    '!' | '$' | ':' | '=' | '@' | '|' |
+                    '(' | ')' | '[' | ']' | '{' | '}' => {
+                        break (Punctuator, 1);
                     }
-                    continue;
+                    // TODO(tailhook) punctuator '...'
+                    _ => return Err(E::unexpected_message(
+                        format_args!("unexpected character {:?}", cur_char))),
                 }
-                _ => unimplemented!(),
             }
-            unimplemented!("Char {:?}", cur_char);
-        }
-        return Err(E::end_of_input());
+        };
+        let value = &self.buf[..len];
+        self.update_position(len);
+        self.skip_whitespace();
+        Ok(Token { kind, value })
     }
 }
 
@@ -68,14 +70,47 @@ impl<'a> Positioned for TokenStream<'a> {
 
 impl<'a> TokenStream<'a> {
     pub fn new(s: &str) -> TokenStream {
-        TokenStream {
+        let mut me = TokenStream {
             buf: s,
             position: Pos { line: 1, column: 1 },
             off: 0,
+        };
+        me.skip_whitespace();
+        return me;
+    }
+    fn skip_whitespace(&mut self) {
+        let num = {
+            let mut iter = self.buf[self.off..].char_indices();
+            loop {
+                let (idx, cur_char) = match iter.next() {
+                    Some(pair) => pair,
+                    None => break (self.buf.len() - self.off),
+                };
+                match cur_char {
+                    '\u{feff}' | '\t' | ' ' |
+                    '\r' | '\n' |
+                    // comma is also entirely ignored in spec
+                    ',' => continue,
+                    //comment
+                    '#' => {
+                        while let Some((_, cur_char)) = iter.next() {
+                            if cur_char == '\r' || cur_char == '\n' {
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+                    _ => break idx,
+                }
+            }
+        };
+        if num > 0 {
+            self.update_position(num);
         }
     }
-    fn update_pos(&mut self, val: &str) {
-        self.off += val.len();
+    fn update_position(&mut self, len: usize) {
+        let val = &self.buf[self.off..][..len];
+        self.off += len;
         let lines = val.as_bytes().iter().filter(|&&x| x == b'\n').count();
         self.position.line += lines;
         if lines > 0 {
