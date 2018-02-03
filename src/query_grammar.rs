@@ -64,6 +64,14 @@ pub fn variable_type<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+pub fn default_value<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Value, TokenStream<'a>>
+{
+    name().map(Value::EnumValue)
+    // TODO(tailhook) more values
+    .parse_stream(input)
+}
+
 pub fn query<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Query, TokenStream<'a>>
 {
@@ -74,10 +82,11 @@ pub fn query<'a>(input: &mut TokenStream<'a>)
         .with(many1(
             punct("$").with(name()).skip(punct(":"))
                 .and(parser(variable_type))
-                .map(|(name, var_type)| VariableDefinition {
-                    name, var_type,
-                    // TODO(tailhook)
-                    default_value: None,
+                .and(optional(
+                    punct("=")
+                    .with(parser(default_value))))
+                .map(|((name, var_type), default_value)| VariableDefinition {
+                    name, var_type, default_value,
                 })
         ))
         .skip(punct(")"))))

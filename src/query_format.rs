@@ -107,7 +107,10 @@ impl Displayable for VariableDefinition {
         f.write(&self.name);
         f.write(": ");
         self.var_type.display(f);
-        // TODO(tailhook) default value
+        if let Some(ref default) = self.default_value {
+            f.write(" = ");
+            default.display(f);
+        }
     }
 }
 
@@ -124,6 +127,23 @@ impl Displayable for VariableType {
                 typ.display(f);
                 f.write("!");
             }
+        }
+    }
+}
+
+impl Displayable for Value {
+    fn display(&self, f: &mut Formatter) {
+        match *self {
+            Value::Variable(ref name) => { f.write("$"); f.write(name); },
+            Value::Int(ref num) => unimplemented!(),
+            Value::Float(val) => f.write(&format!("{}", val)),
+            Value::String(ref val) => unimplemented!(),
+            Value::Boolean(true) => f.write("true"),
+            Value::Boolean(false) => f.write("false"),
+            Value::Null => f.write("null"),
+            Value::EnumValue(ref name) => f.write(name),
+            Value::ListValue(ref items) => unimplemented!(),
+            Value::ObjectValue(ref items) => unimplemented!(),
         }
     }
 }
