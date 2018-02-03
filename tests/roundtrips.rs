@@ -18,5 +18,6 @@ fn roundtrip(filename: &str) {
 #[test] fn minimal() { roundtrip("minimal"); }
 #[test] fn minimal_query() { roundtrip("minimal_query"); }
 #[test] fn named_query() { roundtrip("named_query"); }
+#[test] fn query_vars() { roundtrip("query_vars"); }
 // this one doesnt' work yet, we tackle all the features one by one
 //#[test] fn kitchen_sink() { roundtrip("kitchen-sink"); }

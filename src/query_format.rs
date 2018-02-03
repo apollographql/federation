@@ -83,6 +83,13 @@ impl Displayable for Query {
         f.write("query ");
         if let Some(ref name) = self.name {
             f.write(name);
+            if self.variable_definitions.len() > 0 {
+                f.write("(");
+                for var in &self.variable_definitions {
+                    var.display(f);
+                }
+                f.write(")");
+            }
             f.write(" ");
         }
         f.start_block();
@@ -91,5 +98,32 @@ impl Displayable for Query {
         }
         f.end_block();
         // TODO(tailhook) other parts
+    }
+}
+
+impl Displayable for VariableDefinition {
+    fn display(&self, f: &mut Formatter) {
+        f.write("$");
+        f.write(&self.name);
+        f.write(": ");
+        self.var_type.display(f);
+        // TODO(tailhook) default value
+    }
+}
+
+impl Displayable for VariableType {
+    fn display(&self, f: &mut Formatter) {
+        match *self {
+            VariableType::NamedType(ref name) => f.write(name),
+            VariableType::ListType(ref typ) => {
+                f.write("[");
+                typ.display(f);
+                f.write("]");
+            }
+            VariableType::NonNullType(ref typ) => {
+                typ.display(f);
+                f.write("!");
+            }
+        }
     }
 }

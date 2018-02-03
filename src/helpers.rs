@@ -15,6 +15,11 @@ pub struct TokenMatch<'a> {
 }
 
 #[derive(Clone)]
+pub struct NameMatch<'a> {
+    phantom: PhantomData<&'a u8>,
+}
+
+#[derive(Clone)]
 pub struct Value<'a> {
     kind: Kind,
     value: &'static str,
@@ -25,6 +30,12 @@ pub struct Value<'a> {
 pub fn kind<'x>(kind: Kind) -> TokenMatch<'x> {
     TokenMatch {
         kind: kind,
+        phantom: PhantomData,
+    }
+}
+
+pub fn name<'x>() -> NameMatch<'x> {
+    NameMatch {
         phantom: PhantomData,
     }
 }
@@ -82,5 +93,26 @@ impl<'a> Parser for Value<'a> {
         error: &mut Tracked<<Self::Input as StreamOnce>::Error>)
     {
         error.error.add_error(Error::Expected(Info::Borrowed(self.value)));
+    }
+}
+
+impl<'a> Parser for NameMatch<'a> {
+    type Input = TokenStream<'a>;
+    type Output = String;
+    type PartialState = ();
+
+    #[inline]
+    fn parse_lazy(&mut self, input: &mut Self::Input)
+        -> ConsumedResult<Self::Output, Self::Input>
+    {
+        satisfy(|c: Token<'a>| c.kind == Kind::Name)
+        .map(|t: Token<'a>| t.value.to_string())
+        .parse_lazy(input)
+    }
+
+    fn add_error(&mut self,
+        error: &mut Tracked<Errors<Token<'a>, Token<'a>, Pos>>)
+    {
+        error.error.add_error(Error::Expected(Info::Borrowed("Name")));
     }
 }

@@ -5,7 +5,7 @@ use combine::combinator::{many1, eof, optional};
 
 use query_error::{QueryParseError};
 use tokenizer::Kind as T;
-use helpers::{punct, ident, kind};
+use helpers::{punct, ident, kind, name};
 use query::*;
 
 pub fn field<'a>(input: &mut TokenStream<'a>)
@@ -55,17 +55,38 @@ pub fn selection_set<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+pub fn variable_type<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<VariableType, TokenStream<'a>>
+{
+    name().map(|x| VariableType::NamedType(x))
+    // .or(list...)
+    // .or(non_null_type)
+    .parse_stream(input)
+}
+
 pub fn query<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Query, TokenStream<'a>>
 {
     ident("query")
-    .with(optional(kind(T::Name)).map(|x| x.map(|x| x.value.to_string())))
+    .with(optional(name()))
+    .and(optional(
+        punct("(")
+        .with(many1(
+            punct("$").with(name()).skip(punct(":"))
+                .and(parser(variable_type))
+                .map(|(name, var_type)| VariableDefinition {
+                    name, var_type,
+                    // TODO(tailhook)
+                    default_value: None,
+                })
+        ))
+        .skip(punct(")"))))
     .and(parser(selection_set))
-    .map(|(name, selection_set)| Query {
+    .map(|((name, vars), selection_set)| Query {
+        name,
         selection_set,
         // TODO(tailhook)
-        name: name,
-        variable_definitions: Vec::new(),
+        variable_definitions: vars.unwrap_or_else(Vec::new),
         directives: Vec::new(),
     })
     .parse_stream(input)
