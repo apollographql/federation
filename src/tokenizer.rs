@@ -164,6 +164,20 @@ impl<'a> TokenStream<'a> {
                     return Ok((IntValue, len));
                 }
             }
+            '"' => {
+                let mut prev_char = cur_char;
+                while let Some((idx, cur_char)) = iter.next() {
+                    match cur_char {
+                        '"' if prev_char == '\\' => {}
+                        '"' => {
+                            return Ok((StringValue, idx+1));
+                        }
+                        _ => {}
+                    }
+                    prev_char = cur_char;
+                }
+                return Ok((Name, self.buf.len() - self.off));
+            }
             _ => return Err(E::unexpected_message(
                 format_args!("unexpected character {:?}", cur_char))),
         }
@@ -350,4 +364,14 @@ mod test {
     #[test] #[should_panic] fn letters_float2() { tok_str("0.bbc"); }
     #[test] #[should_panic] fn letters_float3() { tok_str("0.bbce0"); }
     #[test] #[should_panic] fn no_exp_sign_float() { tok_str("0e0"); }
+
+    #[test]
+    fn string() {
+        assert_eq!(tok_str(r#""""#), [r#""""#]);
+        assert_eq!(tok_typ(r#""""#), [StringValue]);
+        assert_eq!(tok_str(r#""hello""#), [r#""hello""#]);
+        assert_eq!(tok_typ(r#""hello""#), [StringValue]);
+        assert_eq!(tok_str(r#""my\"quote""#), [r#""my\"quote""#]);
+        assert_eq!(tok_typ(r#""my\"quote""#), [StringValue]);
+    }
 }
