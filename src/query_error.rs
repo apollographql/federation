@@ -1,5 +1,3 @@
-use combine::ParseError;
-use combine::primitives::{StreamError, Tracked};
 use combine::easy::Error;
 
 use tokenizer::Token;

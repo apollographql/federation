@@ -1,7 +1,8 @@
 use std::fmt;
 
 use combine::{StreamOnce, Positioned};
-use combine::primitives::{StreamError};
+use combine::error::{StreamError};
+use combine::stream::{Resetable};
 use combine::easy::Error;
 use position::Pos;
 
@@ -23,9 +24,15 @@ pub struct Token<'a> {
     pub value: &'a str,
 }
 
-#[derive(Clone)]
+#[derive(Debug)]
 pub struct TokenStream<'a> {
     buf: &'a str,
+    position: Pos,
+    off: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct Checkpoint {
     position: Pos,
     off: usize,
 }
@@ -36,9 +43,7 @@ impl<'a> StreamOnce for TokenStream<'a> {
     type Position = Pos;
     type Error = Error<Token<'a>, Token<'a>>;
 
-    fn uncons<E>(&mut self) -> Result<Self::Item, E>
-        where E: StreamError<Self::Item, Self::Range>
-    {
+    fn uncons(&mut self) -> Result<Self::Item, Self::Error> {
         let (kind, len) = self.peek_token()?;
         let value = &self.buf[self.off..][..len];
         self.update_position(len);
@@ -50,6 +55,20 @@ impl<'a> StreamOnce for TokenStream<'a> {
 impl<'a> Positioned for TokenStream<'a> {
     fn position(&self) -> Self::Position {
         self.position
+    }
+}
+
+impl<'a> Resetable for TokenStream<'a> {
+    type Checkpoint = Checkpoint;
+    fn checkpoint(&self) -> Self::Checkpoint {
+        Checkpoint {
+            position: self.position,
+            off: self.off,
+        }
+    }
+    fn reset(&mut self, checkpoint: Checkpoint) {
+        self.position = checkpoint.position;
+        self.off = checkpoint.off;
     }
 }
 
@@ -98,14 +117,14 @@ impl<'a> TokenStream<'a> {
         me.skip_whitespace();
         return me;
     }
-    fn peek_token<E>(&self) -> Result<(Kind, usize), E>
-        where E: StreamError<Token<'a>, Token<'a>>
+    fn peek_token(&self)
+        -> Result<(Kind, usize), Error<Token<'a>, Token<'a>>>
     {
         use self::Kind::*;
         let mut iter = self.buf[self.off..].char_indices();
         let cur_char = match iter.next() {
             Some((_, x)) => x,
-            None => return Err(E::end_of_input()),
+            None => return Err(Error::end_of_input()),
         };
         match cur_char {
             '!' | '$' | ':' | '=' | '@' | '|' |
@@ -116,7 +135,7 @@ impl<'a> TokenStream<'a> {
                 if iter.as_str().starts_with("..") {
                     return Ok((Punctuator, 3))
                 } else {
-                    return Err(E::unexpected_message(
+                    return Err(Error::unexpected_message(
                         format_args!("bare dot {:?} is not suppored, \
                             only \"...\"", cur_char)));
                 }
@@ -154,14 +173,14 @@ impl<'a> TokenStream<'a> {
                 if exponent.is_some() || real.is_some() {
                     let value = &self.buf[self.off..][..len];
                     if !check_float(value, exponent, real) {
-                        return Err(E::unexpected_message(
+                        return Err(Error::unexpected_message(
                             format_args!("unsupported float {:?}", value)));
                     }
                     return Ok((FloatValue, len));
                 } else {
                     let value = &self.buf[self.off..][..len];
                     if !check_int(value) {
-                        return Err(E::unexpected_message(
+                        return Err(Error::unexpected_message(
                             format_args!("unsupported integer {:?}", value)));
                     }
                     return Ok((IntValue, len));
@@ -182,7 +201,7 @@ impl<'a> TokenStream<'a> {
                 }
                 return Ok((Name, self.buf.len() - self.off));
             }
-            _ => return Err(E::unexpected_message(
+            _ => return Err(Error::unexpected_message(
                 format_args!("unexpected character {:?}", cur_char))),
         }
     }
@@ -243,17 +262,17 @@ impl<'a> fmt::Display for Token<'a> {
 mod test {
     use super::{Kind, TokenStream};
     use super::Kind::*;
+    use combine::easy::Error;
 
     use combine::{StreamOnce, Positioned};
-    use combine::primitives::UnexpectedParse;
 
     fn tok_str(s: &str) -> Vec<&str> {
         let mut r = Vec::new();
         let mut s = TokenStream::new(s);
         loop {
-            match s.uncons::<UnexpectedParse>() {
+            match s.uncons() {
                 Ok(x) => r.push(x.value),
-                Err(UnexpectedParse::Eoi) => break,
+                Err(ref e) if e == &Error::end_of_input() => break,
                 Err(e) => panic!("Parse error at {}: {}", s.position(), e),
             }
         }
@@ -263,9 +282,9 @@ mod test {
         let mut r = Vec::new();
         let mut s = TokenStream::new(s);
         loop {
-            match s.uncons::<UnexpectedParse>() {
+            match s.uncons() {
                 Ok(x) => r.push(x.kind),
-                Err(UnexpectedParse::Eoi) => break,
+                Err(ref e) if e == &Error::end_of_input() => break,
                 Err(e) => panic!("Parse error at {}: {}", s.position(), e),
             }
         }
