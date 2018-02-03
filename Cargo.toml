@@ -15,6 +15,7 @@ authors = ["paul@colomiets.name"]
 
 [dependencies]
 combine = "3.0.0-alpha.5"
+failure = "0.1.1"
 
 # for binaries
 structopt = "0.1.7"

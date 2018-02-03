@@ -1,8 +1,11 @@
 use std::fmt;
 
 use combine::{StreamOnce, Positioned};
-use combine::primitives::{UnexpectedParse, StreamError};
+use combine::primitives::{StreamError};
+use combine::easy::Error;
 use position::Pos;
+
+use query_error::QueryParseError;
 
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -31,7 +34,7 @@ impl<'a> StreamOnce for TokenStream<'a> {
     type Item = Token<'a>;
     type Range = Token<'a>;
     type Position = Pos;
-    type Error = UnexpectedParse;
+    type Error = Error<Token<'a>, Token<'a>>;
 
     fn uncons<E>(&mut self) -> Result<Self::Item, E>
         where E: StreamError<Self::Item, Self::Range>
