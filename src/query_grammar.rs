@@ -1,7 +1,7 @@
 use tokenizer::TokenStream;
 
 use combine::{parser, ParseResult, Parser};
-use combine::combinator::{many1, eof};
+use combine::combinator::{many1, eof, optional};
 
 use query_error::{QueryParseError};
 use tokenizer::Kind as T;
@@ -59,11 +59,12 @@ pub fn query<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Query, TokenStream<'a>>
 {
     ident("query")
-    .with(parser(selection_set))
-    .map(|selection_set| Query {
+    .with(optional(kind(T::Name)).map(|x| x.map(|x| x.value.to_string())))
+    .and(parser(selection_set))
+    .map(|(name, selection_set)| Query {
         selection_set,
         // TODO(tailhook)
-        name: None,
+        name: name,
         variable_definitions: Vec::new(),
         directives: Vec::new(),
     })

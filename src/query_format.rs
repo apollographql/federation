@@ -81,6 +81,10 @@ impl Displayable for Query {
     fn display(&self, f: &mut Formatter) {
         f.indent();
         f.write("query ");
+        if let Some(ref name) = self.name {
+            f.write(name);
+            f.write(" ");
+        }
         f.start_block();
         for item in &self.selection_set.items {
             item.display(f);

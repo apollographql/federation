@@ -39,7 +39,6 @@ impl<'a> Formatter<'a> {
         self.buf.push('\n');
     }
     pub fn start_block(&mut self) {
-        self.indent();
         self.buf.push('{');
         self.endline();
         self.indent += self.style.indent;
