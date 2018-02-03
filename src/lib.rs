@@ -4,3 +4,4 @@ extern crate combine;
 
 mod position;
 mod tokenizer;
+pub mod query;

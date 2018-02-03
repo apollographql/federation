@@ -172,6 +172,7 @@ impl<'a> TokenStream<'a> {
                         '"' => {
                             return Ok((StringValue, idx+1));
                         }
+                        // TODO(tailhook) ensure SourceCharacter and not newline
                         _ => {}
                     }
                     prev_char = cur_char;
@@ -198,6 +199,7 @@ impl<'a> TokenStream<'a> {
                     //comment
                     '#' => {
                         while let Some((_, cur_char)) = iter.next() {
+                            // TODO(tailhook) ensure SourceCharacter
                             if cur_char == '\r' || cur_char == '\n' {
                                 break;
                             }
