@@ -5,6 +5,7 @@ extern crate combine;
 
 mod position;
 mod tokenizer;
+mod helpers;
 pub mod query;
 mod query_grammar;
 mod query_error;

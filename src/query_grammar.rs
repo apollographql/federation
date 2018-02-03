@@ -4,12 +4,97 @@ use combine::{parser, ParseResult, Parser};
 use combine::combinator::{many1, eof};
 
 use query_error::{InternalError as Error, QueryParseError};
+use tokenizer::Kind as T;
+use helpers::*;
 use query::*;
+
+pub fn field<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Field, TokenStream<'a>>
+{
+    kind(T::Name)
+    .map(|name| {
+        Field {
+            alias: None,
+            name: name.value.to_string(),
+            arguments: Vec::new(),
+            directives: Vec::new(),
+            selection_set: SelectionSet { items: Vec::new() },
+        }
+    })
+    .parse_stream(input)
+}
+
+pub fn fragment_spread<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<FragmentSpread, TokenStream<'a>>
+{
+    unimplemented!();
+}
+
+pub fn inline_fragment<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<InlineFragment, TokenStream<'a>>
+{
+    unimplemented!();
+}
+
+pub fn selection<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Selection, TokenStream<'a>>
+{
+    parser(field).map(Selection::Field)
+    //.or(parser(fragment_spread).map(Selection::FragmentSpread))
+    //.or(parser(inline_fragment).map(Selection::InlineFragment))
+    .parse_stream(input)
+}
+
+pub fn selection_set<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<SelectionSet, TokenStream<'a>>
+{
+    punct("{")
+    .with(many1(parser(selection)))
+    .skip(punct("}"))
+    .map(|items| SelectionSet { items })
+    .parse_stream(input)
+}
+
+pub fn query<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Query, TokenStream<'a>>
+{
+    unimplemented!();
+}
+
+pub fn mutation<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Mutation, TokenStream<'a>>
+{
+    unimplemented!();
+}
+
+pub fn subscription<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Subscription, TokenStream<'a>>
+{
+    unimplemented!();
+}
+
+pub fn operation_definition<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<OperationDefinition, TokenStream<'a>>
+{
+    parser(selection_set).map(OperationDefinition::SelectionSet)
+    //.or(parser(query).map(OperationDefinition::Query))
+    //.or(parser(mutation).map(OperationDefinition::Mutation))
+    //.or(parser(subscription).map(OperationDefinition::Subscription))
+    .parse_stream(input)
+}
+
+pub fn fragment_definition<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<FragmentDefinition, TokenStream<'a>>
+{
+    unimplemented!();
+}
 
 pub fn definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Definition, TokenStream<'a>>
 {
-    unimplemented!();
+    parser(operation_definition).map(Definition::Operation)
+    //.or(parser(fragment_definition).map(Definition::Fragment))
+    .parse_stream(input)
 }
 
 pub fn parse_query(s: &str) -> Result<Document, QueryParseError> {
@@ -23,9 +108,33 @@ pub fn parse_query(s: &str) -> Result<Document, QueryParseError> {
 
 #[cfg(test)]
 mod test {
-    
+    use query::*;
+    use super::parse_query;
+
+    fn ast(s: &str) -> Document {
+        parse_query(s).unwrap()
+    }
+
     #[test]
-    fn ast() {
-        
+    fn one_field() {
+        assert_eq!(ast("{ a }"), Document {
+            definitions: vec![
+                Definition::Operation(OperationDefinition::SelectionSet(
+                    SelectionSet {
+                        items: vec![
+                            Selection::Field(Field {
+                                alias: None,
+                                name: "a".into(),
+                                arguments: Vec::new(),
+                                directives: Vec::new(),
+                                selection_set: SelectionSet {
+                                    items: Vec::new()
+                                },
+                            }),
+                        ],
+                    }
+                ))
+            ],
+        });
     }
 }
