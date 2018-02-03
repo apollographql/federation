@@ -1,9 +1,7 @@
 use std::marker::PhantomData;
 
-use position::Pos;
 use combine::{Parser, ConsumedResult, satisfy, StreamOnce};
-use combine::combinator::{SkipMany, Or};
-use combine::error::{ParseError, Tracked};
+use combine::error::{Tracked};
 use combine::stream::easy::{Error, Info};
 
 use tokenizer::{TokenStream, Kind, Token};

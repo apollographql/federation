@@ -6,8 +6,6 @@ use combine::stream::{Resetable};
 use combine::easy::Error;
 use position::Pos;
 
-use query_error::QueryParseError;
-
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Kind {

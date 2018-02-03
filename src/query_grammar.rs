@@ -3,7 +3,7 @@ use tokenizer::TokenStream;
 use combine::{parser, ParseResult, Parser};
 use combine::combinator::{many1, eof};
 
-use query_error::{InternalError as Error, QueryParseError};
+use query_error::{QueryParseError};
 use tokenizer::Kind as T;
 use helpers::*;
 use query::*;
@@ -136,5 +136,10 @@ mod test {
                 ))
             ],
         });
+    }
+
+    #[test]
+    fn one_field_roundtrip() {
+        assert_eq!(ast("{ a }").to_string(), "{\n  a\n}\n");
     }
 }

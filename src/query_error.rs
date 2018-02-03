@@ -1,7 +1,6 @@
 use combine::easy::Error;
 
 use tokenizer::Token;
-use position::Pos;
 
 pub type InternalError<'a> = Error<Token<'a>, Token<'a>>;
 
