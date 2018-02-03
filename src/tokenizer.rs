@@ -3,7 +3,7 @@ use std::fmt;
 use combine::{StreamOnce, Positioned};
 use combine::error::{StreamError};
 use combine::stream::{Resetable};
-use combine::easy::Error;
+use combine::easy::{Error, Errors};
 use position::Pos;
 
 
@@ -39,9 +39,9 @@ impl<'a> StreamOnce for TokenStream<'a> {
     type Item = Token<'a>;
     type Range = Token<'a>;
     type Position = Pos;
-    type Error = Error<Token<'a>, Token<'a>>;
+    type Error = Errors<Token<'a>, Token<'a>, Pos>;
 
-    fn uncons(&mut self) -> Result<Self::Item, Self::Error> {
+    fn uncons(&mut self) -> Result<Self::Item, Error<Token<'a>, Token<'a>>> {
         let (kind, len) = self.peek_token()?;
         let value = &self.buf[self.off..][..len];
         self.update_position(len);

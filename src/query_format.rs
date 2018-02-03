@@ -33,6 +33,7 @@ impl Displayable for OperationDefinition {
     fn display(&self, f: &mut Formatter) {
         match *self {
             OperationDefinition::SelectionSet(ref set) => set.display(f),
+            OperationDefinition::Query(ref q) => q.display(f),
             _ => unimplemented!(),
         }
     }
@@ -46,6 +47,7 @@ impl Displayable for FragmentDefinition {
 
 impl Displayable for SelectionSet {
     fn display(&self, f: &mut Formatter) {
+        f.indent();
         f.start_block();
         for item in &self.items {
             item.display(f);
@@ -71,6 +73,19 @@ impl Displayable for Field {
         f.indent();
         f.write(&self.name);
         f.endline();
+        // TODO(tailhook) other parts
+    }
+}
+
+impl Displayable for Query {
+    fn display(&self, f: &mut Formatter) {
+        f.indent();
+        f.write("query ");
+        f.start_block();
+        for item in &self.selection_set.items {
+            item.display(f);
+        }
+        f.end_block();
         // TODO(tailhook) other parts
     }
 }

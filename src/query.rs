@@ -32,7 +32,7 @@ pub enum OperationDefinition {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Query {
-    pub name: Name,
+    pub name: Option<Name>,
     pub variable_definitions: Vec<VariableDefinition>,
     pub directives: Vec<Directive>,
     pub selection_set: SelectionSet,
@@ -40,7 +40,7 @@ pub struct Query {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mutation {
-    pub name: Name,
+    pub name: Option<Name>,
     pub variable_definitions: Vec<VariableDefinition>,
     pub directives: Vec<Directive>,
     pub selection_set: SelectionSet,
@@ -48,7 +48,7 @@ pub struct Mutation {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Subscription {
-    pub name: Name,
+    pub name: Option<Name>,
     pub variable_definitions: Vec<VariableDefinition>,
     pub directives: Vec<Directive>,
     pub selecion_set: SelectionSet,

@@ -2,9 +2,10 @@ use std::marker::PhantomData;
 
 use combine::{Parser, ConsumedResult, satisfy, StreamOnce};
 use combine::error::{Tracked};
-use combine::stream::easy::{Error, Info};
+use combine::stream::easy::{Error, Errors, Info};
 
 use tokenizer::{TokenStream, Kind, Token};
+use position::Pos;
 
 
 #[derive(Clone)]
@@ -41,16 +42,24 @@ impl<'a> Parser for TokenMatch<'a> {
     }
 
     fn add_error(&mut self,
-        error: &mut Tracked<<Self::Input as StreamOnce>::Error>)
+        error: &mut Tracked<Errors<Token<'a>, Token<'a>, Pos>>)
     {
-        error.error = Error::Expected(Info::Owned(
-            format!("{:?}", self.kind)));
+        error.error.add_error(Error::Expected(Info::Owned(
+            format!("{:?}", self.kind))));
     }
 }
 
 pub fn punct<'x>(value: &'static str) -> Value<'x> {
     Value {
         kind: Kind::Punctuator,
+        value: value,
+        phantom: PhantomData,
+    }
+}
+
+pub fn ident<'x>(value: &'static str) -> Value<'x> {
+    Value {
+        kind: Kind::Name,
         value: value,
         phantom: PhantomData,
     }
@@ -72,6 +81,6 @@ impl<'a> Parser for Value<'a> {
     fn add_error(&mut self,
         error: &mut Tracked<<Self::Input as StreamOnce>::Error>)
     {
-        error.error = Error::Expected(Info::Borrowed(self.value));
+        error.error.add_error(Error::Expected(Info::Borrowed(self.value)));
     }
 }

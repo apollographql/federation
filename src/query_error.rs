@@ -1,8 +1,9 @@
-use combine::easy::Error;
+use combine::easy::Errors;
 
 use tokenizer::Token;
+use position::Pos;
 
-pub type InternalError<'a> = Error<Token<'a>, Token<'a>>;
+pub type InternalError<'a> = Errors<Token<'a>, Token<'a>, Pos>;
 
 
 #[derive(Fail, Debug)]

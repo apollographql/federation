@@ -5,7 +5,7 @@ use combine::combinator::{many1, eof};
 
 use query_error::{QueryParseError};
 use tokenizer::Kind as T;
-use helpers::*;
+use helpers::{punct, ident, kind};
 use query::*;
 
 pub fn field<'a>(input: &mut TokenStream<'a>)
@@ -58,7 +58,16 @@ pub fn selection_set<'a>(input: &mut TokenStream<'a>)
 pub fn query<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Query, TokenStream<'a>>
 {
-    unimplemented!();
+    ident("query")
+    .with(parser(selection_set))
+    .map(|selection_set| Query {
+        selection_set,
+        // TODO(tailhook)
+        name: None,
+        variable_definitions: Vec::new(),
+        directives: Vec::new(),
+    })
+    .parse_stream(input)
 }
 
 pub fn mutation<'a>(input: &mut TokenStream<'a>)
@@ -77,7 +86,7 @@ pub fn operation_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<OperationDefinition, TokenStream<'a>>
 {
     parser(selection_set).map(OperationDefinition::SelectionSet)
-    //.or(parser(query).map(OperationDefinition::Query))
+    .or(parser(query).map(OperationDefinition::Query))
     //.or(parser(mutation).map(OperationDefinition::Mutation))
     //.or(parser(subscription).map(OperationDefinition::Subscription))
     .parse_stream(input)
@@ -98,11 +107,12 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
 }
 
 pub fn parse_query(s: &str) -> Result<Document, QueryParseError> {
-    let tokens = TokenStream::new(s);
+    let mut tokens = TokenStream::new(s);
     let (doc, _) = many1(parser(definition))
         .map(|d| Document { definitions: d })
         .skip(eof())
-        .parse(tokens)?;
+        .parse_stream(&mut tokens)
+        .map_err(|e| e.into_inner().error)?;
     Ok(doc)
 }
 
