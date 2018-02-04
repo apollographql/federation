@@ -1,7 +1,7 @@
 use tokenizer::TokenStream;
 
 use combine::{parser, ParseResult, Parser};
-use combine::combinator::{many1, eof, optional};
+use combine::combinator::{many, many1, eof, optional};
 
 use query_error::{QueryParseError};
 use tokenizer::Kind as T;
@@ -74,11 +74,23 @@ pub fn variable_type<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+pub fn int_value<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Value, TokenStream<'a>>
+{
+    kind(T::IntValue).and_then(|tok| tok.value.parse())
+            .map(Number).map(Value::Int)
+    .parse_stream(input)
+}
+
 pub fn value<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Value, TokenStream<'a>>
 {
-    parser(default_value)
+    name().map(Value::EnumValue)
+    .or(parser(int_value))
     .or(punct("$").with(name()).map(Value::Variable))
+    .or(punct("[").with(many(parser(value))).skip(punct("]"))
+        .map(|lst| Value::ListValue(lst)))
+    // TODO(tailhook) more values
     .parse_stream(input)
 }
 
@@ -86,8 +98,9 @@ pub fn default_value<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Value, TokenStream<'a>>
 {
     name().map(Value::EnumValue)
-    .or(kind(T::IntValue).and_then(|tok| tok.value.parse())
-        .map(Number).map(Value::Int))
+    .or(parser(int_value))
+    .or(punct("[").with(many(parser(default_value))).skip(punct("]"))
+        .map(|lst| Value::ListValue(lst)))
     // TODO(tailhook) more values
     .parse_stream(input)
 }

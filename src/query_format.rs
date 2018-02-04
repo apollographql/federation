@@ -156,7 +156,17 @@ impl Displayable for Value {
             Value::Boolean(false) => f.write("false"),
             Value::Null => f.write("null"),
             Value::EnumValue(ref name) => f.write(name),
-            Value::ListValue(ref items) => unimplemented!(),
+            Value::ListValue(ref items) => {
+                f.write("[");
+                if items.len() > 0 {
+                    items[0].display(f);
+                    for item in &items[1..] {
+                        f.write(", ");
+                        item.display(f);
+                    }
+                }
+                f.write("]");
+            }
             Value::ObjectValue(ref items) => unimplemented!(),
         }
     }

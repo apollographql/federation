@@ -159,7 +159,7 @@ impl<'a> TokenStream<'a> {
                     };
                     match cur_char {
                         // just scan for now, will validate later on
-                        ' ' | '\n' | '\r' | '\t' |
+                        ' ' | '\n' | '\r' | '\t' | ',' | '#' |
                         '!' | '$' | ':' | '=' | '@' | '|' |
                         '(' | ')' | '[' | ']' | '{' | '}'
                         => break idx,
@@ -317,6 +317,8 @@ mod test {
     #[test]
     fn int() {
         assert_eq!(tok_str("0"), ["0"]);
+        assert_eq!(tok_str("0,"), ["0"]);
+        assert_eq!(tok_str("0# x"), ["0"]);
         assert_eq!(tok_typ("0"), [IntValue]);
         assert_eq!(tok_str("-0"), ["-0"]);
         assert_eq!(tok_typ("-0"), [IntValue]);
