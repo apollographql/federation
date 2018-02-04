@@ -3,24 +3,23 @@ use tokenizer::TokenStream;
 use combine::{parser, ParseResult, Parser};
 use combine::easy::Error;
 use combine::error::StreamError;
-use combine::combinator::{many, many1, eof, optional};
+use combine::combinator::{many, many1, eof, optional, position};
 
 use query_error::{QueryParseError};
 use tokenizer::{Kind as T, Token};
 use helpers::{punct, ident, kind, name};
 use query::*;
 
-pub fn empty_selection() -> SelectionSet {
-    SelectionSet { items: Vec::new() }
-}
-
 pub fn directives<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Vec<Directive>, TokenStream<'a>>
 {
-    many(punct("@")
-        .with(name())
+    many(position()
+        .skip(punct("@"))
+        .and(name())
         .and(parser(arguments))
-        .map(|(name, arguments)| Directive { name, arguments }))
+        .map(|((position, name), arguments)| {
+            Directive { position, name, arguments }
+        }))
     .parse_stream(input)
 }
 
@@ -42,19 +41,26 @@ pub fn arguments<'a>(input: &mut TokenStream<'a>)
 pub fn field<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Field, TokenStream<'a>>
 {
-    name()
-    .and(optional(punct(":").with(name())))
-    .and(parser(arguments))
-    .and(parser(directives))
-    .and(optional(parser(selection_set)))
-    .map(|((((name_or_alias, opt_name), arguments), directives), sel)| {
+    (
+        position(),
+        name(),
+        optional(punct(":").with(name())),
+        parser(arguments),
+        parser(directives),
+        optional(parser(selection_set)),
+    ).map(|(position, name_or_alias, opt_name, arguments, directives, sel)| {
         let (name, alias) = match opt_name {
             Some(name) => (name, Some(name_or_alias)),
             None => (name_or_alias, None),
         };
         Field {
-            name, alias, arguments, directives,
-            selection_set: sel.unwrap_or_else(empty_selection),
+            position, name, alias, arguments, directives,
+            selection_set: sel.unwrap_or_else(|| {
+                SelectionSet {
+                    span: (position, position),
+                    items: Vec::new(),
+                }
+            }),
         }
     })
     .parse_stream(input)
@@ -64,18 +70,21 @@ pub fn selection<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Selection, TokenStream<'a>>
 {
     parser(field).map(Selection::Field)
-    .or(punct("...").with(
-        optional(ident("on").with(name()).map(TypeCondition::On))
-            .and(parser(directives))
-            .and(parser(selection_set))
-            .map(|((type_condition, directives), selection_set)| {
-                InlineFragment { type_condition, selection_set, directives }
+    .or(punct("...").with((
+                position(),
+                optional(ident("on").with(name()).map(TypeCondition::On)),
+                parser(directives),
+                parser(selection_set),
+            ).map(|(position, type_condition, directives, selection_set)| {
+                InlineFragment { position, type_condition,
+                                 selection_set, directives }
             })
             .map(Selection::InlineFragment)
-        .or(name()
-            .and(parser(directives))
-            .map(|(fragment_name, directives)| {
-                FragmentSpread { fragment_name, directives }
+        .or((position(),
+             name(),
+             parser(directives),
+            ).map(|(position, fragment_name, directives)| {
+                FragmentSpread { position, fragment_name, directives }
             })
             .map(Selection::FragmentSpread))
     ))
@@ -85,10 +94,11 @@ pub fn selection<'a>(input: &mut TokenStream<'a>)
 pub fn selection_set<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<SelectionSet, TokenStream<'a>>
 {
-    punct("{")
-    .with(many1(parser(selection)))
-    .skip(punct("}"))
-    .map(|items| SelectionSet { items })
+    (
+        position().skip(punct("{")),
+        many1(parser(selection)),
+        position().skip(punct("}")),
+    ).map(|(start, items, end)| SelectionSet { span: (start, end), items })
     .parse_stream(input)
 }
 
@@ -249,11 +259,13 @@ pub fn default_value<'a>(input: &mut TokenStream<'a>)
 pub fn query<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Query, TokenStream<'a>>
 {
-    ident("query")
-    .with(parser(operation_common))
-    .map(|(name, variable_definitions, directives, selection_set)| Query {
-        name, selection_set, variable_definitions, directives,
-    })
+    position()
+    .skip(ident("query"))
+    .and(parser(operation_common))
+    .map(|(position, (name, variable_definitions, directives, selection_set))|
+        Query {
+            position, name, selection_set, variable_definitions, directives,
+        })
     .parse_stream(input)
 }
 
@@ -287,24 +299,26 @@ pub fn operation_common<'a>(input: &mut TokenStream<'a>)
 pub fn mutation<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Mutation, TokenStream<'a>>
 {
-    ident("mutation")
-    .with(parser(operation_common))
-    .map(|(name, variable_definitions, directives, selection_set)| Mutation {
-        name, selection_set, variable_definitions, directives,
-    })
+    position()
+    .skip(ident("mutation"))
+    .and(parser(operation_common))
+    .map(|(position, (name, variable_definitions, directives, selection_set))|
+        Mutation {
+            position, name, selection_set, variable_definitions, directives,
+        })
     .parse_stream(input)
 }
 
 pub fn subscription<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Subscription, TokenStream<'a>>
 {
-    ident("subscription")
-    .with(parser(operation_common))
-    .map(|(name, variable_definitions, directives, selection_set)| {
+    position()
+    .skip(ident("subscription"))
+    .and(parser(operation_common))
+    .map(|(position, (name, variable_definitions, directives, selection_set))|
         Subscription {
-            name, selection_set, variable_definitions, directives,
-        }
-    })
+            position, name, selection_set, variable_definitions, directives,
+        })
     .parse_stream(input)
 }
 
@@ -321,14 +335,15 @@ pub fn operation_definition<'a>(input: &mut TokenStream<'a>)
 pub fn fragment_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<FragmentDefinition, TokenStream<'a>>
 {
-    ident("fragment")
-    .with(name())
-    .and(ident("on").with(name()).map(TypeCondition::On))
-    .and(parser(directives))
-    .and(parser(selection_set))
-    .map(|(((name, type_condition), directives), selection_set)| {
+    (
+        position().skip(ident("fragment")),
+        name(),
+        ident("on").with(name()).map(TypeCondition::On),
+        parser(directives),
+        parser(selection_set)
+    ).map(|(position, name, type_condition, directives, selection_set)| {
         FragmentDefinition {
-            name, type_condition, directives, selection_set,
+            position, name, type_condition, directives, selection_set,
         }
     })
     .parse_stream(input)
@@ -355,6 +370,7 @@ pub fn parse_query(s: &str) -> Result<Document, QueryParseError> {
 
 #[cfg(test)]
 mod test {
+    use position::Pos;
     use query::*;
     use super::parse_query;
 
@@ -368,13 +384,18 @@ mod test {
             definitions: vec![
                 Definition::Operation(OperationDefinition::SelectionSet(
                     SelectionSet {
+                        span: (Pos { line: 1, column: 1 },
+                               Pos { line: 1, column: 5 }),
                         items: vec![
                             Selection::Field(Field {
+                                position: Pos { line: 1, column: 3 },
                                 alias: None,
                                 name: "a".into(),
                                 arguments: Vec::new(),
                                 directives: Vec::new(),
                                 selection_set: SelectionSet {
+                                    span: (Pos { line: 1, column: 3 },
+                                           Pos { line: 1, column: 3 }),
                                     items: Vec::new()
                                 },
                             }),
@@ -392,8 +413,11 @@ mod test {
                 definitions: vec![
                     Definition::Operation(OperationDefinition::SelectionSet(
                         SelectionSet {
+                            span: (Pos { line: 1, column: 1 },
+                                   Pos { line: 1, column: 33 }),
                             items: vec![
                                 Selection::Field(Field {
+                                    position: Pos { line: 1, column: 3 },
                                     alias: None,
                                     name: "a".into(),
                                     arguments: vec![
@@ -406,6 +430,8 @@ mod test {
                                     ],
                                     directives: Vec::new(),
                                     selection_set: SelectionSet {
+                                        span: (Pos { line: 1, column: 3 },
+                                               Pos { line: 1, column: 3 }),
                                         items: Vec::new()
                                     },
                                 }),
