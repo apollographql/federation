@@ -95,9 +95,17 @@ pub fn selection_set<'a>(input: &mut TokenStream<'a>)
 pub fn variable_type<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<VariableType, TokenStream<'a>>
 {
-    name().map(|x| VariableType::NamedType(x))
-    // .or(list...)
-    // .or(non_null_type)
+    name().map(VariableType::NamedType)
+    .or(punct("[")
+        .with(parser(variable_type))
+        .skip(punct("]"))
+        .map(Box::new)
+        .map(VariableType::ListType))
+    .and(optional(punct("!")).map(|v| v.is_some()))
+    .map(|(typ, strict)| match strict {
+        true => VariableType::NonNullType(Box::new(typ)),
+        false => typ,
+    })
     .parse_stream(input)
 }
 
@@ -106,6 +114,14 @@ pub fn int_value<'a>(input: &mut TokenStream<'a>)
 {
     kind(T::IntValue).and_then(|tok| tok.value.parse())
             .map(Number).map(Value::Int)
+    .parse_stream(input)
+}
+
+pub fn float_value<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Value, TokenStream<'a>>
+{
+    kind(T::FloatValue).and_then(|tok| tok.value.parse())
+            .map(Value::Float)
     .parse_stream(input)
 }
 
@@ -194,6 +210,7 @@ pub fn value<'a>(input: &mut TokenStream<'a>)
 {
     name().map(Value::EnumValue)
     .or(parser(int_value))
+    .or(parser(float_value))
     .or(parser(string_value))
     .or(parser(block_string_value))
     .or(punct("$").with(name()).map(Value::Variable))
@@ -212,9 +229,15 @@ pub fn default_value<'a>(input: &mut TokenStream<'a>)
 {
     name().map(Value::EnumValue)
     .or(parser(int_value))
+    .or(parser(float_value))
+    .or(parser(string_value))
     .or(parser(block_string_value))
     .or(punct("[").with(many(parser(default_value))).skip(punct("]"))
         .map(|lst| Value::ListValue(lst)))
+    .or(punct("{")
+        .with(many(name().skip(punct(":")).and(parser(value))))
+        .skip(punct("}"))
+        .map(|lst| Value::ObjectValue(lst)))
     // TODO(tailhook) more values
     .parse_stream(input)
 }

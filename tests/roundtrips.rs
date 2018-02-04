@@ -34,6 +34,10 @@ fn roundtrip2(filename: &str) {
 #[test] fn named_query() { roundtrip("named_query"); }
 #[test] fn query_vars() { roundtrip("query_vars"); }
 #[test] fn query_var_defaults() { roundtrip("query_var_defaults"); }
+#[test] fn query_var_defaults1() { roundtrip("query_var_default_string"); }
+#[test] fn query_var_defaults2() { roundtrip("query_var_default_float"); }
+#[test] fn query_var_defaults3() { roundtrip("query_var_default_list"); }
+#[test] fn query_var_defaults4() { roundtrip("query_var_default_object"); }
 #[test] fn query_aliases() { roundtrip("query_aliases"); }
 #[test] fn query_arguments() { roundtrip("query_arguments"); }
 #[test] fn string_literal() { roundtrip("string_literal"); }
