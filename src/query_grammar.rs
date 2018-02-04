@@ -11,11 +11,15 @@ use query::*;
 pub fn field<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Field, TokenStream<'a>>
 {
-    kind(T::Name)
-    .map(|name| {
+    name()
+    .and(optional(punct(":").with(name())))
+    .map(|(name_or_alias, opt_name)| {
+        let (name, alias) = match opt_name {
+            Some(name) => (name, Some(name_or_alias)),
+            None => (name_or_alias, None),
+        };
         Field {
-            alias: None,
-            name: name.value.to_string(),
+            name, alias,
             arguments: Vec::new(),
             directives: Vec::new(),
             selection_set: SelectionSet { items: Vec::new() },

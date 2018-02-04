@@ -67,10 +67,11 @@ impl Displayable for Selection {
 
 impl Displayable for Field {
     fn display(&self, f: &mut Formatter) {
-        if let Some(ref alias) = self.alias {
-            unimplemented!();
-        }
         f.indent();
+        if let Some(ref alias) = self.alias {
+            f.write(alias);
+            f.write(": ");
+        }
         f.write(&self.name);
         f.endline();
         // TODO(tailhook) other parts
