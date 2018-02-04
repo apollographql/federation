@@ -235,9 +235,9 @@ pub fn default_value<'a>(input: &mut TokenStream<'a>)
     .or(punct("[").with(many(parser(default_value))).skip(punct("]"))
         .map(|lst| Value::ListValue(lst)))
     .or(punct("{")
-        .with(many(name().skip(punct(":")).and(parser(value))))
+        .with(many(name().skip(punct(":")).and(parser(default_value))))
         .skip(punct("}"))
-        .map(|lst| Value::ObjectValue(lst)))
+        .map(|map| Value::ObjectValue(map)))
     // TODO(tailhook) more values
     .parse_stream(input)
 }
