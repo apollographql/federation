@@ -134,7 +134,18 @@ pub fn query<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Query, TokenStream<'a>>
 {
     ident("query")
-    .with(optional(name()))
+    .with(parser(operation_common))
+    .map(|(name, variable_definitions, selection_set)| Query {
+        name, selection_set, variable_definitions,
+        directives: Vec::new(),
+    })
+    .parse_stream(input)
+}
+
+pub fn operation_common<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<(Option<String>, Vec<VariableDefinition>, SelectionSet), TokenStream<'a>>
+{
+    optional(name())
     .and(optional(
         punct("(")
         .with(many1(
@@ -147,28 +158,35 @@ pub fn query<'a>(input: &mut TokenStream<'a>)
                     name, var_type, default_value,
                 })
         ))
-        .skip(punct(")"))))
+        .skip(punct(")")))
+        .map(|vars| vars.unwrap_or_else(Vec::new)))
     .and(parser(selection_set))
-    .map(|((name, vars), selection_set)| Query {
-        name,
-        selection_set,
-        // TODO(tailhook)
-        variable_definitions: vars.unwrap_or_else(Vec::new),
-        directives: Vec::new(),
-    })
+    .map(|((a, b), c)| (a, b, c))
     .parse_stream(input)
 }
 
 pub fn mutation<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Mutation, TokenStream<'a>>
 {
-    unimplemented!();
+    ident("mutation")
+    .with(parser(operation_common))
+    .map(|(name, variable_definitions, selection_set)| Mutation {
+        name, selection_set, variable_definitions,
+        directives: Vec::new(),
+    })
+    .parse_stream(input)
 }
 
 pub fn subscription<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Subscription, TokenStream<'a>>
 {
-    unimplemented!();
+    ident("subscription")
+    .with(parser(operation_common))
+    .map(|(name, variable_definitions, selection_set)| Subscription {
+        name, selection_set, variable_definitions,
+        directives: Vec::new(),
+    })
+    .parse_stream(input)
 }
 
 pub fn operation_definition<'a>(input: &mut TokenStream<'a>)
@@ -176,8 +194,8 @@ pub fn operation_definition<'a>(input: &mut TokenStream<'a>)
 {
     parser(selection_set).map(OperationDefinition::SelectionSet)
     .or(parser(query).map(OperationDefinition::Query))
-    //.or(parser(mutation).map(OperationDefinition::Mutation))
-    //.or(parser(subscription).map(OperationDefinition::Subscription))
+    .or(parser(mutation).map(OperationDefinition::Mutation))
+    .or(parser(subscription).map(OperationDefinition::Subscription))
     .parse_stream(input)
 }
 

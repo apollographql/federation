@@ -34,7 +34,8 @@ impl Displayable for OperationDefinition {
         match *self {
             OperationDefinition::SelectionSet(ref set) => set.display(f),
             OperationDefinition::Query(ref q) => q.display(f),
-            _ => unimplemented!(),
+            OperationDefinition::Mutation(ref m) => m.display(f),
+            OperationDefinition::Subscription(ref s) => s.display(f),
         }
     }
 }
@@ -120,12 +121,60 @@ impl Displayable for Query {
             }
             f.write(" ");
         }
+        // TODO(tailhook) directives
         f.start_block();
         for item in &self.selection_set.items {
             item.display(f);
         }
         f.end_block();
-        // TODO(tailhook) other parts
+    }
+}
+
+impl Displayable for Mutation {
+    fn display(&self, f: &mut Formatter) {
+        f.indent();
+        f.write("mutation ");
+        if let Some(ref name) = self.name {
+            f.write(name);
+            if self.variable_definitions.len() > 0 {
+                f.write("(");
+                for var in &self.variable_definitions {
+                    var.display(f);
+                }
+                f.write(")");
+            }
+            f.write(" ");
+        }
+        // TODO(tailhook) directives
+        f.start_block();
+        for item in &self.selection_set.items {
+            item.display(f);
+        }
+        f.end_block();
+    }
+}
+
+impl Displayable for Subscription {
+    fn display(&self, f: &mut Formatter) {
+        f.indent();
+        f.write("subscription ");
+        if let Some(ref name) = self.name {
+            f.write(name);
+            if self.variable_definitions.len() > 0 {
+                f.write("(");
+                for var in &self.variable_definitions {
+                    var.display(f);
+                }
+                f.write(")");
+            }
+            f.write(" ");
+        }
+        // TODO(tailhook) directives
+        f.start_block();
+        for item in &self.selection_set.items {
+            item.display(f);
+        }
+        f.end_block();
     }
 }
 

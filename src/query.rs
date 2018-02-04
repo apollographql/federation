@@ -51,7 +51,7 @@ pub struct Subscription {
     pub name: Option<Name>,
     pub variable_definitions: Vec<VariableDefinition>,
     pub directives: Vec<Directive>,
-    pub selecion_set: SelectionSet,
+    pub selection_set: SelectionSet,
 }
 
 #[derive(Debug, Clone, PartialEq)]
