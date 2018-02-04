@@ -79,9 +79,10 @@ pub enum VariableType {
     NonNullType(Box<VariableType>),
 }
 
-// TODO
 #[derive(Debug, Clone, PartialEq)]
-pub struct Number;
+// we use i64 as a reference implementation: graphql-js thinks even 32bit
+// integers is enough. We might consider lift this limit later though
+pub struct Number(pub(crate) i64);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {

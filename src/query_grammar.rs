@@ -13,14 +13,20 @@ pub fn field<'a>(input: &mut TokenStream<'a>)
 {
     name()
     .and(optional(punct(":").with(name())))
-    .map(|(name_or_alias, opt_name)| {
+    .and(optional(
+        punct("(")
+        .with(many1(name()
+            .skip(punct(":"))
+            .and(parser(value))))
+        .skip(punct(")"))))
+    .map(|((name_or_alias, opt_name), args)| {
         let (name, alias) = match opt_name {
             Some(name) => (name, Some(name_or_alias)),
             None => (name_or_alias, None),
         };
         Field {
             name, alias,
-            arguments: Vec::new(),
+            arguments: args.unwrap_or_else(Vec::new),
             directives: Vec::new(),
             selection_set: SelectionSet { items: Vec::new() },
         }
@@ -68,10 +74,20 @@ pub fn variable_type<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+pub fn value<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Value, TokenStream<'a>>
+{
+    parser(default_value)
+    .or(punct("$").with(name()).map(Value::Variable))
+    .parse_stream(input)
+}
+
 pub fn default_value<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Value, TokenStream<'a>>
 {
     name().map(Value::EnumValue)
+    .or(kind(T::IntValue).and_then(|tok| tok.value.parse())
+        .map(Number).map(Value::Int))
     // TODO(tailhook) more values
     .parse_stream(input)
 }
@@ -186,5 +202,11 @@ mod test {
     #[test]
     fn one_field_roundtrip() {
         assert_eq!(ast("{ a }").to_string(), "{\n  a\n}\n");
+    }
+
+    #[test]
+    #[should_panic(expected="number too large")]
+    fn large_integer() {
+        ast("{ a(x: 10000000000000000000000000000 }");
     }
 }

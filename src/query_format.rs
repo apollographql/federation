@@ -73,6 +73,19 @@ impl Displayable for Field {
             f.write(": ");
         }
         f.write(&self.name);
+        if self.arguments.len() > 0 {
+            f.write("(");
+            f.write(&self.arguments[0].0);
+            f.write(": ");
+            self.arguments[0].1.display(f);
+            for arg in &self.arguments[1..] {
+                f.write(", ");
+                f.write(&arg.0);
+                f.write(": ");
+                arg.1.display(f);
+            }
+            f.write(")");
+        }
         f.endline();
         // TODO(tailhook) other parts
     }
@@ -136,7 +149,7 @@ impl Displayable for Value {
     fn display(&self, f: &mut Formatter) {
         match *self {
             Value::Variable(ref name) => { f.write("$"); f.write(name); },
-            Value::Int(ref num) => unimplemented!(),
+            Value::Int(ref num) => f.write(&format!("{}", num.0)),
             Value::Float(val) => f.write(&format!("{}", val)),
             Value::String(ref val) => unimplemented!(),
             Value::Boolean(true) => f.write("true"),

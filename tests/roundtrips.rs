@@ -21,5 +21,6 @@ fn roundtrip(filename: &str) {
 #[test] fn query_vars() { roundtrip("query_vars"); }
 #[test] fn query_var_defaults() { roundtrip("query_var_defaults"); }
 #[test] fn query_aliases() { roundtrip("query_aliases"); }
+#[test] fn query_arguments() { roundtrip("query_arguments"); }
 // this one doesnt' work yet, we tackle all the features one by one
 //#[test] fn kitchen_sink() { roundtrip("kitchen-sink"); }
