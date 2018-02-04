@@ -19,7 +19,8 @@ pub fn field<'a>(input: &mut TokenStream<'a>)
             .skip(punct(":"))
             .and(parser(value))))
         .skip(punct(")"))))
-    .map(|((name_or_alias, opt_name), args)| {
+    .and(optional(parser(selection_set)))
+    .map(|(((name_or_alias, opt_name), args), sel)| {
         let (name, alias) = match opt_name {
             Some(name) => (name, Some(name_or_alias)),
             None => (name_or_alias, None),
@@ -28,7 +29,8 @@ pub fn field<'a>(input: &mut TokenStream<'a>)
             name, alias,
             arguments: args.unwrap_or_else(Vec::new),
             directives: Vec::new(),
-            selection_set: SelectionSet { items: Vec::new() },
+            selection_set: sel.unwrap_or_else(
+                || SelectionSet { items: Vec::new() }),
         }
     })
     .parse_stream(input)

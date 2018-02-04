@@ -86,8 +86,17 @@ impl Displayable for Field {
             }
             f.write(")");
         }
-        f.endline();
-        // TODO(tailhook) other parts
+        // TODO(tailhook) directives
+        if self.selection_set.items.len() > 0 {
+            f.write(" ");
+            f.start_block();
+            for item in &self.selection_set.items {
+                item.display(f);
+            }
+            f.end_block();
+        } else {
+            f.endline();
+        }
     }
 }
 
