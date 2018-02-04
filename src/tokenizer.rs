@@ -44,8 +44,7 @@ impl<'a> StreamOnce for TokenStream<'a> {
 
     fn uncons(&mut self) -> Result<Self::Item, Error<Token<'a>, Token<'a>>> {
         let (kind, len) = self.peek_token()?;
-        let value = &self.buf[self.off..][..len];
-        self.update_position(len);
+        let value = &self.buf[self.off-len..self.off];
         self.skip_whitespace();
         Ok(Token { kind, value })
     }
@@ -116,7 +115,7 @@ impl<'a> TokenStream<'a> {
         me.skip_whitespace();
         return me;
     }
-    fn peek_token(&self)
+    fn peek_token(&mut self)
         -> Result<(Kind, usize), Error<Token<'a>, Token<'a>>>
     {
         use self::Kind::*;
@@ -128,10 +127,14 @@ impl<'a> TokenStream<'a> {
         match cur_char {
             '!' | '$' | ':' | '=' | '@' | '|' |
             '(' | ')' | '[' | ']' | '{' | '}' => {
+                self.position.column += 1;
+                self.off += 1;
                 return Ok((Punctuator, 1));
             }
             '.' => {
                 if iter.as_str().starts_with("..") {
+                    self.position.column += 3;
+                    self.off += 3;
                     return Ok((Punctuator, 3))
                 } else {
                     return Err(Error::unexpected_message(
@@ -144,11 +147,16 @@ impl<'a> TokenStream<'a> {
                     match cur_char {
                         '_' | 'a'...'z' | 'A'...'Z' | '0'...'9' => continue,
                         _ => {
+                            self.position.column += idx;
+                            self.off += idx;
                             return Ok((Name, idx));
                         }
                     }
                 }
-                return Ok((Name, self.buf.len() - self.off));
+                let len = self.buf.len() - self.off;
+                self.position.column += len;
+                self.off += len;
+                return Ok((Name, len));
             }
             '-' | '0'...'9' => {
                 let mut exponent = None;
@@ -175,6 +183,8 @@ impl<'a> TokenStream<'a> {
                         return Err(Error::unexpected_message(
                             format_args!("unsupported float {:?}", value)));
                     }
+                    self.position.column += len;
+                    self.off += len;
                     return Ok((FloatValue, len));
                 } else {
                     let value = &self.buf[self.off..][..len];
@@ -182,6 +192,8 @@ impl<'a> TokenStream<'a> {
                         return Err(Error::unexpected_message(
                             format_args!("unsupported integer {:?}", value)));
                     }
+                    self.position.column += len;
+                    self.off += len;
                     return Ok((IntValue, len));
                 }
             }
@@ -190,6 +202,7 @@ impl<'a> TokenStream<'a> {
                     let tail = &iter.as_str()[2..];
                     for (endidx, _) in tail.match_indices("\"\"\"") {
                         if !tail[..endidx].ends_with('\\') {
+                            self.update_position(endidx+6);
                             return Ok((BlockString, endidx+6));
                         }
                     }
@@ -197,17 +210,23 @@ impl<'a> TokenStream<'a> {
                         "unterminated block string value"));
                 } else {
                     let mut prev_char = cur_char;
+                    let mut nchars = 1;
                     while let Some((idx, cur_char)) = iter.next() {
+                        nchars += 1;
                         match cur_char {
                             '"' if prev_char == '\\' => {}
                             '"' => {
+                                self.position.column += nchars;
+                                self.off += idx+1;
                                 return Ok((StringValue, idx+1));
                             }
                             '\n' => {
                                 return Err(Error::unexpected_message(
                                     "unterminated string value"));
                             }
-                            _ => {}
+                            _ => {
+
+                            }
                         }
                         prev_char = cur_char;
                     }
