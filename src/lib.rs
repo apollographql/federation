@@ -57,3 +57,4 @@ pub mod format;
 pub mod query;
 
 pub use query_grammar::parse_query;
+pub use position::Pos;

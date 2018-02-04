@@ -1,6 +1,6 @@
 use std::fmt;
 
-/// Position of something in code
+/// Original position of element in source code
 #[derive(PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Default)]
 pub struct Pos {
     /// One-based line number
