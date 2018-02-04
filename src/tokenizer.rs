@@ -217,35 +217,40 @@ impl<'a> TokenStream<'a> {
         }
     }
     fn skip_whitespace(&mut self) {
-        let num = {
-            let mut iter = self.buf[self.off..].char_indices();
-            loop {
-                let (idx, cur_char) = match iter.next() {
-                    Some(pair) => pair,
-                    None => break (self.buf.len() - self.off),
-                };
-                match cur_char {
-                    '\u{feff}' | '\t' | ' ' |
-                    '\r' | '\n' |
-                    // comma is also entirely ignored in spec
-                    ',' => continue,
-                    //comment
-                    '#' => {
-                        while let Some((_, cur_char)) = iter.next() {
-                            // TODO(tailhook) ensure SourceCharacter
-                            if cur_char == '\r' || cur_char == '\n' {
-                                break;
-                            }
-                        }
-                        continue;
-                    }
-                    _ => break idx,
+        let mut iter = self.buf[self.off..].char_indices();
+        let idx = loop {
+            let (idx, cur_char) = match iter.next() {
+                Some(pair) => pair,
+                None => break self.buf.len() - self.off,
+            };
+            match cur_char {
+                '\u{feff}' | '\r' => continue,
+                '\t' => self.position.column += 8,
+                '\n' => {
+                    self.position.column = 1;
+                    self.position.line += 1;
                 }
+                // comma is also entirely ignored in spec
+                ' ' | ',' => {
+                    self.position.column += 1;
+                    continue;
+                }
+                //comment
+                '#' => {
+                    while let Some((_, cur_char)) = iter.next() {
+                        // TODO(tailhook) ensure SourceCharacter
+                        if cur_char == '\r' || cur_char == '\n' {
+                            self.position.column = 1;
+                            self.position.line += 1;
+                            break;
+                        }
+                    }
+                    continue;
+                }
+                _ => break idx,
             }
         };
-        if num > 0 {
-            self.update_position(num);
-        }
+        self.off += idx;
     }
     fn update_position(&mut self, len: usize) {
         let val = &self.buf[self.off..][..len];
