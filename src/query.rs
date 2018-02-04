@@ -130,3 +130,10 @@ pub struct InlineFragment {
     pub directives: Vec<Directive>,
     pub selection_set: SelectionSet,
 }
+
+impl Number {
+    /// Returns a number as i64 if it fits the type
+    pub fn as_i64(&self) -> Option<i64> {
+        Some(self.0)
+    }
+}
