@@ -22,6 +22,7 @@ fn roundtrip(filename: &str) {
 #[test] fn query_var_defaults() { roundtrip("query_var_defaults"); }
 #[test] fn query_aliases() { roundtrip("query_aliases"); }
 #[test] fn query_arguments() { roundtrip("query_arguments"); }
+#[test] fn string_literal() { roundtrip("string_literal"); }
 #[test] fn query_list_arg() { roundtrip("query_list_argument"); }
 #[test] fn query_object_arg() { roundtrip("query_object_argument"); }
 #[test] fn nested_selection() { roundtrip("nested_selection"); }

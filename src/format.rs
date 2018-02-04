@@ -56,4 +56,20 @@ impl<'a> Formatter<'a> {
     pub fn into_string(self) -> String {
         self.buf
     }
+    pub fn write_quoted(&mut self, s: &str) {
+        use std::fmt::Write;
+        self.buf.push('"');
+        for c in s.chars() {
+            match c {
+                '\r' => self.write(r"\r"),
+                '\n' => self.write(r"\n"),
+                '\t' => self.write(r"\t"),
+                '"' => self.write("\\\""),
+                '\\' => self.write(r"\\"),
+                '\u{0020}'...'\u{FFFF}' => self.buf.push(c),
+                _ => write!(&mut self.buf, "\\u{:04}", c as u32).unwrap(),
+            }
+        }
+        self.buf.push('"');
+    }
 }

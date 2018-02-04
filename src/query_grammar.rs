@@ -1,10 +1,12 @@
 use tokenizer::TokenStream;
 
 use combine::{parser, ParseResult, Parser};
+use combine::easy::Error;
+use combine::error::StreamError;
 use combine::combinator::{many, many1, eof, optional};
 
 use query_error::{QueryParseError};
-use tokenizer::Kind as T;
+use tokenizer::{Kind as T, Token};
 use helpers::{punct, ident, kind, name};
 use query::*;
 
@@ -107,11 +109,49 @@ pub fn int_value<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
+    let mut res = String::with_capacity(s.len());
+    debug_assert!(s.starts_with("\"") && s.ends_with("\""));
+    let mut chars = s[1..s.len()-1].chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                match chars.next().expect("slash cant be and the end") {
+                    c@'"' | c@'\\' | c@'/' => res.push(c),
+                    'b' => res.push('\u{0010}'),
+                    'f' => res.push('\u{000C}'),
+                    'n' => res.push('\n'),
+                    'r' => res.push('\r'),
+                    't' => res.push('\t'),
+                    'u' => {
+                        unimplemented!();
+                    }
+                    c => {
+                        return Err(Error::unexpected_message(
+                            format_args!("bad escaped char {:?}", c)));
+                    }
+                }
+            }
+            c => res.push(c),
+        }
+    }
+    return Ok(res);
+}
+
+pub fn string_value<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Value, TokenStream<'a>>
+{
+    kind(T::StringValue).and_then(|tok| unquote_string(tok.value))
+        .map(Value::String)
+    .parse_stream(input)
+}
+
 pub fn value<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Value, TokenStream<'a>>
 {
     name().map(Value::EnumValue)
     .or(parser(int_value))
+    .or(parser(string_value))
     .or(punct("$").with(name()).map(Value::Variable))
     .or(punct("[").with(many(parser(value))).skip(punct("]"))
         .map(|lst| Value::ListValue(lst)))
