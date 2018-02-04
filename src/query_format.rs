@@ -241,7 +241,21 @@ impl Displayable for Value {
                 }
                 f.write("]");
             }
-            Value::ObjectValue(ref items) => unimplemented!(),
+            Value::ObjectValue(ref items) => {
+                f.write("{");
+                let mut first = true;
+                for (ref name, ref value) in items.iter() {
+                    if first {
+                        first = false;
+                    } else {
+                        f.write(", ");
+                    }
+                    f.write(name);
+                    f.write(": ");
+                    value.display(f);
+                }
+                f.write("}");
+            }
         }
     }
 }

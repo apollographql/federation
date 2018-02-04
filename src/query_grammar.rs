@@ -115,6 +115,10 @@ pub fn value<'a>(input: &mut TokenStream<'a>)
     .or(punct("$").with(name()).map(Value::Variable))
     .or(punct("[").with(many(parser(value))).skip(punct("]"))
         .map(|lst| Value::ListValue(lst)))
+    .or(punct("{")
+        .with(many(name().skip(punct(":")).and(parser(value))))
+        .skip(punct("}"))
+        .map(|lst| Value::ObjectValue(lst)))
     // TODO(tailhook) more values
     .parse_stream(input)
 }
