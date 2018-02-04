@@ -203,14 +203,17 @@ impl<'a> TokenStream<'a> {
                             '"' => {
                                 return Ok((StringValue, idx+1));
                             }
-                            // TODO(tailhook) ensure SourceCharacter
-                            // and not newline
+                            '\n' => {
+                                return Err(Error::unexpected_message(
+                                    "unterminated string value"));
+                            }
                             _ => {}
                         }
                         prev_char = cur_char;
                     }
+                    return Err(Error::unexpected_message(
+                        "unterminated string value"));
                 }
-                return Ok((Name, self.buf.len() - self.off));
             }
             _ => return Err(Error::unexpected_message(
                 format_args!("unexpected character {:?}", cur_char))),
