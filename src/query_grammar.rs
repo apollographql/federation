@@ -12,27 +12,46 @@ pub fn empty_selection() -> SelectionSet {
     SelectionSet { items: Vec::new() }
 }
 
+pub fn directives<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<Directive>, TokenStream<'a>>
+{
+    many(punct("@")
+        .with(name())
+        .and(parser(arguments))
+        .map(|(name, arguments)| Directive { name, arguments }))
+    .parse_stream(input)
+}
+
+pub fn arguments<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<(String, Value)>, TokenStream<'a>>
+{
+    optional(
+        punct("(")
+        .with(many1(name()
+            .skip(punct(":"))
+            .and(parser(value))))
+        .skip(punct(")")))
+    .map(|opt| {
+        opt.unwrap_or_else(Vec::new)
+    })
+    .parse_stream(input)
+}
+
 pub fn field<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Field, TokenStream<'a>>
 {
     name()
     .and(optional(punct(":").with(name())))
-    .and(optional(
-        punct("(")
-        .with(many1(name()
-            .skip(punct(":"))
-            .and(parser(value))))
-        .skip(punct(")"))))
+    .and(parser(arguments))
+    .and(parser(directives))
     .and(optional(parser(selection_set)))
-    .map(|(((name_or_alias, opt_name), args), sel)| {
+    .map(|((((name_or_alias, opt_name), arguments), directives), sel)| {
         let (name, alias) = match opt_name {
             Some(name) => (name, Some(name_or_alias)),
             None => (name_or_alias, None),
         };
         Field {
-            name, alias,
-            arguments: args.unwrap_or_else(Vec::new),
-            directives: Vec::new(),
+            name, alias, arguments, directives,
             selection_set: sel.unwrap_or_else(empty_selection),
         }
     })
@@ -50,13 +69,10 @@ pub fn inline_fragment<'a>(input: &mut TokenStream<'a>)
 {
     punct("...")
     .with(optional(ident("on").with(name()).map(TypeCondition::On)))
+    .and(parser(directives))
     .and(parser(selection_set))
-    .map(|(type_condition, selection_set)| {
-        InlineFragment {
-            type_condition,
-            selection_set,
-            directives: Vec::new(),
-        }
+    .map(|((type_condition, directives), selection_set)| {
+        InlineFragment { type_condition, selection_set, directives }
     })
     .parse_stream(input)
 }

@@ -66,6 +66,22 @@ impl Displayable for Selection {
     }
 }
 
+fn format_arguments(arguments: &[(String, Value)], f: &mut Formatter) {
+    if arguments.len() > 0 {
+        f.write("(");
+        f.write(&arguments[0].0);
+        f.write(": ");
+        arguments[0].1.display(f);
+        for arg in &arguments[1..] {
+            f.write(", ");
+            f.write(&arg.0);
+            f.write(": ");
+            arg.1.display(f);
+        }
+        f.write(")");
+    }
+}
+
 impl Displayable for Field {
     fn display(&self, f: &mut Formatter) {
         f.indent();
@@ -74,20 +90,8 @@ impl Displayable for Field {
             f.write(": ");
         }
         f.write(&self.name);
-        if self.arguments.len() > 0 {
-            f.write("(");
-            f.write(&self.arguments[0].0);
-            f.write(": ");
-            self.arguments[0].1.display(f);
-            for arg in &self.arguments[1..] {
-                f.write(", ");
-                f.write(&arg.0);
-                f.write(": ");
-                arg.1.display(f);
-            }
-            f.write(")");
-        }
-        // TODO(tailhook) directives
+        format_arguments(&self.arguments, f);
+        format_directives(&self.directives, f);
         if self.selection_set.items.len() > 0 {
             f.write(" ");
             f.start_block();
@@ -182,14 +186,23 @@ impl Displayable for Value {
     }
 }
 
+fn format_directives(dirs: &[Directive], f: &mut Formatter) {
+    for dir in dirs {
+        f.write(" ");
+        dir.display(f);
+    }
+}
+
 impl Displayable for InlineFragment {
     fn display(&self, f: &mut Formatter) {
         f.indent();
-        f.write("... ");
+        f.write("...");
         if let Some(ref cond) = self.type_condition {
-            cond.display(f);
             f.write(" ");
+            cond.display(f);
         }
+        format_directives(&self.directives, f);
+        f.write(" ");
         f.start_block();
         for item in &self.selection_set.items {
             item.display(f);
@@ -212,5 +225,13 @@ impl Displayable for TypeCondition {
 impl Displayable for FragmentSpread {
     fn display(&self, f: &mut Formatter) {
         unimplemented!();
+    }
+}
+
+impl Displayable for Directive {
+    fn display(&self, f: &mut Formatter) {
+        f.write("@");
+        f.write(&self.name);
+        format_arguments(&self.arguments, f);
     }
 }
