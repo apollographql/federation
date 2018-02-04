@@ -202,14 +202,24 @@ pub fn operation_definition<'a>(input: &mut TokenStream<'a>)
 pub fn fragment_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<FragmentDefinition, TokenStream<'a>>
 {
-    unimplemented!();
+    ident("fragment")
+    .with(name())
+    .and(ident("on").with(name()).map(TypeCondition::On))
+    .and(parser(directives))
+    .and(parser(selection_set))
+    .map(|(((name, type_condition), directives), selection_set)| {
+        FragmentDefinition {
+            name, type_condition, directives, selection_set,
+        }
+    })
+    .parse_stream(input)
 }
 
 pub fn definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Definition, TokenStream<'a>>
 {
     parser(operation_definition).map(Definition::Operation)
-    //.or(parser(fragment_definition).map(Definition::Fragment))
+    .or(parser(fragment_definition).map(Definition::Fragment))
     .parse_stream(input)
 }
 

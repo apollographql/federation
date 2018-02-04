@@ -42,7 +42,18 @@ impl Displayable for OperationDefinition {
 
 impl Displayable for FragmentDefinition {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        f.indent();
+        f.write("fragment ");
+        f.write(&self.name);
+        f.write(" ");
+        self.type_condition.display(f);
+        format_directives(&self.directives, f);
+        f.write(" ");
+        f.start_block();
+        for item in &self.selection_set.items {
+            item.display(f);
+        }
+        f.end_block();
     }
 }
 

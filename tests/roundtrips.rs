@@ -28,5 +28,6 @@ fn roundtrip(filename: &str) {
 #[test] fn inline_fragment_dir() { roundtrip("inline_fragment_dir"); }
 #[test] fn fragment_spread() { roundtrip("fragment_spread"); }
 #[test] fn minimal_mutation() { roundtrip("minimal_mutation"); }
+#[test] fn fragment() { roundtrip("fragment"); }
 // this one doesnt' work yet, we tackle all the features one by one
 //#[test] fn kitchen_sink() { roundtrip("kitchen-sink"); }
