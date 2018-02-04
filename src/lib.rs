@@ -8,8 +8,11 @@
 //! [Github](https://github.com/tailhook/graphql-parser/) |
 //! [Crate](https://crates.io/crates/graphql-parser)
 //!
-//! Current this library supports full graphql syntax as well as block
-//! (triple quoted) string addition which is not yet stable.
+//! Current this library supports full graphql syntax, and the following
+//! extensions:
+//!
+//! 1. Subscriptions
+//! 2. Block (triple quoted) strings
 //!
 //!
 //! Example: Parse and Format Query
