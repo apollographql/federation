@@ -90,6 +90,12 @@ pub enum VariableType {
     NonNullType(Box<VariableType>),
 }
 
+/// This represents integer number
+///
+/// But since there is no definition on limit of number in spec
+/// (only in implemetation), we do a trick similar to the one
+/// in `serde_json`: encapsulate value in new-type, allowing type
+/// to be extended later.
 #[derive(Debug, Clone, PartialEq)]
 // we use i64 as a reference implementation: graphql-js thinks even 32bit
 // integers is enough. We might consider lift this limit later though
