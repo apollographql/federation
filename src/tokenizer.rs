@@ -14,6 +14,7 @@ pub enum Kind {
     IntValue,
     FloatValue,
     StringValue,
+    BlockString,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -185,17 +186,29 @@ impl<'a> TokenStream<'a> {
                 }
             }
             '"' => {
-                let mut prev_char = cur_char;
-                while let Some((idx, cur_char)) = iter.next() {
-                    match cur_char {
-                        '"' if prev_char == '\\' => {}
-                        '"' => {
-                            return Ok((StringValue, idx+1));
+                if iter.as_str().starts_with("\"\"") {
+                    let tail = &iter.as_str()[2..];
+                    for (endidx, _) in tail.match_indices("\"\"\"") {
+                        if !tail[..endidx].ends_with('\\') {
+                            return Ok((BlockString, endidx+6));
                         }
-                        // TODO(tailhook) ensure SourceCharacter and not newline
-                        _ => {}
                     }
-                    prev_char = cur_char;
+                    return Err(Error::unexpected_message(
+                        "unterminated block string value"));
+                } else {
+                    let mut prev_char = cur_char;
+                    while let Some((idx, cur_char)) = iter.next() {
+                        match cur_char {
+                            '"' if prev_char == '\\' => {}
+                            '"' => {
+                                return Ok((StringValue, idx+1));
+                            }
+                            // TODO(tailhook) ensure SourceCharacter
+                            // and not newline
+                            _ => {}
+                        }
+                        prev_char = cur_char;
+                    }
                 }
                 return Ok((Name, self.buf.len() - self.off));
             }
@@ -397,5 +410,17 @@ mod test {
         assert_eq!(tok_typ(r#""hello""#), [StringValue]);
         assert_eq!(tok_str(r#""my\"quote""#), [r#""my\"quote""#]);
         assert_eq!(tok_typ(r#""my\"quote""#), [StringValue]);
+    }
+
+    #[test]
+    fn block_string() {
+        assert_eq!(tok_str(r#""""""""#), [r#""""""""#]);
+        assert_eq!(tok_typ(r#""""""""#), [BlockString]);
+        assert_eq!(tok_str(r#""""hello""""#), [r#""""hello""""#]);
+        assert_eq!(tok_typ(r#""""hello""""#), [BlockString]);
+        assert_eq!(tok_str(r#""""my "quote" """"#), [r#""""my "quote" """"#]);
+        assert_eq!(tok_typ(r#""""my "quote" """"#), [BlockString]);
+        assert_eq!(tok_str(r#""""\"""quote" """"#), [r#""""\"""quote" """"#]);
+        assert_eq!(tok_typ(r#""""\"""quote" """"#), [BlockString]);
     }
 }

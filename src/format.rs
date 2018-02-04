@@ -57,19 +57,40 @@ impl<'a> Formatter<'a> {
         self.buf
     }
     pub fn write_quoted(&mut self, s: &str) {
-        use std::fmt::Write;
-        self.buf.push('"');
+        let mut has_newline = false;
+        let mut has_nonprintable = false;
         for c in s.chars() {
             match c {
-                '\r' => self.write(r"\r"),
-                '\n' => self.write(r"\n"),
-                '\t' => self.write(r"\t"),
-                '"' => self.write("\\\""),
-                '\\' => self.write(r"\\"),
-                '\u{0020}'...'\u{FFFF}' => self.buf.push(c),
-                _ => write!(&mut self.buf, "\\u{:04}", c as u32).unwrap(),
+                '\n' => has_newline = true,
+                '\r' | '\t' | '\u{0020}'...'\u{FFFF}' => {}
+                _ => has_nonprintable = true,
             }
         }
-        self.buf.push('"');
+        if !has_newline || has_nonprintable {
+            use std::fmt::Write;
+            self.buf.push('"');
+            for c in s.chars() {
+                match c {
+                    '\r' => self.write(r"\r"),
+                    '\n' => self.write(r"\n"),
+                    '\t' => self.write(r"\t"),
+                    '"' => self.write("\\\""),
+                    '\\' => self.write(r"\\"),
+                    '\u{0020}'...'\u{FFFF}' => self.buf.push(c),
+                    _ => write!(&mut self.buf, "\\u{:04}", c as u32).unwrap(),
+                }
+            }
+            self.buf.push('"');
+        } else {
+            self.buf.push_str(r#"""""#);
+            self.endline();
+            for line in s.lines() {
+                self.indent();
+                self.write(&line.replace(r#"""""#, r#"\""""#));
+                self.endline();
+            }
+            self.indent();
+            self.buf.push_str(r#"""""#);
+        }
     }
 }

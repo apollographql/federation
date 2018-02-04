@@ -138,10 +138,41 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
     return Ok(res);
 }
 
+fn unquote_block_string(s: &str) -> Result<String, Error<Token, Token>> {
+    debug_assert!(s.starts_with("\"\"\"") && s.ends_with("\"\"\""));
+    let indent = s[3..s.len()-3].lines().skip(1)
+        .map(|l| l.len() - l.trim_left().len())
+        .min().unwrap_or(0);
+    let mut result = String::with_capacity(s.len());
+    let mut lines = s[3..s.len()-3].lines();
+    if let Some(first) = lines.next() {
+        let stripped = first.trim();
+        if stripped.len() > 0 {
+            result.push_str(stripped);
+            result.push('\n');
+        }
+    }
+    for line in lines {
+        result.push_str(&line[indent..].replace(r#"\""""#, r#"""""#));
+        result.push('\n');
+    }
+    let trunc_len = result.trim_right().len();
+    result.truncate(trunc_len);
+    return Ok(result);
+}
+
 pub fn string_value<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Value, TokenStream<'a>>
 {
     kind(T::StringValue).and_then(|tok| unquote_string(tok.value))
+        .map(Value::String)
+    .parse_stream(input)
+}
+
+pub fn block_string_value<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Value, TokenStream<'a>>
+{
+    kind(T::BlockString).and_then(|tok| unquote_block_string(tok.value))
         .map(Value::String)
     .parse_stream(input)
 }
@@ -152,6 +183,7 @@ pub fn value<'a>(input: &mut TokenStream<'a>)
     name().map(Value::EnumValue)
     .or(parser(int_value))
     .or(parser(string_value))
+    .or(parser(block_string_value))
     .or(punct("$").with(name()).map(Value::Variable))
     .or(punct("[").with(many(parser(value))).skip(punct("]"))
         .map(|lst| Value::ListValue(lst)))
@@ -168,6 +200,7 @@ pub fn default_value<'a>(input: &mut TokenStream<'a>)
 {
     name().map(Value::EnumValue)
     .or(parser(int_value))
+    .or(parser(block_string_value))
     .or(punct("[").with(many(parser(default_value))).skip(punct("]"))
         .map(|lst| Value::ListValue(lst)))
     // TODO(tailhook) more values
