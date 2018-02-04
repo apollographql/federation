@@ -224,7 +224,11 @@ impl Displayable for TypeCondition {
 
 impl Displayable for FragmentSpread {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        f.indent();
+        f.write("...");
+        f.write(&self.fragment_name);
+        format_directives(&self.directives, f);
+        f.endline();
     }
 }
 

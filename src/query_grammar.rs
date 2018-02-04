@@ -58,31 +58,25 @@ pub fn field<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn fragment_spread<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<FragmentSpread, TokenStream<'a>>
-{
-    unimplemented!();
-}
-
-pub fn inline_fragment<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<InlineFragment, TokenStream<'a>>
-{
-    punct("...")
-    .with(optional(ident("on").with(name()).map(TypeCondition::On)))
-    .and(parser(directives))
-    .and(parser(selection_set))
-    .map(|((type_condition, directives), selection_set)| {
-        InlineFragment { type_condition, selection_set, directives }
-    })
-    .parse_stream(input)
-}
-
 pub fn selection<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Selection, TokenStream<'a>>
 {
     parser(field).map(Selection::Field)
-    //.or(parser(fragment_spread).map(Selection::FragmentSpread))
-    .or(parser(inline_fragment).map(Selection::InlineFragment))
+    .or(punct("...").with(
+        optional(ident("on").with(name()).map(TypeCondition::On))
+            .and(parser(directives))
+            .and(parser(selection_set))
+            .map(|((type_condition, directives), selection_set)| {
+                InlineFragment { type_condition, selection_set, directives }
+            })
+            .map(Selection::InlineFragment)
+        .or(name()
+            .and(parser(directives))
+            .map(|(fragment_name, directives)| {
+                FragmentSpread { fragment_name, directives }
+            })
+            .map(Selection::FragmentSpread))
+    ))
     .parse_stream(input)
 }
 

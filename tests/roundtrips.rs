@@ -26,5 +26,6 @@ fn roundtrip(filename: &str) {
 #[test] fn nested_selection() { roundtrip("nested_selection"); }
 #[test] fn inline_fragment() { roundtrip("inline_fragment"); }
 #[test] fn inline_fragment_dir() { roundtrip("inline_fragment_dir"); }
+#[test] fn fragment_spread() { roundtrip("fragment_spread"); }
 // this one doesnt' work yet, we tackle all the features one by one
 //#[test] fn kitchen_sink() { roundtrip("kitchen-sink"); }
