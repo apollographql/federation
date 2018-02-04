@@ -1,8 +1,19 @@
+//! Query Language Abstract Syntax Tree (AST)
+//!
+//! The types and fields here resemble official [graphql grammar] whenever it
+//! makes sense for rust.
+//!
+//! [graphql grammar]: http://facebook.github.io/graphql/October2016/#sec-Appendix-Grammar-Summary
+//!
 use std::collections::BTreeMap;
 
-type Name = String;
+pub use query_error::QueryParseError as ParseError;
+
+/// An alias for string, used where graphql expects a name
+pub type Name = String;
 
 
+/// Root of query data
 #[derive(Debug, Clone, PartialEq)]
 pub struct Document {
     pub definitions: Vec<Definition>,

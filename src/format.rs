@@ -1,3 +1,4 @@
+//! Formatting graphql
 use std::default::Default;
 
 pub(crate) struct Formatter<'a> {
@@ -6,6 +7,11 @@ pub(crate) struct Formatter<'a> {
     indent: u32,
 }
 
+/// A configuration of formatting style
+///
+/// Currently we only have indentation configured, other things might be
+/// added later (such as minification).
+#[derive(Debug)]
 pub struct Style {
     indent: u32,
 }
@@ -15,6 +21,14 @@ impl Default for Style {
         Style {
             indent: 2,
         }
+    }
+}
+
+impl Style {
+    /// Change the number of spaces used for indentation
+    pub fn indent(&mut self, indent: u32) -> &mut Self {
+        self.indent = indent;
+        self
     }
 }
 

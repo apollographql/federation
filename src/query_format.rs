@@ -1,15 +1,21 @@
+use std::fmt;
 use format::{Displayable, Formatter, Style};
 use query::*;
 
 impl Document {
+    /// Format a document according to style
     pub fn format(&self, style: &Style) -> String {
         let mut formatter = Formatter::new(style);
         self.display(&mut formatter);
         formatter.into_string()
     }
-    pub fn to_string(&self) -> String {
-        self.format(&Style::default())
-    }
+}
+
+fn to_string<T: Displayable>(v: &T) -> String {
+    let style = Style::default();
+    let mut formatter = Formatter::new(&style);
+    v.display(&mut formatter);
+    formatter.into_string()
 }
 
 impl Displayable for Document {
@@ -318,5 +324,91 @@ impl Displayable for Directive {
         f.write("@");
         f.write(&self.name);
         format_arguments(&self.arguments, f);
+    }
+}
+
+impl fmt::Display for Document {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for Definition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for OperationDefinition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for FragmentDefinition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for SelectionSet {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for Selection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for Field {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for Query {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for Mutation {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for Subscription {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for VariableDefinition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for VariableType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for InlineFragment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for TypeCondition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for FragmentSpread {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
+    }
+}
+impl fmt::Display for Directive {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&to_string(self))
     }
 }

@@ -335,6 +335,7 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+/// Parses a piece of query language and returns an AST
 pub fn parse_query(s: &str) -> Result<Document, QueryParseError> {
     let mut tokens = TokenStream::new(s);
     let (doc, _) = many1(parser(definition))
