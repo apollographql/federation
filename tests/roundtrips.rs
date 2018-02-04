@@ -53,4 +53,5 @@ fn roundtrip2(filename: &str) {
 #[test] fn fragment_spread() { roundtrip("fragment_spread"); }
 #[test] fn minimal_mutation() { roundtrip("minimal_mutation"); }
 #[test] fn fragment() { roundtrip("fragment"); }
+#[test] fn directive_args() { roundtrip("directive_args"); }
 #[test] fn kitchen_sink() { roundtrip2("kitchen-sink"); }

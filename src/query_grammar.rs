@@ -205,14 +205,24 @@ pub fn block_string_value<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn value<'a>(input: &mut TokenStream<'a>)
+pub fn plain_value<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Value, TokenStream<'a>>
 {
-    name().map(Value::EnumValue)
+    ident("true").map(|_| Value::Boolean(true))
+    .or(ident("false").map(|_| Value::Boolean(false)))
+    .or(ident("null").map(|_| Value::Null))
+    .or(name().map(Value::EnumValue))
     .or(parser(int_value))
     .or(parser(float_value))
     .or(parser(string_value))
     .or(parser(block_string_value))
+    .parse_stream(input)
+}
+
+pub fn value<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Value, TokenStream<'a>>
+{
+    parser(plain_value)
     .or(punct("$").with(name()).map(Value::Variable))
     .or(punct("[").with(many(parser(value))).skip(punct("]"))
         .map(|lst| Value::ListValue(lst)))
@@ -220,25 +230,19 @@ pub fn value<'a>(input: &mut TokenStream<'a>)
         .with(many(name().skip(punct(":")).and(parser(value))))
         .skip(punct("}"))
         .map(|lst| Value::ObjectValue(lst)))
-    // TODO(tailhook) more values
     .parse_stream(input)
 }
 
 pub fn default_value<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Value, TokenStream<'a>>
 {
-    name().map(Value::EnumValue)
-    .or(parser(int_value))
-    .or(parser(float_value))
-    .or(parser(string_value))
-    .or(parser(block_string_value))
+    parser(plain_value)
     .or(punct("[").with(many(parser(default_value))).skip(punct("]"))
         .map(|lst| Value::ListValue(lst)))
     .or(punct("{")
         .with(many(name().skip(punct(":")).and(parser(default_value))))
         .skip(punct("}"))
         .map(|map| Value::ObjectValue(map)))
-    // TODO(tailhook) more values
     .parse_stream(input)
 }
 
@@ -379,6 +383,37 @@ mod test {
                 ))
             ],
         });
+    }
+
+    #[test]
+    fn builtin_values() {
+        assert_eq!(ast("{ a(t: true, f: false, n: null) }"),
+            Document {
+                definitions: vec![
+                    Definition::Operation(OperationDefinition::SelectionSet(
+                        SelectionSet {
+                            items: vec![
+                                Selection::Field(Field {
+                                    alias: None,
+                                    name: "a".into(),
+                                    arguments: vec![
+                                        ("t".to_string(),
+                                            Value::Boolean(true)),
+                                        ("f".to_string(),
+                                            Value::Boolean(false)),
+                                        ("n".to_string(),
+                                            Value::Null),
+                                    ],
+                                    directives: Vec::new(),
+                                    selection_set: SelectionSet {
+                                        items: Vec::new()
+                                    },
+                                }),
+                            ],
+                        }
+                    ))
+                ],
+            });
     }
 
     #[test]
