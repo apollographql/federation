@@ -279,15 +279,18 @@ pub fn operation_common<'a>(input: &mut TokenStream<'a>)
     .and(optional(
         punct("(")
         .with(many1(
-            punct("$").with(name()).skip(punct(":"))
-                .and(parser(variable_type))
-                .and(optional(
+            (
+                position(),
+                punct("$").with(name()).skip(punct(":")),
+                parser(variable_type),
+                optional(
                     punct("=")
-                    .with(parser(default_value))))
-                .map(|((name, var_type), default_value)| VariableDefinition {
-                    name, var_type, default_value,
-                })
-        ))
+                    .with(parser(default_value))),
+            ).map(|(position, name, var_type, default_value)| {
+                VariableDefinition {
+                    position, name, var_type, default_value,
+                }
+            })))
         .skip(punct(")")))
         .map(|vars| vars.unwrap_or_else(Vec::new)))
     .and(parser(directives))

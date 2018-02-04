@@ -86,6 +86,7 @@ pub struct Directive {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariableDefinition {
+    pub position: Pos,
     pub name: Name,
     pub var_type: VariableType,
     pub default_value: Option<Value>,
