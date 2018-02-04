@@ -60,7 +60,8 @@ impl Displayable for Selection {
     fn display(&self, f: &mut Formatter) {
         match *self {
             Selection::Field(ref fld) => fld.display(f),
-            _ => unimplemented!(),
+            Selection::InlineFragment(ref frag) => frag.display(f),
+            Selection::FragmentSpread(ref frag) => frag.display(f),
         }
     }
 }
@@ -178,5 +179,38 @@ impl Displayable for Value {
             }
             Value::ObjectValue(ref items) => unimplemented!(),
         }
+    }
+}
+
+impl Displayable for InlineFragment {
+    fn display(&self, f: &mut Formatter) {
+        f.indent();
+        f.write("... ");
+        if let Some(ref cond) = self.type_condition {
+            cond.display(f);
+            f.write(" ");
+        }
+        f.start_block();
+        for item in &self.selection_set.items {
+            item.display(f);
+        }
+        f.end_block();
+    }
+}
+
+impl Displayable for TypeCondition {
+    fn display(&self, f: &mut Formatter) {
+        match *self {
+            TypeCondition::On(ref name) => {
+                f.write("on ");
+                f.write(name);
+            }
+        }
+    }
+}
+
+impl Displayable for FragmentSpread {
+    fn display(&self, f: &mut Formatter) {
+        unimplemented!();
     }
 }

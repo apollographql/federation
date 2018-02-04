@@ -8,6 +8,10 @@ use tokenizer::Kind as T;
 use helpers::{punct, ident, kind, name};
 use query::*;
 
+pub fn empty_selection() -> SelectionSet {
+    SelectionSet { items: Vec::new() }
+}
+
 pub fn field<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Field, TokenStream<'a>>
 {
@@ -29,8 +33,7 @@ pub fn field<'a>(input: &mut TokenStream<'a>)
             name, alias,
             arguments: args.unwrap_or_else(Vec::new),
             directives: Vec::new(),
-            selection_set: sel.unwrap_or_else(
-                || SelectionSet { items: Vec::new() }),
+            selection_set: sel.unwrap_or_else(empty_selection),
         }
     })
     .parse_stream(input)
@@ -45,7 +48,17 @@ pub fn fragment_spread<'a>(input: &mut TokenStream<'a>)
 pub fn inline_fragment<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<InlineFragment, TokenStream<'a>>
 {
-    unimplemented!();
+    punct("...")
+    .with(optional(ident("on").with(name()).map(TypeCondition::On)))
+    .and(parser(selection_set))
+    .map(|(type_condition, selection_set)| {
+        InlineFragment {
+            type_condition,
+            selection_set,
+            directives: Vec::new(),
+        }
+    })
+    .parse_stream(input)
 }
 
 pub fn selection<'a>(input: &mut TokenStream<'a>)
@@ -53,7 +66,7 @@ pub fn selection<'a>(input: &mut TokenStream<'a>)
 {
     parser(field).map(Selection::Field)
     //.or(parser(fragment_spread).map(Selection::FragmentSpread))
-    //.or(parser(inline_fragment).map(Selection::InlineFragment))
+    .or(parser(inline_fragment).map(Selection::InlineFragment))
     .parse_stream(input)
 }
 

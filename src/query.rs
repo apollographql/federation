@@ -128,5 +128,5 @@ pub enum TypeCondition {
 pub struct InlineFragment {
     pub type_condition: Option<TypeCondition>,
     pub directives: Vec<Directive>,
-    pub selection_set: Vec<Selection>,
+    pub selection_set: SelectionSet,
 }
