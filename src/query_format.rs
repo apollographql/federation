@@ -129,8 +129,9 @@ impl Displayable for Query {
     fn display(&self, f: &mut Formatter) {
         f.margin();
         f.indent();
-        f.write("query ");
+        f.write("query");
         if let Some(ref name) = self.name {
+            f.write(" ");
             f.write(name);
             if self.variable_definitions.len() > 0 {
                 f.write("(");
@@ -141,9 +142,9 @@ impl Displayable for Query {
                 }
                 f.write(")");
             }
-            f.write(" ");
         }
-        // TODO(tailhook) directives
+        format_directives(&self.directives, f);
+        f.write(" ");
         f.start_block();
         for item in &self.selection_set.items {
             item.display(f);
@@ -156,8 +157,9 @@ impl Displayable for Mutation {
     fn display(&self, f: &mut Formatter) {
         f.margin();
         f.indent();
-        f.write("mutation ");
+        f.write("mutation");
         if let Some(ref name) = self.name {
+            f.write(" ");
             f.write(name);
             if self.variable_definitions.len() > 0 {
                 f.write("(");
@@ -166,9 +168,9 @@ impl Displayable for Mutation {
                 }
                 f.write(")");
             }
-            f.write(" ");
         }
-        // TODO(tailhook) directives
+        format_directives(&self.directives, f);
+        f.write(" ");
         f.start_block();
         for item in &self.selection_set.items {
             item.display(f);
@@ -181,8 +183,9 @@ impl Displayable for Subscription {
     fn display(&self, f: &mut Formatter) {
         f.margin();
         f.indent();
-        f.write("subscription ");
+        f.write("subscription");
         if let Some(ref name) = self.name {
+            f.write(" ");
             f.write(name);
             if self.variable_definitions.len() > 0 {
                 f.write("(");
@@ -191,9 +194,9 @@ impl Displayable for Subscription {
                 }
                 f.write(")");
             }
-            f.write(" ");
         }
-        // TODO(tailhook) directives
+        format_directives(&self.directives, f);
+        f.write(" ");
         f.start_block();
         for item in &self.selection_set.items {
             item.display(f);

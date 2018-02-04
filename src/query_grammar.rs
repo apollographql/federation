@@ -247,15 +247,17 @@ pub fn query<'a>(input: &mut TokenStream<'a>)
 {
     ident("query")
     .with(parser(operation_common))
-    .map(|(name, variable_definitions, selection_set)| Query {
-        name, selection_set, variable_definitions,
-        directives: Vec::new(),
+    .map(|(name, variable_definitions, directives, selection_set)| Query {
+        name, selection_set, variable_definitions, directives,
     })
     .parse_stream(input)
 }
 
 pub fn operation_common<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<(Option<String>, Vec<VariableDefinition>, SelectionSet), TokenStream<'a>>
+    -> ParseResult<
+        (Option<String>, Vec<VariableDefinition>, Vec<Directive>,
+         SelectionSet),
+        TokenStream<'a>>
 {
     optional(name())
     .and(optional(
@@ -272,8 +274,9 @@ pub fn operation_common<'a>(input: &mut TokenStream<'a>)
         ))
         .skip(punct(")")))
         .map(|vars| vars.unwrap_or_else(Vec::new)))
+    .and(parser(directives))
     .and(parser(selection_set))
-    .map(|((a, b), c)| (a, b, c))
+    .map(|(((a, b), c), d)| (a, b, c, d))
     .parse_stream(input)
 }
 
@@ -282,9 +285,8 @@ pub fn mutation<'a>(input: &mut TokenStream<'a>)
 {
     ident("mutation")
     .with(parser(operation_common))
-    .map(|(name, variable_definitions, selection_set)| Mutation {
-        name, selection_set, variable_definitions,
-        directives: Vec::new(),
+    .map(|(name, variable_definitions, directives, selection_set)| Mutation {
+        name, selection_set, variable_definitions, directives,
     })
     .parse_stream(input)
 }
@@ -294,9 +296,10 @@ pub fn subscription<'a>(input: &mut TokenStream<'a>)
 {
     ident("subscription")
     .with(parser(operation_common))
-    .map(|(name, variable_definitions, selection_set)| Subscription {
-        name, selection_set, variable_definitions,
-        directives: Vec::new(),
+    .map(|(name, variable_definitions, directives, selection_set)| {
+        Subscription {
+            name, selection_set, variable_definitions, directives,
+        }
     })
     .parse_stream(input)
 }
