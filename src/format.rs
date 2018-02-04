@@ -50,6 +50,11 @@ impl<'a> Formatter<'a> {
         self.buf.push('}');
         self.endline();
     }
+    pub fn margin(&mut self) {
+        if self.buf.len() != 0 {
+            self.buf.push('\n');
+        }
+    }
     pub fn write(&mut self, s: &str) {
         self.buf.push_str(s);
     }
@@ -84,11 +89,15 @@ impl<'a> Formatter<'a> {
         } else {
             self.buf.push_str(r#"""""#);
             self.endline();
+            self.indent += self.style.indent;
             for line in s.lines() {
-                self.indent();
-                self.write(&line.replace(r#"""""#, r#"\""""#));
+                if line.trim().len() != 0 {
+                    self.indent();
+                    self.write(&line.replace(r#"""""#, r#"\""""#));
+                }
                 self.endline();
             }
+            self.indent -= self.style.indent;
             self.indent();
             self.buf.push_str(r#"""""#);
         }

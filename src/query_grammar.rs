@@ -138,13 +138,20 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
     return Ok(res);
 }
 
-fn unquote_block_string(s: &str) -> Result<String, Error<Token, Token>> {
-    debug_assert!(s.starts_with("\"\"\"") && s.ends_with("\"\"\""));
-    let indent = s[3..s.len()-3].lines().skip(1)
-        .map(|l| l.len() - l.trim_left().len())
+fn unquote_block_string(src: &str) -> Result<String, Error<Token, Token>> {
+    debug_assert!(src.starts_with("\"\"\"") && src.ends_with("\"\"\""));
+    let indent = src[3..src.len()-3].lines().skip(1)
+        .filter_map(|line| {
+            let trimmed = line.trim_left().len();
+            if trimmed > 0 {
+                Some(line.len() - trimmed)
+            } else {
+                None  // skip whitespace-only lines
+            }
+        })
         .min().unwrap_or(0);
-    let mut result = String::with_capacity(s.len());
-    let mut lines = s[3..s.len()-3].lines();
+    let mut result = String::with_capacity(src.len()-6);
+    let mut lines = src[3..src.len()-3].lines();
     if let Some(first) = lines.next() {
         let stripped = first.trim();
         if stripped.len() > 0 {
@@ -152,12 +159,17 @@ fn unquote_block_string(s: &str) -> Result<String, Error<Token, Token>> {
             result.push('\n');
         }
     }
+    let mut last_line = 0;
     for line in lines {
-        result.push_str(&line[indent..].replace(r#"\""""#, r#"""""#));
+        last_line = result.len();
+        if line.len() > indent {
+            result.push_str(&line[indent..].replace(r#"\""""#, r#"""""#));
+        }
         result.push('\n');
     }
-    let trunc_len = result.trim_right().len();
-    result.truncate(trunc_len);
+    if result[last_line..].trim().len() == 0 {
+        result.truncate(last_line);
+    }
     return Ok(result);
 }
 

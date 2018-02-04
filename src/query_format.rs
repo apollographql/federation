@@ -42,6 +42,7 @@ impl Displayable for OperationDefinition {
 
 impl Displayable for FragmentDefinition {
     fn display(&self, f: &mut Formatter) {
+        f.margin();
         f.indent();
         f.write("fragment ");
         f.write(&self.name);
@@ -59,6 +60,7 @@ impl Displayable for FragmentDefinition {
 
 impl Displayable for SelectionSet {
     fn display(&self, f: &mut Formatter) {
+        f.margin();
         f.indent();
         f.start_block();
         for item in &self.items {
@@ -119,13 +121,16 @@ impl Displayable for Field {
 
 impl Displayable for Query {
     fn display(&self, f: &mut Formatter) {
+        f.margin();
         f.indent();
         f.write("query ");
         if let Some(ref name) = self.name {
             f.write(name);
             if self.variable_definitions.len() > 0 {
                 f.write("(");
-                for var in &self.variable_definitions {
+                self.variable_definitions[0].display(f);
+                for var in &self.variable_definitions[1..] {
+                    f.write(", ");
                     var.display(f);
                 }
                 f.write(")");
@@ -143,6 +148,7 @@ impl Displayable for Query {
 
 impl Displayable for Mutation {
     fn display(&self, f: &mut Formatter) {
+        f.margin();
         f.indent();
         f.write("mutation ");
         if let Some(ref name) = self.name {
@@ -167,6 +173,7 @@ impl Displayable for Mutation {
 
 impl Displayable for Subscription {
     fn display(&self, f: &mut Formatter) {
+        f.margin();
         f.indent();
         f.write("subscription ");
         if let Some(ref name) = self.name {

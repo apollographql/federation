@@ -15,6 +15,20 @@ fn roundtrip(filename: &str) {
     assert_eq!(ast.to_string(), buf);
 }
 
+fn roundtrip2(filename: &str) {
+    let mut buf = String::with_capacity(1024);
+    let source = format!("tests/samples/{}.graphql", filename);
+    let target = format!("tests/samples/{}_canonical.graphql", filename);
+    let mut f = File::open(&source).unwrap();
+    f.read_to_string(&mut buf).unwrap();
+    let ast = parse_query(&buf).unwrap();
+
+    let mut buf = String::with_capacity(1024);
+    let mut f = File::open(&target).unwrap();
+    f.read_to_string(&mut buf).unwrap();
+    assert_eq!(ast.to_string(), buf);
+}
+
 #[test] fn minimal() { roundtrip("minimal"); }
 #[test] fn minimal_query() { roundtrip("minimal_query"); }
 #[test] fn named_query() { roundtrip("named_query"); }
@@ -32,5 +46,4 @@ fn roundtrip(filename: &str) {
 #[test] fn fragment_spread() { roundtrip("fragment_spread"); }
 #[test] fn minimal_mutation() { roundtrip("minimal_mutation"); }
 #[test] fn fragment() { roundtrip("fragment"); }
-// this one doesnt' work yet, we tackle all the features one by one
-//#[test] fn kitchen_sink() { roundtrip("kitchen-sink"); }
+#[test] fn kitchen_sink() { roundtrip2("kitchen-sink"); }
