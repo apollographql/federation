@@ -28,6 +28,7 @@ pub struct TokenStream<'a> {
     buf: &'a str,
     position: Pos,
     off: usize,
+    next_state: Option<(usize, Token<'a>, usize, Pos)>,
 }
 
 #[derive(Clone, Debug)]
@@ -43,10 +44,20 @@ impl<'a> StreamOnce for TokenStream<'a> {
     type Error = Errors<Token<'a>, Token<'a>, Pos>;
 
     fn uncons(&mut self) -> Result<Self::Item, Error<Token<'a>, Token<'a>>> {
+        if let Some((at, tok, off, pos)) = self.next_state {
+            if at == self.off {
+                self.off = off;
+                self.position = pos;
+                return Ok(tok);
+            }
+        }
+        let old_pos = self.off;
         let (kind, len) = self.peek_token()?;
         let value = &self.buf[self.off-len..self.off];
         self.skip_whitespace();
-        Ok(Token { kind, value })
+        let token = Token { kind, value };
+        self.next_state = Some((old_pos, token, self.off, self.position));
+        Ok(token)
     }
 }
 
@@ -111,6 +122,7 @@ impl<'a> TokenStream<'a> {
             buf: s,
             position: Pos { line: 1, column: 1 },
             off: 0,
+            next_state: None,
         };
         me.skip_whitespace();
         return me;
