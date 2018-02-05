@@ -17,9 +17,5 @@ authors = ["paul@colomiets.name"]
 combine = "3.0.0-beta.1"
 failure = "0.1.1"
 
-# for binaries
-structopt = "0.1.7"
-structopt-derive = "0.1.6"
-
 [dev-dependencies]
 pretty_assertions = "0.5.0"
