@@ -118,9 +118,9 @@ pub enum Value {
     String(String),
     Boolean(bool),
     Null,
-    EnumValue(Name),
-    ListValue(Vec<Value>),
-    ObjectValue(BTreeMap<Name, Value>),
+    Enum(Name),
+    List(Vec<Value>),
+    Object(BTreeMap<Name, Value>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
