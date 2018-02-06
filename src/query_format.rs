@@ -245,8 +245,8 @@ impl Displayable for Value {
             Value::Boolean(true) => f.write("true"),
             Value::Boolean(false) => f.write("false"),
             Value::Null => f.write("null"),
-            Value::EnumValue(ref name) => f.write(name),
-            Value::ListValue(ref items) => {
+            Value::Enum(ref name) => f.write(name),
+            Value::List(ref items) => {
                 f.write("[");
                 if items.len() > 0 {
                     items[0].display(f);
@@ -257,7 +257,7 @@ impl Displayable for Value {
                 }
                 f.write("]");
             }
-            Value::ObjectValue(ref items) => {
+            Value::Object(ref items) => {
                 f.write("{");
                 let mut first = true;
                 for (ref name, ref value) in items.iter() {
