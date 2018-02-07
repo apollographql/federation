@@ -274,11 +274,16 @@ pub fn query<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+/// A set of attributes common to a Query and a Mutation
+type OperationCommon = (
+    Option<String>,
+    Vec<VariableDefinition>,
+    Vec<Directive>,
+    SelectionSet,
+);
+
 pub fn operation_common<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<
-        (Option<String>, Vec<VariableDefinition>, Vec<Directive>,
-         SelectionSet),
-        TokenStream<'a>>
+    -> ParseResult<OperationCommon, TokenStream<'a>>
 {
     optional(name())
     .and(optional(

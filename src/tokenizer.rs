@@ -142,17 +142,22 @@ impl<'a> TokenStream<'a> {
             '(' | ')' | '[' | ']' | '{' | '}' => {
                 self.position.column += 1;
                 self.off += 1;
-                return Ok((Punctuator, 1));
+
+                Ok((Punctuator, 1))
             }
             '.' => {
                 if iter.as_str().starts_with("..") {
                     self.position.column += 3;
                     self.off += 3;
-                    return Ok((Punctuator, 3))
+
+                    Ok((Punctuator, 3))
                 } else {
-                    return Err(Error::unexpected_message(
+                    Err(
+                        Error::unexpected_message(
                         format_args!("bare dot {:?} is not supported, \
-                            only \"...\"", cur_char)));
+                            only \"...\"", cur_char)
+                        )
+                    )
                 }
             }
             '_' | 'a'...'z' | 'A'...'Z' => {
@@ -169,7 +174,8 @@ impl<'a> TokenStream<'a> {
                 let len = self.buf.len() - self.off;
                 self.position.column += len;
                 self.off += len;
-                return Ok((Name, len));
+
+                Ok((Name, len))
             }
             '-' | '0'...'9' => {
                 let mut exponent = None;
@@ -190,6 +196,7 @@ impl<'a> TokenStream<'a> {
                         _ => {},
                     }
                 };
+
                 if exponent.is_some() || real.is_some() {
                     let value = &self.buf[self.off..][..len];
                     if !check_float(value, exponent, real) {
@@ -198,7 +205,8 @@ impl<'a> TokenStream<'a> {
                     }
                     self.position.column += len;
                     self.off += len;
-                    return Ok((FloatValue, len));
+
+                    Ok((FloatValue, len))
                 } else {
                     let value = &self.buf[self.off..][..len];
                     if !check_int(value) {
@@ -207,20 +215,25 @@ impl<'a> TokenStream<'a> {
                     }
                     self.position.column += len;
                     self.off += len;
-                    return Ok((IntValue, len));
+
+                    Ok((IntValue, len))
                 }
             }
             '"' => {
                 if iter.as_str().starts_with("\"\"") {
                     let tail = &iter.as_str()[2..];
-                    for (endidx, _) in tail.match_indices("\"\"\"") {
-                        if !tail[..endidx].ends_with('\\') {
-                            self.update_position(endidx+6);
-                            return Ok((BlockString, endidx+6));
+                    for (end_idx, _) in tail.match_indices("\"\"\"") {
+                        if !tail[..end_idx].ends_with('\\') {
+                            self.update_position(end_idx + 6);
+                            return Ok((BlockString, end_idx + 6));
                         }
                     }
-                    return Err(Error::unexpected_message(
-                        "unterminated block string value"));
+
+                    Err(
+                        Error::unexpected_message(
+                        "unterminated block string value"
+                        )
+                    )
                 } else {
                     let mut prev_char = cur_char;
                     let mut nchars = 1;
@@ -234,8 +247,11 @@ impl<'a> TokenStream<'a> {
                                 return Ok((StringValue, idx+1));
                             }
                             '\n' => {
-                                return Err(Error::unexpected_message(
-                                    "unterminated string value"));
+                                return Err(
+                                    Error::unexpected_message(
+                                        "unterminated string value"
+                                    )
+                                );
                             }
                             _ => {
 
@@ -243,12 +259,18 @@ impl<'a> TokenStream<'a> {
                         }
                         prev_char = cur_char;
                     }
-                    return Err(Error::unexpected_message(
-                        "unterminated string value"));
+                    Err(
+                        Error::unexpected_message(
+                        "unterminated string value"
+                        )
+                    )
                 }
             }
-            _ => return Err(Error::unexpected_message(
-                format_args!("unexpected character {:?}", cur_char))),
+            _ => Err(
+                Error::unexpected_message(
+                    format_args!("unexpected character {:?}", cur_char)
+                )
+            ),
         }
     }
 
