@@ -23,7 +23,7 @@ pub struct Token<'a> {
     pub value: &'a str,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TokenStream<'a> {
     buf: &'a str,
     position: Pos,
@@ -31,7 +31,7 @@ pub struct TokenStream<'a> {
     next_state: Option<(usize, Token<'a>, usize, Pos)>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Checkpoint {
     position: Pos,
     off: usize,
@@ -85,7 +85,7 @@ impl<'a> Resetable for TokenStream<'a> {
 // by tokenizer
 fn check_int(value: &str) -> bool {
     return value == "0" || value == "-0" ||
-       (!value.starts_with("0") && value != "-" && !value.starts_with("-0")
+       (!value.starts_with('0') && value != "-" && !value.starts_with("-0")
        && value[1..].chars().all(|x| x >= '0' && x <= '9'));
 }
 

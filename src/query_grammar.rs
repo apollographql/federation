@@ -235,11 +235,11 @@ pub fn value<'a>(input: &mut TokenStream<'a>)
     parser(plain_value)
     .or(punct("$").with(name()).map(Value::Variable))
     .or(punct("[").with(many(parser(value))).skip(punct("]"))
-        .map(|lst| Value::List(lst)))
+        .map(Value::List))
     .or(punct("{")
         .with(many(name().skip(punct(":")).and(parser(value))))
         .skip(punct("}"))
-        .map(|lst| Value::Object(lst)))
+        .map(Value::Object))
     .parse_stream(input)
 }
 
@@ -248,11 +248,11 @@ pub fn default_value<'a>(input: &mut TokenStream<'a>)
 {
     parser(plain_value)
     .or(punct("[").with(many(parser(default_value))).skip(punct("]"))
-        .map(|lst| Value::List(lst)))
+        .map(Value::List))
     .or(punct("{")
         .with(many(name().skip(punct(":")).and(parser(default_value))))
         .skip(punct("}"))
-        .map(|map| Value::Object(map)))
+        .map(Value::Object))
     .parse_stream(input)
 }
 
