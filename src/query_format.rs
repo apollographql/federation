@@ -260,7 +260,7 @@ impl Displayable for Value {
             Value::Object(ref items) => {
                 f.write("{");
                 let mut first = true;
-                for (ref name, ref value) in items.iter() {
+                for (name, value) in items.iter() {
                     if first {
                         first = false;
                     } else {
