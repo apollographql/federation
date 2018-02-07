@@ -89,6 +89,7 @@ impl<'a> Parser for Value<'a> {
             c.kind == self.kind && c.value == self.value
         }).parse_lazy(input)
     }
+
     fn add_error(&mut self,
         error: &mut Tracked<<Self::Input as StreamOnce>::Error>)
     {
