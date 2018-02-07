@@ -274,9 +274,9 @@ impl<'a> TokenStream<'a> {
                 }
             }
             _ => Err(
-                Error::unexpected_message(
-                    format_args!("unexpected character {:?}", cur_char)
-                )
+                    Error::unexpected_message(
+                        format_args!("unexpected character {:?}", cur_char)
+                    )
             ),
         }
     }
