@@ -8,18 +8,18 @@ use tokenizer::{TokenStream, Kind, Token};
 use position::Pos;
 
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TokenMatch<'a> {
     kind: Kind,
     phantom: PhantomData<&'a u8>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct NameMatch<'a> {
     phantom: PhantomData<&'a u8>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Value<'a> {
     kind: Kind,
     value: &'static str,
@@ -89,6 +89,7 @@ impl<'a> Parser for Value<'a> {
             c.kind == self.kind && c.value == self.value
         }).parse_lazy(input)
     }
+
     fn add_error(&mut self,
         error: &mut Tracked<<Self::Input as StreamOnce>::Error>)
     {

@@ -1,6 +1,7 @@
 //! Formatting graphql
 use std::default::Default;
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct Formatter<'a> {
     buf: String,
     style: &'a Style,
@@ -44,19 +45,23 @@ impl<'a> Formatter<'a> {
             indent: 0,
         }
     }
+
     pub fn indent(&mut self) {
         for _ in 0..self.indent {
             self.buf.push(' ');
         }
     }
+
     pub fn endline(&mut self) {
         self.buf.push('\n');
     }
+
     pub fn start_block(&mut self) {
         self.buf.push('{');
         self.endline();
         self.indent += self.style.indent;
     }
+
     pub fn end_block(&mut self) {
         self.indent = self.indent.checked_sub(self.style.indent)
             .expect("negative indent");
@@ -64,17 +69,21 @@ impl<'a> Formatter<'a> {
         self.buf.push('}');
         self.endline();
     }
+
     pub fn margin(&mut self) {
-        if self.buf.len() != 0 {
+        if !self.buf.is_empty() {
             self.buf.push('\n');
         }
     }
+
     pub fn write(&mut self, s: &str) {
         self.buf.push_str(s);
     }
+
     pub fn into_string(self) -> String {
         self.buf
     }
+
     pub fn write_quoted(&mut self, s: &str) {
         let mut has_newline = false;
         let mut has_nonprintable = false;
@@ -105,7 +114,7 @@ impl<'a> Formatter<'a> {
             self.endline();
             self.indent += self.style.indent;
             for line in s.lines() {
-                if line.trim().len() != 0 {
+                if !line.trim().is_empty() {
                     self.indent();
                     self.write(&line.replace(r#"""""#, r#"\""""#));
                 }
