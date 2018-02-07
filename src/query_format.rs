@@ -87,7 +87,7 @@ impl Displayable for Selection {
 }
 
 fn format_arguments(arguments: &[(String, Value)], f: &mut Formatter) {
-    if arguments.len() > 0 {
+    if !arguments.is_empty() {
         f.write("(");
         f.write(&arguments[0].0);
         f.write(": ");
@@ -112,7 +112,7 @@ impl Displayable for Field {
         f.write(&self.name);
         format_arguments(&self.arguments, f);
         format_directives(&self.directives, f);
-        if self.selection_set.items.len() > 0 {
+        if !self.selection_set.items.is_empty() {
             f.write(" ");
             f.start_block();
             for item in &self.selection_set.items {
@@ -133,7 +133,7 @@ impl Displayable for Query {
         if let Some(ref name) = self.name {
             f.write(" ");
             f.write(name);
-            if self.variable_definitions.len() > 0 {
+            if !self.variable_definitions.is_empty() {
                 f.write("(");
                 self.variable_definitions[0].display(f);
                 for var in &self.variable_definitions[1..] {
@@ -161,7 +161,7 @@ impl Displayable for Mutation {
         if let Some(ref name) = self.name {
             f.write(" ");
             f.write(name);
-            if self.variable_definitions.len() > 0 {
+            if !self.variable_definitions.is_empty() {
                 f.write("(");
                 for var in &self.variable_definitions {
                     var.display(f);
@@ -187,7 +187,7 @@ impl Displayable for Subscription {
         if let Some(ref name) = self.name {
             f.write(" ");
             f.write(name);
-            if self.variable_definitions.len() > 0 {
+            if !self.variable_definitions.is_empty() {
                 f.write("(");
                 for var in &self.variable_definitions {
                     var.display(f);
@@ -248,7 +248,7 @@ impl Displayable for Value {
             Value::Enum(ref name) => f.write(name),
             Value::List(ref items) => {
                 f.write("[");
-                if items.len() > 0 {
+                if !items.is_empty() {
                     items[0].display(f);
                     for item in &items[1..] {
                         f.write(", ");

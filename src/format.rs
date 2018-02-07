@@ -65,7 +65,7 @@ impl<'a> Formatter<'a> {
         self.endline();
     }
     pub fn margin(&mut self) {
-        if self.buf.len() != 0 {
+        if !self.buf.is_empty() {
             self.buf.push('\n');
         }
     }
@@ -105,7 +105,7 @@ impl<'a> Formatter<'a> {
             self.endline();
             self.indent += self.style.indent;
             for line in s.lines() {
-                if line.trim().len() != 0 {
+                if !line.trim().is_empty() {
                     self.indent();
                     self.write(&line.replace(r#"""""#, r#"\""""#));
                 }

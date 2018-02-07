@@ -112,10 +112,13 @@ pub fn variable_type<'a>(input: &mut TokenStream<'a>)
         .map(Box::new)
         .map(VariableType::ListType))
     .and(optional(punct("!")).map(|v| v.is_some()))
-    .map(|(typ, strict)| match strict {
-        true => VariableType::NonNullType(Box::new(typ)),
-        false => typ,
-    })
+    .map(|(typ, strict)|
+        if strict {
+            VariableType::NonNullType(Box::new(typ))
+        } else {
+            typ
+        }
+    )
     .parse_stream(input)
 }
 
@@ -137,7 +140,7 @@ pub fn float_value<'a>(input: &mut TokenStream<'a>)
 
 fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
     let mut res = String::with_capacity(s.len());
-    debug_assert!(s.starts_with("\"") && s.ends_with("\""));
+    debug_assert!(s.starts_with('"') && s.ends_with('"'));
     let mut chars = s[1..s.len()-1].chars();
     while let Some(c) = chars.next() {
         match c {
@@ -161,7 +164,8 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
             c => res.push(c),
         }
     }
-    return Ok(res);
+
+    Ok(res)
 }
 
 fn unquote_block_string(src: &str) -> Result<String, Error<Token, Token>> {
@@ -180,7 +184,7 @@ fn unquote_block_string(src: &str) -> Result<String, Error<Token, Token>> {
     let mut lines = src[3..src.len()-3].lines();
     if let Some(first) = lines.next() {
         let stripped = first.trim();
-        if stripped.len() > 0 {
+        if !stripped.is_empty() {
             result.push_str(stripped);
             result.push('\n');
         }
@@ -193,10 +197,11 @@ fn unquote_block_string(src: &str) -> Result<String, Error<Token, Token>> {
         }
         result.push('\n');
     }
-    if result[last_line..].trim().len() == 0 {
+    if result[last_line..].trim().is_empty() {
         result.truncate(last_line);
     }
-    return Ok(result);
+
+    Ok(result)
 }
 
 pub fn string_value<'a>(input: &mut TokenStream<'a>)
