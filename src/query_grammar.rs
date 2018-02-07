@@ -378,6 +378,7 @@ pub fn parse_query(s: &str) -> Result<Document, QueryParseError> {
         .skip(eof())
         .parse_stream(&mut tokens)
         .map_err(|e| e.into_inner().error)?;
+
     Ok(doc)
 }
 

@@ -8,18 +8,18 @@ use tokenizer::{TokenStream, Kind, Token};
 use position::Pos;
 
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TokenMatch<'a> {
     kind: Kind,
     phantom: PhantomData<&'a u8>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct NameMatch<'a> {
     phantom: PhantomData<&'a u8>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Value<'a> {
     kind: Kind,
     value: &'static str,

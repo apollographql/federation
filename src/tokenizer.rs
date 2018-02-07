@@ -137,6 +137,7 @@ impl<'a> TokenStream<'a> {
             Some((_, x)) => x,
             None => return Err(Error::end_of_input()),
         };
+
         match cur_char {
             '!' | '$' | ':' | '=' | '@' | '|' |
             '(' | ')' | '[' | ']' | '{' | '}' => {
@@ -200,8 +201,11 @@ impl<'a> TokenStream<'a> {
                 if exponent.is_some() || real.is_some() {
                     let value = &self.buf[self.off..][..len];
                     if !check_float(value, exponent, real) {
-                        return Err(Error::unexpected_message(
-                            format_args!("unsupported float {:?}", value)));
+                        return Err(
+                            Error::unexpected_message(
+                                format_args!("unsupported float {:?}", value)
+                            )
+                        );
                     }
                     self.position.column += len;
                     self.off += len;
@@ -210,8 +214,11 @@ impl<'a> TokenStream<'a> {
                 } else {
                     let value = &self.buf[self.off..][..len];
                     if !check_int(value) {
-                        return Err(Error::unexpected_message(
-                            format_args!("unsupported integer {:?}", value)));
+                        return Err(
+                            Error::unexpected_message(
+                                format_args!("unsupported integer {:?}", value)
+                            )
+                        );
                     }
                     self.position.column += len;
                     self.off += len;
@@ -231,7 +238,7 @@ impl<'a> TokenStream<'a> {
 
                     Err(
                         Error::unexpected_message(
-                        "unterminated block string value"
+                            "unterminated block string value"
                         )
                     )
                 } else {
@@ -261,7 +268,7 @@ impl<'a> TokenStream<'a> {
                     }
                     Err(
                         Error::unexpected_message(
-                        "unterminated string value"
+                            "unterminated string value"
                         )
                     )
                 }
