@@ -1,14 +1,12 @@
-use tokenizer::TokenStream;
-
 use combine::{parser, ParseResult, Parser};
 use combine::easy::Error;
 use combine::error::StreamError;
 use combine::combinator::{many, many1, eof, optional, position};
 
-use query_error::{QueryParseError};
-use tokenizer::{Kind as T, Token};
+use tokenizer::{Kind as T, Token, TokenStream};
 use helpers::{punct, ident, kind, name};
-use query::*;
+use query::error::{QueryParseError};
+use query::ast::*;
 
 pub fn directives<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Vec<Directive>, TokenStream<'a>>
@@ -385,7 +383,7 @@ pub fn parse_query(s: &str) -> Result<Document, QueryParseError> {
 #[cfg(test)]
 mod test {
     use position::Pos;
-    use query::*;
+    use query::grammar::*;
     use super::parse_query;
 
     fn ast(s: &str) -> Document {

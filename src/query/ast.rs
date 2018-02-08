@@ -7,8 +7,6 @@
 //!
 use std::collections::BTreeMap;
 
-pub use query_error::QueryParseError as ParseError;
-
 use position::Pos;
 
 /// An alias for string, used where graphql expects a name
