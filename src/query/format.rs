@@ -1,6 +1,9 @@
 use std::fmt;
-use format::{Displayable, Formatter, Style};
-use query::*;
+
+use ::format::{Displayable, Formatter, Style};
+
+use query::ast::*;
+
 
 impl Document {
     /// Format a document according to style

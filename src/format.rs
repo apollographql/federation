@@ -1,6 +1,7 @@
 //! Formatting graphql
 use std::default::Default;
 
+
 #[derive(Debug, PartialEq)]
 pub(crate) struct Formatter<'a> {
     buf: String,
