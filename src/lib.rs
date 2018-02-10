@@ -51,6 +51,7 @@ mod position;
 mod tokenizer;
 mod helpers;
 mod query;
+mod schema;
 
 pub use query::{parse_query, QueryParseError};
 pub use position::Pos;
