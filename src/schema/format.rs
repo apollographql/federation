@@ -108,6 +108,19 @@ impl Displayable for ScalarTypeExtension {
     }
 }
 
+fn format_fields(fields: &[Field], f: &mut Formatter) {
+    if !fields.is_empty() {
+        f.write(" ");
+        f.start_block();
+        for fld in fields {
+            fld.display(f);
+        }
+        f.end_block();
+    } else {
+        f.endline();
+    }
+}
+
 impl Displayable for ObjectType {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
@@ -123,16 +136,7 @@ impl Displayable for ObjectType {
             }
         }
         format_directives(&self.directives, f);
-        if !self.fields.is_empty() {
-            f.write(" ");
-            f.start_block();
-            for fld in &self.fields {
-                fld.display(f);
-            }
-            f.end_block();
-        } else {
-            f.endline();
-        }
+        format_fields(&self.fields, f);
     }
 }
 
@@ -150,16 +154,7 @@ impl Displayable for ObjectTypeExtension {
             }
         }
         format_directives(&self.directives, f);
-        if !self.fields.is_empty() {
-            f.write(" ");
-            f.start_block();
-            for fld in &self.fields {
-                fld.display(f);
-            }
-            f.end_block();
-        } else {
-            f.endline();
-        }
+        format_fields(&self.fields, f);
     }
 }
 
@@ -207,7 +202,12 @@ impl Displayable for Field {
 
 impl Displayable for InterfaceType {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        description(&self.description, f);
+        f.indent();
+        f.write("interface ");
+        f.write(&self.name);
+        format_directives(&self.directives, f);
+        format_fields(&self.fields, f);
     }
 }
 

@@ -146,6 +146,15 @@ pub fn field<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+pub fn fields<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<Field>, TokenStream<'a>>
+{
+    optional(punct("{").with(many1(parser(field))).skip(punct("}")))
+    .map(|v| v.unwrap_or_else(Vec::new))
+    .parse_stream(input)
+}
+
+
 pub fn object_type<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<ObjectType, TokenStream<'a>>
 {
@@ -154,12 +163,11 @@ pub fn object_type<'a>(input: &mut TokenStream<'a>)
         ident("type").with(name()),
         parser(implements_interfaces),
         parser(directives),
-        optional(punct("{").with(many1(parser(field))).skip(punct("}"))),
+        parser(fields),
     )
         .map(|(position, name, interfaces, directives, fields)| {
             ObjectType {
-                position, description: None, name, directives,
-                fields: fields.unwrap_or_else(Vec::new),
+                position, description: None, name, directives, fields,
                 implements_interfaces: interfaces,
             }
         })
@@ -174,11 +182,11 @@ pub fn object_type_extension<'a>(input: &mut TokenStream<'a>)
         ident("extend").and(ident("type")).with(name()),
         parser(implements_interfaces),
         parser(directives),
-        optional(punct("{").with(many1(parser(field))).skip(punct("}"))),
+        parser(fields),
     )
         .flat_map(|(position, name, interfaces, directives, fields)| {
             if interfaces.is_empty() && directives.is_empty() &&
-                fields.is_none()
+                fields.is_empty()
             {
                 let mut e = Errors::empty(position);
                 e.add_error(Error::expected_static_message(
@@ -187,10 +195,27 @@ pub fn object_type_extension<'a>(input: &mut TokenStream<'a>)
                 return Err(e);
             }
             Ok(ObjectTypeExtension {
-                position, name, directives,
-                fields: fields.unwrap_or_else(Vec::new),
+                position, name, directives, fields,
                 implements_interfaces: interfaces,
             })
+        })
+        .parse_stream(input)
+}
+
+pub fn interface_type<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<InterfaceType, TokenStream<'a>>
+{
+    (
+        position(),
+        ident("interface").with(name()),
+        parser(directives),
+        parser(fields),
+    )
+        .map(|(position, name, directives, fields)| {
+            InterfaceType {
+                position, name, directives, fields,
+                description: None,
+            }
         })
         .parse_stream(input)
 }
@@ -203,6 +228,7 @@ pub fn type_definition<'a>(input: &mut TokenStream<'a>)
         choice((
             parser(scalar_type).map(TypeDefinition::Scalar),
             parser(object_type).map(TypeDefinition::Object),
+            parser(interface_type).map(TypeDefinition::Interface),
         )),
     )
         // We can't set description inside type definition parser, because
