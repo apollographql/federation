@@ -242,7 +242,19 @@ impl Displayable for UnionType {
 
 impl Displayable for UnionTypeExtension {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        f.indent();
+        f.write("extend union ");
+        f.write(&self.name);
+        format_directives(&self.directives, f);
+        if !self.types.is_empty() {
+            f.write(" = ");
+            f.write(&self.types[0]);
+            for typ in &self.types[1..] {
+                f.write(" | ");
+                f.write(typ);
+            }
+        }
+        f.endline();
     }
 }
 

@@ -40,5 +40,6 @@ fn roundtrip2(filename: &str) {
 #[test] fn extend_interface() { roundtrip("extend_interface"); }
 #[test] fn union() { roundtrip("union"); }
 #[test] fn empty_union() { roundtrip("empty_union"); }
+#[test] fn union_extension() { roundtrip("union_extension"); }
 // Not yet fully supported
 //#[test] fn kitchen_sink() { roundtrip2("kitchen-sink"); }

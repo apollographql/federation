@@ -130,6 +130,7 @@ pub struct UnionType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnionTypeExtension {
+    pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
     pub types: Vec<NamedType>,
