@@ -5,6 +5,11 @@ commands:
     container: ubuntu
     run: [cargo, build]
 
+  make-wasm: !Command
+    description: Build wasm library (just to check it's buildable)
+    container: wasm
+    run: [cargo, build, --target=wasm32-unknown-unknown]
+
   cargo: !Command
     description: Run arbitrary cargo command
     symlink-name: cargo
@@ -41,3 +46,19 @@ containers:
       HOME: /work/target
       RUST_BACKTRACE: 1
 
+  wasm:
+    environ: &rustenv
+      PATH: /usr/local/bin:/usr/bin:/bin
+      HOME: /work/target
+      RUST_BACKTRACE: 1
+    setup:
+    - !Ubuntu xenial
+    - !UbuntuUniverse
+    - &pkgs !Install [build-essential, ca-certificates, vim]
+    - &rust !TarInstall
+      url: https://static.rust-lang.org/dist/rust-beta-x86_64-unknown-linux-gnu.tar.gz
+      script: "./install.sh --prefix=/usr --components=rustc,cargo \
+               --components=rustc,rust-std-x86_64-unknown-linux-gnu,cargo"
+    - !TarInstall
+      url: "https://static.rust-lang.org/dist/rust-std-beta-wasm32-unknown-unknown.tar.gz"
+      script: "./install.sh --prefix=/usr --components=rust-std-wasm32-unknown-unknown"
