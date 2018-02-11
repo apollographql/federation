@@ -213,6 +213,7 @@ impl Displayable for InterfaceType {
 
 impl Displayable for InterfaceTypeExtension {
     fn display(&self, f: &mut Formatter) {
+        f.indent();
         f.write("extend interface ");
         f.write(&self.name);
         format_directives(&self.directives, f);
@@ -222,7 +223,20 @@ impl Displayable for InterfaceTypeExtension {
 
 impl Displayable for UnionType {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        description(&self.description, f);
+        f.indent();
+        f.write("union ");
+        f.write(&self.name);
+        format_directives(&self.directives, f);
+        f.write(" = ");
+        if !self.types.is_empty() {
+            f.write(&self.types[0]);
+            for typ in &self.types[1..] {
+                f.write(" | ");
+                f.write(typ);
+            }
+        }
+        f.endline();
     }
 }
 

@@ -121,6 +121,7 @@ pub struct InterfaceTypeExtension {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnionType {
+    pub position: Pos,
     pub description: Option<String>,
     pub name: Name,
     pub directives: Vec<Directive>,

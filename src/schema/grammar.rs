@@ -167,8 +167,9 @@ pub fn object_type<'a>(input: &mut TokenStream<'a>)
     )
         .map(|(position, name, interfaces, directives, fields)| {
             ObjectType {
-                position, description: None, name, directives, fields,
+                position, name, directives, fields,
                 implements_interfaces: interfaces,
+                description: None,  // is filled in type_definition
             }
         })
         .parse_stream(input)
@@ -214,7 +215,7 @@ pub fn interface_type<'a>(input: &mut TokenStream<'a>)
         .map(|(position, name, directives, fields)| {
             InterfaceType {
                 position, name, directives, fields,
-                description: None,
+                description: None,  // is filled in type_definition
             }
         })
         .parse_stream(input)
@@ -244,6 +245,32 @@ pub fn interface_type_extension<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
+pub fn union_members<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<NamedType>, TokenStream<'a>>
+{
+    optional(punct("|"))
+    .with(sep_by1(name(), punct("|")))
+    .parse_stream(input)
+}
+
+pub fn union_type<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<UnionType, TokenStream<'a>>
+{
+    (
+        position(),
+        ident("union").with(name()),
+        parser(directives),
+        punct("=").with(parser(union_members)),
+    )
+    .map(|(position, name, directives, types)| {
+        UnionType {
+            position, name, directives, types,
+            description: None,  // is filled in type_definition
+        }
+    })
+    .parse_stream(input)
+}
+
 pub fn type_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<TypeDefinition, TokenStream<'a>>
 {
@@ -253,6 +280,7 @@ pub fn type_definition<'a>(input: &mut TokenStream<'a>)
             parser(scalar_type).map(TypeDefinition::Scalar),
             parser(object_type).map(TypeDefinition::Object),
             parser(interface_type).map(TypeDefinition::Interface),
+            parser(union_type).map(TypeDefinition::Union),
         )),
     )
         // We can't set description inside type definition parser, because
