@@ -118,8 +118,29 @@ impl Displayable for ObjectType {
         }
         format_directives(&self.directives, f);
         if !self.fields.is_empty() {
+            f.write(" ");
+            f.start_block();
+            for fld in &self.fields {
+                fld.display(f);
+            }
+            f.end_block();
+        } else {
+            f.endline();
+        }
+    }
+}
+
+impl Displayable for Field {
+    fn display(&self, f: &mut Formatter) {
+        description(&self.description, f);
+        f.indent();
+        f.write(&self.name);
+        if !self.arguments.is_empty() {
             unimplemented!();
         }
+        f.write(": ");
+        self.field_type.display(f);
+        format_directives(&self.directives, f);
         f.endline();
     }
 }

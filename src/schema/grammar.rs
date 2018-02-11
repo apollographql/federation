@@ -6,7 +6,7 @@ use combine::combinator::{sep_by1};
 
 use tokenizer::{Kind as T, Token, TokenStream};
 use helpers::{punct, ident, kind, name};
-use common::{directives, string};
+use common::{directives, string, default_value, parse_type};
 use schema::error::{SchemaParseError};
 use schema::ast::*;
 
@@ -99,6 +99,53 @@ pub fn implements_interfaces<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
+pub fn input_value<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<InputValue, TokenStream<'a>>
+{
+    (
+        position(),
+        optional(parser(string)),
+        name(),
+        punct(":").with(parser(parse_type)),
+        optional(punct("=").with(parser(default_value))),
+        parser(directives),
+    )
+    .map(|(position, description, name, value_type, default_value, directives)|
+    {
+        InputValue {
+            position, description, name, value_type, default_value, directives,
+        }
+    })
+    .parse_stream(input)
+}
+
+pub fn arguments_definition<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<InputValue>, TokenStream<'a>>
+{
+    optional(punct("(").with(many1(parser(input_value))).skip(punct(")")))
+    .map(|v| v.unwrap_or_else(Vec::new))
+    .parse_stream(input)
+}
+
+pub fn field<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Field, TokenStream<'a>>
+{
+    (
+        position(),
+        optional(parser(string)),
+        name(),
+        parser(arguments_definition),
+        punct(":").with(parser(parse_type)),
+        parser(directives),
+    )
+    .map(|(position, description, name, arguments, field_type, directives)| {
+        Field {
+            position, description, name, arguments, field_type, directives
+        }
+    })
+    .parse_stream(input)
+}
+
 pub fn object_type<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<ObjectType, TokenStream<'a>>
 {
@@ -107,12 +154,13 @@ pub fn object_type<'a>(input: &mut TokenStream<'a>)
         ident("type").with(name()),
         parser(implements_interfaces),
         parser(directives),
+        optional(punct("{").with(many1(parser(field))).skip(punct("}"))),
     )
-        .map(|(position, name, interfaces, directives)| {
+        .map(|(position, name, interfaces, directives, fields)| {
             ObjectType {
                 position, description: None, name, directives,
+                fields: fields.unwrap_or_else(Vec::new),
                 implements_interfaces: interfaces,
-                fields: Vec::new(),  // TODO(tailhook)
             }
         })
         .parse_stream(input)

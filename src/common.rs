@@ -234,3 +234,23 @@ pub fn default_value<'a>(input: &mut TokenStream<'a>)
         .map(Value::Object))
     .parse_stream(input)
 }
+
+pub fn parse_type<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Type, TokenStream<'a>>
+{
+    name().map(Type::NamedType)
+    .or(punct("[")
+        .with(parser(parse_type))
+        .skip(punct("]"))
+        .map(Box::new)
+        .map(Type::ListType))
+    .and(optional(punct("!")).map(|v| v.is_some()))
+    .map(|(typ, strict)|
+        if strict {
+            Type::NonNullType(Box::new(typ))
+        } else {
+            typ
+        }
+    )
+    .parse_stream(input)
+}

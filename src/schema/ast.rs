@@ -83,6 +83,7 @@ pub struct ObjectTypeExtension {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
+    pub position: Pos,
     pub description: Option<String>,
     pub name: Name,
     pub arguments: Vec<InputValue>,
@@ -92,10 +93,11 @@ pub struct Field {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputValue {
+    pub position: Pos,
     pub description: Option<String>,
     pub name: Name,
     pub value_type: Type,
-    pub default_value: Value,
+    pub default_value: Option<Value>,
     pub directives: Vec<Directive>,
 }
 

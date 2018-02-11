@@ -4,7 +4,7 @@ use combine::error::StreamError;
 use combine::combinator::{many, many1, eof, optional, position};
 
 use common::{Directive, Name, Value, Type};
-use common::{directives, arguments, default_value, value};
+use common::{directives, arguments, default_value, value, parse_type};
 use tokenizer::{Kind as T, Token, TokenStream};
 use helpers::{punct, ident, kind, name};
 use query::error::{QueryParseError};
@@ -74,26 +74,6 @@ pub fn selection_set<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn variable_type<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Type, TokenStream<'a>>
-{
-    name().map(Type::NamedType)
-    .or(punct("[")
-        .with(parser(variable_type))
-        .skip(punct("]"))
-        .map(Box::new)
-        .map(Type::ListType))
-    .and(optional(punct("!")).map(|v| v.is_some()))
-    .map(|(typ, strict)|
-        if strict {
-            Type::NonNullType(Box::new(typ))
-        } else {
-            typ
-        }
-    )
-    .parse_stream(input)
-}
-
 pub fn query<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Query, TokenStream<'a>>
 {
@@ -125,7 +105,7 @@ pub fn operation_common<'a>(input: &mut TokenStream<'a>)
             (
                 position(),
                 punct("$").with(name()).skip(punct(":")),
-                parser(variable_type),
+                parser(parse_type),
                 optional(
                     punct("=")
                     .with(parser(default_value))),
