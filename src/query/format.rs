@@ -1,6 +1,6 @@
 use std::fmt;
 
-use ::format::{Displayable, Formatter, Style};
+use ::format::{Displayable, Formatter, Style, format_directives};
 
 use query::ast::*;
 
@@ -279,13 +279,6 @@ impl Displayable for Value {
     }
 }
 
-fn format_directives(dirs: &[Directive], f: &mut Formatter) {
-    for dir in dirs {
-        f.write(" ");
-        dir.display(f);
-    }
-}
-
 impl Displayable for InlineFragment {
     fn display(&self, f: &mut Formatter) {
         f.indent();
@@ -334,7 +327,7 @@ impl Displayable for Directive {
 }
 
 macro_rules! impl_display {
-    ($( $typ: ident ),+) => {
+    ($( $typ: ident, )+) => {
         $(
             impl fmt::Display for $typ {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -360,6 +353,6 @@ impl_display!(
     InlineFragment,
     TypeCondition,
     FragmentSpread,
-    Directive
+    Directive,
 );
 

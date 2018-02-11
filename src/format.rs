@@ -1,6 +1,8 @@
 //! Formatting graphql
 use std::default::Default;
 
+use common::Directive;
+
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Formatter<'a> {
@@ -125,5 +127,12 @@ impl<'a> Formatter<'a> {
             self.indent();
             self.buf.push_str(r#"""""#);
         }
+    }
+}
+
+pub(crate) fn format_directives(dirs: &[Directive], f: &mut Formatter) {
+    for dir in dirs {
+        f.write(" ");
+        dir.display(f);
     }
 }
