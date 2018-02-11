@@ -40,6 +40,7 @@ impl Displayable for Document {
 
 impl Displayable for Definition {
     fn display(&self, f: &mut Formatter) {
+        f.margin();
         match *self {
             Definition::SchemaDefinition(ref s) => s.display(f),
             Definition::TypeDefinition(ref t) => t.display(f),
@@ -283,8 +284,9 @@ impl Displayable for EnumType {
                 f.endline();
             }
             f.end_block();
+        } else {
+            f.endline();
         }
-        f.endline();
     }
 }
 

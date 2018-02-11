@@ -47,5 +47,4 @@ fn roundtrip2(filename: &str) {
 #[test] fn input_type() { roundtrip("input_type"); }
 #[test] fn extend_input() { roundtrip2("extend_input"); }
 #[test] fn directive() { roundtrip("directive"); }
-// Not yet fully supported
-// #[test] fn kitchen_sink() { roundtrip2("kitchen-sink"); }
+#[test] fn kitchen_sink() { roundtrip2("kitchen-sink"); }

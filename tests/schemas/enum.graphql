@@ -2,4 +2,3 @@ enum Site {
   DESKTOP
   MOBILE
 }
-
