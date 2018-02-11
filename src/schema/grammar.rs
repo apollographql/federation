@@ -87,12 +87,32 @@ pub fn scalar_type<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
+pub fn object_type<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<ObjectType, TokenStream<'a>>
+{
+    (
+        position(),
+        optional(parser(string)),
+        ident("type").with(name()),
+        //parser(implements_interfaces),
+        parser(directives),
+    )
+        .map(|(position, description, name, directives)| {
+            ObjectType {
+                position, description, name, directives,
+                implements_interfaces: Vec::new(),  // TODO(tailhook)
+                fields: Vec::new(),  // TODO(tailhook)
+            }
+        })
+        .parse_stream(input)
+}
+
 pub fn type_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<TypeDefinition, TokenStream<'a>>
 {
     choice((
         parser(scalar_type).map(TypeDefinition::Scalar),
-        parser(scalar_type).map(TypeDefinition::Scalar),
+        parser(object_type).map(TypeDefinition::Object),
     )).parse_stream(input)
 }
 

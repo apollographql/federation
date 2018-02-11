@@ -31,3 +31,6 @@ fn roundtrip2(filename: &str) {
 
 #[test] fn minimal() { roundtrip("minimal"); }
 #[test] fn scalar_type() { roundtrip("scalar_type"); }
+#[test] fn minimal_type() { roundtrip("minimal_type"); }
+// Not yet fully supported
+//#[test] fn kitchen_sink() { roundtrip2("kitchen-sink"); }

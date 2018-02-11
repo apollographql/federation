@@ -21,6 +21,14 @@ fn to_string<T: Displayable>(v: &T) -> String {
     formatter.into_string()
 }
 
+fn description(description: &Option<String>, f: &mut Formatter) {
+    if let Some(ref descr) = *description {
+        f.indent();
+        f.write_quoted(descr);
+        f.endline();
+    }
+}
+
 
 impl Displayable for Document {
     fn display(&self, f: &mut Formatter) {
@@ -85,11 +93,7 @@ impl Displayable for TypeDefinition {
 
 impl Displayable for ScalarType {
     fn display(&self, f: &mut Formatter) {
-        if let Some(ref descr) = self.description {
-            f.indent();
-            f.write_quoted(descr);
-            f.endline();
-        }
+        description(&self.description, f);
         f.indent();
         f.write("scalar ");
         f.write(&self.name);
@@ -100,7 +104,16 @@ impl Displayable for ScalarType {
 
 impl Displayable for ObjectType {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        description(&self.description, f);
+        f.indent();
+        f.write("type ");
+        f.write(&self.name);
+        // TODO(tailhook) impl
+        format_directives(&self.directives, f);
+        if !self.fields.is_empty() {
+            unimplemented!();
+        }
+        f.endline();
     }
 }
 

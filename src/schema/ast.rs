@@ -65,6 +65,7 @@ pub struct ScalarTypeExtension {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObjectType {
+    pub position: Pos,
     pub description: Option<String>,
     pub name: Name,
     pub implements_interfaces: Vec<NamedType>,
@@ -152,6 +153,7 @@ pub struct EnumTypeExtension {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputObjectType {
+    pub position: Pos,
     pub description: Option<String>,
     pub name: Name,
     pub directives: Vec<Directive>,
