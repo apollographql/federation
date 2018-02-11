@@ -2,6 +2,7 @@ use std::str::FromStr;
 use std::collections::HashSet;
 
 pub use common::{Directive, Type, Name, Value};
+use position::Pos;
 
 pub type NamedType = String;
 
@@ -21,10 +22,11 @@ pub enum Definition {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SchemaDefinition {
-    directives: Vec<Directive>,
-    query: Option<NamedType>,
-    mutation: Option<NamedType>,
-    subscription: Option<NamedType>,
+    pub position: Pos,
+    pub directives: Vec<Directive>,
+    pub query: Option<NamedType>,
+    pub mutation: Option<NamedType>,
+    pub subscription: Option<NamedType>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -49,117 +51,117 @@ pub enum TypeExtension {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScalarType {
-    description: Option<String>,
-    name: Name,
-    directives: Vec<Directive>,
+    pub description: Option<String>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScalarTypeExtension {
-    name: Name,
-    directives: Vec<Directive>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObjectType {
-    description: Option<String>,
-    name: Name,
-    implements_interfaces: Vec<NamedType>,
-    directives: Vec<Directive>,
-    fields: Vec<Field>,
+    pub description: Option<String>,
+    pub name: Name,
+    pub implements_interfaces: Vec<NamedType>,
+    pub directives: Vec<Directive>,
+    pub fields: Vec<Field>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObjectTypeExtension {
-    name: Name,
-    implements_interfaces: Vec<NamedType>,
-    directives: Vec<Directive>,
-    fields: Vec<Field>,
+    pub name: Name,
+    pub implements_interfaces: Vec<NamedType>,
+    pub directives: Vec<Directive>,
+    pub fields: Vec<Field>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
-    description: Option<String>,
-    name: Name,
-    arguments: Vec<InputValue>,
-    field_type: Type,
-    directives: Vec<Directive>,
+    pub description: Option<String>,
+    pub name: Name,
+    pub arguments: Vec<InputValue>,
+    pub field_type: Type,
+    pub directives: Vec<Directive>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputValue {
-    description: Option<String>,
-    name: Name,
-    value_type: Type,
-    default_value: Value,
-    directives: Vec<Directive>,
+    pub description: Option<String>,
+    pub name: Name,
+    pub value_type: Type,
+    pub default_value: Value,
+    pub directives: Vec<Directive>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceType {
-    description: Option<String>,
-    name: Name,
-    directives: Vec<Directive>,
-    fields: Vec<Field>,
+    pub description: Option<String>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
+    pub fields: Vec<Field>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceTypeExtension {
-    name: Name,
-    directives: Vec<Directive>,
-    fields: Vec<Field>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
+    pub fields: Vec<Field>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnionType {
-    description: Option<String>,
-    name: Name,
-    directives: Vec<Directive>,
-    types: Vec<NamedType>,
+    pub description: Option<String>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
+    pub types: Vec<NamedType>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnionTypeExtension {
-    name: Name,
-    directives: Vec<Directive>,
-    types: Vec<NamedType>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
+    pub types: Vec<NamedType>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumType {
-    description: Option<String>,
-    name: Name,
-    directives: Vec<Directive>,
-    values: Vec<EnumValue>,
+    pub description: Option<String>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
+    pub values: Vec<EnumValue>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumValue {
-    description: Option<String>,
-    name: Name,
-    directives: Vec<Directive>,
+    pub description: Option<String>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumTypeExtension {
-    name: Name,
-    directives: Vec<Directive>,
-    values: Vec<EnumValue>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
+    pub values: Vec<EnumValue>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputObjectType {
-    description: Option<String>,
-    name: Name,
-    directives: Vec<Directive>,
-    fields: Vec<InputValue>,
+    pub description: Option<String>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
+    pub fields: Vec<InputValue>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputObjectTypeExtension {
-    name: Name,
-    directives: Vec<Directive>,
-    fields: Vec<InputValue>,
+    pub name: Name,
+    pub directives: Vec<Directive>,
+    pub fields: Vec<InputValue>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -188,11 +190,11 @@ pub enum DirectiveLocation {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DirectiveDefinition {
-    description: Option<String>,
-    name: Name,
-    arguments: Vec<InputValue>,
+    pub description: Option<String>,
+    pub name: Name,
+    pub arguments: Vec<InputValue>,
     // TODO(tailhook) probably convert to a bitset
-    locations: HashSet<DirectiveLocation>,
+    pub locations: HashSet<DirectiveLocation>,
 }
 
 impl DirectiveLocation {
