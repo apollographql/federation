@@ -205,11 +205,11 @@ pub enum DirectiveLocation {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DirectiveDefinition {
+    pub position: Pos,
     pub description: Option<String>,
     pub name: Name,
     pub arguments: Vec<InputValue>,
-    // TODO(tailhook) probably convert to a bitset
-    pub locations: HashSet<DirectiveLocation>,
+    pub locations: Vec<DirectiveLocation>,
 }
 
 impl DirectiveLocation {

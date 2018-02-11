@@ -3,6 +3,7 @@ use combine::easy::{Error, Errors};
 use combine::error::StreamError;
 use combine::combinator::{many, many1, eof, optional, position, choice};
 use combine::combinator::{sep_by1};
+use failure::Fail;
 
 use tokenizer::{Kind as T, Token, TokenStream};
 use helpers::{punct, ident, kind, name};
@@ -431,18 +432,52 @@ pub fn input_object_type_extension<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
+pub fn directive_locations<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<DirectiveLocation>, TokenStream<'a>>
+{
+    optional(
+        optional(punct("|"))
+        .with(sep_by1(
+            kind(T::Name)
+                .and_then(|tok| tok.value.parse::<DirectiveLocation>()
+                                .map_err(|e| e.compat())),
+            punct("|")))
+    )
+        .map(|opt| opt.unwrap_or_else(Vec::new))
+        .parse_stream(input)
+}
+
+pub fn directive_definition<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<DirectiveDefinition, TokenStream<'a>>
+{
+    (
+        position(),
+        ident("directive").and(punct("@")).with(name()),
+        parser(arguments_definition),
+        ident("on").with(parser(directive_locations)),
+    )
+        .map(|(position, name, arguments, locations)| {
+            DirectiveDefinition {
+                position, name, arguments, locations,
+                description: None,  // is filled in type_definition
+            }
+        })
+        .parse_stream(input)
+}
+
 pub fn type_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<TypeDefinition, TokenStream<'a>>
 {
+    use self::TypeDefinition::*;
     (
         optional(parser(string)),
         choice((
-            parser(scalar_type).map(TypeDefinition::Scalar),
-            parser(object_type).map(TypeDefinition::Object),
-            parser(interface_type).map(TypeDefinition::Interface),
-            parser(union_type).map(TypeDefinition::Union),
-            parser(enum_type).map(TypeDefinition::Enum),
-            parser(input_object_type).map(TypeDefinition::InputObject),
+            parser(scalar_type).map(Scalar),
+            parser(object_type).map(Object),
+            parser(interface_type).map(Interface),
+            parser(union_type).map(Union),
+            parser(enum_type).map(Enum),
+            parser(input_object_type).map(InputObject),
         )),
     )
         // We can't set description inside type definition parser, because
@@ -486,6 +521,7 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
         parser(schema).map(Definition::SchemaDefinition),
         parser(type_definition).map(Definition::TypeDefinition),
         parser(type_extension).map(Definition::TypeExtension),
+        parser(directive_definition).map(Definition::DirectiveDefinition),
     )).parse_stream(input)
 }
 

@@ -365,7 +365,24 @@ impl Displayable for TypeExtension {
 
 impl Displayable for DirectiveDefinition {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        description(&self.description, f);
+        f.indent();
+        f.write("directive @");
+        f.write(&self.name);
+        format_arguments(&self.arguments, f);
+        if !self.locations.is_empty() {
+            f.write(" on ");
+            let mut first = true;
+            for loc in &self.locations {
+                if first {
+                    first = false;
+                } else {
+                    f.write(" | ");
+                }
+                f.write(loc.as_str());
+            }
+        }
+        f.endline();
     }
 }
 
@@ -389,22 +406,20 @@ impl_display!(
     SchemaDefinition,
     TypeDefinition,
     TypeExtension,
-    // ScalarType,
-    // ScalarTypeExtension,
-    // ObjectType,
-    // ObjectTypeExtension,
-    // Field,
-    // InputValue,
-    // InterfaceType,
-    // InterfaceTypeExtension,
-    // UnionType,
-    // UnionTypeExtension,
-    // EnumType,
-    // EnumValue,
-    // EnumTypeExtension,
-    // InputObjectType,
-    // InputObjectTypeExtension,
-    // DirectiveLocation,
-    // DirectiveDefinition,
+    ScalarType,
+    ScalarTypeExtension,
+    ObjectType,
+    ObjectTypeExtension,
+    Field,
+    InputValue,
+    InterfaceType,
+    InterfaceTypeExtension,
+    UnionType,
+    UnionTypeExtension,
+    EnumType,
+    EnumTypeExtension,
+    InputObjectType,
+    InputObjectTypeExtension,
+    DirectiveDefinition,
 );
 
