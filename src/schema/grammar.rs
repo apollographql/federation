@@ -166,6 +166,35 @@ pub fn object_type<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
+pub fn object_type_extension<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<ObjectTypeExtension, TokenStream<'a>>
+{
+    (
+        position(),
+        ident("extend").and(ident("type")).with(name()),
+        parser(implements_interfaces),
+        parser(directives),
+        optional(punct("{").with(many1(parser(field))).skip(punct("}"))),
+    )
+        .flat_map(|(position, name, interfaces, directives, fields)| {
+            if interfaces.is_empty() && directives.is_empty() &&
+                fields.is_none()
+            {
+                let mut e = Errors::empty(position);
+                e.add_error(Error::expected_static_message(
+                    "Object type extension should contain at least \
+                     one interface, directive or field."));
+                return Err(e);
+            }
+            Ok(ObjectTypeExtension {
+                position, name, directives,
+                fields: fields.unwrap_or_else(Vec::new),
+                implements_interfaces: interfaces,
+            })
+        })
+        .parse_stream(input)
+}
+
 pub fn type_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<TypeDefinition, TokenStream<'a>>
 {
@@ -194,6 +223,16 @@ pub fn type_definition<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
+pub fn type_extension<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<TypeExtension, TokenStream<'a>>
+{
+    choice((
+        parser(object_type_extension).map(TypeExtension::Object),
+        parser(object_type_extension).map(TypeExtension::Object),
+    ))
+    .parse_stream(input)
+}
+
 
 pub fn definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Definition, TokenStream<'a>>
@@ -201,6 +240,7 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
     choice((
         parser(schema).map(Definition::SchemaDefinition),
         parser(type_definition).map(Definition::TypeDefinition),
+        parser(type_extension).map(Definition::TypeExtension),
     )).parse_stream(input)
 }
 

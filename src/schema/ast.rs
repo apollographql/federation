@@ -75,6 +75,7 @@ pub struct ObjectType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObjectTypeExtension {
+    pub position: Pos,
     pub name: Name,
     pub implements_interfaces: Vec<NamedType>,
     pub directives: Vec<Directive>,

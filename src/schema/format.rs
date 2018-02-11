@@ -102,6 +102,12 @@ impl Displayable for ScalarType {
     }
 }
 
+impl Displayable for ScalarTypeExtension {
+    fn display(&self, f: &mut Formatter) {
+        unimplemented!();
+    }
+}
+
 impl Displayable for ObjectType {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
@@ -130,14 +136,68 @@ impl Displayable for ObjectType {
     }
 }
 
+impl Displayable for ObjectTypeExtension {
+    fn display(&self, f: &mut Formatter) {
+        f.indent();
+        f.write("extend type ");
+        f.write(&self.name);
+        if !self.implements_interfaces.is_empty() {
+            f.write(" implements ");
+            f.write(&self.implements_interfaces[0]);
+            for name in &self.implements_interfaces[1..] {
+                f.write(" & ");
+                f.write(name);
+            }
+        }
+        format_directives(&self.directives, f);
+        if !self.fields.is_empty() {
+            f.write(" ");
+            f.start_block();
+            for fld in &self.fields {
+                fld.display(f);
+            }
+            f.end_block();
+        } else {
+            f.endline();
+        }
+    }
+}
+
+impl Displayable for InputValue {
+    fn display(&self, f: &mut Formatter) {
+        if let Some(ref descr) = self.description {
+            f.write_quoted(descr);
+            f.write(" ");
+        }
+        f.write(&self.name);
+        f.write(": ");
+        self.value_type.display(f);
+        if let Some(ref def) = self.default_value {
+            f.write(" = ");
+            def.display(f);
+        }
+        format_directives(&self.directives, f);
+    }
+}
+
+fn format_arguments(arguments: &[InputValue], f: &mut Formatter) {
+    if !arguments.is_empty() {
+        f.write("(");
+        arguments[0].display(f);
+        for arg in &arguments[1..] {
+            f.write(", ");
+            arg.display(f);
+        }
+        f.write(")");
+    }
+}
+
 impl Displayable for Field {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
         f.write(&self.name);
-        if !self.arguments.is_empty() {
-            unimplemented!();
-        }
+        format_arguments(&self.arguments, f);
         f.write(": ");
         self.field_type.display(f);
         format_directives(&self.directives, f);
@@ -151,7 +211,19 @@ impl Displayable for InterfaceType {
     }
 }
 
+impl Displayable for InterfaceTypeExtension {
+    fn display(&self, f: &mut Formatter) {
+        unimplemented!();
+    }
+}
+
 impl Displayable for UnionType {
+    fn display(&self, f: &mut Formatter) {
+        unimplemented!();
+    }
+}
+
+impl Displayable for UnionTypeExtension {
     fn display(&self, f: &mut Formatter) {
         unimplemented!();
     }
@@ -163,7 +235,19 @@ impl Displayable for EnumType {
     }
 }
 
+impl Displayable for EnumTypeExtension {
+    fn display(&self, f: &mut Formatter) {
+        unimplemented!();
+    }
+}
+
 impl Displayable for InputObjectType {
+    fn display(&self, f: &mut Formatter) {
+        unimplemented!();
+    }
+}
+
+impl Displayable for InputObjectTypeExtension {
     fn display(&self, f: &mut Formatter) {
         unimplemented!();
     }
@@ -171,7 +255,14 @@ impl Displayable for InputObjectType {
 
 impl Displayable for TypeExtension {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        match *self {
+            TypeExtension::Scalar(ref s) => s.display(f),
+            TypeExtension::Object(ref o) => o.display(f),
+            TypeExtension::Interface(ref i) => i.display(f),
+            TypeExtension::Union(ref u) => u.display(f),
+            TypeExtension::Enum(ref e) => e.display(f),
+            TypeExtension::InputObject(ref i) => i.display(f),
+        }
     }
 }
 
@@ -180,6 +271,7 @@ impl Displayable for DirectiveDefinition {
         unimplemented!();
     }
 }
+
 
 
 macro_rules! impl_display {
