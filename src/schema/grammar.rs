@@ -318,6 +318,44 @@ pub fn union_type_extension<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+pub fn enum_values<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<EnumValue>, TokenStream<'a>>
+{
+    punct("{")
+    .with(many1(
+        (
+            position(),
+            optional(parser(string)),
+            name(),
+            parser(directives),
+        )
+        .map(|(position, description, name, directives)| {
+            EnumValue { position, description, name, directives }
+        })
+    ))
+    .skip(punct("}"))
+    .parse_stream(input)
+}
+
+pub fn enum_type<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<EnumType, TokenStream<'a>>
+{
+    (
+        position(),
+        ident("enum").with(name()),
+        parser(directives),
+        optional(parser(enum_values)),
+    )
+    .map(|(position, name, directives, values)| {
+        EnumType {
+            position, name, directives,
+            values: values.unwrap_or_else(Vec::new),
+            description: None,  // is filled in type_definition
+        }
+    })
+    .parse_stream(input)
+}
+
 pub fn type_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<TypeDefinition, TokenStream<'a>>
 {
@@ -328,6 +366,7 @@ pub fn type_definition<'a>(input: &mut TokenStream<'a>)
             parser(object_type).map(TypeDefinition::Object),
             parser(interface_type).map(TypeDefinition::Interface),
             parser(union_type).map(TypeDefinition::Union),
+            parser(enum_type).map(TypeDefinition::Enum),
         )),
     )
         // We can't set description inside type definition parser, because

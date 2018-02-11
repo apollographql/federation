@@ -139,6 +139,7 @@ pub struct UnionTypeExtension {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumType {
+    pub position: Pos,
     pub description: Option<String>,
     pub name: Name,
     pub directives: Vec<Directive>,
@@ -147,6 +148,7 @@ pub struct EnumType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumValue {
+    pub position: Pos,
     pub description: Option<String>,
     pub name: Name,
     pub directives: Vec<Directive>,

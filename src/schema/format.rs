@@ -264,7 +264,27 @@ impl Displayable for UnionTypeExtension {
 
 impl Displayable for EnumType {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        description(&self.description, f);
+        f.indent();
+        f.write("enum ");
+        f.write(&self.name);
+        format_directives(&self.directives, f);
+        if !self.values.is_empty() {
+            f.write(" ");
+            f.start_block();
+            for val in &self.values {
+                f.indent();
+                if let Some(ref descr) = val.description {
+                    f.write_quoted(descr);
+                    f.write(" ");
+                }
+                f.write(&val.name);
+                format_directives(&val.directives, f);
+                f.endline();
+            }
+            f.end_block();
+        }
+        f.endline();
     }
 }
 
