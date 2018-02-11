@@ -10,7 +10,7 @@ keywords = ["graphql", "parser"]
 categories = ["parser-implementations", "command-line-interface"]
 homepage = "https://github.com/tailhook/graphql-parser"
 documentation = "https://docs.rs/graphql-parser"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["paul@colomiets.name"]
 
 [dependencies]
