@@ -314,9 +314,29 @@ impl Displayable for EnumTypeExtension {
     }
 }
 
+fn format_inputs(fields: &[InputValue], f: &mut Formatter) {
+    if !fields.is_empty() {
+        f.write(" ");
+        f.start_block();
+        for fld in fields {
+            f.indent();
+            fld.display(f);
+            f.endline();
+        }
+        f.end_block();
+    } else {
+        f.endline();
+    }
+}
+
 impl Displayable for InputObjectType {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        description(&self.description, f);
+        f.indent();
+        f.write("input ");
+        f.write(&self.name);
+        format_directives(&self.directives, f);
+        format_inputs(&self.fields, f);
     }
 }
 

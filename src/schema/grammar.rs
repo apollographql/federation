@@ -381,6 +381,33 @@ pub fn enum_type_extension<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+pub fn input_fields<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<InputValue>, TokenStream<'a>>
+{
+    optional(punct("{").with(many1(parser(input_value))).skip(punct("}")))
+    .map(|v| v.unwrap_or_else(Vec::new))
+    .parse_stream(input)
+}
+
+pub fn input_object_type<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<InputObjectType, TokenStream<'a>>
+{
+    (
+        position(),
+        ident("input").with(name()),
+        parser(implements_interfaces),
+        parser(directives),
+        parser(input_fields),
+    )
+        .map(|(position, name, interfaces, directives, fields)| {
+            InputObjectType {
+                position, name, directives, fields,
+                description: None,  // is filled in type_definition
+            }
+        })
+        .parse_stream(input)
+}
+
 pub fn type_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<TypeDefinition, TokenStream<'a>>
 {
@@ -392,6 +419,7 @@ pub fn type_definition<'a>(input: &mut TokenStream<'a>)
             parser(interface_type).map(TypeDefinition::Interface),
             parser(union_type).map(TypeDefinition::Union),
             parser(enum_type).map(TypeDefinition::Enum),
+            parser(input_object_type).map(TypeDefinition::InputObject),
         )),
     )
         // We can't set description inside type definition parser, because

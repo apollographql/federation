@@ -44,5 +44,6 @@ fn roundtrip2(filename: &str) {
 #[test] fn union_extension() { roundtrip("union_extension"); }
 #[test] fn enum_type() { roundtrip("enum"); }
 #[test] fn extend_enum() { roundtrip("extend_enum"); }
+#[test] fn input_type() { roundtrip("input_type"); }
 // Not yet fully supported
 //#[test] fn kitchen_sink() { roundtrip2("kitchen-sink"); }
