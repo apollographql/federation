@@ -156,6 +156,7 @@ pub struct EnumValue {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumTypeExtension {
+    pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
     pub values: Vec<EnumValue>,

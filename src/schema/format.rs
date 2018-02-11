@@ -290,7 +290,27 @@ impl Displayable for EnumType {
 
 impl Displayable for EnumTypeExtension {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        f.indent();
+        f.write("extend enum ");
+        f.write(&self.name);
+        format_directives(&self.directives, f);
+        if !self.values.is_empty() {
+            f.write(" ");
+            f.start_block();
+            for val in &self.values {
+                f.indent();
+                if let Some(ref descr) = val.description {
+                    f.write_quoted(descr);
+                    f.write(" ");
+                }
+                f.write(&val.name);
+                format_directives(&val.directives, f);
+                f.endline();
+            }
+            f.end_block();
+        } else {
+            f.endline();
+        }
     }
 }
 
