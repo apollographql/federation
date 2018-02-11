@@ -12,10 +12,10 @@ pub type InternalError<'a> = Errors<Token<'a>, Token<'a>, Pos>;
 /// way to improve both error message and API.
 #[derive(Fail, Debug)]
 #[fail(display="schema parse error: {}", _0)]
-pub struct SchemaParseError(String);
+pub struct ParseError(String);
 
-impl<'a> From<InternalError<'a>> for SchemaParseError {
-    fn from(e: InternalError<'a>) -> SchemaParseError {
-        SchemaParseError(format!("{}", e))
+impl<'a> From<InternalError<'a>> for ParseError {
+    fn from(e: InternalError<'a>) -> ParseError {
+        ParseError(format!("{}", e))
     }
 }

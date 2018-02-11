@@ -8,7 +8,7 @@ use failure::Fail;
 use tokenizer::{Kind as T, Token, TokenStream};
 use helpers::{punct, ident, kind, name};
 use common::{directives, string, default_value, parse_type};
-use schema::error::{SchemaParseError};
+use schema::error::{ParseError};
 use schema::ast::*;
 
 
@@ -526,7 +526,7 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
 }
 
 /// Parses a piece of schema language and returns an AST
-pub fn parse_schema(s: &str) -> Result<Document, SchemaParseError> {
+pub fn parse_schema(s: &str) -> Result<Document, ParseError> {
     let mut tokens = TokenStream::new(s);
     let (doc, _) = many1(parser(definition))
         .map(|d| Document { definitions: d })

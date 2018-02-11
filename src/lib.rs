@@ -106,6 +106,7 @@ mod helpers;
 pub mod query;
 pub mod schema;
 
-pub use query::{parse_query, QueryParseError};
-pub use schema::{parse_schema, SchemaParseError};
+pub use query::parse_query;
+pub use schema::parse_schema;
 pub use position::Pos;
+pub use format::Style;

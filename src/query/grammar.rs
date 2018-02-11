@@ -5,7 +5,7 @@ use common::{Directive};
 use common::{directives, arguments, default_value, parse_type};
 use tokenizer::{TokenStream};
 use helpers::{punct, ident, name};
-use query::error::{QueryParseError};
+use query::error::{ParseError};
 use query::ast::*;
 
 pub fn field<'a>(input: &mut TokenStream<'a>)
@@ -182,7 +182,7 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
 }
 
 /// Parses a piece of query language and returns an AST
-pub fn parse_query(s: &str) -> Result<Document, QueryParseError> {
+pub fn parse_query(s: &str) -> Result<Document, ParseError> {
     let mut tokens = TokenStream::new(s);
     let (doc, _) = many1(parser(definition))
         .map(|d| Document { definitions: d })
