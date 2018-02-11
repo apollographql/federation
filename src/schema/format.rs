@@ -342,7 +342,11 @@ impl Displayable for InputObjectType {
 
 impl Displayable for InputObjectTypeExtension {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        f.indent();
+        f.write("extend input ");
+        f.write(&self.name);
+        format_directives(&self.directives, f);
+        format_inputs(&self.fields, f);
     }
 }
 

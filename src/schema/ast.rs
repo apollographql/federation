@@ -173,6 +173,7 @@ pub struct InputObjectType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputObjectTypeExtension {
+    pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
     pub fields: Vec<InputValue>,

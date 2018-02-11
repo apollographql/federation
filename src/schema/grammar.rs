@@ -395,15 +395,38 @@ pub fn input_object_type<'a>(input: &mut TokenStream<'a>)
     (
         position(),
         ident("input").with(name()),
-        parser(implements_interfaces),
         parser(directives),
         parser(input_fields),
     )
-        .map(|(position, name, interfaces, directives, fields)| {
+        .map(|(position, name, directives, fields)| {
             InputObjectType {
                 position, name, directives, fields,
                 description: None,  // is filled in type_definition
             }
+        })
+        .parse_stream(input)
+}
+
+pub fn input_object_type_extension<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<InputObjectTypeExtension, TokenStream<'a>>
+{
+    (
+        position(),
+        ident("input").with(name()),
+        parser(directives),
+        parser(input_fields),
+    )
+        .flat_map(|(position, name, directives, fields)| {
+            if directives.is_empty() && fields.is_empty() {
+                let mut e = Errors::empty(position);
+                e.add_error(Error::expected_static_message(
+                    "Input object type extension should contain at least \
+                     one directive or field."));
+                return Err(e);
+            }
+            Ok(InputObjectTypeExtension {
+                position, name, directives, fields,
+            })
         })
         .parse_stream(input)
 }
@@ -450,6 +473,7 @@ pub fn type_extension<'a>(input: &mut TokenStream<'a>)
         parser(interface_type_extension).map(TypeExtension::Interface),
         parser(union_type_extension).map(TypeExtension::Union),
         parser(enum_type_extension).map(TypeExtension::Enum),
+        parser(input_object_type_extension).map(TypeExtension::InputObject),
     )))
     .parse_stream(input)
 }
