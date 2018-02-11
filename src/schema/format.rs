@@ -228,8 +228,8 @@ impl Displayable for UnionType {
         f.write("union ");
         f.write(&self.name);
         format_directives(&self.directives, f);
-        f.write(" = ");
         if !self.types.is_empty() {
+            f.write(" = ");
             f.write(&self.types[0]);
             for typ in &self.types[1..] {
                 f.write(" | ");

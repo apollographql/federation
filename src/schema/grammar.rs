@@ -260,11 +260,12 @@ pub fn union_type<'a>(input: &mut TokenStream<'a>)
         position(),
         ident("union").with(name()),
         parser(directives),
-        punct("=").with(parser(union_members)),
+        optional(punct("=").with(parser(union_members))),
     )
     .map(|(position, name, directives, types)| {
         UnionType {
-            position, name, directives, types,
+            position, name, directives,
+            types: types.unwrap_or_else(Vec::new),
             description: None,  // is filled in type_definition
         }
     })
