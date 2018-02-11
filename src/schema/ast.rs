@@ -1,10 +1,9 @@
 use std::collections::HashSet;
 
-pub use query::{Directive, VariableType, Value};
-
+pub use common::{Directive, Type, Name, Value};
 
 pub type NamedType = String;
-pub type Name = String;
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Document {
@@ -82,7 +81,7 @@ pub struct Field {
     description: Option<String>,
     name: Name,
     arguments: Vec<InputValue>,
-    field_type: VariableType,  // VariableType
+    field_type: Type,
     directives: Vec<Directive>,
 }
 
@@ -90,7 +89,7 @@ pub struct Field {
 pub struct InputValue {
     description: Option<String>,
     name: Name,
-    value_type: VariableType,
+    value_type: Type,
     default_value: Value,
     directives: Vec<Directive>,
 }

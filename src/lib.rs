@@ -46,12 +46,14 @@ extern crate combine;
 #[cfg(test)] #[macro_use] extern crate pretty_assertions;
 
 
+mod common;
 mod format;
 mod position;
 mod tokenizer;
 mod helpers;
-mod query;
-mod schema;
+pub mod query;
+pub mod schema;
 
 pub use query::{parse_query, QueryParseError};
+pub use schema::{parse_schema, SchemaParseError};
 pub use position::Pos;

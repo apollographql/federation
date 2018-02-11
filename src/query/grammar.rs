@@ -3,6 +3,7 @@ use combine::easy::Error;
 use combine::error::StreamError;
 use combine::combinator::{many, many1, eof, optional, position};
 
+use common::{Directive, Name, Value, Type};
 use tokenizer::{Kind as T, Token, TokenStream};
 use helpers::{punct, ident, kind, name};
 use query::error::{QueryParseError};
@@ -101,18 +102,18 @@ pub fn selection_set<'a>(input: &mut TokenStream<'a>)
 }
 
 pub fn variable_type<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<VariableType, TokenStream<'a>>
+    -> ParseResult<Type, TokenStream<'a>>
 {
-    name().map(VariableType::NamedType)
+    name().map(Type::NamedType)
     .or(punct("[")
         .with(parser(variable_type))
         .skip(punct("]"))
         .map(Box::new)
-        .map(VariableType::ListType))
+        .map(Type::ListType))
     .and(optional(punct("!")).map(|v| v.is_some()))
     .map(|(typ, strict)|
         if strict {
-            VariableType::NonNullType(Box::new(typ))
+            Type::NonNullType(Box::new(typ))
         } else {
             typ
         }

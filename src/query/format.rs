@@ -221,16 +221,16 @@ impl Displayable for VariableDefinition {
     }
 }
 
-impl Displayable for VariableType {
+impl Displayable for Type {
     fn display(&self, f: &mut Formatter) {
         match *self {
-            VariableType::NamedType(ref name) => f.write(name),
-            VariableType::ListType(ref typ) => {
+            Type::NamedType(ref name) => f.write(name),
+            Type::ListType(ref typ) => {
                 f.write("[");
                 typ.display(f);
                 f.write("]");
             }
-            VariableType::NonNullType(ref typ) => {
+            Type::NonNullType(ref typ) => {
                 typ.display(f);
                 f.write("!");
             }
@@ -355,7 +355,7 @@ impl_display!(
     Mutation,
     Subscription,
     VariableDefinition,
-    VariableType,
+    Type,
     Value,
     InlineFragment,
     TypeCondition,
