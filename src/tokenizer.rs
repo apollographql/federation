@@ -95,14 +95,20 @@ fn check_dec(value: &str) -> bool {
 }
 
 fn check_exp(value: &str) -> bool {
-    (value.starts_with('-') || value.starts_with('+')) &&
-        value.len() >= 2 &&
-        value[1..].chars().all(|x| x >= '0' && x <= '9')
+    if value.len() == 0 {
+        return false;
+    }
+    let first = value.chars().next().unwrap();
+    if first != '-' && first != '+' && (first <= '0' || first >= '9') {
+        return false;
+    }
+    return value[1..].chars().all(|x| x >= '0' && x <= '9');
 }
 
 fn check_float(value: &str, exponent: Option<usize>, real: Option<usize>)
     -> bool
 {
+    println!("Value {:?} {:?} {:?}", value, exponent, real);
     match (exponent, real) {
         (Some(e), Some(r)) if e < r => false,
         (Some(e), Some(r))
@@ -459,6 +465,8 @@ mod test {
         assert_eq!(tok_typ("a(x: 10.0) { b }"),
             [Name, Punctuator, Name, Punctuator, FloatValue, Punctuator,
                 Punctuator, Name, Punctuator]);
+        assert_eq!(tok_str("1.23e4"), ["1.23e4"]);
+        assert_eq!(tok_typ("1.23e4"), [FloatValue]);
     }
 
     // TODO(tailhook) fix errors in parser and check error message
