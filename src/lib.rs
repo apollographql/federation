@@ -13,6 +13,7 @@
 //!
 //! 1. Subscriptions
 //! 2. Block (triple quoted) strings
+//! 3. Schema definition language a/k/a IDL (which is still in RFC)
 //!
 //!
 //! Example: Parse and Format Query
@@ -30,6 +31,57 @@
 //! query MyQuery {
 //!   field1
 //!   field2
+//! }
+//! ");
+//! # Ok(())
+//! # }
+//! # fn main() {
+//! #    parse().unwrap()
+//! # }
+//! ```
+//!
+//! Example: Parse and Format Schema
+//! --------------------------------
+//!
+//! ```rust
+//! # extern crate failure;
+//! # extern crate graphql_parser;
+//! use graphql_parser::parse_schema;
+//!
+//! # fn parse() -> Result<(), failure::Error> {
+//! let ast = parse_schema(r#"
+//!     schema {
+//!         query: Query
+//!     }
+//!     type Query {
+//!         users: [User!]!,
+//!     }
+//!     """
+//!        Example user object
+//!
+//!        This is just a demo comment.
+//!     """
+//!     type User {
+//!         name: String!,
+//!     }
+//! "#)?;
+//! // Format canonical representation
+//! assert_eq!(format!("{}", ast), "\
+//! schema {
+//!   query: Query
+//! }
+//!
+//! type Query {
+//!   users: [User!]!
+//! }
+//!
+//! \"\"\"
+//!   Example user object
+//!
+//!   This is just a demo comment.
+//! \"\"\"
+//! type User {
+//!   name: String!
 //! }
 //! ");
 //! # Ok(())

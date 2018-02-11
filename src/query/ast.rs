@@ -5,8 +5,6 @@
 //!
 //! [graphql grammar]: http://facebook.github.io/graphql/October2016/#sec-Appendix-Grammar-Summary
 //!
-use std::collections::BTreeMap;
-
 use position::Pos;
 pub use common::{Directive, Number, Value, Name, Type};
 

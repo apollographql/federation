@@ -1,3 +1,5 @@
+//! Schema definition language AST and utility
+//!
 mod ast;
 mod grammar;
 mod error;

@@ -1,3 +1,5 @@
+//! Query language AST and parsing utilities
+//!
 mod ast;
 mod error;
 mod format;

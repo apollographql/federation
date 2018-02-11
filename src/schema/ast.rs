@@ -1,5 +1,4 @@
 use std::str::FromStr;
-use std::collections::HashSet;
 
 pub use common::{Directive, Type, Name, Value};
 use position::Pos;

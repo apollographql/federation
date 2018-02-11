@@ -5,15 +5,14 @@ GraphQL Parser
 [Github](https://github.com/tailhook/graphql-parser) |
 [Crate](https://crates.io/crates/graphql-parser)
 
-A parser, formatter and AST for graphql query language for rust.
+A parser, formatter and AST for graphql query and schema definition language
+for rust.
 
-Current this library supports full graphql syntax, and the following
-extensions:
+Supported extensions:
 
 1. Subscriptions
 2. Block (triple quoted) strings
 
-Schema definition language (also often called IDL) is on the to do list.
 
 License
 =======

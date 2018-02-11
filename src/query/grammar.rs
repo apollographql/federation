@@ -1,12 +1,10 @@
 use combine::{parser, ParseResult, Parser};
-use combine::easy::Error;
-use combine::error::StreamError;
-use combine::combinator::{many, many1, eof, optional, position};
+use combine::combinator::{many1, eof, optional, position};
 
-use common::{Directive, Name, Value, Type};
-use common::{directives, arguments, default_value, value, parse_type};
-use tokenizer::{Kind as T, Token, TokenStream};
-use helpers::{punct, ident, kind, name};
+use common::{Directive};
+use common::{directives, arguments, default_value, parse_type};
+use tokenizer::{TokenStream};
+use helpers::{punct, ident, name};
 use query::error::{QueryParseError};
 use query::ast::*;
 
