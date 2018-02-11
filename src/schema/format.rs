@@ -104,7 +104,11 @@ impl Displayable for ScalarType {
 
 impl Displayable for ScalarTypeExtension {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        f.indent();
+        f.write("extend scalar ");
+        f.write(&self.name);
+        format_directives(&self.directives, f);
+        f.endline();
     }
 }
 

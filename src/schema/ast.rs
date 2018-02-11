@@ -59,6 +59,7 @@ pub struct ScalarType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScalarTypeExtension {
+    pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
 }

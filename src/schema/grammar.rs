@@ -87,6 +87,27 @@ pub fn scalar_type<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
+pub fn scalar_type_extension<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<ScalarTypeExtension, TokenStream<'a>>
+{
+    (
+        position(),
+        ident("scalar").with(name()),
+        parser(directives),
+    )
+    .flat_map(|(position, name, directives)| {
+        if directives.is_empty() {
+            let mut e = Errors::empty(position);
+            e.add_error(Error::expected_static_message(
+                "Scalar type extension should contain at least \
+                 one directive."));
+            return Err(e);
+        }
+        Ok(ScalarTypeExtension { position, name, directives })
+    })
+    .parse_stream(input)
+}
+
 pub fn implements_interfaces<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Vec<NamedType>, TokenStream<'a>>
 {
@@ -332,6 +353,7 @@ pub fn type_extension<'a>(input: &mut TokenStream<'a>)
 {
     ident("extend")
     .with(choice((
+        parser(scalar_type_extension).map(TypeExtension::Scalar),
         parser(object_type_extension).map(TypeExtension::Object),
         parser(interface_type_extension).map(TypeExtension::Interface),
         parser(union_type_extension).map(TypeExtension::Union),

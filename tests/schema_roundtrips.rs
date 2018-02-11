@@ -31,6 +31,7 @@ fn roundtrip2(filename: &str) {
 
 #[test] fn minimal() { roundtrip("minimal"); }
 #[test] fn scalar_type() { roundtrip("scalar_type"); }
+#[test] fn extend_scalar() { roundtrip("extend_scalar"); }
 #[test] fn minimal_type() { roundtrip("minimal_type"); }
 #[test] fn implements() { roundtrip("implements"); }
 #[test] fn implements_amp() { roundtrip2("implements_amp"); }
