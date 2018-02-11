@@ -108,7 +108,14 @@ impl Displayable for ObjectType {
         f.indent();
         f.write("type ");
         f.write(&self.name);
-        // TODO(tailhook) impl
+        if !self.implements_interfaces.is_empty() {
+            f.write(" implements ");
+            f.write(&self.implements_interfaces[0]);
+            for name in &self.implements_interfaces[1..] {
+                f.write(" & ");
+                f.write(name);
+            }
+        }
         format_directives(&self.directives, f);
         if !self.fields.is_empty() {
             unimplemented!();

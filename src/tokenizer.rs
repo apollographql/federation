@@ -141,7 +141,7 @@ impl<'a> TokenStream<'a> {
 
         match cur_char {
             '!' | '$' | ':' | '=' | '@' | '|' |
-            '(' | ')' | '[' | ']' | '{' | '}' => {
+            '(' | ')' | '[' | ']' | '{' | '}' | '&' => {
                 self.position.column += 1;
                 self.off += 1;
 
@@ -190,7 +190,7 @@ impl<'a> TokenStream<'a> {
                     match cur_char {
                         // just scan for now, will validate later on
                         ' ' | '\n' | '\r' | '\t' | ',' | '#' |
-                        '!' | '$' | ':' | '=' | '@' | '|' |
+                        '!' | '$' | ':' | '=' | '@' | '|' | '&' |
                         '(' | ')' | '[' | ']' | '{' | '}'
                         => break idx,
                         '.' => real = Some(idx),

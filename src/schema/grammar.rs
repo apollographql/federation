@@ -2,6 +2,7 @@ use combine::{parser, ParseResult, Parser};
 use combine::easy::{Error, Errors};
 use combine::error::StreamError;
 use combine::combinator::{many, many1, eof, optional, position, choice};
+use combine::combinator::{sep_by1};
 
 use tokenizer::{Kind as T, Token, TokenStream};
 use helpers::{punct, ident, kind, name};
@@ -86,19 +87,31 @@ pub fn scalar_type<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
+pub fn implements_interfaces<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<NamedType>, TokenStream<'a>>
+{
+    optional(
+        ident("implements")
+        .skip(optional(punct("&")))
+        .with(sep_by1(name(), punct("&")))
+    )
+        .map(|opt| opt.unwrap_or_else(Vec::new))
+        .parse_stream(input)
+}
+
 pub fn object_type<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<ObjectType, TokenStream<'a>>
 {
     (
         position(),
         ident("type").with(name()),
-        //parser(implements_interfaces),
+        parser(implements_interfaces),
         parser(directives),
     )
-        .map(|(position, name, directives)| {
+        .map(|(position, name, interfaces, directives)| {
             ObjectType {
                 position, description: None, name, directives,
-                implements_interfaces: Vec::new(),  // TODO(tailhook)
+                implements_interfaces: interfaces,
                 fields: Vec::new(),  // TODO(tailhook)
             }
         })
