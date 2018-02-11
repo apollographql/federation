@@ -37,5 +37,6 @@ fn roundtrip2(filename: &str) {
 #[test] fn simple_object() { roundtrip("simple_object"); }
 #[test] fn extend_object() { roundtrip("extend_object"); }
 #[test] fn interface() { roundtrip("interface"); }
+#[test] fn extend_interface() { roundtrip("extend_interface"); }
 // Not yet fully supported
 //#[test] fn kitchen_sink() { roundtrip2("kitchen-sink"); }

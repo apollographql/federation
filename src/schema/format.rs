@@ -213,7 +213,10 @@ impl Displayable for InterfaceType {
 
 impl Displayable for InterfaceTypeExtension {
     fn display(&self, f: &mut Formatter) {
-        unimplemented!();
+        f.write("extend interface ");
+        f.write(&self.name);
+        format_directives(&self.directives, f);
+        format_fields(&self.fields, f);
     }
 }
 

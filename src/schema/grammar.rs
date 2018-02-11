@@ -179,7 +179,7 @@ pub fn object_type_extension<'a>(input: &mut TokenStream<'a>)
 {
     (
         position(),
-        ident("extend").and(ident("type")).with(name()),
+        ident("type").with(name()),
         parser(implements_interfaces),
         parser(directives),
         parser(fields),
@@ -220,6 +220,30 @@ pub fn interface_type<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
+pub fn interface_type_extension<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<InterfaceTypeExtension, TokenStream<'a>>
+{
+    (
+        position(),
+        ident("interface").with(name()),
+        parser(directives),
+        parser(fields),
+    )
+        .flat_map(|(position, name, directives, fields)| {
+            if directives.is_empty() && fields.is_empty() {
+                let mut e = Errors::empty(position);
+                e.add_error(Error::expected_static_message(
+                    "Interface type extension should contain at least \
+                     one directive or field."));
+                return Err(e);
+            }
+            Ok(InterfaceTypeExtension {
+                position, name, directives, fields,
+            })
+        })
+        .parse_stream(input)
+}
+
 pub fn type_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<TypeDefinition, TokenStream<'a>>
 {
@@ -252,10 +276,11 @@ pub fn type_definition<'a>(input: &mut TokenStream<'a>)
 pub fn type_extension<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<TypeExtension, TokenStream<'a>>
 {
-    choice((
+    ident("extend")
+    .with(choice((
         parser(object_type_extension).map(TypeExtension::Object),
-        parser(object_type_extension).map(TypeExtension::Object),
-    ))
+        parser(interface_type_extension).map(TypeExtension::Interface),
+    )))
     .parse_stream(input)
 }
 

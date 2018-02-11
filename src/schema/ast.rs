@@ -113,6 +113,7 @@ pub struct InterfaceType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceTypeExtension {
+    pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
     pub fields: Vec<Field>,
