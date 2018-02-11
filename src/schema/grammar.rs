@@ -77,12 +77,11 @@ pub fn scalar_type<'a>(input: &mut TokenStream<'a>)
 {
     (
         position(),
-        optional(parser(string)),
         ident("scalar").with(name()),
         parser(directives),
     )
-        .map(|(position, description, name, directives)| {
-            ScalarType { position, description, name, directives }
+        .map(|(position, name, directives)| {
+            ScalarType { position, description: None, name, directives }
         })
         .parse_stream(input)
 }
@@ -92,14 +91,13 @@ pub fn object_type<'a>(input: &mut TokenStream<'a>)
 {
     (
         position(),
-        optional(parser(string)),
         ident("type").with(name()),
         //parser(implements_interfaces),
         parser(directives),
     )
-        .map(|(position, description, name, directives)| {
+        .map(|(position, name, directives)| {
             ObjectType {
-                position, description, name, directives,
+                position, description: None, name, directives,
                 implements_interfaces: Vec::new(),  // TODO(tailhook)
                 fields: Vec::new(),  // TODO(tailhook)
             }
@@ -110,10 +108,29 @@ pub fn object_type<'a>(input: &mut TokenStream<'a>)
 pub fn type_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<TypeDefinition, TokenStream<'a>>
 {
-    choice((
-        parser(scalar_type).map(TypeDefinition::Scalar),
-        parser(object_type).map(TypeDefinition::Object),
-    )).parse_stream(input)
+    (
+        optional(parser(string)),
+        choice((
+            parser(scalar_type).map(TypeDefinition::Scalar),
+            parser(object_type).map(TypeDefinition::Object),
+        )),
+    )
+        // We can't set description inside type definition parser, because
+        // that means parser will need to backtrace, and that in turn
+        // means that error reporting is bad (along with performance)
+        .map(|(descr, mut def)| {
+            use schema::ast::TypeDefinition::*;
+            match def {
+                Scalar(ref mut s) => s.description = descr,
+                Object(ref mut o) => o.description = descr,
+                Interface(ref mut i) => i.description = descr,
+                Union(ref mut u) => u.description = descr,
+                Enum(ref mut e) => e.description = descr,
+                InputObject(ref mut o) => o.description = descr,
+            }
+            def
+        })
+        .parse_stream(input)
 }
 
 
