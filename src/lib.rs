@@ -13,6 +13,7 @@
 //!
 //! 1. Subscriptions
 //! 2. Block (triple quoted) strings
+//! 3. Schema definition language a/k/a IDL (which is still in RFC)
 //!
 //!
 //! Example: Parse and Format Query
@@ -39,6 +40,57 @@
 //! # }
 //! ```
 //!
+//! Example: Parse and Format Schema
+//! --------------------------------
+//!
+//! ```rust
+//! # extern crate failure;
+//! # extern crate graphql_parser;
+//! use graphql_parser::parse_schema;
+//!
+//! # fn parse() -> Result<(), failure::Error> {
+//! let ast = parse_schema(r#"
+//!     schema {
+//!         query: Query
+//!     }
+//!     type Query {
+//!         users: [User!]!,
+//!     }
+//!     """
+//!        Example user object
+//!
+//!        This is just a demo comment.
+//!     """
+//!     type User {
+//!         name: String!,
+//!     }
+//! "#)?;
+//! // Format canonical representation
+//! assert_eq!(format!("{}", ast), "\
+//! schema {
+//!   query: Query
+//! }
+//!
+//! type Query {
+//!   users: [User!]!
+//! }
+//!
+//! \"\"\"
+//!   Example user object
+//!
+//!   This is just a demo comment.
+//! \"\"\"
+//! type User {
+//!   name: String!
+//! }
+//! ");
+//! # Ok(())
+//! # }
+//! # fn main() {
+//! #    parse().unwrap()
+//! # }
+//! ```
+//!
 #![warn(missing_debug_implementations)]
 
 extern crate combine;
@@ -46,11 +98,14 @@ extern crate combine;
 #[cfg(test)] #[macro_use] extern crate pretty_assertions;
 
 
+mod common;
 mod format;
 mod position;
 mod tokenizer;
 mod helpers;
-mod query;
+pub mod query;
+pub mod schema;
 
 pub use query::{parse_query, QueryParseError};
+pub use schema::{parse_schema, SchemaParseError};
 pub use position::Pos;

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use ::format::{Displayable, Formatter, Style};
+use ::format::{Displayable, Formatter, Style, format_directives};
 
 use query::ast::*;
 
@@ -221,16 +221,16 @@ impl Displayable for VariableDefinition {
     }
 }
 
-impl Displayable for VariableType {
+impl Displayable for Type {
     fn display(&self, f: &mut Formatter) {
         match *self {
-            VariableType::NamedType(ref name) => f.write(name),
-            VariableType::ListType(ref typ) => {
+            Type::NamedType(ref name) => f.write(name),
+            Type::ListType(ref typ) => {
                 f.write("[");
                 typ.display(f);
                 f.write("]");
             }
-            VariableType::NonNullType(ref typ) => {
+            Type::NonNullType(ref typ) => {
                 typ.display(f);
                 f.write("!");
             }
@@ -276,13 +276,6 @@ impl Displayable for Value {
                 f.write("}");
             }
         }
-    }
-}
-
-fn format_directives(dirs: &[Directive], f: &mut Formatter) {
-    for dir in dirs {
-        f.write(" ");
-        dir.display(f);
     }
 }
 
@@ -334,7 +327,7 @@ impl Displayable for Directive {
 }
 
 macro_rules! impl_display {
-    ($( $typ: ident ),+) => {
+    ($( $typ: ident, )+) => {
         $(
             impl fmt::Display for $typ {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -355,11 +348,11 @@ impl_display!(
     Mutation,
     Subscription,
     VariableDefinition,
-    VariableType,
+    Type,
     Value,
     InlineFragment,
     TypeCondition,
     FragmentSpread,
-    Directive
+    Directive,
 );
 

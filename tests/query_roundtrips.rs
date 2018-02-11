@@ -8,7 +8,7 @@ use graphql_parser::parse_query;
 
 fn roundtrip(filename: &str) {
     let mut buf = String::with_capacity(1024);
-    let path = format!("tests/samples/{}.graphql", filename);
+    let path = format!("tests/queries/{}.graphql", filename);
     let mut f = File::open(&path).unwrap();
     f.read_to_string(&mut buf).unwrap();
     let ast = parse_query(&buf).unwrap();
@@ -17,8 +17,8 @@ fn roundtrip(filename: &str) {
 
 fn roundtrip2(filename: &str) {
     let mut buf = String::with_capacity(1024);
-    let source = format!("tests/samples/{}.graphql", filename);
-    let target = format!("tests/samples/{}_canonical.graphql", filename);
+    let source = format!("tests/queries/{}.graphql", filename);
+    let target = format!("tests/queries/{}_canonical.graphql", filename);
     let mut f = File::open(&source).unwrap();
     f.read_to_string(&mut buf).unwrap();
     let ast = parse_query(&buf).unwrap();
