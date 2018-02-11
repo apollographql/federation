@@ -51,6 +51,7 @@ pub enum TypeExtension {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScalarType {
+    pub position: Pos,
     pub description: Option<String>,
     pub name: Name,
     pub directives: Vec<Directive>,

@@ -30,3 +30,4 @@ fn roundtrip2(filename: &str) {
 }
 
 #[test] fn minimal() { roundtrip("minimal"); }
+#[test] fn scalar_type() { roundtrip("scalar_type"); }

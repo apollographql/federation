@@ -43,6 +43,7 @@ impl Displayable for Definition {
 
 impl Displayable for SchemaDefinition {
     fn display(&self, f: &mut Formatter) {
+        f.indent();
         f.write("schema");
         format_directives(&self.directives, f);
         f.write(" ");
@@ -70,6 +71,58 @@ impl Displayable for SchemaDefinition {
 }
 
 impl Displayable for TypeDefinition {
+    fn display(&self, f: &mut Formatter) {
+        match *self {
+            TypeDefinition::Scalar(ref s) => s.display(f),
+            TypeDefinition::Object(ref o) => o.display(f),
+            TypeDefinition::Interface(ref i) => i.display(f),
+            TypeDefinition::Union(ref u) => u.display(f),
+            TypeDefinition::Enum(ref e) => e.display(f),
+            TypeDefinition::InputObject(ref i) => i.display(f),
+        }
+    }
+}
+
+impl Displayable for ScalarType {
+    fn display(&self, f: &mut Formatter) {
+        if let Some(ref descr) = self.description {
+            f.indent();
+            f.write_quoted(descr);
+            f.endline();
+        }
+        f.indent();
+        f.write("scalar ");
+        f.write(&self.name);
+        format_directives(&self.directives, f);
+        f.endline();
+    }
+}
+
+impl Displayable for ObjectType {
+    fn display(&self, f: &mut Formatter) {
+        unimplemented!();
+    }
+}
+
+impl Displayable for InterfaceType {
+    fn display(&self, f: &mut Formatter) {
+        unimplemented!();
+    }
+}
+
+impl Displayable for UnionType {
+    fn display(&self, f: &mut Formatter) {
+        unimplemented!();
+    }
+}
+
+impl Displayable for EnumType {
+    fn display(&self, f: &mut Formatter) {
+        unimplemented!();
+    }
+}
+
+impl Displayable for InputObjectType {
     fn display(&self, f: &mut Formatter) {
         unimplemented!();
     }

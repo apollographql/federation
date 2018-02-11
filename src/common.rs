@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use combine::{parser, ParseResult, Parser};
 use combine::easy::Error;
 use combine::error::StreamError;
-use combine::combinator::{many, many1, eof, optional, position};
+use combine::combinator::{many, many1, optional, position, choice};
 
 use tokenizer::{Kind as T, Token, TokenStream};
 use helpers::{punct, ident, kind, name};
@@ -167,6 +167,15 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
     }
 
     Ok(res)
+}
+
+pub fn string<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<String, TokenStream<'a>>
+{
+    choice((
+        kind(T::StringValue).and_then(|tok| unquote_string(tok.value)),
+        kind(T::BlockString).and_then(|tok| unquote_block_string(tok.value)),
+    )).parse_stream(input)
 }
 
 pub fn string_value<'a>(input: &mut TokenStream<'a>)

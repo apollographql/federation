@@ -5,7 +5,7 @@ use combine::combinator::{many, many1, eof, optional, position, choice};
 
 use tokenizer::{Kind as T, Token, TokenStream};
 use helpers::{punct, ident, kind, name};
-use common::directives;
+use common::{directives, string};
 use schema::error::{SchemaParseError};
 use schema::ast::*;
 
@@ -72,12 +72,38 @@ pub fn schema<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
+pub fn scalar_type<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<ScalarType, TokenStream<'a>>
+{
+    (
+        position(),
+        optional(parser(string)),
+        ident("scalar").with(name()),
+        parser(directives),
+    )
+        .map(|(position, description, name, directives)| {
+            ScalarType { position, description, name, directives }
+        })
+        .parse_stream(input)
+}
+
+pub fn type_definition<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<TypeDefinition, TokenStream<'a>>
+{
+    choice((
+        parser(scalar_type).map(TypeDefinition::Scalar),
+        parser(scalar_type).map(TypeDefinition::Scalar),
+    )).parse_stream(input)
+}
+
 
 pub fn definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Definition, TokenStream<'a>>
 {
-    parser(schema).map(Definition::SchemaDefinition)
-    .parse_stream(input)
+    choice((
+        parser(schema).map(Definition::SchemaDefinition),
+        parser(type_definition).map(Definition::TypeDefinition),
+    )).parse_stream(input)
 }
 
 /// Parses a piece of schema language and returns an AST
