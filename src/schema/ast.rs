@@ -188,6 +188,7 @@ pub enum DirectiveLocation {
     FragmentDefinition,
     FragmentSpread,
     InlineFragment,
+
     // type_system
     Schema,
     Scalar,
@@ -212,7 +213,7 @@ pub struct DirectiveDefinition {
 }
 
 impl DirectiveLocation {
-    /// Returns graphql syntax compatible name of the directive
+    /// Returns GraphQL syntax compatible name of the directive
     pub fn as_str(&self) -> &'static str {
         use self::DirectiveLocation::*;
         match *self {
@@ -236,53 +237,38 @@ impl DirectiveLocation {
             InputFieldDefinition => "INPUT_FIELD_DEFINITION",
         }
     }
-    /// Returns true if this location is for queries (execution)
+
+    /// Returns `true` if this location is for queries (execution)
     pub fn is_query(&self) -> bool {
         use self::DirectiveLocation::*;
         match *self {
-            Query => true,
-            Mutation => true,
-            Subscription => true,
-            Field => true,
-            FragmentDefinition => true,
-            FragmentSpread => true,
-            InlineFragment => true,
-            Schema => false,
-            Scalar => false,
-            Object => false,
-            FieldDefinition => false,
-            ArgumentDefinition => false,
-            Interface => false,
-            Union => false,
-            Enum => false,
-            EnumValue => false,
-            InputObject => false,
-            InputFieldDefinition => false,
+            Query
+            | Mutation
+            | Subscription
+            | Field
+            | FragmentDefinition
+            | FragmentSpread
+            | InlineFragment
+                => true,
+
+            Schema
+            | Scalar
+            | Object
+            | FieldDefinition
+            | ArgumentDefinition
+            | Interface
+            | Union
+            | Enum
+            | EnumValue
+            | InputObject
+            | InputFieldDefinition
+                => false,
         }
     }
-    /// Returns true if this location is for schema
+
+    /// Returns `true` if this location is for schema
     pub fn is_schema(&self) -> bool {
-        use self::DirectiveLocation::*;
-        match *self {
-            Query => false,
-            Mutation => false,
-            Subscription => false,
-            Field => false,
-            FragmentDefinition => false,
-            FragmentSpread => false,
-            InlineFragment => false,
-            Schema => true,
-            Scalar => true,
-            Object => true,
-            FieldDefinition => true,
-            ArgumentDefinition => true,
-            Interface => true,
-            Union => true,
-            Enum => true,
-            EnumValue => true,
-            InputObject => true,
-            InputFieldDefinition => true,
-        }
+        !self.is_query()
     }
 }
 
@@ -317,6 +303,7 @@ impl FromStr for DirectiveLocation {
             "INPUT_FIELD_DEFINITION" => InputFieldDefinition,
             _ => return Err(InvalidDirectiveLocation),
         };
-        return Ok(val);
+
+        Ok(val)
     }
 }

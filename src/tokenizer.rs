@@ -95,14 +95,15 @@ fn check_dec(value: &str) -> bool {
 }
 
 fn check_exp(value: &str) -> bool {
-    if value.len() == 0 {
+    if value.is_empty() {
         return false;
     }
     let first = value.chars().next().unwrap();
     if first != '-' && first != '+' && (first <= '0' || first >= '9') {
         return false;
     }
-    return value[1..].chars().all(|x| x >= '0' && x <= '9');
+
+    value[1..].chars().all(|x| x >= '0' && x <= '9')
 }
 
 fn check_float(value: &str, exponent: Option<usize>, real: Option<usize>)

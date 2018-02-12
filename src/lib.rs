@@ -99,6 +99,7 @@ extern crate combine;
 
 
 mod common;
+#[macro_use]
 mod format;
 mod position;
 mod tokenizer;
