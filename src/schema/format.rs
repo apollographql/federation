@@ -388,20 +388,6 @@ impl Displayable for DirectiveDefinition {
     }
 }
 
-
-
-macro_rules! impl_display {
-    ($( $typ: ident, )+) => {
-        $(
-            impl fmt::Display for $typ {
-                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    f.write_str(&to_string(self))
-                }
-            }
-        )+
-    };
-}
-
 impl_display!(
     Document,
     Definition,

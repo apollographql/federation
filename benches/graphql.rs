@@ -10,7 +10,7 @@ use graphql_parser::parse_query;
 
 fn load_file(name: &str) -> String {
     let mut buf = String::with_capacity(1024);
-    let path = format!("tests/samples/{}.graphql", name);
+    let path = format!("tests/queries/{}.graphql", name);
     let mut f = File::open(&path).unwrap();
     f.read_to_string(&mut buf).unwrap();
     buf
