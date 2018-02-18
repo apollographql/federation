@@ -15,7 +15,7 @@ pub(crate) struct Formatter<'a> {
 ///
 /// Currently we only have indentation configured, other things might be
 /// added later (such as minification).
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Style {
     indent: u32,
 }
