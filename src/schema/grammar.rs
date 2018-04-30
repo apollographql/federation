@@ -191,7 +191,7 @@ pub fn object_type<'a>(input: &mut TokenStream<'a>)
             ObjectType {
                 position, name, directives, fields,
                 implements_interfaces: interfaces,
-                description: None,  // is filled in type_definition
+                description: None,  // is filled in described_definition
             }
         })
         .parse_stream(input)
@@ -237,7 +237,7 @@ pub fn interface_type<'a>(input: &mut TokenStream<'a>)
         .map(|(position, name, directives, fields)| {
             InterfaceType {
                 position, name, directives, fields,
-                description: None,  // is filled in type_definition
+                description: None,  // is filled in described_definition
             }
         })
         .parse_stream(input)
@@ -288,7 +288,7 @@ pub fn union_type<'a>(input: &mut TokenStream<'a>)
         UnionType {
             position, name, directives,
             types: types.unwrap_or_else(Vec::new),
-            description: None,  // is filled in type_definition
+            description: None,  // is filled in described_definition
         }
     })
     .parse_stream(input)
@@ -351,7 +351,7 @@ pub fn enum_type<'a>(input: &mut TokenStream<'a>)
         EnumType {
             position, name, directives,
             values: values.unwrap_or_else(Vec::new),
-            description: None,  // is filled in type_definition
+            description: None,  // is filled in described_definition
         }
     })
     .parse_stream(input)
@@ -402,7 +402,7 @@ pub fn input_object_type<'a>(input: &mut TokenStream<'a>)
         .map(|(position, name, directives, fields)| {
             InputObjectType {
                 position, name, directives, fields,
-                description: None,  // is filled in type_definition
+                description: None,  // is filled in described_definition
             }
         })
         .parse_stream(input)
@@ -459,39 +459,47 @@ pub fn directive_definition<'a>(input: &mut TokenStream<'a>)
         .map(|(position, name, arguments, locations)| {
             DirectiveDefinition {
                 position, name, arguments, locations,
-                description: None,  // is filled in type_definition
+                description: None,  // is filled in described_definition
             }
         })
         .parse_stream(input)
 }
 
-pub fn type_definition<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<TypeDefinition, TokenStream<'a>>
+pub fn described_definition<'a>(input: &mut TokenStream<'a>)
+    -> ParseResult<Definition, TokenStream<'a>>
 {
     use self::TypeDefinition::*;
     (
         optional(parser(string)),
         choice((
-            parser(scalar_type).map(Scalar),
-            parser(object_type).map(Object),
-            parser(interface_type).map(Interface),
-            parser(union_type).map(Union),
-            parser(enum_type).map(Enum),
-            parser(input_object_type).map(InputObject),
-        )),
+            choice((
+                parser(scalar_type).map(Scalar),
+                parser(object_type).map(Object),
+                parser(interface_type).map(Interface),
+                parser(union_type).map(Union),
+                parser(enum_type).map(Enum),
+                parser(input_object_type).map(InputObject),
+            )).map(Definition::TypeDefinition),
+            parser(directive_definition).map(Definition::DirectiveDefinition),
+        ))
     )
         // We can't set description inside type definition parser, because
         // that means parser will need to backtrace, and that in turn
         // means that error reporting is bad (along with performance)
         .map(|(descr, mut def)| {
             use schema::ast::TypeDefinition::*;
+            use schema::ast::Definition::*;
+            use schema::ast::Definition::{TypeDefinition as T};
             match def {
-                Scalar(ref mut s) => s.description = descr,
-                Object(ref mut o) => o.description = descr,
-                Interface(ref mut i) => i.description = descr,
-                Union(ref mut u) => u.description = descr,
-                Enum(ref mut e) => e.description = descr,
-                InputObject(ref mut o) => o.description = descr,
+                T(Scalar(ref mut s)) => s.description = descr,
+                T(Object(ref mut o)) => o.description = descr,
+                T(Interface(ref mut i)) => i.description = descr,
+                T(Union(ref mut u)) => u.description = descr,
+                T(Enum(ref mut e)) => e.description = descr,
+                T(InputObject(ref mut o)) => o.description = descr,
+                DirectiveDefinition(ref mut d) => d.description = descr,
+                SchemaDefinition(_) => unreachable!(),
+                TypeExtension(_) => unreachable!(),
             }
             def
         })
@@ -519,9 +527,8 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
 {
     choice((
         parser(schema).map(Definition::SchemaDefinition),
-        parser(type_definition).map(Definition::TypeDefinition),
         parser(type_extension).map(Definition::TypeExtension),
-        parser(directive_definition).map(Definition::DirectiveDefinition),
+        parser(described_definition),
     )).parse_stream(input)
 }
 
