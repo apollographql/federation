@@ -5,7 +5,7 @@
 //! query language as well as AST types.
 //!
 //! [Docs](https://docs.rs/graphql-parser/) |
-//! [Github](https://github.com/tailhook/graphql-parser/) |
+//! [Github](https://github.com/graphql-rust/graphql-parser/) |
 //! [Crate](https://crates.io/crates/graphql-parser)
 //!
 //! Current this library supports full graphql syntax, and the following
