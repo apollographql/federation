@@ -58,6 +58,11 @@ impl Number {
     }
 }
 
+impl From<i64> for Number {
+    fn from(i: i64) -> Self {
+        Number(i)
+    }
+}
 
 pub fn directives<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Vec<Directive>, TokenStream<'a>>
@@ -253,4 +258,17 @@ pub fn parse_type<'a>(input: &mut TokenStream<'a>)
         }
     )
     .parse_stream(input)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Number;
+
+    #[test]
+    fn number_and_i64_conversion() {
+        assert_eq!(Number::from(1).as_i64(), Some(1));
+        assert_eq!(Number::from(584).as_i64(), Some(584));
+        assert_eq!(Number::from(i64::min_value()).as_i64(), Some(i64::min_value()));
+        assert_eq!(Number::from(i64::max_value()).as_i64(), Some(i64::max_value()));
+    }
 }
