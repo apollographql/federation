@@ -58,9 +58,9 @@ impl Number {
     }
 }
 
-impl From<i64> for Number {
-    fn from(i: i64) -> Self {
-        Number(i)
+impl From<i32> for Number {
+    fn from(i: i32) -> Self {
+        Number(i as i64)
     }
 }
 
@@ -265,10 +265,10 @@ mod tests {
     use super::Number;
 
     #[test]
-    fn number_and_i64_conversion() {
+    fn number_from_i32_and_to_i64_conversion() {
         assert_eq!(Number::from(1).as_i64(), Some(1));
         assert_eq!(Number::from(584).as_i64(), Some(584));
-        assert_eq!(Number::from(i64::min_value()).as_i64(), Some(i64::min_value()));
-        assert_eq!(Number::from(i64::max_value()).as_i64(), Some(i64::max_value()));
+        assert_eq!(Number::from(i32::min_value()).as_i64(), Some(i32::min_value() as i64));
+        assert_eq!(Number::from(i32::max_value()).as_i64(), Some(i32::max_value() as i64));
     }
 }
