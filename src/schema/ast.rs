@@ -6,7 +6,7 @@ use position::Pos;
 pub type NamedType = String;
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Document {
     pub definitions: Vec<Definition>,
 }
@@ -19,7 +19,7 @@ pub enum Definition {
     DirectiveDefinition(DirectiveDefinition),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct SchemaDefinition {
     pub position: Pos,
     pub directives: Vec<Directive>,
@@ -48,7 +48,7 @@ pub enum TypeExtension {
     InputObject(InputObjectTypeExtension),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ScalarType {
     pub position: Pos,
     pub description: Option<String>,
@@ -56,14 +56,14 @@ pub struct ScalarType {
     pub directives: Vec<Directive>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ScalarTypeExtension {
     pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ObjectType {
     pub position: Pos,
     pub description: Option<String>,
@@ -73,7 +73,7 @@ pub struct ObjectType {
     pub fields: Vec<Field>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ObjectTypeExtension {
     pub position: Pos,
     pub name: Name,
@@ -102,7 +102,7 @@ pub struct InputValue {
     pub directives: Vec<Directive>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct InterfaceType {
     pub position: Pos,
     pub description: Option<String>,
@@ -111,7 +111,7 @@ pub struct InterfaceType {
     pub fields: Vec<Field>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct InterfaceTypeExtension {
     pub position: Pos,
     pub name: Name,
@@ -119,7 +119,7 @@ pub struct InterfaceTypeExtension {
     pub fields: Vec<Field>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct UnionType {
     pub position: Pos,
     pub description: Option<String>,
@@ -128,7 +128,7 @@ pub struct UnionType {
     pub types: Vec<NamedType>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct UnionTypeExtension {
     pub position: Pos,
     pub name: Name,
@@ -136,7 +136,7 @@ pub struct UnionTypeExtension {
     pub types: Vec<NamedType>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct EnumType {
     pub position: Pos,
     pub description: Option<String>,
@@ -145,7 +145,7 @@ pub struct EnumType {
     pub values: Vec<EnumValue>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct EnumValue {
     pub position: Pos,
     pub description: Option<String>,
@@ -153,7 +153,7 @@ pub struct EnumValue {
     pub directives: Vec<Directive>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct EnumTypeExtension {
     pub position: Pos,
     pub name: Name,
@@ -161,7 +161,7 @@ pub struct EnumTypeExtension {
     pub values: Vec<EnumValue>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct InputObjectType {
     pub position: Pos,
     pub description: Option<String>,
@@ -170,7 +170,7 @@ pub struct InputObjectType {
     pub fields: Vec<InputValue>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct InputObjectTypeExtension {
     pub position: Pos,
     pub name: Name,
@@ -203,7 +203,7 @@ pub enum DirectiveLocation {
     InputFieldDefinition,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct DirectiveDefinition {
     pub position: Pos,
     pub description: Option<String>,
