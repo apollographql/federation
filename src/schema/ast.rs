@@ -6,7 +6,7 @@ use position::Pos;
 pub type NamedType = String;
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Document {
     pub definitions: Vec<Definition>,
 }
@@ -19,7 +19,7 @@ pub enum Definition {
     DirectiveDefinition(DirectiveDefinition),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct SchemaDefinition {
     pub position: Pos,
     pub directives: Vec<Directive>,
@@ -56,11 +56,32 @@ pub struct ScalarType {
     pub directives: Vec<Directive>,
 }
 
+impl ScalarType {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            description: None,
+            name,
+            directives: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScalarTypeExtension {
     pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
+}
+
+impl ScalarTypeExtension {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            name,
+            directives: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -73,6 +94,19 @@ pub struct ObjectType {
     pub fields: Vec<Field>,
 }
 
+impl ObjectType {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            description: None,
+            name,
+            implements_interfaces: vec![],
+            directives: vec![],
+            fields: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObjectTypeExtension {
     pub position: Pos,
@@ -80,6 +114,18 @@ pub struct ObjectTypeExtension {
     pub implements_interfaces: Vec<NamedType>,
     pub directives: Vec<Directive>,
     pub fields: Vec<Field>,
+}
+
+impl ObjectTypeExtension {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            name,
+            implements_interfaces: vec![],
+            directives: vec![],
+            fields: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -111,12 +157,35 @@ pub struct InterfaceType {
     pub fields: Vec<Field>,
 }
 
+impl InterfaceType {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            description: None,
+            name,
+            directives: vec![],
+            fields: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceTypeExtension {
     pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
     pub fields: Vec<Field>,
+}
+
+impl InterfaceTypeExtension {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            name,
+            directives: vec![],
+            fields: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -128,12 +197,35 @@ pub struct UnionType {
     pub types: Vec<NamedType>,
 }
 
+impl UnionType {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            description: None,
+            name,
+            directives: vec![],
+            types: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnionTypeExtension {
     pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
     pub types: Vec<NamedType>,
+}
+
+impl UnionTypeExtension {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            name,
+            directives: vec![],
+            types: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -145,6 +237,18 @@ pub struct EnumType {
     pub values: Vec<EnumValue>,
 }
 
+impl EnumType {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            description: None,
+            name,
+            directives: vec![],
+            values: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumValue {
     pub position: Pos,
@@ -153,12 +257,34 @@ pub struct EnumValue {
     pub directives: Vec<Directive>,
 }
 
+impl EnumValue {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            description: None,
+            name,
+            directives: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumTypeExtension {
     pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
     pub values: Vec<EnumValue>,
+}
+
+impl EnumTypeExtension {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            name,
+            directives: vec![],
+            values: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -170,12 +296,35 @@ pub struct InputObjectType {
     pub fields: Vec<InputValue>,
 }
 
+impl InputObjectType {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            description: None,
+            name,
+            directives: vec![],
+            fields: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputObjectTypeExtension {
     pub position: Pos,
     pub name: Name,
     pub directives: Vec<Directive>,
     pub fields: Vec<InputValue>,
+}
+
+impl InputObjectTypeExtension {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            name,
+            directives: vec![],
+            fields: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -210,6 +359,18 @@ pub struct DirectiveDefinition {
     pub name: Name,
     pub arguments: Vec<InputValue>,
     pub locations: Vec<DirectiveLocation>,
+}
+
+impl DirectiveDefinition {
+    pub fn new(name: Name) -> Self {
+        Self {
+            position: Pos::default(),
+            description: None,
+            name,
+            arguments: vec![],
+            locations: vec![],
+        }
+    }
 }
 
 impl DirectiveLocation {
