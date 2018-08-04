@@ -19,3 +19,4 @@ fn test_error(filename: &str) {
 }
 
 #[test] fn invalid_curly_brace() { test_error("invalid_curly_brace"); }
+#[test] fn bad_args() { test_error("bad_args"); }
