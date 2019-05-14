@@ -19,29 +19,29 @@ fn load_file(name: &str) -> String {
 #[bench]
 fn bench_minimal(b: &mut test::Bencher) {
     let f = load_file("minimal");
-    b.iter(|| parse_query(&f).unwrap());
+    b.iter(|| parse_query::<String>(&f).unwrap());
 }
 
 #[bench]
 fn bench_inline_fragment(b: &mut test::Bencher) {
     let f = load_file("inline_fragment");
-    b.iter(|| parse_query(&f).unwrap());
+    b.iter(|| parse_query::<String>(&f).unwrap());
 }
 
 #[bench]
 fn bench_directive_args(b: &mut test::Bencher) {
     let f = load_file("directive_args");
-    b.iter(|| parse_query(&f).unwrap());
+    b.iter(|| parse_query::<String>(&f).unwrap());
 }
 
 #[bench]
 fn bench_query_vars(b: &mut test::Bencher) {
     let f = load_file("query_vars");
-    b.iter(|| parse_query(&f).unwrap());
+    b.iter(|| parse_query::<String>(&f).unwrap());
 }
 
 #[bench]
 fn bench_kitchen_sink(b: &mut test::Bencher) {
     let f = load_file("kitchen-sink");
-    b.iter(|| parse_query(&f).unwrap());
+    b.iter(|| parse_query::<String>(&f).unwrap());
 }

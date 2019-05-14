@@ -14,7 +14,7 @@ fn test_error(filename: &str) {
     let mut iter = buf.splitn(2, "\n---\n");
     let graphql = iter.next().unwrap();
     let expected = iter.next().expect("file should contain error message");
-    let err = parse_query(graphql).unwrap_err();
+    let err = parse_query::<String>(graphql).unwrap_err();
     assert_eq!(err.to_string(), expected);
 }
 

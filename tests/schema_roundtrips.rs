@@ -11,7 +11,7 @@ fn roundtrip(filename: &str) {
     let path = format!("tests/schemas/{}.graphql", filename);
     let mut f = File::open(&path).unwrap();
     f.read_to_string(&mut buf).unwrap();
-    let ast = parse_schema(&buf).unwrap();
+    let ast = parse_schema::<String>(&buf).unwrap().to_owned();
     assert_eq!(ast.to_string(), buf);
 }
 
@@ -21,7 +21,7 @@ fn roundtrip2(filename: &str) {
     let target = format!("tests/schemas/{}_canonical.graphql", filename);
     let mut f = File::open(&source).unwrap();
     f.read_to_string(&mut buf).unwrap();
-    let ast = parse_schema(&buf).unwrap();
+    let ast = parse_schema::<String>(&buf).unwrap();
 
     let mut buf = String::with_capacity(1024);
     let mut f = File::open(&target).unwrap();

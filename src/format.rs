@@ -130,7 +130,9 @@ impl<'a> Formatter<'a> {
     }
 }
 
-pub(crate) fn format_directives(dirs: &[Directive], f: &mut Formatter) {
+pub(crate) fn format_directives<'a, T>(dirs: &[Directive<'a, T>], f: &mut Formatter) 
+    where T: ::common::Text<'a>,
+{
     for dir in dirs {
         f.write(" ");
         dir.display(f);
@@ -141,6 +143,18 @@ macro_rules! impl_display {
     ($( $typ: ident, )+) => {
         $(
             impl fmt::Display for $typ {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    f.write_str(&to_string(self))
+                }
+            }
+        )+
+    };
+
+    ('a $($typ: ident, )+) => {
+        $(
+            impl<'a, T> fmt::Display for $typ<'a, T> 
+                where T: Text<'a>,
+            {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                     f.write_str(&to_string(self))
                 }

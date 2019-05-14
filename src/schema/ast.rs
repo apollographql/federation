@@ -1,63 +1,64 @@
 use std::str::FromStr;
 
-pub use common::{Directive, Type, Name, Value};
+pub use common::{Directive, Type, Value, Text};
 use position::Pos;
 
-pub type NamedType = String;
-
-
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct Document {
-    pub definitions: Vec<Definition>,
+pub struct Document<'a, T: Text<'a>> 
+    where T: Text<'a>
+{
+    pub definitions: Vec<Definition<'a, T>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Definition {
-    SchemaDefinition(SchemaDefinition),
-    TypeDefinition(TypeDefinition),
-    TypeExtension(TypeExtension),
-    DirectiveDefinition(DirectiveDefinition),
+pub enum Definition<'a, T: Text<'a>> {
+    SchemaDefinition(SchemaDefinition<'a, T>),
+    TypeDefinition(TypeDefinition<'a, T>),
+    TypeExtension(TypeExtension<'a, T>),
+    DirectiveDefinition(DirectiveDefinition<'a, T>),
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct SchemaDefinition {
+pub struct SchemaDefinition<'a, T: Text<'a>> {
     pub position: Pos,
-    pub directives: Vec<Directive>,
-    pub query: Option<NamedType>,
-    pub mutation: Option<NamedType>,
-    pub subscription: Option<NamedType>,
+    pub directives: Vec<Directive<'a, T>>,
+    pub query: Option<T::Value>,
+    pub mutation: Option<T::Value>,
+    pub subscription: Option<T::Value>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TypeDefinition {
-    Scalar(ScalarType),
-    Object(ObjectType),
-    Interface(InterfaceType),
-    Union(UnionType),
-    Enum(EnumType),
-    InputObject(InputObjectType),
+pub enum TypeDefinition<'a, T: Text<'a>> {
+    Scalar(ScalarType<'a, T>),
+    Object(ObjectType<'a, T>),
+    Interface(InterfaceType<'a, T>),
+    Union(UnionType<'a, T>),
+    Enum(EnumType<'a, T>),
+    InputObject(InputObjectType<'a, T>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TypeExtension {
-    Scalar(ScalarTypeExtension),
-    Object(ObjectTypeExtension),
-    Interface(InterfaceTypeExtension),
-    Union(UnionTypeExtension),
-    Enum(EnumTypeExtension),
-    InputObject(InputObjectTypeExtension),
+pub enum TypeExtension<'a, T: Text<'a>> {
+    Scalar(ScalarTypeExtension<'a, T>),
+    Object(ObjectTypeExtension<'a, T>),
+    Interface(InterfaceTypeExtension<'a, T>),
+    Union(UnionTypeExtension<'a, T>),
+    Enum(EnumTypeExtension<'a, T>),
+    InputObject(InputObjectTypeExtension<'a, T>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ScalarType {
+pub struct ScalarType<'a, T: Text<'a>> {
     pub position: Pos,
     pub description: Option<String>,
-    pub name: Name,
-    pub directives: Vec<Directive>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
 }
 
-impl ScalarType {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> ScalarType<'a, T> 
+    where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             description: None,
@@ -68,14 +69,16 @@ impl ScalarType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ScalarTypeExtension {
+pub struct ScalarTypeExtension<'a, T: Text<'a>> {
     pub position: Pos,
-    pub name: Name,
-    pub directives: Vec<Directive>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
 }
 
-impl ScalarTypeExtension {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> ScalarTypeExtension<'a, T> 
+    where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             name,
@@ -85,17 +88,19 @@ impl ScalarTypeExtension {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ObjectType {
+pub struct ObjectType<'a, T: Text<'a>> {
     pub position: Pos,
     pub description: Option<String>,
-    pub name: Name,
-    pub implements_interfaces: Vec<NamedType>,
-    pub directives: Vec<Directive>,
-    pub fields: Vec<Field>,
+    pub name: T::Value,
+    pub implements_interfaces: Vec<T::Value>,
+    pub directives: Vec<Directive<'a, T>>,
+    pub fields: Vec<Field<'a, T>>,
 }
 
-impl ObjectType {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> ObjectType<'a, T> 
+    where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             description: None,
@@ -108,16 +113,18 @@ impl ObjectType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ObjectTypeExtension {
+pub struct ObjectTypeExtension<'a, T: Text<'a>> {
     pub position: Pos,
-    pub name: Name,
-    pub implements_interfaces: Vec<NamedType>,
-    pub directives: Vec<Directive>,
-    pub fields: Vec<Field>,
+    pub name: T::Value,
+    pub implements_interfaces: Vec<T::Value>,
+    pub directives: Vec<Directive<'a, T>>,
+    pub fields: Vec<Field<'a, T>>,
 }
 
-impl ObjectTypeExtension {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> ObjectTypeExtension<'a, T> 
+    where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             name,
@@ -129,36 +136,38 @@ impl ObjectTypeExtension {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Field {
+pub struct Field<'a, T: Text<'a>> {
     pub position: Pos,
     pub description: Option<String>,
-    pub name: Name,
-    pub arguments: Vec<InputValue>,
-    pub field_type: Type,
-    pub directives: Vec<Directive>,
+    pub name: T::Value,
+    pub arguments: Vec<InputValue<'a, T>>,
+    pub field_type: Type<'a, T>,
+    pub directives: Vec<Directive<'a, T>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct InputValue {
+pub struct InputValue<'a, T: Text<'a>> {
     pub position: Pos,
     pub description: Option<String>,
-    pub name: Name,
-    pub value_type: Type,
-    pub default_value: Option<Value>,
-    pub directives: Vec<Directive>,
+    pub name: T::Value,
+    pub value_type: Type<'a, T>,
+    pub default_value: Option<Value<'a, T>>,
+    pub directives: Vec<Directive<'a, T>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct InterfaceType {
+pub struct InterfaceType<'a, T: Text<'a>> {
     pub position: Pos,
     pub description: Option<String>,
-    pub name: Name,
-    pub directives: Vec<Directive>,
-    pub fields: Vec<Field>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
+    pub fields: Vec<Field<'a, T>>,
 }
 
-impl InterfaceType {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> InterfaceType<'a, T> 
+    where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             description: None,
@@ -170,15 +179,17 @@ impl InterfaceType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct InterfaceTypeExtension {
+pub struct InterfaceTypeExtension<'a, T: Text<'a>> {
     pub position: Pos,
-    pub name: Name,
-    pub directives: Vec<Directive>,
-    pub fields: Vec<Field>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
+    pub fields: Vec<Field<'a, T>>,
 }
 
-impl InterfaceTypeExtension {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> InterfaceTypeExtension<'a, T> 
+where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             name,
@@ -189,16 +200,18 @@ impl InterfaceTypeExtension {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UnionType {
+pub struct UnionType<'a, T: Text<'a>> {
     pub position: Pos,
     pub description: Option<String>,
-    pub name: Name,
-    pub directives: Vec<Directive>,
-    pub types: Vec<NamedType>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
+    pub types: Vec<T::Value>,
 }
 
-impl UnionType {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> UnionType<'a, T> 
+where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             description: None,
@@ -210,15 +223,17 @@ impl UnionType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UnionTypeExtension {
+pub struct UnionTypeExtension<'a, T: Text<'a>> {
     pub position: Pos,
-    pub name: Name,
-    pub directives: Vec<Directive>,
-    pub types: Vec<NamedType>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
+    pub types: Vec<T::Value>,
 }
 
-impl UnionTypeExtension {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> UnionTypeExtension<'a, T> 
+where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             name,
@@ -229,16 +244,18 @@ impl UnionTypeExtension {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct EnumType {
+pub struct EnumType<'a, T: Text<'a>> {
     pub position: Pos,
     pub description: Option<String>,
-    pub name: Name,
-    pub directives: Vec<Directive>,
-    pub values: Vec<EnumValue>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
+    pub values: Vec<EnumValue<'a, T>>,
 }
 
-impl EnumType {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> EnumType<'a, T> 
+where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             description: None,
@@ -250,15 +267,17 @@ impl EnumType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct EnumValue {
+pub struct EnumValue<'a, T: Text<'a>> {
     pub position: Pos,
     pub description: Option<String>,
-    pub name: Name,
-    pub directives: Vec<Directive>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
 }
 
-impl EnumValue {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> EnumValue<'a, T> 
+where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             description: None,
@@ -269,15 +288,17 @@ impl EnumValue {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct EnumTypeExtension {
+pub struct EnumTypeExtension<'a, T: Text<'a>> {
     pub position: Pos,
-    pub name: Name,
-    pub directives: Vec<Directive>,
-    pub values: Vec<EnumValue>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
+    pub values: Vec<EnumValue<'a, T>>,
 }
 
-impl EnumTypeExtension {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> EnumTypeExtension<'a, T> 
+where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             name,
@@ -288,16 +309,18 @@ impl EnumTypeExtension {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct InputObjectType {
+pub struct InputObjectType<'a, T: Text<'a>> {
     pub position: Pos,
     pub description: Option<String>,
-    pub name: Name,
-    pub directives: Vec<Directive>,
-    pub fields: Vec<InputValue>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
+    pub fields: Vec<InputValue<'a, T>>,
 }
 
-impl InputObjectType {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> InputObjectType<'a, T> 
+where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             description: None,
@@ -309,15 +332,17 @@ impl InputObjectType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct InputObjectTypeExtension {
+pub struct InputObjectTypeExtension<'a, T: Text<'a>> {
     pub position: Pos,
-    pub name: Name,
-    pub directives: Vec<Directive>,
-    pub fields: Vec<InputValue>,
+    pub name: T::Value,
+    pub directives: Vec<Directive<'a, T>>,
+    pub fields: Vec<InputValue<'a, T>>,
 }
 
-impl InputObjectTypeExtension {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> InputObjectTypeExtension<'a, T> 
+where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             name,
@@ -353,16 +378,18 @@ pub enum DirectiveLocation {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct DirectiveDefinition {
+pub struct DirectiveDefinition<'a, T: Text<'a>> {
     pub position: Pos,
     pub description: Option<String>,
-    pub name: Name,
-    pub arguments: Vec<InputValue>,
+    pub name: T::Value,
+    pub arguments: Vec<InputValue<'a, T>>,
     pub locations: Vec<DirectiveLocation>,
 }
 
-impl DirectiveDefinition {
-    pub fn new(name: Name) -> Self {
+impl<'a, T> DirectiveDefinition<'a, T> 
+where T: Text<'a>
+{
+    pub fn new(name: T::Value) -> Self {
         Self {
             position: Pos::default(),
             description: None,
