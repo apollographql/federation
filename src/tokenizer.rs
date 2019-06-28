@@ -250,12 +250,12 @@ impl<'a> TokenStream<'a> {
                         )
                     )
                 } else {
-                    let mut prev_char = cur_char;
                     let mut nchars = 1;
+                    let mut escaped = false;
                     for (idx, cur_char) in iter {
                         nchars += 1;
                         match cur_char {
-                            '"' if prev_char == '\\' => {}
+                            '"' if escaped => {}
                             '"' => {
                                 self.position.column += nchars;
                                 self.off += idx+1;
@@ -268,11 +268,14 @@ impl<'a> TokenStream<'a> {
                                     )
                                 );
                             }
+
                             _ => {
 
                             }
                         }
-                        prev_char = cur_char;
+
+                        // if we aren't escaped and the current char is a \, we are now escaped
+                        escaped = !escaped && cur_char == '\\';
                     }
                     Err(
                         Error::unexpected_message(
@@ -482,12 +485,17 @@ mod test {
     #[test] #[should_panic] fn letters_float2() { tok_str("0.bbc"); }
     #[test] #[should_panic] fn letters_float3() { tok_str("0.bbce0"); }
     #[test] #[should_panic] fn no_exp_sign_float() { tok_str("0e0"); }
+    #[test] #[should_panic] fn unterminated_string() { tok_str(r#""hello\""#); }
+    #[test] #[should_panic] fn extra_unterminated_string() { tok_str(r#""hello\\\""#); }
 
     #[test]
     fn string() {
         assert_eq!(tok_str(r#""""#), [r#""""#]);
         assert_eq!(tok_typ(r#""""#), [StringValue]);
         assert_eq!(tok_str(r#""hello""#), [r#""hello""#]);
+        assert_eq!(tok_str(r#""hello\\""#), [r#""hello\\""#]);
+        assert_eq!(tok_str(r#""hello\\\\""#), [r#""hello\\\\""#]);
+        assert_eq!(tok_str(r#""he\\llo""#), [r#""he\\llo""#]);
         assert_eq!(tok_typ(r#""hello""#), [StringValue]);
         assert_eq!(tok_str(r#""my\"quote""#), [r#""my\"quote""#]);
         assert_eq!(tok_typ(r#""my\"quote""#), [StringValue]);
