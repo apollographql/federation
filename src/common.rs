@@ -148,10 +148,11 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
     let mut res = String::with_capacity(s.len());
     debug_assert!(s.starts_with('"') && s.ends_with('"'));
     let mut chars = s[1..s.len()-1].chars();
+    let mut temp_code_point = String::with_capacity(4);
     while let Some(c) = chars.next() {
         match c {
             '\\' => {
-                match chars.next().expect("slash cant be and the end") {
+                match chars.next().expect("slash cant be at the end") {
                     c@'"' | c@'\\' | c@'/' => res.push(c),
                     'b' => res.push('\u{0010}'),
                     'f' => res.push('\u{000C}'),
@@ -159,8 +160,25 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
                     'r' => res.push('\r'),
                     't' => res.push('\t'),
                     'u' => {
-                        unimplemented!();
-                    }
+                        temp_code_point.clear();
+                        for _ in 0..4 {
+                            match chars.next() {
+                                Some(inner_c) => temp_code_point.push(inner_c),
+                                None => return Err(Error::unexpected_message(
+                                    format_args!("\\u must have 4 characters after it, only found '{}'", temp_code_point)
+                                )),
+                            }
+                        }
+
+                        // convert our hex string into a u32, then convert that into a char
+                        match u32::from_str_radix(&temp_code_point, 16).map(std::char::from_u32) {
+                            Ok(Some(unicode_char)) => res.push(unicode_char),
+                            _ => {
+                                return Err(Error::unexpected_message(
+                                    format_args!("{} is not a valid unicode code point", temp_code_point)))
+                            }
+                        }
+                    },
                     c => {
                         return Err(Error::unexpected_message(
                             format_args!("bad escaped char {:?}", c)));
@@ -263,6 +281,7 @@ pub fn parse_type<'a>(input: &mut TokenStream<'a>)
 #[cfg(test)]
 mod tests {
     use super::Number;
+    use super::unquote_string;
 
     #[test]
     fn number_from_i32_and_to_i64_conversion() {
@@ -270,5 +289,18 @@ mod tests {
         assert_eq!(Number::from(584).as_i64(), Some(584));
         assert_eq!(Number::from(i32::min_value()).as_i64(), Some(i32::min_value() as i64));
         assert_eq!(Number::from(i32::max_value()).as_i64(), Some(i32::max_value() as i64));
+    }
+
+    #[test]
+    fn unquote_unicode_string() {
+        // basic tests
+        assert_eq!(unquote_string(r#""\u0009""#).expect(""), "\u{0009}");
+        assert_eq!(unquote_string(r#""\u000A""#).expect(""), "\u{000A}");
+        assert_eq!(unquote_string(r#""\u000D""#).expect(""), "\u{000D}");
+        assert_eq!(unquote_string(r#""\u0020""#).expect(""), "\u{0020}");
+        assert_eq!(unquote_string(r#""\uFFFF""#).expect(""), "\u{FFFF}");
+
+        // a more complex string
+        assert_eq!(unquote_string(r#""\u0009 hello \u000A there""#).expect(""), "\u{0009} hello \u{000A} there");
     }
 }
