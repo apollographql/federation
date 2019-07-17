@@ -112,7 +112,7 @@ fn unquote_block_string(src: &str) -> Result<String, Error<Token, Token>> {
     debug_assert!(src.starts_with("\"\"\"") && src.ends_with("\"\"\""));
     let indent = src[3..src.len()-3].lines().skip(1)
         .filter_map(|line| {
-            let trimmed = line.trim_left().len();
+            let trimmed = line.trim_start().len();
             if trimmed > 0 {
                 Some(line.len() - trimmed)
             } else {
