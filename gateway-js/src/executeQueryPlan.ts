@@ -322,7 +322,7 @@ async function executeFetch<TContext>(
           variables,
           error.extensions,
           error.path,
-          error as GraphQLError
+          error as GraphQLError,
         ),
       );
       context.errors.push(...errors);
@@ -487,7 +487,7 @@ function downstreamServiceError(
 export const defaultFieldResolverWithAliasSupport: GraphQLFieldResolver<
   any,
   any
-> = function (source, args, contextValue, info) {
+> = function(source, args, contextValue, info) {
   // ensure source is a value for which property access is acceptable.
   if (typeof source === 'object' || typeof source === 'function') {
     // if this is an alias, check it first because a downstream service
