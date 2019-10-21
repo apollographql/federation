@@ -7,13 +7,14 @@ use failure::Fail;
 
 use tokenizer::{Kind as T, Token, TokenStream};
 use helpers::{punct, ident, kind, name};
-use common::{directives, string, default_value, parse_type};
+use common::{directives, string, default_value, parse_type, Text};
 use schema::error::{ParseError};
 use schema::ast::*;
 
 
-pub fn schema<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<SchemaDefinition, TokenStream<'a>>
+pub fn schema<'a, S>(input: &mut TokenStream<'a>)
+    -> ParseResult<SchemaDefinition<'a, S>, TokenStream<'a>>
+    where S: Text<'a>,
 {
     (
         position().skip(ident("schema")),
@@ -21,7 +22,7 @@ pub fn schema<'a>(input: &mut TokenStream<'a>)
         punct("{")
             .with(many((
                 kind(T::Name).skip(punct(":")),
-                name(),
+                name::<'a, S>(),
             )))
             .skip(punct("}")),
     )
@@ -74,12 +75,13 @@ pub fn schema<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn scalar_type<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<ScalarType, TokenStream<'a>>
+pub fn scalar_type<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<ScalarType<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("scalar").with(name()),
+        ident("scalar").with(name::<'a, T>()),
         parser(directives),
     )
         .map(|(position, name, directives)| {
@@ -88,12 +90,13 @@ pub fn scalar_type<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
-pub fn scalar_type_extension<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<ScalarTypeExtension, TokenStream<'a>>
+pub fn scalar_type_extension<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<ScalarTypeExtension<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("scalar").with(name()),
+        ident("scalar").with(name::<'a, T>()),
         parser(directives),
     )
     .flat_map(|(position, name, directives)| {
@@ -109,25 +112,27 @@ pub fn scalar_type_extension<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn implements_interfaces<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Vec<NamedType>, TokenStream<'a>>
+pub fn implements_interfaces<'a, X>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<X::Value>, TokenStream<'a>>
+    where X: Text<'a>,
 {
     optional(
         ident("implements")
         .skip(optional(punct("&")))
-        .with(sep_by1(name(), punct("&")))
+        .with(sep_by1(name::<'a, X>(), punct("&")))
     )
         .map(|opt| opt.unwrap_or_else(Vec::new))
         .parse_stream(input)
 }
 
-pub fn input_value<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<InputValue, TokenStream<'a>>
+pub fn input_value<'a, X>(input: &mut TokenStream<'a>)
+    -> ParseResult<InputValue<'a, X>, TokenStream<'a>>
+    where X: Text<'a>,
 {
     (
         position(),
         optional(parser(string)),
-        name(),
+        name::<'a, X>(),
         punct(":").with(parser(parse_type)),
         optional(punct("=").with(parser(default_value))),
         parser(directives),
@@ -141,21 +146,23 @@ pub fn input_value<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn arguments_definition<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Vec<InputValue>, TokenStream<'a>>
+pub fn arguments_definition<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<InputValue<'a, T>>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     optional(punct("(").with(many1(parser(input_value))).skip(punct(")")))
     .map(|v| v.unwrap_or_else(Vec::new))
     .parse_stream(input)
 }
 
-pub fn field<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Field, TokenStream<'a>>
+pub fn field<'a, S>(input: &mut TokenStream<'a>)
+    -> ParseResult<Field<'a, S>, TokenStream<'a>>
+    where S: Text<'a>,
 {
     (
         position(),
         optional(parser(string)),
-        name(),
+        name::<'a, S>(),
         parser(arguments_definition),
         punct(":").with(parser(parse_type)),
         parser(directives),
@@ -168,8 +175,9 @@ pub fn field<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn fields<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Vec<Field>, TokenStream<'a>>
+pub fn fields<'a, S>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<Field<'a, S>>, TokenStream<'a>>
+    where S: Text<'a>,
 {
     optional(punct("{").with(many1(parser(field))).skip(punct("}")))
     .map(|v| v.unwrap_or_else(Vec::new))
@@ -177,13 +185,14 @@ pub fn fields<'a>(input: &mut TokenStream<'a>)
 }
 
 
-pub fn object_type<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<ObjectType, TokenStream<'a>>
+pub fn object_type<'a, S>(input: &mut TokenStream<'a>)
+    -> ParseResult<ObjectType<'a, S>, TokenStream<'a>>
+    where S: Text<'a>,
 {
     (
         position(),
-        ident("type").with(name()),
-        parser(implements_interfaces),
+        ident("type").with(name::<'a, S>()),
+        parser(implements_interfaces::<S>),
         parser(directives),
         parser(fields),
     )
@@ -197,13 +206,14 @@ pub fn object_type<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
-pub fn object_type_extension<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<ObjectTypeExtension, TokenStream<'a>>
+pub fn object_type_extension<'a, S>(input: &mut TokenStream<'a>)
+    -> ParseResult<ObjectTypeExtension<'a, S>, TokenStream<'a>>
+    where S: Text<'a>,
 {
     (
         position(),
-        ident("type").with(name()),
-        parser(implements_interfaces),
+        ident("type").with(name::<'a, S>()),
+        parser(implements_interfaces::<S>),
         parser(directives),
         parser(fields),
     )
@@ -225,12 +235,13 @@ pub fn object_type_extension<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
-pub fn interface_type<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<InterfaceType, TokenStream<'a>>
+pub fn interface_type<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<InterfaceType<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("interface").with(name()),
+        ident("interface").with(name::<'a, T>()),
         parser(directives),
         parser(fields),
     )
@@ -243,12 +254,13 @@ pub fn interface_type<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
-pub fn interface_type_extension<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<InterfaceTypeExtension, TokenStream<'a>>
+pub fn interface_type_extension<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<InterfaceTypeExtension<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("interface").with(name()),
+        ident("interface").with(name::<'a, T>()),
         parser(directives),
         parser(fields),
     )
@@ -267,22 +279,24 @@ pub fn interface_type_extension<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
-pub fn union_members<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Vec<NamedType>, TokenStream<'a>>
+pub fn union_members<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<T::Value>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     optional(punct("|"))
-    .with(sep_by1(name(), punct("|")))
+    .with(sep_by1(name::<'a, T>(), punct("|")))
     .parse_stream(input)
 }
 
-pub fn union_type<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<UnionType, TokenStream<'a>>
+pub fn union_type<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<UnionType<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("union").with(name()),
+        ident("union").with(name::<'a, T>()),
         parser(directives),
-        optional(punct("=").with(parser(union_members))),
+        optional(punct("=").with(parser(union_members::<T>))),
     )
     .map(|(position, name, directives, types)| {
         UnionType {
@@ -294,14 +308,15 @@ pub fn union_type<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn union_type_extension<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<UnionTypeExtension, TokenStream<'a>>
+pub fn union_type_extension<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<UnionTypeExtension<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("union").with(name()),
+        ident("union").with(name::<'a, T>()),
         parser(directives),
-        optional(punct("=").with(parser(union_members))),
+        optional(punct("=").with(parser(union_members::<T>))),
     )
     .flat_map(|(position, name, directives, types)| {
         if directives.is_empty() && types.is_none() {
@@ -319,15 +334,16 @@ pub fn union_type_extension<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn enum_values<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Vec<EnumValue>, TokenStream<'a>>
+pub fn enum_values<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<EnumValue<'a, T>>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     punct("{")
     .with(many1(
         (
             position(),
             optional(parser(string)),
-            name(),
+            name::<'a, T>(),
             parser(directives),
         )
         .map(|(position, description, name, directives)| {
@@ -338,12 +354,13 @@ pub fn enum_values<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn enum_type<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<EnumType, TokenStream<'a>>
+pub fn enum_type<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<EnumType<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("enum").with(name()),
+        ident("enum").with(name::<'a, T>()),
         parser(directives),
         optional(parser(enum_values)),
     )
@@ -357,12 +374,13 @@ pub fn enum_type<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn enum_type_extension<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<EnumTypeExtension, TokenStream<'a>>
+pub fn enum_type_extension<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<EnumTypeExtension<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("enum").with(name()),
+        ident("enum").with(name::<'a, T>()),
         parser(directives),
         optional(parser(enum_values)),
     )
@@ -382,20 +400,22 @@ pub fn enum_type_extension<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn input_fields<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Vec<InputValue>, TokenStream<'a>>
+pub fn input_fields<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<Vec<InputValue<'a, T>>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     optional(punct("{").with(many1(parser(input_value))).skip(punct("}")))
     .map(|v| v.unwrap_or_else(Vec::new))
     .parse_stream(input)
 }
 
-pub fn input_object_type<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<InputObjectType, TokenStream<'a>>
+pub fn input_object_type<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<InputObjectType<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("input").with(name()),
+        ident("input").with(name::<'a, T>()),
         parser(directives),
         parser(input_fields),
     )
@@ -408,12 +428,13 @@ pub fn input_object_type<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
-pub fn input_object_type_extension<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<InputObjectTypeExtension, TokenStream<'a>>
+pub fn input_object_type_extension<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<InputObjectTypeExtension<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("input").with(name()),
+        ident("input").with(name::<'a, T>()),
         parser(directives),
         parser(input_fields),
     )
@@ -447,12 +468,13 @@ pub fn directive_locations<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
-pub fn directive_definition<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<DirectiveDefinition, TokenStream<'a>>
+pub fn directive_definition<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<DirectiveDefinition<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position(),
-        ident("directive").and(punct("@")).with(name()),
+        ident("directive").and(punct("@")).with(name::<'a, T>()),
         parser(arguments_definition),
         ident("on").with(parser(directive_locations)),
     )
@@ -465,8 +487,9 @@ pub fn directive_definition<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
-pub fn described_definition<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Definition, TokenStream<'a>>
+pub fn described_definition<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<Definition<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     use self::TypeDefinition::*;
     (
@@ -506,8 +529,9 @@ pub fn described_definition<'a>(input: &mut TokenStream<'a>)
         .parse_stream(input)
 }
 
-pub fn type_extension<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<TypeExtension, TokenStream<'a>>
+pub fn type_extension<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<TypeExtension<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     ident("extend")
     .with(choice((
@@ -522,8 +546,9 @@ pub fn type_extension<'a>(input: &mut TokenStream<'a>)
 }
 
 
-pub fn definition<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Definition, TokenStream<'a>>
+pub fn definition<'a, T>(input: &mut TokenStream<'a>)
+    -> ParseResult<Definition<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     choice((
         parser(schema).map(Definition::SchemaDefinition),
@@ -533,7 +558,9 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
 }
 
 /// Parses a piece of schema language and returns an AST
-pub fn parse_schema(s: &str) -> Result<Document, ParseError> {
+pub fn parse_schema<'a, T>(s: &'a str) -> Result<Document<'a, T>, ParseError> 
+    where T: Text<'a>,
+{
     let mut tokens = TokenStream::new(s);
     let (doc, _) = many1(parser(definition))
         .map(|d| Document { definitions: d })
@@ -551,8 +578,8 @@ mod test {
     use schema::grammar::*;
     use super::parse_schema;
 
-    fn ast(s: &str) -> Document {
-        parse_schema(s).unwrap()
+    fn ast(s: &str) -> Document<String> {
+        parse_schema::<String>(&s).unwrap().to_owned()
     }
 
     #[test]

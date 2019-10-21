@@ -25,7 +25,7 @@
 //! use graphql_parser::parse_query;
 //!
 //! # fn parse() -> Result<(), failure::Error> {
-//! let ast = parse_query("query MyQuery { field1, field2 }")?;
+//! let ast = parse_query::<&str>("query MyQuery { field1, field2 }")?;
 //! // Format canonical representation
 //! assert_eq!(format!("{}", ast), "\
 //! query MyQuery {
@@ -49,7 +49,7 @@
 //! use graphql_parser::parse_schema;
 //!
 //! # fn parse() -> Result<(), failure::Error> {
-//! let ast = parse_schema(r#"
+//! let ast = parse_schema::<String>(r#"
 //!     schema {
 //!         query: Query
 //!     }
@@ -64,7 +64,7 @@
 //!     type User {
 //!         name: String!,
 //!     }
-//! "#)?;
+//! "#)?.to_owned();
 //! // Format canonical representation
 //! assert_eq!(format!("{}", ast), "\
 //! schema {

@@ -8,13 +8,14 @@ use helpers::{punct, ident, name};
 use query::error::{ParseError};
 use query::ast::*;
 
-pub fn field<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Field, TokenStream<'a>>
+pub fn field<'a, S>(input: &mut TokenStream<'a>)
+    -> ParseResult<Field<'a, S>, TokenStream<'a>>
+    where S: Text<'a>
 {
     (
         position(),
-        name(),
-        optional(punct(":").with(name())),
+        name::<'a, S>(),
+        optional(punct(":").with(name::<'a, S>())),
         parser(arguments),
         parser(directives),
         optional(parser(selection_set)),
@@ -36,13 +37,14 @@ pub fn field<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn selection<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Selection, TokenStream<'a>>
+pub fn selection<'a, S>(input: &mut TokenStream<'a>)
+    -> ParseResult<Selection<'a, S>, TokenStream<'a>>
+    where S: Text<'a>
 {
     parser(field).map(Selection::Field)
     .or(punct("...").with((
                 position(),
-                optional(ident("on").with(name()).map(TypeCondition::On)),
+                optional(ident("on").with(name::<'a, S>()).map(TypeCondition::On)),
                 parser(directives),
                 parser(selection_set),
             ).map(|(position, type_condition, directives, selection_set)| {
@@ -51,7 +53,7 @@ pub fn selection<'a>(input: &mut TokenStream<'a>)
             })
             .map(Selection::InlineFragment)
         .or((position(),
-             name(),
+             name::<'a, S>(),
              parser(directives),
             ).map(|(position, fragment_name, directives)| {
                 FragmentSpread { position, fragment_name, directives }
@@ -61,8 +63,9 @@ pub fn selection<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn selection_set<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<SelectionSet, TokenStream<'a>>
+pub fn selection_set<'a, S>(input: &mut TokenStream<'a>)
+    -> ParseResult<SelectionSet<'a, S>, TokenStream<'a>>
+    where S: Text<'a>,
 {
     (
         position().skip(punct("{")),
@@ -72,8 +75,9 @@ pub fn selection_set<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn query<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Query, TokenStream<'a>>
+pub fn query<'a, T: Text<'a>>(input: &mut TokenStream<'a>)
+    -> ParseResult<Query<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     position()
     .skip(ident("query"))
@@ -86,23 +90,25 @@ pub fn query<'a>(input: &mut TokenStream<'a>)
 }
 
 /// A set of attributes common to a Query and a Mutation
-type OperationCommon = (
-    Option<String>,
-    Vec<VariableDefinition>,
-    Vec<Directive>,
-    SelectionSet,
+#[allow(type_alias_bounds)]
+type OperationCommon<'a, T: Text<'a>> = (
+    Option<T::Value>,
+    Vec<VariableDefinition<'a, T>>,
+    Vec<Directive<'a, T>>,
+    SelectionSet<'a, T>,
 );
 
-pub fn operation_common<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<OperationCommon, TokenStream<'a>>
+pub fn operation_common<'a, T: Text<'a>>(input: &mut TokenStream<'a>)
+    -> ParseResult<OperationCommon<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
-    optional(name())
+    optional(name::<'a, T>())
     .and(optional(
         punct("(")
         .with(many1(
             (
                 position(),
-                punct("$").with(name()).skip(punct(":")),
+                punct("$").with(name::<'a, T>()).skip(punct(":")),
                 parser(parse_type),
                 optional(
                     punct("=")
@@ -120,8 +126,9 @@ pub fn operation_common<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn mutation<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Mutation, TokenStream<'a>>
+pub fn mutation<'a, T: Text<'a>>(input: &mut TokenStream<'a>)
+    -> ParseResult<Mutation<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     position()
     .skip(ident("mutation"))
@@ -133,8 +140,9 @@ pub fn mutation<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn subscription<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Subscription, TokenStream<'a>>
+pub fn subscription<'a, T: Text<'a>>(input: &mut TokenStream<'a>)
+    -> ParseResult<Subscription<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     position()
     .skip(ident("subscription"))
@@ -146,8 +154,9 @@ pub fn subscription<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn operation_definition<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<OperationDefinition, TokenStream<'a>>
+pub fn operation_definition<'a, S>(input: &mut TokenStream<'a>)
+    -> ParseResult<OperationDefinition<'a, S>, TokenStream<'a>>
+    where S: Text<'a>,
 {
     parser(selection_set).map(OperationDefinition::SelectionSet)
     .or(parser(query).map(OperationDefinition::Query))
@@ -156,13 +165,14 @@ pub fn operation_definition<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn fragment_definition<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<FragmentDefinition, TokenStream<'a>>
+pub fn fragment_definition<'a, T: Text<'a>>(input: &mut TokenStream<'a>)
+    -> ParseResult<FragmentDefinition<'a, T>, TokenStream<'a>>
+    where T: Text<'a>,
 {
     (
         position().skip(ident("fragment")),
-        name(),
-        ident("on").with(name()).map(TypeCondition::On),
+        name::<'a, T>(),
+        ident("on").with(name::<'a, T>()).map(TypeCondition::On),
         parser(directives),
         parser(selection_set)
     ).map(|(position, name, type_condition, directives, selection_set)| {
@@ -173,8 +183,9 @@ pub fn fragment_definition<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn definition<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Definition, TokenStream<'a>>
+pub fn definition<'a, S>(input: &mut TokenStream<'a>)
+    -> ParseResult<Definition<'a, S>, TokenStream<'a>>
+    where S: Text<'a>,
 {
     parser(operation_definition).map(Definition::Operation)
     .or(parser(fragment_definition).map(Definition::Fragment))
@@ -182,7 +193,9 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
 }
 
 /// Parses a piece of query language and returns an AST
-pub fn parse_query(s: &str) -> Result<Document, ParseError> {
+pub fn parse_query<'a, S>(s: &'a str) -> Result<Document<'a, S>, ParseError> 
+    where S: Text<'a>,
+{
     let mut tokens = TokenStream::new(s);
     let (doc, _) = many1(parser(definition))
         .map(|d| Document { definitions: d })
@@ -199,8 +212,8 @@ mod test {
     use query::grammar::*;
     use super::parse_query;
 
-    fn ast(s: &str) -> Document {
-        parse_query(s).unwrap()
+    fn ast(s: &str) -> Document<String> {
+        parse_query::<String>(&s).unwrap().to_owned()
     }
 
     #[test]
@@ -246,11 +259,11 @@ mod test {
                                     alias: None,
                                     name: "a".into(),
                                     arguments: vec![
-                                        ("t".to_string(),
+                                        ("t".into(),
                                             Value::Boolean(true)),
-                                        ("f".to_string(),
+                                        ("f".into(),
                                             Value::Boolean(false)),
-                                        ("n".to_string(),
+                                        ("n".into(),
                                             Value::Null),
                                     ],
                                     directives: Vec::new(),

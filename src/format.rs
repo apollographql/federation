@@ -93,7 +93,7 @@ impl<'a> Formatter<'a> {
         for c in s.chars() {
             match c {
                 '\n' => has_newline = true,
-                '\r' | '\t' | '\u{0020}'...'\u{FFFF}' => {}
+                '\r' | '\t' | '\u{0020}'..='\u{FFFF}' => {}
                 _ => has_nonprintable = true,
             }
         }
@@ -107,7 +107,7 @@ impl<'a> Formatter<'a> {
                     '\t' => self.write(r"\t"),
                     '"' => self.write("\\\""),
                     '\\' => self.write(r"\\"),
-                    '\u{0020}'...'\u{FFFF}' => self.buf.push(c),
+                    '\u{0020}'..='\u{FFFF}' => self.buf.push(c),
                     _ => write!(&mut self.buf, "\\u{:04}", c as u32).unwrap(),
                 }
             }
@@ -130,7 +130,9 @@ impl<'a> Formatter<'a> {
     }
 }
 
-pub(crate) fn format_directives(dirs: &[Directive], f: &mut Formatter) {
+pub(crate) fn format_directives<'a, T>(dirs: &[Directive<'a, T>], f: &mut Formatter) 
+    where T: ::common::Text<'a>,
+{
     for dir in dirs {
         f.write(" ");
         dir.display(f);
@@ -141,6 +143,18 @@ macro_rules! impl_display {
     ($( $typ: ident, )+) => {
         $(
             impl fmt::Display for $typ {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    f.write_str(&to_string(self))
+                }
+            }
+        )+
+    };
+
+    ('a $($typ: ident, )+) => {
+        $(
+            impl<'a, T> fmt::Display for $typ<'a, T> 
+                where T: Text<'a>,
+            {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                     f.write_str(&to_string(self))
                 }
