@@ -169,10 +169,10 @@ impl<'a> TokenStream<'a> {
                     )
                 }
             }
-            '_' | 'a'...'z' | 'A'...'Z' => {
+            '_' | 'a'..='z' | 'A'..='Z' => {
                 while let Some((idx, cur_char)) = iter.next() {
                     match cur_char {
-                        '_' | 'a'...'z' | 'A'...'Z' | '0'...'9' => continue,
+                        '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' => continue,
                         _ => {
                             self.position.column += idx;
                             self.off += idx;
@@ -186,7 +186,7 @@ impl<'a> TokenStream<'a> {
 
                 Ok((Name, len))
             }
-            '-' | '0'...'9' => {
+            '-' | '0'..='9' => {
                 let mut exponent = None;
                 let mut real = None;
                 let len = loop {
