@@ -109,7 +109,6 @@ fn check_exp(value: &str) -> bool {
 fn check_float(value: &str, exponent: Option<usize>, real: Option<usize>)
     -> bool
 {
-    println!("Value {:?} {:?} {:?}", value, exponent, real);
     match (exponent, real) {
         (Some(e), Some(r)) if e < r => false,
         (Some(e), Some(r))
