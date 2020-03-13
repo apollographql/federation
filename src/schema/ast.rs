@@ -1,10 +1,12 @@
 use std::str::FromStr;
 
+use thiserror::Error;
+
 pub use crate::common::{Directive, Type, Value, Text};
 use crate::position::Pos;
 
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct Document<'a, T: Text<'a>> 
+pub struct Document<'a, T: Text<'a>>
     where T: Text<'a>
 {
     pub definitions: Vec<Definition<'a, T>>,
@@ -55,7 +57,7 @@ pub struct ScalarType<'a, T: Text<'a>> {
     pub directives: Vec<Directive<'a, T>>,
 }
 
-impl<'a, T> ScalarType<'a, T> 
+impl<'a, T> ScalarType<'a, T>
     where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -75,7 +77,7 @@ pub struct ScalarTypeExtension<'a, T: Text<'a>> {
     pub directives: Vec<Directive<'a, T>>,
 }
 
-impl<'a, T> ScalarTypeExtension<'a, T> 
+impl<'a, T> ScalarTypeExtension<'a, T>
     where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -97,7 +99,7 @@ pub struct ObjectType<'a, T: Text<'a>> {
     pub fields: Vec<Field<'a, T>>,
 }
 
-impl<'a, T> ObjectType<'a, T> 
+impl<'a, T> ObjectType<'a, T>
     where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -121,7 +123,7 @@ pub struct ObjectTypeExtension<'a, T: Text<'a>> {
     pub fields: Vec<Field<'a, T>>,
 }
 
-impl<'a, T> ObjectTypeExtension<'a, T> 
+impl<'a, T> ObjectTypeExtension<'a, T>
     where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -164,7 +166,7 @@ pub struct InterfaceType<'a, T: Text<'a>> {
     pub fields: Vec<Field<'a, T>>,
 }
 
-impl<'a, T> InterfaceType<'a, T> 
+impl<'a, T> InterfaceType<'a, T>
     where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -186,7 +188,7 @@ pub struct InterfaceTypeExtension<'a, T: Text<'a>> {
     pub fields: Vec<Field<'a, T>>,
 }
 
-impl<'a, T> InterfaceTypeExtension<'a, T> 
+impl<'a, T> InterfaceTypeExtension<'a, T>
 where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -208,7 +210,7 @@ pub struct UnionType<'a, T: Text<'a>> {
     pub types: Vec<T::Value>,
 }
 
-impl<'a, T> UnionType<'a, T> 
+impl<'a, T> UnionType<'a, T>
 where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -230,7 +232,7 @@ pub struct UnionTypeExtension<'a, T: Text<'a>> {
     pub types: Vec<T::Value>,
 }
 
-impl<'a, T> UnionTypeExtension<'a, T> 
+impl<'a, T> UnionTypeExtension<'a, T>
 where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -252,7 +254,7 @@ pub struct EnumType<'a, T: Text<'a>> {
     pub values: Vec<EnumValue<'a, T>>,
 }
 
-impl<'a, T> EnumType<'a, T> 
+impl<'a, T> EnumType<'a, T>
 where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -274,7 +276,7 @@ pub struct EnumValue<'a, T: Text<'a>> {
     pub directives: Vec<Directive<'a, T>>,
 }
 
-impl<'a, T> EnumValue<'a, T> 
+impl<'a, T> EnumValue<'a, T>
 where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -295,7 +297,7 @@ pub struct EnumTypeExtension<'a, T: Text<'a>> {
     pub values: Vec<EnumValue<'a, T>>,
 }
 
-impl<'a, T> EnumTypeExtension<'a, T> 
+impl<'a, T> EnumTypeExtension<'a, T>
 where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -317,7 +319,7 @@ pub struct InputObjectType<'a, T: Text<'a>> {
     pub fields: Vec<InputValue<'a, T>>,
 }
 
-impl<'a, T> InputObjectType<'a, T> 
+impl<'a, T> InputObjectType<'a, T>
 where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -339,7 +341,7 @@ pub struct InputObjectTypeExtension<'a, T: Text<'a>> {
     pub fields: Vec<InputValue<'a, T>>,
 }
 
-impl<'a, T> InputObjectTypeExtension<'a, T> 
+impl<'a, T> InputObjectTypeExtension<'a, T>
 where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -386,7 +388,7 @@ pub struct DirectiveDefinition<'a, T: Text<'a>> {
     pub locations: Vec<DirectiveLocation>,
 }
 
-impl<'a, T> DirectiveDefinition<'a, T> 
+impl<'a, T> DirectiveDefinition<'a, T>
 where T: Text<'a>
 {
     pub fn new(name: T::Value) -> Self {
@@ -460,8 +462,8 @@ impl DirectiveLocation {
     }
 }
 
-#[derive(Debug, Fail)]
-#[fail(display = "invalid directive location")]
+#[derive(Debug, Error)]
+#[error("invalid directive location")]
 pub struct InvalidDirectiveLocation;
 
 
