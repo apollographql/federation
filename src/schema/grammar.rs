@@ -5,11 +5,11 @@ use combine::combinator::{many, many1, eof, optional, position, choice};
 use combine::combinator::{sep_by1};
 use failure::Fail;
 
-use tokenizer::{Kind as T, Token, TokenStream};
-use helpers::{punct, ident, kind, name};
-use common::{directives, string, default_value, parse_type, Text};
-use schema::error::{ParseError};
-use schema::ast::*;
+use crate::tokenizer::{Kind as T, Token, TokenStream};
+use crate::helpers::{punct, ident, kind, name};
+use crate::common::{directives, string, default_value, parse_type, Text};
+use crate::schema::error::{ParseError};
+use crate::schema::ast::*;
 
 
 pub fn schema<'a, S>(input: &mut TokenStream<'a>)
@@ -510,9 +510,9 @@ pub fn described_definition<'a, T>(input: &mut TokenStream<'a>)
         // that means parser will need to backtrace, and that in turn
         // means that error reporting is bad (along with performance)
         .map(|(descr, mut def)| {
-            use schema::ast::TypeDefinition::*;
-            use schema::ast::Definition::*;
-            use schema::ast::Definition::{TypeDefinition as T};
+            use crate::schema::ast::TypeDefinition::*;
+            use crate::schema::ast::Definition::*;
+            use crate::schema::ast::Definition::{TypeDefinition as T};
             match def {
                 T(Scalar(ref mut s)) => s.description = descr,
                 T(Object(ref mut o)) => o.description = descr,
@@ -574,8 +574,8 @@ pub fn parse_schema<'a, T>(s: &'a str) -> Result<Document<'a, T>, ParseError>
 
 #[cfg(test)]
 mod test {
-    use position::Pos;
-    use schema::grammar::*;
+    use crate::position::Pos;
+    use crate::schema::grammar::*;
     use super::parse_schema;
 
     fn ast(s: &str) -> Document<String> {

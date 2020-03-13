@@ -93,7 +93,6 @@
 //!
 #![warn(missing_debug_implementations)]
 
-extern crate combine;
 #[macro_use] extern crate failure;
 #[cfg(test)] #[macro_use] extern crate pretty_assertions;
 
@@ -107,7 +106,7 @@ mod helpers;
 pub mod query;
 pub mod schema;
 
-pub use query::parse_query;
-pub use schema::parse_schema;
-pub use position::Pos;
-pub use format::Style;
+pub use crate::query::parse_query;
+pub use crate::schema::parse_schema;
+pub use crate::position::Pos;
+pub use crate::format::Style;

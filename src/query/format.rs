@@ -1,8 +1,8 @@
 use std::fmt;
 
-use ::format::{Displayable, Formatter, Style, format_directives};
+use crate::format::{Displayable, Formatter, Style, format_directives};
 
-use query::ast::*;
+use crate::query::ast::*;
 
 
 impl<'a, T: Text<'a>> Document<'a, T> 

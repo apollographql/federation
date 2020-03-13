@@ -1,12 +1,12 @@
 use combine::{parser, ParseResult, Parser};
 use combine::combinator::{many1, eof, optional, position};
 
-use common::{Directive};
-use common::{directives, arguments, default_value, parse_type};
-use tokenizer::{TokenStream};
-use helpers::{punct, ident, name};
-use query::error::{ParseError};
-use query::ast::*;
+use crate::common::{Directive};
+use crate::common::{directives, arguments, default_value, parse_type};
+use crate::tokenizer::{TokenStream};
+use crate::helpers::{punct, ident, name};
+use crate::query::error::{ParseError};
+use crate::query::ast::*;
 
 pub fn field<'a, S>(input: &mut TokenStream<'a>)
     -> ParseResult<Field<'a, S>, TokenStream<'a>>
@@ -208,8 +208,8 @@ pub fn parse_query<'a, S>(s: &'a str) -> Result<Document<'a, S>, ParseError>
 
 #[cfg(test)]
 mod test {
-    use position::Pos;
-    use query::grammar::*;
+    use crate::position::Pos;
+    use crate::query::grammar::*;
     use super::parse_query;
 
     fn ast(s: &str) -> Document<String> {

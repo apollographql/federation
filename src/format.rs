@@ -1,7 +1,7 @@
 //! Formatting graphql
 use std::default::Default;
 
-use common::Directive;
+use crate::common::Directive;
 
 
 #[derive(Debug, PartialEq)]
@@ -131,7 +131,7 @@ impl<'a> Formatter<'a> {
 }
 
 pub(crate) fn format_directives<'a, T>(dirs: &[Directive<'a, T>], f: &mut Formatter) 
-    where T: ::common::Text<'a>,
+    where T: crate::common::Text<'a>,
 {
     for dir in dirs {
         f.write(" ");
