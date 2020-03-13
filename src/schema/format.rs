@@ -1,9 +1,9 @@
 use std::fmt;
 
-use ::format::{Displayable, Formatter, Style, format_directives};
-use ::common::Text;
+use crate::format::{Displayable, Formatter, Style, format_directives};
+use crate::common::Text;
 
-use schema::ast::*;
+use crate::schema::ast::*;
 
 
 impl<'a, T> Document<'a, T> 

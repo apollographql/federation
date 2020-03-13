@@ -1,7 +1,7 @@
 use combine::easy::Errors;
 
-use tokenizer::Token;
-use position::Pos;
+use crate::tokenizer::Token;
+use crate::position::Pos;
 
 pub type InternalError<'a> = Errors<Token<'a>, Token<'a>, Pos>;
 

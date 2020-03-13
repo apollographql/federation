@@ -4,8 +4,8 @@ use combine::{Parser, ConsumedResult, satisfy, StreamOnce};
 use combine::error::{Tracked};
 use combine::stream::easy::{Error, Errors, Info};
 
-use tokenizer::{TokenStream, Kind, Token};
-use position::Pos;
+use crate::tokenizer::{TokenStream, Kind, Token};
+use crate::position::Pos;
 
 use super::common::{Text};
 
@@ -20,7 +20,7 @@ pub struct TokenMatch<'a> {
 pub struct NameMatch<'a, T> 
     where T: Text<'a>
 {
-    phantom: PhantomData<(&'a T)>,
+    phantom: PhantomData<&'a T>,
 }
 
 #[derive(Debug, Clone)]

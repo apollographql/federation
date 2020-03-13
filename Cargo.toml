@@ -12,6 +12,7 @@ homepage = "https://github.com/graphql-rust/graphql-parser"
 documentation = "https://docs.rs/graphql-parser"
 version = "0.2.3"
 authors = ["Paul Colomiets <paul@colomiets.name>"]
+edition = "2018"
 
 [dependencies]
 combine = "3.2.0"

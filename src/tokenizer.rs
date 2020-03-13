@@ -5,7 +5,7 @@ use combine::error::{StreamError};
 use combine::stream::{Resetable};
 use combine::easy::{Error, Errors};
 
-use position::Pos;
+use crate::position::Pos;
 
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

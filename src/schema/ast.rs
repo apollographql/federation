@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-pub use common::{Directive, Type, Value, Text};
-use position::Pos;
+pub use crate::common::{Directive, Type, Value, Text};
+use crate::position::Pos;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Document<'a, T: Text<'a>> 

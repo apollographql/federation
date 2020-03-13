@@ -5,9 +5,9 @@ use combine::easy::Error;
 use combine::error::StreamError;
 use combine::combinator::{many, many1, optional, position, choice};
 
-use tokenizer::{Kind as T, Token, TokenStream};
-use helpers::{punct, ident, kind, name};
-use position::Pos;
+use crate::tokenizer::{Kind as T, Token, TokenStream};
+use crate::helpers::{punct, ident, kind, name};
+use crate::position::Pos;
 
 /// Text abstracts over types that hold a string value.
 /// It is used to make the AST generic over the string type.
