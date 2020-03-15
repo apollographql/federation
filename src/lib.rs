@@ -20,11 +20,10 @@
 //! -------------------------------
 //!
 //! ```rust
-//! # extern crate failure;
 //! # extern crate graphql_parser;
-//! use graphql_parser::parse_query;
+//! use graphql_parser::query::{parse_query, ParseError};
 //!
-//! # fn parse() -> Result<(), failure::Error> {
+//! # fn parse() -> Result<(), ParseError> {
 //! let ast = parse_query::<&str>("query MyQuery { field1, field2 }")?;
 //! // Format canonical representation
 //! assert_eq!(format!("{}", ast), "\
@@ -44,11 +43,10 @@
 //! --------------------------------
 //!
 //! ```rust
-//! # extern crate failure;
 //! # extern crate graphql_parser;
-//! use graphql_parser::parse_schema;
+//! use graphql_parser::schema::{parse_schema, ParseError};
 //!
-//! # fn parse() -> Result<(), failure::Error> {
+//! # fn parse() -> Result<(), ParseError> {
 //! let ast = parse_schema::<String>(r#"
 //!     schema {
 //!         query: Query
@@ -93,7 +91,6 @@
 //!
 #![warn(missing_debug_implementations)]
 
-#[macro_use] extern crate failure;
 #[cfg(test)] #[macro_use] extern crate pretty_assertions;
 
 

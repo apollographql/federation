@@ -3,7 +3,6 @@ use combine::easy::{Error, Errors};
 use combine::error::StreamError;
 use combine::combinator::{many, many1, eof, optional, position, choice};
 use combine::combinator::{sep_by1};
-use failure::Fail;
 
 use crate::tokenizer::{Kind as T, Token, TokenStream};
 use crate::helpers::{punct, ident, kind, name};
@@ -460,8 +459,7 @@ pub fn directive_locations<'a>(input: &mut TokenStream<'a>)
         optional(punct("|"))
         .with(sep_by1(
             kind(T::Name)
-                .and_then(|tok| tok.value.parse::<DirectiveLocation>()
-                                .map_err(|e| e.compat())),
+                .and_then(|tok| tok.value.parse::<DirectiveLocation>()),
             punct("|")))
     )
         .map(|opt| opt.unwrap_or_else(Vec::new))
@@ -558,7 +556,7 @@ pub fn definition<'a, T>(input: &mut TokenStream<'a>)
 }
 
 /// Parses a piece of schema language and returns an AST
-pub fn parse_schema<'a, T>(s: &'a str) -> Result<Document<'a, T>, ParseError> 
+pub fn parse_schema<'a, T>(s: &'a str) -> Result<Document<'a, T>, ParseError>
     where T: Text<'a>,
 {
     let mut tokens = TokenStream::new(s);
