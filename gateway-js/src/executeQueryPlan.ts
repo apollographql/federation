@@ -523,7 +523,17 @@ function executeSelectionSet(
         const selections = (selection as QueryPlanFieldNode).selections;
 
         if (typeof source[responseName] === 'undefined') {
-          throw new Error(`Field "${responseName}" was not found in response.`);
+          // This method is called to collect the inputs/requires of a fetch. So, assuming query plans are correct
+          // (and we have not reason to assume otherwise here), all inputs should be fetched beforehand and the
+          // only reason for not finding one of the inputs is that we had an error fetching it _and_ that field
+          // is non-nullable (it it was nullable, error fetching the input would have make that input `null`; not
+          // having the input means the field is non-nullable so the whole entity had to be nullified/ignored,
+          // leading use to not have the field at all).
+          // In any case, we don't have all the necessary inputs for this particular entity and should ignore it.
+          // Note that an error has already been logged for whichever issue happen while fetching the inputs we're
+          // missing here, and that error had much more context, so no reason to log a duplicate (less useful) error
+          // here.
+          return null;
         }
         if (Array.isArray(source[responseName])) {
           result[responseName] = source[responseName].map((value: any) =>
