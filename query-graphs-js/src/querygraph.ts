@@ -361,7 +361,7 @@ export class QueryGraph {
     return indexes == undefined ? [] : indexes.map(i => this.vertices[i]);
   }
 
-  externalTester(source: string) {
+  externalTester(source: string): ExternalTester {
     let tester = this.externalTesters.get(source);
     if (!tester) {
       const schema = this.sources.get(source);

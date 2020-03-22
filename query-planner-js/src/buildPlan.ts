@@ -1652,7 +1652,7 @@ function inputsForRequire(graph: QueryGraph, entityType: ObjectType, edge: Edge,
   fullSelectionSet.mergeIn(edge.conditions!);
   if (includeKeyInputs) {
     const keyCondition = getLocallySatisfiableKey(graph, edge.head);
-    assert(keyCondition, () => `No key found for require on ${edge}`);
+    assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge}`);
     fullSelectionSet.mergeIn(keyCondition);
   }
   return [selectionOfElement(typeCast, fullSelectionSet), [typeCast]];

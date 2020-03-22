@@ -2141,6 +2141,12 @@ describe('executeQueryPlan', () => {
 
   describe('@requires', () => {
     test('handles null in required field correctly (with nullable fields)', async () => {
+      const s1_data = [
+        { id: 0, f1: "foo" },
+        { id: 1, f1: null },
+        { id: 2, f1: "bar" },
+      ];
+
       const s1 = {
         name: 'S1',
         typeDefs: gql`
@@ -2148,7 +2154,14 @@ describe('executeQueryPlan', () => {
             id: Int!
             f1: String
           }
-        `
+        `,
+        resolvers: {
+          T1: {
+            __resolveReference(ref: {id: number}) {
+              return s1_data[ref.id];
+            },
+          },
+        }
       }
 
       const s2 = {
@@ -2167,41 +2180,26 @@ describe('executeQueryPlan', () => {
           type T2 {
             a: String
           }
-        `
+        `,
+        resolvers: {
+          Query: {
+            getT1s() {
+              return [{id: 0}, {id: 1}, {id: 2}];
+            },
+          },
+          T1: {
+            __resolveReference(ref: { id: number }) {
+              // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+              return ref;
+            },
+            f2(o: { f1: string }) {
+              return o.f1 === null ? null : { a: `t1:${o.f1}` };
+            }
+          }
+        }
       }
 
       const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
-
-      const s1_data = [
-        { id: 0, f1: "foo" },
-        { id: 1, f1: null },
-        { id: 2, f1: "bar" },
-      ];
-
-      addResolversToSchema(serviceMap['S1'].schema, {
-        T1: {
-          __resolveReference(ref) {
-            return s1_data[ref.id];
-          },
-        },
-      });
-
-      addResolversToSchema(serviceMap['S2'].schema, {
-        Query: {
-          getT1s() {
-            return [{id: 0}, {id: 1}, {id: 2}];
-          },
-        },
-        T1: {
-          __resolveReference(ref) {
-            // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
-            return ref;
-          },
-          f2(o) {
-            return o.f1 === null ? null : { a: `t1:${o.f1}` };
-          }
-        }
-      });
 
       const operation = parseOp(`
         query {
@@ -2292,6 +2290,12 @@ describe('executeQueryPlan', () => {
     });
 
     test('handles null in required field correctly (with @require field non-nullable)', async () => {
+      const s1_data = [
+        { id: 0, f1: "foo" },
+        { id: 1, f1: null },
+        { id: 2, f1: "bar" },
+      ];
+
       const s1 = {
         name: 'S1',
         typeDefs: gql`
@@ -2299,7 +2303,14 @@ describe('executeQueryPlan', () => {
             id: Int!
             f1: String
           }
-        `
+        `,
+        resolvers: {
+          T1: {
+            __resolveReference(ref: { id: number }) {
+              return s1_data[ref.id];
+            },
+          },
+        }
       }
 
       const s2 = {
@@ -2318,41 +2329,26 @@ describe('executeQueryPlan', () => {
           type T2 {
             a: String
           }
-        `
+        `,
+        resolvers: {
+          Query: {
+            getT1s() {
+              return [{id: 0}, {id: 1}, {id: 2}];
+            },
+          },
+          T1: {
+            __resolveReference(ref: { id: number }) {
+              // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+              return ref;
+            },
+            f2(o: { f1: string }) {
+              return o.f1 === null ? null : { a: `t1:${o.f1}` };
+            }
+          }
+        }
       }
 
       const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
-
-      const s1_data = [
-        { id: 0, f1: "foo" },
-        { id: 1, f1: null },
-        { id: 2, f1: "bar" },
-      ];
-
-      addResolversToSchema(serviceMap['S1'].schema, {
-        T1: {
-          __resolveReference(ref) {
-            return s1_data[ref.id];
-          },
-        },
-      });
-
-      addResolversToSchema(serviceMap['S2'].schema, {
-        Query: {
-          getT1s() {
-            return [{id: 0}, {id: 1}, {id: 2}];
-          },
-        },
-        T1: {
-          __resolveReference(ref) {
-            // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
-            return ref;
-          },
-          f2(o) {
-            return o.f1 === null ? null : { a: `t1:${o.f1}` };
-          }
-        }
-      });
 
       const operation = parseOp(`
         query {
@@ -2450,7 +2446,14 @@ describe('executeQueryPlan', () => {
             id: Int!
             f1: String!
           }
-        `
+        `,
+        resolvers: {
+          T1: {
+            __resolveReference(ref: { id: number}) {
+              return s1_data[ref.id];
+            },
+          },
+        }
       }
 
       const s2 = {
@@ -2469,7 +2472,23 @@ describe('executeQueryPlan', () => {
           type T2 {
             a: String
           }
-        `
+        `,
+        resolvers: {
+          Query: {
+            getT1s() {
+              return [{id: 0}, {id: 1}, {id: 2}];
+            },
+          },
+          T1: {
+            __resolveReference(ref: { id: number }) {
+              // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+              return ref;
+            },
+            f2(o: { f1: string }) {
+              return o.f1 === null ? null : { a: `t1:${o.f1}` };
+            }
+          }
+        }
       }
 
       const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
@@ -2479,31 +2498,6 @@ describe('executeQueryPlan', () => {
         { id: 1, f1: null },
         { id: 2, f1: "bar" },
       ];
-
-      addResolversToSchema(serviceMap['S1'].schema, {
-        T1: {
-          __resolveReference(ref) {
-            return s1_data[ref.id];
-          },
-        },
-      });
-
-      addResolversToSchema(serviceMap['S2'].schema, {
-        Query: {
-          getT1s() {
-            return [{id: 0}, {id: 1}, {id: 2}];
-          },
-        },
-        T1: {
-          __resolveReference(ref) {
-            // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
-            return ref;
-          },
-          f2(o) {
-            return o.f1 === null ? null : { a: `t1:${o.f1}` };
-          }
-        }
-      });
 
       const operation = parseOp(`
         query {
@@ -2599,7 +2593,22 @@ describe('executeQueryPlan', () => {
             id: Int!
             f1: String
           }
-        `
+        `,
+        resolvers: {
+          T1: {
+            __resolveReference(ref: { id: number }) {
+              return ref;
+            },
+            f1(o: { id: number }) {
+              switch (o.id) {
+                case 0: return "foo";
+                case 1: return [ "invalid" ]; // This will effectively throw
+                case 2: return "bar";
+                default: throw new Error('Not handled');
+              }
+            }
+          },
+        }
       }
 
       const s2 = {
@@ -2618,43 +2627,26 @@ describe('executeQueryPlan', () => {
           type T2 {
             a: String
           }
-        `
+        `,
+        resolvers: {
+          Query: {
+            getT1s() {
+              return [{id: 0}, {id: 1}, {id: 2}];
+            },
+          },
+          T1: {
+            __resolveReference(ref: { id: number }) {
+              // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+              return ref;
+            },
+            f2(o: { f1: string }) {
+              return o.f1 === null ? null : { a: `t1:${o.f1}` };
+            }
+          }
+        }
       }
 
       const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
-
-      addResolversToSchema(serviceMap['S1'].schema, {
-        T1: {
-          __resolveReference(ref) {
-            return ref;
-          },
-          f1(o) {
-            switch (o.id) {
-              case 0: return "foo";
-              case 1: return [ "invalid" ]; // This will effectively throw
-              case 2: return "bar";
-              default: throw new Error('Not handled');
-            }
-          }
-        },
-      });
-
-      addResolversToSchema(serviceMap['S2'].schema, {
-        Query: {
-          getT1s() {
-            return [{id: 0}, {id: 1}, {id: 2}];
-          },
-        },
-        T1: {
-          __resolveReference(ref) {
-            // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
-            return ref;
-          },
-          f2(o) {
-            return o.f1 === null ? null : { a: `t1:${o.f1}` };
-          }
-        }
-      });
 
       const operation = parseOp(`
         query {
