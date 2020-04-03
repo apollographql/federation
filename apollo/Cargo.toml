@@ -9,12 +9,9 @@ edition = "2018"
 [dependencies]
 clap = "2.26.0"
 structopt = "0.2.10"
-graphql-parser = "0.2.3"
-graphql_client = "0.8.0"
 serde = "1.0" # why this?
 serde_json = "1.0.48"
 failure = "*"
-reqwest = "^0.9"
 json = "0.12"
 
 [dev-dependencies]
