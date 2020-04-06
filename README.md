@@ -3,6 +3,13 @@
 
 This project is an early experiment at replacing the functionality of the current apollo-tooling repo with a new, and much better, CLI / LSP experience. It is being written in rust to have maximum portability and is aimed at a new command structure, config / onboarding experience, etc. Its greenfield ;)
 
+## Quick Start
+If you have all of the dependencies setup and are ready to get right into contributing, run the following command after cloneing the repo:
+
+```sh
+cargo run
+```
+
 ## Contributing
 
 This is very early days for this project. It is setup as a multi-crate rust project. To get started you need to have the rust toolchain installed. The best way to do this is to visit [the amazing rust site](https://www.rust-lang.org/learn/get-started) and follow their install instructions.
@@ -23,7 +30,7 @@ cargo 1.42.0 (86334295e 2020-01-31)
 To run the project locally, you can use `cargo` to build and exexecute the bin of the `apollo` crate.
 
 ```
-cargo run --bin apollo
+cargo run
 ```
 
 will install your packages, build the librar(ies), and run the program.
@@ -46,6 +53,6 @@ Right now releases are run via tags pushed to GitHub. To cut a release, create a
 This project, and all under the `apollographql` org follow the [Apollo Code of Conduct](https://www.apollographql.com/docs/community/code-of-conduct/). We welcome all contributors but it is vital that this is a safe and welcoming space to others. Please read the code of conduct :)
 
 ## Maintainers
-- @jbaxleyiii
-- @queerviolet
-- @jakedawkins
+- [@queerviolet](https://github.com/queerviolet)
+- [@jbaxleyiii](https://github.com/jbaxleyiii)
+- [@jakedawkins](https://github.com/jakedawkins)
