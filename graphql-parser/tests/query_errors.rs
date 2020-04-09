@@ -1,7 +1,6 @@
 extern crate graphql_parser;
 #[cfg(test)] #[macro_use] extern crate pretty_assertions;
 
-use std::io::Read;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
