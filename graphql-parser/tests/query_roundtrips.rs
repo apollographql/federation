@@ -11,6 +11,7 @@ fn roundtrip(filename: &str) {
     let path = format!("tests/queries/{}.graphql", filename);
     let mut f = File::open(&path).unwrap();
     f.read_to_string(&mut buf).unwrap();
+    let buf = buf.replace("\r\n", "\n");
     let ast = parse_query::<String>(&buf).unwrap().to_owned();
     assert_eq!(ast.to_string(), buf);
 }
@@ -26,6 +27,7 @@ fn roundtrip2(filename: &str) {
     let mut buf = String::with_capacity(1024);
     let mut f = File::open(&target).unwrap();
     f.read_to_string(&mut buf).unwrap();
+    let buf = buf.replace("\r\n", "\n");
     assert_eq!(ast.to_string(), buf);
 }
 
