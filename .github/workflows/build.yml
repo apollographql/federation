@@ -1,9 +1,6 @@
-name: Cut Release
+name: PR Builds
 
-on:
-  push:
-    tags:
-      - "v*" # Run when tag matches v*, i.e. v1.0, v20.15.10
+on: [pull_request]
 
 env:
   RELEASE_BIN: apollo
@@ -19,8 +16,6 @@ env:
   # Space separated paths to include in the archive.
   RELEASE_ADDS: README.md
 
-# in the future, it may be worth tyring out thining binaries if they start to get large
-# with https://github.com/marketplace/actions/strip-and-run-upx-on-executables
 jobs:
   build:
     name: Build artifacts
@@ -68,13 +63,6 @@ jobs:
           key: ${{ matrix.build }}-stable-release-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ matrix.build }}-stable-release-target-
-
-      - name: Query version number
-        id: get_version
-        shell: bash
-        run: |
-          echo "using version tag ${GITHUB_REF:10}"
-          echo ::set-output name=version::"${GITHUB_REF:10}"
 
       - name: Install Rust
         if: matrix.rust
@@ -130,119 +118,51 @@ jobs:
         run: |
           mkdir ${{ env.RELEASE_DIR }}
           mkdir dist
-
+          touch ${{ env.RELEASE_DIR }}/sha.txt
+                  
       - name: Create tarball (Linux)
         if: matrix.build == 'linux'
         run: |
           mv ./target/${{ env.LINUX_TARGET }}/release/${{ env.RELEASE_BIN }} ./dist/${{ env.RELEASE_BIN }}
+          echo "${{ matrix.build }}: ${{ hashFiles('./dist/apollo') }}" >> ${{ env.RELEASE_DIR }}/sha.txt
           mv ${{ env.RELEASE_ADDS }} ./dist
-          7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
+          7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
 
       - name: Create tarball (Windows)
         if: matrix.build == 'windows'
         shell: bash
         run: |
           mv ./target/release/${{ env.RELEASE_BIN }}.exe ./dist/${{ env.RELEASE_BIN }}.exe
+          echo "${{ matrix.build }}: ${{ hashFiles('./dist/apollo.exe') }}" >> ${{ env.RELEASE_DIR }}/sha.txt
           mv ${{ env.RELEASE_ADDS }} ./dist
-          7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
+          7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
 
       - name: Create tarball (MacOS)
         if: matrix.build == 'macos'
         run: |
           mv ./target/release/${{ env.RELEASE_BIN }} ./dist/${{ env.RELEASE_BIN }}
+          echo "${{ matrix.build }}: ${{ hashFiles('./dist/apollo') }}" >> ${{ env.RELEASE_DIR }}/sha.txt
           mv ${{ env.RELEASE_ADDS }} ./dist
-          7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
+          7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
 
       - name: Upload Zip
         uses: actions/upload-artifact@v1
         with:
           name: ${{ matrix.build }}
           path: ./${{ env.RELEASE_DIR }}
+    
+  # download_sha_file:
+  #   runs-on: ubuntu-latest
+  #   name: Create SHA file from others
+  #   steps:
 
-  release:
-    name: Github Release
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
+  #     - name: Create shas.txt
+  #       shell: bash
+  #       run: |
+  #         touch shas.txt
 
-      - name: Query version number
-        id: get_version
-        shell: bash
-        run: |
-          echo "using version tag ${GITHUB_REF:10}"
-          echo ::set-output name=version::"${GITHUB_REF:10}"
-
-      - name: Get Changelog Entry
-        id: changelog_reader
-        uses: mindsers/changelog-reader-action@v1.1.0
-        with:
-          version: ${{ github.ref }}
-          path: ./CHANGELOG.md
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.get_version.outputs.VERSION }}
-          release_name: ${{ steps.get_version.outputs.VERSION }}
-          prerelease: ${{ contains(steps.get_version.outputs.VERSION, 'alpha') || contains(steps.get_version.outputs.VERSION, 'beta') }}
-          body: ${{ steps.changelog_reader.outputs.log_entry }}
-
-      - name: Download Linux tarball
-        uses: actions/download-artifact@v1
-        with:
-          name: linux
-
-      - name: Download MacOS tarball
-        uses: actions/download-artifact@v1
-        with:
-          name: windows
-
-      - name: Download MacOS tarball
-        uses: actions/download-artifact@v1
-        with:
-          name: macos
-
-      - name: Release Linux tarball
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./linux/apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
-          asset_content_type: application/gzip
-          asset_name: apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
-
-      - name: Release Windows tarball
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows/apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
-          asset_content_type: application/gzip
-          asset_name: apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
-
-      - name: Release MacOS tarball
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./macos/apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
-          asset_content_type: application/gzip
-          asset_name: apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
-
-      - name: Slack Notification
-        uses: homoluctus/slatify@master
-        if: always()
-        with:
-          type: ${{ job.status }}
-          job_name: '*New release created*: ${{ steps.create_release.outputs.html_url }}'
-          channel: '#eng-apollo-tooling'
-          url: ${{ secrets.SLACK_WEBHOOK }}
-          commit: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Upload blank shas file
+  #       uses: actions/upload-artifact@v1
+  #       with:
+  #         name: shas
+  #         path: shas.txt

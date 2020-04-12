@@ -1,10 +1,10 @@
-name: Linters
+name: Lint Project
 
 on: [pull_request]
 
 jobs:
-  rustfmt:
-    name: Formatter
+  format:
+    name: format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
