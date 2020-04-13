@@ -119,27 +119,24 @@ jobs:
           mkdir ${{ env.RELEASE_DIR }}
           mkdir dist
                   
-      - name: Create tarball (Linux)
+      - name: Create distribution (Linux)
         if: matrix.build == 'linux'
         run: |
           mv ./target/${{ env.LINUX_TARGET }}/release/${{ env.RELEASE_BIN }} ./dist/${{ env.RELEASE_BIN }}
           mv ${{ env.RELEASE_ADDS }} ./dist
-          7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
 
-      - name: Create tarball (Windows)
+      - name: Create distribution (Windows)
         if: matrix.build == 'windows'
         shell: bash
         run: |
           mv ./target/release/${{ env.RELEASE_BIN }}.exe ./dist/${{ env.RELEASE_BIN }}.exe
           mv ${{ env.RELEASE_ADDS }} ./dist
-          7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
 
-      - name: Create tarball (MacOS)
+      - name: Create distribution (MacOS)
         if: matrix.build == 'macos'
         run: |
           mv ./target/release/${{ env.RELEASE_BIN }} ./dist/${{ env.RELEASE_BIN }}
           mv ${{ env.RELEASE_ADDS }} ./dist
-          7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
 
       - name: Upload Zip
         uses: actions/upload-artifact@v1
@@ -155,21 +152,14 @@ jobs:
       - uses: actions/checkout@v2
 
       - uses: actions/download-artifact@v2-preview
-
-      - name: Unzip all files
-        shell: bash
-        run: |
-          tar -xzvf ./linux/${{ env.RELEASE_BIN }}-${{ env.LINUX_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }} ./linux-cli && rm -rf dist
-          tar -xzvf ./windows/${{ env.RELEASE_BIN }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }}.exe ./windows-cli.exe && rm -rf dist
-          tar -xzvf ./macos/${{ env.RELEASE_BIN }}-${{ env.MACOS_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }} ./macos-cli && rm -rf dist
       
       - name: Create sha output file
         shell: bash
         run: |
           touch sha256.txt
-          echo "Linux: $(sha256sum -b linux-cli | cut -d ' ' -f1)" >> sha256.txt
-          echo "Windows: $(sha256sum -b windows-cli.exe | cut -d ' ' -f1)" >> sha256.txt
-          echo "MacOS: $(sha256sum -b macos-cli | cut -d ' ' -f1)" >> sha256.txt
+          echo "Linux: $(sha256sum -b ./linux/apollo | cut -d ' ' -f1)" >> sha256.txt
+          echo "Windows: $(sha256sum -b ./windows/apollo.exe | cut -d ' ' -f1)" >> sha256.txt
+          echo "MacOS: $(sha256sum -b ./macos/apollo | cut -d ' ' -f1)" >> sha256.txt
       
       - uses: actions/upload-artifact@v2-preview
         with:
