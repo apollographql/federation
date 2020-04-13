@@ -146,3 +146,32 @@ jobs:
         with:
           name: ${{ matrix.build }}
           path: ./${{ env.RELEASE_DIR }}
+
+  sha256:
+    name: Create sha256 of binaries
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/download-artifact@v2-preview
+
+      - name: Unzip all files
+        shell: bash
+        run: |
+          tar -xzvf ./linux/${{ env.RELEASE_BIN }}-${{ env.LINUX_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }} ./linux-cli && rm -rf dist
+          tar -xzvf ./windows/${{ env.RELEASE_BIN }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }}.exe ./windows-cli.exe && rm -rf dist
+          tar -xzvf ./macos/${{ env.RELEASE_BIN }}-${{ env.MACOS_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }} ./macos-cli && rm -rf dist
+      
+      - name: Create sha output file
+        shell: bash
+        run: |
+          touch sha256.txt
+          echo "Linux: $(sha256sum -b linux-cli | cut -d ' ' -f1)" >> sha256.txt
+          echo "Windows: $(sha256sum -b windows-cli.exe | cut -d ' ' -f1)" >> sha256.txt
+          echo "MacOS: $(sha256sum -b macos-cli | cut -d ' ' -f1)" >> sha256.txt
+      
+      - uses: actions/upload-artifact@v2-preview
+        with:
+          name: sha256
+          path: ./sha256.txt

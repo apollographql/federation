@@ -179,6 +179,23 @@ jobs:
         with:
           version: ${{ github.ref }}
           path: ./CHANGELOG.md
+      
+      - uses: actions/download-artifact@v2-preview
+
+      - name: Unzip all files
+        shell: bash
+        run: |
+          tar -xzvf ./linux/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }} ./linux-cli && rm -rf dist
+          tar -xzvf ./windows/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }}.exe ./windows-cli.exe && rm -rf dist
+          tar -xzvf ./macos/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }} ./macos-cli && rm -rf dist
+      
+      - name: Get Shas of builds
+        id: get_shas
+        shell: bash
+        run: |
+          echo ::set-output name=linux::"- __Linux__: $(sha256sum -b linux-cli | cut -d ' ' -f1)"
+          echo ::set-output name=windows::"- __Windows__: $(sha256sum -b windows-cli.exe | cut -d ' ' -f1)"
+          echo ::set-output name=macos::"- __MacOS__: $(sha256sum -b macos-cli | cut -d ' ' -f1)"
 
       - name: Create Release
         id: create_release
@@ -189,22 +206,13 @@ jobs:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
           release_name: ${{ steps.get_version.outputs.VERSION }}
           prerelease: ${{ contains(steps.get_version.outputs.VERSION, 'alpha') || contains(steps.get_version.outputs.VERSION, 'beta') }}
-          body: ${{ steps.changelog_reader.outputs.log_entry }}
-
-      - name: Download Linux tarball
-        uses: actions/download-artifact@v1
-        with:
-          name: linux
-
-      - name: Download MacOS tarball
-        uses: actions/download-artifact@v1
-        with:
-          name: windows
-
-      - name: Download MacOS tarball
-        uses: actions/download-artifact@v1
-        with:
-          name: macos
+          body: |
+            ${{ steps.changelog_reader.outputs.log_entry }}
+            ---
+            ### SHA256 of binaries below for validation:
+            ${{ steps.get_shas.outputs.LINUX }}
+            ${{ steps.get_shas.outputs.WINDOWS }}
+            ${{ steps.get_shas.outputs.MACOS }}
 
       - name: Release Linux tarball
         uses: actions/upload-release-asset@v1
