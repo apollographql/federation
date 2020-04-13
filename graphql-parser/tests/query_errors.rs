@@ -11,6 +11,7 @@ fn test_error(filename: &str) {
     let path = format!("tests/query_errors/{}.txt", filename);
     let mut f = File::open(&path).unwrap();
     f.read_to_string(&mut buf).unwrap();
+    let buf = buf.replace("\r\n", "\n");
     let mut iter = buf.splitn(2, "\n---\n");
     let graphql = iter.next().unwrap();
     let expected = iter.next().expect("file should contain error message");
