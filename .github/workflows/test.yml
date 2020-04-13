@@ -12,11 +12,11 @@ jobs:
         build:
           [
             linux-stable,
-            linux-nightly,
+            # linux-nightly,
             macos-stable,
-            macos-nightly,
+            # macos-nightly,
             windows-stable,
-            windows-nightly,
+            # windows-nightly,
           ]
         include:
           - build: linux-stable
@@ -28,15 +28,15 @@ jobs:
           - build: windows-stable
             os: windows-latest
             rust: stable
-          - build: linux-nightly
-            os: ubuntu-latest
-            rust: nightly
-          - build: macos-nightly
-            os: macos-latest
-            rust: nightly
-          - build: windows-nightly
-            os: windows-latest
-            rust: nightly
+          # - build: linux-nightly
+          #   os: ubuntu-latest
+          #   rust: nightly
+          # - build: macos-nightly
+          #   os: macos-latest
+          #   rust: nightly
+          # - build: windows-nightly
+          #   os: windows-latest
+          #   rust: nightly
 
     steps:
       - uses: actions/checkout@v2
