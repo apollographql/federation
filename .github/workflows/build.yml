@@ -107,7 +107,7 @@ jobs:
         run: cargo build --release
         env:
           RUSTFLAGS: -Ctarget-feature=+crt-static
-        
+
       - name: Compress binaries (Windows)
         if: matrix.build == 'windows'
         uses: svenstaro/upx-action@v1-release
@@ -118,13 +118,11 @@ jobs:
         run: |
           mkdir ${{ env.RELEASE_DIR }}
           mkdir dist
-          touch ${{ env.RELEASE_DIR }}/sha.txt
                   
       - name: Create tarball (Linux)
         if: matrix.build == 'linux'
         run: |
           mv ./target/${{ env.LINUX_TARGET }}/release/${{ env.RELEASE_BIN }} ./dist/${{ env.RELEASE_BIN }}
-          echo "${{ matrix.build }}: ${{ hashFiles('./dist/apollo') }}" >> ${{ env.RELEASE_DIR }}/sha.txt
           mv ${{ env.RELEASE_ADDS }} ./dist
           7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
 
@@ -133,7 +131,6 @@ jobs:
         shell: bash
         run: |
           mv ./target/release/${{ env.RELEASE_BIN }}.exe ./dist/${{ env.RELEASE_BIN }}.exe
-          echo "${{ matrix.build }}: ${{ hashFiles('./dist/apollo.exe') }}" >> ${{ env.RELEASE_DIR }}/sha.txt
           mv ${{ env.RELEASE_ADDS }} ./dist
           7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
 
@@ -141,7 +138,6 @@ jobs:
         if: matrix.build == 'macos'
         run: |
           mv ./target/release/${{ env.RELEASE_BIN }} ./dist/${{ env.RELEASE_BIN }}
-          echo "${{ matrix.build }}: ${{ hashFiles('./dist/apollo') }}" >> ${{ env.RELEASE_DIR }}/sha.txt
           mv ${{ env.RELEASE_ADDS }} ./dist
           7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
 
@@ -150,19 +146,3 @@ jobs:
         with:
           name: ${{ matrix.build }}
           path: ./${{ env.RELEASE_DIR }}
-    
-  # download_sha_file:
-  #   runs-on: ubuntu-latest
-  #   name: Create SHA file from others
-  #   steps:
-
-  #     - name: Create shas.txt
-  #       shell: bash
-  #       run: |
-  #         touch shas.txt
-
-  #     - name: Upload blank shas file
-  #       uses: actions/upload-artifact@v1
-  #       with:
-  #         name: shas
-  #         path: shas.txt
