@@ -1,0 +1,18 @@
+{
+  "name": "cdn",
+  "private": true,
+  "main": "dist/index.js",
+  "dependencies": {
+    "@cloudflare/kv-asset-handler": "^0.0.9"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^1.0.1",
+    "service-worker-mock": "^2.0.3",
+    "source-map-loader": "^0.2.4",
+    "source-map-support": "^0.5.12",
+    "ts-loader": "^6.0.4",
+    "typescript": "^3.5.3",
+    "webpack": "^4.35.3",
+    "webpack-cli": "^3.3.6"
+  }
+}
