@@ -4,7 +4,6 @@ on: [pull_request]
 
 env:
   RELEASE_BIN: apollo
-  RELEASE_DIR: artifacts
   GITHUB_REF: "${{ github.ref }}"
   WINDOWS_TARGET: x86_64-pc-windows-msvc
   MACOS_TARGET: x86_64-apple-darwin
@@ -116,7 +115,6 @@ jobs:
       
       - name: Create artifact directory
         run: |
-          mkdir ${{ env.RELEASE_DIR }}
           mkdir dist
                   
       - name: Create distribution (Linux)
@@ -142,7 +140,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: ${{ matrix.build }}
-          path: ./${{ env.RELEASE_DIR }}
+          path: ./dist
 
   sha256:
     name: Create sha256 of binaries
