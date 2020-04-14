@@ -1,4 +1,5 @@
 import { handleRequest } from './handler'
+import { log } from './sentry'
 
 /**
  * The DEBUG flag will do two things that help during development:
@@ -20,6 +21,7 @@ addEventListener('fetch', event => {
         }),
       )
     }
+    event.waitUntil(log(e, event.request));
     event.respondWith(new Response('Internal Error', { status: 500 }))
   }
 })
