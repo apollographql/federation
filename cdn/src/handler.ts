@@ -2,6 +2,7 @@ import {
   getAssetFromKV,
   mapRequestToAsset,
 } from "@cloudflare/kv-asset-handler";
+import { log } from './sentry'
 
 const GITHUB_RELEASE = "https://github.com/apollographql/cli/releases";
 
@@ -64,6 +65,7 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
         return serveStatic(event);
     }
   } catch (e) {
+    event.waitUntil(log(e, event.request));
     return Promise.resolve(
       new Response(e.message || e.toString(), { status: 500 })
     );
@@ -108,7 +110,8 @@ async function serveStatic(event: FetchEvent, path: string = "") {
     );
   }
   return getAssetFromKV(event, { mapRequestToAsset: customKeyModifier }).catch(
-    () => {
+    (e) => {
+      event.waitUntil(log(e, event.request));
       return fourOhFour(event);
     }
   );
@@ -126,5 +129,5 @@ async function fourOhFour(event: FetchEvent) {
       status: 404,
     });
   }
-  return new Response("Hello world", { status: 200 });
+  return new Response("Can't serve static assests using wranger.dev without an account_id", { status: 200 });
 }

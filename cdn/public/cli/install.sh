@@ -12,6 +12,12 @@ echo "Starting installation..."
 
 # GitHub's URL for the latest release, will redirect.
 DESTDIR="${DESTDIR:-/usr/local/bin}"
+INSTALL_PATH="${DESTDIR}/apollo"
+
+if [ -f "$INSTALL_PATH" ]; then
+  echo "The Apollo CLI is already installed. If you want the latest version, please uninstall the old one first then run this again."
+  exit 1
+fi
 
 echo "Installing Apollo CLI"
 
@@ -43,7 +49,7 @@ curl -sL --retry 3 "${RELEASE_URL}" | tar zx --strip 1
 
 echo "Installing to $DESTDIR"
 mv apollo "$DESTDIR"
-chmod +x "$DESTDIR/apollo"
+chmod +x "$INSTALL_PATH"
 
 command -v apollo
 
