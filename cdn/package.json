@@ -2,14 +2,27 @@
   "name": "cdn",
   "private": true,
   "main": "dist/index.js",
+  "scripts": {
+    "test": "jest"
+  },
   "dependencies": {
-    "@cloudflare/kv-asset-handler": "^0.0.9"
+    "@cloudflare/kv-asset-handler": "^0.0.9",
+    "uuid-browser": "^3.1.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^1.0.1",
+    "@types/fetch-mock": "^7.3.2",
+    "@types/jest": "^25.2.1",
+    "@types/node": "^13.11.1",
+    "@types/service-worker-mock": "^2.0.1",
+    "fetch-mock": "^9.3.1",
+    "jest": "^25.3.0",
+    "node-fetch": "^2.6.0",
+    "prettier": "^2.0.4",
     "service-worker-mock": "^2.0.3",
     "source-map-loader": "^0.2.4",
     "source-map-support": "^0.5.12",
+    "ts-jest": "^25.3.1",
     "ts-loader": "^6.0.4",
     "typescript": "^3.5.3",
     "webpack": "4.33.0"

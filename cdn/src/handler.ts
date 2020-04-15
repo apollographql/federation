@@ -4,16 +4,7 @@ import {
 } from "@cloudflare/kv-asset-handler";
 import { log } from './sentry'
 
-const GITHUB_RELEASE = "https://github.com/apollographql/cli/releases";
-
-/**
- * The DEBUG flag will do two things that help during development:
- * 1. we will skip caching on the edge, which makes it easier to
- *    debug.
- * 2. we will return an error message on exception in your Response rather
- *    than the default 404.html page.
- */
-const DEBUG = false;
+const GITHUB_RELEASE = "https://github.com/apollographql/apollo-cli/releases";
 
 enum Product {
   cli = "cli",
@@ -27,18 +18,8 @@ type CLIArgs = {
 type PossiblePaths = [undefined, Product?, CLIArgs["platform"]?, string?];
 
 export async function handleRequest(event: FetchEvent): Promise<Response> {
-  const url = new URL(event.request.url);
-
-  // XXX open PR to export Options from kv-asset-handler
-  let options: any = {};
-
   try {
-    if (DEBUG) {
-      options.cacheControl = {
-        bypassCache: true,
-      };
-    }
-
+    const url = new URL(event.request.url);
     const [, product, platform, version] = url.pathname.split(
       "/"
     ) as PossiblePaths;
@@ -55,14 +36,14 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
       case "cli":
         // /:product
         if (!platform) {
-          return serveStatic(event, "/install.sh");
+          return await serveStatic(event, "/install.sh");
         }
         // /:product/:platform
         // /:product/:platform/:version
-        return handleCLI({ platform, version }, event);
+        return await handleCLI({ platform, version }, event);
       default:
         // handle static assets
-        return serveStatic(event);
+        return await serveStatic(event);
     }
   } catch (e) {
     event.waitUntil(log(e, event.request));
@@ -99,7 +80,11 @@ async function handleCLI(
     return response;
   }
 
-  return fourOhFour(event);
+  if (response.status === 404) {
+    throw new Error(`Couldn't find release for version ${version} on ${platform}`);
+  }
+
+  throw new Error(`Error when loading CLI for ${version} on ${platform}. Error was ${response.body}`);
 }
 
 async function serveStatic(event: FetchEvent, path: string = "") {
@@ -118,16 +103,13 @@ async function serveStatic(event: FetchEvent, path: string = "") {
 }
 
 async function fourOhFour(event: FetchEvent) {
-  if (!DEBUG) {
-    let notFoundResponse = await getAssetFromKV(event, {
-      mapRequestToAsset: (req) =>
-        new Request(`${new URL(req.url).origin}/404.html`, req as RequestInit),
-    });
+  let notFoundResponse = await getAssetFromKV(event, {
+    mapRequestToAsset: (req) =>
+      new Request(`${new URL(req.url).origin}/404.html`, req as RequestInit),
+  });
 
-    return new Response(notFoundResponse.body, {
-      ...notFoundResponse,
-      status: 404,
-    });
-  }
-  return new Response("Can't serve static assests using wranger.dev without an account_id", { status: 200 });
+  return new Response(notFoundResponse.body, {
+    ...notFoundResponse,
+    status: 404,
+  });
 }

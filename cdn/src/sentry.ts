@@ -1,4 +1,4 @@
-
+import { v4 as uuidv4} from 'uuid-browser'
 const APP = "worker-cli-cdn";
 
 // https://docs.sentry.io/error-reporting/configuration/?platform=javascript#environment
@@ -56,7 +56,7 @@ export async function log(err: Error, request: Request) {
   }
 }
 
-function toSentryEvent(err: Error, request: Request) {
+export function toSentryEvent(err: Error, request: Request) {
   const errType = err.name || ((err as any).contructor || {}).name;
   const frames = parse(err);
   const extraKeys = Object.keys(err).filter(
@@ -102,7 +102,7 @@ function toSentryEvent(err: Error, request: Request) {
   };
 }
 
-function parse(err: Error) {
+export function parse(err: Error) {
   return (err.stack || "")
     .split("\n")
     .slice(1)
@@ -128,12 +128,4 @@ function parse(err: Error) {
       };
     })
     .filter(Boolean);
-}
-
-function uuidv4() {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  return [...bytes].map((b) => ("0" + b.toString(16)).slice(-2)).join(""); // to hex
 }
