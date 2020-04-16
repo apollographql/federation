@@ -1,8 +1,8 @@
+use crate::commands::Print;
+use crate::commands::Command;
+
 use graphql_parser::parse_schema;
 use std::fs;
-
-use crate::command_config::Print;
-use crate::commands::Command;
 
 impl Command for Print {
     fn run(&self) {

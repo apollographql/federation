@@ -1,4 +1,4 @@
-use crate::command_config::Login;
+use crate::commands::Login;
 use crate::commands::Command;
 
 impl Command for Login {
