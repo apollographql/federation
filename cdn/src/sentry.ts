@@ -1,4 +1,3 @@
-import { v4 as uuidv4} from 'uuid-browser'
 const APP = "worker-cli-cdn";
 
 // https://docs.sentry.io/error-reporting/configuration/?platform=javascript#environment
@@ -30,6 +29,8 @@ const RETRIES = 5;
 //   })
 // })
 export async function log(err: Error, request: Request) {
+  // don't log if no sentry information around
+  if (typeof SENTRY_PROJECT_ID === 'undefined') return;
   const body = JSON.stringify(toSentryEvent(err, request));
 
   for (let i = 0; i <= RETRIES; i++) {
@@ -63,8 +64,10 @@ export function toSentryEvent(err: Error, request: Request) {
     (key) => !["name", "message", "stack"].includes(key)
   );
   const { searchParams } = new URL(request.url);
+
+  const { v4 } = require('uuid-browser');
   return { 
-    event_id: uuidv4(),
+    event_id: v4(),
     message: errType + ": " + (err.message || "<no message>"),
     exception: {
       values: [
