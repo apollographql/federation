@@ -9,12 +9,9 @@ env:
   RELEASE_BIN: apollo
   RELEASE_DIR: artifacts
   GITHUB_REF: "${{ github.ref }}"
-  WINDOWS_TARGET: x86_64-pc-windows-msvc
-  MACOS_TARGET: x86_64-apple-darwin
-  LINUX_TARGET: x86_64-unknown-linux-musl
-  WINDOWS_BUILD_NAME: x86_64-windows
-  MACOS_BUILD_NAME: x86_64-darwin
-  LINUX_BUILD_NAME: x86_64-linux
+  WINDOWS_TARGET: x86_64-windows
+  MACOS_TARGET: x86_64-darwin
+  LINUX_TARGET: x86_64-linux
 
   # Space separated paths to include in the archive.
   RELEASE_ADDS: README.md
@@ -242,7 +239,6 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macos/apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
           asset_content_type: application/gzip
-          asset_name: apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
 
       - name: Slack Notification
         uses: homoluctus/slatify@master
