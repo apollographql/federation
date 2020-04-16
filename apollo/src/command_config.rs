@@ -4,13 +4,14 @@ use structopt::StructOpt;
 #[structopt(rename_all = "kebab-case")]
 /// The [Experimental] Apollo CLI, for supporting all your graphql needs :)
 pub enum Apollo {
+    /// parse and pretty print schemas to stdout
     Print(Print),
+    /// log in to apollo
     Login(Login),
 }
 
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]
-/// parse and pretty print schemas to stdout
 pub struct Print {
     #[structopt(short = "h", long)]
     /// suppress headers when printing multiple files
@@ -23,5 +24,4 @@ pub struct Print {
 
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]
-/// log in to apollo
 pub struct Login {}
