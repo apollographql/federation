@@ -5,6 +5,7 @@ use structopt::StructOpt;
 /// The [Experimental] Apollo CLI, for supporting all your graphql needs :)
 pub enum Apollo {
   Print(Print),
+  Login(Login),
 }
 
 #[derive(StructOpt)]
@@ -19,3 +20,8 @@ pub struct Print {
   /// schemas to print
   pub file: std::vec::Vec<std::path::PathBuf>,
 }
+
+#[derive(StructOpt)]
+#[structopt(rename_all = "kebab-case")]
+/// log in to apollo
+pub struct Login {}
