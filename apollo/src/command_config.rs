@@ -4,9 +4,9 @@ use structopt::StructOpt;
 #[structopt(rename_all = "kebab-case")]
 /// The [Experimental] Apollo CLI, for supporting all your graphql needs :)
 pub enum Apollo {
-    /// parse and pretty print schemas to stdout
+    ///  🖨   parse and pretty print schemas to stdout
     Print(Print),
-    /// log in to apollo
+    ///  🔓  log in to apollo
     Login(Login),
 }
 
@@ -19,7 +19,7 @@ pub struct Print {
 
     #[structopt(parse(from_os_str))]
     /// schemas to print
-    pub file: std::vec::Vec<std::path::PathBuf>,
+    pub files: std::vec::Vec<std::path::PathBuf>,
 }
 
 #[derive(StructOpt)]
