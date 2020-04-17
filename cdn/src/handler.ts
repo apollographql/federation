@@ -20,9 +20,8 @@ type PossiblePaths = [undefined, Product?, CLIArgs["platform"]?, string?];
 export async function handleRequest(event: FetchEvent): Promise<Response> {
   try {
     const url = new URL(event.request.url);
-    const [, product, platform, version] = url.pathname.split(
-      "/"
-    ) as PossiblePaths;
+    const [, product, platform, version] =
+      url.pathname.split("/", 4) as PossiblePaths;
 
     /*
 

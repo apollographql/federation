@@ -63,7 +63,7 @@ export async function log(err: Error, request: Request) {
 }
 
 export function toSentryEvent(err: Error, request: Request) {
-  const errType = err.name || ((err as any).contructor || {}).name;
+  const errType = err.name || ((err as any).constructor || {}).name;
   const frames = parse(err);
   const extraKeys = Object.keys(err).filter(
     (key) => !["name", "message", "stack"].includes(key)
