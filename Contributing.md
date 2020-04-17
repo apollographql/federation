@@ -53,8 +53,6 @@ For a small bug fix change (less than ~20 lines of code changed), feel free to o
 
 Most of the features in Apollo Client came from suggestions by you, the community! We welcome any ideas about how to make Apollo  better for your use case. Open up a new feature request / discussion issue with your details.
 
-**Note**: Feature requests and non-bug related discussions are no longer managed in this repo's issue tracker. Feature request and/or discussions opened here will be closed.
-
 ## Big Changes or New Features
 
 For significant changes to a repository, it’s important to settle on a design before starting on the implementation. This way, we can make sure that major improvements get the care and attention they deserve. Since big changes can be risky and might not always get merged, it’s good to reduce the amount of possible wasted effort by agreeing on an implementation design/plan first.
