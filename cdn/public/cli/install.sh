@@ -40,7 +40,7 @@ if [ "$(uname)" == "Linux" ]; then
 elif [ "$(uname)" == "Darwin" ]; then
 	OS="darwin"
 else
-	echo "This operating system is not supported."
+	echo "This operating system ('$(uname)') is not supported."
 	exit 1
 fi
 
