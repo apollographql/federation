@@ -14,8 +14,10 @@ echo "Starting installation..."
 DESTDIR="${DESTDIR:-/usr/local/bin}"
 INSTALL_PATH="${DESTDIR}/apollo"
 
-if [ -f "$INSTALL_PATH" ]; then
-  echo "The Apollo CLI is already installed. If you want the latest version, please uninstall the old one first then run this again."
+EXISTING_APOLLO="$(command -v apollo)"
+if [ -n "$EXISTING_APOLLO" ]; then
+  echo "An existing version of 'apollo' is already installed at $EXISTING_APOLLO."
+  echo "If you want the latest version, please uninstall the old one first then run this again."
   exit 1
 fi
 
