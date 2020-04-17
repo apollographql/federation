@@ -65,6 +65,7 @@ async function handleCLI(
       );
     }
     const parts = response.url.split("/");
+    // /latest redirects to the actual latest release so we can pull the version
     version = parts[parts.length - 1].slice(1);
   }
 
@@ -83,7 +84,7 @@ async function handleCLI(
     throw new Error(`Couldn't find release for version ${version} on ${platform}`);
   }
 
-  throw new Error(`Error when loading CLI for ${version} on ${platform}. Error was ${response.body}`);
+  throw new Error(`Error when loading CLI for ${version} on ${platform}. Error was ${response.statusText}`);
 }
 
 async function serveStatic(event: FetchEvent, path: string = "") {

@@ -29,32 +29,37 @@ const RETRIES = 5;
 //   })
 // })
 export async function log(err: Error, request: Request) {
-  // don't log if no sentry information around
-  if (typeof SENTRY_PROJECT_ID === 'undefined') return;
-  const body = JSON.stringify(toSentryEvent(err, request));
+  try {
+    // don't log if no sentry information around
+    if (typeof SENTRY_PROJECT_ID === 'undefined') return;
+    const body = JSON.stringify(toSentryEvent(err, request));
 
-  for (let i = 0; i <= RETRIES; i++) {
-    const res = await fetch(
-      `https://sentry.io/api/${SENTRY_PROJECT_ID}/store/`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Sentry-Auth": [
-            "Sentry sentry_version=7",
-            `sentry_client=${CLIENT_NAME}/${CLIENT_VERSION}`,
-            `sentry_key=${SENTRY_KEY}`,
-          ].join(", "),
-        },
-        body,
+    for (let i = 0; i <= RETRIES; i++) {
+      const res = await fetch(
+        `https://sentry.io/api/${SENTRY_PROJECT_ID}/store/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Sentry-Auth": [
+              "Sentry sentry_version=7",
+              `sentry_client=${CLIENT_NAME}/${CLIENT_VERSION}`,
+              `sentry_key=${SENTRY_KEY}`,
+            ].join(", "),
+          },
+          body,
+        }
+      );
+      if (res.ok) {
+        return;
       }
-    );
-    if (res.status === 200) {
-      return;
+      // We couldn't send to Sentry, try to log the response at least
+      console.error({ httpStatus: res.status, ...(await res.json()) }); // eslint-disable-line no-console
     }
-    // We couldn't send to Sentry, try to log the response at least
-    console.error({ httpStatus: res.status, ...(await res.json()) }); // eslint-disable-line no-console
+  } catch (e) {
+    console.error({ message: "Error when reporting to sentry", error: e });
   }
+  
 }
 
 export function toSentryEvent(err: Error, request: Request) {
