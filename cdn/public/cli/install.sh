@@ -24,7 +24,7 @@ fi
 echo "Installing Apollo CLI"
 
 # Run the script in a temporary directory that we know is empty.
-SCRATCH=$(mktemp -d || mktemp -d -t 'tmp')
+SCRATCH="$(mktemp -d || mktemp -d -t 'tmp')"
 cd "$SCRATCH"
 
 function error {
