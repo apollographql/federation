@@ -1,0 +1,58 @@
+name: Check Coverage
+
+on: [pull_request]
+
+jobs:
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Cache Cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ matrix.build }}-${{ matrix.rust }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ matrix.rust }}-cargo-registry-
+
+      - name: Cache Cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ matrix.build }}-${{ matrix.rust }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ matrix.rust }}-cargo-index-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v1
+        with:
+          path: target/debug
+          key: ${{ matrix.build }}-${{ matrix.rust }}-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ matrix.rust }}-debug-target-
+
+      - name: Install Rust
+        run: |
+          rustup update stable
+          rustup default stable
+
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: '0.9.0'
+          timeout: 300 # 5 mins for test coverage
+          args: '--ignore-tests -- --test-threads 1'
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage-report
+          path: cobertura.xml
