@@ -90,7 +90,6 @@ it('returns a 500 if asking for a bad version', async () => {
 it('returns a 500 and message if something went really wrong', async () => {
     fetchMock.get(`${GITHUB_RELEASE}/download/v0.0.1/apollo-v0.0.1-x86_64-linux.tar.gz`, {
         status: 500,
-        body: ':ohno:'
     })
     require('./index');
     const { log } = require('./sentry')
@@ -99,7 +98,7 @@ it('returns a 500 and message if something went really wrong', async () => {
     const response: any = await self.trigger('fetch', request);
     expect(response.status).toEqual(500);
     expect(log).toHaveBeenCalled()
-    expect(await response.text()).toContain(`Error was :ohno:`)
+    expect(await response.text()).toContain(`Error was Internal Server Error`)
 })
 
 it('logs internal server error and calls sentry on unexpected issue', async () => {
