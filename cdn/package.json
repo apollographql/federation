@@ -3,7 +3,10 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "test:shell": "bats ./test/*.bats",
+    "test:shell:watch": "ls -d **/* | entr bats ./test/*.bats",
+    "test:worker:watch": "jest --watch"
   },
   "dependencies": {
     "@cloudflare/kv-asset-handler": "^0.0.9",
@@ -15,6 +18,8 @@
     "@types/jest": "^25.2.1",
     "@types/node": "^13.11.1",
     "@types/service-worker-mock": "^2.0.1",
+    "bats": "^1.1.0",
+    "bats-assert": "^2.0.0",
     "fetch-mock": "^9.3.1",
     "jest": "^25.3.0",
     "node-fetch": "^2.6.0",
