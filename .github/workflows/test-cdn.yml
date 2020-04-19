@@ -6,7 +6,7 @@ on:
       - 'cdn/**/*'
 
 jobs:
-  test:
+  test_worker:
 
     runs-on: ubuntu-latest
     defaults:
@@ -37,8 +37,23 @@ jobs:
       env:
         CI: true
 
-    - name: Upload to codecov.io
+    - name: Upload worker results to codecov.io
       uses: codecov/codecov-action@v1.0.2
       with:
         token: ${{secrets.CODECOV_TOKEN}}
         name: cdn
+
+    - name: Use Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: 2.6
+    
+    - name: Install bashcov for installer coverage
+      run: |
+        gem install bashcov
+        gem install codecov
+    
+    - name: Run coverage for installer
+      env:
+        CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}
+      run: bashcov --skip-uncovered -- ./node_modules/.bin/bats ./test/*.bats
