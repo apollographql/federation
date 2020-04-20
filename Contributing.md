@@ -12,13 +12,12 @@ Oh, and if you haven't already, join the [Apollo Spectrum community](https://spe
 
 Here are some ways to contribute to the project, from easiest to most difficult:
 
-
-* [Reporting bugs](#reporting-bugs)
-* [Improving the documentation](#improving-the-documentation)
-* [Responding to issues](#responding-to-issues)
-* [Small bug fixes](#small-bug-fixes)
-* [Suggesting features](#suggesting-features)
-* [Big changes or new features](#big-changes-or-new-features)
+- [Reporting bugs](#reporting-bugs)
+- [Improving the documentation](#improving-the-documentation)
+- [Responding to issues](#responding-to-issues)
+- [Small bug fixes](#small-bug-fixes)
+- [Suggesting features](#suggesting-features)
+- [Big changes or new features](#big-changes-or-new-features)
 
 If you are looking to get started working in the repository right away, jump ahead to the [developing the CLI](#developing-the-cli) below.
 
@@ -29,7 +28,6 @@ If you are looking to get started working in the repository right away, jump ahe
 If you encounter a bug, please file an issue on this GitHub repository. If an issue you have is already reported, please add additional information or add a 👍 reaction to indicate your agreement.
 
 While we will try to be as helpful as we can on any issue reported, please include the following to maximize the chances of a quick fix:
-
 
 1. **Intended outcome:** What you were trying to accomplish when the bug occurred, and as much code as possible related to the source of the problem.
 2. **Actual outcome:** A description of what actually happened, including a screenshot or copy-paste of any related error messages, logs, or other output that might be related. Please avoid non-specific phrases like “didn’t work” or “broke”. Including the version of the CLI and what platform you are using is really helpful.
@@ -51,14 +49,13 @@ For a small bug fix change (less than ~20 lines of code changed), feel free to o
 
 ### Suggesting features
 
-Most of the features in Apollo Client came from suggestions by you, the community! We welcome any ideas about how to make Apollo  better for your use case. Open up a new feature request / discussion issue with your details.
+Most of the features in Apollo Client came from suggestions by you, the community! We welcome any ideas about how to make Apollo better for your use case. Open up a new feature request / discussion issue with your details.
 
 ## Big Changes or New Features
 
 For significant changes to a repository, it’s important to settle on a design before starting on the implementation. This way, we can make sure that major improvements get the care and attention they deserve. Since big changes can be risky and might not always get merged, it’s good to reduce the amount of possible wasted effort by agreeing on an implementation design/plan first.
 
-
-1. **Open an issue.** Open an issue about your bug or feature request in this repo. 
+1. **Open an issue.** Open an issue about your bug or feature request in this repo.
 2. **Reach consensus.** Some contributors and community members should reach an agreement that this feature or bug is important, and that someone should work on implementing or fixing it.
 3. **Agree on intended behavior.** On the issue, reach an agreement about the desired behavior. In the case of a bug fix, it should be clear what it means for the bug to be fixed, and in the case of a feature, it should be clear what it will be like for developers to use the new feature.
 4. **Agree on implementation plan.** Write a plan for how this feature or bug fix should be implemented. What modules need to be added or rewritten? Should this be one pull request or multiple incremental improvements? Who is going to do each part?
@@ -69,7 +66,6 @@ For significant changes to a repository, it’s important to settle on a design 
 ### Code review guidelines
 
 It’s important that every piece of code in Apollo packages is reviewed by at least one core contributor familiar with that codebase. Here are some things we look for:
-
 
 1. **Required CI checks pass.** This is a prerequisite for the review, and it is the PR author's responsibility. As long as the tests don’t pass, the PR won't get reviewed. To learn more about our CI pipeline, read about it [below](#pipelines)
 2. **Simplicity.** Is this the simplest way to achieve the intended goal? If there are too many files, redundant functions, or complex lines of code, suggest a simpler way to do the same thing. In particular, avoid implementing an overly general solution when a simple, small, and pragmatic fix will do.
@@ -98,11 +94,11 @@ Cargo will proxy your commands and flags to the built CLI project.
 ### Deep dive
 
 **Prerequisites:**
-This project is written in Rust and setup as a multi crate (aka package) project to allow us to share common code across multiple packages.  To get started you need to have the Rust toolchain installed. The best way to do this is to visit [the amazing rust site](https://www.rust-lang.org/learn/get-started) and follow their install instructions.
+This project is written in Rust and setup as a multi crate (aka package) project to allow us to share common code across multiple packages. To get started you need to have the Rust toolchain installed. The best way to do this is to visit [the amazing rust site](https://www.rust-lang.org/learn/get-started) and follow their install instructions.
 
 To ensure you are ready, you should be able to run this:
 
-`cargo --version` 
+`cargo --version`
 
 and get something back that looks like this:
 
@@ -111,28 +107,94 @@ and get something back that looks like this:
 **Testing the project**
 Rust has great built-in test tooling. You can write tests in-line or under the tests folder for each crate. Tests under the `tests` folder should be integration whereas inline should be unit tests. You can run `cargo test` to test all of the crates at once. For more info on how to write tests, look to similar parts of the codebase or read the [rustlang.org article](https://doc.rust-lang.org/book/ch11-00-testing.html) on testing
 
-
 > If you have your editor setup with the Rust extension, you can click the codelens “Test” command to run individual tests right from you editor! How cool is that?!
-
 
 **Opening a Pull Request**
 Once you have fixed a bug, created the next great feature, or improved the project in some other way it is time to open a pull request! To learn more about how to do this, follow [this great guide](https://opensource.guide/how-to-contribute/#opening-a-pull-request). When you open a PR, the pipeline steps will run to ensure the changes will work for users of this library. To learn more about the pipeline, keep reading below!
+
+## Adding a new command
+
+Adding a new command to the Apollo CLI is easy! Most of the work can even be copied from existing commands or from the following example for a simple `do-a-thing` command 🎉
+
+1. Add a struct for it in `commands/mod.rs`. The kebab-case version of the name of this struct and its fields will be your command and flags' names. This struct uses `StructOpt` to build out the names, options, and docs for the CLI. Check out existing commands or the [StructOpt documentation](https://docs.rs/structopt/0.3.13/structopt/) for explantion and usage of StructOpt's many features.
+
+```rust
+// commands/mod.rs
+
+#[derive(StructOpt)]
+#[structopt(rename_all = "kebab-case")]
+/// 🎉 This command will do a thing!!
+pub struct DoAThing {
+    #[structopt(long)]
+    /// this flag, if not passed, or passed with `false` will panic the command
+    pub test_flag: bool,
+}
+```
+
+2. Add it to the `Apollo` enum for it in `commands/mod.rs`.
+
+```rust
+// commands/mod.rs
+
+#[derive(StructOpt)]
+#[structopt(rename_all = "kebab-case")]
+/// The [Experimental] Apollo CLI, for supporting all your graphql needs :)
+pub enum Apollo {
+    ...
+    /// my command does a thing!
+    DoAThing(DoAThing),
+}
+```
+
+3. Add a module for it in `commands/`. If your command is big and needs multiple files, feel free to give it a directory inside commands. The module will `impl Command for <your-command>`
+
+```rust
+// commands/do_a_thing.rs
+
+use crate::commands::Command;
+use crate::commands::DoAThing;
+
+impl Command for DoAThing {
+  fn run(&self) {
+    // implementation here :)
+    if self.test_flag == false {
+      panic!("aah!");
+    }
+  }
+}
+```
+
+4. Add a case for it to the `impl Command for Apollo`, again in `commands/mod.rs`.
+
+```rust
+// commands/mod.rs
+
+impl Command for Apollo {
+    fn run(&self) {
+        match self {
+          ...
+          Apollo::DoAThing(cmd) => cmd.run(),
+        }
+    }
+}
+```
+
+5. Enjoy! Run your command with `cargo run do-a-thing` (the kebab-case version of the struct name).
 
 ## Pipelines
 
 This project uses GitHub Actions to run a continuous integration and delivery pipeline. Every code change will be run against a few steps to help keep the project running at its peak ability
 
-* **CLA Check**: If you haven’t signed the Apollo CLA, a bot will comment on your PR asking you to do this
-* **Tests**: The CI will run the `cargo test` command across there different architectures (Mac OS, Linux, and Windows). If your build fails on a platform that can’t test on don’t worry! The team will be able to help you out as we run all three platforms to make sure everyone has a great experience.
-* **Coverage**: This project runs a job to collect information on how much of the library has been tested using code coverage tools. This is a WIP but you may see a status check related to how you have improved (or lowered 😢) the amount covered. Don’t worry, it happens to all of us and we are here to help out!
-* **Build**: Each PR will build a set of binaries that can be installed and used like the full release. In fact, it uses most of the same process as our release setup! Currently this is limited to only people with write access to the repo but we are working on a way to make this easy for anyone to use.
+- **CLA Check**: If you haven’t signed the Apollo CLA, a bot will comment on your PR asking you to do this
+- **Tests**: The CI will run the `cargo test` command across there different architectures (Mac OS, Linux, and Windows). If your build fails on a platform that can’t test on don’t worry! The team will be able to help you out as we run all three platforms to make sure everyone has a great experience.
+- **Coverage**: This project runs a job to collect information on how much of the library has been tested using code coverage tools. This is a WIP but you may see a status check related to how you have improved (or lowered 😢) the amount covered. Don’t worry, it happens to all of us and we are here to help out!
+- **Build**: Each PR will build a set of binaries that can be installed and used like the full release. In fact, it uses most of the same process as our release setup! Currently this is limited to only people with write access to the repo but we are working on a way to make this easy for anyone to use.
 
 After you have opened your PR and all of the status checks are passing, please assign it to one of the maintainers (found in the bottom of [the readme](./Readme.md#contributing) who will review it and give feedback.
 
-
 ## Releasing the CLI
 
-The Apollo CLI is designed and built to be easily distributed across a number of environments and platforms. Cutting new releases is a critical part of this process to get feedback from our community and continue to deliver value to them. The release process is entirely automated so anyone with write access can create a release and get it distributed quickly and easily. 
+The Apollo CLI is designed and built to be easily distributed across a number of environments and platforms. Cutting new releases is a critical part of this process to get feedback from our community and continue to deliver value to them. The release process is entirely automated so anyone with write access can create a release and get it distributed quickly and easily.
 
 ### Checklist
 

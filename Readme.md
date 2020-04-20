@@ -30,7 +30,7 @@ The curl script accepts to variables if you want to customize the install. To ch
 
 **Windows** users:
 
-The curl command doesn’t currently support windows (though we want it to in the future). Right now the best way to get the latest CLI is to go to the [releases]([https://github.com/apollographql/apollo-cli/releases/latest](https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1)) page and download the windows tarball. In the future, you will be able to install the CLI using chocolatey.
+The curl command doesn’t currently support windows (though we want it to in the future). Right now the best way to get the latest CLI is to go to the [releases](<[https://github.com/apollographql/apollo-cli/releases/latest](https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1)>) page and download the windows tarball. In the future, you will be able to install the CLI using chocolatey.
 
 > **Coming soon**: If you have `npm` already installed, and are comfortable with the node ecosystem, you can also install the library using `npm i -g @apollo/cli`. This will install a global version of the package which downloads the CLI just like the curl command does.
 
@@ -52,8 +52,7 @@ The CLI will warn you periodically if it is falling behind from the latest build
 
 The Apollo CLI is designed to make working with you data graph and code base as easy and powerful as possible. To get started you will want to connect the CLI to your Apollo account and then begin using it to do all sorts of wonderful things!
 
-
-> Currently, the CLI doesn’t do anything 😅 but that will change very very rapidly as the team builds features into it. Each feature will be added below. 
+> Currently, the CLI doesn’t do anything 😅 but that will change very very rapidly as the team builds features into it. Each feature will be added below.
 
 ### Getting Help
 
@@ -61,20 +60,20 @@ The CLI has a top level help command which prints out all of the possible comman
 
 `apollo help`
 
-If you want to learn more about any commands, you can run `--help` as a flag for any subcommand. An example of this may look like `apollo login --help` (when it is built!) which will print out information on using the login command to link you Apollo account to your system. 
+If you want to learn more about any commands, you can run `--help` as a flag for any subcommand. An example of this may look like `apollo login --help` (when it is built!) which will print out information on using the login command to link you Apollo account to your system.
 
 ## Additional Documentation
 
-All information for the CLI or using the Apollo Platform is available on our [docs!]([https://apollo.dev](https://apollo.dev/)). The CLI docs for the current node version can be found [here](https://www.apollographql.com/docs/devtools/cli/) and as we being to ship features in this CLI, there will be a new docs page dedicated to using the new version and how to migrate from the older version. 
+All information for the CLI or using the Apollo Platform is available on our [docs!](<[https://apollo.dev](https://apollo.dev/)>). The CLI docs for the current node version can be found [here](https://www.apollographql.com/docs/devtools/cli/) and as we being to ship features in this CLI, there will be a new docs page dedicated to using the new version and how to migrate from the older version.
 
 ## Contributing
 
-If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://www.apollographql.com/docs/community/code-of-conduct/) and then head on over to the [contributing guide](./Contributing.md) to learn how to work on this project.
+If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://www.apollographql.com/docs/community/code-of-conduct/) and then head on over to the [contributing guide](./Contributing.md) to learn how to work on this project. If you're just looking for how to add a command to the project, check out [this section](./Contributing.md#adding-a-new-command) of the contributing guide.
 
 If you ever have any problems, questions, or ideas; the maintainers of this project are
 
-* [@queerviolet](https://github.com/queerviolet)
-* [@jbaxleyiii](https://github.com/jbaxleyiii)
-* [@jakedawkins](https://github.com/jakedawkins)
+- [@queerviolet](https://github.com/queerviolet)
+- [@jbaxleyiii](https://github.com/jbaxleyiii)
+- [@jakedawkins](https://github.com/jakedawkins)
 
 <img src="https://raw.githubusercontent.com/apollographql/space-kit/master/src/illustrations/svgs/telescope.svg" width="100%" height="144">
