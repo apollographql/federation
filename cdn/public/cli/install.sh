@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 set -o errexit
 
 # GitHub's URL for the latest release, will redirect.

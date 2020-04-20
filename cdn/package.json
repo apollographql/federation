@@ -3,6 +3,7 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
+    "start": "wrangler dev",
     "test": "jest",
     "test:shell": "bats ./test/*.bats",
     "test:shell:watch": "ls -d **/* | entr bats ./test/*.bats",
@@ -14,6 +15,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^1.0.1",
+    "@cloudflare/wrangler": "^1.8.4",
     "@types/fetch-mock": "^7.3.2",
     "@types/jest": "^25.2.1",
     "@types/node": "^13.11.1",
