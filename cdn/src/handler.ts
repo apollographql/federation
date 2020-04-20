@@ -2,12 +2,14 @@ import {
   getAssetFromKV,
   mapRequestToAsset,
 } from "@cloudflare/kv-asset-handler";
-import { log } from './sentry'
+import { log } from "./sentry";
+import { handleLegacyCLI } from "./legacy-cli";
 
 const GITHUB_RELEASE = "https://github.com/apollographql/apollo-cli/releases";
 
 enum Product {
   cli = "cli",
+  legacyCLI = "legacy-cli",
 }
 
 type CLIArgs = {
@@ -20,8 +22,10 @@ type PossiblePaths = [undefined, Product?, CLIArgs["platform"]?, string?];
 export async function handleRequest(event: FetchEvent): Promise<Response> {
   try {
     const url = new URL(event.request.url);
-    const [, product, platform, version] =
-      url.pathname.split("/", 4) as PossiblePaths;
+    const [, product, platform, version] = url.pathname.split(
+      "/",
+      4
+    ) as PossiblePaths;
 
     /*
 
@@ -40,6 +44,18 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
         // /:product/:platform
         // /:product/:platform/:version
         return await handleCLI({ platform, version }, event);
+      case "legacy-cli":
+        if (!platform || !version) {
+          throw new Error(
+            `Installing the legacy CLI is only supported for the darwin platform and requires a specific version. Please use npm to install the legacy CLI`
+          );
+        }
+        if (platform !== "darwin") {
+          throw new Error(
+            `Installing the legacy CLI for usage outside of the Apollo iOS isn't supported. Please use npm for installing the legacy CLI`
+          );
+        }
+        return await handleLegacyCLI({ platform, version }, event);
       default:
         // handle static assets
         return await serveStatic(event);
@@ -81,18 +97,20 @@ async function handleCLI(
   }
 
   if (response.status === 404) {
-    throw new Error(`Couldn't find release for version ${version} on ${platform}`);
+    throw new Error(
+      `Couldn't find release for version ${version} on ${platform}`
+    );
   }
 
-  throw new Error(`Error when loading CLI for ${version} on ${platform}. Error was ${response.statusText}`);
+  throw new Error(
+    `Error when loading CLI for ${version} on ${platform}. Error was ${response.statusText}`
+  );
 }
 
 async function serveStatic(event: FetchEvent, path: string = "") {
   function customKeyModifier(req: Request): Request {
     let url = req.url;
-    return mapRequestToAsset(
-      new Request(url + path, req as RequestInit)
-    );
+    return mapRequestToAsset(new Request(url + path, req as RequestInit));
   }
   return getAssetFromKV(event, { mapRequestToAsset: customKeyModifier }).catch(
     (e) => {
