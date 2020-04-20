@@ -2,6 +2,7 @@
 # fantastic setup work. Proudly copied from https://github.com/rbenv/ruby-build/blob/637ddf3e2404cb3170e25d3c5bd9dcac73d88ace/test/test_helper.bash
 
 export TMP="$BATS_TEST_DIRNAME/tmp"
+export BATS_RUNNING="true"
 
 if [ "$FIXTURE_ROOT" != "$BATS_TEST_DIRNAME/fixtures" ]; then
   export FIXTURE_ROOT="$BATS_TEST_DIRNAME/fixtures"
