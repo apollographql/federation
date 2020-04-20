@@ -23,9 +23,7 @@ const SUPPORTED_METHODS = ["GET", "HEAD"]
 export async function handleRequest(event: FetchEvent): Promise<Response> {
   try {
     if (!SUPPORTED_METHODS.includes(event.request.method)) {
-      return Promise.resolve(
-        new Response(`This proxy only supports the following request types: ${SUPPORTED_METHODS.join(", ")}`, { status: 500 })
-      )
+      return new Response(`This proxy only supports the following request types: ${SUPPORTED_METHODS.join(", ")}`, { status: 500 })
     }
 
     const url = new URL(event.request.url);
@@ -69,9 +67,7 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
     }
   } catch (e) {
     event.waitUntil(log(e, event.request));
-    return Promise.resolve(
-      new Response(e.message || e.toString(), { status: 500 })
-    );
+    return new Response(e.message || e.toString(), { status: 500 })
   }
 }
 
