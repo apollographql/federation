@@ -114,4 +114,24 @@ it('logs internal server error and calls sentry on unexpected issue', async () =
     expect(log).toBeCalledWith(new Error(':ohno:'), request)
     expect(response.status).toEqual(500);
     expect(await response.text()).toEqual('Internal Server Error')
+    // workers give a delayed response to we need to delay resetting this mock
+    await new Promise((r) => {
+        setTimeout(() => {
+            jest.unmock('./handler')
+            r()
+        }, 5)
+        
+    })
+})
+
+it('returns an 500 if requested with a POST request', async () => {
+    const { log } = require('./sentry')
+    log.mockClear()
+    require('./index');
+
+    const request = new Request('/', { method: "POST" });
+    const response: any = await self.trigger('fetch', request);
+    expect(log).not.toHaveBeenCalled()
+    expect(response.status).toEqual(500);
+    expect(await response.text()).toContain('This proxy only supports the following request types:')
 })
