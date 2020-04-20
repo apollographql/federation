@@ -1,0 +1,23 @@
+type = "webpack"
+account_id = ""
+webpack_config = "webpack.config.js"
+site = { bucket = "./public" }
+workers_dev = true
+
+[env.production]
+name = "install"
+kv_namespaces = [
+  { binding = "KV", id ="f2914b97992c4242b6511f20c1428371" }
+]
+
+[env.staging]
+name = "install-staging"
+kv_namespaces = [
+  { binding = "KV", id ="0b1445d822de4f0e875091b6defd65a0" }
+]
+
+[env.dev]
+name = "install-dev"
+kv_namespaces = [
+  { binding = "KV", id ="0f0eb7572ae948f68768782134f140a0" }
+]
