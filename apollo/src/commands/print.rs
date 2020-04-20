@@ -1,5 +1,5 @@
-use crate::commands::Print;
 use crate::commands::Command;
+use crate::commands::Print;
 
 use graphql_parser::parse_schema;
 use std::fs;

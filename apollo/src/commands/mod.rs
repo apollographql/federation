@@ -47,7 +47,7 @@ impl Command for Apollo {
     fn run(&self) {
         match self {
             Apollo::Print(cmd) => cmd.run(),
-            Apollo::Login(cmd) => cmd.run(),    
+            Apollo::Login(cmd) => cmd.run(),
         }
     }
 }
