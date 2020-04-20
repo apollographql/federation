@@ -19,8 +19,15 @@ type CLIArgs = {
 
 type PossiblePaths = [undefined, Product?, CLIArgs["platform"]?, string?];
 
+const SUPPORTED_METHODS = ["GET", "HEAD"]
 export async function handleRequest(event: FetchEvent): Promise<Response> {
   try {
+    if (!SUPPORTED_METHODS.includes(event.request.method)) {
+      return Promise.resolve(
+        new Response(`This proxy only supports the following request types: ${SUPPORTED_METHODS.join(", ")}`, { status: 500 })
+      )
+    }
+
     const url = new URL(event.request.url);
     const [, product, platform, version] = url.pathname.split(
       "/",
