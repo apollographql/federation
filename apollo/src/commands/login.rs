@@ -1,5 +1,5 @@
-use crate::commands::Login;
 use crate::commands::Command;
+use crate::commands::Login;
 
 impl Command for Login {
     fn run(&self) {
