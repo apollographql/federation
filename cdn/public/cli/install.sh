@@ -1,16 +1,16 @@
-#!/usr/bin/env bash
+#!/bin/sh
 set -o errexit
 
 # GitHub's URL for the latest release, will redirect.
 DESTDIR="${DESTDIR:-/usr/local/bin}"
 INSTALL_PATH="${DESTDIR}/apollo"
 
-function error_exit {
+error_exit() {
 	echo "$1" 1>&2
 	exit 1
 }
 
-function check_environment_readiness {
+check_environment_readiness() {
   if [ -z "$(command -v curl)" ]; then
     echo "The curl command is not installed on this machine. Please install curl before installing the Apollo CLI"
     return 1
@@ -40,11 +40,11 @@ function check_environment_readiness {
   return
 }
 
-function download_and_install {
+download_and_install() {
   # Determine release filename. This can be expanded with CPU arch in the future.
-  if [ "$(uname)" == "Linux" ]; then
+  if [ "$(uname)" = "Linux" ]; then
     OS="linux"
-  elif [ "$(uname)" == "Darwin" ]; then
+  elif [ "$(uname)" = "Darwin" ]; then
     OS="darwin"
   else
     echo "This operating system ('$(uname)') is not supported."
@@ -64,8 +64,7 @@ function download_and_install {
   return
 }
 
-function run_main {
-
+run_main() {
   echo "Installing Apollo CLI..."
 
   check_environment_readiness || error_exit "Environment setup failed!"
@@ -84,10 +83,7 @@ function run_main {
   return
 }
 
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
-then
-  if ! run_main
-  then
-    exit 1
-  fi
+# if we aren't in our testing framework, run the main installer
+if [ -z $BATS_RUNNING ] ; then
+  run_main
 fi
