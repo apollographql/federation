@@ -77,7 +77,7 @@ async function handleCLI(
 ): Promise<Response> {
   if (platform && !version) {
     // fetch latest version number
-    const response = await fetch(`${GITHUB_RELEASE}/latest`);
+    const response = await fetch(`${GITHUB_RELEASE}/latest`, { cf: { cacheEverything: true } });
     if (!response.ok) {
       throw new Error(
         `Error loading latest release for CLI at ${GITHUB_RELEASE}/latest`
@@ -92,7 +92,7 @@ async function handleCLI(
   // this only supports 64 bit architectures. I don't see us changing this but if we do, this will become gross
   const response = await fetch(
     `${GITHUB_RELEASE}/download/v${version}/apollo-v${version}-x86_64-${platform}.tar.gz`,
-    { method, body }
+    { method, body, cf: { cacheEverything: true } }
   );
 
   if (response.ok) {
@@ -101,12 +101,12 @@ async function handleCLI(
 
   if (response.status === 404) {
     throw new Error(
-      `Couldn't find release for version ${version} on ${platform}`
+      `Couldn't find release for version ${version} on ${platform} on GitHub Releases. This could be a problem with GitHub being offline or missing this version`
     );
   }
 
   throw new Error(
-    `Error when loading CLI for ${version} on ${platform}. Error was ${response.statusText}`
+    `Error when loading CLI for ${version} on ${platform} on GitHub releases. This could be because GitHub is down. The error we recieved from GitHub was ${response.statusText}`
   );
 }
 

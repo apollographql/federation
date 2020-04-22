@@ -14,7 +14,7 @@ export async function handleLegacyCLI(
   // this only supports 64 bit architectures. I don't see us changing this but if we do, this will become gross
   const response = await fetch(
     `${GITHUB_RELEASE}/download/apollo@${version}/apollo-v${version}-darwin-x64.tar.gz`,
-    { method, body }
+    { method, body, cf: { cacheEverything: true } }
   );
 
   if (response.ok) {
@@ -23,11 +23,11 @@ export async function handleLegacyCLI(
 
   if (response.status === 404) {
     throw new Error(
-      `Couldn't find release for version ${version} on ${platform}`
+      `Couldn't find release for version ${version} on ${platform} on GitHub Releases. This could be a problem with GitHub being offline or missing this version`
     );
   }
 
   throw new Error(
-    `Error when loading legacy CLI for ${version} on ${platform}. Error was ${response.statusText}`
+    `Error when loading the legacy CLI for ${version} on ${platform} on GitHub releases. This could be because GitHub is down. The error we recieved from GitHub was ${response.statusText}`
   );
 }
