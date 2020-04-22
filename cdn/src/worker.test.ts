@@ -11,11 +11,21 @@ beforeEach(() => {
 afterEach(fetchMock.resetBehavior)
 it('returns an index.html file if bare url is requested', async () => {
     require('./index');
-    const request = new Request('/');
+    const request = new Request('/', { headers: { accept: "text/html" }});
     const response: any = await self.trigger('fetch', request);
     expect(response.status).toEqual(200);
     expect(await response.text()).toEqual('index.html')
 })
+
+it('returns the main CLI installer file if bare url is requested that isnt text/html', async () => {
+    require('./index');
+    const request = new Request('/');
+    const response: any = await self.trigger('fetch', request);
+    expect(response.status).toEqual(200);
+    expect(await response.text()).toEqual('install cli')
+    expect(response.headers.get('content-type')).toEqual('application/x-sh')
+})
+
 
 it('returns an 404.html file if unsupported url is requested', async () => {
     require('./index');

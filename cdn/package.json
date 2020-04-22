@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@cloudflare/kv-asset-handler": "^0.0.9",
+    "negotiator": "^0.6.2",
     "uuid-browser": "^3.1.0"
   },
   "devDependencies": {
@@ -18,6 +19,7 @@
     "@cloudflare/wrangler": "^1.8.4",
     "@types/fetch-mock": "^7.3.2",
     "@types/jest": "^25.2.1",
+    "@types/negotiator": "^0.6.1",
     "@types/node": "^13.11.1",
     "@types/service-worker-mock": "^2.0.1",
     "bats": "^1.1.0",

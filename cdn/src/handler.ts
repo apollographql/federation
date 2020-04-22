@@ -2,6 +2,7 @@ import {
   getAssetFromKV,
   mapRequestToAsset,
 } from "@cloudflare/kv-asset-handler";
+import Negotiator from "negotiator"
 import { log } from "./sentry";
 import { handleLegacyCLI } from "./legacy-cli";
 
@@ -62,6 +63,20 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
         }
         return await handleLegacyCLI({ platform, version }, event);
       default:
+
+        if (!product) {
+          const headers = {
+            accept: event.request.headers.get("accept") || "",
+            ["accept-encoding"]: event.request.headers.get("accept-encoding") || "",
+            ["accept-charset"]: event.request.headers.get("accept-charset") || "",
+            ["accept-language"]: event.request.headers.get("accept-language") || "",
+          }
+          const negotiator = new Negotiator({ headers });
+          if (!negotiator.mediaTypes().includes("text/html")) {
+            return serveStatic(event, "/cli/install.sh");
+          }
+        }
+
         // handle static assets
         return await serveStatic(event);
     }

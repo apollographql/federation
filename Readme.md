@@ -19,12 +19,12 @@ The Apollo CLI can be installed in a few different ways depending on what is bes
 If you want a no dependency installation step, you can use the `curl` installer to get the CLI. Open your terminal and run the following command:
 
 ```
-curl -sSL https://install.apollographql.com/cli | sh
+curl -sSL https://install.apollographql.com/ | sh
 ```
 
 This will download the latest release from GitHub and install the binary at your `/usr/local/bin` directory so it can be used globally for all projects.
 
-The curl script accepts to variables if you want to customize the install. To change the destination you can set the `DESTDIR` variable to a new location (`curl -sSL https://install.apollographql.workers.dev/cli | DESTDIR=/opt/bin sh`). If you wan to install a specific version, you can set the `VERSION` variable in the same way as the `DESTDIR` (`curl -sSL https://install.apollographql.workers.dev/cli | VERSION=0.0.1 sh`)
+The curl script accepts to variables if you want to customize the install. To change the destination you can set the `DESTDIR` variable to a new location (`curl -sSL https://install.apollographql.com/ | DESTDIR=/opt/bin sh`). If you wan to install a specific version, you can set the `VERSION` variable in the same way as the `DESTDIR` (`curl -sSL https://install.apollographql.com/ | VERSION=0.0.1 sh`)
 
 > **Coming soon**: If you have `npm` already installed, and are comfortable with the node ecosystem, you can also install the library using `npm i -g @apollo/cli`. This will install a global version of the package which downloads the CLI just like the curl command does.
 
