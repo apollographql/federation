@@ -51,10 +51,12 @@ download_and_install() {
     return 1
   fi
 
-  RELEASE_URL="https://install.apollographql.workers.dev/cli/${OS}/${VERSION}"
-  
-  # Download & unpack the release tarball.
-  curl -sL --retry 3 "${RELEASE_URL}" | tar zx --strip 1
+  download_from_proxy || fallback_and_download_from_github
+
+  if ! [ -e "./apollo" ] ; then
+    echo "After installing the CLI tarball we were unable to find the apollo binary"
+    return 1
+  fi
 
   mv apollo "$DESTDIR"
   chmod +x "$INSTALL_PATH"
@@ -62,6 +64,33 @@ download_and_install() {
   command -v apollo
 
   return
+}
+
+download_from_proxy() {
+  RELEASE_URL="https://install.apollographql.workers.dev/cli/${OS}/${VERSION}"
+  # Download & unpack the release tarball.
+  curl -sL --retry 3 "${RELEASE_URL}" | tar zx --strip 1
+}
+
+fallback_and_download_from_github() {
+  
+  echo "Could not install from the Apollo CDN, falling back to GitHub installation"
+
+  if [ -z "$(command -v cut)" ]; then
+    echo "The cut command is not installed on this machine. Please install cut before installing the Apollo CLI"
+    return 1
+  fi
+
+  # GitHub's URL for the latest release, will redirect.
+  LATEST_URL="https://github.com/apollographql/apollo-cli/releases/latest/"
+  if [ -z "$VERSION" ]; then
+    VERSION=$(curl -sLI -o /dev/null -w '%{url_effective}' $LATEST_URL | cut -d "v" -f 2)
+  fi
+
+  RELEASE_URL="https://github.com/apollographql/apollo-cli/releases/download/v${VERSION}/apollo-v${VERSION}-x86_64-${OS}.tar.gz"
+
+  # Download & unpack the release tarball.
+  curl -sL --retry 3 "${RELEASE_URL}" | tar zx --strip 1
 }
 
 run_main() {
@@ -87,3 +116,4 @@ run_main() {
 if [ -z $BATS_RUNNING ] ; then
   run_main
 fi
+

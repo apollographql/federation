@@ -1,5 +1,5 @@
 #!./test/libs/bats/bin/bats
-
+load '../node_modules/bats-support/load'
 load '../node_modules/bats-assert/load'
 load test_helper
 
@@ -93,6 +93,7 @@ setup() {
   run run_main
   assert_success
   assert_output -p "Apollo CLI was successfully installed!"
+  unstub curl
 }
 
 @test ".run_main errors if the env isn't correct" {
@@ -103,14 +104,77 @@ setup() {
   assert_output -p "Environment setup failed!"
 }
 
-@test ".run_main errors if the downloading and install fails" {
+@test ".run_main errors if downloading fails" {
   source ${profile_script}
   PATH="$DESTDIR:$PATH"
   # intentionally missing .gz to fail install
   stub curl \
-    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar"
+    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar"  \
+    "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/apollo-cli/releases/latest/ : echo https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1"  \
+    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/apollo-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar.g"
 
   run run_main
   assert_failure
-  assert_output -p "An error occured installing the tool. The contents of the directory /tmp/tmp."
+  assert_output -p "An error occured installing the tool. The contents of the directory"
+}
+
+@test ".run_main downloads from GitHub if the proxy fails" {
+  source ${profile_script}
+  PATH="$DESTDIR:$PATH"
+  # intentionally missing .gz to fail install
+  stub curl \
+    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar"  \
+    "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/apollo-cli/releases/latest/ : echo https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1"  \
+    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/apollo-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar.gz"
+
+  run run_main
+  assert_success
+  assert_output -p "Apollo CLI was successfully installed!"
+}
+
+@test ".run_main downloads from GitHub if the proxy fails with a specific version passed" {
+  source ${profile_script}
+  PATH="$DESTDIR:$PATH"
+  export VERSION="0.0.1"
+  # intentionally missing .gz to fail install
+  stub curl \
+    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar"  \
+    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/apollo-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar.gz"
+
+  run run_main
+  assert_success
+  assert_output -p "Apollo CLI was successfully installed!"
+}
+
+@test ".run_main errors if downloading from GitHub fails" {
+  source ${profile_script}
+  PATH="$DESTDIR:$PATH"
+  # intentionally missing .gz to fail install
+  stub curl \
+    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar"  \
+    "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/apollo-cli/releases/latest/ : echo failure"
+
+  run run_main
+  assert_failure
+  assert_output -p "An error occured installing the tool. The contents of the directory"
+}
+
+@test ".fallback_and_download_from_github error if cut isn't installed on the machine" {
+  source ${profile_script}
+  clean_path="$(remove_commands_from_path cut)"
+  PATH="$clean_path" run fallback_and_download_from_github
+  assert_failure
+  assert_output -p "cut command is not installed"
+}
+
+@test ".run_main errors if tarball is missing executable" {
+  source ${profile_script}
+  PATH="$DESTDIR:$PATH"
+  # intentionally missing .gz to fail install
+  stub curl \
+    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux-bad.tar.gz"  \
+
+  run run_main
+  assert_failure
+  assert_output -p "An error occured installing the tool. The contents of the directory"
 }

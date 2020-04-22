@@ -72,7 +72,7 @@ it('returns a 500 if GitHub is down', async () => {
     const response: any = await self.trigger('fetch', request);
     expect(response.status).toEqual(500);
     expect(log).toHaveBeenCalled()
-    expect(await response.text()).toEqual(`Error loading latest release for CLI at ${GITHUB_RELEASE}/latest`)
+    expect(await response.text()).toContain(`Error loading latest release for CLI at ${GITHUB_RELEASE}/latest`)
 })
 
 it('returns a 500 if asking for a bad version', async () => {
@@ -84,7 +84,7 @@ it('returns a 500 if asking for a bad version', async () => {
     const response: any = await self.trigger('fetch', request);
     expect(response.status).toEqual(500);
     expect(log).toHaveBeenCalled()
-    expect(await response.text()).toEqual(`Couldn't find release for version 0.0.1 on linux`)
+    expect(await response.text()).toContain(`Couldn't find release for version 0.0.1 on linux`)
 })
 
 it('returns a 500 and message if something went really wrong', async () => {
@@ -98,7 +98,7 @@ it('returns a 500 and message if something went really wrong', async () => {
     const response: any = await self.trigger('fetch', request);
     expect(response.status).toEqual(500);
     expect(log).toHaveBeenCalled()
-    expect(await response.text()).toContain(`Error was Internal Server Error`)
+    expect(await response.text()).toContain(`Internal Server Error`)
 })
 
 it('logs internal server error and calls sentry on unexpected issue', async () => {

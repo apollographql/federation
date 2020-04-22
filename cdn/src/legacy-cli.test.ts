@@ -65,7 +65,7 @@ it('returns a 500 if GitHub is down', async () => {
     const response: any = await self.trigger('fetch', request);
     expect(response.status).toEqual(500);
     expect(log).toHaveBeenCalled()
-    expect(await response.text()).toContain(`Error when loading legacy CLI`)
+    expect(await response.text()).toContain(`Error when loading the legacy CLI`)
 })
 
 it('returns a 500 if asking for a bad version', async () => {
