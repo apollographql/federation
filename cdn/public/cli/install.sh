@@ -85,11 +85,6 @@ fallback_and_download_from_github() {
   LATEST_URL="https://github.com/apollographql/apollo-cli/releases/latest/"
   if [ -z "$VERSION" ]; then
     VERSION=$(curl -sLI -o /dev/null -w '%{url_effective}' $LATEST_URL | cut -d "v" -f 2)
-  fi 
-
-  if [ -z "$VERSION" ]; then
-    echo "Unable to find a version for the CLI from GitHub"
-    return 1
   fi
 
   RELEASE_URL="https://github.com/apollographql/apollo-cli/releases/download/v${VERSION}/apollo-v${VERSION}-x86_64-${OS}.tar.gz"
@@ -121,3 +116,4 @@ run_main() {
 if [ -z $BATS_RUNNING ] ; then
   run_main
 fi
+
