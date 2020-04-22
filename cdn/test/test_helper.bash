@@ -27,6 +27,7 @@ remove_commands_from_path() {
 }
 
 teardown() {
+  cat "${TMP:?}"/curl-stub-plan
   rm -fr "${TMP:?}"/*
 }
 
