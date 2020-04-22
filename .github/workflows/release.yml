@@ -6,7 +6,7 @@ on:
       - "v*" # Run when tag matches v*, i.e. v1.0, v20.15.10
 
 env:
-  RELEASE_BIN: apollo
+  RELEASE_BIN: ap
   RELEASE_DIR: artifacts
   GITHUB_REF: "${{ github.ref }}"
   WINDOWS_TARGET: x86_64-windows
@@ -217,9 +217,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./linux/apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
+          asset_path: ./linux/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
           asset_content_type: application/gzip
-          asset_name: apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
+          asset_name: ${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
 
       - name: Release Windows tarball
         uses: actions/upload-release-asset@v1
@@ -227,9 +227,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows/apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
+          asset_path: ./windows/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
           asset_content_type: application/gzip
-          asset_name: apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
+          asset_name: ${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
 
       - name: Release MacOS tarball
         uses: actions/upload-release-asset@v1
@@ -237,7 +237,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./macos/apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
+          asset_path: ./macos/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
           asset_content_type: application/gzip
 
       - name: Slack Notification

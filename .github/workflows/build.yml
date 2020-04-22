@@ -3,7 +3,7 @@ name: PR Builds
 on: [pull_request]
 
 env:
-  RELEASE_BIN: apollo
+  RELEASE_BIN: ap
   GITHUB_REF: "${{ github.ref }}"
   WINDOWS_TARGET: x86_64-pc-windows-msvc
   MACOS_TARGET: x86_64-apple-darwin
@@ -155,9 +155,9 @@ jobs:
         shell: bash
         run: |
           touch sha256.txt
-          echo "Linux: $(sha256sum -b ./linux/apollo | cut -d ' ' -f1)" >> sha256.txt
-          echo "Windows: $(sha256sum -b ./windows/apollo.exe | cut -d ' ' -f1)" >> sha256.txt
-          echo "MacOS: $(sha256sum -b ./macos/apollo | cut -d ' ' -f1)" >> sha256.txt
+          echo "Linux: $(sha256sum -b ./linux/ap | cut -d ' ' -f1)" >> sha256.txt
+          echo "Windows: $(sha256sum -b ./windows/ap.exe | cut -d ' ' -f1)" >> sha256.txt
+          echo "MacOS: $(sha256sum -b ./macos/ap | cut -d ' ' -f1)" >> sha256.txt
       
       - uses: actions/upload-artifact@v2-preview
         with:

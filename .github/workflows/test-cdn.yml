@@ -1,9 +1,6 @@
 name: Test CDN app
 
-on:
-  pull_request:
-    paths:
-      - 'cdn/**/*'
+on: [pull_request]
 
 jobs:
   test_worker:

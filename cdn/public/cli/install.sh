@@ -3,7 +3,7 @@ set -o errexit
 
 # GitHub's URL for the latest release, will redirect.
 DESTDIR="${DESTDIR:-/usr/local/bin}"
-INSTALL_PATH="${DESTDIR}/apollo"
+INSTALL_PATH="${DESTDIR}/ap"
 
 error_exit() {
 	echo "$1" 1>&2
@@ -31,9 +31,9 @@ check_environment_readiness() {
     return 1
   fi
 
-  EXISTING_APOLLO="$(command -v apollo)"
+  EXISTING_APOLLO="$(command -v ap)"
   if [ -n "$EXISTING_APOLLO" ]; then
-    echo "An existing version of 'apollo' is already installed at $EXISTING_APOLLO. If you want the latest version, please uninstall the old one first then run this again."
+    echo "An existing version of 'ap' is already installed at $EXISTING_APOLLO. If you want the latest version, please uninstall the old one first then run this again."
     return 1
   fi
 
@@ -53,21 +53,21 @@ download_and_install() {
 
   download_from_proxy || fallback_and_download_from_github
 
-  if ! [ -e "./apollo" ] ; then
-    echo "After installing the CLI tarball we were unable to find the apollo binary"
+  if ! [ -e "./ap" ] ; then
+    echo "After installing the CLI tarball we were unable to find the ap binary"
     return 1
   fi
 
-  mv apollo "$DESTDIR"
+  mv ap "$DESTDIR"
   chmod +x "$INSTALL_PATH"
 
-  command -v apollo
+  command -v ap
 
   return
 }
 
 download_from_proxy() {
-  RELEASE_URL="https://install.apollographql.workers.dev/cli/${OS}/${VERSION}"
+  RELEASE_URL="https://install.apollographql.com/cli/${OS}/${VERSION}"
   # Download & unpack the release tarball.
   curl -sL --retry 3 "${RELEASE_URL}" | tar zx --strip 1
 }
@@ -87,7 +87,7 @@ fallback_and_download_from_github() {
     VERSION=$(curl -sLI -o /dev/null -w '%{url_effective}' $LATEST_URL | cut -d "v" -f 2)
   fi
 
-  RELEASE_URL="https://github.com/apollographql/apollo-cli/releases/download/v${VERSION}/apollo-v${VERSION}-x86_64-${OS}.tar.gz"
+  RELEASE_URL="https://github.com/apollographql/apollo-cli/releases/download/v${VERSION}/ap-v${VERSION}-x86_64-${OS}.tar.gz"
 
   # Download & unpack the release tarball.
   curl -sL --retry 3 "${RELEASE_URL}" | tar zx --strip 1

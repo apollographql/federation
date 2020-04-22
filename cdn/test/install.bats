@@ -46,13 +46,13 @@ setup() {
   assert_output -p "Attempting to install the Apollo CLI in $DESTDIR but the permissions deny writing to that directory."
 }
 
-@test ".check_environment_readiness should error if there is already an `apollo` command installed" {
-  stub apollo true
+@test ".check_environment_readiness should error if there is already an `ap` command installed" {
+  stub ap true
   source ${profile_script}
   
   run check_environment_readiness
   assert_failure
-  assert_output -p "An existing version of 'apollo' is already installed at "
+  assert_output -p "An existing version of 'ap' is already installed at "
 }
 
 @test '.download_and_install fails if not using linux or darwin arch' {
@@ -68,7 +68,7 @@ setup() {
   source ${profile_script}
   
   stub curl \
-    "-sL --retry 3 https://install.apollographql.workers.dev/cli/darwin/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar.gz"
+    "-sL --retry 3 https://install.apollographql.com/cli/darwin/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
   
   BINDIR="$BATS_TMPDIR/writable_$RANDOM"
   mkdir "$BINDIR"
@@ -80,7 +80,7 @@ setup() {
   run download_and_install
   
   assert_success
-  assert [ -x "${DESTDIR}/apollo" ]
+  assert [ -x "${DESTDIR}/ap" ]
   unstub curl
 }
 
@@ -88,7 +88,7 @@ setup() {
   source ${profile_script}
   PATH="$DESTDIR:$PATH"
   stub curl \
-    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar.gz"
+    "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
 
   run run_main
   assert_success
@@ -109,9 +109,9 @@ setup() {
   PATH="$DESTDIR:$PATH"
   # intentionally missing .gz to fail install
   stub curl \
-    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar"  \
+    "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar"  \
     "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/apollo-cli/releases/latest/ : echo https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1"  \
-    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/apollo-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar.g"
+    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.g"
 
   run run_main
   assert_failure
@@ -123,9 +123,9 @@ setup() {
   PATH="$DESTDIR:$PATH"
   # intentionally missing .gz to fail install
   stub curl \
-    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar"  \
+    "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar"  \
     "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/apollo-cli/releases/latest/ : echo https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1"  \
-    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/apollo-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar.gz"
+    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
 
   run run_main
   assert_success
@@ -138,8 +138,8 @@ setup() {
   export VERSION="0.0.1"
   # intentionally missing .gz to fail install
   stub curl \
-    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar"  \
-    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/apollo-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar.gz"
+    "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar"  \
+    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
 
   run run_main
   assert_success
@@ -151,7 +151,7 @@ setup() {
   PATH="$DESTDIR:$PATH"
   # intentionally missing .gz to fail install
   stub curl \
-    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux.tar"  \
+    "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar"  \
     "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/apollo-cli/releases/latest/ : echo failure"
 
   run run_main
@@ -172,7 +172,7 @@ setup() {
   PATH="$DESTDIR:$PATH"
   # intentionally missing .gz to fail install
   stub curl \
-    "-sL --retry 3 https://install.apollographql.workers.dev/cli/linux/ : cat $FIXTURE_ROOT/apollo-v0.0.1-x86_64-linux-bad.tar.gz"  \
+    "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux-bad.tar.gz"  \
 
   run run_main
   assert_failure

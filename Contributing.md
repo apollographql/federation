@@ -201,13 +201,13 @@ The Apollo CLI is designed and built to be easily distributed across a number of
 Before you create a release there are a couple of steps that aren’t yet automated that we ask you to do:
 
 1. **Update the [Changelog](./Changelog.md):** The Changelog is used to create the notes of the GitHub release and, more importantly, it is an important tool to help maintainers and users alike understand how the project has changed over time. This project uses [Keep a Changelog](`https://keepachangelog.com/en/1.0.0/) to make a legible and helpful log
-2. **Bump the package versions**: The main [cargo](./apollo/Cargo.toml] file should be bumped to a new version. The `npm` package (once added 😅) should also be bumped until it is automated as part of the release cycle.
+2. **Bump the package versions**: The main [cargo](./cli/Cargo.toml] file should be bumped to a new version. The `npm` package (once added 😅) should also be bumped until it is automated as part of the release cycle.
 
 After you have done the above, it is time to cut a release!
 
 ### Cutting a Release
 
-Creating a new release is done using git tags. This project supports both “preleases” and normal releases with the same process. To cut a release copy the version of the CLI from the [Cargo.toml](./apollo/Cargo.toml) and run the following command:
+Creating a new release is done using git tags. This project supports both “preleases” and normal releases with the same process. To cut a release copy the version of the CLI from the [Cargo.toml](./cli/Cargo.toml) and run the following command:
 
 ```
 git tag -a <version copied from Cargo.toml> -m "<Message about your release>"

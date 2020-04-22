@@ -6,7 +6,7 @@
 
 ![Tests](https://github.com/apollographql/apollo-cli/workflows/Tests/badge.svg) ![Security audit](https://github.com/apollographql/apollo-cli/workflows/Security%20audit/badge.svg)
 
-`apollo` is a command line interface designed for people who want to design, build, and manage a data graph. It is built to work seamless with the [Apollo Platform](https://www.apollographql.com/) and provide the core tooling for teams implementing a [principled data graph](https://principledgraphql.com/)
+`ap` is a command line interface designed for people who want to design, build, and manage a data graph. It is built to work seamless with the [Apollo Platform](https://www.apollographql.com/) and provide the core tooling for teams implementing a [principled data graph](https://principledgraphql.com/)
 
 ## Installation
 
@@ -19,7 +19,7 @@ The Apollo CLI can be installed in a few different ways depending on what is bes
 If you want a no dependency installation step, you can use the `curl` installer to get the CLI. Open your terminal and run the following command:
 
 ```
-curl -sSL https://install.apollographql.workers.dev/cli | sh
+curl -sSL https://install.apollographql.com/cli | sh
 ```
 
 This will download the latest release from GitHub and install the binary at your `/usr/local/bin` directory so it can be used globally for all projects.
@@ -46,7 +46,7 @@ The Apollo CLI is designed to be installed quickly and easily on common CI platf
 
 > Coming soon
 
-The CLI will warn you periodically if it is falling behind from the latest builds. You can run the `apollo update` command to install the latest build for your system. Depending on how you installed the CLI, the update command will download a temporary build of the new version and attempt to replace the older one with the new one. If this fails, it will log an error and leave the old build behind for debugging purposes.
+The CLI will warn you periodically if it is falling behind from the latest builds. You can run the `ap update` command to install the latest build for your system. Depending on how you installed the CLI, the update command will download a temporary build of the new version and attempt to replace the older one with the new one. If this fails, it will log an error and leave the old build behind for debugging purposes.
 
 ## Getting Started
 
@@ -60,7 +60,7 @@ The CLI has a top level help command which prints out all of the possible comman
 
 `apollo help`
 
-If you want to learn more about any commands, you can run `--help` as a flag for any subcommand. An example of this may look like `apollo login --help` (when it is built!) which will print out information on using the login command to link you Apollo account to your system.
+If you want to learn more about any commands, you can run `--help` as a flag for any subcommand. An example of this may look like `ap login --help` (when it is built!) which will print out information on using the login command to link you Apollo account to your system. 
 
 ## Additional Documentation
 
