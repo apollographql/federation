@@ -28,6 +28,6 @@ export async function handleLegacyCLI(
   }
 
   throw new Error(
-    `Error when loading the legacy CLI for ${version} on ${platform} on GitHub releases. This could be because GitHub is down. The error we recieved from GitHub was ${response.statusText}`
+    `Error when loading the legacy CLI for ${version} on ${platform} on GitHub releases. This could be because GitHub is down. The error we received from GitHub was ${response.statusText}`
   );
 }
