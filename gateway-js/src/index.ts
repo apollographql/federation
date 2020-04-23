@@ -8,9 +8,8 @@ import {
   GraphQLExecutionResult,
   Logger,
   GraphQLRequestContextExecutionDidStart,
-  WithRequired,
 } from 'apollo-server-types';
-import { InMemoryLRUCache, TestableKeyValueCache } from 'apollo-server-caching';
+import { InMemoryLRUCache, KeyValueCache } from 'apollo-server-caching';
 import {
   isObjectType,
   isIntrospectionType,
@@ -66,7 +65,7 @@ interface GatewayConfigBase {
   experimental_autoFragmentization?: boolean;
   fetcher?: typeof fetch;
   serviceHealthCheck?: boolean;
-  queryPlanStore?: WithRequired<TestableKeyValueCache<QueryPlan>, 'flush'>;
+  queryPlanStore?: QueryPlanCache;
 }
 
 interface RemoteGatewayConfig extends GatewayConfigBase {
@@ -164,6 +163,12 @@ type WarnedStates = {
 
 export const GCS_RETRY_COUNT = 5;
 
+export interface QueryPlanCache extends KeyValueCache<QueryPlan> {
+  flush(): Promise<void>;
+  // Close connections associated with this cache.
+  close?(): Promise<void>;
+}
+
 export function getDefaultGcsFetcher() {
   return fetcher.defaults({
     cacheManager: new HttpRequestCache(),
@@ -194,7 +199,7 @@ export class ApolloGateway implements GraphQLService {
   protected serviceMap: DataSourceMap = Object.create(null);
   protected config: GatewayConfig;
   private logger: Logger;
-  protected queryPlanStore?: WithRequired<TestableKeyValueCache<QueryPlan>, 'flush'> ;
+  protected queryPlanStore?: QueryPlanCache;
   private engineConfig: GraphQLServiceEngineConfig | undefined;
   private pollingTimer?: NodeJS.Timer;
   private onSchemaChangeListeners = new Set<SchemaChangeCallback>();
