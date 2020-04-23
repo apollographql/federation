@@ -3,6 +3,7 @@ name: PR Builds
 on: [pull_request]
 
 env:
+  SOURCE_BIN: apollo-cli
   RELEASE_BIN: ap
   GITHUB_REF: "${{ github.ref }}"
   WINDOWS_TARGET: x86_64-pc-windows-msvc
@@ -89,7 +90,7 @@ jobs:
         if: matrix.build == 'linux'
         uses: svenstaro/upx-action@v1-release
         with:
-          file: target/${{ env.LINUX_TARGET }}/release/${{ env.RELEASE_BIN }}
+          file: target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }}
 
       - name: Build (MacOS)
         if: matrix.build == 'macos'
@@ -99,7 +100,7 @@ jobs:
         if: matrix.build == 'macos'
         uses: svenstaro/upx-action@v1-release
         with:
-          file: target/release/${{ env.RELEASE_BIN }}
+          file: target/release/${{ env.SOURCE_BIN }}
 
       - name: Build (Windows)
         if: matrix.build == 'windows'
@@ -111,7 +112,7 @@ jobs:
         if: matrix.build == 'windows'
         uses: svenstaro/upx-action@v1-release
         with:
-          file: target/release/${{ env.RELEASE_BIN }}.exe
+          file: target/release/${{ env.SOURCE_BIN }}.exe
       
       - name: Create artifact directory
         run: |
@@ -120,20 +121,20 @@ jobs:
       - name: Create distribution (Linux)
         if: matrix.build == 'linux'
         run: |
-          mv ./target/${{ env.LINUX_TARGET }}/release/${{ env.RELEASE_BIN }} ./dist/${{ env.RELEASE_BIN }}
+          mv ./target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }} ./dist/${{ env.RELEASE_BIN }}
           mv ${{ env.RELEASE_ADDS }} ./dist
 
       - name: Create distribution (Windows)
         if: matrix.build == 'windows'
         shell: bash
         run: |
-          mv ./target/release/${{ env.RELEASE_BIN }}.exe ./dist/${{ env.RELEASE_BIN }}.exe
+          mv ./target/release/${{ env.SOURCE_BIN }}.exe ./dist/${{ env.RELEASE_BIN }}.exe
           mv ${{ env.RELEASE_ADDS }} ./dist
 
       - name: Create distribution (MacOS)
         if: matrix.build == 'macos'
         run: |
-          mv ./target/release/${{ env.RELEASE_BIN }} ./dist/${{ env.RELEASE_BIN }}
+          mv ./target/release/${{ env.SOURCE_BIN }} ./dist/${{ env.RELEASE_BIN }}
           mv ${{ env.RELEASE_ADDS }} ./dist
 
       - name: Upload Zip
