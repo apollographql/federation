@@ -1,0 +1,10 @@
+type User { friends: [User]
+  favoriteSongs: [Song]
+}
+
+type Song { title: String }
+
+type Query {
+  me: User
+  songs: [Song]
+}
