@@ -155,9 +155,9 @@ jobs:
         shell: bash
         run: |
           touch sha256.txt
-          echo "Linux: $(sha256sum -b ./linux/ap | cut -d ' ' -f1)" >> sha256.txt
-          echo "Windows: $(sha256sum -b ./windows/ap.exe | cut -d ' ' -f1)" >> sha256.txt
-          echo "MacOS: $(sha256sum -b ./macos/ap | cut -d ' ' -f1)" >> sha256.txt
+          "$(sha256sum -b ./linux/${{ env.RELEASE_BIN }})" >> sha256.txt
+          "$(sha256sum -b ./windows/${{ env.RELEASE_BIN }}.exe" >> sha256.txt
+          "$(sha256sum -b ./macos/${{ env.RELEASE_BIN }}" >> sha256.txt
       
       - uses: actions/upload-artifact@v2-preview
         with:
