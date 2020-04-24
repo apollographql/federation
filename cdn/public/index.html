@@ -1,154 +1,211 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css"
-      rel="stylesheet"
-    />
-    <style>
-      body {
-        background-color: #f4f6f8;
-      }
-      h1,
-      p {
-        font-family: "Source Sans Pro", sans-serif;
-        color: #333;
-      }
+#!/bin/sh
 
-      h1 {
-        font-size: 1.5rem;
+: <<-'header'
+  <main>
+    <h1>Apollo CLI Install Script</h1>
+    This is the install script for the Apollo command line tools.
 
-        margin-bottom: 1rem;
-        margin-top: 1rem;
-      }
+    To run it, copy the command below and run it in your terminal:
 
-      p {
-        font-size: 16px;
-        line-height: 24px;
-        max-width: 420px;
-        margin: 0 auto;
-      }
 
-      .centered {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="centered">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        xmlns:xlink="http://www.w3.org/1999/xlink"
-        width="274"
-        height="210"
-        viewBox="0 0 274 210"
-      >
-        <defs>
-          <path id="a" d="M.305.332H27.95v23.297H.305z" />
-        </defs>
-        <g fill="none" fill-rule="evenodd">
-          <path
-            fill="#444"
-            d="M20.849 209.683C7.639 188.617 0 163.7 0 137 0 61.337 61.337 0 137 0s137 61.337 137 137c0 26.7-7.638 51.617-20.849 72.683C218.266 191.978 178.798 182 137 182s-81.266 9.978-116.151 27.683z"
-            opacity=".02"
-          />
-          <path fill="#E5358D" d="M111 140.5l5.5 12.5 6.1-2.5-5.3-12.7z" />
-          <path fill="#A7A7A7" d="M158 116.5l8.5 20L151 143l-8.5-20z" />
-          <path
-            fill="#44444D"
-            d="M150.955 144.734a2.038 2.038 0 0 1-1.877-1.223l-3.837-8.913a1.991 1.991 0 0 1 1.083-2.625c1.041-.432 2.232.045 2.67 1.064l3.041 7.068 8.685-3.61c1.04-.433 2.233.045 2.67 1.063a1.991 1.991 0 0 1-1.082 2.625l-10.56 4.393c-.26.107-.53.158-.793.158"
-          />
-          <g transform="translate(140.31 114.753)">
-            <mask id="b" fill="#fff">
-              <use xlink:href="#a" />
-            </mask>
-            <path
-              fill="#44444D"
-              d="M25.914 23.63a2.038 2.038 0 0 1-1.877-1.223L16.529 4.96 5.012 9.749l1.641 3.813a1.991 1.991 0 0 1-1.082 2.625c-1.036.432-2.232-.045-2.67-1.064L.466 9.466a1.97 1.97 0 0 1-.012-1.533 2.017 2.017 0 0 1 1.095-1.092L16.819.49c1.035-.432 2.23.046 2.668 1.064l8.302 19.29a1.99 1.99 0 0 1-1.082 2.626c-.26.107-.53.158-.793.158"
-              mask="url(#b)"
-            />
-          </g>
-          <path
-            fill="#44444D"
-            d="M143.664 143.903a2.038 2.038 0 0 1-1.877-1.222 1.99 1.99 0 0 1 1.081-2.625l5.884-2.447c1.042-.432 2.233.046 2.67 1.064a1.99 1.99 0 0 1-1.081 2.625l-5.884 2.447c-.26.107-.53.158-.793.158M116.394 155.242a2.038 2.038 0 0 1-1.877-1.222l-5.485-12.737a1.98 1.98 0 0 1-.012-1.533 2.016 2.016 0 0 1 1.096-1.092l33.154-13.786c1.037-.432 2.232.045 2.67 1.064a1.989 1.989 0 0 1-1.083 2.624l-31.279 13.006 3.897 9.049 14.64-6.087c1.038-.431 2.232.046 2.67 1.064a1.99 1.99 0 0 1-1.083 2.624l-16.515 6.868c-.26.107-.529.158-.793.158M110.226 155.41a2.038 2.038 0 0 1-1.877-1.223l-3.188-7.403a1.99 1.99 0 0 1 1.083-2.625c1.037-.431 2.231.045 2.67 1.063l3.187 7.404a1.99 1.99 0 0 1-1.081 2.625c-.26.107-.529.158-.794.158M110.66 136.52a2.038 2.038 0 0 1-1.877-1.223 1.99 1.99 0 0 1 1.08-2.625l8.631-3.588a2.05 2.05 0 0 1 2.67 1.063 1.991 1.991 0 0 1-1.082 2.625l-8.63 3.59c-.26.107-.529.158-.793.158"
-          />
-          <path
-            fill="#44444D"
-            d="M117.198 139.89a2.038 2.038 0 0 1-1.877-1.222l-2.224-5.165a1.991 1.991 0 0 1 1.082-2.625c1.039-.431 2.231.044 2.67 1.064l2.224 5.165a1.99 1.99 0 0 1-1.081 2.625c-.26.108-.529.159-.794.159M140.997 144.157c0 1.495-1.235 2.711-2.759 2.711-1.524 0-2.76-1.216-2.76-2.711 0-1.498 1.236-2.712 2.76-2.712 1.524 0 2.759 1.214 2.759 2.712M127.413 177.668c-.208 0-.42-.031-.628-.099a1.995 1.995 0 0 1-1.31-2.522l8.343-25.29c.347-1.05 1.493-1.629 2.566-1.287a1.994 1.994 0 0 1 1.308 2.522l-8.342 25.291a2.036 2.036 0 0 1-1.937 1.385M149.061 177.668c-.86 0-1.658-.539-1.937-1.385l-8.34-25.29a1.994 1.994 0 0 1 1.309-2.523 2.04 2.04 0 0 1 2.565 1.288l8.341 25.29a1.995 1.995 0 0 1-1.31 2.521c-.208.068-.42.1-.628.1M138.238 177.667c-1.125 0-2.037-.896-2.037-2.002v-17.259c0-1.105.912-2.002 2.037-2.002 1.126 0 2.037.897 2.037 2.002v17.259c0 1.106-.911 2.002-2.037 2.002"
-          />
-          <path
-            stroke="#E6E6E6"
-            stroke-linecap="round"
-            stroke-width="3"
-            d="M149 126.4l5.6-2.4"
-          />
-          <path
-            stroke="#44444D"
-            stroke-linecap="round"
-            stroke-width="3"
-            d="M125 140.9l16-6.6M119.3 142.63l2.888 7.133"
-          />
-          <g
-            stroke="#DEDFE3"
-            stroke-width="3"
-            transform="rotate(-22 232.896 -144.262)"
-          >
-            <circle cx="13" cy="7" r="7" />
-            <path stroke-linecap="round" d="M0 7h26" />
-          </g>
-          <g
-            stroke="#DEDFE3"
-            stroke-width="3"
-            transform="rotate(22 -199.123 637.319)"
-          >
-            <circle cx="13" cy="7" r="7" />
-            <path stroke-linecap="round" d="M0 7h26" />
-          </g>
-          <path
-            stroke="#DEDFE3"
-            stroke-linejoin="round"
-            stroke-width="3"
-            d="M172.341 55.193c4.86.904 9.975-1.276 12.587-5.8 2.613-4.526 1.943-10.045-1.27-13.802A11.98 11.98 0 0 1 187.465 37c5.74 3.314 7.706 10.653 4.392 16.392-3.313 5.74-10.652 7.706-16.392 4.393a11.98 11.98 0 0 1-3.123-2.592z"
-          />
-          <circle cx="48" cy="163" r="4" stroke="#DEDFE3" stroke-width="3" />
-          <circle cx="135.5" cy="89.5" r="2.5" fill="#DEDFE3" />
-          <circle cx="98.5" cy="37.5" r="2.5" fill="#DEDFE3" />
-          <circle cx="41.5" cy="77.5" r="2.5" fill="#DEDFE3" />
-          <circle cx="24.5" cy="118.5" r="2.5" fill="#DEDFE3" />
-          <circle cx="232.5" cy="74.5" r="2.5" fill="#DEDFE3" />
-          <circle cx="191.5" cy="158.5" r="2.5" fill="#DEDFE3" />
-          <g fill="#DEDFE3" transform="translate(185 95)">
-            <rect width="3" height="9" x="3" rx="1.5" />
-            <rect width="9" height="3" y="3" rx="1.5" />
-          </g>
-          <g fill="#DEDFE3" transform="translate(243 170)">
-            <rect width="3" height="9" x="3" rx="1.5" />
-            <rect width="9" height="3" y="3" rx="1.5" />
-          </g>
-          <g fill="#DEDFE3" transform="translate(70 119)">
-            <rect width="3" height="9" x="3" rx="1.5" />
-            <rect width="9" height="3" y="3" rx="1.5" />
-          </g>
-          <g fill="#DEDFE3" transform="translate(138 22)">
-            <rect width="3" height="9" x="3" rx="1.5" />
-            <rect width="9" height="3" y="3" rx="1.5" />
-          </g>
-        </g>
-      </svg>
-      <h1>Install the Apollo CLI!</h1>
-      <p>
-        To install the latest version of the Apollo CLI, copy the command below and run it in your terminal:
-      </p>
-      <pre><code>curl -sSL <script language="JavaScript" type="text/javascript">document.write(window.location.href);</script>cli | sh</code></pre>
-    </div>
-  </body>
-</html>
+    <code id=cmd>curl -sSL https://install.apollographql.com | sh</code>
+
+
+    Or if you prefer, you can copy the code right out of this page.
+    
+    happy graphing!
+
+    <img src=telescope.svg>
+          ~ xoxo,
+          the apollo team
+  </main>  
+
+  <pre><code class=bash>
+end of
+header
+
+
+set -o errexit
+
+# GitHub's URL for the latest release, will redirect.
+DESTDIR="${DESTDIR:-/usr/local/bin}"
+INSTALL_PATH="${DESTDIR}/apollo"
+
+error_exit() {
+	echo "$1" 1>&2
+	exit 1
+}
+
+check_environment_readiness() {
+  if [ -z "$(command -v curl)" ]; then
+    echo "The curl command is not installed on this machine. Please install curl before installing the Apollo CLI"
+    return 1
+  fi
+
+  if [ -z "$(command -v tar)" ]; then
+    echo "The tar command is not installed on this machine. Please install tar before installing the Apollo CLI"
+    return 1
+  fi
+
+  if ! [ -d "$DESTDIR" ]; then
+    echo "Attempting to install the Apollo CLI in $DESTDIR but that directory wasn't found on your filesystem. Please create a directory by using mkdir $DESTDIR or specify a DESTDIR variable when running the installer"
+    return 1
+  fi
+
+  if ! [ -w "$DESTDIR" ]; then
+    echo "Attempting to install the Apollo CLI in $DESTDIR but the permissions deny writing to that directory."
+    return 1
+  fi
+
+  EXISTING_APOLLO="$(command -v apollo)"
+  if [ -n "$EXISTING_APOLLO" ]; then
+    echo "An existing version of 'apollo' is already installed at $EXISTING_APOLLO. If you want the latest version, please uninstall the old one first then run this again."
+    return 1
+  fi
+
+  return
+}
+
+download_and_install() {
+  # Determine release filename. This can be expanded with CPU arch in the future.
+  if [ "$(uname)" = "Linux" ]; then
+    OS="linux"
+  elif [ "$(uname)" = "Darwin" ]; then
+    OS="darwin"
+  else
+    echo "This operating system ('$(uname)') is not supported."
+    return 1
+  fi
+
+  download_from_proxy || fallback_and_download_from_github
+
+  if ! [ -e "./apollo" ] ; then
+    echo "After installing the CLI tarball we were unable to find the apollo binary"
+    return 1
+  fi
+
+  mv apollo "$DESTDIR"
+  chmod +x "$INSTALL_PATH"
+
+  command -v apollo
+
+  return
+}
+
+download_from_proxy() {
+  RELEASE_URL="https://install.apollographql.workers.dev/cli/${OS}/${VERSION}"
+  # Download & unpack the release tarball.
+  curl -sL --retry 3 "${RELEASE_URL}" | tar zx --strip 1
+}
+
+fallback_and_download_from_github() {
+  
+  echo "Could not install from the Apollo CDN, falling back to GitHub installation"
+
+  if [ -z "$(command -v cut)" ]; then
+    echo "The cut command is not installed on this machine. Please install cut before installing the Apollo CLI"
+    return 1
+  fi
+
+  # GitHub's URL for the latest release, will redirect.
+  LATEST_URL="https://github.com/apollographql/apollo-cli/releases/latest/"
+  if [ -z "$VERSION" ]; then
+    VERSION=$(curl -sLI -o /dev/null -w '%{url_effective}' $LATEST_URL | cut -d "v" -f 2)
+  fi
+
+  RELEASE_URL="https://github.com/apollographql/apollo-cli/releases/download/v${VERSION}/apollo-v${VERSION}-x86_64-${OS}.tar.gz"
+
+  # Download & unpack the release tarball.
+  curl -sL --retry 3 "${RELEASE_URL}" | tar zx --strip 1
+}
+
+run_main() {
+  echo "Installing Apollo CLI..."
+
+  check_environment_readiness || error_exit "Environment setup failed!"
+
+   # Run the script in a temporary directory that we know is empty.
+  SCRATCH="$(mktemp -d || mktemp -d -t 'tmp')"
+  cd "$SCRATCH"
+
+  download_and_install || error_exit "An error occured installing the tool. The contents of the directory $SCRATCH have been left in place to help to debug the issue."
+
+  # Delete the working directory when the install was successful.
+  rm -r "$SCRATCH"
+
+  echo "Apollo CLI was successfully installed!"
+
+  return
+}
+
+# if we aren't in our testing framework, run the main installer
+if [ -z $BATS_RUNNING ] ; then
+  run_main
+fi
+
+: <<-'styling'
+  </code></pre>
+  <link rel=stylesheet
+  href=https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/atelier-sulphurpool-dark.min.css>
+
+  <style>    
+  body, code {
+    font-family: 'Source Sans Pro', 'Menlo', 'Courier', monospace;
+    white-space: pre;
+    background: #202746;
+    color: rgb(225, 225, 225);
+  }
+
+  main {
+    display: table;
+    margin: auto;
+  }
+
+  h1 {
+    text-align: center;
+  }
+
+  #cmd {
+    font-size: 14pt;
+    cursor: pointer;
+    margin: 2em;
+    padding: 0.3em;
+    color: white;
+    border: thin solid rgba(255, 0, 255, 0);
+  }
+
+  #cmd:hover {
+    border: thin solid fuchsia;
+  }
+
+  #cmd::selection {
+    background: fuchsia;
+  }
+
+  #copied {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, 10px);
+    color: fuchsia;
+  }
+
+  </style>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
+  <script>
+  hljs.initHighlighting()
+  cmd.onclick = () => {
+    const sel = window.getSelection()
+    sel.removeAllRanges()
+    const r = document.createRange()
+    r.selectNode(cmd)
+    sel.addRange(r)
+    document.execCommand('copy')
+
+    const copied = document.createElement('div')
+    copied.textContent = 'ok, copied'
+    copied.id = 'copied'
+    cmd.insertAdjacentElement('afterend', copied)
+    setTimeout(() => copied.parentNode.removeChild(copied), 2000)
+  }
+  </script>
+styling
