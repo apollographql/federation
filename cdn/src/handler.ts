@@ -2,7 +2,6 @@ import {
   getAssetFromKV,
   mapRequestToAsset,
 } from "@cloudflare/kv-asset-handler";
-import Negotiator from "negotiator"
 import { log } from "./sentry";
 import { handleLegacyCLI } from "./legacy-cli";
 
@@ -18,7 +17,7 @@ type CLIArgs = {
   version?: string;
 };
 
-type PossiblePaths = [undefined, Product?, CLIArgs["platform"]?, string?];
+type PossiblePaths = [undefined, Product | string | undefined, CLIArgs["platform"]?, string?];
 
 const SUPPORTED_METHODS = ["GET", "HEAD"]
 export async function handleRequest(event: FetchEvent): Promise<Response> {
@@ -32,7 +31,7 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
       "/",
       4
     ) as PossiblePaths;
-
+    
     /*
 
       Route table:
@@ -41,11 +40,11 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
         - /:product/:platform/:version -> specific build for a given architecture
 
     */
-    switch (product) {
+    switch (product) {        
       case "cli":
         // /:product
         if (!platform) {
-          return await serveStatic(event, "/install.sh");
+          return Response.redirect(`https://${url.hostname}/`, 301);
         }
         // /:product/:platform
         // /:product/:platform/:version
@@ -63,20 +62,11 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
         }
         return await handleLegacyCLI({ platform, version }, event);
       default:
-
         if (!product) {
-          const headers = {
-            accept: event.request.headers.get("accept") || "",
-            ["accept-encoding"]: event.request.headers.get("accept-encoding") || "",
-            ["accept-charset"]: event.request.headers.get("accept-charset") || "",
-            ["accept-language"]: event.request.headers.get("accept-language") || "",
-          }
-          const negotiator = new Negotiator({ headers });
-          if (!negotiator.mediaTypes().includes("text/html")) {
-            return serveStatic(event, "/cli/install.sh");
-          }
+          const response = await serveStatic(event, "/install.sh");
+          response.headers.set("content-type", "text/html");
+          return response
         }
-
         // handle static assets
         return await serveStatic(event);
     }
@@ -127,12 +117,10 @@ async function handleCLI(
 
 async function serveStatic(event: FetchEvent, path: string = "") {
   function customKeyModifier(req: Request): Request {
-    let url = req.url;
-    return mapRequestToAsset(new Request(url + path, req as RequestInit));
+    return mapRequestToAsset(new Request(req.url + path, req as RequestInit));
   }
   return getAssetFromKV(event, { mapRequestToAsset: customKeyModifier }).catch(
     (e) => {
-      event.waitUntil(log(e, event.request));
       return fourOhFour(event);
     }
   );

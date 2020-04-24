@@ -3,7 +3,7 @@ load '../node_modules/bats-support/load'
 load '../node_modules/bats-assert/load'
 load test_helper
 
-profile_script="./public/cli/install.sh"
+profile_script="./public/install.sh"
 
 setup() {
   export DESTDIR="$BATS_TMPDIR/test-bin_$RANDOM"
