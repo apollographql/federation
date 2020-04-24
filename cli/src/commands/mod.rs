@@ -10,7 +10,7 @@ pub trait Command {
 
 //#region    apollo <command>
 #[derive(StructOpt)]
-#[structopt(rename_all = "kebab-case", name = "[Experimental] Apollo CLI", bin_name = "ap")]
+#[structopt(rename_all = "kebab-case", name = "[Experimental] Apollo CLI")]
 /// The [Experimental] Apollo CLI, for supporting all your graphql needs :)
 pub enum Apollo {
     ///  🖨   parse and pretty print schemas to stdout
