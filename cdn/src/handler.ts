@@ -96,7 +96,7 @@ async function handleCLI(
   const { method, body } = event.request;
   // this only supports 64 bit architectures. I don't see us changing this but if we do, this will become gross
   const response = await fetch(
-    `${GITHUB_RELEASE}/download/v${version}/ap-v${version}-x86_64-${platform}.tar.gz`,
+    `${GITHUB_RELEASE}/download/v${version}/ap-v${version}-${platform}.tar.gz`,
     { method, body, cf: { cacheEverything: true } }
   );
 

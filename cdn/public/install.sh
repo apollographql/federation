@@ -90,7 +90,7 @@ fallback_and_download_from_github() {
     VERSION=$(curl -sLI -o /dev/null -w '%{url_effective}' $LATEST_URL | cut -d "v" -f 2)
   fi
 
-  RELEASE_URL="https://github.com/apollographql/apollo-cli/releases/download/v${VERSION}/ap-v${VERSION}-x86_64-${OS}.tar.gz"
+  RELEASE_URL="https://github.com/apollographql/apollo-cli/releases/download/v${VERSION}/ap-v${VERSION}-${OS}.tar.gz"
 
   # Download & unpack the release tarball.
   curl -sL --retry 3 "${RELEASE_URL}" | tar zx --strip 1
