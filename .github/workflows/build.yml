@@ -9,9 +9,6 @@ env:
   WINDOWS_TARGET: x86_64-pc-windows-msvc
   MACOS_TARGET: x86_64-apple-darwin
   LINUX_TARGET: x86_64-unknown-linux-musl
-  WINDOWS_BUILD_NAME: x86_64-windows
-  MACOS_BUILD_NAME: x86_64-darwin
-  LINUX_BUILD_NAME: x86_64-linux
 
   # Space separated paths to include in the archive.
   RELEASE_ADDS: Readme.md
