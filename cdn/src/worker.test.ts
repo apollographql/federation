@@ -11,10 +11,10 @@ beforeEach(() => {
 afterEach(fetchMock.resetBehavior)
 it('returns an index.html file if bare url is requested', async () => {
     require('./index');
-    const request = new Request('/', { headers: { accept: "text/html" }});
+    const request = new Request('/');
     const response: any = await self.trigger('fetch', request);
     expect(response.status).toEqual(200);
-    expect(await response.text()).toEqual('index.html')
+    expect(await response.text()).toEqual('install cli')
 })
 
 it('returns the main CLI installer file if bare url is requested that isnt text/html', async () => {
@@ -23,7 +23,7 @@ it('returns the main CLI installer file if bare url is requested that isnt text/
     const response: any = await self.trigger('fetch', request);
     expect(response.status).toEqual(200);
     expect(await response.text()).toEqual('install cli')
-    expect(response.headers.get('content-type')).toEqual('application/x-sh')
+    expect(response.headers.get('content-type')).toEqual('text/html')
 })
 
 
@@ -35,13 +35,17 @@ it('returns an 404.html file if unsupported url is requested', async () => {
     expect(await response.text()).toEqual('404.html')
 })
 
-it('returns an install.sh file if navigating to /cli', async () => {
+it('redirects to / if navigating to /cli', async () => {
     require('./index');
     const request = new Request('/cli');
-    const response: any = await self.trigger('fetch', request);
-    expect(response.status).toEqual(200);
-    expect(await response.text()).toEqual('install cli')
-    expect(response.headers.get('content-type')).toEqual('application/x-sh')
+    const responseOne: any = await self.trigger('fetch', request);
+    expect(responseOne.status).toEqual(301);
+    const requestTwo = new Request(responseOne.headers.get("location"));
+    const responseTwo: any = await self.trigger('fetch', requestTwo);
+    expect(responseTwo.status).toEqual(200);
+    expect(await responseTwo.text()).toEqual('install cli')
+    expect(responseTwo.headers.get('content-type')).toEqual('text/html')
+
 })
 
 

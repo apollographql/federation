@@ -13,7 +13,7 @@ export const getEvent = (request: Request): any => {
 }
 const store: any = {
   '404.<hash>.html': '404.html',
-  'index.<hash>.sh': 'install cli',
+  'install.<hash>.sh': 'install cli',
 }
 export const mockKV = (store: any) => {
   return {
@@ -24,7 +24,7 @@ export const mockKV = (store: any) => {
 export const mockManifest = () => {
   return JSON.stringify({
     '404.html': `404.${HASH}.html`,
-    'index.sh': `index.${HASH}.sh`,
+    'install.sh': `install.${HASH}.sh`,
   })
 }
 let cacheStore: any = {}
