@@ -5,8 +5,7 @@
     This is the install script for the Apollo command line tools.
 
     To run it, copy the command below and run it in your terminal:
-
-    <div id=tip></div>
+    <div id=tip> </div>
     <code id=cmd>curl -sSL https://install.apollographql.com | sh</code>
 
 
@@ -166,9 +165,11 @@ fi
   }
 
   #cmd {
+    display: table;
+    margin: auto;
     font-size: 14pt;
+    text-align: center;
     cursor: pointer;
-    margin: 2em;
     padding: 0.4em;
     color: #FFE88E;
     border: thin solid rgba(255, 0, 255, 0);
@@ -184,10 +185,9 @@ fi
   }
 
   #tip {
-    position: absolute;
-    left: 50%;
-    transform: translate(-50%, -150%);
+    text-align: center;
     color: fuchsia;
+    margin-bottom: 1em;
   }
 
   @keyframes pulse {
@@ -200,20 +200,16 @@ fi
   </style>
   <script>
   cmd.onmouseover = () => say('click to copy')
-  cmd.onmouseout = () => say('')
+  cmd.onmouseout = () => say(' ')
   cmd.onclick = () => {
-    const sel = window.getSelection()
-    sel.removeAllRanges()
-    const r = document.createRange()
-    r.selectNode(cmd)
-    sel.addRange(r)
+    getSelection().selectAllChildren(cmd)
     document.execCommand('copy')
     say('ok, copied', 2000)
   }
 
   function say(msg, dur) {
     tip.textContent = msg
-    Number.isFinite(dur) && setTimeout(() => say(''), dur)
+    Number.isFinite(dur) && setTimeout(() => say(' '), dur)
   }
   </script>
   <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
