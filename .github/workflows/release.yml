@@ -243,6 +243,7 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macos/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
           asset_content_type: application/gzip
+          asset_name: ${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
 
       - name: Slack Notification
         uses: homoluctus/slatify@master
