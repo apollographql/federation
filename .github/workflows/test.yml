@@ -20,7 +20,7 @@ jobs:
           ]
         include:
           - build: linux-stable
-            os: linux-latest
+            os: ubuntu-latest
             rust: stable
           - build: macos-stable
             os: macos-latest
@@ -71,14 +71,14 @@ jobs:
           rustup default ${{ matrix.rust }}
 
       - name: Run Tests
-        if: matrix.build != 'linux'
+        if: matrix.build != 'linux-stable'
         run: cargo test
         env:
           RUST_LOG: warn,wrangler=info
           RUST_BACKTRACE: 1
       
       - name: Run cargo-tarpaulin
-        if: matrix.build == 'linux'
+        if: matrix.build == 'linux-stable'
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.9.0'
@@ -86,7 +86,7 @@ jobs:
           args: '--ignore-tests -- --test-threads 1'
   
       - name: Upload to codecov.io
-        if: matrix.build == 'linux'
+        if: matrix.build == 'linux-stable'
         uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}}
