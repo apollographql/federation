@@ -1,17 +1,5 @@
 #!/bin/sh
-: <<-'header'
-<head>
-  <link rel="icon" type="image/x-icon" href="favicon.ico" />
-  <style>body,.hljs{background-color:#f4f6f8!important;color:#f4f6f8}</style>
-  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro&display=swap" rel="stylesheet"/>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css" rel="stylesheet"/>
-  <link href=https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/github.min.css rel="stylesheet">
-  <style>#tip,h1,p{font-family:"Source Sans Pro",sans-serif;color:#333}h1{font-size:1.5rem;margin-bottom:1rem;margin-top:1rem}p{font-size:16px;line-height:24px;max-width:420px;margin:0 auto}.centered{margin-top:25%;position:relative;left:50%;transform:translate(-50%,-50%);text-align:center}#cmd:hover{border:thin solid #f25cc1;animation:alternate pulse-border 2s linear infinite;cursor:pointer}#cmd::selection{background:#f25cc1}@keyframes pulse-border{0%{border-color:rgba(255,0,255,0)}100%,50%{border-color:#f25cc1}}</style>
-</head>
-<body><div class="centered"> <img src=telescope.svg><h1>Install the Apollo CLI!</h1><p> To install the latest version of the Apollo CLI, <strong>click on the command</strong> below to copy it then run it in your terminal:</p><pre><code id="cmd">curl -sSL <script language="JavaScript" type="text/javascript">document.write(window.location.href);</script> | sh</code></pre><p> If you are curious what the install script does, we've included it below so you can review it before you run it!</p></div><pre><code class=bash>
-end of
-header
-
+# <body><div class="f"><pre id="flip"><code class="bash">
 # Welcome to the Apollo CLI Install script!
 
 set -o errexit
@@ -21,8 +9,8 @@ DESTDIR="${DESTDIR:-/usr/local/bin}"
 INSTALL_PATH="${DESTDIR}/ap"
 
 error_exit() {
-	echo "$1" 1>&2
-	exit 1
+  echo "$1" 1>&2
+  exit 1
 }
 
 check_environment_readiness() {
@@ -132,8 +120,16 @@ if [ -z $BATS_RUNNING ] ; then
   run_main
 fi
 
-: <<-'the end.'
-  </code></pre></body>
+<< 'the end.'
+  </code></pre><head>
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <style>body,.hljs{background-color:#f4f6f8!important;color:#f4f6f8}</style>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro&display=swap" rel="stylesheet"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css" rel="stylesheet"/>
+    <link href=https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/github.min.css rel="stylesheet">
+    <style>#tip,h1,p{font-family:"Source Sans Pro",sans-serif;color:#333}h1{font-size:1.5rem;margin-bottom:1rem;margin-top:1rem}p{font-size:16px;line-height:24px;max-width:420px;margin:0 auto}.centered{margin-top:25%;position:relative;left:50%;transform:translate(-50%,-50%);text-align:center}#cmd:hover{border:thin solid #f25cc1;animation:alternate pulse-border 2s linear infinite;cursor:pointer}#cmd::selection{background:#f25cc1}.f{display:flex;flex-direction:column-reverse}@keyframes pulse-border{0%{border-color:rgba(255,0,255,0)}100%,50%{border-color:#f25cc1}}</style>
+  </head>
+  ><div class="centered"> <img src=telescope.svg><h1>Install the Apollo CLI!</h1><p> To install the latest version of the Apollo CLI, <strong>click on the command</strong> below to copy it then run it in your terminal:</p><pre><code id="cmd">curl -sSL https://install.apollographql.com | sh</code></pre><p> If you are curious what the install script does, we've included it below so you can review it before you run it!</p></div></div></body>
   <script>cmd.onclick=(()=>{getSelection().selectAllChildren(cmd),document.execCommand("copy")});</script>
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@10.0.0/build/highlight.min.js"></script>
   <script>hljs.initHighlighting()</script>
