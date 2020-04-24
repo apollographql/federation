@@ -1,4 +1,5 @@
 use structopt::StructOpt;
+use std::path::PathBuf;
 
 /// Commands implement the Command trait, which lets us run() them
 /// and get Output.
@@ -9,7 +10,7 @@ pub trait Command {
 
 //#region    apollo <command>
 #[derive(StructOpt)]
-#[structopt(rename_all = "kebab-case")]
+#[structopt(rename_all = "kebab-case", name = "[Experimental] Apollo CLI")]
 /// The [Experimental] Apollo CLI, for supporting all your graphql needs :)
 pub enum Apollo {
     ///  🖨   parse and pretty print schemas to stdout
@@ -31,7 +32,7 @@ pub struct Print {
 
     #[structopt(parse(from_os_str))]
     /// schemas to print
-    pub files: std::vec::Vec<std::path::PathBuf>,
+    pub files: Vec<PathBuf>,
 }
 //#endregion
 

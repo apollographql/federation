@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2020-04-23
+### Added
+- Setup new basic structure for commands including unimplemented `login` command
+
+### Breaking
+- Renamed the CLI from `apollo` to `ap` while there are still two Apollo CLIs in use by teams
+
 ## [0.0.1] - 2020-04-11
 ### Added
 - Automated distribution and release pipeline
