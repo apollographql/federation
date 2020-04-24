@@ -1,28 +1,19 @@
 #!/bin/sh
 : <<-'header'
-  <header>
-    <h1>Install the Apollo CLI</h1>
-    This is the install script for the Apollo command line tools.
-
-    To run it, copy the command below and run it in your terminal:
-    <div id=tip> </div>
-    <code id=cmd>curl -sSL https://install.apollographql.com | sh</code>
-
-
-    Or if you prefer, you can copy the code right out of this page.
-    
-
-    happy graphing!
-
-    <img src=telescope.svg>
-              ~ xoxo,
-          the apollo team
-  </header>  
-
+<head>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <style>body,.hljs{background-color:#f4f6f8!important;color:#f4f6f8}#tip,h1,p{font-family:"Source Sans Pro",sans-serif;color:#333}h1{font-size:1.5rem;margin-bottom:1rem;margin-top:1rem}p{font-size:16px;line-height:24px;max-width:420px;margin:0 auto}.centered{margin-top:30%;position:relative;left:50%;transform:translate(-50%,-50%);text-align:center}#cmd:hover{border:thin solid #f25cc1;animation:alternate pulse-border 2s linear infinite;cursor:pointer}#cmd::selection{background:#f25cc1}@keyframes pulse-border{0%{border-color:rgba(255,0,255,0)}100%,50%{border-color:#f25cc1}}</style>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro&display=swap" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css" rel="stylesheet"/>
+  <link href=https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/github.min.css rel="stylesheet">
+</head>
+<body>
+  <div class="centered"> <img src=telescope.svg><h1>Install the Apollo CLI!</h1><p> To install the latest version of the Apollo CLI, copy the command below and run it in your terminal:</p><pre><code id="cmd">curl -sSL <script language="JavaScript" type="text/javascript">document.write(window.location.href);</script> | sh</code></pre><p> If you are curious what the install script does, we've included it below so you can review it before you run it! 🚀</p></div>
   <pre><code class=bash>
 end of
 header
 
+# Welcome to the Apollo CLI Install script!
 
 set -o errexit
 
@@ -144,74 +135,8 @@ fi
 
 : <<-'the end.'
   </code></pre>
-  <link rel=stylesheet
-  href=https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/atelier-sulphurpool-dark.min.css>
-
-  <style>    
-  body, code {
-    font-family: 'Source Sans Pro', 'Menlo', 'Courier', monospace;
-    white-space: pre;
-    background: rgb(26, 18, 59) !important;
-    color: #FFFAE6;
-  }
-
-  header {
-    display: table;
-    margin: auto;
-  }
-
-  h1 {
-    text-align: center;
-  }
-
-  #cmd {
-    display: table;
-    margin: auto;
-    font-size: 14pt;
-    text-align: center;
-    cursor: pointer;
-    padding: 0.4em;
-    color: #FFE88E;
-    border: thin solid rgba(255, 0, 255, 0);
-    border-radius: 9px;
-  }
-
-  #cmd:hover {
-    border: thin solid fuchsia;
-    animation: alternate pulse-border 2s linear infinite;
-  }
-
-  #cmd::selection {
-    background: fuchsia;
-  }
-
-  #tip {
-    text-align: center;
-    color: fuchsia;
-    margin-bottom: 0.2em;
-  }
-
-  @keyframes pulse-border {
-    0% { border-color: rgba(255, 0, 255, 0); }
-    50%, 100% {
-      border-color: rgba(255, 0, 255, 1);
-    }
-  }
-  </style>
-  <script>
-  cmd.onmouseover = () => say('click to copy')
-  cmd.onmouseout = () => say(' ')
-  cmd.onclick = () => {
-    getSelection().selectAllChildren(cmd)
-    document.execCommand('copy')
-    say('ok, copied', 2000)
-  }
-
-  function say(msg, dur) {
-    tip.textContent = msg
-    Number.isFinite(dur) && setTimeout(() => say(' '), dur)
-  }
-  </script>
-  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
+  </body>
+  <script>cmd.onclick=(()=>{getSelection().selectAllChildren(cmd),document.execCommand("copy")});</script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@10.0.0/build/highlight.min.js"></script>
   <script>hljs.initHighlighting()</script>
 the end.
