@@ -1,5 +1,4 @@
 #!/bin/sh
-
 : <<-'header'
   <main>
     <h1>Apollo CLI Install Script</h1>
@@ -7,12 +6,13 @@
 
     To run it, copy the command below and run it in your terminal:
 
-
+    <div id=tip></div>
     <code id=cmd>curl -sSL https://install.apollographql.com | sh</code>
 
 
     Or if you prefer, you can copy the code right out of this page.
     
+
     happy graphing!
 
     <img src=telescope.svg>
@@ -152,8 +152,8 @@ fi
   body, code {
     font-family: 'Source Sans Pro', 'Menlo', 'Courier', monospace;
     white-space: pre;
-    background: #202746;
-    color: rgb(225, 225, 225);
+    background: rgb(26, 18, 59) !important;
+    color: #FFFAE6;
   }
 
   main {
@@ -169,30 +169,38 @@ fi
     font-size: 14pt;
     cursor: pointer;
     margin: 2em;
-    padding: 0.3em;
-    color: white;
+    padding: 0.4em;
+    color: #FFE88E;
     border: thin solid rgba(255, 0, 255, 0);
   }
 
   #cmd:hover {
     border: thin solid fuchsia;
+    animation: alternate pulse 2s linear infinite;
   }
 
   #cmd::selection {
     background: fuchsia;
   }
 
-  #copied {
+  #tip {
     position: absolute;
     left: 50%;
-    transform: translate(-50%, 10px);
+    transform: translate(-50%, -150%);
     color: fuchsia;
   }
 
+  @keyframes pulse {
+    0% { border-color: rgba(255, 0, 255, 0); }
+    50%, 100% {
+      border-color: rgba(255, 0, 255, 1);
+    }
+  }
+
   </style>
-  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
   <script>
-  hljs.initHighlighting()
+  cmd.onmouseover = () => say('click to copy')
+  cmd.onmouseout = () => say('')
   cmd.onclick = () => {
     const sel = window.getSelection()
     sel.removeAllRanges()
@@ -200,12 +208,14 @@ fi
     r.selectNode(cmd)
     sel.addRange(r)
     document.execCommand('copy')
+    say('ok, copied', 2000)
+  }
 
-    const copied = document.createElement('div')
-    copied.textContent = 'ok, copied'
-    copied.id = 'copied'
-    cmd.insertAdjacentElement('afterend', copied)
-    setTimeout(() => copied.parentNode.removeChild(copied), 2000)
+  function say(msg, dur) {
+    tip.textContent = msg
+    Number.isFinite(dur) && setTimeout(() => say(''), dur)
   }
   </script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
+  <script>hljs.initHighlighting()</script>
 the end.
