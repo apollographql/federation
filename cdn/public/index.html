@@ -1,7 +1,7 @@
 #!/bin/sh
 : <<-'header'
   <header>
-    <h1>Apollo CLI Install Script</h1>
+    <h1>Install the Apollo CLI</h1>
     This is the install script for the Apollo command line tools.
 
     To run it, copy the command below and run it in your terminal:
@@ -15,7 +15,7 @@
     happy graphing!
 
     <img src=telescope.svg>
-          ~ xoxo,
+              ~ xoxo,
           the apollo team
   </header>  
 
@@ -173,11 +173,12 @@ fi
     padding: 0.4em;
     color: #FFE88E;
     border: thin solid rgba(255, 0, 255, 0);
+    border-radius: 9px;
   }
 
   #cmd:hover {
     border: thin solid fuchsia;
-    animation: alternate pulse 2s linear infinite;
+    animation: alternate pulse-border 2s linear infinite;
   }
 
   #cmd::selection {
@@ -187,16 +188,15 @@ fi
   #tip {
     text-align: center;
     color: fuchsia;
-    margin-bottom: 1em;
+    margin-bottom: 0.2em;
   }
 
-  @keyframes pulse {
+  @keyframes pulse-border {
     0% { border-color: rgba(255, 0, 255, 0); }
     50%, 100% {
       border-color: rgba(255, 0, 255, 1);
     }
   }
-
   </style>
   <script>
   cmd.onmouseover = () => say('click to copy')
