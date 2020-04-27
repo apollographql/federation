@@ -5,7 +5,7 @@ use std::path::PathBuf;
 /// and get Output.
 pub trait Command {
     /// Execute the command. TODO: should this return a Result?
-    fn run(&self) {}
+    fn run(&self) -> i32;
 }
 
 //#region    apollo <command>
@@ -15,8 +15,6 @@ pub trait Command {
 pub enum Apollo {
     ///  🖨   parse and pretty print schemas to stdout
     Print(Print),
-    ///  🔓  log in to apollo
-    Login(Login),
 }
 //#endregion
 
@@ -36,25 +34,16 @@ pub struct Print {
 }
 //#endregion
 
-//#region    ... login
-pub mod login;
-
-#[derive(StructOpt)]
-#[structopt(rename_all = "kebab-case")]
-pub struct Login {}
-//#endregion
-
 impl Command for Apollo {
-    fn run(&self) {
+    fn run(&self) -> i32 {
         match self {
             Apollo::Print(cmd) => cmd.run(),
-            Apollo::Login(cmd) => cmd.run(),
         }
     }
 }
 
 impl Apollo {
     pub fn main() {
-        Apollo::from_args().run();
+        std::process::exit(Apollo::from_args().run());
     }
 }
