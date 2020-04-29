@@ -137,13 +137,15 @@ mod os {
     use log::debug;
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
+    use failure::ResultExt;
 
     pub fn setup_environment() -> Fallible<()> {
-        let bin_dir = apollo_home_bin().to_string_lossy().to_string();
+        let bin_dir = apollo_home_bin()?.to_string_lossy().to_string();
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         let env = hkcu
             .open_subkey("Environment")
             .with_context(|_| ErrorDetails::ReadUserPathError)?;
+
         let path: String = env
             .get_value("Path")
             .with_context(|_| ErrorDetails::ReadUserPathError)?;
@@ -152,7 +154,7 @@ mod os {
             // Use `setx` command to edit the user Path environment variable
             let mut command = Command::new("setx");
             command.arg("Path");
-            command.arg(format!("{};{}", shim_dir, path));
+            command.arg(format!("{};{}", bin_dir, path));
 
             debug!("Modifying User Path with command: {:?}", command);
             let output = command
