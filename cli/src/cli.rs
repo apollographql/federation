@@ -37,7 +37,7 @@ impl Apollo {
         if let Some(command) = self.command {
             command.run()
         } else {
-            Apollo::from_iter(["ap", "help"].iter()).run()
+            Apollo::from_iter([std::env::args()[0], "help"].iter()).run()
         }
     }
 }
