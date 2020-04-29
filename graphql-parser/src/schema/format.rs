@@ -151,16 +151,22 @@ impl<'a, T> Displayable for ObjectType<'a, T>
         f.indent();
         f.write("type ");
         f.write(self.name.as_ref());
-        if !self.implements_interfaces.is_empty() {
-            f.write(" implements ");
-            f.write(self.implements_interfaces[0].as_ref());
-            for name in &self.implements_interfaces[1..] {
-                f.write(" & ");
-                f.write(name.as_ref());
-            }
-        }
+        format_interfaces::<T>(&self.implements_interfaces, f);
         format_directives(&self.directives, f);
         format_fields(&self.fields, f);
+    }
+}
+
+fn format_interfaces<'a, T>(implements_interfaces: &[T::Value], f: &mut Formatter)
+    where T: Text<'a>
+{
+    if !implements_interfaces.is_empty() {
+        f.write(" implements ");
+        f.write(implements_interfaces[0].as_ref());
+        for name in &implements_interfaces[1..] {
+            f.write(" & ");
+            f.write(name.as_ref());
+        }
     }
 }
 
@@ -171,14 +177,7 @@ impl<'a, T> Displayable for ObjectTypeExtension<'a, T>
         f.indent();
         f.write("extend type ");
         f.write(self.name.as_ref());
-        if !self.implements_interfaces.is_empty() {
-            f.write(" implements ");
-            f.write(self.implements_interfaces[0].as_ref());
-            for name in &self.implements_interfaces[1..] {
-                f.write(" & ");
-                f.write(name.as_ref());
-            }
-        }
+        format_interfaces::<T>(&self.implements_interfaces, f);
         format_directives(&self.directives, f);
         format_fields(&self.fields, f);
     }
@@ -240,6 +239,7 @@ impl<'a, T> Displayable for InterfaceType<'a, T>
         f.indent();
         f.write("interface ");
         f.write(self.name.as_ref());
+        format_interfaces::<T>(&self.implements_interfaces, f);
         format_directives(&self.directives, f);
         format_fields(&self.fields, f);
     }

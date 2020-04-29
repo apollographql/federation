@@ -241,12 +241,14 @@ pub fn interface_type<'a, T>(input: &mut TokenStream<'a>)
     (
         position(),
         ident("interface").with(name::<'a, T>()),
+        parser(implements_interfaces::<T>),
         parser(directives),
         parser(fields),
     )
-        .map(|(position, name, directives, fields)| {
+        .map(|(position, name, interfaces, directives, fields)| {
             InterfaceType {
-                position, name, directives, fields,
+                position, name, implements_interfaces: interfaces,
+                directives, fields,
                 description: None,  // is filled in described_definition
             }
         })
