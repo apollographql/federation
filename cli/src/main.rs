@@ -1,11 +1,15 @@
 mod cli;
 mod commands;
+mod errors;
+mod layout;
+mod log;
+mod style;
 
 // use std::process::exit;
 use structopt::StructOpt;
 
-use atlas::errors::ApolloError;
-use atlas::log::{LogContext, LogVerbosity, Logger};
+use crate::errors::ApolloError;
+use crate::log::{LogContext, LogVerbosity, Logger};
 
 enum Error {
     Apollo(ApolloError),

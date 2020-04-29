@@ -1,7 +1,7 @@
-use std::path::{PathBuf};
 use dirs;
+use std::path::PathBuf;
 
-use crate::errors::{Fallible, ErrorDetails};
+use crate::errors::{ErrorDetails, Fallible};
 
 // ~/
 //     .apollo/
@@ -19,5 +19,4 @@ pub fn apollo_home() -> Fallible<PathBuf> {
 pub fn apollo_home_bin() -> Fallible<PathBuf> {
     let home = apollo_home()?;
     Ok(home.join("bin"))
-
 }

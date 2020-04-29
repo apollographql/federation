@@ -1,7 +1,7 @@
 use structopt::StructOpt;
 
 use crate::commands::{self, Command};
-use atlas::errors::{ExitCode, Fallible};
+use crate::errors::{ExitCode, Fallible};
 
 #[derive(StructOpt)]
 #[structopt(

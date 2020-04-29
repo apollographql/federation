@@ -1,5 +1,5 @@
 use crate::commands::Command;
-use atlas::errors::{ExitCode, Fallible};
+use crate::errors::{ExitCode, Fallible};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]

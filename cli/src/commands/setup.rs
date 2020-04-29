@@ -1,9 +1,9 @@
-use atlas::errors::{ExitCode, Fallible};
-use atlas::style;
 use log::info;
 use structopt::StructOpt;
 
 use crate::commands::Command;
+use crate::errors::{ExitCode, Fallible};
+use crate::style;
 
 #[derive(StructOpt)]
 pub struct Setup {}
@@ -28,8 +28,8 @@ mod os {
     use std::io::{self, BufRead, BufReader, Write};
     use std::path::Path;
 
-    use atlas::errors::{ErrorDetails, Fallible};
-    use atlas::layout::apollo_home_bin;
+    use crate::errors::{ErrorDetails, Fallible};
+    use crate::layout::apollo_home_bin;
     use log::{debug, warn};
 
     const PROFILES: [&str; 5] = [
@@ -132,8 +132,8 @@ mod os {
 mod os {
     use std::process::Command;
 
-    use atlas::errors::{ErrorDetails, Fallible};
-    use atlas::layout::apollo_home_bin;
+    use crate::errors::{ErrorDetails, Fallible};
+    use crate::layout::apollo_home_bin;
     use log::debug;
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;

@@ -8,6 +8,7 @@ use failure::{Backtrace, Fail};
 use serde::Serialize;
 
 #[derive(Copy, Clone, Debug, Serialize)]
+#[allow(dead_code)]
 pub enum ExitCode {
     /// No error occurred.
     Success = 0,
@@ -74,6 +75,7 @@ impl fmt::Display for ApolloError {
     }
 }
 
+#[allow(dead_code)]
 impl ApolloError {
     /// Returns a reference to the underlying failure of this error.
     pub fn as_fail(&self) -> &dyn Fail {

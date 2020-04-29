@@ -2,7 +2,7 @@ use failure::Fail;
 use std::fmt;
 use std::path::PathBuf;
 
-use crate::errors::{ExitCode, ApolloFail};
+use crate::errors::{ApolloFail, ExitCode};
 
 #[derive(Debug, Fail)]
 pub enum ErrorDetails {
@@ -31,7 +31,7 @@ Please create one of these and try again; or you can edit your profile manually 
                 env_profile, bin_dir.display()
             ),
         }
-    }   
+    }
 }
 
 impl ApolloFail for ErrorDetails {

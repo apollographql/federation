@@ -4,7 +4,7 @@ pub mod setup;
 pub use login::Login;
 pub use setup::Setup;
 
-use atlas::errors::{ExitCode, Fallible};
+use crate::errors::{ExitCode, Fallible};
 
 pub trait Command {
     /// Executes the command. Returns `Ok(true)` if the process should return 0,
