@@ -1,3 +1,5 @@
+use std::env::args;
+use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
 use crate::commands::{self, Command};
@@ -8,11 +10,11 @@ use crate::errors::{ExitCode, Fallible};
     name = "Apollo CLI",
     about = "The [Experimental] Apollo CLI, for supporting all your graphql needs",
     rename_all = "kebab-case",
-    raw(global_setting = "structopt::clap::AppSettings::ColoredHelp"),
-    raw(global_setting = "structopt::clap::AppSettings::ColorAuto"),
-    raw(global_setting = "structopt::clap::AppSettings::DeriveDisplayOrder"),
-    raw(global_setting = "structopt::clap::AppSettings::DontCollapseArgsInUsage"),
-    raw(global_setting = "structopt::clap::AppSettings::VersionlessSubcommands")
+    global_setting = AppSettings::ColoredHelp,
+    global_setting = AppSettings::ColorAuto,
+    global_setting = AppSettings::DeriveDisplayOrder,
+    global_setting = AppSettings::DontCollapseArgsInUsage,
+    global_setting = AppSettings::VersionlessSubcommands,
 )]
 /// The [Experimental] Apollo CLI, for supporting all your graphql needs :)
 pub struct Apollo {
@@ -27,7 +29,7 @@ pub struct Apollo {
         help = "Prevents unnecessary output",
         global = true,
         conflicts_with = "verbose",
-        raw(aliases = r#"&["silent"]"#)
+        aliases(&["silent"]),
     )]
     pub quiet: bool,
 }
@@ -37,7 +39,15 @@ impl Apollo {
         if let Some(command) = self.command {
             command.run()
         } else {
-            Apollo::from_iter([std::env::args()[0], "help"].iter()).run()
+            // per the docs on std::env::arg
+            // The first element is traditionally the path of the executable, but it can be set to
+            // arbitrary text, and may not even exist. This means this property should not be
+            // relied upon for security purposes.
+            let command_name = args()
+                .next()
+                .expect("Called help without a path to the binary");
+
+            Apollo::from_iter([&command_name, "help"].iter()).run()
         }
     }
 }
@@ -47,7 +57,7 @@ pub enum Subcommand {
     #[structopt(name = "login")]
     ///  🔓  log in to apollo
     Login(commands::Login),
-    #[structopt(name = "setup", raw(setting = "structopt::clap::AppSettings::Hidden"))]
+    #[structopt(name = "setup", setting = AppSettings::Hidden)]
     ///  🚜  setup the Apollo toolchain in your environment
     Setup(commands::Setup),
 }
