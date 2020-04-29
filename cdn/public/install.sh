@@ -68,7 +68,8 @@ download_and_install() {
   chmod +x "$INSTALL_PATH"
 
   "$INSTALL_PATH" setup
-
+  
+  echo "Installed Apollo CLI in $INSTALL_PATH"
   return
 }
 
