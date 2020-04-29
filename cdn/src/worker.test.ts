@@ -54,7 +54,7 @@ it('pulls from the latest tag in GitHub if no version is passed', async () => {
         redirectUrl: "https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1"
     })
 
-    fetchMock.get(`${GITHUB_RELEASE}/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz`, {
+    fetchMock.get(`${GITHUB_RELEASE}/download/v0.0.1/ap-v0.0.1-linux.tar.gz`, {
         body: 'binary file'
     })
 
@@ -66,7 +66,7 @@ it('pulls from the latest tag in GitHub if no version is passed', async () => {
 })
 
 it('pulls from a version if passed', async () => {
-    fetchMock.get(`${GITHUB_RELEASE}/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz`, {
+    fetchMock.get(`${GITHUB_RELEASE}/download/v0.0.1/ap-v0.0.1-linux.tar.gz`, {
         body: 'binary file'
     })
 
@@ -90,7 +90,7 @@ it('returns a 500 if GitHub is down', async () => {
 })
 
 it('returns a 500 if asking for a bad version', async () => {
-    fetchMock.get(`${GITHUB_RELEASE}/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz`, 404)
+    fetchMock.get(`${GITHUB_RELEASE}/download/v0.0.1/ap-v0.0.1-linux.tar.gz`, 404)
     require('./index');
     const { log } = require('./sentry')
 
@@ -102,7 +102,7 @@ it('returns a 500 if asking for a bad version', async () => {
 })
 
 it('returns a 500 and message if something went really wrong', async () => {
-    fetchMock.get(`${GITHUB_RELEASE}/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz`, {
+    fetchMock.get(`${GITHUB_RELEASE}/download/v0.0.1/ap-v0.0.1-linux.tar.gz`, {
         status: 500,
     })
     require('./index');
