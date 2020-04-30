@@ -21,7 +21,12 @@ pub struct Apollo {
     #[structopt(subcommand)]
     pub command: Option<Subcommand>,
 
-    #[structopt(long = "verbose", help = "Enables verbose diagnostics", global = true)]
+    #[structopt(
+        long = "verbose",
+        help = "Enables verbose diagnostics",
+        global = true,
+        aliases(&["debug"]),
+    )]
     pub verbose: bool,
 
     #[structopt(
