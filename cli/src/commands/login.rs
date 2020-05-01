@@ -1,8 +1,12 @@
+use structopt::StructOpt;
+
 use crate::commands::Command;
-use crate::commands::Login;
+
+#[derive(StructOpt)]
+pub struct Login {}
 
 impl Command for Login {
-    fn run(&self) {
+    fn run(self) {
         panic!("Not yet implemented");
     }
 }
