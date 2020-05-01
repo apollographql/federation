@@ -100,7 +100,7 @@ mod os {
         reader
             .lines()
             .filter(|line_result| match line_result {
-                Ok(line) if !line.contains(".apollo") => true,
+                Ok(line) if !line.contains(".apollo/bin") => true,
                 Ok(_) => false,
                 Err(_) => true,
             })
@@ -134,10 +134,10 @@ mod os {
 
     use crate::errors::{ErrorDetails, Fallible};
     use crate::layout::apollo_home_bin;
+    use failure::ResultExt;
     use log::debug;
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
-    use failure::ResultExt;
 
     pub fn setup_environment() -> Fallible<()> {
         let bin_dir = apollo_home_bin()?.to_string_lossy().to_string();

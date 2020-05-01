@@ -8,7 +8,7 @@ mod style;
 // use std::process::exit;
 use structopt::StructOpt;
 
-use crate::errors::ApolloError;
+use crate::errors::{report, ApolloError};
 use crate::log::{LogContext, LogVerbosity, Logger};
 
 enum Error {
@@ -34,6 +34,7 @@ fn main() {
         Ok(exit_code) => exit_code.exit(),
         // Err(Error::Tool(code)) => exit(code),
         Err(Error::Apollo(err)) => {
+            report(&err);
             let code = err.exit_code();
             code.exit();
         }
