@@ -5,8 +5,9 @@
 set -o errexit
 
 # GitHub's URL for the latest release, will redirect.
-DESTDIR="${DESTDIR:-/usr/local/bin}"
-INSTALL_PATH="${DESTDIR}/ap"
+DESTDIR="${DESTDIR:-$HOME}"
+BIN_PATH="${DESTDIR}/.apollo/bin"
+INSTALL_PATH="${BIN_PATH}/ap"
 
 error_exit() {
   echo "$1" 1>&2
@@ -61,13 +62,17 @@ download_and_install() {
     return 1
   fi
 
-  mv ap "$DESTDIR"
+  mkdir -p "$BIN_PATH"
+
+  mv ap "$BIN_PATH"
   chmod +x "$INSTALL_PATH"
 
-  command -v ap
-
+  "$INSTALL_PATH" setup
+  
+  echo "Installed Apollo CLI in $INSTALL_PATH"
   return
 }
+
 
 download_from_proxy() {
   RELEASE_URL="https://install.apollographql.com/cli/${OS}/${VERSION}"
