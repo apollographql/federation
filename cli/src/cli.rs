@@ -65,6 +65,9 @@ pub enum Subcommand {
     #[structopt(name = "print", setting = AppSettings::Hidden)]
     ///  🖨   parse and pretty print schemas to stdout
     Print(commands::Print),
+    #[structopt(name = "setup", setting = AppSettings::Hidden)]
+    ///  🚜  setup the Apollo toolchain in your environment
+    Setup(commands::Setup),
 }
 
 impl Subcommand {
@@ -72,6 +75,7 @@ impl Subcommand {
         match self {
             Subcommand::Login(login) => login.run(),
             Subcommand::Print(print) => print.run(),
+            Subcommand::Setup(setup) => setup.run(),
         }
     }
 }

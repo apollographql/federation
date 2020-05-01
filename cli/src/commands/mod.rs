@@ -3,8 +3,7 @@ pub mod print;
 
 pub use login::Login;
 pub use print::Print;
-
-use crate::errors::{ExitCode, Fallible};
+pub use setup::Setup;
 
 use crate::errors::{ExitCode, Fallible};
 

@@ -1,6 +1,7 @@
 mod cli;
 mod commands;
 mod errors;
+mod layout;
 mod log;
 
 use crate::log::{init_logger, APOLLO_LOG_LEVEL};
