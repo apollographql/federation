@@ -17,7 +17,7 @@ type CLIArgs = {
   version?: string;
 };
 
-type PossiblePaths = [undefined, Product?, CLIArgs["platform"]?, string?];
+type PossiblePaths = [undefined, Product | string | undefined, CLIArgs["platform"]?, string?];
 
 const SUPPORTED_METHODS = ["GET", "HEAD"]
 export async function handleRequest(event: FetchEvent): Promise<Response> {
@@ -31,7 +31,7 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
       "/",
       4
     ) as PossiblePaths;
-
+    
     /*
 
       Route table:
@@ -40,11 +40,11 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
         - /:product/:platform/:version -> specific build for a given architecture
 
     */
-    switch (product) {
+    switch (product) {        
       case "cli":
         // /:product
         if (!platform) {
-          return await serveStatic(event, "/install.sh");
+          return Response.redirect(`https://${url.hostname}/`, 301);
         }
         // /:product/:platform
         // /:product/:platform/:version
@@ -62,6 +62,11 @@ export async function handleRequest(event: FetchEvent): Promise<Response> {
         }
         return await handleLegacyCLI({ platform, version }, event);
       default:
+        if (!product) {
+          const response = await serveStatic(event, "/install.sh");
+          response.headers.set("content-type", "text/html");
+          return response
+        }
         // handle static assets
         return await serveStatic(event);
     }
@@ -91,7 +96,7 @@ async function handleCLI(
   const { method, body } = event.request;
   // this only supports 64 bit architectures. I don't see us changing this but if we do, this will become gross
   const response = await fetch(
-    `${GITHUB_RELEASE}/download/v${version}/apollo-v${version}-x86_64-${platform}.tar.gz`,
+    `${GITHUB_RELEASE}/download/v${version}/ap-v${version}-${platform}.tar.gz`,
     { method, body, cf: { cacheEverything: true } }
   );
 
@@ -106,18 +111,16 @@ async function handleCLI(
   }
 
   throw new Error(
-    `Error when loading CLI for ${version} on ${platform} on GitHub releases. This could be because GitHub is down. The error we recieved from GitHub was ${response.statusText}`
+    `Error when loading CLI for ${version} on ${platform} on GitHub releases. This could be because GitHub is down. The error we received from GitHub was ${response.statusText}`
   );
 }
 
 async function serveStatic(event: FetchEvent, path: string = "") {
   function customKeyModifier(req: Request): Request {
-    let url = req.url;
-    return mapRequestToAsset(new Request(url + path, req as RequestInit));
+    return mapRequestToAsset(new Request(req.url + path, req as RequestInit));
   }
   return getAssetFromKV(event, { mapRequestToAsset: customKeyModifier }).catch(
     (e) => {
-      event.waitUntil(log(e, event.request));
       return fourOhFour(event);
     }
   );

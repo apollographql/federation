@@ -6,12 +6,16 @@ on:
       - "v*" # Run when tag matches v*, i.e. v1.0, v20.15.10
 
 env:
-  RELEASE_BIN: apollo
+  SOURCE_BIN: apollo-cli
+  RELEASE_BIN: ap
   RELEASE_DIR: artifacts
   GITHUB_REF: "${{ github.ref }}"
-  WINDOWS_TARGET: x86_64-windows
-  MACOS_TARGET: x86_64-darwin
-  LINUX_TARGET: x86_64-linux
+  WINDOWS_TARGET: x86_64-pc-windows-msvc
+  MACOS_TARGET: x86_64-apple-darwin
+  LINUX_TARGET: x86_64-unknown-linux-musl
+  WINDOWS_BUILD_NAME: windows
+  MACOS_BUILD_NAME: darwin
+  LINUX_BUILD_NAME: linux
 
   # Space separated paths to include in the archive.
   RELEASE_ADDS: Readme.md
@@ -99,7 +103,7 @@ jobs:
         if: matrix.build == 'linux'
         uses: svenstaro/upx-action@v1-release
         with:
-          file: target/${{ env.LINUX_TARGET }}/release/${{ env.RELEASE_BIN }}
+          file: target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }}
 
       - name: Build (MacOS)
         if: matrix.build == 'macos'
@@ -109,7 +113,7 @@ jobs:
         if: matrix.build == 'macos'
         uses: svenstaro/upx-action@v1-release
         with:
-          file: target/release/${{ env.RELEASE_BIN }}
+          file: target/release/${{ env.SOURCE_BIN }}
 
       - name: Build (Windows)
         if: matrix.build == 'windows'
@@ -121,7 +125,7 @@ jobs:
         if: matrix.build == 'windows'
         uses: svenstaro/upx-action@v1-release
         with:
-          file: target/release/${{ env.RELEASE_BIN }}.exe
+          file: target/release/${{ env.SOURCE_BIN }}.exe
       
       - name: Create artifact directory
         run: |
@@ -131,7 +135,7 @@ jobs:
       - name: Create tarball (Linux)
         if: matrix.build == 'linux'
         run: |
-          mv ./target/${{ env.LINUX_TARGET }}/release/${{ env.RELEASE_BIN }} ./dist/${{ env.RELEASE_BIN }}
+          mv ./target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }} ./dist/${{ env.RELEASE_BIN }}
           mv ${{ env.RELEASE_ADDS }} ./dist
           7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
 
@@ -139,14 +143,14 @@ jobs:
         if: matrix.build == 'windows'
         shell: bash
         run: |
-          mv ./target/release/${{ env.RELEASE_BIN }}.exe ./dist/${{ env.RELEASE_BIN }}.exe
+          mv ./target/release/${{ env.SOURCE_BIN }}.exe ./dist/${{ env.RELEASE_BIN }}.exe
           mv ${{ env.RELEASE_ADDS }} ./dist
           7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
 
       - name: Create tarball (MacOS)
         if: matrix.build == 'macos'
         run: |
-          mv ./target/release/${{ env.RELEASE_BIN }} ./dist/${{ env.RELEASE_BIN }}
+          mv ./target/release/${{ env.SOURCE_BIN }} ./dist/${{ env.RELEASE_BIN }}
           mv ${{ env.RELEASE_ADDS }} ./dist
           7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
 
@@ -217,9 +221,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./linux/apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
+          asset_path: ./linux/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
           asset_content_type: application/gzip
-          asset_name: apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
+          asset_name: ${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
 
       - name: Release Windows tarball
         uses: actions/upload-release-asset@v1
@@ -227,9 +231,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows/apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
+          asset_path: ./windows/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
           asset_content_type: application/gzip
-          asset_name: apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
+          asset_name: ${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
 
       - name: Release MacOS tarball
         uses: actions/upload-release-asset@v1
@@ -237,8 +241,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./macos/apollo-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
+          asset_path: ./macos/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
           asset_content_type: application/gzip
+          asset_name: ${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
 
       - name: Slack Notification
         uses: homoluctus/slatify@master

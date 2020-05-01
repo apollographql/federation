@@ -4,10 +4,9 @@ use std::process::Command; // Run programs // Used for writing assertions
 
 #[test]
 fn no_command_used() -> Result<(), Box<dyn std::error::Error>> {
-    let mut apollo = Command::cargo_bin("apollo").unwrap();
+    let mut cli = Command::cargo_bin("apollo-cli").unwrap();
 
-    apollo
-        .assert()
+    cli.assert()
         .code(1)
         .stderr(predicate::str::contains("USAGE"));
 
@@ -16,11 +15,10 @@ fn no_command_used() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn prints_types() -> Result<(), Box<dyn std::error::Error>> {
-    let mut apollo = Command::cargo_bin("apollo").unwrap();
+    let mut cli = Command::cargo_bin("apollo-cli").unwrap();
 
-    apollo
-        .arg("print")
-        // current_dir is `apollo`, not `apollo/tests`
+    cli.arg("print")
+        // current_dir is `cli`, not `cli/tests`
         .arg("./tests/fixtures/basic.graphql")
         .arg("./tests/fixtures/my-enum.graphql")
         .assert()
