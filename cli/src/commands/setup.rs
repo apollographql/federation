@@ -130,11 +130,8 @@ mod os {
 
 #[cfg(windows)]
 mod os {
-    use std::process::Command;
-
     use crate::errors::{ErrorDetails, Fallible};
     use crate::layout::apollo_home_bin;
-    use failure::ResultExt;
     use log::debug;
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
@@ -142,30 +139,23 @@ mod os {
     pub fn setup_environment() -> Fallible<()> {
         let bin_dir = apollo_home_bin()?.to_string_lossy().to_string();
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+
         let env = hkcu
             .open_subkey("Environment")
-            .with_context(|_| ErrorDetails::ReadUserPathError)?;
+            .map_err(|_e| ErrorDetails::ReadUserPathError)?;
 
         let path: String = env
             .get_value("Path")
-            .with_context(|_| ErrorDetails::ReadUserPathError)?;
+            .map_err(|_e| ErrorDetails::ReadUserPathError)?;
 
         if !path.contains(&bin_dir) {
-            // Use `setx` command to edit the user Path environment variable
-            let mut command = Command::new("setx");
-            command.arg("Path");
-            command.arg(format!("{};{}", bin_dir, path));
+            let (key, _disp) = hkcu
+                .create_subkey("Environment")
+                .map_err(|_e| ErrorDetails::ReadUserPathError)?;
 
-            debug!("Modifying User Path with command: {:?}", command);
-            let output = command
-                .output()
-                .with_context(|_| ErrorDetails::WriteUserPathError)?;
-
-            if !output.status.success() {
-                debug!("[setx stderr]\n{}", String::from_utf8_lossy(&output.stderr));
-                debug!("[setx stdout]\n{}", String::from_utf8_lossy(&output.stdout));
-                return Err(ErrorDetails::WriteUserPathError.into());
-            }
+            debug!("Adding {} to Path", &bin_dir);
+            key.set_value("Path", &format!("{};{}", bin_dir, path).to_string())
+                .map_err(|_e| ErrorDetails::WriteUserPathError)?;
         }
 
         Ok(())

@@ -20,9 +20,13 @@ fn main() {
     let cli = cli::Apollo::from_args();
 
     let verbosity = match (&cli.verbose, &cli.quiet) {
+        // 0,0
         (false, false) => LogVerbosity::Default,
-        (true, false) => LogVerbosity::Verbose,
+        // 0,1
         (false, true) => LogVerbosity::Quiet,
+        // 1,0
+        (true, false) => LogVerbosity::Verbose,
+        // 1,1
         (true, true) => unreachable!("Using both --verbose and --quiet is disallowed"),
     };
 

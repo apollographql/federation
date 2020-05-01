@@ -1,15 +1,19 @@
-use std::convert::{From};
+#[cfg(backtrace)]
+use std::backtrace::Backtrace;
+use std::convert::From;
 
-use thiserror::Error;
 use anyhow::Result;
 use log::error;
+use thiserror::Error;
 
-use crate::errors::{ExitCode};
+use crate::errors::ExitCode;
 
 #[derive(Error, Debug)]
 #[error("{msg}")]
 pub struct ApolloError {
     msg: String,
+    #[cfg(backtrace)]
+    backtrace: Backtrace,
     /// The result of `error.exit_code()`.
     exit_code: ExitCode,
 }
@@ -23,7 +27,7 @@ impl ApolloError {
 }
 
 /// The failure trait for all Apollo errors.
-pub trait ApolloFail : std::error::Error {
+pub trait ApolloFail: std::error::Error {
     /// Returns the process exit code that should be returned if the process exits with this error.
     fn exit_code(&self) -> ExitCode;
 }

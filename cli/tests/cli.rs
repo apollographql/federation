@@ -12,3 +12,5 @@ fn no_command_used() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+// XXX test global flags and global variables here

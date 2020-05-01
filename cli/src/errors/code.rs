@@ -36,4 +36,3 @@ impl ExitCode {
         exit(self as i32);
     }
 }
-
