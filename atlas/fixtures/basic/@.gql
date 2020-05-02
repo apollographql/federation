@@ -1,0 +1,7 @@
+schema @id(name: "lyrical")
+  @include(schema: "admin")
+  @include(schema: "users")
+{
+  query: Query
+  mutation: Mutation
+}
