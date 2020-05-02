@@ -1,0 +1,10 @@
+{
+  "endpoints": [{
+    "url": "https://atlas.apollo.dev"
+  }],
+  "axioms": [
+    "31498EABA8EB44D5A4ECC4ACF7471469",
+    "65705113EEC441539DBF4B82AF692095",
+    "9DFCE251C9CF494B8B2C34593700435A"
+  ]
+}

@@ -1,0 +1,18 @@
+schema lyrical
+...users
+...admin
+
+# I expect that @-files will almost always be written in starQL,
+# so I'm doing that here. If you wanted to write it in gql with
+# directives, you could do this:
+
+## @.gql
+#   schema @id(name: "lyrical")
+#     @include(schema: "users")
+#     @include(schema: "admin") {
+#      query: Query
+#      mutation: Mutation
+#   }
+##
+
+# It's a bit pointlessly verbose though.

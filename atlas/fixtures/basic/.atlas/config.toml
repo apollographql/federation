@@ -1,0 +1,3 @@
+# should atlas lookup proceed up the directory structure?
+#   default: false
+child = false
