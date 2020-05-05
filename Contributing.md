@@ -181,6 +181,25 @@ impl Command for Apollo {
 
 5. Enjoy! Run your command with `cargo run do-a-thing` (the kebab-case version of the struct name).
 
+## Building out command logic
+
+The `ap` CLI aims to provide a stable, consistent, and transparent tool for developers to use. To accomplish this, we recommend following a few standard conventions and tools that have been built into the framework.
+
+### Logging
+
+One critical component in any tool is proper and clear logging. We leverage a crate called `log` to build out a custom logging utility that can be used by any command to provide users with controllable, flag-configurable logging. When users pass the `--verbose` flag, we want to log everything, providing some help with debugging issues. When users pass the `--quiet` flag, we want the CLI to be as silent as reasonably possible.
+
+To support most logging use cases, there are 4 macros provided: `error!`, `warn!`, `info!` and `debug!`, where `error!` represents the highest-priority log messages and `debug!` the lowest. `error!` and `warn!` print to `stderr` whereas `info` and `debug` print to `stdout`. All of these macros accept format strings, similar to `println!`, and their output is prefixed with their message type (except for `info`) like so:
+
+```
+error: this is an error message
+warning:  this is a warning message
+this is an info message
+[verbose] this is a debug message
+```
+
+By default, all log messages _except_ `debug` messages are shown. In `--verbose` mode, `debug` messages will be shown as well. In `--quiet` mode, only `error` messages will be printed, and should signify a critical error in execution. Use these macros at your discretion.
+
 ## Pipelines
 
 This project uses GitHub Actions to run a continuous integration and delivery pipeline. Every code change will be run against a few steps to help keep the project running at its peak ability
