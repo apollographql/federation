@@ -1,8 +1,68 @@
 # The Atlas
 
-The Atlas gives *names* to *parts of the universal graph*. It answers the question: given a name in a schema file, what part of the universe does it reference?
+The Atlas records everything we know about the structure of some part of the universal graph. This includes the graph *structure*—the kind of description we'd find in a schema file. It also includes metadata. Primarily, what endpoints can serve particular fields, but also all the other metadata you can imagine: information about who can change parts of the graph, which fields contain PII, who the graph owner for some subgraph is, etc, etc, for all the metadata anyone might want to store talking about the graph.
 
-## Name resolution from files
+This document is an attempt to answer a few questions: *where* does the atlas store this data, *how*, and most importantly *why*?
+
+## Why?
+
+Last question first. What problems does the atlas solve?
+
+### Resolve references in schema files
+
+Consider [this bit of gql]('./fixtures/basic/admin.gql):
+
+```graphql
+extend type User @from(type: "users.User") {
+  role: Role
+}
+```
+
+`@from(type: "users.User")` references a type from somewhere in the graph. Maybe it's defined in this file. Maybe it's defined in a nearby file. Or maybe it's defined very elsewhere, part of another graph with wholly different owners. Regardless, this is the question for us: what does `users.User` mean? Does it refer to anything, and what is that thing, what fields does it have, what endpoints can serve it, and so on?
+
+In particular, the compiler needs to be able to retrieve at least:
+- **a uri.** some universal identifier for the resolved type distinguishing it from all other types named `User`, in this or any other atlas.
+- **a set of fields for this type.** including all applied extensions, and so on. At a minimum, the compiler needs this information in order to emit the type into the generated `gql`
+- **metadata about this type (i.e. directives).** which may alter the way it's compiled
+- **transitive dependencies.** all of the above for types referenced from every field, and their fields, and so on.
+
+### Support language servers
+
+A (relatively straightfoward) generalization of [resolving references](#resolve-references-in-schema-files) is to be able to identify and describe any token in any schema file on disk. This is effectively the core work of a language server. It makes sense to wrap this into the atlas' responsibilities. The atlas *isn't* a language server (in the sense of implementing the language server protocol), but it should be able to form the core of one.
+
+### Provide a canonical representation of graph structures
+
+Two pieces to this:
+
+**Input.** In order to compose a schema, the compiler needs to reference other existing compiled graphs. This graph structure data needs to be represented in some way for transmission and caching.
+
+**Output.** The compiler needs to emit compiled graphs in some form.
+
+In other words, we an interchange format for graph structure data. We're being vague as to how right now—it could be a `.gql` file with directive, it could be some other format. Regardless, the atlas is responsible for defining what this is.
+
+### Provide flexible mechanisms to externally tag graph structures
+
+That is, we will want to mark pieces of the graph in arbitrary ways. For example, an organization may want to mark certain fields as containing personally identifying information. Naturally, you can do this with a custom directive on the field:
+
+```graphql
+type User {
+  address: String @userdata(privacy: PII)
+}
+```
+
+But constellation also allows us to do this in another schema entirely:
+
+```graphql
+extend type users.User {
+  users.address: String @userdata(privacy: PII)
+}
+```
+
+Here we're using starql syntax, but it should be possible for such directives to be applied by other tooling.
+
+## How?
+
+### Resolving references
 
 Consider this bit of gql from the [basic fixture]('./fixtures/basic/admin.gql):
 
