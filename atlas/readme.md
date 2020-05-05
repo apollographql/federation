@@ -1,12 +1,29 @@
 # The Atlas
 
-The Atlas records everything we know about the structure of some part of the universal graph. This includes the graph *structure*—the kind of description we'd find in a schema file. It also includes metadata. Primarily, what endpoints can serve particular fields, but also all the other metadata you can imagine: information about who can change parts of the graph, which fields contain PII, who the graph owner for some subgraph is, etc, etc, for all the metadata anyone might want to store talking about the graph.
+The Atlas records everything we know about the structure of some part of the universal graph. This includes the graph *structure*—the kind of description we'd find in a schema file. It also includes metadata which might be encoded in a schema file with directives or provided externally. An important piece of metadata is what endpoints can serve particular fields, but this graph metadata also encompasses everything else you might want to say about a graph: information about who can change parts of the graph, which fields contain PII, who the graph owner for some subgraph is, etc.
 
 This document is an attempt to answer a few questions: *where* does the atlas store this data, *how*, and most importantly *why*?
 
-## Why?
+## Problems
 
-Last question first. What problems does the atlas solve?
+Last bit first: *why*? What problems does the atlas solve?
+
+The atlas describes points in the graph.
+
+&#8220;A point in the graph&#8221; might be represented in many ways, for example:
+- a token within a schema file
+- a token within a query against a particular schema
+- the type or other schema element associated with some universal resource identifier (an `atlas:` uri, for example).
+
+For each point in the graph, there are various things we'll want to know:
+- for types:
+    - the names of accessible fields and their types
+    - the (much larger) set of accessible extension fields which may not have bare names but are valid at this point
+    - (note that the above effectively answers the question of where I can go when standing on a type)
+- the scalar information (format, raw byte size) at this point (for scalar fields)
+- metadata annotations applied through directives or elsewhere, such as `@private`, `@userdata`, `@external`, etc
+
+This is the most general problem statement for the atlas. Here are some more specific problems which fall out of this big one:
 
 ### Resolve references in schema files
 
@@ -18,7 +35,7 @@ extend type User @from(type: "users.User") {
 }
 ```
 
-`@from(type: "users.User")` references a type from somewhere in the graph. Maybe it's defined in this file. Maybe it's defined in a nearby file. Or maybe it's defined very elsewhere, part of another graph with wholly different owners. Regardless, this is the question for us: what does `users.User` mean? Does it refer to anything, and what is that thing, what fields does it have, what endpoints can serve it, and so on?
+`@from(type: "users.User")` references a type from somewhere in the graph. Maybe it's defined in this file. Maybe it's defined in a nearby file. Or maybe it's defined extremely elsewhere, as part of another graph with wholly different owners. Regardless, this is the question for us: what does `users.User` mean? Does it refer to anything, and what is that thing, what fields does it have, what endpoints can serve it, and so on?
 
 In particular, the compiler needs to be able to retrieve at least:
 - **a uri.** some universal identifier for the resolved type distinguishing it from all other types named `User`, in this or any other atlas.
@@ -30,7 +47,7 @@ In particular, the compiler needs to be able to retrieve at least:
 
 A (relatively straightfoward) generalization of [resolving references](#resolve-references-in-schema-files) is to be able to identify and describe any token in any schema file on disk. This is effectively the core work of a language server. It makes sense to wrap this into the atlas' responsibilities. The atlas *isn't* a language server (in the sense of implementing the language server protocol), but it should be able to form the core of one.
 
-### Provide a canonical representation of graph structures
+### Provide forge with canonical representations of graph structures
 
 Two pieces to this:
 
@@ -58,9 +75,72 @@ extend type users.User {
 }
 ```
 
-Here we're using starql syntax, but it should be possible for such directives to be applied by other tooling.
+Here we're using hypothetical starql syntax, but it should be possible for such post-schema directives to be applied by other tooling as well.
 
-## How?
+## Structure
+
+### `atlas:` URLs
+
+TK, `atlas:` URLs uniquely define points in the graph.
+
+Technically `atlas:` URLs are URIs or maybe URNs but [WHATWG basically thinks the distinction is unnecessary and confusing](https://url.spec.whatwg.org/#goals) so we're going with that.
+
+Generally, `atlas:` URLs:
+
+```
+# start off identifying the atlas by a bracketed hash
+# (the hash of the axiom, specifically):
+atlas:[atlas_ident]:
+
+# or more conveniently by alias:
+atlas:corp-internal:
+
+# when no alias is provided, `main` is assumed:
+atlas::
+  is equivalent to
+atlas:main:
+
+# dives into the namespace with a dotted path
+atlas::schema.Type
+atlas:internal:schema.Type.internalField
+
+# can specify identifies edges by including `/outputType`
+atlas::schema.Type.field/schema.someType
+atlas:internal:schema.Type.internalField/String
+
+~~~
+q: should this be a full atlas URL? i.e. should it be possible to specify links between atlases without composing them into a new atlas? I think no, need to think a bit more about this.
+~~~
+
+# can conclude with a layer.
+#
+# layers are different places where atlas data may be
+# stored. for example, when compiling types against
+# the public atlas, the layers might include:
+#   - schema files in the workspace
+#   - the global cache in ~/.atlas
+#   - the public atlas in heaven
+atlas:internal:schema.InternalType.field:return.Type?path=file://some/wkspce/schema.stars
+
+# distinguishing a file version, perhaps useful for the language server layer
+atlas::schema.Type.field:return.Type?path=file://some/wkspce/schema.stars&ver=232
+
+
+# q: can we use this form for anything?
+atlas://<authority>/
+```
+
+### Atlas schema
+
+TK, the atlas provides [a schema](./primer/atlas.stars) very much like the introspection schema, but extended with:
+  - the ability to track directives and where they're applied
+  - a `Point` scalar which holds an atlas uri
+  - `id: Point` fields on all schema elements
+  - more `Query` methods
+
+Additional schemas can blend into the atlas core schema, providing queries by e.g. fileystem path and token position, or the ability to provide announcements
+
+## Filesystem binding
 
 ### Resolving references
 
@@ -105,15 +185,15 @@ child = false
 
 # default atlas to use when none is specified.
 #   default: “main”
-default = “main”
+default = "main"
 
 [atlases.main]
-  id = ‘31498eaba8eb44d5a4ecc4acf7471469’
-  url = ‘https://atlas.apollo.dev’
+  id = "31498eaba8eb44d5a4ecc4acf7471469"
+  url = "https://atlas.apollo.dev"
 
 [atlases.internal]
-  id = ‘a223bbc2347dfaefsdf3fefdssdac382’
-  url = ‘https://some-internal-atlas.somewhere’
+  id = "a223bbc2347dfaefsdf3fefdssdac382"
+  url = "https://some-internal-atlas.somewhere"
 ```
 
 This `atlas.toml` defines two atlases: `main` and `internal`.
@@ -122,21 +202,25 @@ This `atlas.toml` defines two atlases: `main` and `internal`.
 
 `.atlas` directories may have a cache. If present, the cache is treated as read only unless explicitly updated.
 
-
-## global atlas
+### global atlas
 
 The global atlas lives in `~/.atlas`. It has the same structure as any other `.atlas` folder, with the exception that the cache is always present.
 
-## atlas cache
+### atlas cache
 
-TK, but generally we use cacache with this structure:
+TK, but generally we use cacache holding the current state for each atlas under its proper uri as a key. The state is a lemma which references others, also held in the cache under their own hash.
 
-The cache contains the current state for each atlas under its proper uri: `atlas:[atlas-id]`. The state is a *lemma*, a structure which contains:
+## Distributed data format
+
+TK, basically a sequence of *lemmas*, including:
   - the content hashes of one or more previous lemmas
-  - a signed *announcement* describing a change to the state(s)
-  - the derived state
-  - optionally, a signature
+  - a signed *announcement* describing a change to atlas' current state(s)
+  - optionally, a new derived state
 
-In principle, a client can look up the prior lemmas and verify the correctness all the way back to the atlas’ *axiom*, which is a self-signed announcement declaring and describing the atlas.
+The first lemma in an atlas is the `axiom`. It is simply a signed message describing the atlas and granting a single public key the ability to declare within the entire namespace.
 
-In practice, signed intermediate lemmas make this unnecessary. Clients need only pull atlas data until they get a lemma signed by an identity they trust (i.e. the establishing identity of an atlas, or some identity subsequently vested with its power).
+Subsequent lemmas may:
+  - `GRANT` or `REVOKE` permissions to the namespace or subsets of it to other public keys
+  - `WRITE` to a particular path within the atlas
+    - maybe break this into specific operations, like `ANNOUNCE` endpoint availability/unavailability?
+  - `STATE` the result of applying one or more intermediate lemmas. This allows clients to skip following and recomputing (maybe very big) proof trees if they trust the `STATE` signer
