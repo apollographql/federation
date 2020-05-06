@@ -13,7 +13,7 @@ The atlas describes points in the graph.
 &#8220;A point in the graph&#8221; might be represented in many ways, for example:
 - a token within a schema file
 - a token within a query against a particular schema
-- the type or other schema element associated with some universal resource identifier (an `atlas:` uri, for example).
+- the type or other schema element associated with some universal resource identifier (an atlas URL, for example).
 
 For each point in the graph, there are various things we'll want to know:
 - for types:
@@ -79,72 +79,169 @@ Here we're using hypothetical starql syntax, but it should be possible for such 
 
 ## Structure
 
-### `atlas:` URLs
+### Graphs are made of Points
 
-TK, `atlas:` URLs uniquely define points in the graph.
+We use the term *point* to refer to all the stuff in a graph. These are all points:
+- types
+- inputs
+- interfaces
+- fields
+- unions
+- enums
+- scalars
+- directives
+- schemas
 
-Technically `atlas:` URLs are URIs or maybe URNs but [WHATWG basically thinks the distinction is unnecessary and confusing](https://url.spec.whatwg.org/#goals) so we're going with that.
+### `atlas:` URLs uniquely address points
 
-Generally, `atlas:` URLs:
+Technically atlas URLs are URIs or maybe URNs but [WHATWG basically thinks the distinction is unnecessary and confusing](https://url.spec.whatwg.org/#goals) so we'll just follow their lead and call them URLs.
+
+They take this form:
 
 ```
-# start off identifying the atlas by a bracketed hash
-# (the hash of the axiom, specifically):
-atlas:[atlas_ident]:
+atlas:specifier:path?layer
+```
 
-# or more conveniently by alias:
-atlas:corp-internal:
+Every part except the initial `atlas:` is optional.
 
-# when no alias is provided, `main` is assumed:
-atlas::
-  is equivalent to
+Some examples:
+
+```
+# these are all in the main atlas
+
+## a schema
+atlas::spotify
+
+## a point within the schema
+atlas::spotify.User
+
+## a field
+### note: still thinking about the syntax here
+atlas::spotify.id/spotify.User=spotify.ID
+
+## a scalar
+atlas::genius.ID
+
+## an extension field
+atlas::lyrical.geniusId/spotify.Song=genius.ID
+
+# these are in different atlases
+## identified by aliases
+atlas:corp-internal:svc.secrets/User=String
+
+## identified by atlas id
+atlas:[3deff29adabade98f3234acb9320]:svc.secrets/User=String
+```
+
+#### Atlas URLs start off by specifying the atlas
+
+Atlases can be specified either by *id* or *alias*. IDs are specified in `[brackets]`, aliases are bare words:
+
+Specified by id:
+```
+atlas:[3deff29adabade98f3234acb9320]:
+atlas:[9eff9asdd9329d89d9cbd9cf3dde]:
+```
+
+Specified by alias:
+```
 atlas:main:
-
-# dives into the namespace with a dotted path
-atlas::schema.Type
-atlas:internal:schema.Type.internalField
-
-# can specify identifies edges by including `/outputType`
-atlas::schema.Type.field/schema.someType
-atlas:internal:schema.Type.internalField/String
-
-~~~
-q: should this be a full atlas URL? i.e. should it be possible to specify links between atlases without composing them into a new atlas? I think no, need to think a bit more about this.
-~~~
-
-# can conclude with a layer.
-#
-# layers are different places where atlas data may be
-# stored. for example, when compiling types against
-# the public atlas, the layers might include:
-#   - schema files in the workspace
-#   - the global cache in ~/.atlas
-#   - the public atlas in heaven
-atlas:internal:schema.InternalType.field:return.Type?path=file://some/wkspce/schema.stars
-
-# distinguishing a file version, perhaps useful for the language server layer
-atlas::schema.Type.field:return.Type?path=file://some/wkspce/schema.stars&ver=232
-
-
-# q: can we use this form for anything?
-atlas://<authority>/
+atlas:acme-corp-internal:
 ```
 
-### Atlas schema
+Aliases are useful only within a context in which they're defined—for example, in a workspace with a [`.atlas` directory](#atlas-root).
 
-TK, the atlas provides [a schema](./primer/atlas.stars) very much like the introspection schema, but extended with:
+You can also omit the specifier:
+
+```
+atlas::
+```
+
+If omitted, the id of the public atlas will be used. These are equivalent:
+
+```
+atlas::
+atlas:[3deff29adabade98f3234acb9320]:
+# note, this is a lie 🖕🏽
+# we have not created a public atlas yet
+# therefore there is no public atlas id
+# but once there is, it will go here.
+```
+
+**Discussion Q:** Another option here is that `atlas::` is equivalent to `atlas:main:` or some other alias. 
+
+#### Dotted paths identify points
+
+```
+atlas::genius.User
+atlas::nyt.Article
+```
+
+#### Edges are located within their declaring schema
+
+All `id` fields declared on any type *by* the `genius` schema:
+
+```
+atlas::genius.id
+```
+
+A field declared in `genius` named `id` on the type `genius.User`:
+
+```
+atlas::genius.id/genius.User
+```
+
+A field `User.id` declared in `genius` on `genius.User` returning a `genius.ID`:
+
+```
+atlas::genius.id/genius.User=genius.ID
+```
+
+Why is the namespaced field name first? Atlas URLs organize themselves so that the *originator of a piece of graph structure* is first. So if `lyrical` extends `spotify.Song` with a `geniusSong` field of type `genius.Song`, we'd represent that like so:
+
+```
+atlas::lyrical.geniusSong/spotify.Song=genius.Song
+```
+
+Why? Because atlases control access by granting users the ability to write different parts of the namespace. I, as the author of lyrical, have the ability to write to the `lyrical` namespace, but not to the `spotify` namespace. Therefore, the edges I declare must be within my namespace, even if they operate on another type.
+
+#### URLs end with the layer
+
+```
+atlas::schema.Type?path=file://some/wkspce/schema.stars
+atlas::schema.Type?path=file://some/wkspce/schema.stars&ver=2
+```
+
+Layers are described in more detail in the [next section](#atlas-layers).
+
+### Layers
+
+When accessed from some particular client, atlas data is likely strewn across various locales. 
+
+For example, when compiling types against the public atlas, the layers might include:
+  - schema files in the workspace
+  - the user's global cache in ~/.atlas
+  - the public atlas in heaven
+
+In another instance, we might be using the atlas within a language server. The LSP provides access to unsaved content in the user's editor, which we can represent as another layer within the atlas.
+
+For many purposes, it's not important to distinguish between different layers of an atlas. But in other cases, it might—for instance, if the user's editor shows a diff between two versions of a schema file, we'll need different atlas URLs to identify each of them in order to parse and link them separately and show the appropriate language annotations for each.
+
+### Schema
+
+Details TK, the atlas provides [a schema](./primer/atlas.stars) very much like the introspection schema, but extended with:
   - the ability to track directives and where they're applied
-  - a `Point` scalar which holds an atlas uri
-  - `id: Point` fields on all schema elements
+  - a `URL` scalar which holds an atlas url
+  - `id: URL` fields on all schema elements
   - more `Query` methods
 
-Additional schemas can blend into the atlas core schema, providing queries by e.g. fileystem path and token position, or the ability to provide announcements
+Additional schemas can compose with the atlas core schema, providing queries by e.g. fileystem path and token position, or the ability to provide announcements
 
 ## Filesystem binding
 
 ### Resolving references
 
-Consider this bit of gql from the [basic fixture]('./fixtures/basic/admin.gql):
+Consider [this gql]('./fixtures/basic/admin.gql):
 
 ```graphql
 extend type User @from(type: "users.User") {
@@ -152,10 +249,18 @@ extend type User @from(type: "users.User") {
 }
 ```
 
-To complete the type `User`, the compiler needs to resolve `users.User`. This happens in two steps:
+Or the equivalent starql:
 
-1. first, we `Lookup` the name `user`, proceeding up the [scope chain](#scope-chain) until a scope is found in which it's been defined.
-2. then, we descend into the definition, looking for a `User` type.
+```graphql
+extend type users.User {
+  role: Role
+}
+```
+
+In either case, to complete the type `User`, the compiler needs to resolve `users.User`. This happens in two steps:
+
+1. first, we look up the first part of the dotted path—`user`, by scanning up the [scope chain](#scope-chain) until a scope is found in which the name `user` has been defined.
+2. then, we descend into that definition, looking for a `User` element.
 
 ### Scope chain
 
@@ -212,15 +317,10 @@ TK, but generally we use cacache holding the current state for each atlas under 
 
 ## Distributed data format
 
-TK, basically a sequence of *lemmas*, including:
-  - the content hashes of one or more previous lemmas
-  - a signed *announcement* describing a change to atlas' current state(s)
-  - optionally, a new derived state
+We can represent an atlas as a collection of signed structs. These are sketched in [data.stars](./data.stars).
 
-The first lemma in an atlas is the `axiom`. It is simply a signed message describing the atlas and granting a single public key the ability to declare within the entire namespace.
+The first such struct an *axiom*. It's nothing more than a message describing the atlas and signed by some identity. The hash of the entire axiom becomes the atlas' id.
 
-Subsequent lemmas may:
-  - `GRANT` or `REVOKE` permissions to the namespace or subsets of it to other public keys
-  - `WRITE` to a particular path within the atlas
-    - maybe break this into specific operations, like `ANNOUNCE` endpoint availability/unavailability?
-  - `STATE` the result of applying one or more intermediate lemmas. This allows clients to skip following and recomputing (maybe very big) proof trees if they trust the `STATE` signer
+From there, we can change the atlas by creating *lemmas*. A lemma is a signed message describing some change to the atlas. For example, lemmas  can `Grant` other identities write access to namespaces within the atlas, or `Revoke` the same. We can also `Announce` endpoints for schemas, create lemmas for directive metadata, and so on.
+
+This structure gives us something important: a clearly defined, tamperproof chain of custody for atlas data.

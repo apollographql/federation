@@ -1,41 +1,57 @@
 """
-A Name is a location in the Atlas.
+A URL is an absolute location within the atlas.
+"""
+scalar URL
 
+"""
 Names are dotted paths of GraphQL identifiers, like `spotify.User`
 and `String`.
 """
 scalar Name
 
 type Query {
-  at(name: Name): Point 
-  edge(name: Name, from: Point, to: Point): Edge
-  type(name: Name): Type
+  at(id: URL): Point
+  edge(name: Name, from: Name, to: Name): Edge
+  type(id: URL): Type
+  interface(id: URL): Interface
+  edge(id: URL): Edge    
   points: [Point]
 }
 
-# Do a fragment. fragment = struct
-# fragment stuff @struct on Type {
+## This would be cool:
+# interface Point @key(fields: "id", via: "Query.at(id)") {
+#   id: URL
 # }
 
+interface Point {
+  id: URL
+  name: Name
+}
+
 # -- Points --
-enum Kind { OBJECT, INTERFACE }
-type Type @key(fields: "name", via: "Query.type(name)") @struct {
+type Type implements Point @key(fields: "id", via: "Query.at(id)") {
+  id: URL
+  name: Name
+  fields: [Edge]
+}
+
+type Interface implements Point @key(fields: "id", via: "Query.at(id)") {
+  id: URL
   name: Name
 }
 
-type Interface @key(fields: "name", via: "Query.type(name)") {
+type Input implements Point @key(fields: "id", via: "Query.at(id)") {
+  id: URL
   name: Name
 }
 
-type Input @key(fields: "name") {
+type Scalar implements Point @key(fields: "id", via: "Query.at(id)") {
+  id: URL
   name: Name
 }
 
-type Scalar @key(fields: "name") {
-  name: Name
-}
-
-type Enum @key(fields: "name") {
+type Enum implements Point @key(fields: "id", via: "Query.at(id)") {
+  id: URL
   name: Name
 }
 
@@ -47,19 +63,13 @@ type Must @key(fields: "of") {
   of: Point
 }
 
-union Point =
-  Type | Interface | Input | Scalar | Enum | List | Must | Edge
-
-type Edge @key(fields: "from name to", via: "Query.edge(name, from, to)") {
+type Edge implements Point @key(fields: "id", via: "Query.at(id)") {
+  id: URL
   name: Name
   from: Point
   to: Point
 }
 
-
-type Atlas {
-  type(Name: [String]): __Type
-}
 
 # The schema of the GraphQL schema introspection system:
 
