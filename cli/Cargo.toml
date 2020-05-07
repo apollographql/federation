@@ -12,6 +12,7 @@ console = "0.6.1"
 failure = "*"
 graphql-parser = { path = "../graphql-parser" }
 log = { version = "0.4", features = ["std"] }
+env_logger = "0.7.1"
 structopt = "*"
 term_size = "0.3.0"
 textwrap = "0.11.0"

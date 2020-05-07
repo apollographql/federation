@@ -1,141 +1,45 @@
-// Taken from the wonderful Volta https://github.com/volta-cli/volta/blob/09daab55c821e943f867ad95a560bb2c34c3f1e2/crates/volta-core/src/log.rs
+use log::LevelFilter::{Debug, Error, Info};
+use std::env::VarError;
 
-//! This module provides a custom Logger implementation for use with the `log` crate
-use atty::Stream;
-use console::style;
-use log::{Level, LevelFilter, Log, Metadata, Record, SetLoggerError};
-use std::env;
-use std::fmt::Display;
-use textwrap::{NoHyphenation, Wrapper};
+pub const APOLLO_LOG_LEVEL: &str = "APOLLO_LOG_LEVEL";
 
-use crate::style::text_width;
-
-const ERROR_PREFIX: &str = "error:";
-const WARNING_PREFIX: &str = "warning:";
-const APOLLO_LOGLEVEL: &str = "APOLLO_LOGLEVEL";
-const ALLOWED_PREFIX: &str = "apollo";
-const WRAP_INDENT: &str = "    ";
-
-/// Represents the context from which the logger was created
-pub enum LogContext {
-    /// Log messages from the CLI executable
-    Apollo,
-    // Log messages from the Language Server
-}
-
-/// Represents the level of verbosity that was requested by the user
-pub enum LogVerbosity {
-    Quiet,
-    Default,
-    Verbose,
-}
-
-pub struct Logger {
-    context: LogContext,
-    level: LevelFilter,
-}
-
-impl Log for Logger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= self.level
-    }
-
-    fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) && record.target().starts_with(ALLOWED_PREFIX) {
-            match record.level() {
-                Level::Error => self.log_error(record.args()),
-                Level::Warn => self.log_warning(record.args()),
-                Level::Debug => eprintln!("[verbose] {}", record.args()),
-                // all info-level messages go to stdout
-                _ => println!("{}", record.args()),
-            }
-        }
-    }
-
-    fn flush(&self) {}
-}
-
-impl Logger {
-    /// Initialize the global logger with a Logger instance
-    /// Will use the requested level of Verbosity
-    /// If set to Default, will use the environment to determine the level of verbosity
-    pub fn init(context: LogContext, verbosity: LogVerbosity) -> Result<(), SetLoggerError> {
-        let logger = Logger::new(context, verbosity);
-        log::set_max_level(logger.level);
-        log::set_boxed_logger(Box::new(logger))?;
-        Ok(())
-    }
-
-    fn new(context: LogContext, verbosity: LogVerbosity) -> Self {
-        let level = match verbosity {
-            LogVerbosity::Quiet => LevelFilter::Error,
-            LogVerbosity::Default => level_from_env(),
-            LogVerbosity::Verbose => LevelFilter::Debug,
-        };
-
-        Logger { context, level }
-    }
-
-    fn log_error<D>(&self, message: &D)
-    where
-        D: Display,
-    {
-        let prefix = match &self.context {
-            LogContext::Apollo => ERROR_PREFIX,
-        };
-
-        eprintln!("{} {}", style(prefix).red().bold(), message);
-    }
-
-    fn log_warning<D>(&self, message: &D)
-    where
-        D: Display,
-    {
-        let prefix = match &self.context {
-            LogContext::Apollo => WARNING_PREFIX,
-        };
-
+pub fn init_logger(verbose: bool, quiet: bool, env_log_level: Result<String, VarError>) {
+    // warn if someone is trying to use the flags _and_ env
+    if env_log_level.is_ok() && (verbose || quiet) {
+        let flag = if verbose { "--verbose" } else { "--quiet" };
         eprintln!(
-            "{} {}",
-            style(prefix).yellow().bold(),
-            wrap_content(prefix, message)
+            "{} and the {} flag is set. The {} flag takes precedence over {}.",
+            APOLLO_LOG_LEVEL, flag, flag, APOLLO_LOG_LEVEL
         );
-    }
-}
+    };
 
-/// Wraps the supplied content to the terminal width, if we are in a terminal.
-/// If not, returns the content as a String
-///
-/// Note: Uses the supplied prefix to calculate the terminal width, but then removes
-/// it so that it can be styled (style characters are counted against the wrapped width)
-fn wrap_content<D>(prefix: &str, content: &D) -> String
-where
-    D: Display,
-{
-    match text_width() {
-        Some(width) => Wrapper::with_splitter(width, NoHyphenation)
-            .subsequent_indent(WRAP_INDENT)
-            .break_words(false)
-            .fill(&format!("{} {}", prefix, content))
-            .replace(prefix, ""),
-        None => format!(" {}", content),
+    // if the verbose or quiet flags are passed in, they take precedence over
+    // the env variable's log level. If nothing is passed in (no env, no flags)
+    // default to `Info` level logging
+    if verbose || quiet || env_log_level.is_err() {
+        let flag_log_level = match (verbose, quiet) {
+            (false, false) => Info, // default
+            (false, true) => Error,
+            (true, false) => Debug,
+            (true, true) => unreachable!("Cannot pass verbose and quiet flags"),
+        };
+        env_logger::builder()
+            .filter_level(flag_log_level)
+            // only show timestamps on verbose and trace levels
+            // only show module path on verbose and trace levels
+            .format_timestamp(None)
+            .format_module_path(verbose)
+            .init()
+    } else {
+        let env_filter = env_logger::Env::default().filter(APOLLO_LOG_LEVEL);
+        let log_level_unwrapped = env_log_level.unwrap().to_lowercase();
+        // only show timestamps on verbose and trace levels
+        // only show module path on verbose and trace levels
+        let print_module_path =
+            log_level_unwrapped.contains("debug") || log_level_unwrapped.contains("trace");
+        env_logger::Builder::from_env(env_filter)
+            .format_timestamp(None)
+            .format_module_path(print_module_path)
+            .init()
     }
-}
-
-/// Determines the correct logging level based on the environment
-/// If APOLLO_LOGLEVEL is set to a valid level, we use that
-/// If not, we check the current stdout to determine whether it is a TTY or not
-///     If it is a TTY, we use Info
-///     If it is NOT a TTY, we use Error as we don't want to show warnings when running as a script
-fn level_from_env() -> LevelFilter {
-    env::var(APOLLO_LOGLEVEL)
-        .ok()
-        .and_then(|level| level.to_uppercase().parse().ok())
-        .unwrap_or_else(|| {
-            if atty::is(Stream::Stdout) {
-                LevelFilter::Info
-            } else {
-                LevelFilter::Error
-            }
-        })
 }
