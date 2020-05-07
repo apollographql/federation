@@ -13,7 +13,7 @@ The atlas describes points in the graph.
 &#8220;A point in the graph&#8221; might be represented in many ways, for example:
 - a token within a schema file
 - a token within a query against a particular schema
-- the type or other schema element associated with some universal resource identifier (an atlas URL, for example).
+- the type or other schema element associated with some universal resource identifier (an atlas url, for example).
 
 For each point in the graph, there are various things we'll want to know:
 - for types:
@@ -38,10 +38,10 @@ extend type User @from(type: "users.User") {
 `@from(type: "users.User")` references a type from somewhere in the graph. Maybe it's defined in this file. Maybe it's defined in a nearby file. Or maybe it's defined extremely elsewhere, as part of another graph with wholly different owners. Regardless, this is the question for us: what does `users.User` mean? Does it refer to anything, and what is that thing, what fields does it have, what endpoints can serve it, and so on?
 
 In particular, the compiler needs to be able to retrieve at least:
-- **a uri.** some universal identifier for the resolved type distinguishing it from all other types named `User`, in this or any other atlas.
-- **a set of fields for this type.** including all applied extensions, and so on. At a minimum, the compiler needs this information in order to emit the type into the generated `gql`
-- **metadata about this type (i.e. directives).** which may alter the way it's compiled
-- **transitive dependencies.** all of the above for types referenced from every field, and their fields, and so on.
+- **a unique id** that distinguishes this type from all other types named `User`, in this or any other atlas.
+- **a set of fields for this type** including fields declared in applied extensions. The compiler ultimately needs this information in order to emit the type into the generated graphql.
+- **metadata about this type (i.e. directives)** which may alter the way it's compiled
+- **all of the above for transitive dependencies** such as the types referenced via fields and field inputs
 
 ### Support language servers
 
@@ -92,7 +92,7 @@ We use the term *point* to refer to all the stuff in a graph. These are all poin
 - directives
 - schemas
 
-### `atlas:` URLs uniquely address points
+### `atlas:` urls uniquely address points
 
 Technically atlas URLs are URIs or maybe URNs but [WHATWG basically thinks the distinction is unnecessary and confusing](https://url.spec.whatwg.org/#goals) so we'll just follow their lead and call them URLs.
 
@@ -208,15 +208,15 @@ Why? Because atlases control access by granting users the ability to write diffe
 #### URLs end with the layer
 
 ```
-atlas::schema.Type?path=file://some/wkspce/schema.stars
-atlas::schema.Type?path=file://some/wkspce/schema.stars&ver=2
+atlas::schema.Type?path=file://some/wkspce/schema.star
+atlas::schema.Type?path=file://some/wkspce/schema.star&ver=2
 ```
 
 Layers are described in more detail in the [next section](#atlas-layers).
 
-### Layers
+### Layers stack to form the atlas
 
-When accessed from some particular client, atlas data is likely strewn across various locales. 
+When accessed from some particular client, atlas data is likely strewn across various places. We call these *layers*.
 
 For example, when compiling types against the public atlas, the layers might include:
   - schema files in the workspace
@@ -229,7 +229,7 @@ For many purposes, it's not important to distinguish between different layers of
 
 ### Schema
 
-Details TK, the atlas provides [a schema](./primer/atlas.stars) very much like the introspection schema, but extended with:
+Details TK, the atlas provides [a schema](./primer/atlas.star) very much like the introspection schema, but extended with:
   - the ability to track directives and where they're applied
   - a `URL` scalar which holds an atlas url
   - `id: URL` fields on all schema elements
@@ -239,7 +239,7 @@ Additional schemas can compose with the atlas core schema, providing queries by 
 
 ## Filesystem binding
 
-### Resolving references
+### References resolve via scoped lookup
 
 Consider [this gql]('./fixtures/basic/admin.gql):
 
@@ -259,10 +259,10 @@ extend type users.User {
 
 In either case, to complete the type `User`, the compiler needs to resolve `users.User`. This happens in two steps:
 
-1. first, we look up the first part of the dotted path—`user`, by scanning up the [scope chain](#scope-chain) until a scope is found in which the name `user` has been defined.
+1. first, we look up the first part of the dotted path—`user`, by scanning up the [scope chain](#scopes-mirror-the-file-tree) until a scope is found in which the name `user` has been defined.
 2. then, we descend into that definition, looking for a `User` element.
 
-### Scope chain
+### Scopes mirror the file tree
 
 The scope chain consists of:
 
@@ -272,25 +272,24 @@ The scope chain consists of:
 2. The **schema namespace**, containing:
     - all types explicitly declared in the schema file
     - all names introduced with `let`
-3. For each ancestor directory up to the [atlas root](#atlas-root), the namespace of that directory, containing:
-    - the base names (extension stripped) of all files with recognized schema extensions: `.stars`, `.gql`, and `.graphql`. It is an error for two sibling schemas to share a base name (i.e. you cannot have `users.stars` and `users.gql` as siblings in the same directory); the compiler will warn about this situation and refuse to resolve the name entirely.
-    - the names of any directories containing 
+3. For each ancestor directory up to the [atlas root](#atlas-root) or filesystem root, the namespace of that directory, containing:
+    - the base names (extension stripped) of all files with recognized schema extensions: `.star`, `.gql`, and `.graphql`. It is an error for two sibling schemas to share a base name (i.e. you cannot have `users.star` and `users.gql` as siblings in the same directory); the compiler will warn about this situation and refuse to resolve the name entirely.
+    - the names of any directories containing, in themselves or their 
+4. If the root is a child, the scope chain continues up the directory tree to the next atlas root.
     
     
 ### atlas root
 
-A `.atlas` directory marks the root* of a constellation project. (* — Unless configured to be a child, by setting `child` in `atlas.toml` to `true`; sub-constellations configured as children allow name lookups continue up the directory tree).
+A `.atlas` directory marks the root of a constellation analagously to how a `.git` directory marks the root of a git repository.
 
-Specifically, an `.atlas` directory contains an `atlas.toml` file, which looks like [this](./.atlas/atlas.toml):
+An empty `.atlas` directory is a valid root.
+
+Specifically, an `.atlas` directory contains an `atlas.toml` file, which takes [this form](./.atlas/atlas.toml):
 
 ```toml
 # should atlas lookup proceed up the directory structure?
 #   default: false
 child = false
-
-# default atlas to use when none is specified.
-#   default: “main”
-default = "main"
 
 [atlases.main]
   id = "31498eaba8eb44d5a4ecc4acf7471469"
@@ -303,7 +302,7 @@ default = "main"
 
 This `atlas.toml` defines two atlases: `main` and `internal`.
 
-`main` is the default atlas (specified explicitly here, though that’s unnecessary, as it’s the default). There’s nothing special about main atlas, really, except that it’s the atlas that’s used if no atlas is specified.
+`main` is the default atlas. There’s nothing special about main atlas, really, except that it’s the atlas that’s used if no atlas is specified.
 
 `.atlas` directories may have a cache. If present, the cache is treated as read only unless explicitly updated.
 
@@ -317,7 +316,7 @@ TK, but generally we use cacache holding the current state for each atlas under 
 
 ## Distributed data format
 
-We can represent an atlas as a collection of signed structs. These are sketched in [data.stars](./data.stars).
+We can represent an atlas as a collection of signed structs. These are sketched in [data.star](./data.star).
 
 The first such struct an *axiom*. It's nothing more than a message describing the atlas and signed by some identity. The hash of the entire axiom becomes the atlas' id.
 
