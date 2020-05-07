@@ -61,12 +61,15 @@ pub enum Subcommand {
     #[structopt(name = "login")]
     ///  🔓  log in to apollo
     Login(commands::Login),
+    ///  🖨   parse and pretty print schemas to stdout
+    Print(commands::Print),
 }
 
 impl Subcommand {
     pub fn run(self) {
         match self {
             Subcommand::Login(login) => login.run(),
+            Subcommand::Print(print) => print.run(),
         }
     }
 }
