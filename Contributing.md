@@ -187,18 +187,29 @@ The `ap` CLI aims to provide a stable, consistent, and transparent tool for deve
 
 ### Logging
 
-One critical component in any tool is proper and clear logging. We leverage a crate called `log` to build out a custom logging utility that can be used by any command to provide users with controllable, flag-configurable logging. When users pass the `--verbose` flag, we want to log everything, providing some help with debugging issues. When users pass the `--quiet` flag, we want the CLI to be as silent as reasonably possible.
+One critical component in any tool is proper and clear logging. We leverage a crate called `env_logger` to build out a custom logging utility that can be used by any command to provide users with controllable, flag-configurable logging.
 
-To support most logging use cases, there are 4 macros provided: `error!`, `warn!`, `info!` and `debug!`, where `error!` represents the highest-priority log messages and `debug!` the lowest. `error!` and `warn!` print to `stderr` whereas `info` and `debug` print to `stdout`. All of these macros accept format strings, similar to `println!`, and their output is prefixed with their message type (except for `info`) like so:
+To support most logging use cases, there are 5 macros provided: `error!`, `warn!`, `info!` and `debug!`, where `error!` represents the highest-priority log messages and `debug!` the lowest. `error!` and `warn!` print to `stderr` whereas `info` and `debug` print to `stdout`. All of these macros accept format strings, similar to `println!`, and their output is prefixed with their message type like so:
 
 ```
-error: this is an error message
-warning:  this is a warning message
-this is an info message
-[verbose] this is a debug message
+[ERROR] this is an error message
+[WARN]  this is a warning message
+[INFO] this is an info message
+[DEBUG] this is a debug message
+[TRACE] this is a trace message
 ```
 
-By default, all log messages _except_ `debug` messages are shown. In `--verbose` mode, `debug` messages will be shown as well. In `--quiet` mode, only `error` messages will be printed, and should signify a critical error in execution. Use these macros at your discretion.
+**`APOLLO_LOG_LEVEL`**
+
+Setting the `APOLLO_LOG_LEVEL` env variable controls what levels of messages are printed. For example, `APOLLO_LOG_LEVEL=warn` will only print messages with precedence of `warn` or higher. There are 5 levels of messages: `error`, `warn`, `info`, `debug`, and `trace`, where `error` has the highest precedence and `trace` has the lowest. If you want to see `trace` messages, you must use the env variable, since traces are expected to be extremely loud.
+
+The env variable can also be used to filter messages by module. For example, if you only wanted print messages from the `commands::login` module of a `info` or higher precedence, you could set the `APOLLO_LOG_LEVEL=apollo_cli::commands::login=info`.
+
+**`--verbose` and `--quiet`**
+
+There are two flags that are used to control log levels, `--verbose` and `--quiet`, and they can be used with any command. `--verbose` prints messages with a `verbose` or higher precedence (ignoring `trace` level messages). `--quiet` only prints `error` messages (since they are breaking errors and no usable output is expected).
+
+Flags will take precedence over any `APOLLO_LOG_LEVEL` env variable, and trying to use both at the same time will result in a warning.
 
 ## Pipelines
 
