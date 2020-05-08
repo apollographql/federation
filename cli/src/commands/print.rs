@@ -1,11 +1,24 @@
 use crate::commands::Command;
-use crate::commands::Print;
 
 use graphql_parser::parse_schema;
 use std::fs;
+use std::path::PathBuf;
+use structopt::StructOpt;
+
+#[derive(StructOpt)]
+#[structopt(rename_all = "kebab-case")]
+pub struct Print {
+    #[structopt(short = "h", long)]
+    /// suppress headers when printing multiple files
+    pub no_headers: bool,
+
+    #[structopt(parse(from_os_str))]
+    /// schemas to print
+    pub files: Vec<PathBuf>,
+}
 
 impl Command for Print {
-    fn run(&self) {
+    fn run(self) {
         let printing_headers = !self.no_headers && self.files.len() > 1;
         self.files.iter().for_each(move |file| {
             let schema = fs::read_to_string(file).expect("reading schema");
