@@ -223,7 +223,7 @@ mod windows {
             .arg("--debug")
             .assert()
             .code(0)
-            .stdout(predicate::str::contains("Setup complete"));
+            .stderr(predicate::str::contains("Setup complete"));
 
         key.set_value("Path", &current_path)?;
 
