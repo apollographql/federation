@@ -25,6 +25,7 @@ pub fn init_logger(verbose: bool, quiet: bool, env_log_level: Result<String, Var
         };
         env_logger::builder()
             .filter_level(flag_log_level)
+            .format_level(false)
             // only show timestamps on verbose and trace levels
             // only show module path on verbose and trace levels
             .format_timestamp(None)
@@ -38,6 +39,7 @@ pub fn init_logger(verbose: bool, quiet: bool, env_log_level: Result<String, Var
         let print_module_path =
             log_level_unwrapped.contains("debug") || log_level_unwrapped.contains("trace");
         env_logger::Builder::from_env(env_filter)
+            .format_level(false)
             .format_timestamp(None)
             .format_module_path(print_module_path)
             .init()

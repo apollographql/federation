@@ -54,7 +54,7 @@ mod unix {
             .env("HOME", dir.path())
             .assert()
             .code(0)
-            .stdout(predicate::str::contains("Setup complete"));
+            .stderr(predicate::str::contains("Setup complete"));
 
         let profile_buf = read_profile(profile)?;
         assert_eq!(true, has_apollo.eval(&profile_buf));
@@ -87,7 +87,7 @@ mod unix {
             .env("HOME", dir.path())
             .assert()
             .code(0)
-            .stdout(predicate::str::contains("Setup complete"));
+            .stderr(predicate::str::contains("Setup complete"));
 
         let fish_buf = read_profile(fish)?;
         assert_eq!(true, has_apollo.eval(&fish_buf));
@@ -106,11 +106,10 @@ mod unix {
         writeln!(profile, "# .apollo/bin")?;
 
         cli.arg("setup")
-            .arg("--verbose")
             .env("HOME", dir.path())
             .assert()
             .code(0)
-            .stdout(predicate::str::contains("Setup complete"));
+            .stderr(predicate::str::contains("Setup complete"));
 
         let profile_buf = read_profile(profile)?;
         assert_eq!(false, has_apollo.eval(&profile_buf));
@@ -138,7 +137,7 @@ mod unix {
             .env("PROFILE", &path.to_string_lossy().to_string())
             .assert()
             .code(0)
-            .stdout(predicate::str::contains("Setup complete"));
+            .stderr(predicate::str::contains("Setup complete"));
 
         let profile_buf = read_profile(profile)?;
         assert_eq!(true, has_apollo.eval(&profile_buf));
@@ -162,7 +161,7 @@ mod unix {
 
         cli.arg("setup")
             .env("HOME", dir.path())
-            .env("APOLLO_LOGLEVEL", "warn")
+            .env("APOLLO_LOG_LEVEL", "warn")
             .assert()
             .code(4)
             .stderr(predicate::str::contains(
