@@ -3,6 +3,7 @@ use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
 use crate::commands::{self, Command};
+use crate::errors::{ExitCode, Fallible};
 
 #[derive(StructOpt)]
 #[structopt(
@@ -39,9 +40,9 @@ pub struct Apollo {
 }
 
 impl Apollo {
-    pub fn run(self) {
+    pub fn run(self) -> Fallible<ExitCode> {
         if let Some(command) = self.command {
-            command.run();
+            command.run()
         } else {
             // per the docs on std::env::arg
             // The first element is traditionally the path of the executable, but it can be set to
@@ -51,7 +52,7 @@ impl Apollo {
                 .next()
                 .expect("Called help without a path to the binary");
 
-            Apollo::from_iter([&command_name, "help"].iter()).run();
+            Apollo::from_iter([&command_name, "help"].iter()).run()
         }
     }
 }
@@ -61,12 +62,13 @@ pub enum Subcommand {
     #[structopt(name = "login")]
     ///  🔓  log in to apollo
     Login(commands::Login),
+    #[structopt(name = "print", setting = AppSettings::Hidden)]
     ///  🖨   parse and pretty print schemas to stdout
     Print(commands::Print),
 }
 
 impl Subcommand {
-    pub fn run(self) {
+    pub fn run(self) -> Fallible<ExitCode> {
         match self {
             Subcommand::Login(login) => login.run(),
             Subcommand::Print(print) => print.run(),
