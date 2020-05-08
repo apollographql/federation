@@ -14,11 +14,6 @@ enum Error {
     // Tool(i32),
 }
 
-enum Error {
-    Apollo(ApolloError),
-    // Tool(i32),
-}
-
 fn main() {
     let cli = cli::Apollo::from_args();
 

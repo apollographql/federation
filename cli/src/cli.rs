@@ -62,6 +62,7 @@ pub enum Subcommand {
     #[structopt(name = "login")]
     ///  🔓  log in to apollo
     Login(commands::Login),
+    #[structopt(name = "print", setting = AppSettings::Hidden)]
     ///  🖨   parse and pretty print schemas to stdout
     Print(commands::Print),
 }
