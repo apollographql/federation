@@ -9,7 +9,7 @@ use crate::style;
 pub struct Setup {}
 
 impl Command for Setup {
-    fn run(self) -> Fallible<ExitCode> {
+    fn run(&self) -> Fallible<ExitCode> {
         os::setup_environment()?;
 
         info!(

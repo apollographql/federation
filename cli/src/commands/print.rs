@@ -19,7 +19,7 @@ pub struct Print {
 }
 
 impl Command for Print {
-    fn run(self) -> Fallible<ExitCode> {
+    fn run(&self) -> Fallible<ExitCode> {
         let printing_headers = !self.no_headers && self.files.len() > 1;
         self.files.iter().for_each(move |file| {
             let schema = fs::read_to_string(file).expect("reading schema");

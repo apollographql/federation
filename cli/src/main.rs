@@ -13,7 +13,6 @@ use crate::errors::{report, ApolloError};
 
 enum Error {
     Apollo(ApolloError),
-    // Tool(i32),
 }
 
 fn main() {
@@ -27,7 +26,6 @@ fn main() {
 
     match result {
         Ok(exit_code) => exit_code.exit(),
-        // Err(Error::Tool(code)) => exit(code),
         Err(Error::Apollo(err)) => {
             report(&err);
             let code = err.exit_code();
