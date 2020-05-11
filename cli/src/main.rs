@@ -13,7 +13,6 @@ use crate::errors::{report, ApolloError};
 
 enum Error {
     Apollo(ApolloError),
-    // Tool(i32),
 }
 
 fn main() {
