@@ -1,0 +1,3 @@
+query MyQuery {
+  field1([something])
+}

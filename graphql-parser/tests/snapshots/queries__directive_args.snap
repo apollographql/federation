@@ -1,0 +1,81 @@
+---
+source: graphql-parser/tests/query_roundtrips.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            Operation(
+                Query(
+                    Query {
+                        position: Pos(1:1),
+                        name: None,
+                        variable_definitions: [],
+                        directives: [],
+                        selection_set: SelectionSet {
+                            span: (
+                                Pos(1:7),
+                                Pos(3:1),
+                            ),
+                            items: [
+                                Field(
+                                    Field {
+                                        position: Pos(2:3),
+                                        alias: None,
+                                        name: "node",
+                                        arguments: [],
+                                        directives: [
+                                            Directive {
+                                                position: Pos(2:8),
+                                                name: "dir",
+                                                arguments: [
+                                                    (
+                                                        "a",
+                                                        Int(
+                                                            Number(
+                                                                1,
+                                                            ),
+                                                        ),
+                                                    ),
+                                                    (
+                                                        "b",
+                                                        String(
+                                                            "2",
+                                                        ),
+                                                    ),
+                                                    (
+                                                        "c",
+                                                        Boolean(
+                                                            true,
+                                                        ),
+                                                    ),
+                                                    (
+                                                        "d",
+                                                        Boolean(
+                                                            false,
+                                                        ),
+                                                    ),
+                                                    (
+                                                        "e",
+                                                        Null,
+                                                    ),
+                                                ],
+                                            },
+                                        ],
+                                        selection_set: SelectionSet {
+                                            span: (
+                                                Pos(2:3),
+                                                Pos(2:3),
+                                            ),
+                                            items: [],
+                                        },
+                                    },
+                                ),
+                            ],
+                        },
+                    },
+                ),
+            ),
+        ],
+    },
+)
