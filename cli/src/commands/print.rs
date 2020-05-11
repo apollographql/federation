@@ -13,6 +13,10 @@ pub struct Print {
     /// suppress headers when printing multiple files
     pub no_headers: bool,
 
+    #[structopt(short = "s", long)]
+    /// print the syntax tree
+    pub ast: bool,
+
     #[structopt(parse(from_os_str))]
     /// schemas to print
     pub files: Vec<PathBuf>,
@@ -27,7 +31,11 @@ impl Command for Print {
             if printing_headers {
                 println!("# {}", file.to_str().expect("filename"));
             }
-            println!("{}", doc);
+            if self.ast {
+                println!("{:#?}", doc)
+            } else {
+                println!("{}", doc);
+            }
         });
 
         Ok(ExitCode::Success)
@@ -38,6 +46,7 @@ impl Command for Print {
 fn does_not_fail_with_no_files() -> std::io::Result<()> {
     Print {
         files: vec![],
+        ast: false,
         no_headers: false,
     }
     .run()
@@ -45,6 +54,7 @@ fn does_not_fail_with_no_files() -> std::io::Result<()> {
 
     Print {
         files: vec![],
+        ast: false,
         no_headers: true,
     }
     .run()
