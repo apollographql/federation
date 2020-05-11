@@ -344,6 +344,7 @@ Ok(
                         position: Pos(37:1),
                         description: None,
                         name: "Bar",
+                        implements_interfaces: [],
                         directives: [],
                         fields: [
                             Field {
@@ -391,6 +392,7 @@ Ok(
                         position: Pos(42:1),
                         description: None,
                         name: "AnnotatedInterface",
+                        implements_interfaces: [],
                         directives: [
                             Directive {
                                 position: Pos(42:30),
@@ -442,6 +444,7 @@ Ok(
                         position: Pos(46:1),
                         description: None,
                         name: "UndefinedInterface",
+                        implements_interfaces: [],
                         directives: [],
                         fields: [],
                     },

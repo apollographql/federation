@@ -1,6 +1,7 @@
 interface Mammal implements Animal & WarmBlooded {
   fur: Fur
 }
+
 interface Cat implements Mammal {
   meow: Meow
 }

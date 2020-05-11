@@ -34,7 +34,7 @@ Ok(
             TypeDefinition(
                 Interface(
                     InterfaceType {
-                        position: Pos(4:1),
+                        position: Pos(5:1),
                         description: None,
                         name: "Cat",
                         implements_interfaces: [
@@ -43,7 +43,7 @@ Ok(
                         directives: [],
                         fields: [
                             Field {
-                                position: Pos(5:3),
+                                position: Pos(6:3),
                                 description: None,
                                 name: "meow",
                                 arguments: [],
