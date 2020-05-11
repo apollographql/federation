@@ -7,7 +7,7 @@ use crate::errors::{ExitCode, Fallible};
 pub struct Login {}
 
 impl Command for Login {
-    fn run(self) -> Fallible<ExitCode> {
+    fn run(&self) -> Fallible<ExitCode> {
         Ok(ExitCode::NotYetImplemented)
     }
 }
