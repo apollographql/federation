@@ -1,0 +1,102 @@
+---
+source: graphql-parser/tests/query_roundtrips.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            Operation(
+                Query(
+                    Query {
+                        position: Pos(1:1),
+                        name: None,
+                        variable_definitions: [],
+                        directives: [],
+                        selection_set: SelectionSet {
+                            span: (
+                                Pos(1:7),
+                                Pos(8:1),
+                            ),
+                            items: [
+                                Field(
+                                    Field {
+                                        position: Pos(2:3),
+                                        alias: None,
+                                        name: "node",
+                                        arguments: [],
+                                        directives: [],
+                                        selection_set: SelectionSet {
+                                            span: (
+                                                Pos(2:8),
+                                                Pos(7:3),
+                                            ),
+                                            items: [
+                                                Field(
+                                                    Field {
+                                                        position: Pos(3:5),
+                                                        alias: None,
+                                                        name: "id",
+                                                        arguments: [],
+                                                        directives: [],
+                                                        selection_set: SelectionSet {
+                                                            span: (
+                                                                Pos(3:5),
+                                                                Pos(3:5),
+                                                            ),
+                                                            items: [],
+                                                        },
+                                                    },
+                                                ),
+                                                InlineFragment(
+                                                    InlineFragment {
+                                                        position: Pos(4:9),
+                                                        type_condition: Some(
+                                                            On(
+                                                                "User",
+                                                            ),
+                                                        ),
+                                                        directives: [
+                                                            Directive {
+                                                                position: Pos(4:17),
+                                                                name: "defer",
+                                                                arguments: [],
+                                                            },
+                                                        ],
+                                                        selection_set: SelectionSet {
+                                                            span: (
+                                                                Pos(4:24),
+                                                                Pos(6:5),
+                                                            ),
+                                                            items: [
+                                                                Field(
+                                                                    Field {
+                                                                        position: Pos(5:7),
+                                                                        alias: None,
+                                                                        name: "name",
+                                                                        arguments: [],
+                                                                        directives: [],
+                                                                        selection_set: SelectionSet {
+                                                                            span: (
+                                                                                Pos(5:7),
+                                                                                Pos(5:7),
+                                                                            ),
+                                                                            items: [],
+                                                                        },
+                                                                    },
+                                                                ),
+                                                            ],
+                                                        },
+                                                    },
+                                                ),
+                                            ],
+                                        },
+                                    },
+                                ),
+                            ],
+                        },
+                    },
+                ),
+            ),
+        ],
+    },
+)
