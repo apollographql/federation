@@ -1,0 +1,34 @@
+---
+source: graphql-parser/tests/schemas.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            TypeDefinition(
+                Enum(
+                    EnumType {
+                        position: Pos(1:1),
+                        description: None,
+                        name: "Site",
+                        directives: [],
+                        values: [
+                            EnumValue {
+                                position: Pos(2:3),
+                                description: None,
+                                name: "DESKTOP",
+                                directives: [],
+                            },
+                            EnumValue {
+                                position: Pos(3:3),
+                                description: None,
+                                name: "MOBILE",
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+        ],
+    },
+)
