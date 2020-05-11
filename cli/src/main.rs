@@ -1,7 +1,9 @@
 mod cli;
 mod commands;
 mod errors;
+mod layout;
 mod log;
+mod style;
 
 use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 use std::env::var;

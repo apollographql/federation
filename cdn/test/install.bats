@@ -74,13 +74,14 @@ setup() {
   mkdir "$BINDIR"
   cd "$BINDIR"
   PATH="$DESTDIR:$PATH"
+  
   function uname() { echo "Darwin"; }
   export -f uname
 
   run download_and_install
   
   assert_success
-  assert [ -x "${DESTDIR}/ap" ]
+  assert [ -x "${DESTDIR}/.apollo/bin/ap" ]
   unstub curl
 }
 
@@ -125,7 +126,7 @@ setup() {
   stub curl \
     "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar"  \
     "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/apollo-cli/releases/latest/ : echo https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1"  \
-    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
+    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/ap-v0.0.1-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
 
   run run_main
   assert_success
@@ -139,7 +140,7 @@ setup() {
   # intentionally missing .gz to fail install
   stub curl \
     "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar"  \
-    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
+    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/ap-v0.0.1-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
 
   run run_main
   assert_success
