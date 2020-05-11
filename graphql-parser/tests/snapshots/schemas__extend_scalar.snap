@@ -1,0 +1,25 @@
+---
+source: graphql-parser/tests/schemas.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            TypeExtension(
+                Scalar(
+                    ScalarTypeExtension {
+                        position: Pos(1:8),
+                        name: "CustomScalar",
+                        directives: [
+                            Directive {
+                                position: Pos(1:28),
+                                name: "onScalar",
+                                arguments: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+        ],
+    },
+)

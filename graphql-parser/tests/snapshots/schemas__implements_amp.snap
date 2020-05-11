@@ -1,0 +1,39 @@
+---
+source: graphql-parser/tests/schemas.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            TypeDefinition(
+                Object(
+                    ObjectType {
+                        position: Pos(1:1),
+                        description: None,
+                        name: "Type1",
+                        implements_interfaces: [
+                            "IOne",
+                            "ITwo",
+                        ],
+                        directives: [],
+                        fields: [],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Object(
+                    ObjectType {
+                        position: Pos(2:1),
+                        description: None,
+                        name: "Type2",
+                        implements_interfaces: [
+                            "IOne",
+                        ],
+                        directives: [],
+                        fields: [],
+                    },
+                ),
+            ),
+        ],
+    },
+)

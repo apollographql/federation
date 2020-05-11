@@ -1,0 +1,21 @@
+---
+source: graphql-parser/tests/schemas.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            SchemaDefinition(
+                SchemaDefinition {
+                    position: Pos(1:1),
+                    directives: [],
+                    query: Some(
+                        "Query",
+                    ),
+                    mutation: None,
+                    subscription: None,
+                },
+            ),
+        ],
+    },
+)

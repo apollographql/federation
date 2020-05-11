@@ -1,0 +1,44 @@
+---
+source: graphql-parser/tests/schemas.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            TypeExtension(
+                Interface(
+                    InterfaceTypeExtension {
+                        position: Pos(1:8),
+                        name: "Bar",
+                        directives: [],
+                        fields: [
+                            Field {
+                                position: Pos(2:3),
+                                description: None,
+                                name: "two",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(2:7),
+                                        description: None,
+                                        name: "argument",
+                                        value_type: NonNullType(
+                                            NamedType(
+                                                "InputType",
+                                            ),
+                                        ),
+                                        default_value: None,
+                                        directives: [],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "Type",
+                                ),
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+        ],
+    },
+)
