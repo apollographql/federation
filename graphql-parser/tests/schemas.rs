@@ -67,3 +67,5 @@ fn test_canonical(filename: &str, canonical_filename: &str) {
 #[test] fn kitchen_sink() { test_canonical("kitchen-sink", "kitchen-sink_canonical"); }
 #[test] fn directive_descriptions() { test_canonical("directive_descriptions", "directive_descriptions_canonical"); }
 #[test] fn fail_onion() { test("fail_onion"); }
+#[test] fn interface_implements() { test("interface_implements"); }
+
