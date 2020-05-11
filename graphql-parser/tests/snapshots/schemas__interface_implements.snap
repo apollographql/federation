@@ -1,0 +1,61 @@
+---
+source: graphql-parser/tests/schemas.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            TypeDefinition(
+                Interface(
+                    InterfaceType {
+                        position: Pos(1:1),
+                        description: None,
+                        name: "Mammal",
+                        implements_interfaces: [
+                            "Animal",
+                            "WarmBlooded",
+                        ],
+                        directives: [],
+                        fields: [
+                            Field {
+                                position: Pos(2:3),
+                                description: None,
+                                name: "fur",
+                                arguments: [],
+                                field_type: NamedType(
+                                    "Fur",
+                                ),
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Interface(
+                    InterfaceType {
+                        position: Pos(4:1),
+                        description: None,
+                        name: "Cat",
+                        implements_interfaces: [
+                            "Mammal",
+                        ],
+                        directives: [],
+                        fields: [
+                            Field {
+                                position: Pos(5:3),
+                                description: None,
+                                name: "meow",
+                                arguments: [],
+                                field_type: NamedType(
+                                    "Meow",
+                                ),
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+        ],
+    },
+)
