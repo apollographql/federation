@@ -2,48 +2,51 @@ extern crate graphql_parser;
 #[cfg(test)] #[macro_use] extern crate pretty_assertions;
 use insta::assert_debug_snapshot;
 
-use std::io::Read;
-use std::fs::File;
+use std::fs::read_to_string;
+use std::path::Path;
 
 use graphql_parser::parse_query;
 
-/// Test a parse_query roundtrip.
-///
-/// Assumes the source is already in canonical form and validates the intermediate
-/// Result with a snapshot test.
-fn test(filename: &str) {
-    let mut buf = String::with_capacity(1024);
-    let path = format!("tests/queries/{}.graphql", filename);
-    let mut f = File::open(&path).unwrap();
-    f.read_to_string(&mut buf).unwrap();
-    let result = parse_query::<String>(&buf);       
-    assert_debug_snapshot!(filename, result);
-    if let Ok(ast) = result {
-        let buf = buf.replace("\r\n", "\n");
-        assert_eq!(ast.to_string(), buf);
-    }
+/// A text file represented with two types of line endings.
+struct TextFile {
+    /// \n
+    unix: String,
+
+    /// \r\n
+    win: String,
+}
+
+/// Load a text file, converting it to both windows and unix
+/// line endings. Panics if src is unavailable.
+fn load(filename: &str) -> TextFile {
+    let unix = read_to_string(filename).unwrap().replace("\r\n", "\n");
+    let win = unix.replace("\n", "\r\n");
+    TextFile { unix, win }
 }
 
 /// Test a parse_query roundtrip, comparing the parsed string against a non-canonical
 ///
 /// Takes a second filename which holds the tree in canonical form.
-fn test_canonical(filename: &str, canonical_filename: &str) {
-    let mut buf = String::with_capacity(1024);
-    let source = format!("tests/queries/{}.graphql", filename);
-    let target = format!("tests/queries/{}.graphql", canonical_filename);
-    let mut f = File::open(&source).unwrap();
-    f.read_to_string(&mut buf).unwrap();
-    let result = parse_query::<String>(&buf);
-    assert_debug_snapshot!(filename, result);
+fn test(src: &str) {
+    let source_path = format!("tests/queries/{}.graphql", src);
 
-    // read the canonical representation
-    let mut buf = String::with_capacity(buf.capacity());
-    let mut f = File::open(&target).unwrap();
-    f.read_to_string(&mut buf).unwrap();
+    let source = load(&source_path);
+    let result_unix = parse_query::<String>(&source.unix);
+    assert_debug_snapshot!(src, result_unix);
 
-    if let Ok(ast) = result {
-        let buf = buf.replace("\r\n", "\n");
-        assert_eq!(ast.to_string(), buf);
+    let result_win = parse_query::<String>(&source.win);
+    assert_debug_snapshot!(src.to_owned() + "_win", result_win);
+
+    for result in &[result_unix, result_win] {
+        if let Ok(ast) = result {
+            let canonical_path = format!("tests/queries/{}.canonical.graphql", src);
+            let canonical = if Path::new(&canonical_path).exists() {
+                load(&canonical_path).unix
+            } else {
+                source.unix.to_owned()
+            };
+            assert_eq!(ast.to_string(), canonical);
+        }
     }
 }
 
@@ -72,6 +75,6 @@ fn test_canonical(filename: &str, canonical_filename: &str) {
 #[test] fn minimal_mutation() { test("minimal_mutation"); }
 #[test] fn fragment() { test("fragment"); }
 #[test] fn directive_args() { test("directive_args"); }
-#[test] fn kitchen_sink() { test_canonical("kitchen-sink", "kitchen-sink_canonical"); }
+#[test] fn kitchen_sink() { test("kitchen-sink"); }
 #[test] fn fail_querry() { test("fail_querry"); }
 #[test] fn fail_bad_args() { test("fail_bad_args"); }

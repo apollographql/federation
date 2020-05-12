@@ -1,0 +1,68 @@
+---
+source: graphql-parser/tests/queries.rs
+expression: result_win
+---
+Ok(
+    Document {
+        definitions: [
+            Operation(
+                Query(
+                    Query {
+                        position: Pos(1:1),
+                        name: None,
+                        variable_definitions: [],
+                        directives: [],
+                        selection_set: SelectionSet {
+                            span: (
+                                Pos(1:7),
+                                Pos(6:1),
+                            ),
+                            items: [
+                                Field(
+                                    Field {
+                                        position: Pos(2:3),
+                                        alias: None,
+                                        name: "node",
+                                        arguments: [],
+                                        directives: [],
+                                        selection_set: SelectionSet {
+                                            span: (
+                                                Pos(2:8),
+                                                Pos(5:3),
+                                            ),
+                                            items: [
+                                                Field(
+                                                    Field {
+                                                        position: Pos(3:5),
+                                                        alias: None,
+                                                        name: "id",
+                                                        arguments: [],
+                                                        directives: [],
+                                                        selection_set: SelectionSet {
+                                                            span: (
+                                                                Pos(3:5),
+                                                                Pos(3:5),
+                                                            ),
+                                                            items: [],
+                                                        },
+                                                    },
+                                                ),
+                                                FragmentSpread(
+                                                    FragmentSpread {
+                                                        position: Pos(4:8),
+                                                        fragment_name: "something",
+                                                        directives: [],
+                                                    },
+                                                ),
+                                            ],
+                                        },
+                                    },
+                                ),
+                            ],
+                        },
+                    },
+                ),
+            ),
+        ],
+    },
+)
