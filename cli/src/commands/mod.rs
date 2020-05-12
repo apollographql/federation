@@ -1,5 +1,6 @@
 pub mod login;
 pub mod print;
+pub mod schema;
 pub mod setup;
 
 pub use login::Login;

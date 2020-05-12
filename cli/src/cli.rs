@@ -44,15 +44,7 @@ impl Apollo {
         if let Some(command) = self.command {
             command.run()
         } else {
-            // per the docs on std::env::arg
-            // The first element is traditionally the path of the executable, but it can be set to
-            // arbitrary text, and may not even exist. This means this property should not be
-            // relied upon for security purposes.
-            let command_name = args()
-                .next()
-                .expect("Called help without a path to the binary");
-
-            Apollo::from_iter([&command_name, "help"].iter()).run()
+            run_command(&mut vec!["help".to_string()])
         }
     }
 }
@@ -62,6 +54,14 @@ pub enum Subcommand {
     #[structopt(name = "login")]
     ///  🔓  log in to apollo
     Login(commands::Login),
+
+    #[structopt(name = "schema")]
+    ///  ⚛   manage your schema
+    Schema {
+        #[structopt(subcommand)]
+        command: Option<commands::schema::SchemaCommand>,
+    },
+
     #[structopt(name = "print", setting = AppSettings::Hidden)]
     ///  🖨   parse and pretty print schemas to stdout
     Print(commands::Print),
@@ -76,6 +76,24 @@ impl Subcommand {
             Subcommand::Login(login) => login.run(),
             Subcommand::Print(print) => print.run(),
             Subcommand::Setup(setup) => setup.run(),
+            Subcommand::Schema { command } => match command {
+                Some(cmd) => cmd.run(),
+                None => run_command(&mut vec!["schema".to_string(), "help".to_string()]),
+            },
         }
     }
+}
+
+fn run_command(cmd: &mut Vec<String>) -> Fallible<ExitCode> {
+    // per the docs on std::env::arg
+    // The first element is traditionally the path of the executable, but it can be set to
+    // arbitrary text, and may not even exist. This means this property should not be
+    // relied upon for security purposes.
+    let command_name = args()
+        .next()
+        .expect("Called help without a path to the binary");
+
+    cmd.insert(0, command_name);
+
+    Apollo::from_iter(cmd.iter()).run()
 }
