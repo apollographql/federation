@@ -1,0 +1,37 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            TypeDefinition(
+                Scalar(
+                    ScalarType {
+                        position: Pos(2:1),
+                        description: Some(
+                            "This is the best scalar type",
+                        ),
+                        name: "BestType",
+                        directives: [
+                            Directive {
+                                position: Pos(2:17),
+                                name: "perfectness",
+                                arguments: [
+                                    (
+                                        "value",
+                                        Int(
+                                            Number(
+                                                100500,
+                                            ),
+                                        ),
+                                    ),
+                                ],
+                            },
+                        ],
+                    },
+                ),
+            ),
+        ],
+    },
+)

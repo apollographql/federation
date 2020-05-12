@@ -1,9 +1,0 @@
----
-source: graphql-parser/tests/test.rs
-expression: result_unix
----
-Err(
-    ParseError(
-        "Parse error at 1:1\nUnexpected `\"\"\"\nDirects the executor to include this field or fragment only when the `if` argument is true.\n\"\"\"[BlockString]`\nExpected `{`, `query`, `mutation`, `subscription` or `fragment`\n",
-    ),
-)
