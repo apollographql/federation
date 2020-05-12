@@ -1,0 +1,946 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            SchemaDefinition(
+                SchemaDefinition {
+                    position: Pos(10:1),
+                    directives: [],
+                    query: Some(
+                        "QueryType",
+                    ),
+                    mutation: Some(
+                        "MutationType",
+                    ),
+                    subscription: None,
+                },
+            ),
+            TypeDefinition(
+                Object(
+                    ObjectType {
+                        position: Pos(19:1),
+                        description: Some(
+                            "This is a description\nof the `Foo` type.\n",
+                        ),
+                        name: "Foo",
+                        implements_interfaces: [
+                            "Bar",
+                            "Baz",
+                        ],
+                        directives: [],
+                        fields: [
+                            Field {
+                                position: Pos(20:3),
+                                description: None,
+                                name: "one",
+                                arguments: [],
+                                field_type: NamedType(
+                                    "Type",
+                                ),
+                                directives: [],
+                            },
+                            Field {
+                                position: Pos(21:3),
+                                description: None,
+                                name: "two",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(21:7),
+                                        description: None,
+                                        name: "argument",
+                                        value_type: NonNullType(
+                                            NamedType(
+                                                "InputType",
+                                            ),
+                                        ),
+                                        default_value: None,
+                                        directives: [],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "Type",
+                                ),
+                                directives: [],
+                            },
+                            Field {
+                                position: Pos(22:3),
+                                description: None,
+                                name: "three",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(22:9),
+                                        description: None,
+                                        name: "argument",
+                                        value_type: NamedType(
+                                            "InputType",
+                                        ),
+                                        default_value: None,
+                                        directives: [],
+                                    },
+                                    InputValue {
+                                        position: Pos(22:30),
+                                        description: None,
+                                        name: "other",
+                                        value_type: NamedType(
+                                            "String",
+                                        ),
+                                        default_value: None,
+                                        directives: [],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "Int",
+                                ),
+                                directives: [],
+                            },
+                            Field {
+                                position: Pos(23:3),
+                                description: None,
+                                name: "four",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(23:8),
+                                        description: None,
+                                        name: "argument",
+                                        value_type: NamedType(
+                                            "String",
+                                        ),
+                                        default_value: Some(
+                                            String(
+                                                "string",
+                                            ),
+                                        ),
+                                        directives: [],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "String",
+                                ),
+                                directives: [],
+                            },
+                            Field {
+                                position: Pos(24:3),
+                                description: None,
+                                name: "five",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(24:8),
+                                        description: None,
+                                        name: "argument",
+                                        value_type: ListType(
+                                            NamedType(
+                                                "String",
+                                            ),
+                                        ),
+                                        default_value: Some(
+                                            List(
+                                                [
+                                                    String(
+                                                        "string",
+                                                    ),
+                                                    String(
+                                                        "string",
+                                                    ),
+                                                ],
+                                            ),
+                                        ),
+                                        directives: [],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "String",
+                                ),
+                                directives: [],
+                            },
+                            Field {
+                                position: Pos(25:3),
+                                description: None,
+                                name: "six",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(25:7),
+                                        description: None,
+                                        name: "argument",
+                                        value_type: NamedType(
+                                            "InputType",
+                                        ),
+                                        default_value: Some(
+                                            Object(
+                                                {
+                                                    "key": String(
+                                                        "value",
+                                                    ),
+                                                },
+                                            ),
+                                        ),
+                                        directives: [],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "Type",
+                                ),
+                                directives: [],
+                            },
+                            Field {
+                                position: Pos(26:3),
+                                description: None,
+                                name: "seven",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(26:9),
+                                        description: None,
+                                        name: "argument",
+                                        value_type: NamedType(
+                                            "Int",
+                                        ),
+                                        default_value: Some(
+                                            Null,
+                                        ),
+                                        directives: [],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "Type",
+                                ),
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Object(
+                    ObjectType {
+                        position: Pos(29:1),
+                        description: None,
+                        name: "AnnotatedObject",
+                        implements_interfaces: [],
+                        directives: [
+                            Directive {
+                                position: Pos(29:22),
+                                name: "onObject",
+                                arguments: [
+                                    (
+                                        "arg",
+                                        String(
+                                            "value",
+                                        ),
+                                    ),
+                                ],
+                            },
+                        ],
+                        fields: [
+                            Field {
+                                position: Pos(30:3),
+                                description: None,
+                                name: "annotatedField",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(30:18),
+                                        description: None,
+                                        name: "arg",
+                                        value_type: NamedType(
+                                            "Type",
+                                        ),
+                                        default_value: Some(
+                                            String(
+                                                "default",
+                                            ),
+                                        ),
+                                        directives: [
+                                            Directive {
+                                                position: Pos(30:40),
+                                                name: "onArg",
+                                                arguments: [],
+                                            },
+                                        ],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "Type",
+                                ),
+                                directives: [
+                                    Directive {
+                                        position: Pos(30:54),
+                                        name: "onField",
+                                        arguments: [],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Object(
+                    ObjectType {
+                        position: Pos(33:1),
+                        description: None,
+                        name: "UndefinedType",
+                        implements_interfaces: [],
+                        directives: [],
+                        fields: [],
+                    },
+                ),
+            ),
+            TypeExtension(
+                Object(
+                    ObjectTypeExtension {
+                        position: Pos(35:8),
+                        name: "Foo",
+                        implements_interfaces: [],
+                        directives: [],
+                        fields: [
+                            Field {
+                                position: Pos(36:3),
+                                description: None,
+                                name: "seven",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(36:9),
+                                        description: None,
+                                        name: "argument",
+                                        value_type: ListType(
+                                            NamedType(
+                                                "String",
+                                            ),
+                                        ),
+                                        default_value: None,
+                                        directives: [],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "Type",
+                                ),
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeExtension(
+                Object(
+                    ObjectTypeExtension {
+                        position: Pos(39:8),
+                        name: "Foo",
+                        implements_interfaces: [],
+                        directives: [
+                            Directive {
+                                position: Pos(39:17),
+                                name: "onType",
+                                arguments: [],
+                            },
+                        ],
+                        fields: [],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Interface(
+                    InterfaceType {
+                        position: Pos(41:1),
+                        description: None,
+                        name: "Bar",
+                        directives: [],
+                        fields: [
+                            Field {
+                                position: Pos(42:3),
+                                description: None,
+                                name: "one",
+                                arguments: [],
+                                field_type: NamedType(
+                                    "Type",
+                                ),
+                                directives: [],
+                            },
+                            Field {
+                                position: Pos(43:3),
+                                description: None,
+                                name: "four",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(43:8),
+                                        description: None,
+                                        name: "argument",
+                                        value_type: NamedType(
+                                            "String",
+                                        ),
+                                        default_value: Some(
+                                            String(
+                                                "string",
+                                            ),
+                                        ),
+                                        directives: [],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "String",
+                                ),
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Interface(
+                    InterfaceType {
+                        position: Pos(46:1),
+                        description: None,
+                        name: "AnnotatedInterface",
+                        directives: [
+                            Directive {
+                                position: Pos(46:30),
+                                name: "onInterface",
+                                arguments: [],
+                            },
+                        ],
+                        fields: [
+                            Field {
+                                position: Pos(47:3),
+                                description: None,
+                                name: "annotatedField",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(47:18),
+                                        description: None,
+                                        name: "arg",
+                                        value_type: NamedType(
+                                            "Type",
+                                        ),
+                                        default_value: None,
+                                        directives: [
+                                            Directive {
+                                                position: Pos(47:28),
+                                                name: "onArg",
+                                                arguments: [],
+                                            },
+                                        ],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "Type",
+                                ),
+                                directives: [
+                                    Directive {
+                                        position: Pos(47:42),
+                                        name: "onField",
+                                        arguments: [],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Interface(
+                    InterfaceType {
+                        position: Pos(50:1),
+                        description: None,
+                        name: "UndefinedInterface",
+                        directives: [],
+                        fields: [],
+                    },
+                ),
+            ),
+            TypeExtension(
+                Interface(
+                    InterfaceTypeExtension {
+                        position: Pos(52:8),
+                        name: "Bar",
+                        directives: [],
+                        fields: [
+                            Field {
+                                position: Pos(53:3),
+                                description: None,
+                                name: "two",
+                                arguments: [
+                                    InputValue {
+                                        position: Pos(53:7),
+                                        description: None,
+                                        name: "argument",
+                                        value_type: NonNullType(
+                                            NamedType(
+                                                "InputType",
+                                            ),
+                                        ),
+                                        default_value: None,
+                                        directives: [],
+                                    },
+                                ],
+                                field_type: NamedType(
+                                    "Type",
+                                ),
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeExtension(
+                Interface(
+                    InterfaceTypeExtension {
+                        position: Pos(56:8),
+                        name: "Bar",
+                        directives: [
+                            Directive {
+                                position: Pos(56:22),
+                                name: "onInterface",
+                                arguments: [],
+                            },
+                        ],
+                        fields: [],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Union(
+                    UnionType {
+                        position: Pos(58:1),
+                        description: None,
+                        name: "Feed",
+                        directives: [],
+                        types: [
+                            "Story",
+                            "Article",
+                            "Advert",
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Union(
+                    UnionType {
+                        position: Pos(60:1),
+                        description: None,
+                        name: "AnnotatedUnion",
+                        directives: [
+                            Directive {
+                                position: Pos(60:22),
+                                name: "onUnion",
+                                arguments: [],
+                            },
+                        ],
+                        types: [
+                            "A",
+                            "B",
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Union(
+                    UnionType {
+                        position: Pos(62:1),
+                        description: None,
+                        name: "AnnotatedUnionTwo",
+                        directives: [
+                            Directive {
+                                position: Pos(62:25),
+                                name: "onUnion",
+                                arguments: [],
+                            },
+                        ],
+                        types: [
+                            "A",
+                            "B",
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Union(
+                    UnionType {
+                        position: Pos(64:1),
+                        description: None,
+                        name: "UndefinedUnion",
+                        directives: [],
+                        types: [],
+                    },
+                ),
+            ),
+            TypeExtension(
+                Union(
+                    UnionTypeExtension {
+                        position: Pos(66:8),
+                        name: "Feed",
+                        directives: [],
+                        types: [
+                            "Photo",
+                            "Video",
+                        ],
+                    },
+                ),
+            ),
+            TypeExtension(
+                Union(
+                    UnionTypeExtension {
+                        position: Pos(68:8),
+                        name: "Feed",
+                        directives: [
+                            Directive {
+                                position: Pos(68:19),
+                                name: "onUnion",
+                                arguments: [],
+                            },
+                        ],
+                        types: [],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Scalar(
+                    ScalarType {
+                        position: Pos(70:1),
+                        description: None,
+                        name: "CustomScalar",
+                        directives: [],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Scalar(
+                    ScalarType {
+                        position: Pos(72:1),
+                        description: None,
+                        name: "AnnotatedScalar",
+                        directives: [
+                            Directive {
+                                position: Pos(72:24),
+                                name: "onScalar",
+                                arguments: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeExtension(
+                Scalar(
+                    ScalarTypeExtension {
+                        position: Pos(74:8),
+                        name: "CustomScalar",
+                        directives: [
+                            Directive {
+                                position: Pos(74:28),
+                                name: "onScalar",
+                                arguments: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Enum(
+                    EnumType {
+                        position: Pos(76:1),
+                        description: None,
+                        name: "Site",
+                        directives: [],
+                        values: [
+                            EnumValue {
+                                position: Pos(77:3),
+                                description: None,
+                                name: "DESKTOP",
+                                directives: [],
+                            },
+                            EnumValue {
+                                position: Pos(78:3),
+                                description: None,
+                                name: "MOBILE",
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Enum(
+                    EnumType {
+                        position: Pos(81:1),
+                        description: None,
+                        name: "AnnotatedEnum",
+                        directives: [
+                            Directive {
+                                position: Pos(81:20),
+                                name: "onEnum",
+                                arguments: [],
+                            },
+                        ],
+                        values: [
+                            EnumValue {
+                                position: Pos(82:3),
+                                description: None,
+                                name: "ANNOTATED_VALUE",
+                                directives: [
+                                    Directive {
+                                        position: Pos(82:19),
+                                        name: "onEnumValue",
+                                        arguments: [],
+                                    },
+                                ],
+                            },
+                            EnumValue {
+                                position: Pos(83:3),
+                                description: None,
+                                name: "OTHER_VALUE",
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                Enum(
+                    EnumType {
+                        position: Pos(86:1),
+                        description: None,
+                        name: "UndefinedEnum",
+                        directives: [],
+                        values: [],
+                    },
+                ),
+            ),
+            TypeExtension(
+                Enum(
+                    EnumTypeExtension {
+                        position: Pos(88:8),
+                        name: "Site",
+                        directives: [],
+                        values: [
+                            EnumValue {
+                                position: Pos(89:3),
+                                description: None,
+                                name: "VR",
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeExtension(
+                Enum(
+                    EnumTypeExtension {
+                        position: Pos(92:8),
+                        name: "Site",
+                        directives: [
+                            Directive {
+                                position: Pos(92:18),
+                                name: "onEnum",
+                                arguments: [],
+                            },
+                        ],
+                        values: [],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                InputObject(
+                    InputObjectType {
+                        position: Pos(94:1),
+                        description: None,
+                        name: "InputType",
+                        directives: [],
+                        fields: [
+                            InputValue {
+                                position: Pos(95:3),
+                                description: None,
+                                name: "key",
+                                value_type: NonNullType(
+                                    NamedType(
+                                        "String",
+                                    ),
+                                ),
+                                default_value: None,
+                                directives: [],
+                            },
+                            InputValue {
+                                position: Pos(96:3),
+                                description: None,
+                                name: "answer",
+                                value_type: NamedType(
+                                    "Int",
+                                ),
+                                default_value: Some(
+                                    Int(
+                                        Number(
+                                            42,
+                                        ),
+                                    ),
+                                ),
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                InputObject(
+                    InputObjectType {
+                        position: Pos(99:1),
+                        description: None,
+                        name: "AnnotatedInput",
+                        directives: [
+                            Directive {
+                                position: Pos(99:22),
+                                name: "onInputObject",
+                                arguments: [],
+                            },
+                        ],
+                        fields: [
+                            InputValue {
+                                position: Pos(100:3),
+                                description: None,
+                                name: "annotatedField",
+                                value_type: NamedType(
+                                    "Type",
+                                ),
+                                default_value: None,
+                                directives: [
+                                    Directive {
+                                        position: Pos(100:24),
+                                        name: "onField",
+                                        arguments: [],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeDefinition(
+                InputObject(
+                    InputObjectType {
+                        position: Pos(103:1),
+                        description: None,
+                        name: "UndefinedInput",
+                        directives: [],
+                        fields: [],
+                    },
+                ),
+            ),
+            TypeExtension(
+                InputObject(
+                    InputObjectTypeExtension {
+                        position: Pos(105:8),
+                        name: "InputType",
+                        directives: [],
+                        fields: [
+                            InputValue {
+                                position: Pos(106:3),
+                                description: None,
+                                name: "other",
+                                value_type: NamedType(
+                                    "Float",
+                                ),
+                                default_value: Some(
+                                    Float(
+                                        12300.0,
+                                    ),
+                                ),
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+            TypeExtension(
+                InputObject(
+                    InputObjectTypeExtension {
+                        position: Pos(109:8),
+                        name: "InputType",
+                        directives: [
+                            Directive {
+                                position: Pos(109:24),
+                                name: "onInputObject",
+                                arguments: [],
+                            },
+                        ],
+                        fields: [],
+                    },
+                ),
+            ),
+            DirectiveDefinition(
+                DirectiveDefinition {
+                    position: Pos(111:1),
+                    description: None,
+                    name: "skip",
+                    arguments: [
+                        InputValue {
+                            position: Pos(111:17),
+                            description: None,
+                            name: "if",
+                            value_type: NonNullType(
+                                NamedType(
+                                    "Boolean",
+                                ),
+                            ),
+                            default_value: None,
+                            directives: [],
+                        },
+                    ],
+                    locations: [
+                        Field,
+                        FragmentSpread,
+                        InlineFragment,
+                    ],
+                },
+            ),
+            DirectiveDefinition(
+                DirectiveDefinition {
+                    position: Pos(113:1),
+                    description: None,
+                    name: "include",
+                    arguments: [
+                        InputValue {
+                            position: Pos(113:20),
+                            description: None,
+                            name: "if",
+                            value_type: NonNullType(
+                                NamedType(
+                                    "Boolean",
+                                ),
+                            ),
+                            default_value: None,
+                            directives: [],
+                        },
+                    ],
+                    locations: [
+                        Field,
+                        FragmentSpread,
+                        InlineFragment,
+                    ],
+                },
+            ),
+            DirectiveDefinition(
+                DirectiveDefinition {
+                    position: Pos(118:1),
+                    description: None,
+                    name: "include2",
+                    arguments: [
+                        InputValue {
+                            position: Pos(118:21),
+                            description: None,
+                            name: "if",
+                            value_type: NonNullType(
+                                NamedType(
+                                    "Boolean",
+                                ),
+                            ),
+                            default_value: None,
+                            directives: [],
+                        },
+                    ],
+                    locations: [
+                        Field,
+                        FragmentSpread,
+                        InlineFragment,
+                    ],
+                },
+            ),
+        ],
+    },
+)

@@ -1,0 +1,23 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            TypeExtension(
+                Union(
+                    UnionTypeExtension {
+                        position: Pos(1:8),
+                        name: "Feed",
+                        directives: [],
+                        types: [
+                            "Photo",
+                            "Video",
+                        ],
+                    },
+                ),
+            ),
+        ],
+    },
+)

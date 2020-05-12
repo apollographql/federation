@@ -1,0 +1,36 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: result
+---
+Ok(
+    Document {
+        definitions: [
+            DirectiveDefinition(
+                DirectiveDefinition {
+                    position: Pos(1:1),
+                    description: None,
+                    name: "skip",
+                    arguments: [
+                        InputValue {
+                            position: Pos(1:17),
+                            description: None,
+                            name: "if",
+                            value_type: NonNullType(
+                                NamedType(
+                                    "Boolean",
+                                ),
+                            ),
+                            default_value: None,
+                            directives: [],
+                        },
+                    ],
+                    locations: [
+                        Field,
+                        FragmentSpread,
+                        InlineFragment,
+                    ],
+                },
+            ),
+        ],
+    },
+)
