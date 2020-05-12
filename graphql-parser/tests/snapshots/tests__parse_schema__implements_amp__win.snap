@@ -5,7 +5,7 @@ expression: result
 Ok(
     Document {
         definitions: [
-            TypeDefinition(
+            Type(
                 Object(
                     ObjectType {
                         position: Pos(1:1),
@@ -20,7 +20,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Object(
                     ObjectType {
                         position: Pos(2:1),

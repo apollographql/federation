@@ -14,10 +14,10 @@ pub struct Document<'a, T: Text<'a>>
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Definition<'a, T: Text<'a>> {
-    SchemaDefinition(SchemaDefinition<'a, T>),
-    TypeDefinition(TypeDefinition<'a, T>),
+    Schema(SchemaDefinition<'a, T>),
+    Type(TypeDefinition<'a, T>),
     TypeExtension(TypeExtension<'a, T>),
-    DirectiveDefinition(DirectiveDefinition<'a, T>),
+    Directive(DirectiveDefinition<'a, T>),
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]

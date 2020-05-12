@@ -5,7 +5,7 @@ expression: result
 Ok(
     Document {
         definitions: [
-            DirectiveDefinition(
+            Directive(
                 DirectiveDefinition {
                     position: Pos(4:1),
                     description: Some(
@@ -35,7 +35,7 @@ Ok(
                     ],
                 },
             ),
-            DirectiveDefinition(
+            Directive(
                 DirectiveDefinition {
                     position: Pos(14:1),
                     description: Some(

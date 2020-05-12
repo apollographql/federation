@@ -5,7 +5,7 @@ expression: result
 Ok(
     Document {
         definitions: [
-            SchemaDefinition(
+            Schema(
                 SchemaDefinition {
                     position: Pos(10:1),
                     directives: [],
@@ -18,7 +18,7 @@ Ok(
                     subscription: None,
                 },
             ),
-            TypeDefinition(
+            Type(
                 Object(
                     ObjectType {
                         position: Pos(19:1),
@@ -211,7 +211,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Object(
                     ObjectType {
                         position: Pos(29:1),
@@ -274,7 +274,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Object(
                     ObjectType {
                         position: Pos(33:1),
@@ -338,7 +338,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Interface(
                     InterfaceType {
                         position: Pos(41:1),
@@ -386,7 +386,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Interface(
                     InterfaceType {
                         position: Pos(46:1),
@@ -438,7 +438,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Interface(
                     InterfaceType {
                         position: Pos(50:1),
@@ -500,7 +500,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Union(
                     UnionType {
                         position: Pos(58:1),
@@ -515,7 +515,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Union(
                     UnionType {
                         position: Pos(60:1),
@@ -535,7 +535,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Union(
                     UnionType {
                         position: Pos(62:1),
@@ -555,7 +555,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Union(
                     UnionType {
                         position: Pos(64:1),
@@ -595,7 +595,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Scalar(
                     ScalarType {
                         position: Pos(70:1),
@@ -605,7 +605,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Scalar(
                     ScalarType {
                         position: Pos(72:1),
@@ -636,7 +636,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Enum(
                     EnumType {
                         position: Pos(76:1),
@@ -660,7 +660,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Enum(
                     EnumType {
                         position: Pos(81:1),
@@ -696,7 +696,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 Enum(
                     EnumType {
                         position: Pos(86:1),
@@ -740,7 +740,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 InputObject(
                     InputObjectType {
                         position: Pos(94:1),
@@ -780,7 +780,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 InputObject(
                     InputObjectType {
                         position: Pos(99:1),
@@ -814,7 +814,7 @@ Ok(
                     },
                 ),
             ),
-            TypeDefinition(
+            Type(
                 InputObject(
                     InputObjectType {
                         position: Pos(103:1),
@@ -866,7 +866,7 @@ Ok(
                     },
                 ),
             ),
-            DirectiveDefinition(
+            Directive(
                 DirectiveDefinition {
                     position: Pos(111:1),
                     description: None,
@@ -892,7 +892,7 @@ Ok(
                     ],
                 },
             ),
-            DirectiveDefinition(
+            Directive(
                 DirectiveDefinition {
                     position: Pos(113:1),
                     description: None,
@@ -918,7 +918,7 @@ Ok(
                     ],
                 },
             ),
-            DirectiveDefinition(
+            Directive(
                 DirectiveDefinition {
                     position: Pos(118:1),
                     description: None,

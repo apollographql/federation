@@ -49,10 +49,10 @@ impl<'a, T> Displayable for Definition<'a, T>
     fn display(&self, f: &mut Formatter) {
         f.margin();
         match *self {
-            Definition::SchemaDefinition(ref s) => s.display(f),
-            Definition::TypeDefinition(ref t) => t.display(f),
+            Definition::Schema(ref s) => s.display(f),
+            Definition::Type(ref t) => t.display(f),
             Definition::TypeExtension(ref e) => e.display(f),
-            Definition::DirectiveDefinition(ref d) => d.display(f),
+            Definition::Directive(ref d) => d.display(f),
         }
     }
 }

@@ -5,7 +5,7 @@ expression: result
 Ok(
     Document {
         definitions: [
-            TypeDefinition(
+            Type(
                 InputObject(
                     InputObjectType {
                         position: Pos(1:1),
