@@ -1,0 +1,44 @@
+---
+source: graphql-parser/tests/test.rs
+expression: result_unix
+---
+Ok(
+    Document {
+        definitions: [
+            Operation(
+                Query(
+                    Query {
+                        position: Pos(1:1),
+                        name: None,
+                        variable_definitions: [],
+                        directives: [],
+                        selection_set: SelectionSet {
+                            span: (
+                                Pos(1:7),
+                                Pos(3:1),
+                            ),
+                            items: [
+                                Field(
+                                    Field {
+                                        position: Pos(2:3),
+                                        alias: None,
+                                        name: "node",
+                                        arguments: [],
+                                        directives: [],
+                                        selection_set: SelectionSet {
+                                            span: (
+                                                Pos(2:3),
+                                                Pos(2:3),
+                                            ),
+                                            items: [],
+                                        },
+                                    },
+                                ),
+                            ],
+                        },
+                    },
+                ),
+            ),
+        ],
+    },
+)

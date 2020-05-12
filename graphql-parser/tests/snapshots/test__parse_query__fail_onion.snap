@@ -1,0 +1,9 @@
+---
+source: graphql-parser/tests/test.rs
+expression: result_unix
+---
+Err(
+    ParseError(
+        "Parse error at 1:1\nUnexpected `onion[Name]`\nExpected `{`, `query`, `mutation`, `subscription` or `fragment`\n",
+    ),
+)

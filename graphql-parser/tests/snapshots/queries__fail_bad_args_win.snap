@@ -1,9 +1,0 @@
----
-source: graphql-parser/tests/queries.rs
-expression: result_win
----
-Err(
-    ParseError(
-        "Parse error at 2:10\nUnexpected `[[Punctuator]`\nExpected `Name`\n",
-    ),
-)
