@@ -115,3 +115,17 @@ directive @include2(if: Boolean!) on
   | FIELD
   | FRAGMENT_SPREAD
   | INLINE_FRAGMENT
+
+fragment SomeNamedFragment on SomeType {
+  fieldOne
+  aliased: fieldTwo {
+    some { deep }
+  }
+  yetAnother @withADirective(param: 3, enumParam: VALUE)
+}
+
+query StoredQuery($param: InputType, $other: ScalarType) {
+  lookup {
+    various things  
+  }
+}

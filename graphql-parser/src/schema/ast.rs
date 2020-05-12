@@ -5,6 +5,8 @@ use thiserror::Error;
 pub use crate::common::{Directive, Type, Value, Text};
 use crate::position::Pos;
 
+pub use crate::query::{OperationDefinition, FragmentDefinition};
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Document<'a, T: Text<'a>>
     where T: Text<'a>
@@ -18,6 +20,8 @@ pub enum Definition<'a, T: Text<'a>> {
     Type(TypeDefinition<'a, T>),
     TypeExtension(TypeExtension<'a, T>),
     Directive(DirectiveDefinition<'a, T>),
+    Operation(OperationDefinition<'a, T>),
+    Fragment(FragmentDefinition<'a, T>),
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
