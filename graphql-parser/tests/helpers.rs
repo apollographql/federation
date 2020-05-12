@@ -7,7 +7,9 @@ macro_rules! tests_for_parser {
                 let input = $input.replace("\r\n", "\n");
                 let expected = $expected.replace("\r\n", "\n");
                 let result = $parser::<String>(&input);
-                assert_debug_snapshot!(result);
+                assert_debug_snapshot!(
+                    stringify!([<$parser __ $name __ unix>]),
+                    result);
                 if let Ok(ast) = result {
                     assert_eq!(ast.to_string(), expected);
                 }
@@ -20,7 +22,9 @@ macro_rules! tests_for_parser {
                 // always expect unix line endings as output
                 let expected = $expected.replace("\r\n", "\n");
                 let result = $parser::<String>(&input);
-                assert_debug_snapshot!(result);
+                assert_debug_snapshot!(
+                    stringify!([<$parser __ $name __ win>]),
+                    result);
                 if let Ok(ast) = result {
                     assert_eq!(ast.to_string(), expected);
                 }
