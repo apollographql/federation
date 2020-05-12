@@ -37,34 +37,33 @@ setup() {
   assert_output -p "Attempting to install the Apollo CLI in $BATS_TMPDIR/not_found but that directory wasn't found"
 }
 
-@test ".check_environment_readiness should error if the DESTDIR isn't writable" {
-  source ${profile_script}
-  DESTDIR="$BATS_TMPDIR/not_writable_$RANDOM"
-  mkdir -m400 "$DESTDIR"
-  run check_environment_readiness
-  assert_failure
-  assert_output -p "Attempting to install the Apollo CLI in $DESTDIR but the permissions deny writing to that directory."
-}
-
-@test ".check_environment_readiness should error if there is already an `ap` command installed" {
+@test ".prepare_installation should remove existing command install" {
   stub ap true
   source ${profile_script}
-  
-  run check_environment_readiness
-  assert_failure
-  assert_output -p "An existing version of 'ap' is already installed at "
+  export FORCE="true"
+  run prepare_installation
+  assert_output -p "existing version of 'ap' is already installed at"
+  if [ -n "$(command -v ap)" ]; then
+    assert_failure
+  else
+    assert_success
+  fi
 }
 
 @test '.download_and_install fails if not using linux or darwin arch' {
   source ${profile_script}
   function uname() { echo "Windows"; }
   export -f uname
-  run download_and_install
+  run detect_os
   assert_failure
   assert_output -p "This operating system ('$(uname)') is not supported."
 }
 
 @test '.download_and_install gets the correct url based on uname' {
+    
+  function uname() { echo "Darwin"; }
+  export -f uname
+
   source ${profile_script}
   
   stub curl \
@@ -74,9 +73,6 @@ setup() {
   mkdir "$BINDIR"
   cd "$BINDIR"
   PATH="$DESTDIR:$PATH"
-  
-  function uname() { echo "Darwin"; }
-  export -f uname
 
   run download_and_install
   
@@ -102,7 +98,7 @@ setup() {
   clean_path="$(remove_commands_from_path curl)"
   PATH="$clean_path" run run_main
   assert_failure
-  assert_output -p "Environment setup failed!"
+  assert_output -p "Environment checks failed!"
 }
 
 @test ".run_main errors if downloading fails" {
