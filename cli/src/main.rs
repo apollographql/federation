@@ -5,10 +5,12 @@ mod layout;
 mod log;
 mod style;
 
-use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 use std::env::var;
 use structopt::StructOpt;
+use std::env;
+use std::panic;
 
+use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 use crate::errors::{report, ApolloError};
 
 enum Error {
@@ -22,6 +24,8 @@ fn main() {
     let env_log_level = var(APOLLO_LOG_LEVEL);
     init_logger(cli.verbose, cli.quiet, env_log_level);
 
+    setup_panic_hooks();
+
     let result = cli.run().map_err(Error::Apollo);
 
     match result {
@@ -31,5 +35,28 @@ fn main() {
             let code = err.exit_code();
             code.exit();
         }
+    }
+}
+
+fn setup_panic_hooks() {
+    let meta = human_panic::Metadata {
+        version: env!("CARGO_PKG_VERSION").into(),
+        name: env!("CARGO_PKG_NAME").into(),
+        authors: env!("CARGO_PKG_AUTHORS").replace(":", ", ").into(),
+        homepage: env!("CARGO_PKG_HOMEPAGE").into(),
+    };
+
+    let default_hook = panic::take_hook();
+
+    if let Err(_) = env::var("RUST_BACKTRACE") {
+        panic::set_hook(Box::new(move |info: &panic::PanicInfo| {
+            // First call the default hook that prints to standard error.
+            default_hook(info);
+
+            // Then call human_panic.
+            let file_path = human_panic::handle_dump(&meta, info);
+            human_panic::print_msg(file_path, &meta)
+                .expect("human-panic: printing error message to console failed");
+        }));
     }
 }
