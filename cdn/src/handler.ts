@@ -4,6 +4,9 @@ import {
 } from "@cloudflare/kv-asset-handler";
 import { log } from "./sentry";
 import { handleLegacyCLI } from "./legacy-cli";
+import setup from "@zeit/fetch-retry";
+
+const f = setup(fetch);
 
 const GITHUB_RELEASE = "https://github.com/apollographql/apollo-cli/releases";
 
@@ -82,7 +85,7 @@ async function handleCLI(
 ): Promise<Response> {
   if (platform && !version) {
     // fetch latest version number
-    const response = await fetch(`${GITHUB_RELEASE}/latest`, { cf: { cacheEverything: true } });
+    const response = await f(`${GITHUB_RELEASE}/latest`, { cf: { cacheEverything: true } });
     if (!response.ok) {
       throw new Error(
         `Error loading latest release for CLI at ${GITHUB_RELEASE}/latest`
@@ -95,9 +98,9 @@ async function handleCLI(
 
   const { method, body } = event.request;
   // this only supports 64 bit architectures. I don't see us changing this but if we do, this will become gross
-  const response = await fetch(
+  const response = await f(
     `${GITHUB_RELEASE}/download/v${version}/ap-v${version}-${platform}.tar.gz`,
-    { method, body, cf: { cacheEverything: true } }
+    { method, body, cf: { cacheEverything: true, cacheTtl: 3600 } } as any
   );
 
   if (response.ok) {

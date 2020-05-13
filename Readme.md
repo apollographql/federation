@@ -26,13 +26,19 @@ This will download the latest release from GitHub and install the binary at your
 
 The curl script accepts to variables if you want to customize the install. To change the destination you can set the `DESTDIR` variable to a new location (`curl -sSL https://install.apollographql.com/ | DESTDIR=/opt/bin sh`). If you wan to install a specific version, you can set the `VERSION` variable in the same way as the `DESTDIR` (`curl -sSL https://install.apollographql.com/ | VERSION=0.0.1 sh`)
 
-> **Coming soon**: If you have `npm` already installed, and are comfortable with the node ecosystem, you can also install the library using `npm i -g @apollo/cli`. This will install a global version of the package which downloads the CLI just like the curl command does.
-
 **Windows** users:
 
-The curl command doesn’t currently support windows (though we want it to in the future). Right now the best way to get the latest CLI is to go to the [releases](<[https://github.com/apollographql/apollo-cli/releases/latest](https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1)>) page and download the windows tarball. In the future, you will be able to install the CLI using chocolatey.
+Make sure [PowerShell 5](https://aka.ms/wmf5download) (or later, include [PowerShell Core](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows?view=powershell-6)) and [].NET Framework 4.5](https://www.microsoft.com/net/download) (or later) are installed. Then run:
 
-> **Coming soon**: If you have `npm` already installed, and are comfortable with the node ecosystem, you can also install the library using `npm i -g @apollo/cli`. This will install a global version of the package which downloads the CLI just like the curl command does.
+```ps1
+iwr 'https://install.apollographql.com/windows.sh' | iex
+```
+
+> Note: if you get an error you might need to change the execution policy (i.e. enable Powershell) with
+
+```ps1
+Set-ExecutionPolicy RemoteSigned -scope CurrentUser
+```
 
 **Verifying the Install**
 
@@ -40,7 +46,7 @@ If you want to verify the binary you have installed, each [release]([https://git
 
 ### On your CI provider
 
-The Apollo CLI is designed to be installed quickly and easily on common CI platforms. For build systems using **Mac OS** or **Linux**, the curl command above is the fastest way to get the CLI installed. For Windows, right now the best option is to manually copy the url of the latest release and unpack it on your machine. The `npm` route will be easier and faster and is coming soon!
+The Apollo CLI is designed to be installed quickly and easily on common CI platforms. For build systems using **Mac OS** or **Linux**, the curl command above is the fastest way to get the CLI installed. For Windows, the `iwr` command above should get you up and running right away!
 
 ## Updating the CLI
 
@@ -58,7 +64,7 @@ The Apollo CLI is designed to make working with you data graph and code base as 
 
 The CLI has a top level help command which prints out all of the possible commands, an initial getting started guide, common flags, and the version of the command you are running. To view this, run the following command in your terminal:
 
-`apollo help`
+`ap help`
 
 If you want to learn more about any commands, you can run `--help` as a flag for any subcommand. An example of this may look like `ap login --help` (when it is built!) which will print out information on using the login command to link you Apollo account to your system. 
 

@@ -1,3 +1,5 @@
+import setup from "@zeit/fetch-retry";
+
 const GITHUB_RELEASE =
   "https://github.com/apollographql/apollo-tooling/releases";
 
@@ -12,9 +14,9 @@ export async function handleLegacyCLI(
 ): Promise<Response> {
   const { method, body } = event.request;
   // this only supports 64 bit architectures. I don't see us changing this but if we do, this will become gross
-  const response = await fetch(
+  const response = await setup(fetch)(
     `${GITHUB_RELEASE}/download/apollo@${version}/apollo-v${version}-darwin-x64.tar.gz`,
-    { method, body, cf: { cacheEverything: true } }
+    { method, body, cf: { cacheEverything: true, cacheTtl: 3600 } } as any // cloudflare types doesn't include cacheTtl
   );
 
   if (response.ok) {
