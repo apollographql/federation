@@ -87,7 +87,7 @@ function download_and_install() {
     Copy-Item "$_tmp\dist\ap.exe" "$apollo" -Recurse -Force
     Remove-Item "$_tmp" -Recurse -Force
 
-    "$apollo\ap.exe setup"
+    "$apollo\ap.exe setup" | Invoke-Expression
 }
 
 function download_from_proxy() {
