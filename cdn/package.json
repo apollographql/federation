@@ -14,7 +14,7 @@
     "uuid-browser": "^3.1.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^1.0.1",
+    "@cloudflare/workers-types": "^1.0.9",
     "@cloudflare/wrangler": "^1.8.4",
     "@types/fetch-mock": "^7.3.2",
     "@types/jest": "^25.2.1",

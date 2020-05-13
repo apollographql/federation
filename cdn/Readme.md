@@ -21,9 +21,17 @@ The worker is a simple routing application that has a few simple routes. It is c
 The worker is deployed to Cloudflare's global worker runtime and uses their `KV` cache to cache static assets. It reads the `ETAG` and other cache headers of responses from GitHub Releases to cache tarballs all around the globe for faster and more robust uptimes.
 
 ### Installer
-The installers are the main `install.sh` for a given project (currently just for the new CLI) which is installed via a `curl` command. This installer is designed to be run on users machines __and__ on CI environments to support usage of the Apollo CLI on those machines with a single __copyable__ command.
+There are two installers supported by the CDN. First is the nix `install.sh` installer for the new CLI which is installed via a `curl` command. This installer is designed to be run on users machines __and__ on CI environments to support usage of the Apollo CLI on those machines with a single __copyable__ command.
 
-The current installer only supports `linux` and `darwin` architectures but we would like to expand to `windows` in the future if possible.
+The nix installer only supports `linux` and `darwin` architectures.
+
+For installation on windows we provide a powershell installer at `windows.sh`
+> This file is listed as a .sh file even though it really is ps1 due to quirk in Cloudflare workers not resovling ps1 urls?
+
+To install on windows, people can run the following:
+```ps1
+iwr 'http://install.apollographql.com/windows.sh' | iex
+```
 
 ## Local Development
 
