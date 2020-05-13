@@ -47,12 +47,13 @@ impl<'a, T> Displayable for Definition<'a, T>
     where T: Text<'a>,
 {
     fn display(&self, f: &mut Formatter) {
-        f.margin();
         match *self {
-            Definition::SchemaDefinition(ref s) => s.display(f),
-            Definition::TypeDefinition(ref t) => t.display(f),
-            Definition::TypeExtension(ref e) => e.display(f),
-            Definition::DirectiveDefinition(ref d) => d.display(f),
+            Definition::Schema(ref s) => { f.margin(); s.display(f) },
+            Definition::Type(ref t) => { f.margin(); t.display(f) },
+            Definition::TypeExtension(ref e) => { f.margin(); e.display(f) },
+            Definition::Directive(ref d) => { f.margin(); d.display(f) },
+            Definition::Operation(ref o) => o.display(f),
+            Definition::Fragment(ref g) => g.display(f),
         }
     }
 }

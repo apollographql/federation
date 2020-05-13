@@ -71,7 +71,10 @@ pub fn selection_set<'a, S>(input: &mut TokenStream<'a>)
         position().skip(punct("{")),
         many1(parser(selection)),
         position().skip(punct("}")),
-    ).map(|(start, items, end)| SelectionSet { span: (start, end), items })
+    ).map(|(start, items, end)| SelectionSet {
+        span: (start, end),
+        items
+    })
     .parse_stream(input)
 }
 
@@ -84,7 +87,7 @@ pub fn query<'a, T: Text<'a>>(input: &mut TokenStream<'a>)
     .and(parser(operation_common))
     .map(|(position, (name, variable_definitions, directives, selection_set))|
         Query {
-            position, name, selection_set, variable_definitions, directives,
+            position, description: None, name, selection_set, variable_definitions, directives,
         })
     .parse_stream(input)
 }
@@ -135,7 +138,7 @@ pub fn mutation<'a, T: Text<'a>>(input: &mut TokenStream<'a>)
     .and(parser(operation_common))
     .map(|(position, (name, variable_definitions, directives, selection_set))|
         Mutation {
-            position, name, selection_set, variable_definitions, directives,
+            position, description: None, name, selection_set, variable_definitions, directives,
         })
     .parse_stream(input)
 }
@@ -149,7 +152,7 @@ pub fn subscription<'a, T: Text<'a>>(input: &mut TokenStream<'a>)
     .and(parser(operation_common))
     .map(|(position, (name, variable_definitions, directives, selection_set))|
         Subscription {
-            position, name, selection_set, variable_definitions, directives,
+            position, description: None, name, selection_set, variable_definitions, directives,
         })
     .parse_stream(input)
 }
@@ -177,7 +180,7 @@ pub fn fragment_definition<'a, T: Text<'a>>(input: &mut TokenStream<'a>)
         parser(selection_set)
     ).map(|(position, name, type_condition, directives, selection_set)| {
         FragmentDefinition {
-            position, name, type_condition, directives, selection_set,
+            position, description: None, name, type_condition, directives, selection_set,
         }
     })
     .parse_stream(input)

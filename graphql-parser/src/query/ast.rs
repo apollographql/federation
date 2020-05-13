@@ -42,6 +42,7 @@ pub enum Definition<'a, T: Text<'a>> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FragmentDefinition<'a, T: Text<'a>> {
     pub position: Pos,
+    pub description: Option<String>,
     pub name: T::Value,
     pub type_condition: TypeCondition<'a, T>,
     pub directives: Vec<Directive<'a, T>>,
@@ -59,6 +60,7 @@ pub enum OperationDefinition<'a, T: Text<'a>> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Query<'a, T: Text<'a>> {
     pub position: Pos,
+    pub description: Option<String>,
     pub name: Option<T::Value>,
     pub variable_definitions: Vec<VariableDefinition<'a, T>>,
     pub directives: Vec<Directive<'a, T>>,
@@ -68,6 +70,7 @@ pub struct Query<'a, T: Text<'a>> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mutation<'a, T: Text<'a>> {
     pub position: Pos,
+    pub description: Option<String>,
     pub name: Option<T::Value>,
     pub variable_definitions: Vec<VariableDefinition<'a, T>>,
     pub directives: Vec<Directive<'a, T>>,
@@ -77,6 +80,7 @@ pub struct Mutation<'a, T: Text<'a>> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Subscription<'a, T: Text<'a>> {
     pub position: Pos,
+    pub description: Option<String>,
     pub name: Option<T::Value>,
     pub variable_definitions: Vec<VariableDefinition<'a, T>>,
     pub directives: Vec<Directive<'a, T>>,

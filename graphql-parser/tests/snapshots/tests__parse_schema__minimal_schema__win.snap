@@ -5,7 +5,7 @@ expression: result
 Ok(
     Document {
         definitions: [
-            SchemaDefinition(
+            Schema(
                 SchemaDefinition {
                     position: Pos(1:1),
                     directives: [],

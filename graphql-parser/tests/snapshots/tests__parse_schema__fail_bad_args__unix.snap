@@ -4,6 +4,6 @@ expression: result
 ---
 Err(
     ParseError(
-        "Parse error at 1:1\nUnexpected `query[Name]`\nExpected `schema`, `extend`, `scalar`, `type`, `interface`, `union`, `enum`, `input` or `directive`\n",
+        "Parse error at 2:10\nUnexpected `[[Punctuator]`\nExpected `Name`\n",
     ),
 )

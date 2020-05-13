@@ -2,8 +2,50 @@
 source: graphql-parser/tests/tests.rs
 expression: result
 ---
-Err(
-    ParseError(
-        "Parse error at 1:1\nUnexpected `subscription[Name]`\nExpected `schema`, `extend`, `scalar`, `type`, `interface`, `union`, `enum`, `input` or `directive`\n",
-    ),
+Ok(
+    Document {
+        definitions: [
+            Operation(
+                Subscription(
+                    Subscription {
+                        position: Pos(1:1),
+                        description: None,
+                        name: None,
+                        variable_definitions: [],
+                        directives: [
+                            Directive {
+                                position: Pos(1:14),
+                                name: "directive",
+                                arguments: [],
+                            },
+                        ],
+                        selection_set: SelectionSet {
+                            span: (
+                                Pos(1:25),
+                                Pos(3:1),
+                            ),
+                            items: [
+                                Field(
+                                    Field {
+                                        position: Pos(2:3),
+                                        alias: None,
+                                        name: "node",
+                                        arguments: [],
+                                        directives: [],
+                                        selection_set: SelectionSet {
+                                            span: (
+                                                Pos(2:3),
+                                                Pos(2:3),
+                                            ),
+                                            items: [],
+                                        },
+                                    },
+                                ),
+                            ],
+                        },
+                    },
+                ),
+            ),
+        ],
+    },
 )

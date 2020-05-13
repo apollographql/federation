@@ -5,7 +5,7 @@ expression: result
 Ok(
     Document {
         definitions: [
-            TypeDefinition(
+            Type(
                 Scalar(
                     ScalarType {
                         position: Pos(2:1),

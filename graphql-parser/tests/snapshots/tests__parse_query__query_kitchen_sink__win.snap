@@ -9,6 +9,7 @@ Ok(
                 Query(
                     Query {
                         position: Pos(10:1),
+                        description: None,
                         name: Some(
                             "queryName",
                         ),
@@ -306,6 +307,7 @@ Ok(
                 Mutation(
                     Mutation {
                         position: Pos(31:1),
+                        description: None,
                         name: Some(
                             "likeStory",
                         ),
@@ -391,6 +393,7 @@ Ok(
                 Subscription(
                     Subscription {
                         position: Pos(39:1),
+                        description: None,
                         name: Some(
                             "StoryLikeSubscription",
                         ),
@@ -526,6 +529,7 @@ Ok(
             Fragment(
                 FragmentDefinition {
                     position: Pos(52:1),
+                    description: None,
                     name: "frag",
                     type_condition: On(
                         "Friend",

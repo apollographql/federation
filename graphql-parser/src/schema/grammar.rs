@@ -6,6 +6,7 @@ use combine::combinator::{sep_by1};
 
 use crate::tokenizer::{Kind as T, Token, TokenStream};
 use crate::helpers::{punct, ident, kind, name};
+use crate::query::{operation_definition, fragment_definition};
 use crate::common::{directives, string, default_value, parse_type, Text};
 use crate::schema::error::{ParseError};
 use crate::schema::ast::*;
@@ -502,8 +503,10 @@ pub fn described_definition<'a, T>(input: &mut TokenStream<'a>)
                 parser(union_type).map(Union),
                 parser(enum_type).map(Enum),
                 parser(input_object_type).map(InputObject),
-            )).map(Definition::TypeDefinition),
-            parser(directive_definition).map(Definition::DirectiveDefinition),
+            )).map(Definition::Type),
+            parser(operation_definition).map(Definition::Operation),
+            parser(fragment_definition).map(Definition::Fragment),
+            parser(directive_definition).map(Definition::Directive),
         ))
     )
         // We can't set description inside type definition parser, because
@@ -512,7 +515,9 @@ pub fn described_definition<'a, T>(input: &mut TokenStream<'a>)
         .map(|(descr, mut def)| {
             use crate::schema::ast::TypeDefinition::*;
             use crate::schema::ast::Definition::*;
-            use crate::schema::ast::Definition::{TypeDefinition as T};
+            use crate::schema::ast::Definition::{Type as T};
+            use crate::schema::ast::Definition::{Operation as Op};
+            use crate::query::OperationDefinition::*;
             match def {
                 T(Scalar(ref mut s)) => s.description = descr,
                 T(Object(ref mut o)) => o.description = descr,
@@ -520,8 +525,13 @@ pub fn described_definition<'a, T>(input: &mut TokenStream<'a>)
                 T(Union(ref mut u)) => u.description = descr,
                 T(Enum(ref mut e)) => e.description = descr,
                 T(InputObject(ref mut o)) => o.description = descr,
-                DirectiveDefinition(ref mut d) => d.description = descr,
-                SchemaDefinition(_) => unreachable!(),
+                Directive(ref mut d) => d.description = descr,
+                Op(SelectionSet(_)) => {},
+                Op(Query(ref mut op_q)) => op_q.description = descr,
+                Op(Mutation(ref mut op_m)) => op_m.description = descr,
+                Op(Subscription(ref mut op_s)) => op_s.description = descr,
+                Fragment(ref mut f) => f.description = descr,
+                Schema(_) => unreachable!(),
                 TypeExtension(_) => unreachable!(),
             }
             def
@@ -551,7 +561,7 @@ pub fn definition<'a, T>(input: &mut TokenStream<'a>)
     where T: Text<'a>,
 {
     choice((
-        parser(schema).map(Definition::SchemaDefinition),
+        parser(schema).map(Definition::Schema),
         parser(type_extension).map(Definition::TypeExtension),
         parser(described_definition),
     )).parse_stream(input)
@@ -586,7 +596,7 @@ mod test {
     fn one_field() {
         assert_eq!(ast("schema { query: Query }"), Document {
             definitions: vec![
-                Definition::SchemaDefinition(
+                Definition::Schema(
                     SchemaDefinition {
                         position: Pos { line: 1, column: 1 },
                         directives: vec![],
