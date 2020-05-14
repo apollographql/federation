@@ -6,6 +6,7 @@ pub mod setup;
 pub use login::Login;
 pub use print::Print;
 pub use setup::Setup;
+pub use schema::Schema;
 
 use crate::errors::{ExitCode, Fallible};
 
