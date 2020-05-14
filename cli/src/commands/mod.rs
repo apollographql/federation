@@ -1,10 +1,12 @@
 pub mod login;
 pub mod print;
 pub mod setup;
+pub mod update;
 
 pub use login::Login;
 pub use print::Print;
 pub use setup::Setup;
+pub use update::Update;
 
 use crate::errors::{ExitCode, Fallible};
 

@@ -62,6 +62,11 @@ pub enum Subcommand {
     #[structopt(name = "login")]
     ///  🔓  log in to apollo
     Login(commands::Login),
+
+    #[structopt(name = "update")]
+    ///  🚀  update the Apollo CLI
+    Update(commands::Update),
+
     #[structopt(name = "print", setting = AppSettings::Hidden)]
     ///  🖨   parse and pretty print schemas to stdout
     Print(commands::Print),
@@ -74,6 +79,7 @@ impl Subcommand {
     pub fn run(self) -> Fallible<ExitCode> {
         match self {
             Subcommand::Login(login) => login.run(),
+            Subcommand::Update(update) => update.run(),
             Subcommand::Print(print) => print.run(),
             Subcommand::Setup(setup) => setup.run(),
         }

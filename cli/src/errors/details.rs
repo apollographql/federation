@@ -35,6 +35,19 @@ Please ensure you have access to the your environment variables."
 Please ensure you have permissions to edit your environment variables."
     )]
     WriteUserPathError,
+
+    /// Thrown when trying to work on an unsupported platform
+    #[error("Current platform ({}) is not supported for updating", .os)]
+    UnsupportedPlatformError { os: String },
+
+    #[error("Unable to fetch release during updating")]
+    ReleaseFetchError,
+
+    #[error("Response must either be \"y\" for yes or \"n\" for no")]
+    InputConfirmationError,
+
+    #[error("Could not install CLI. {}", .msg)]
+    CLIInstallError { msg: String },
 }
 
 impl ApolloFail for ErrorDetails {
@@ -47,6 +60,10 @@ impl ApolloFail for ErrorDetails {
             ErrorDetails::ReadUserPathError => ExitCode::EnvironmentError,
             #[cfg(windows)]
             ErrorDetails::WriteUserPathError => ExitCode::EnvironmentError,
+            ErrorDetails::UnsupportedPlatformError { .. } => ExitCode::EnvironmentError,
+            ErrorDetails::ReleaseFetchError => ExitCode::NetworkError,
+            ErrorDetails::InputConfirmationError => ExitCode::InvalidArguments,
+            ErrorDetails::CLIInstallError { .. } => ExitCode::FileSystemError
         }
     }
 }

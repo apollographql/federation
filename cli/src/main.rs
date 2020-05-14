@@ -1,17 +1,22 @@
+#[macro_use]
+extern crate text_io;
+
 mod cli;
 mod commands;
+mod filesystem;
 mod errors;
 mod layout;
 mod log;
 mod style;
+mod terminal;
 
-use std::env::var;
-use structopt::StructOpt;
 use std::env;
+use std::env::var;
 use std::panic;
+use structopt::StructOpt;
 
-use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 use crate::errors::{report, ApolloError};
+use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 
 enum Error {
     Apollo(ApolloError),

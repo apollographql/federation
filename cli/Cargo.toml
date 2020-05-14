@@ -1,6 +1,7 @@
 [package]
 name = "apollo-cli"
-version = "0.0.3"
+# intentionally set backwards to test out build on PR
+version = "0.0.2"
 authors = ["Apollo <opensource@apollographql.com>"]
 homepage = "https://github.com/apollographql/apollo-cli"
 edition = "2018"
@@ -13,14 +14,22 @@ atty = "0.2"
 console = "0.6.1"
 dirs = "2.0"
 env_logger = "0.7.1"
+flate2 = "1.0.14"
 graphql-parser = { path = "../graphql-parser" }
 human-panic = "1.0.3"
+indicatif = "0.14.0"
 log = { version = "0.4", features = ["std"] }
+tar = "0.4.26"
+text_io = "0.1.8"
+reqwest = { version = "0.10", features = ["blocking", "json"] }
 serde = "1.0"
+semver = "0.9.0"
 structopt = "*"
+tempfile = "3"
 term_size = "0.3.0"
 textwrap = "0.11.0"
 thiserror = "1.0.16"
+
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.7"
@@ -28,5 +37,4 @@ winreg = "0.7"
 [dev-dependencies]
 assert_cmd = "0.10"
 predicates = "1"
-tempfile = "3"
 
