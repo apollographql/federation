@@ -21,8 +21,8 @@ use structopt::StructOpt;
 
 use crate::errors::{report, ApolloError};
 use crate::log::{init_logger, APOLLO_LOG_LEVEL};
-use crate::version::background_check_for_updates;
 use crate::session::Session;
+use crate::version::background_check_for_updates;
 
 enum Error {
     Apollo(ApolloError),
@@ -48,7 +48,7 @@ fn main() {
             Some(cmd) => !cmd.eq("update"),
             _ => false,
         };
-        
+
         if !should_log {
             return;
         }

@@ -18,7 +18,7 @@ pub struct Session {
     platform: String,
 
     /// optional user id of the user of the command
-    user_id: Option<String>
+    user_id: Option<String>,
 }
 
 fn get_route() -> Result<String, url::ParseError> {
@@ -32,7 +32,7 @@ impl Session {
         Session {
             route: None,
             platform: OS.to_string(),
-            user_id: None
+            user_id: None,
         }
     }
 
@@ -41,9 +41,7 @@ impl Session {
 
         Ok(self)
     }
-
 }
-
 
 impl fmt::Display for Session {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -51,7 +49,10 @@ impl fmt::Display for Session {
         let mut string = String::new();
         string.push_str(&format!("route={},platform={}", route, self.platform));
         if self.user_id.is_some() {
-            string.push_str(&format!(",user_id={}", self.user_id.as_ref().unwrap().to_string()));
+            string.push_str(&format!(
+                ",user_id={}",
+                self.user_id.as_ref().unwrap().to_string()
+            ));
         }
 
         write!(f, "{}", string)

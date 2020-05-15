@@ -1,4 +1,5 @@
 use std::env;
+use std::env::consts::EXE_SUFFIX;
 use std::fs::{metadata, set_permissions, DirBuilder, File};
 #[cfg(not(windows))]
 use std::os::unix::fs::PermissionsExt;
@@ -59,9 +60,13 @@ impl Command for Update {
         }
         let tmp_dir_parent = tempdir().unwrap();
 
-        let bin_name = env::args()
-            .next()
-            .expect("Could not determine name of executable");
+        let bin_name = format!(
+            "{}{}",
+            env::args()
+                .next()
+                .expect("Could not determine name of executable"),
+            EXE_SUFFIX
+        );
 
         let tmp_dir = tmp_dir_parent
             .path()
@@ -90,7 +95,7 @@ impl Command for Update {
             tmp_archive_path.to_string_lossy()
         );
 
-        let archive_bin_path = format!("dist/{}", archive_bin_name);
+        let archive_bin_path = format!("dist/{}{}", archive_bin_name, EXE_SUFFIX);
         Extract::from_source(&tmp_archive_path)
             .extract_file(&tmp_dir, &archive_bin_path)
             .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;

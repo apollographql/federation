@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::errors::{ExitCode};
+use crate::errors::ExitCode;
 
 #[derive(Error, Debug)]
 pub enum ErrorDetails {

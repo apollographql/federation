@@ -1,12 +1,12 @@
+use std::convert::From;
 use std::error::Error;
 use std::fmt;
-use std::convert::From;
 
 use anyhow::Result;
 use log::error;
 
-use crate::errors::ExitCode;
 use crate::errors::ErrorDetails;
+use crate::errors::ExitCode;
 
 #[derive(Debug)]
 pub struct ApolloError {
@@ -83,8 +83,7 @@ where
 
 pub type Fallible<T> = Result<T, ApolloError>;
 
-const REPORT_BUG_CTA: &str =
-    "Please rerun the command that triggered this error with 
+const REPORT_BUG_CTA: &str = "Please rerun the command that triggered this error with 
     `APOLLO_LOG_LEVEL=debug` and open an issue at
 https://github.com/apollographql/apollo-cli/issues with the details!";
 

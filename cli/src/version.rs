@@ -35,7 +35,6 @@ pub struct CLIVersionDiff {
 }
 
 pub fn get_latest_release(session: &Session) -> Result<Release, Box<dyn Error + 'static>> {
-
     let platform: Option<&str> = match OS {
         "linux" | "macos" | "windows" => Some(OS),
         _ => None,
