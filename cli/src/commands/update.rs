@@ -22,6 +22,7 @@ pub struct Update {}
 
 impl Command for Update {
     fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
+        session.log_command("update");
         info!("{} Checking for the latest version...", style::ROCKET);
 
         let Release {

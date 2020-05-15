@@ -3,9 +3,9 @@ extern crate text_io;
 
 mod cli;
 mod commands;
+mod config;
 mod errors;
 mod filesystem;
-mod layout;
 mod log;
 mod telemetry;
 mod style;
@@ -37,7 +37,7 @@ fn main() {
 
     setup_panic_hooks();
 
-    let mut session = Session::init().create_new_session().unwrap();
+    let mut session = Session::init().unwrap();
 
     let latest_version_receiver = background_check_for_updates();
     let result = cli.run(&mut session).map_err(Error::Apollo);
@@ -61,6 +61,9 @@ fn main() {
             cli::command_name()
         );
     }
+
+    // Send telemetry report
+    session.report().unwrap_or(());
 
     match result {
         Ok(exit_code) => exit_code.exit(),

@@ -4,7 +4,7 @@ use std::sync::mpsc;
 use std::thread;
 
 use log::debug;
-use reqwest::{self, header};
+use reqwest;
 use semver::Version;
 
 use crate::errors::{ErrorDetails, ExitCode};

@@ -1,60 +1,113 @@
+use std::env;
 use std::env::consts::OS;
+use std::env::current_dir;
 use std::error::Error;
-use std::fmt;
 
-use url::Url;
+use serde::{Serialize};
+use sha2::{Sha256, Digest};
+use reqwest;
+use uuid::Uuid;
+use ci_info;
+use log::{debug};
+
+use crate::version::get_installed_version;
+use crate::config::CliConfig;
+
+#[derive(Debug, Serialize)]
+pub struct Platform {
+    /// the platform from which the command was run (i.e. linux, macOS, or windows)
+    os: String,
+    
+    /// if we think this command is being run in a CLI
+    is_ci: bool,
+
+    /// the name of the CI we think is being used
+    ci_name: Option<String>,
+}
 
 /// The Session represents a usage of the CLI analogous to a web session
 /// It contains the "url" (command path + flags) but doesn't contain any
 /// values entered by the user. It also contains some identity information
 /// for the user
-#[derive(Clone)]
+#[derive(Debug, Serialize)]
 pub struct Session {
-    /// the "route" of the command usage where commands are paths and flags are query strings
+    /// the command usage where commands are paths and flags are query strings
     /// i.e. ap schema push --graph --variant would become ap/schema/push?graph&variant
-    route: Option<String>,
+    command: Option<String>,
 
-    /// the platform from which the command was run (i.e. linux, macOS, or windows)
-    platform: String,
+    /// Apollo generated machine ID. This is a UUID and stored globally at ~/.apollo/config.toml
+    machine_id: String,
 
-    /// optional user id of the user of the command
-    user_id: Option<String>,
+    /// A unique session id
+    session_id: String,
+
+    /// Directory hash. A hash of the current working directory
+    cwd_hash: String,
+
+    /// Information about the current architecture/platform
+    platform: Platform,
+
+    /// The current version of the CLI
+    release_version: String,
 }
 
-fn get_route() -> Result<String, url::ParseError> {
-    let url = Url::parse("ap:/")?;
-
-    Ok(url.as_str().to_string())
+fn get_cwd_hash() -> String {
+    let current_dir = current_dir().unwrap();
+    format!("{:x}", Sha256::digest(current_dir.to_str().unwrap().as_bytes()))
 }
+
 
 impl Session {
-    pub fn init() -> Session {
-        Session {
-            route: None,
-            platform: OS.to_string(),
-            user_id: None,
-        }
+    pub fn init() -> Result<Session, Box<dyn Error + 'static>> {
+
+        let command = None;
+        let machine_id = CliConfig::load()?.machine_id;
+        let session_id = Uuid::new_v4().to_string();
+        let cwd_hash = get_cwd_hash();
+
+        let platform = Platform {
+            os: OS.to_string(),
+            is_ci: ci_info::is_ci(),
+            ci_name: ci_info::get().name
+        };
+
+        let release_version = get_installed_version()?.to_string();
+        ::log::debug!("hash: {}, id: {}", cwd_hash, machine_id);
+        Ok(Session {
+            command,
+            machine_id,
+            session_id,
+            cwd_hash,
+            platform,
+            release_version,
+        })
     }
 
-    pub fn create_new_session(mut self) -> Result<Session, Box<dyn Error + 'static>> {
-        self.route = Some(get_route()?);
-
-        Ok(self)
+    pub fn log_command(&mut self, cmd: &str) {
+        self.command = Some(cmd.to_string())
     }
-}
 
-impl fmt::Display for Session {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let route = self.route.as_ref().unwrap();
-        let mut string = String::new();
-        string.push_str(&format!("route={},platform={}", route, self.platform));
-        if self.user_id.is_some() {
-            string.push_str(&format!(
-                ",user_id={}",
-                self.user_id.as_ref().unwrap().to_string()
-            ));
+    pub fn report(self) -> Result<(), Box<dyn Error + 'static>> {
+        // don't send if APOLLO_TELEMETRY_DISABLED is set
+        if env::var("APOLLO_TELEMETRY_DISABLED").is_ok() {
+            return Ok(());
         }
 
-        write!(f, "{}", string)
+        let url = "https://install.apollographql.com/telemetry".to_string();
+        let body = serde_json::to_string(&self).unwrap();
+        debug!("Sending telemetry to {}", &url);
+        debug!("Sending body: {}", body);
+        let resp = reqwest::blocking::Client::new()
+            .post(&url)
+            .body(body)
+            .header("User-Agent", "Apollo CLI")
+            .header("Content-Type", "application/json")
+            .send()
+            .unwrap();
+
+        if !resp.status().is_success() {
+            debug!("Failed when sending telemetry");
+        }
+        Ok(())
     }
 }
