@@ -9,7 +9,7 @@ pub use setup::Setup;
 pub use update::Update;
 
 use crate::errors::{ExitCode, Fallible};
-use crate::Session;
+use crate::telemetry::Session;
 
 pub trait Command {
     /// Executes the command. Returns `Ok(true)` if the process should return 0,

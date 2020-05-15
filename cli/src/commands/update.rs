@@ -12,7 +12,7 @@ use tempfile::tempdir;
 use crate::commands::Command;
 use crate::errors::{ErrorDetails, ExitCode, Fallible};
 use crate::filesystem::{Download, Extract, Move};
-use crate::session::Session;
+use crate::telemetry::Session;
 use crate::style;
 use crate::terminal::confirm;
 use crate::version::{get_installed_version, get_latest_release, Release};
@@ -29,7 +29,7 @@ impl Command for Update {
             archive_bin_name,
             filename,
             url,
-        } = get_latest_release(session)
+        } = get_latest_release()
             .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
         let current_version = get_installed_version()
             .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;

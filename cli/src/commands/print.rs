@@ -5,7 +5,7 @@ use structopt::StructOpt;
 
 use crate::commands::Command;
 use crate::errors::{ExitCode, Fallible};
-use crate::Session;
+use crate::telemetry::Session;
 
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]

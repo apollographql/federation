@@ -8,7 +8,6 @@ use reqwest::{self, header};
 use semver::Version;
 
 use crate::errors::{ErrorDetails, ExitCode};
-use crate::session::Session;
 
 #[derive(Debug)]
 pub struct Release {
@@ -34,7 +33,7 @@ pub struct CLIVersionDiff {
     pub latest: Version,
 }
 
-pub fn get_latest_release(session: &Session) -> Result<Release, Box<dyn Error + 'static>> {
+pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
     let platform: Option<&str> = match OS {
         "linux" | "macos" | "windows" => Some(OS),
         _ => None,
@@ -48,7 +47,6 @@ pub fn get_latest_release(session: &Session) -> Result<Release, Box<dyn Error + 
     let resp = reqwest::blocking::Client::new()
         .head(&url)
         .header("User-Agent", "Apollo CLI")
-        .header("apollo-cli-session-id", format!("{}", session))
         .send()
         .map_err(|_err| ExitCode::NetworkError)
         .unwrap();
@@ -106,8 +104,8 @@ pub fn get_installed_version() -> Result<Version, Box<dyn Error + 'static>> {
     Ok(parsed_version)
 }
 
-pub fn needs_updating(session: &Session) -> Result<CLIVersionDiff, Box<dyn Error + 'static>> {
-    let latest_release = get_latest_release(session)?;
+pub fn needs_updating() -> Result<CLIVersionDiff, Box<dyn Error + 'static>> {
+    let latest_release = get_latest_release()?;
     let current = get_installed_version()?;
 
     Ok(CLIVersionDiff {
@@ -116,11 +114,10 @@ pub fn needs_updating(session: &Session) -> Result<CLIVersionDiff, Box<dyn Error
     })
 }
 
-pub fn background_check_for_updates(session: &Session) -> mpsc::Receiver<Version> {
+pub fn background_check_for_updates() -> mpsc::Receiver<Version> {
     let (sender, receiver) = mpsc::channel();
 
-    let clone_session = session.clone();
-    let _detached_thread = thread::spawn(move || match needs_updating(&clone_session) {
+    let _detached_thread = thread::spawn(move || match needs_updating() {
         Ok(versions) => {
             if versions.latest > versions.current {
                 let _ = sender.send(versions.latest);

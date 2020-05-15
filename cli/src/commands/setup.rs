@@ -4,7 +4,7 @@ use structopt::StructOpt;
 use crate::commands::Command;
 use crate::errors::{ExitCode, Fallible};
 use crate::style;
-use crate::Session;
+use crate::telemetry::Session;
 
 #[derive(StructOpt)]
 pub struct Setup {}
