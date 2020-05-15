@@ -22,13 +22,13 @@ fn custom_formatter(
         match level {
             Level::Trace => {
                 style.set_color(Color::Cyan).set_intense(true);
-            },
+            }
             Level::Debug => {
                 style.set_color(Color::Magenta);
-            },
+            }
             Level::Warn => {
                 style.set_color(Color::Yellow);
-            },
+            }
             Level::Error => {
                 style.set_color(Color::Red).set_bold(true);
             }

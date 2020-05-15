@@ -1,6 +1,6 @@
-use std::path;
-use std::io::{Result, Error};
 use std::fs;
+use std::io::{Error, Result};
+use std::path;
 
 /// Moves a file from the given path to the specified destination.
 ///

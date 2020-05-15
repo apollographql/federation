@@ -63,7 +63,7 @@ impl ApolloFail for ErrorDetails {
             ErrorDetails::UnsupportedPlatformError { .. } => ExitCode::EnvironmentError,
             ErrorDetails::ReleaseFetchError => ExitCode::NetworkError,
             ErrorDetails::InputConfirmationError => ExitCode::InvalidArguments,
-            ErrorDetails::CLIInstallError { .. } => ExitCode::FileSystemError
+            ErrorDetails::CLIInstallError { .. } => ExitCode::FileSystemError,
         }
     }
 }

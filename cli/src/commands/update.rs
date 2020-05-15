@@ -1,12 +1,10 @@
 use std::env;
-use std::env::consts::OS;
-use std::fs::{set_permissions, DirBuilder, File, metadata};
+use std::fs::{metadata, set_permissions, DirBuilder, File};
 #[cfg(not(windows))]
 use std::os::unix::fs::PermissionsExt;
 
 use log::{debug, info, warn};
 use reqwest::{self, header};
-use semver::Version;
 use structopt::StructOpt;
 use tempfile::tempdir;
 
@@ -16,6 +14,8 @@ use crate::filesystem::{Download, Extract, Move};
 use crate::style;
 use crate::terminal::confirm;
 
+use crate::version::{get_installed_version, get_latest_release, Release};
+
 #[derive(StructOpt)]
 pub struct Update {}
 
@@ -23,64 +23,22 @@ impl Command for Update {
     fn run(&self) -> Fallible<ExitCode> {
         info!("{} Checking for the latest version...", style::ROCKET);
 
-        let platform: Option<&str> = match OS {
-            "linux" | "macos" | "windows" => Some(OS),
-            _ => None,
-        };
-
-        let platform = platform.ok_or(ErrorDetails::UnsupportedPlatformError {
-            os: String::from(OS),
-        })?;
-        let url = format!("https://install.apollographql.com/cli/{}", platform);
-        debug!("Fetching latest version from {}", url);
-        let resp = reqwest::blocking::Client::new()
-            .head(&url)
-            .send()
-            .map_err(|_err| ExitCode::NetworkError)
-            .unwrap();
-
-        if !resp.status().is_success() {
-            debug!("Request to load the latest release");
-            return Err(From::from(ErrorDetails::ReleaseFetchError));
-        }
-
-        let headers = resp.headers().clone();
-        let content = headers
-            .get(reqwest::header::CONTENT_DISPOSITION)
-            .ok_or(ErrorDetails::ReleaseFetchError)?
-            .to_str()
-            .unwrap();
-
-        if !content.contains("filename") {
-            debug!(
-                "No release found to install, content-distribution headers was {}",
-                content
-            );
-            return Err(From::from(ErrorDetails::ReleaseFetchError));
-        }
-
-        // filename=ap-v0.0.0-OS.tar.gz
-        // This *won't* support preleases
-        let content: Vec<&str> = content.split("filename=").collect();
-
-        let filename = content.last().ok_or(ErrorDetails::ReleaseFetchError)?;
-
-        let file_parts: Vec<&str> = filename
-            .split("v")
-            .last()
-            .ok_or(ErrorDetails::ReleaseFetchError)?
-            .split("-")
-            .collect();
-
-        let latest_version = file_parts[0];
-        let current_version = env!("CARGO_PKG_VERSION");
+        let Release {
+            version: latest_version,
+            archive_bin_name,
+            filename,
+            url,
+        } = get_latest_release()
+            .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
+        let current_version = get_installed_version()
+            .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
 
         debug!(
             "Comparing installed version {} with latest version {}",
             current_version, latest_version
         );
 
-        if Version::parse(latest_version) <= Version::parse(current_version) {
+        if latest_version <= current_version {
             info!(
                 "{} You are already up to date with the latest version!",
                 style::TADA
@@ -89,8 +47,8 @@ impl Command for Update {
         }
 
         info!("\nApollo CLI release status:");
-        info!("  * Current version: {:?}", current_version);
-        info!("  * New version: {:?}", latest_version);
+        info!("  * Current version: {:?}", current_version.to_string());
+        info!("  * New version: {:?}", latest_version.to_string());
         info!("\nThe new release will be downloaded/extracted and the existing binary will be replaced.");
 
         let confirmed = confirm("Do you want to continue?")?;
@@ -105,14 +63,19 @@ impl Command for Update {
             .next()
             .expect("Could not determine name of executable");
 
-        let tmp_dir = tmp_dir_parent.path().join(&format!("{}_download", bin_name));
+        let tmp_dir = tmp_dir_parent
+            .path()
+            .join(&format!("{}_download", bin_name));
         DirBuilder::new().recursive(true).create(&tmp_dir).unwrap();
 
         let tmp_archive_path = tmp_dir.join(&filename);
-        debug!("Creating archive path {}", tmp_archive_path.to_string_lossy());
+        debug!(
+            "Creating archive path {}",
+            tmp_archive_path.to_string_lossy()
+        );
 
-        let mut tmp_archive =
-            File::create(&tmp_archive_path).map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
+        let mut tmp_archive = File::create(&tmp_archive_path)
+            .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
 
         info!("Downloading latest build...");
         let mut download = Download::from_url(&url);
@@ -127,11 +90,12 @@ impl Command for Update {
             tmp_archive_path.to_string_lossy()
         );
 
+        let archive_bin_path = format!("dist/{}", archive_bin_name);
         Extract::from_source(&tmp_archive_path)
-            .extract_file(&tmp_dir, "dist/ap")
+            .extract_file(&tmp_dir, &archive_bin_path)
             .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
 
-        let new_exe = tmp_dir.join("dist/ap");
+        let new_exe = tmp_dir.join(&archive_bin_path);
         // Make executable
         #[cfg(not(windows))]
         {
@@ -142,14 +106,21 @@ impl Command for Update {
 
         let bin_install_path = env::current_exe().unwrap();
 
-        debug!("Replacing binary file with executable from {} into {}", new_exe.to_string_lossy(), bin_install_path.to_string_lossy());
-        let tmp_file = tmp_dir.join(&format!("__{}_backup", "ap"));
+        debug!(
+            "Replacing binary file with executable from {} into {}",
+            new_exe.to_string_lossy(),
+            bin_install_path.to_string_lossy()
+        );
+        let tmp_file = tmp_dir.join(&format!("__{}_backup", &archive_bin_name));
         Move::from_source(&new_exe)
             .replace_using_temp(&tmp_file)
             .to_dest(&bin_install_path)
             .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
 
-        info!("{} Succesfully updated to the latest Apollo CLI. Enjoy!", style::ROCKET);
+        info!(
+            "{} Succesfully updated to the latest Apollo CLI. Enjoy!",
+            style::ROCKET
+        );
         Ok(ExitCode::Success)
     }
 }

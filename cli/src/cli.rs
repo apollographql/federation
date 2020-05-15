@@ -44,15 +44,7 @@ impl Apollo {
         if let Some(command) = self.command {
             command.run()
         } else {
-            // per the docs on std::env::arg
-            // The first element is traditionally the path of the executable, but it can be set to
-            // arbitrary text, and may not even exist. This means this property should not be
-            // relied upon for security purposes.
-            let command_name = args()
-                .next()
-                .expect("Called help without a path to the binary");
-
-            Apollo::from_iter([&command_name, "help"].iter()).run()
+            Apollo::from_iter([&command_name(), "help"].iter()).run()
         }
     }
 }
@@ -84,4 +76,14 @@ impl Subcommand {
             Subcommand::Setup(setup) => setup.run(),
         }
     }
+}
+
+// per the docs on std::env::arg
+// The first element is traditionally the path of the executable, but it can be set to
+// arbitrary text, and may not even exist. This means this property should not be
+// relied upon for security purposes.
+pub fn command_name() -> std::string::String {
+    args()
+        .next()
+        .expect("Called help without a path to the binary")
 }

@@ -1,7 +1,7 @@
-use std::path::Path;
+use flate2;
 use std::fs::File;
 use std::io::{Error, ErrorKind};
-use flate2;
+use std::path::Path;
 use tar;
 
 #[derive(Debug)]
@@ -12,9 +12,7 @@ pub struct Extract<'a> {
 impl<'a> Extract<'a> {
     /// Create an `Extract`or from a source path
     pub fn from_source(source: &'a Path) -> Extract<'a> {
-        Self {
-            source,
-        }
+        Self { source }
     }
 
     /// Extract a single file from a source and save to a file of the same name in `into_dir`.
@@ -33,14 +31,15 @@ impl<'a> Extract<'a> {
         let mut entry = archive
             .entries()?
             .filter_map(|e| e.ok())
-            .find(|e| {
-                e.path().ok().filter(|p| { p == file_to_extract }).is_some()
-            })
+            .find(|e| e.path().ok().filter(|p| p == file_to_extract).is_some())
             .ok_or_else(|| {
-                Error::new(ErrorKind::Other, format!(
-                    "Could not find the required path in the archive: {:?}",
-                    file_to_extract
-                ))
+                Error::new(
+                    ErrorKind::Other,
+                    format!(
+                        "Could not find the required path in the archive: {:?}",
+                        file_to_extract
+                    ),
+                )
             })?;
         entry.unpack_in(into_dir)?;
 
