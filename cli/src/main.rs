@@ -7,6 +7,7 @@ mod errors;
 mod filesystem;
 mod layout;
 mod log;
+mod session;
 mod style;
 mod terminal;
 mod version;
@@ -21,6 +22,7 @@ use structopt::StructOpt;
 use crate::errors::{report, ApolloError};
 use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 use crate::version::background_check_for_updates;
+use crate::session::Session;
 
 enum Error {
     Apollo(ApolloError),
@@ -35,17 +37,21 @@ fn main() {
 
     setup_panic_hooks();
 
-    let latest_version_receiver = background_check_for_updates();
-    let result = cli.run().map_err(Error::Apollo);
+    let mut session = Session::init().create_new_session().unwrap();
+
+    let latest_version_receiver = background_check_for_updates(&session);
+    let result = cli.run(&mut session).map_err(Error::Apollo);
 
     ::log::debug!("Checking to see if there is a latest version");
     if let Ok(latest_version) = latest_version_receiver.try_recv() {
-
         let should_log = match env::args().nth(1) {
             Some(cmd) => !cmd.eq("update"),
-            _ => false
+            _ => false,
         };
-        if !should_log { return }
+        
+        if !should_log {
+            return;
+        }
 
         let latest_version = style(latest_version).green().bold();
 

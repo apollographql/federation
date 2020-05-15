@@ -11,16 +11,16 @@ use tempfile::tempdir;
 use crate::commands::Command;
 use crate::errors::{ErrorDetails, ExitCode, Fallible};
 use crate::filesystem::{Download, Extract, Move};
+use crate::session::Session;
 use crate::style;
 use crate::terminal::confirm;
-
 use crate::version::{get_installed_version, get_latest_release, Release};
 
 #[derive(StructOpt)]
 pub struct Update {}
 
 impl Command for Update {
-    fn run(&self) -> Fallible<ExitCode> {
+    fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
         info!("{} Checking for the latest version...", style::ROCKET);
 
         let Release {
@@ -28,7 +28,7 @@ impl Command for Update {
             archive_bin_name,
             filename,
             url,
-        } = get_latest_release()
+        } = get_latest_release(session)
             .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
         let current_version = get_installed_version()
             .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;

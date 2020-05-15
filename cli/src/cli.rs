@@ -4,6 +4,7 @@ use structopt::StructOpt;
 
 use crate::commands::{self, Command};
 use crate::errors::{ExitCode, Fallible};
+use crate::Session;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -40,11 +41,11 @@ pub struct Apollo {
 }
 
 impl Apollo {
-    pub fn run(self) -> Fallible<ExitCode> {
+    pub fn run(self, session: &mut Session) -> Fallible<ExitCode> {
         if let Some(command) = self.command {
-            command.run()
+            command.run(session)
         } else {
-            Apollo::from_iter([&command_name(), "help"].iter()).run()
+            Apollo::from_iter([&command_name(), "help"].iter()).run(session)
         }
     }
 }
@@ -68,12 +69,12 @@ pub enum Subcommand {
 }
 
 impl Subcommand {
-    pub fn run(self) -> Fallible<ExitCode> {
+    pub fn run(self, session: &mut Session) -> Fallible<ExitCode> {
         match self {
-            Subcommand::Login(login) => login.run(),
-            Subcommand::Update(update) => update.run(),
-            Subcommand::Print(print) => print.run(),
-            Subcommand::Setup(setup) => setup.run(),
+            Subcommand::Login(login) => login.run(session),
+            Subcommand::Update(update) => update.run(session),
+            Subcommand::Print(print) => print.run(session),
+            Subcommand::Setup(setup) => setup.run(session),
         }
     }
 }
