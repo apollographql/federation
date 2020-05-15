@@ -1,17 +1,28 @@
+#[macro_use]
+extern crate text_io;
+
 mod cli;
 mod commands;
 mod errors;
+mod filesystem;
 mod layout;
 mod log;
+mod session;
 mod style;
+mod terminal;
+mod version;
 
-use std::env::var;
-use structopt::StructOpt;
 use std::env;
+use std::env::var;
 use std::panic;
 
-use crate::log::{init_logger, APOLLO_LOG_LEVEL};
+use console::style;
+use structopt::StructOpt;
+
 use crate::errors::{report, ApolloError};
+use crate::log::{init_logger, APOLLO_LOG_LEVEL};
+use crate::version::background_check_for_updates;
+use crate::session::Session;
 
 enum Error {
     Apollo(ApolloError),
@@ -26,7 +37,30 @@ fn main() {
 
     setup_panic_hooks();
 
-    let result = cli.run().map_err(Error::Apollo);
+    let mut session = Session::init().create_new_session().unwrap();
+
+    let latest_version_receiver = background_check_for_updates(&session);
+    let result = cli.run(&mut session).map_err(Error::Apollo);
+
+    ::log::debug!("Checking to see if there is a latest version");
+    if let Ok(latest_version) = latest_version_receiver.try_recv() {
+        let should_log = match env::args().nth(1) {
+            Some(cmd) => !cmd.eq("update"),
+            _ => false,
+        };
+        
+        if !should_log {
+            return;
+        }
+
+        let latest_version = style(latest_version).green().bold();
+
+        ::log::info!(
+            "\n > A new version of the Apollo CLI ({}) is available! To update, run `{} update`",
+            latest_version,
+            cli::command_name()
+        );
+    }
 
     match result {
         Ok(exit_code) => exit_code.exit(),
