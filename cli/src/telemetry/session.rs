@@ -2,22 +2,23 @@ use std::env;
 use std::env::consts::OS;
 use std::env::current_dir;
 use std::error::Error;
+use std::time::Duration;
 
-use serde::{Serialize};
-use sha2::{Sha256, Digest};
-use reqwest;
-use uuid::Uuid;
 use ci_info;
-use log::{debug};
+use log::debug;
+use reqwest;
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
-use crate::version::get_installed_version;
 use crate::config::CliConfig;
+use crate::version::get_installed_version;
 
 #[derive(Debug, Serialize)]
 pub struct Platform {
     /// the platform from which the command was run (i.e. linux, macOS, or windows)
     os: String,
-    
+
     /// if we think this command is being run in a CLI
     is_ci: bool,
 
@@ -53,13 +54,14 @@ pub struct Session {
 
 fn get_cwd_hash() -> String {
     let current_dir = current_dir().unwrap();
-    format!("{:x}", Sha256::digest(current_dir.to_str().unwrap().as_bytes()))
+    format!(
+        "{:x}",
+        Sha256::digest(current_dir.to_str().unwrap().as_bytes())
+    )
 }
-
 
 impl Session {
     pub fn init() -> Result<Session, Box<dyn Error + 'static>> {
-
         let command = None;
         let machine_id = CliConfig::load()?.machine_id;
         let session_id = Uuid::new_v4().to_string();
@@ -68,7 +70,7 @@ impl Session {
         let platform = Platform {
             os: OS.to_string(),
             is_ci: ci_info::is_ci(),
-            ci_name: ci_info::get().name
+            ci_name: ci_info::get().name,
         };
 
         let release_version = get_installed_version()?.to_string();
@@ -87,27 +89,31 @@ impl Session {
         self.command = Some(cmd.to_string())
     }
 
-    pub fn report(self) -> Result<(), Box<dyn Error + 'static>> {
+    pub fn report(self) -> Result<bool, Box<dyn Error + 'static>> {
         // don't send if APOLLO_TELEMETRY_DISABLED is set
         if env::var("APOLLO_TELEMETRY_DISABLED").is_ok() {
-            return Ok(());
+            return Ok(false);
         }
 
-        let url = "https://install.apollographql.com/telemetry".to_string();
+        let url = "http://localhost:8787/telemetry".to_string();
         let body = serde_json::to_string(&self).unwrap();
+        // keep the CLI waiting for 300 ms to send telemetry
+        // if the request isn't sent in that time loose that report
+        // to keep the experience fast for end users
+        let timeout = Duration::from_millis(300);
         debug!("Sending telemetry to {}", &url);
-        debug!("Sending body: {}", body);
         let resp = reqwest::blocking::Client::new()
             .post(&url)
             .body(body)
             .header("User-Agent", "Apollo CLI")
             .header("Content-Type", "application/json")
-            .send()
-            .unwrap();
+            .timeout(timeout)
+            .send();
 
-        if !resp.status().is_success() {
-            debug!("Failed when sending telemetry");
+        debug!("Telemetry request done");
+        match resp {
+            Ok(res) => Ok(res.status().is_success()),
+            Err(_e) => Ok(false),
         }
-        Ok(())
     }
 }

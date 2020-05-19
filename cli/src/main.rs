@@ -7,8 +7,8 @@ mod config;
 mod errors;
 mod filesystem;
 mod log;
-mod telemetry;
 mod style;
+mod telemetry;
 mod terminal;
 mod version;
 
@@ -42,6 +42,8 @@ fn main() {
     let latest_version_receiver = background_check_for_updates();
     let result = cli.run(&mut session).map_err(Error::Apollo);
 
+    let _telemetry_reported = session.report().unwrap_or(false);
+
     ::log::debug!("Checking to see if there is a latest version");
     if let Ok(latest_version) = latest_version_receiver.try_recv() {
         let should_log = match env::args().nth(1) {
@@ -61,9 +63,6 @@ fn main() {
             cli::command_name()
         );
     }
-
-    // Send telemetry report
-    session.report().unwrap_or(());
 
     match result {
         Ok(exit_code) => exit_code.exit(),

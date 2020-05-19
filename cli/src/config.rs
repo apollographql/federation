@@ -1,21 +1,29 @@
 use std::error::Error;
 use std::fs;
 
-use serde::{Serialize, Deserialize};
-use config::{ConfigError, Config};
+use config::{Config, ConfigError};
+use log::info;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::filesystem::layout::apollo_config;
 
+const POST_INSTALL_MESSAGE: &str = "
+Apollo collects anonymous usage analytics\n
+to help improve the Apollo CLI for all users.\n
+\n
+If you'd like to opt-out, set the APOLLO_TELEMETRY_DISABLE=true\n
+To learn more, checkout https://apollo.dev/cli/telemetry";
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CliConfig {
-    pub machine_id: String
+    pub machine_id: String,
 }
 
 impl CliConfig {
     pub fn load() -> Result<Self, Box<dyn Error + 'static>> {
         let mut s = Config::new();
-        
+
         let config_path = apollo_config().unwrap();
 
         if config_path.exists() {
@@ -31,7 +39,9 @@ impl CliConfig {
 
             fs::create_dir_all(&config_path.parent().unwrap())?;
             fs::write(&config_path, toml)?;
-            
+
+            // log initial telemetry warning
+            info!("{}", POST_INSTALL_MESSAGE);
         }
 
         s.try_into().map_err(|e| From::from(e))

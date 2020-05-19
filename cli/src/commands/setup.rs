@@ -9,19 +9,11 @@ use crate::telemetry::Session;
 #[derive(StructOpt)]
 pub struct Setup {}
 
-const POST_INSTALL_MESSAGE: &str ="
-Apollo collects anonymous usage analytics\n
-to help improve the Apollo CLI for all users.\n
-\n
-If you'd like to opt-out, set the APOLLO_TELEMETRY_DISABLE=true\n
-To learn more, checkout https://apollo.dev/cli/telemetry";
-
 impl Command for Setup {
     fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
         session.log_command("setup");
         os::setup_environment()?;
 
-        info!("{}", POST_INSTALL_MESSAGE);
         info!(
             "{} Setup complete. Open a new terminal to start using the Apollo CLI!",
             style::ROCKET

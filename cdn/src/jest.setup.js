@@ -1,14 +1,16 @@
-var nodeCrypto = require('crypto');
+var nodeCrypto = require("crypto");
 
 global.crypto = {
-    getRandomValues: function(buffer) { return nodeCrypto.randomFillSync(buffer);}
+  getRandomValues: function (buffer) {
+    return nodeCrypto.randomFillSync(buffer);
+  },
 };
 
 const noop = () => {};
 
 // Browser globals
-global.URL = jest.fn(url => ({ search: url, href: url }));
-global.Request = jest.fn(() => ({ url: '/' }));
+global.URL = jest.fn((url) => ({ search: url, href: url }));
+global.Request = jest.fn(() => ({ url: "/" }));
 global.Response = Object;
 global.fetch = jest.fn(() => Promise.resolve({ status: 200 }));
 
