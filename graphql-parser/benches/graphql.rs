@@ -3,45 +3,40 @@ extern crate test;
 
 extern crate graphql_parser;
 
-use std::io::Read;
-use std::fs::File;
-
-use graphql_parser::parse_query;
-
-fn load_file(name: &str) -> String {
-    let mut buf = String::with_capacity(1024);
-    let path = format!("tests/queries/{}.graphql", name);
-    let mut f = File::open(&path).unwrap();
-    f.read_to_string(&mut buf).unwrap();
-    buf
-}
+use graphql_parser::{parse_query, parse_schema};
 
 #[bench]
 fn bench_minimal(b: &mut test::Bencher) {
-    let f = load_file("minimal");
-    b.iter(|| parse_query::<String>(&f).unwrap());
+    let src = include_str!("../tests/minimal_query.graphql");
+    b.iter(|| parse_query::<String>(src).unwrap());
 }
 
 #[bench]
 fn bench_inline_fragment(b: &mut test::Bencher) {
-    let f = load_file("inline_fragment");
-    b.iter(|| parse_query::<String>(&f).unwrap());
+    let src = include_str!("../tests/inline_fragment.graphql");
+    b.iter(|| parse_query::<String>(src).unwrap());
 }
 
 #[bench]
 fn bench_directive_args(b: &mut test::Bencher) {
-    let f = load_file("directive_args");
-    b.iter(|| parse_query::<String>(&f).unwrap());
+    let src = include_str!("../tests/directive_args.graphql");
+    b.iter(|| parse_query::<String>(src).unwrap());
 }
 
 #[bench]
 fn bench_query_vars(b: &mut test::Bencher) {
-    let f = load_file("query_vars");
-    b.iter(|| parse_query::<String>(&f).unwrap());
+    let src = include_str!("../tests/query_vars.graphql");
+    b.iter(|| parse_query::<String>(src).unwrap());
 }
 
 #[bench]
 fn bench_kitchen_sink(b: &mut test::Bencher) {
-    let f = load_file("kitchen-sink");
-    b.iter(|| parse_query::<String>(&f).unwrap());
+    let src = include_str!("../tests/query_kitchen_sink.graphql");
+    b.iter(|| parse_query::<String>(src).unwrap());
+}
+
+#[bench]
+fn bench_github(b: &mut test::Bencher) {
+    let src = include_str!("../../samples/github.gql");
+    b.iter(|| parse_schema::<String>(src));
 }
