@@ -174,11 +174,12 @@ If you run into problems running the Apollo CLI, create {} and run `{} setup` ag
 
 #[cfg(windows)]
 mod os {
-    use crate::errors::{ErrorDetails, Fallible};
-    use crate::layout::apollo_home_bin;
     use log::debug;
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
+
+    use crate::errors::{ErrorDetails, Fallible};
+    use crate::filesystem::layout::apollo_home_bin;
 
     pub fn setup_environment() -> Fallible<()> {
         let bin_dir = apollo_home_bin()?.to_string_lossy().to_string();
