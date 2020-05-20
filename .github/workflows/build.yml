@@ -81,7 +81,7 @@ jobs:
         if: matrix.build == 'linux'
         run: |
           rustup target add ${{ env.LINUX_TARGET }}
-          cargo build --release --target ${{ env.LINUX_TARGET }} --features vendored-openssl
+          cd cli && cargo build --release --target ${{ env.LINUX_TARGET }} --features vendored-openssl
       
       - name: Compress binaries (Linux)
         if: matrix.build == 'linux'
