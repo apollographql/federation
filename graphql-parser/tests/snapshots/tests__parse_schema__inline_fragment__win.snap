@@ -52,9 +52,7 @@ Ok(
                                                 InlineFragment {
                                                     position: Pos(4:9),
                                                     type_condition: Some(
-                                                        On(
-                                                            "User",
-                                                        ),
+                                                        "User",
                                                     ),
                                                     directives: [],
                                                     selection_set: SelectionSet {

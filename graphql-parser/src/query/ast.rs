@@ -26,7 +26,7 @@ pub struct FragmentDefinition<'a> {
     pub position: Pos,
     pub description: Option<String>,
     pub name: Txt<'a>,
-    pub type_condition: TypeCondition<'a>,
+    pub type_condition: Txt<'a>,
     pub directives: Vec<Directive<'a>>,
     pub selection_set: SelectionSet<'a>,
 }
@@ -97,14 +97,9 @@ pub struct FragmentSpread<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TypeCondition<'a> {
-    On(Txt<'a>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct InlineFragment<'a> {
     pub position: Pos,
-    pub type_condition: Option<TypeCondition<'a>>,
+    pub type_condition: Option<Txt<'a>>,
     pub directives: Vec<Directive<'a>>,
     pub selection_set: SelectionSet<'a>,
 }

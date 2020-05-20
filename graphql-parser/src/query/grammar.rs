@@ -41,7 +41,7 @@ pub fn selection<'a>(input: &mut TokenStream<'a>)
     parser(field).map(Selection::Field)
     .or(punct("...").with((
                 position(),
-                optional(ident("on").with(name::<'a>()).map(TypeCondition::On)),
+                optional(ident("on").with(name::<'a>())),
                 parser(directives),
                 parser(selection_set),
             ).map(|(position, type_condition, directives, selection_set)| {
@@ -121,7 +121,7 @@ pub fn fragment_definition<'a>(input: &mut TokenStream<'a>)
     (
         position().skip(ident("fragment")),
         name::<'a>(),
-        ident("on").with(name::<'a>()).map(TypeCondition::On),
+        ident("on").with(name::<'a>()),
         parser(directives),
         parser(selection_set)
     ).map(|(position, name, type_condition, directives, selection_set)| {

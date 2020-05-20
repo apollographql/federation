@@ -95,9 +95,7 @@ Ok(
                                                 InlineFragment {
                                                     position: Pos(9:9),
                                                     type_condition: Some(
-                                                        On(
-                                                            "User",
-                                                        ),
+                                                        "User",
                                                     ),
                                                     directives: [
                                                         Directive {
@@ -528,9 +526,7 @@ Ok(
                     position: Pos(48:1),
                     description: None,
                     name: "frag",
-                    type_condition: On(
-                        "Friend",
-                    ),
+                    type_condition: "Friend",
                     directives: [],
                     selection_set: SelectionSet {
                         span: (

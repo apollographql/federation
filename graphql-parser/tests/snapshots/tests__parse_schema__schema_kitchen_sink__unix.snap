@@ -949,9 +949,7 @@ Ok(
                     position: Pos(119:1),
                     description: None,
                     name: "SomeNamedFragment",
-                    type_condition: On(
-                        "SomeType",
-                    ),
+                    type_condition: "SomeType",
                     directives: [],
                     selection_set: SelectionSet {
                         span: (
