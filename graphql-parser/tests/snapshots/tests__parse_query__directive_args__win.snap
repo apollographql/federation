@@ -6,76 +6,75 @@ Ok(
     Document {
         definitions: [
             Operation(
-                Query(
-                    Query {
-                        position: Pos(1:1),
-                        description: None,
-                        name: None,
-                        variable_definitions: [],
-                        directives: [],
-                        selection_set: SelectionSet {
-                            span: (
-                                Pos(1:7),
-                                Pos(3:1),
-                            ),
-                            items: [
-                                Field(
-                                    Field {
-                                        position: Pos(2:3),
-                                        alias: None,
-                                        name: "node",
-                                        arguments: [],
-                                        directives: [
-                                            Directive {
-                                                position: Pos(2:8),
-                                                name: "dir",
-                                                arguments: [
-                                                    (
-                                                        "a",
-                                                        Int(
-                                                            Number(
-                                                                1,
-                                                            ),
+                OperationDefinition {
+                    position: Pos(1:1),
+                    kind: Query,
+                    description: None,
+                    name: None,
+                    variable_definitions: [],
+                    directives: [],
+                    selection_set: SelectionSet {
+                        span: (
+                            Pos(1:7),
+                            Pos(3:1),
+                        ),
+                        items: [
+                            Field(
+                                Field {
+                                    position: Pos(2:3),
+                                    alias: None,
+                                    name: "node",
+                                    arguments: [],
+                                    directives: [
+                                        Directive {
+                                            position: Pos(2:8),
+                                            name: "dir",
+                                            arguments: [
+                                                (
+                                                    "a",
+                                                    Int(
+                                                        Number(
+                                                            1,
                                                         ),
                                                     ),
-                                                    (
-                                                        "b",
-                                                        String(
-                                                            "2",
-                                                        ),
+                                                ),
+                                                (
+                                                    "b",
+                                                    String(
+                                                        "2",
                                                     ),
-                                                    (
-                                                        "c",
-                                                        Boolean(
-                                                            true,
-                                                        ),
+                                                ),
+                                                (
+                                                    "c",
+                                                    Boolean(
+                                                        true,
                                                     ),
-                                                    (
-                                                        "d",
-                                                        Boolean(
-                                                            false,
-                                                        ),
+                                                ),
+                                                (
+                                                    "d",
+                                                    Boolean(
+                                                        false,
                                                     ),
-                                                    (
-                                                        "e",
-                                                        Null,
-                                                    ),
-                                                ],
-                                            },
-                                        ],
-                                        selection_set: SelectionSet {
-                                            span: (
-                                                Pos(2:3),
-                                                Pos(2:3),
-                                            ),
-                                            items: [],
+                                                ),
+                                                (
+                                                    "e",
+                                                    Null,
+                                                ),
+                                            ],
                                         },
+                                    ],
+                                    selection_set: SelectionSet {
+                                        span: (
+                                            Pos(2:3),
+                                            Pos(2:3),
+                                        ),
+                                        items: [],
                                     },
-                                ),
-                            ],
-                        },
+                                },
+                            ),
+                        ],
                     },
-                ),
+                },
             ),
         ],
     },

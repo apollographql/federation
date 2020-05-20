@@ -1,7 +1,6 @@
 use combine::{parser, ParseResult, Parser};
-use combine::combinator::{many1, eof, optional, position};
+use combine::combinator::{many1, choice, eof, optional, position};
 
-use crate::common::{Directive};
 use crate::common::{directives, arguments, default_value, parse_type};
 use crate::tokenizer::{TokenStream};
 use crate::helpers::{punct, ident, name};
@@ -75,88 +74,44 @@ pub fn selection_set<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-pub fn query<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Query<'a>, TokenStream<'a>>
-{
-    position()
-    .skip(ident("query"))
-    .and(parser(operation_common))
-    .map(|(position, (name, variable_definitions, directives, selection_set))|
-        Query {
-            position, description: None, name, selection_set, variable_definitions, directives,
-        })
-    .parse_stream(input)
-}
-
-/// A set of attributes common to a Query and a Mutation
-#[allow(type_alias_bounds)]
-type OperationCommon<'a> = (
-    Option<&'a str>,
-    Vec<VariableDefinition<'a>>,
-    Vec<Directive<'a>>,
-    SelectionSet<'a>,
-);
-
-pub fn operation_common<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<OperationCommon<'a>, TokenStream<'a>>
-{
-    optional(name::<'a>())
-    .and(optional(
-        punct("(")
-        .with(many1(
-            (
-                position(),
-                punct("$").with(name::<'a>()).skip(punct(":")),
-                parser(parse_type),
-                optional(
-                    punct("=")
-                    .with(parser(default_value))),
-            ).map(|(position, name, var_type, default_value)| {
-                VariableDefinition {
-                    position, name, var_type, default_value,
-                }
-            })))
-        .skip(punct(")")))
-        .map(|vars| vars.unwrap_or_else(Vec::new)))
-    .and(parser(directives))
-    .and(parser(selection_set))
-    .map(|(((a, b), c), d)| (a, b, c, d))
-    .parse_stream(input)
-}
-
-pub fn mutation<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Mutation<'a>, TokenStream<'a>>
-{
-    position()
-    .skip(ident("mutation"))
-    .and(parser(operation_common))
-    .map(|(position, (name, variable_definitions, directives, selection_set))|
-        Mutation {
-            position, description: None, name, selection_set, variable_definitions, directives,
-        })
-    .parse_stream(input)
-}
-
-pub fn subscription<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Subscription<'a>, TokenStream<'a>>
-{
-    position()
-    .skip(ident("subscription"))
-    .and(parser(operation_common))
-    .map(|(position, (name, variable_definitions, directives, selection_set))|
-        Subscription {
-            position, description: None, name, selection_set, variable_definitions, directives,
-        })
-    .parse_stream(input)
-}
-
 pub fn operation_definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<OperationDefinition<'a>, TokenStream<'a>>
 {
-    parser(selection_set).map(OperationDefinition::SelectionSet)
-    .or(parser(query).map(OperationDefinition::Query))
-    .or(parser(mutation).map(OperationDefinition::Mutation))
-    .or(parser(subscription).map(OperationDefinition::Subscription))
+    (
+        position(),
+        choice((
+            ident("query").map(|_| { Operation::Query }),
+            ident("mutation").map(|_| { Operation::Mutation }),
+            ident("subscription").map(|_| { Operation::Subscription }),
+        )),
+        optional(name::<'a>()),
+        optional(
+            punct("(")
+            .with(many1(
+                (
+                    position(),
+                    punct("$").with(name::<'a>()).skip(punct(":")),
+                    parser(parse_type),
+                    optional(
+                        punct("=")
+                        .with(parser(default_value))),
+                ).map(|(position, name, var_type, default_value)| {
+                    VariableDefinition {
+                        position, name, var_type, default_value,
+                    }
+                })))
+            .skip(punct(")")))
+            .map(|vars| vars.unwrap_or_else(Vec::new)),
+        parser(directives),
+        parser(selection_set)
+    )
+    .flat_map(|(position, kind, name, variable_definitions, directives, selection_set)|
+        Ok(OperationDefinition {
+            position,
+            description: None,
+            kind,
+            name, variable_definitions, directives, selection_set
+        }))
     .parse_stream(input)
 }
 
@@ -180,7 +135,8 @@ pub fn fragment_definition<'a>(input: &mut TokenStream<'a>)
 pub fn definition<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Definition<'a>, TokenStream<'a>>
 {
-    parser(operation_definition).map(Definition::Operation)
+    parser(selection_set).map(Definition::SelectionSet)
+    .or(parser(operation_definition).map(Definition::Operation))
     .or(parser(fragment_definition).map(Definition::Fragment))
     .parse_stream(input)
 }
@@ -212,10 +168,10 @@ mod test {
     fn one_field() {
         assert_eq!(ast("{ a }"), Document {
             definitions: vec![
-                Definition::Operation(OperationDefinition::SelectionSet(
+                Definition::SelectionSet(
                     SelectionSet {
                         span: (Pos { line: 1, column: 1 },
-                               Pos { line: 1, column: 5 }),
+                            Pos { line: 1, column: 5 }),
                         items: vec![
                             Selection::Field(Field {
                                 position: Pos { line: 1, column: 3 },
@@ -225,13 +181,13 @@ mod test {
                                 directives: Vec::new(),
                                 selection_set: SelectionSet {
                                     span: (Pos { line: 1, column: 3 },
-                                           Pos { line: 1, column: 3 }),
+                                        Pos { line: 1, column: 3 }),
                                     items: Vec::new()
                                 },
                             }),
                         ],
                     }
-                ))
+                )
             ],
         });
     }
@@ -241,10 +197,10 @@ mod test {
         assert_eq!(ast("{ a(t: true, f: false, n: null) }"),
             Document {
                 definitions: vec![
-                    Definition::Operation(OperationDefinition::SelectionSet(
+                    Definition::SelectionSet(
                         SelectionSet {
                             span: (Pos { line: 1, column: 1 },
-                                   Pos { line: 1, column: 33 }),
+                                Pos { line: 1, column: 33 }),
                             items: vec![
                                 Selection::Field(Field {
                                     position: Pos { line: 1, column: 3 },
@@ -261,13 +217,13 @@ mod test {
                                     directives: Vec::new(),
                                     selection_set: SelectionSet {
                                         span: (Pos { line: 1, column: 3 },
-                                               Pos { line: 1, column: 3 }),
+                                            Pos { line: 1, column: 3 }),
                                         items: Vec::new()
                                     },
                                 }),
                             ],
                         }
-                    ))
+                    )
                 ],
             });
     }

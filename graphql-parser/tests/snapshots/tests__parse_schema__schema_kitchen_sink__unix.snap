@@ -1069,91 +1069,90 @@ Ok(
                 },
             ),
             Operation(
-                Query(
-                    Query {
-                        position: Pos(127:1),
-                        description: None,
-                        name: Some(
-                            "StoredQuery",
-                        ),
-                        variable_definitions: [
-                            VariableDefinition {
-                                position: Pos(127:19),
-                                name: "param",
-                                var_type: NamedType(
-                                    "InputType",
-                                ),
-                                default_value: None,
-                            },
-                            VariableDefinition {
-                                position: Pos(127:38),
-                                name: "other",
-                                var_type: NamedType(
-                                    "ScalarType",
-                                ),
-                                default_value: None,
-                            },
-                        ],
-                        directives: [],
-                        selection_set: SelectionSet {
-                            span: (
-                                Pos(127:58),
-                                Pos(131:1),
+                OperationDefinition {
+                    position: Pos(127:1),
+                    kind: Query,
+                    description: None,
+                    name: Some(
+                        "StoredQuery",
+                    ),
+                    variable_definitions: [
+                        VariableDefinition {
+                            position: Pos(127:19),
+                            name: "param",
+                            var_type: NamedType(
+                                "InputType",
                             ),
-                            items: [
-                                Field(
-                                    Field {
-                                        position: Pos(128:3),
-                                        alias: None,
-                                        name: "lookup",
-                                        arguments: [],
-                                        directives: [],
-                                        selection_set: SelectionSet {
-                                            span: (
-                                                Pos(128:10),
-                                                Pos(130:3),
-                                            ),
-                                            items: [
-                                                Field(
-                                                    Field {
-                                                        position: Pos(129:5),
-                                                        alias: None,
-                                                        name: "various",
-                                                        arguments: [],
-                                                        directives: [],
-                                                        selection_set: SelectionSet {
-                                                            span: (
-                                                                Pos(129:5),
-                                                                Pos(129:5),
-                                                            ),
-                                                            items: [],
-                                                        },
-                                                    },
-                                                ),
-                                                Field(
-                                                    Field {
-                                                        position: Pos(129:13),
-                                                        alias: None,
-                                                        name: "things",
-                                                        arguments: [],
-                                                        directives: [],
-                                                        selection_set: SelectionSet {
-                                                            span: (
-                                                                Pos(129:13),
-                                                                Pos(129:13),
-                                                            ),
-                                                            items: [],
-                                                        },
-                                                    },
-                                                ),
-                                            ],
-                                        },
-                                    },
-                                ),
-                            ],
+                            default_value: None,
                         },
+                        VariableDefinition {
+                            position: Pos(127:38),
+                            name: "other",
+                            var_type: NamedType(
+                                "ScalarType",
+                            ),
+                            default_value: None,
+                        },
+                    ],
+                    directives: [],
+                    selection_set: SelectionSet {
+                        span: (
+                            Pos(127:58),
+                            Pos(131:1),
+                        ),
+                        items: [
+                            Field(
+                                Field {
+                                    position: Pos(128:3),
+                                    alias: None,
+                                    name: "lookup",
+                                    arguments: [],
+                                    directives: [],
+                                    selection_set: SelectionSet {
+                                        span: (
+                                            Pos(128:10),
+                                            Pos(130:3),
+                                        ),
+                                        items: [
+                                            Field(
+                                                Field {
+                                                    position: Pos(129:5),
+                                                    alias: None,
+                                                    name: "various",
+                                                    arguments: [],
+                                                    directives: [],
+                                                    selection_set: SelectionSet {
+                                                        span: (
+                                                            Pos(129:5),
+                                                            Pos(129:5),
+                                                        ),
+                                                        items: [],
+                                                    },
+                                                },
+                                            ),
+                                            Field(
+                                                Field {
+                                                    position: Pos(129:13),
+                                                    alias: None,
+                                                    name: "things",
+                                                    arguments: [],
+                                                    directives: [],
+                                                    selection_set: SelectionSet {
+                                                        span: (
+                                                            Pos(129:13),
+                                                            Pos(129:13),
+                                                        ),
+                                                        items: [],
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                    },
+                                },
+                            ),
+                        ],
                     },
-                ),
+                },
             ),
         ],
     },

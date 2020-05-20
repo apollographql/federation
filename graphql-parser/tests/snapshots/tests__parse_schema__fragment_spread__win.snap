@@ -6,63 +6,62 @@ Ok(
     Document {
         definitions: [
             Operation(
-                Query(
-                    Query {
-                        position: Pos(1:1),
-                        description: None,
-                        name: None,
-                        variable_definitions: [],
-                        directives: [],
-                        selection_set: SelectionSet {
-                            span: (
-                                Pos(1:7),
-                                Pos(6:1),
-                            ),
-                            items: [
-                                Field(
-                                    Field {
-                                        position: Pos(2:3),
-                                        alias: None,
-                                        name: "node",
-                                        arguments: [],
-                                        directives: [],
-                                        selection_set: SelectionSet {
-                                            span: (
-                                                Pos(2:8),
-                                                Pos(5:3),
+                OperationDefinition {
+                    position: Pos(1:1),
+                    kind: Query,
+                    description: None,
+                    name: None,
+                    variable_definitions: [],
+                    directives: [],
+                    selection_set: SelectionSet {
+                        span: (
+                            Pos(1:7),
+                            Pos(6:1),
+                        ),
+                        items: [
+                            Field(
+                                Field {
+                                    position: Pos(2:3),
+                                    alias: None,
+                                    name: "node",
+                                    arguments: [],
+                                    directives: [],
+                                    selection_set: SelectionSet {
+                                        span: (
+                                            Pos(2:8),
+                                            Pos(5:3),
+                                        ),
+                                        items: [
+                                            Field(
+                                                Field {
+                                                    position: Pos(3:5),
+                                                    alias: None,
+                                                    name: "id",
+                                                    arguments: [],
+                                                    directives: [],
+                                                    selection_set: SelectionSet {
+                                                        span: (
+                                                            Pos(3:5),
+                                                            Pos(3:5),
+                                                        ),
+                                                        items: [],
+                                                    },
+                                                },
                                             ),
-                                            items: [
-                                                Field(
-                                                    Field {
-                                                        position: Pos(3:5),
-                                                        alias: None,
-                                                        name: "id",
-                                                        arguments: [],
-                                                        directives: [],
-                                                        selection_set: SelectionSet {
-                                                            span: (
-                                                                Pos(3:5),
-                                                                Pos(3:5),
-                                                            ),
-                                                            items: [],
-                                                        },
-                                                    },
-                                                ),
-                                                FragmentSpread(
-                                                    FragmentSpread {
-                                                        position: Pos(4:8),
-                                                        fragment_name: "something",
-                                                        directives: [],
-                                                    },
-                                                ),
-                                            ],
-                                        },
+                                            FragmentSpread(
+                                                FragmentSpread {
+                                                    position: Pos(4:8),
+                                                    fragment_name: "something",
+                                                    directives: [],
+                                                },
+                                            ),
+                                        ],
                                     },
-                                ),
-                            ],
-                        },
+                                },
+                            ),
+                        ],
                     },
-                ),
+                },
             ),
         ],
     },
