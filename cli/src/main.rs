@@ -22,7 +22,7 @@ use structopt::StructOpt;
 use crate::errors::{report, ApolloError};
 use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 use crate::telemetry::Session;
-use crate::version::background_check_for_updates;
+use crate::version::{background_check_for_updates, command_name};
 
 enum Error {
     Apollo(ApolloError),
@@ -60,7 +60,7 @@ fn main() {
         ::log::info!(
             "\n > A new version of the Apollo CLI ({}) is available! To update, run `{} update`",
             latest_version,
-            cli::command_name()
+            command_name()
         );
     }
 

@@ -148,15 +148,27 @@ download_and_install() {
   fi
 
   mkdir -p "$BIN_PATH"
-
+  
   mv ap "$BIN_PATH"
   chmod +x "$INSTALL_PATH"
 
-  echo
-  "$INSTALL_PATH" setup
-  echo
+  if ! [ -w "/usr/local/bin" ]; then
+    info "Adding the ${BIN_PATH} to your PATH variable..."
+    "$INSTALL_PATH" setup
+    echo
+  else 
+    # create symlink to /usr/local/bin for global path usage
+    ln -s "${INSTALL_PATH}" "/usr/local/bin"
+  fi
   
-  complete "Installed Apollo CLI in $INSTALL_PATH"
+  complete "Installed Apollo CLI in $INSTALL_PATH!
+To learn about all you can do with the Apollo CLI you can always run
+
+  ap help
+
+Here is what you can do with it!
+  "
+  "$INSTALL_PATH" help
   return
 }
 
@@ -199,9 +211,11 @@ fallback_and_download_from_github() {
 # parse argv variables
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    -b|--install-dir) DESTDIR="$2"; shift 2;;
     -V|--verbose) VERBOSE=1; shift 1;;
     -f|-y|--force|--yes) FORCE=1; shift 1;;
 
+    -b=*|--install-dir=*) DESTDIR="${1#*=}"; shift 1;;
     -V=*|--verbose=*) VERBOSE="${1#*=}"; shift 1;;
     -f=*|-y=*|--force=*|--yes=*) FORCE="${1#*=}"; shift 1;;
     *) error "Unknown option: $1"; exit 1;;
@@ -232,6 +246,8 @@ run_main() {
   fi
 
   echo
+  confirm "Install the Apollo CLI to ${BOLD}${GREEN}${DESTDIR}${NO_COLOR}?"
+  
 
   check_environment_readiness || error_exit "Environment checks failed!"
 
@@ -247,9 +263,6 @@ run_main() {
 
   # Delete the working directory when the install was successful.
   rm -r "$SCRATCH"
-
-  complete "Apollo CLI was successfully installed!"
-
   return
 }
 

@@ -9,11 +9,10 @@ use uuid::Uuid;
 use crate::filesystem::layout::apollo_config;
 
 const POST_INSTALL_MESSAGE: &str = "
-Apollo collects anonymous usage analytics\n
-to help improve the Apollo CLI for all users.\n
-\n
-If you'd like to opt-out, set the APOLLO_TELEMETRY_DISABLE=true\n
-To learn more, checkout https://apollo.dev/cli/telemetry";
+Apollo collects anonymous usage analytics to help improve the Apollo CLI for all users.
+
+If you'd like to opt-out, set the APOLLO_TELEMETRY_DISABLE=true
+To learn more, checkout https://apollo.dev/cli/telemetry\n";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CliConfig {
