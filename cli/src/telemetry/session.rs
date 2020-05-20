@@ -95,7 +95,7 @@ impl Session {
             return Ok(false);
         }
 
-        let url = "http://localhost:8787/telemetry".to_string();
+        let url = "https://install.apollographql.com/telemetry".to_string();
         let body = serde_json::to_string(&self).unwrap();
         // keep the CLI waiting for 300 ms to send telemetry
         // if the request isn't sent in that time loose that report

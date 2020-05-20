@@ -116,6 +116,7 @@ pub fn needs_updating() -> Result<CLIVersionDiff, Box<dyn Error + 'static>> {
 }
 
 pub fn background_check_for_updates() -> mpsc::Receiver<Version> {
+    debug!("Checking to see if there is a latest version");
     let (sender, receiver) = mpsc::channel();
 
     let _detached_thread = thread::spawn(move || match needs_updating() {

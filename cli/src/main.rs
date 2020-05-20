@@ -38,31 +38,41 @@ fn main() {
     setup_panic_hooks();
 
     let mut session = Session::init().unwrap();
-
+    
+    #[cfg(not(test))]
+    // Check for updates to the CLI in the background
     let latest_version_receiver = background_check_for_updates();
+
+    // Run the CLI command
     let result = cli.run(&mut session).map_err(Error::Apollo);
 
-    let _telemetry_reported = session.report().unwrap_or(false);
+    // XXX create mock for test so this can still run
+    #[cfg(not(test))]
+    {
+        // Send anonymous telemtry if enabled
+        let _telemetry_reported = session.report().unwrap_or(false);
+        
+        // Check for updates to the CLI and print out a message if an update is ready
+        if let Ok(latest_version) = latest_version_receiver.try_recv() {
+            let should_log = match env::args().nth(1) {
+                Some(cmd) => !cmd.eq("update"),
+                _ => false,
+            };
 
-    ::log::debug!("Checking to see if there is a latest version");
-    if let Ok(latest_version) = latest_version_receiver.try_recv() {
-        let should_log = match env::args().nth(1) {
-            Some(cmd) => !cmd.eq("update"),
-            _ => false,
-        };
+            if !should_log {
+                return;
+            }
 
-        if !should_log {
-            return;
+            let latest_version = style(latest_version).green().bold();
+
+            ::log::info!(
+                "\n > A new version of the Apollo CLI ({}) is available! To update, run `{} update`",
+                latest_version,
+                command_name()
+            );
         }
-
-        let latest_version = style(latest_version).green().bold();
-
-        ::log::info!(
-            "\n > A new version of the Apollo CLI ({}) is available! To update, run `{} update`",
-            latest_version,
-            command_name()
-        );
     }
+    
 
     match result {
         Ok(exit_code) => exit_code.exit(),

@@ -27,7 +27,6 @@ mod unix {
         let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
 
         cli.arg("setup")
-            .arg("--verbose")
             .env("HOME", dir.path())
             .assert()
             .code(4)
@@ -39,19 +38,75 @@ mod unix {
 
     #[cfg(unix)]
     #[test]
-    fn successful_setup_not_fish() -> Result<()> {
+    fn successful_setup_zsh() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let has_apollo = predicate::str::contains("export PATH=\"$HOME/.apollo/bin:$PATH");
+        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+
+        let profile = create_profile(&dir.path().join(".profile"))?;
+        let zshrc = create_profile(&dir.path().join(".zshrc"))?;
+
+        cli.arg("setup")
+            .arg("--verbose")
+            .env("HOME", dir.path())
+            .env("SHELL", "/usr/bin/zsh")
+            .assert()
+            .code(0)
+            .stderr(predicate::str::contains("Setup complete"));
+
+        let profile_buf = read_profile(profile)?;
+        assert_eq!(true, has_apollo.eval(&profile_buf));
+
+        let zshrc_buf = read_profile(zshrc)?;
+        assert_eq!(true, has_apollo.eval(&zshrc_buf));
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn successful_setup_bashrc() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let has_apollo = predicate::str::contains("export PATH=\"$HOME/.apollo/bin:$PATH");
+        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+
+        let profile = create_profile(&dir.path().join(".profile"))?;
+        // let bash_profile = create_profile(&dir.path().join(".bash_profile"))?;
+        let bashrc = create_profile(&dir.path().join(".bashrc"))?;
+
+        cli.arg("setup")
+            .arg("--verbose")
+            .env("HOME", dir.path())
+            .env("SHELL", "/usr/bin/bash")
+            .assert()
+            .code(0)
+            .stderr(predicate::str::contains("Setup complete"));
+
+        let profile_buf = read_profile(profile)?;
+        assert_eq!(true, has_apollo.eval(&profile_buf));
+
+        // let bash_profile_buf = read_profile(bash_profile)?;
+        // assert_eq!(true, has_apollo.eval(&bash_profile_buf));
+
+        let bashrc_buf = read_profile(bashrc)?;
+        assert_eq!(true, has_apollo.eval(&bashrc_buf));
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn successful_setup_bash_profile() -> Result<()> {
         let dir = tempdir().unwrap();
         let has_apollo = predicate::str::contains("export PATH=\"$HOME/.apollo/bin:$PATH");
         let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
 
         let profile = create_profile(&dir.path().join(".profile"))?;
         let bash_profile = create_profile(&dir.path().join(".bash_profile"))?;
-        let bashrc = create_profile(&dir.path().join(".bashrc"))?;
-        let zshrc = create_profile(&dir.path().join(".zshrc"))?;
 
         cli.arg("setup")
             .arg("--verbose")
             .env("HOME", dir.path())
+            .env("SHELL", "/usr/bin/bash")
             .assert()
             .code(0)
             .stderr(predicate::str::contains("Setup complete"));
@@ -62,11 +117,37 @@ mod unix {
         let bash_profile_buf = read_profile(bash_profile)?;
         assert_eq!(true, has_apollo.eval(&bash_profile_buf));
 
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn successful_setup_bashrc_over_profile() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let has_apollo = predicate::str::contains("export PATH=\"$HOME/.apollo/bin:$PATH");
+        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+
+        let profile = create_profile(&dir.path().join(".profile"))?;
+        let bash_profile = create_profile(&dir.path().join(".bash_profile"))?;
+        let bashrc = create_profile(&dir.path().join(".bashrc"))?;
+
+        cli.arg("setup")
+            .arg("--verbose")
+            .env("HOME", dir.path())
+            .env("SHELL", "/usr/bin/bash")
+            .assert()
+            .code(0)
+            .stderr(predicate::str::contains("Setup complete"));
+
+        let profile_buf = read_profile(profile)?;
+        assert_eq!(true, has_apollo.eval(&profile_buf));
+
+        let bash_profile_buf = read_profile(bash_profile)?;
+        assert_eq!(false, has_apollo.eval(&bash_profile_buf));
+
         let bashrc_buf = read_profile(bashrc)?;
         assert_eq!(true, has_apollo.eval(&bashrc_buf));
 
-        let zshrc_buf = read_profile(zshrc)?;
-        assert_eq!(true, has_apollo.eval(&zshrc_buf));
         Ok(())
     }
 
@@ -85,6 +166,7 @@ mod unix {
         cli.arg("setup")
             .arg("--verbose")
             .env("HOME", dir.path())
+            .env("SHELL", "/usr/bin/fish")
             .assert()
             .code(0)
             .stderr(predicate::str::contains("Setup complete"));

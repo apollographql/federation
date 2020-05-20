@@ -162,13 +162,10 @@ download_and_install() {
   fi
   
   complete "Installed Apollo CLI in $INSTALL_PATH!
-To learn about all you can do with the Apollo CLI you can always run
+To learn about all you can do with the Apollo CLI run
 
   ap help
-
-Here is what you can do with it!
   "
-  "$INSTALL_PATH" help
   return
 }
 

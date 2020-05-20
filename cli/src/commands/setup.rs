@@ -41,27 +41,34 @@ mod os {
         let profiles = determine_profiles()?;
 
         let found_profile = profiles.into_iter().fold(false, |prev, profile| {
-            let contents = read_profile_without_apollo(&profile).unwrap_or_else(String::new);
-
-            let write_profile = match profile.extension() {
-                Some(ext) if ext == "fish" => write_profile_fish,
-                _ => write_profile_sh,
-            };
-
-            match write_profile(&profile, contents) {
-                Ok(()) => {
-                    debug!("Wrote $PATH addition into {}", profile.display());
-                    true
-                }
-                Err(err) => {
-                    warn!(
-                        "Found profile script, but could not modify it: {}",
-                        profile.display()
-                    );
-                    debug!("Profile modification error: {}", err);
+            match read_profile_without_apollo(&profile) {
+                Some(contents) => {
+                    let write_profile = match profile.extension() {
+                        Some(ext) if ext == "fish" => write_profile_fish,
+                        _ => write_profile_sh,
+                    };
+        
+                    match write_profile(&profile, contents) {
+                        Ok(()) => {
+                            debug!("Wrote $PATH addition into {}", profile.display());
+                            true
+                        }
+                        Err(err) => {
+                            warn!(
+                                "Found profile script, but could not modify it: {}",
+                                profile.display()
+                            );
+                            debug!("Profile modification error: {}", err);
+                            prev
+                        }
+                    }
+                },
+                None => {
+                    debug!("Profile script not found: {}", profile.display());
                     prev
                 }
             }
+
         });
 
         if found_profile {
