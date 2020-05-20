@@ -22,6 +22,7 @@ graphql-parser = { path = "../graphql-parser" }
 human-panic = "1.0.3"
 indicatif = "0.14.0"
 log = { version = "0.4", features = ["std"] }
+openssl = { version = '0.10.26', optional = true }
 tar = "0.4.26"
 text_io = "0.1.8"
 reqwest = { version = "0.10", features = ["blocking", "json"] }
@@ -45,3 +46,5 @@ winreg = "0.7"
 assert_cmd = "0.10"
 predicates = "1"
 
+[features]
+vendored-openssl = ['openssl/vendored']
