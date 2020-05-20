@@ -769,9 +769,7 @@ Ok(
                                 ),
                                 default_value: Some(
                                     Int(
-                                        Number(
-                                            42,
-                                        ),
+                                        42,
                                     ),
                                 ),
                                 directives: [],
@@ -1039,9 +1037,7 @@ Ok(
                                                 (
                                                     "param",
                                                     Int(
-                                                        Number(
-                                                            3,
-                                                        ),
+                                                        3,
                                                     ),
                                                 ),
                                                 (

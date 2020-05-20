@@ -28,9 +28,7 @@ Ok(
                                         (
                                             "id",
                                             Int(
-                                                Number(
-                                                    1,
-                                                ),
+                                                1,
                                             ),
                                         ),
                                         (
@@ -38,14 +36,10 @@ Ok(
                                             Object(
                                                 {
                                                     "key1": Int(
-                                                        Number(
-                                                            123,
-                                                        ),
+                                                        123,
                                                     ),
                                                     "key2": Int(
-                                                        Number(
-                                                            456,
-                                                        ),
+                                                        456,
                                                     ),
                                                 },
                                             ),

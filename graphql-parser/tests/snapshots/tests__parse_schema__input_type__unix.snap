@@ -34,9 +34,7 @@ Ok(
                                 ),
                                 default_value: Some(
                                     Int(
-                                        Number(
-                                            42,
-                                        ),
+                                        42,
                                     ),
                                 ),
                                 directives: [],

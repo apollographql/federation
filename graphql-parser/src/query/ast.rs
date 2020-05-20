@@ -6,7 +6,7 @@
 //! [graphql grammar]: http://facebook.github.io/graphql/October2016/#sec-Appendix-Grammar-Summary
 //!
 use crate::position::Pos;
-pub use crate::common::{Directive, Number, Type, Value, Txt};
+pub use crate::common::{Directive, Type, Value, Txt};
 
 /// Root of query data
 #[derive(Debug, Clone, PartialEq)]

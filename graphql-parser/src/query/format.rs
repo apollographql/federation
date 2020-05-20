@@ -193,7 +193,7 @@ impl<'a> Displayable for Value<'a>
     fn display(&self, f: &mut Formatter) {
         match *self {
             Value::Variable(ref name) => { f.write("$"); f.write(name.as_ref()); },
-            Value::Int(ref num) => f.write(&format!("{}", num.0)),
+            Value::Int(ref num) => f.write(&format!("{}", num)),
             Value::Float(val) => f.write(&format!("{}", val)),
             Value::String(ref val) => f.write_quoted(val),
             Value::Boolean(true) => f.write("true"),
