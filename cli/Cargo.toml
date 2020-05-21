@@ -17,7 +17,7 @@ graphql-parser = { path = "../graphql-parser" }
 human-panic = "1.0.3"
 log = { version = "0.4", features = ["std"] }
 serde = "1.0"
-structopt = "*"
+structopt = "0.3.14"
 term_size = "0.3.0"
 textwrap = "0.11.0"
 thiserror = "1.0.16"
