@@ -1,13 +1,11 @@
 use std::fmt;
 
 use crate::format::{Displayable, Formatter, Style, format_directives};
-use crate::common::Text;
 
 use crate::schema::ast::*;
 
 
-impl<'a, T> Document<'a, T> 
-    where T: Text<'a>,
+impl<'a> Document<'a> 
 {
     /// Format a document according to style
     pub fn format(&self, style: &Style) -> String {
@@ -33,8 +31,7 @@ fn description<'a>(description: &Option<String>, f: &mut Formatter) {
 }
 
 
-impl<'a, T> Displayable for Document<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for Document<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         for item in &self.definitions {
@@ -43,8 +40,7 @@ impl<'a, T> Displayable for Document<'a, T>
     }
 }
 
-impl<'a, T> Displayable for Definition<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for Definition<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         match *self {
@@ -58,8 +54,7 @@ impl<'a, T> Displayable for Definition<'a, T>
     }
 }
 
-impl<'a, T> Displayable for SchemaDefinition<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for SchemaDefinition<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         f.indent();
@@ -89,8 +84,7 @@ impl<'a, T> Displayable for SchemaDefinition<'a, T>
     }
 }
 
-impl<'a, T> Displayable for TypeDefinition<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for TypeDefinition<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         match *self {
@@ -104,8 +98,7 @@ impl<'a, T> Displayable for TypeDefinition<'a, T>
     }
 }
 
-impl<'a, T> Displayable for ScalarType<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for ScalarType<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
@@ -117,8 +110,7 @@ impl<'a, T> Displayable for ScalarType<'a, T>
     }
 }
 
-impl<'a, T> Displayable for ScalarTypeExtension<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for ScalarTypeExtension<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         f.indent();
@@ -129,8 +121,7 @@ impl<'a, T> Displayable for ScalarTypeExtension<'a, T>
     }
 }
 
-fn format_fields<'a, T>(fields: &[Field<'a, T>], f: &mut Formatter) 
-    where T: Text<'a>,
+fn format_fields<'a>(fields: &[Field<'a>], f: &mut Formatter) 
 {
     if !fields.is_empty() {
         f.write(" ");
@@ -144,22 +135,20 @@ fn format_fields<'a, T>(fields: &[Field<'a, T>], f: &mut Formatter)
     }
 }
 
-impl<'a, T> Displayable for ObjectType<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for ObjectType<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
         f.write("type ");
         f.write(self.name.as_ref());
-        format_interfaces::<T>(&self.implements_interfaces, f);
+        format_interfaces(&self.implements_interfaces, f);
         format_directives(&self.directives, f);
         format_fields(&self.fields, f);
     }
 }
 
-fn format_interfaces<'a, T>(implements_interfaces: &[T::Value], f: &mut Formatter)
-    where T: Text<'a>
+fn format_interfaces<'a>(implements_interfaces: &[Txt<'a>], f: &mut Formatter)
 {
     if !implements_interfaces.is_empty() {
         f.write(" implements ");
@@ -171,21 +160,19 @@ fn format_interfaces<'a, T>(implements_interfaces: &[T::Value], f: &mut Formatte
     }
 }
 
-impl<'a, T> Displayable for ObjectTypeExtension<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for ObjectTypeExtension<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         f.indent();
         f.write("extend type ");
         f.write(self.name.as_ref());
-        format_interfaces::<T>(&self.implements_interfaces, f);
+        format_interfaces(&self.implements_interfaces, f);
         format_directives(&self.directives, f);
         format_fields(&self.fields, f);
     }
 }
 
-impl<'a, T> Displayable for InputValue<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for InputValue<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         if let Some(ref descr) = self.description {
@@ -203,8 +190,7 @@ impl<'a, T> Displayable for InputValue<'a, T>
     }
 }
 
-fn format_arguments<'a, T>(arguments: &[InputValue<'a, T>], f: &mut Formatter) 
-    where T: Text<'a>,
+fn format_arguments<'a>(arguments: &[InputValue<'a>], f: &mut Formatter) 
 {
     if !arguments.is_empty() {
         f.write("(");
@@ -217,8 +203,7 @@ fn format_arguments<'a, T>(arguments: &[InputValue<'a, T>], f: &mut Formatter)
     }
 }
 
-impl<'a, T> Displayable for Field<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for Field<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
@@ -232,22 +217,20 @@ impl<'a, T> Displayable for Field<'a, T>
     }
 }
 
-impl<'a, T> Displayable for InterfaceType<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for InterfaceType<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
         f.write("interface ");
         f.write(self.name.as_ref());
-        format_interfaces::<T>(&self.implements_interfaces, f);
+        format_interfaces(&self.implements_interfaces, f);
         format_directives(&self.directives, f);
         format_fields(&self.fields, f);
     }
 }
 
-impl<'a, T> Displayable for InterfaceTypeExtension<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for InterfaceTypeExtension<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         f.indent();
@@ -258,8 +241,7 @@ impl<'a, T> Displayable for InterfaceTypeExtension<'a, T>
     }
 }
 
-impl<'a, T> Displayable for UnionType<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for UnionType<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
@@ -279,8 +261,7 @@ impl<'a, T> Displayable for UnionType<'a, T>
     }
 }
 
-impl<'a, T> Displayable for UnionTypeExtension<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for UnionTypeExtension<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         f.indent();
@@ -299,8 +280,7 @@ impl<'a, T> Displayable for UnionTypeExtension<'a, T>
     }
 }
 
-impl<'a, T> Displayable for EnumType<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for EnumType<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
@@ -328,8 +308,7 @@ impl<'a, T> Displayable for EnumType<'a, T>
     }
 }
 
-impl<'a, T> Displayable for EnumTypeExtension<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for EnumTypeExtension<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         f.indent();
@@ -356,8 +335,7 @@ impl<'a, T> Displayable for EnumTypeExtension<'a, T>
     }
 }
 
-fn format_inputs<'a, T>(fields: &[InputValue<'a, T>], f: &mut Formatter) 
-    where T: Text<'a>,
+fn format_inputs<'a>(fields: &[InputValue<'a>], f: &mut Formatter) 
 {
     if !fields.is_empty() {
         f.write(" ");
@@ -373,8 +351,7 @@ fn format_inputs<'a, T>(fields: &[InputValue<'a, T>], f: &mut Formatter)
     }
 }
 
-impl<'a, T> Displayable for InputObjectType<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for InputObjectType<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
@@ -386,8 +363,7 @@ impl<'a, T> Displayable for InputObjectType<'a, T>
     }
 }
 
-impl<'a, T> Displayable for InputObjectTypeExtension<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for InputObjectTypeExtension<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         f.indent();
@@ -398,8 +374,7 @@ impl<'a, T> Displayable for InputObjectTypeExtension<'a, T>
     }
 }
 
-impl<'a, T> Displayable for TypeExtension<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for TypeExtension<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         match *self {
@@ -413,8 +388,7 @@ impl<'a, T> Displayable for TypeExtension<'a, T>
     }
 }
 
-impl<'a, T> Displayable for DirectiveDefinition<'a, T> 
-    where T: Text<'a>,
+impl<'a> Displayable for DirectiveDefinition<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);

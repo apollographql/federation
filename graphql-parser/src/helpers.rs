@@ -6,9 +6,7 @@ use combine::stream::easy::{Error, Errors, Info};
 
 use crate::tokenizer::{TokenStream, Kind, Token};
 use crate::position::Pos;
-
-use super::common::{Text};
-
+use crate::common::Txt;
 
 #[derive(Debug, Clone)]
 pub struct TokenMatch<'a> {
@@ -17,10 +15,9 @@ pub struct TokenMatch<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct NameMatch<'a, T> 
-    where T: Text<'a>
+pub struct NameMatch<'a> 
 {
-    phantom: PhantomData<&'a T>,
+    phantom: PhantomData<&'a u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -38,8 +35,7 @@ pub fn kind<'x>(kind: Kind) -> TokenMatch<'x> {
     }
 }
 
-pub fn name<'a, T>() -> NameMatch<'a, T> 
-    where T: Text<'a>
+pub fn name<'a>() -> NameMatch<'a>
 {
     NameMatch {
         phantom: PhantomData,
@@ -103,11 +99,10 @@ impl<'a> Parser for Value<'a> {
     }
 }
 
-impl<'a, S> Parser for NameMatch<'a, S> 
-    where S: Text<'a>,
+impl<'a> Parser for NameMatch<'a> 
 {
     type Input = TokenStream<'a>;
-    type Output = S::Value;
+    type Output = Txt<'a>;
     type PartialState = ();
 
     #[inline]
@@ -115,8 +110,8 @@ impl<'a, S> Parser for NameMatch<'a, S>
         -> ConsumedResult<Self::Output, Self::Input>
     {
         satisfy(|c: Token<'a>| c.kind == Kind::Name)
-        .map(|t: Token<'a>| -> S::Value { S::Value::from(t.value) } )
-        .parse_lazy(input)
+            .map(|t: Token<'a>| { t.value })
+            .parse_lazy(input)
     }
 
     fn add_error(&mut self,
