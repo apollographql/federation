@@ -9,7 +9,6 @@
       <sourceFolder url="file://$MODULE_DIR$/../graphql-parser/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/../graphql-parser/benches" isTestSource="true" />
     </content>
-    <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
