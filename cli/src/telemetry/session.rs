@@ -7,14 +7,14 @@ use std::time::Duration;
 use ci_info;
 use log::debug;
 use reqwest;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::config::CliConfig;
 use crate::version::get_installed_version;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Platform {
     /// the platform from which the command was run (i.e. linux, macOS, or windows)
     os: String,
@@ -30,7 +30,7 @@ pub struct Platform {
 /// It contains the "url" (command path + flags) but doesn't contain any
 /// values entered by the user. It also contains some identity information
 /// for the user
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Session {
     /// the command usage where commands are paths and flags are query strings
     /// i.e. ap schema push --graph --variant would become ap/schema/push?graph&variant
@@ -89,13 +89,16 @@ impl Session {
         self.command = Some(cmd.to_string())
     }
 
-    pub fn report(self) -> Result<bool, Box<dyn Error + 'static>> {
+    pub fn report(&self) -> Result<bool, Box<dyn Error + 'static>> {
         // don't send if APOLLO_TELEMETRY_DISABLED is set
         if env::var("APOLLO_TELEMETRY_DISABLED").is_ok() {
             return Ok(false);
         }
-
-        let url = "https://install.apollographql.com/telemetry".to_string();
+        let domain = match env::var("APOLLO_CDN_URL") {
+            Ok(domain) => domain.to_string(),
+            Err(_) => "https://install.apollographql.com".to_string(),
+        };
+        let url = format!("{}/telemetry", domain);
         let body = serde_json::to_string(&self).unwrap();
         // keep the CLI waiting for 300 ms to send telemetry
         // if the request isn't sent in that time loose that report
@@ -115,5 +118,50 @@ impl Session {
             Ok(res) => Ok(res.status().is_success()),
             Err(_e) => Ok(false),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env::set_var;
+
+    use wiremock::matchers::{method, PathExactMatcher};
+    use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+
+    use super::Session;
+
+    #[async_std::test]
+    async fn reports_session() -> Result<(), Box<dyn std::error::Error>> {
+        // create a session
+        let mut session = Session::init()?;
+        session.log_command("test");
+
+        let proxy = MockServer::start().await;
+
+        let payload_matcher = move |request: &Request| {
+            let body: Session =
+                serde_json::from_slice(&request.body).expect("Failed to serialise body");
+            match body.command {
+                Some(cmd) => cmd == "test".to_string(),
+                None => false,
+            }
+        };
+
+        Mock::given(method("POST"))
+            .and(PathExactMatcher::new("/telemetry"))
+            .and(payload_matcher)
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&proxy)
+            .await;
+
+        set_var("APOLLO_CDN_URL", &proxy.uri());
+        assert_eq!(session.report()?, true);
+
+        // the mock will panic if it this report is sent
+        set_var("APOLLO_TELEMETRY_DISABLED", "1");
+        assert_eq!(session.report()?, false);
+
+        Ok(())
     }
 }

@@ -2,14 +2,15 @@ use std::str::FromStr;
 
 use thiserror::Error;
 
-pub use crate::common::{Directive, Type, Value, Text};
+pub use crate::common::{Directive, Text, Type, Value};
 use crate::position::Pos;
 
-pub use crate::query::{OperationDefinition, FragmentDefinition};
+pub use crate::query::{FragmentDefinition, OperationDefinition};
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Document<'a, T: Text<'a>>
-    where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub definitions: Vec<Definition<'a, T>>,
 }
@@ -62,7 +63,8 @@ pub struct ScalarType<'a, T: Text<'a>> {
 }
 
 impl<'a, T> ScalarType<'a, T>
-    where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -82,7 +84,8 @@ pub struct ScalarTypeExtension<'a, T: Text<'a>> {
 }
 
 impl<'a, T> ScalarTypeExtension<'a, T>
-    where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -104,7 +107,8 @@ pub struct ObjectType<'a, T: Text<'a>> {
 }
 
 impl<'a, T> ObjectType<'a, T>
-    where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -128,7 +132,8 @@ pub struct ObjectTypeExtension<'a, T: Text<'a>> {
 }
 
 impl<'a, T> ObjectTypeExtension<'a, T>
-    where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -172,7 +177,8 @@ pub struct InterfaceType<'a, T: Text<'a>> {
 }
 
 impl<'a, T> InterfaceType<'a, T>
-    where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -195,7 +201,8 @@ pub struct InterfaceTypeExtension<'a, T: Text<'a>> {
 }
 
 impl<'a, T> InterfaceTypeExtension<'a, T>
-where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -217,7 +224,8 @@ pub struct UnionType<'a, T: Text<'a>> {
 }
 
 impl<'a, T> UnionType<'a, T>
-where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -239,7 +247,8 @@ pub struct UnionTypeExtension<'a, T: Text<'a>> {
 }
 
 impl<'a, T> UnionTypeExtension<'a, T>
-where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -261,7 +270,8 @@ pub struct EnumType<'a, T: Text<'a>> {
 }
 
 impl<'a, T> EnumType<'a, T>
-where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -283,7 +293,8 @@ pub struct EnumValue<'a, T: Text<'a>> {
 }
 
 impl<'a, T> EnumValue<'a, T>
-where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -304,7 +315,8 @@ pub struct EnumTypeExtension<'a, T: Text<'a>> {
 }
 
 impl<'a, T> EnumTypeExtension<'a, T>
-where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -326,7 +338,8 @@ pub struct InputObjectType<'a, T: Text<'a>> {
 }
 
 impl<'a, T> InputObjectType<'a, T>
-where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -348,7 +361,8 @@ pub struct InputObjectTypeExtension<'a, T: Text<'a>> {
 }
 
 impl<'a, T> InputObjectTypeExtension<'a, T>
-where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -395,7 +409,8 @@ pub struct DirectiveDefinition<'a, T: Text<'a>> {
 }
 
 impl<'a, T> DirectiveDefinition<'a, T>
-where T: Text<'a>
+where
+    T: Text<'a>,
 {
     pub fn new(name: T::Value) -> Self {
         Self {
@@ -438,27 +453,11 @@ impl DirectiveLocation {
     pub fn is_query(&self) -> bool {
         use self::DirectiveLocation::*;
         match *self {
-            Query
-            | Mutation
-            | Subscription
-            | Field
-            | FragmentDefinition
-            | FragmentSpread
-            | InlineFragment
-                => true,
+            Query | Mutation | Subscription | Field | FragmentDefinition | FragmentSpread
+            | InlineFragment => true,
 
-            Schema
-            | Scalar
-            | Object
-            | FieldDefinition
-            | ArgumentDefinition
-            | Interface
-            | Union
-            | Enum
-            | EnumValue
-            | InputObject
-            | InputFieldDefinition
-                => false,
+            Schema | Scalar | Object | FieldDefinition | ArgumentDefinition | Interface | Union
+            | Enum | EnumValue | InputObject | InputFieldDefinition => false,
         }
     }
 
@@ -472,11 +471,9 @@ impl DirectiveLocation {
 #[error("invalid directive location")]
 pub struct InvalidDirectiveLocation;
 
-
 impl FromStr for DirectiveLocation {
     type Err = InvalidDirectiveLocation;
-    fn from_str(s: &str) -> Result<DirectiveLocation, InvalidDirectiveLocation>
-    {
+    fn from_str(s: &str) -> Result<DirectiveLocation, InvalidDirectiveLocation> {
         use self::DirectiveLocation::*;
         let val = match s {
             "QUERY" => Query,

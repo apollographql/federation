@@ -91,19 +91,20 @@
 //!
 #![warn(missing_debug_implementations)]
 
-#[cfg(test)] #[macro_use] extern crate pretty_assertions;
-
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
 
 mod common;
 #[macro_use]
 mod format;
-mod position;
-mod tokenizer;
 mod helpers;
+mod position;
 pub mod query;
 pub mod schema;
+mod tokenizer;
 
+pub use crate::format::Style;
+pub use crate::position::Pos;
 pub use crate::query::parse_query;
 pub use crate::schema::parse_schema;
-pub use crate::position::Pos;
-pub use crate::format::Style;

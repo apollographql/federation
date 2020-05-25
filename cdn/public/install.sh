@@ -153,7 +153,7 @@ download_and_install() {
   chmod +x "$INSTALL_PATH"
 
   if ! [ -w "/usr/local/bin" ]; then
-    info "Adding the ${BIN_PATH} to your PATH variable..."
+    info "Adding the ${BIN_PATH} to your PATH..."
     "$INSTALL_PATH" setup
     echo
   else 

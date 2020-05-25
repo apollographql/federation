@@ -5,7 +5,7 @@ mod cli;
 mod commands;
 mod config;
 mod errors;
-mod filesystem;
+mod layout;
 mod log;
 mod style;
 mod telemetry;
@@ -38,41 +38,35 @@ fn main() {
     setup_panic_hooks();
 
     let mut session = Session::init().unwrap();
-    
-    #[cfg(not(test))]
-    // Check for updates to the CLI in the background
-    let latest_version_receiver = background_check_for_updates();
+
+    let should_check_for_updates = match env::args().nth(1) {
+        Some(cmd) => !cmd.eq("update") || !cmd.eq("setup"),
+        _ => false,
+    };
+
+    let latest_version_receiver = if should_check_for_updates {
+        // Check for updates to the CLI in the background
+        Some(background_check_for_updates())
+    } else {
+        None
+    };
 
     // Run the CLI command
     let result = cli.run(&mut session).map_err(Error::Apollo);
 
-    // XXX create mock for test so this can still run
-    #[cfg(not(test))]
-    {
-        // Send anonymous telemtry if enabled
-        let _telemetry_reported = session.report().unwrap_or(false);
-        
+    // Send anonymous telemtry if enabled
+    let _telemetry_reported = session.report().unwrap_or(false);
+
+    if latest_version_receiver.is_some() {
         // Check for updates to the CLI and print out a message if an update is ready
-        if let Ok(latest_version) = latest_version_receiver.try_recv() {
-            let should_log = match env::args().nth(1) {
-                Some(cmd) => !cmd.eq("update"),
-                _ => false,
-            };
-
-            if !should_log {
-                return;
-            }
-
-            let latest_version = style(latest_version).green().bold();
-
+        if let Ok(latest_version) = latest_version_receiver.unwrap().try_recv() {
             ::log::info!(
                 "\n > A new version of the Apollo CLI ({}) is available! To update, run `{} update`",
-                latest_version,
+                style(latest_version).green().bold(),
                 command_name()
             );
         }
     }
-    
 
     match result {
         Ok(exit_code) => exit_code.exit(),

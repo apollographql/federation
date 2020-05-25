@@ -1,5 +1,5 @@
-use std::env::args;
 use std::env::consts::OS;
+use std::env::{args, var};
 use std::error::Error;
 use std::sync::mpsc;
 use std::thread;
@@ -43,7 +43,11 @@ pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
     let platform = platform.ok_or(ErrorDetails::UnsupportedPlatformError {
         os: String::from(OS),
     })?;
-    let url = format!("https://install.apollographql.com/cli/{}", platform);
+    let domain = match var("APOLLO_CDN_URL") {
+        Ok(domain) => domain.to_string(),
+        Err(_) => "https://install.apollographql.com".to_string(),
+    };
+    let url = format!("{}/cli/{}", domain, platform);
     debug!("Fetching latest version from {}", url);
     let resp = reqwest::blocking::Client::new()
         .head(&url)
@@ -119,6 +123,11 @@ pub fn background_check_for_updates() -> mpsc::Receiver<Version> {
     debug!("Checking to see if there is a latest version");
     let (sender, receiver) = mpsc::channel();
 
+    // don't check for updates if APOLLO_UPDATE_CHECK_DISABLED is set
+    if var("APOLLO_UPDATE_CHECK_DISABLED").is_ok() {
+        return receiver;
+    }
+
     let _detached_thread = thread::spawn(move || match needs_updating() {
         Ok(versions) => {
             if versions.latest > versions.current {
@@ -138,4 +147,87 @@ pub fn command_name() -> std::string::String {
     args()
         .next()
         .expect("Called help without a path to the binary")
+}
+
+#[cfg(test)]
+mod tests {
+
+    use std::env::consts::OS;
+    use std::env::set_var;
+    use std::error::Error;
+
+    use wiremock::matchers::{method, PathExactMatcher};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    use super::*;
+
+    async fn create_mock_proxy(
+        response: ResponseTemplate,
+        times: u64,
+    ) -> Result<MockServer, Box<dyn Error + 'static>> {
+        let proxy = MockServer::start().await;
+        let platform: Option<&str> = match OS {
+            "linux" | "macos" | "windows" => Some(OS),
+            _ => None,
+        };
+
+        Mock::given(method("HEAD"))
+            .and(PathExactMatcher::new(format!("cli/{}", platform.unwrap())))
+            .respond_with(response)
+            .expect(times)
+            .mount(&proxy)
+            .await;
+
+        Ok(proxy)
+    }
+
+    // environment variables are a shared resource on the thread so we combine these tests
+    // together to prevent url clobbering
+    #[async_std::test]
+    async fn background_updates() -> Result<(), Box<dyn std::error::Error>> {
+        // return_latest_release_from_thread()
+        {
+            let response = ResponseTemplate::new(200)
+                .append_header("content-disposition", "filename=ap-v100.0.0-linux");
+            let proxy = create_mock_proxy(response, 1).await.unwrap();
+            dbg!(proxy.uri());
+            set_var("APOLLO_CDN_URL", &proxy.uri());
+
+            let receiver = background_check_for_updates();
+            if let Ok(latest_version) = receiver.recv() {
+                assert_eq!(Version::parse("100.0.0").unwrap(), latest_version);
+            } else {
+                panic!("No version reported from thread");
+            }
+        }
+
+        // returns_nothing_from_thread_if_not_new()
+        {
+            let response = ResponseTemplate::new(200)
+                .append_header("content-disposition", "filename=ap-v0.0.1-linux");
+
+            let proxy = create_mock_proxy(response, 1).await.unwrap();
+            dbg!(&proxy.uri());
+            set_var("APOLLO_CDN_URL", &proxy.uri());
+
+            let receiver = background_check_for_updates();
+            assert_eq!(receiver.recv().is_err(), true);
+        }
+
+        // does_not_fetch_if_disabled()
+        {
+            let response = ResponseTemplate::new(200)
+                .append_header("content-disposition", "filename=ap-v0.0.1-linux");
+
+            let proxy = create_mock_proxy(response, 0).await.unwrap();
+            dbg!(&proxy.uri());
+            set_var("APOLLO_CDN_URL", &proxy.uri());
+            set_var("APOLLO_UPDATE_CHECK_DISABLED", "1");
+
+            let receiver = background_check_for_updates();
+            assert_eq!(receiver.recv().is_err(), true);
+        }
+
+        Ok(())
+    }
 }

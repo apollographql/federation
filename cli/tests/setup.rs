@@ -1,18 +1,20 @@
+mod utils;
+
 #[cfg(unix)]
 mod unix {
     use assert_cmd::prelude::*;
     use predicates::prelude::*;
-    use std::env;
     use std::fs::{set_permissions, DirBuilder, File, OpenOptions};
     use std::io::{Read, Result, Write};
     use std::path::PathBuf;
-    use std::process::Command;
 
     use tempfile::tempdir;
 
+    use crate::utils::{block_side_effects, get_bare_cli, get_cli};
+
     #[test]
     fn not_found_in_usage() {
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_cli();
 
         cli.assert()
             .code(0)
@@ -24,7 +26,8 @@ mod unix {
     fn errors_with_no_home_environment() {
         let dir = tempdir().unwrap();
 
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_bare_cli();
+        block_side_effects(&mut cli);
 
         cli.arg("setup")
             .env("HOME", dir.path())
@@ -41,7 +44,8 @@ mod unix {
     fn successful_setup_zsh() -> Result<()> {
         let dir = tempdir().unwrap();
         let has_apollo = predicate::str::contains("export PATH=\"$HOME/.apollo/bin:$PATH");
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_bare_cli();
+        block_side_effects(&mut cli);
 
         let profile = create_profile(&dir.path().join(".profile"))?;
         let zshrc = create_profile(&dir.path().join(".zshrc"))?;
@@ -67,7 +71,8 @@ mod unix {
     fn successful_setup_bashrc() -> Result<()> {
         let dir = tempdir().unwrap();
         let has_apollo = predicate::str::contains("export PATH=\"$HOME/.apollo/bin:$PATH");
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_bare_cli();
+        block_side_effects(&mut cli);
 
         let profile = create_profile(&dir.path().join(".profile"))?;
         // let bash_profile = create_profile(&dir.path().join(".bash_profile"))?;
@@ -98,7 +103,8 @@ mod unix {
     fn successful_setup_bash_profile() -> Result<()> {
         let dir = tempdir().unwrap();
         let has_apollo = predicate::str::contains("export PATH=\"$HOME/.apollo/bin:$PATH");
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_bare_cli();
+        block_side_effects(&mut cli);
 
         let profile = create_profile(&dir.path().join(".profile"))?;
         let bash_profile = create_profile(&dir.path().join(".bash_profile"))?;
@@ -125,7 +131,8 @@ mod unix {
     fn successful_setup_bashrc_over_profile() -> Result<()> {
         let dir = tempdir().unwrap();
         let has_apollo = predicate::str::contains("export PATH=\"$HOME/.apollo/bin:$PATH");
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_bare_cli();
+        block_side_effects(&mut cli);
 
         let profile = create_profile(&dir.path().join(".profile"))?;
         let bash_profile = create_profile(&dir.path().join(".bash_profile"))?;
@@ -156,7 +163,8 @@ mod unix {
     fn successful_setup_fish() -> Result<()> {
         let dir = tempdir().unwrap();
         let has_apollo = predicate::str::contains("set -gx PATH \"$HOME/.apollo/bin\" $PATH");
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_bare_cli();
+        block_side_effects(&mut cli);
 
         let fish_path = dir.path().join(".config/fish");
         DirBuilder::new().recursive(true).create(&fish_path)?;
@@ -182,7 +190,8 @@ mod unix {
     fn removes_existing_apollo_paths() -> Result<()> {
         let dir = tempdir().unwrap();
         let has_apollo = predicate::str::contains("export PATH=\"$HOME/.apollo/bin:$PATH");
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_bare_cli();
+        block_side_effects(&mut cli);
 
         let mut profile = create_profile(&dir.path().join(".profile"))?;
         writeln!(profile, "# .apollo/bin")?;
@@ -208,7 +217,8 @@ mod unix {
     fn successful_setup_custom_profile() -> Result<()> {
         let dir = tempdir().unwrap();
         let has_apollo = predicate::str::contains("export PATH=\"$HOME/.apollo/bin:$PATH");
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_bare_cli();
+        block_side_effects(&mut cli);
 
         let path = dir.path().join(".my_config_fmt");
         let profile = create_profile(&path)?;
@@ -231,7 +241,8 @@ mod unix {
     #[test]
     fn warns_if_cannot_write() -> Result<()> {
         let dir = tempdir().unwrap();
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_bare_cli();
+        block_side_effects(&mut cli);
 
         let path = dir.path().join(".profile");
         let file = create_profile(&path)?;
@@ -279,9 +290,11 @@ mod windows {
     use winreg::enums::*;
     use winreg::RegKey;
 
+    use crate::utils::get_cli;
+
     #[test]
     fn not_found_in_usage() {
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_cli();
 
         cli.assert()
             .code(0)
@@ -299,7 +312,7 @@ mod windows {
         // delete the Path value in the Environment sub_key
         key.set_value("Path", &";")?;
 
-        let mut cli = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli = get_cli();
 
         cli.arg("setup")
             .arg("--debug")
@@ -314,7 +327,7 @@ mod windows {
         // delete the Path value in the Environment sub_key
         key.delete_value("Path")?;
 
-        let mut cli_two = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        let mut cli_two = get_cli();
 
         cli_two
             .arg("setup")

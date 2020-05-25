@@ -30,7 +30,7 @@ macro_rules! tests_for_parser {
                 }
             }
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -38,5 +38,5 @@ macro_rules! test {
     ($name: ident, $input: expr, $expected: expr) => {
         tests_for_parser!(parse_query, $name, $input, $expected);
         tests_for_parser!(parse_schema, $name, $input, $expected);
-    }
+    };
 }

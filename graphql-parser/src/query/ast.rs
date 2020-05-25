@@ -5,8 +5,8 @@
 //!
 //! [graphql grammar]: http://facebook.github.io/graphql/October2016/#sec-Appendix-Grammar-Summary
 //!
+pub use crate::common::{Directive, Number, Text, Type, Value};
 use crate::position::Pos;
-pub use crate::common::{Directive, Number, Value, Text, Type};
 
 /// Root of query data
 #[derive(Debug, Clone, PartialEq)]
@@ -17,7 +17,7 @@ pub struct Document<'a, T: Text<'a>> {
 impl<'a> Document<'a, String> {
     pub fn into_static(self) -> Document<'static, String> {
         // To support both reference and owned values in the AST,
-        // all string data is represented with the ::common::Str<'a, T: Text<'a>> 
+        // all string data is represented with the ::common::Str<'a, T: Text<'a>>
         // wrapper type.
         // This type must carry the liftetime of the query string,
         // and is stored in a PhantomData value on the Str type.

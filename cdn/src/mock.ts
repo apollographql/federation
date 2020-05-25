@@ -53,5 +53,6 @@ export function mockGlobal() {
   Object.assign(global, {
     SENTRY_PROJECT_ID: "123456",
     SENTRY_KEY: "0000aaaa1111bbbb2222cccc3333dddd",
+    SEGMENT_API_KEY: "1234567",
   });
 }

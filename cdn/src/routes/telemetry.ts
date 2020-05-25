@@ -29,7 +29,9 @@ export function reportTelemetry(_: any, event: FetchEvent) {
   const { headers } = event.request;
   const contentType = headers.get("content-type");
   if (!contentType || !contentType.includes("application/json")) {
-    return new Response("Internal Server Error", { status: 500 });
+    return event.respondWith(
+      new Response("Internal Server Error", { status: 500 })
+    );
   }
 
   const body = event.request.json();

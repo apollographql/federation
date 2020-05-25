@@ -3,8 +3,8 @@ extern crate test;
 
 extern crate graphql_parser;
 
-use std::io::Read;
 use std::fs::File;
+use std::io::Read;
 
 use graphql_parser::parse_query;
 

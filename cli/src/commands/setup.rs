@@ -33,7 +33,7 @@ mod os {
     use log::{debug, warn};
 
     use crate::errors::{ErrorDetails, Fallible};
-    use crate::filesystem::layout::apollo_home_bin;
+    use crate::layout::apollo_home_bin;
     use crate::version::command_name;
 
     pub fn setup_environment() -> Fallible<()> {
@@ -47,7 +47,7 @@ mod os {
                         Some(ext) if ext == "fish" => write_profile_fish,
                         _ => write_profile_sh,
                     };
-        
+
                     match write_profile(&profile, contents) {
                         Ok(()) => {
                             debug!("Wrote $PATH addition into {}", profile.display());
@@ -62,13 +62,12 @@ mod os {
                             prev
                         }
                     }
-                },
+                }
                 None => {
                     debug!("Profile script not found: {}", profile.display());
                     prev
                 }
             }
-
         });
 
         if found_profile {
@@ -179,7 +178,7 @@ mod os {
     use winreg::RegKey;
 
     use crate::errors::{ErrorDetails, Fallible};
-    use crate::filesystem::layout::apollo_home_bin;
+    use crate::layout::apollo_home_bin;
 
     pub fn setup_environment() -> Fallible<()> {
         let bin_dir = apollo_home_bin()?.to_string_lossy().to_string();
