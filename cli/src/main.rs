@@ -3,10 +3,12 @@ extern crate text_io;
 
 mod cli;
 mod commands;
+mod config;
 mod errors;
 mod layout;
 mod log;
 mod style;
+mod telemetry;
 mod terminal;
 mod version;
 
@@ -19,6 +21,7 @@ use structopt::StructOpt;
 
 use crate::errors::{report, ApolloError};
 use crate::log::{init_logger, APOLLO_LOG_LEVEL};
+use crate::telemetry::Session;
 use crate::version::{background_check_for_updates, command_name};
 
 enum Error {
@@ -34,6 +37,8 @@ fn main() {
 
     setup_panic_hooks();
 
+    let mut session = Session::init().unwrap();
+
     let should_check_for_updates = match env::args().nth(1) {
         Some(cmd) => !cmd.eq("update"),
         _ => false,
@@ -47,7 +52,10 @@ fn main() {
     };
 
     // Run the CLI command
-    let result = cli.run().map_err(Error::Apollo);
+    let result = cli.run(&mut session).map_err(Error::Apollo);
+
+    // Send anonymous telemtry if enabled
+    let _telemetry_reported = session.report().unwrap_or(false);
 
     if latest_version_receiver.is_some() {
         // Check for updates to the CLI and print out a message if an update is ready
