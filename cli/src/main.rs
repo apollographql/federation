@@ -5,13 +5,13 @@ mod layout;
 mod log;
 mod style;
 
-use std::env::var;
-use structopt::StructOpt;
 use std::env;
+use std::env::var;
 use std::panic;
+use structopt::StructOpt;
 
-use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 use crate::errors::{report, ApolloError};
+use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 
 enum Error {
     Apollo(ApolloError),

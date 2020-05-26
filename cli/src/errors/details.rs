@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::errors::{ApolloFail, ExitCode};
+use crate::errors::ExitCode;
 
 #[derive(Error, Debug)]
 pub enum ErrorDetails {
@@ -37,8 +37,8 @@ Please ensure you have permissions to edit your environment variables."
     WriteUserPathError,
 }
 
-impl ApolloFail for ErrorDetails {
-    fn exit_code(&self) -> ExitCode {
+impl ErrorDetails {
+    pub fn exit_code(&self) -> ExitCode {
         match self {
             ErrorDetails::NoHomeEnvironmentVar => ExitCode::EnvironmentError,
             #[cfg(unix)]
