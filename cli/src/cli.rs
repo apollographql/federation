@@ -62,6 +62,9 @@ pub enum Subcommand {
     #[structopt(name = "setup", setting = AppSettings::Hidden)]
     ///  🚜  setup the Apollo toolchain in your environment
     Setup(commands::Setup),
+    #[structopt(name = "auth")]
+    ///  🔐 Manage authentication
+    Auth(commands::Auth),
 }
 
 impl Subcommand {
@@ -70,6 +73,9 @@ impl Subcommand {
             Subcommand::Update(update) => update.run(session),
             Subcommand::Print(print) => print.run(session),
             Subcommand::Setup(setup) => setup.run(session),
+            Subcommand::Auth(auth) => match auth {
+                commands::Auth::Setup(setup) => setup.run(session),
+            }
         }
     }
 }

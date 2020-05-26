@@ -17,9 +17,18 @@ To learn more, checkout https://apollo.dev/cli/telemetry\n";
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CliConfig {
     pub machine_id: String,
+    pub api_key: Option<String>,
 }
 
 impl CliConfig {
+    pub fn write(cli_config: &CliConfig) -> Result<(), Box<dyn Error + 'static>> {
+        let config_path = apollo_config().unwrap();
+        let toml = toml::to_string(cli_config).unwrap();
+
+        fs::create_dir_all(&config_path.parent().unwrap())?;
+        fs::write(&config_path, toml).map_err(|e| From::from(e))
+    }
+
     pub fn load() -> Result<Self, Box<dyn Error + 'static>> {
         let mut s = Config::new();
 
@@ -34,10 +43,7 @@ impl CliConfig {
 
             let generated: Result<CliConfig, ConfigError> = s.clone().try_into();
 
-            let toml = toml::to_string(&generated.unwrap()).unwrap();
-
-            fs::create_dir_all(&config_path.parent().unwrap())?;
-            fs::write(&config_path, toml)?;
+            CliConfig::write(&generated.unwrap())?;
 
             // log initial telemetry warning
             info!("{}", POST_INSTALL_MESSAGE);
