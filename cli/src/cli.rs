@@ -1,9 +1,9 @@
-use std::env::args;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
 use crate::commands::{self, Command};
 use crate::errors::{ExitCode, Fallible};
+use crate::version::command_name;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -44,21 +44,17 @@ impl Apollo {
         if let Some(command) = self.command {
             command.run()
         } else {
-            // per the docs on std::env::arg
-            // The first element is traditionally the path of the executable, but it can be set to
-            // arbitrary text, and may not even exist. This means this property should not be
-            // relied upon for security purposes.
-            let command_name = args()
-                .next()
-                .expect("Called help without a path to the binary");
-
-            Apollo::from_iter([&command_name, "help"].iter()).run()
+            Apollo::from_iter([&command_name(), "help"].iter()).run()
         }
     }
 }
 
 #[derive(StructOpt)]
 pub enum Subcommand {
+    #[structopt(name = "update")]
+    ///  🚀  update the Apollo CLI
+    Update(commands::Update),
+
     #[structopt(name = "print", setting = AppSettings::Hidden)]
     ///  🖨   parse and pretty print schemas to stdout
     Print(commands::Print),
@@ -70,6 +66,7 @@ pub enum Subcommand {
 impl Subcommand {
     pub fn run(self) -> Fallible<ExitCode> {
         match self {
+            Subcommand::Update(update) => update.run(),
             Subcommand::Print(print) => print.run(),
             Subcommand::Setup(setup) => setup.run(),
         }
