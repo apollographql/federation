@@ -2,7 +2,7 @@ use crate::commands::Command;
 use crate::config::CliConfig;
 use crate::errors::{ExitCode, Fallible};
 use crate::telemetry::Session;
-use crate::terminal::input;
+use crate::terminal::{confirm, input};
 use log::warn;
 use structopt::StructOpt;
 
@@ -20,6 +20,14 @@ pub struct Setup {}
 impl Command for Setup {
     fn run(&self, _session: &mut Session) -> Fallible<ExitCode> {
         let mut config = CliConfig::load().unwrap();
+
+        if config.api_key.is_some() {
+            warn!("Config auth already setup.");
+
+            if !confirm("Proceed?")? {
+                return Ok(ExitCode::Success);
+            }
+        }
 
         let key = input("Please paste key:")?;
 
