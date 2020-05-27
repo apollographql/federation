@@ -1,7 +1,7 @@
 const APP = "worker-cli-cdn";
 
 // https://docs.sentry.io/error-reporting/configuration/?platform=javascript#environment
-const ENV = 'production';
+const ENV = "production";
 
 // https://docs.sentry.io/enriching-error-data/context/?platform=javascript#tagging-events
 const TAGS = { app: APP };
@@ -31,7 +31,7 @@ const RETRIES = 5;
 export async function log(err: Error, request: Request) {
   try {
     // don't log if no sentry information around
-    if (typeof SENTRY_PROJECT_ID === 'undefined') return;
+    if (typeof SENTRY_PROJECT_ID === "undefined") return;
     const body = JSON.stringify(toSentryEvent(err, request));
 
     for (let i = 0; i <= RETRIES; i++) {
@@ -59,7 +59,6 @@ export async function log(err: Error, request: Request) {
   } catch (e) {
     console.error({ message: "Error when reporting to sentry", error: e });
   }
-  
 }
 
 export function toSentryEvent(err: Error, request: Request) {
@@ -70,8 +69,8 @@ export function toSentryEvent(err: Error, request: Request) {
   );
   const { searchParams } = new URL(request.url);
 
-  const { v4 } = require('uuid-browser');
-  return { 
+  const { v4 } = require("uuid-browser");
+  return {
     event_id: v4(),
     message: errType + ": " + (err.message || "<no message>"),
     exception: {
@@ -101,7 +100,7 @@ export function toSentryEvent(err: Error, request: Request) {
         ? {
             method: request.method,
             url: request.url,
-            query_string: searchParams ? searchParams.toString() : '',
+            query_string: searchParams ? searchParams.toString() : "",
             headers: request.headers,
             data: request.body,
           }

@@ -1,17 +1,28 @@
+#[macro_use]
+extern crate text_io;
+
 mod cli;
 mod commands;
+mod config;
 mod errors;
 mod layout;
 mod log;
 mod style;
+mod telemetry;
+mod terminal;
+mod version;
 
 use std::env;
 use std::env::var;
 use std::panic;
+
+use console::style;
 use structopt::StructOpt;
 
 use crate::errors::{report, ApolloError};
 use crate::log::{init_logger, APOLLO_LOG_LEVEL};
+use crate::telemetry::Session;
+use crate::version::{background_check_for_updates, command_name};
 
 enum Error {
     Apollo(ApolloError),
@@ -26,7 +37,36 @@ fn main() {
 
     setup_panic_hooks();
 
-    let result = cli.run().map_err(Error::Apollo);
+    let mut session = Session::init().unwrap();
+
+    let should_check_for_updates = match env::args().nth(1) {
+        Some(cmd) => !cmd.eq("update"),
+        _ => false,
+    };
+
+    let latest_version_receiver = if should_check_for_updates {
+        // Check for updates to the CLI in the background
+        Some(background_check_for_updates())
+    } else {
+        None
+    };
+
+    // Run the CLI command
+    let result = cli.run(&mut session).map_err(Error::Apollo);
+
+    // Send anonymous telemtry if enabled
+    let _telemetry_reported = session.report().unwrap_or(false);
+
+    if latest_version_receiver.is_some() {
+        // Check for updates to the CLI and print out a message if an update is ready
+        if let Ok(latest_version) = latest_version_receiver.unwrap().try_recv() {
+            ::log::info!(
+                "\n > A new version of the Apollo CLI ({}) is available! To update, run `{} update`",
+                style(latest_version).green().bold(),
+                command_name()
+            );
+        }
+    }
 
     match result {
         Ok(exit_code) => exit_code.exit(),
