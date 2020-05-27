@@ -12,6 +12,7 @@
   "dependencies": {
     "@cloudflare/kv-asset-handler": "^0.0.9",
     "@zeit/fetch-retry": "^5.0.0",
+    "tiny-request-router": "^1.2.2",
     "uuid-browser": "^3.1.0"
   },
   "devDependencies": {

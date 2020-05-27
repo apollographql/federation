@@ -12,6 +12,7 @@ use tempfile::tempdir;
 use crate::commands::Command;
 use crate::errors::{ErrorDetails, ExitCode, Fallible};
 use crate::style;
+use crate::telemetry::Session;
 use crate::terminal::confirm;
 use crate::version::{get_installed_version, get_latest_release, Release};
 use self_update::{Download, Extract, Move};
@@ -20,7 +21,8 @@ use self_update::{Download, Extract, Move};
 pub struct Update {}
 
 impl Command for Update {
-    fn run(&self) -> Fallible<ExitCode> {
+    fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
+        session.log_command("update");
         info!("{} Checking for the latest version...", style::ROCKET);
 
         let Release {

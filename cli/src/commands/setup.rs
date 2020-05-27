@@ -4,12 +4,14 @@ use structopt::StructOpt;
 use crate::commands::Command;
 use crate::errors::{ExitCode, Fallible};
 use crate::style;
+use crate::telemetry::Session;
 
 #[derive(StructOpt)]
 pub struct Setup {}
 
 impl Command for Setup {
-    fn run(&self) -> Fallible<ExitCode> {
+    fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
+        session.log_command("setup");
         os::setup_environment()?;
 
         info!(

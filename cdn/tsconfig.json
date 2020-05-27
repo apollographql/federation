@@ -12,7 +12,7 @@
     "esModuleInterop": true
   },
   "include": [
-    "./src/*.ts",
+    "./src/**/*.ts",
     "./types/**/*.d.ts",
     "./node_modules/@cloudflare/workers-types/index.d.ts"
   ],

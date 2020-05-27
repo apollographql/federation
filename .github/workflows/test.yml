@@ -74,7 +74,7 @@ jobs:
         if: matrix.build != 'linux-stable'
         run: cargo test
         env:
-          RUST_LOG: warn,wrangler=info
+          RUST_LOG: warn,apollo-cli=info
           RUST_BACKTRACE: 1
       
       - name: Run cargo-tarpaulin
