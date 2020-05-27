@@ -260,7 +260,8 @@ mod tests {
     async fn background_updates() -> Result<(), Box<dyn std::error::Error>> {
         let dir = tempdir().unwrap();
         set_var("HOME", dir.path());
-        fs::create_dir(dir.path().join(".apollo"))?;
+        let apollo_home = dir.path().join(".apollo");
+        fs::create_dir(&apollo_home)?;
         dbg!(dir.path());
 
         // return_latest_release_from_thread()
@@ -277,7 +278,7 @@ mod tests {
 
         // returns_nothing_from_thread_if_not_new()
         {
-            fs::remove_file(dir.path().join(".apollo/version.toml"))?;
+            fs::remove_file(&apollo_home.join("version.toml"))?;
             let response = ResponseTemplate::new(200)
                 .append_header("content-disposition", "filename=ap-v0.0.1-linux");
 
