@@ -221,6 +221,7 @@ pub fn command_name() -> std::string::String {
         .expect("Called help without a path to the binary")
 }
 
+#[cfg(unix)]
 #[cfg(test)]
 mod tests {
 
