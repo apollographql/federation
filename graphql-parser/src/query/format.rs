@@ -238,7 +238,6 @@ impl<'a> Displayable for InlineFragment<'a>
         if let Some(ref cond) = self.type_condition {
             f.write(" on ");
             f.write(cond);
-            // cond.display(f);
         }
         format_directives(&self.directives, f);
         f.write(" ");
@@ -249,18 +248,6 @@ impl<'a> Displayable for InlineFragment<'a>
         f.end_block();
     }
 }
-
-// impl<'a> Displayable for TypeCondition<'a> 
-// {
-//     fn display(&self, f: &mut Formatter) {
-//         match *self {
-//             TypeCondition::On(ref name) => {
-//                 f.write("on ");
-//                 f.write(name.as_ref());
-//             }
-//         }
-//     }
-// }
 
 impl<'a> Displayable for FragmentSpread<'a> 
 {
@@ -295,7 +282,6 @@ impl_display!(
     Type,
     Value,
     InlineFragment,
-    // TypeCondition,
     FragmentSpread,
     Directive,
 );
