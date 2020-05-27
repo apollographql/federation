@@ -75,7 +75,7 @@ impl Subcommand {
             Subcommand::Setup(setup) => setup.run(session),
             Subcommand::Auth(auth) => match auth {
                 commands::Auth::Setup(setup) => setup.run(session),
-            }
+            },
         }
     }
 }
