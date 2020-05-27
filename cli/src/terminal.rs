@@ -1,10 +1,18 @@
 use crate::errors::ErrorDetails;
+use console::Term;
 
 // For interactively handling user input
-pub fn input(msg: &str) -> Result<String, ErrorDetails> {
+pub fn input(msg: &str, sensitive: bool) -> Result<String, ErrorDetails> {
     println!("{}", msg);
-    let mut response: String = read!("{}\n");
-    response = response.split_whitespace().collect(); // remove whitespace
+    let terminal = Term::stdout();
+
+    let mut response: String = if !(sensitive && terminal.is_term()) {
+        read!("{}\n")
+    } else {
+        terminal.read_secure_line().unwrap()
+    };
+
+    response = String::from(response.trim()); // remove whitespace
     Ok(response)
 }
 

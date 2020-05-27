@@ -3,13 +3,15 @@ use crate::config::CliConfig;
 use crate::errors::{ExitCode, Fallible};
 use crate::telemetry::Session;
 use crate::terminal::{confirm, input};
-use log::warn;
+use log::{info, warn};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]
 pub enum Auth {
     /// Setup your auth stuff
+    /// Requires using an User key which can be found here:
+    /// https://engine.apollographql.com/user-settings
     Setup(Setup),
 }
 
@@ -29,7 +31,8 @@ impl Command for Setup {
             }
         }
 
-        let key = input("Please paste key:")?;
+        info!("Please input a User key which can be found here: https://engine.apollographql.com/user-settings");
+        let key = input("User key:", true)?;
 
         if key.is_empty() {
             warn!("Did not update the Apollo CLI Config!");
