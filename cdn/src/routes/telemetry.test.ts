@@ -27,7 +27,6 @@ it("sends an event to segment when a build is downloaded", async () => {
       command: "schema push",
       machine_id: "1234",
       session_id: "12345",
-      cwd_hash: "hash_of_path",
       platform: {
         os: "linux",
         is_ci: false,
@@ -55,7 +54,6 @@ it("sends an event to segment when a build is downloaded", async () => {
       "messageId": "CLI Worker-mock_uuid",
       "properties": Object {
         "command": "schema push",
-        "cwd_hash": "hash_of_path",
         "machine_id": "1234",
         "platform": Object {
           "ci_name": null,
@@ -84,7 +82,6 @@ it("doesn't report invalid messages", async () => {
       command: "schema push",
       machine_id: "1234",
       session_id: "12345",
-      cwd_hash: "hash_of_path",
       platform: {
         os: "linux",
         is_ci: false,
@@ -112,7 +109,6 @@ it("doesn't report invalid messages", async () => {
         "messageId": "CLI Worker-mock_uuid",
         "properties": Object {
           "command": "schema push",
-          "cwd_hash": "hash_of_path",
           "machine_id": "1234",
           "platform": Object {
             "ci_name": null,

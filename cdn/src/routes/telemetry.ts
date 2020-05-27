@@ -17,8 +17,6 @@ interface Session {
   machine_id: string;
   // A unique session id
   session_id: string;
-  // Directory hash. A hash of the current working directory
-  cwd_hash: string;
   // Information about the current architecture/platform
   platform: Platform;
   // The current version of the CLI

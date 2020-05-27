@@ -1,6 +1,5 @@
 use std::env;
 use std::env::consts::OS;
-use std::env::current_dir;
 use std::error::Error;
 use std::time::Duration;
 
@@ -8,7 +7,6 @@ use ci_info;
 use log::debug;
 use reqwest;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::config::CliConfig;
@@ -42,9 +40,6 @@ pub struct Session {
     /// A unique session id
     session_id: String,
 
-    /// Directory hash. A hash of the current working directory
-    cwd_hash: String,
-
     /// Information about the current architecture/platform
     platform: Platform,
 
@@ -52,20 +47,11 @@ pub struct Session {
     release_version: String,
 }
 
-fn get_cwd_hash() -> String {
-    let current_dir = current_dir().unwrap();
-    format!(
-        "{:x}",
-        Sha256::digest(current_dir.to_str().unwrap().as_bytes())
-    )
-}
-
 impl Session {
     pub fn init() -> Result<Session, Box<dyn Error + 'static>> {
         let command = None;
         let machine_id = CliConfig::load()?.machine_id;
         let session_id = Uuid::new_v4().to_string();
-        let cwd_hash = get_cwd_hash();
 
         let platform = Platform {
             os: OS.to_string(),
@@ -74,12 +60,10 @@ impl Session {
         };
 
         let release_version = get_installed_version()?.to_string();
-        ::log::debug!("hash: {}, id: {}", cwd_hash, machine_id);
         Ok(Session {
             command,
             machine_id,
             session_id,
-            cwd_hash,
             platform,
             release_version,
         })
