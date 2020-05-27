@@ -1,5 +1,13 @@
 use crate::errors::ErrorDetails;
 
+// For interactively handling user input
+pub fn input(msg: &str) -> Result<String, ErrorDetails> {
+    println!("{}", msg);
+    let mut response: String = read!("{}\n");
+    response = response.split_whitespace().collect(); // remove whitespace
+    Ok(response)
+}
+
 // Truncate all "yes", "no" responses for interactive delete prompt to just "y" or "n".
 const INTERACTIVE_RESPONSE_LEN: usize = 1;
 const YES: &str = "y";
@@ -9,9 +17,7 @@ const NO: &str = "n";
 // Input like "yes", "Yes", "no", "No" will be accepted, thanks to the whitespace-stripping
 // and lowercasing logic below.
 pub fn confirm(msg: &str) -> Result<bool, ErrorDetails> {
-    println!("{} [y/n]", msg);
-    let mut response: String = read!("{}\n");
-    response = response.split_whitespace().collect(); // remove whitespace
+    let mut response: String = input(&format!("{} [y/n]", msg))?;
     response.make_ascii_lowercase(); // ensure response is all lowercase
     response.truncate(INTERACTIVE_RESPONSE_LEN); // at this point, all valid input will be "y" or "n"
 
