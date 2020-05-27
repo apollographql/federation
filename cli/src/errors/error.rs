@@ -45,7 +45,7 @@ impl ApolloError {
 
 impl fmt::Display for ApolloError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.inner.kind.fmt(f)
+        (&self.inner.kind).fmt(f)
     }
 }
 
