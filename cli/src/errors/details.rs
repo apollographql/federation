@@ -48,6 +48,9 @@ Please ensure you have permissions to edit your environment variables."
 
     #[error("Could not install CLI. {}", .msg)]
     CLIInstallError { msg: String },
+
+    #[error("Could not read cli configuration CLI. {}", .msg)]
+    CLIConfigError { msg: String },
 }
 
 impl ErrorDetails {
@@ -64,6 +67,7 @@ impl ErrorDetails {
             ErrorDetails::ReleaseFetchError => ExitCode::NetworkError,
             ErrorDetails::InputConfirmationError => ExitCode::InvalidArguments,
             ErrorDetails::CLIInstallError { .. } => ExitCode::FileSystemError,
+            ErrorDetails::CLIConfigError { .. } => ExitCode::ConfigurationError,
         }
     }
 }

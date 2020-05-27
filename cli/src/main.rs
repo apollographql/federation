@@ -21,7 +21,7 @@ use console::style;
 use structopt::StructOpt;
 
 use crate::cli::{Apollo, Subcommand};
-use crate::errors::{report, ApolloError};
+use crate::errors::{report, ApolloError, ErrorDetails};
 use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 use crate::telemetry::Session;
 use crate::version::{background_check_for_updates, command_name};
@@ -39,7 +39,16 @@ fn main() {
 
     setup_panic_hooks();
 
-    let mut session = Session::init().unwrap();
+    let session_result = Session::init()
+        .map_err(|e| ApolloError::from(ErrorDetails::CLIConfigError { msg: e.to_string() }));
+
+    if let Err(err) = session_result {
+        report(&err);
+        let code = err.exit_code();
+        code.exit();
+    };
+
+    let mut session = session_result.unwrap();
 
     let should_check_for_updates = if let Some(Subcommand::Update(_)) = cli.command {
         false
