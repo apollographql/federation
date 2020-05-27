@@ -1,6 +1,6 @@
 import { mockGlobal } from "./mock";
 import fetchMock from "fetch-mock";
-jest.mock('@zeit/fetch-retry', () => (f: any) => f);
+jest.mock("@zeit/fetch-retry", () => (f: any) => f);
 
 const GITHUB_RELEASE = "https://github.com/apollographql/apollo-cli/releases";
 beforeEach(() => {

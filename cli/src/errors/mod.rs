@@ -4,4 +4,4 @@ mod error;
 
 pub use code::*;
 pub use details::ErrorDetails;
-pub use error::{report, ApolloError, ApolloFail, Fallible};
+pub use error::{report, ApolloError, Fallible};

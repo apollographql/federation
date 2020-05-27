@@ -7,6 +7,7 @@ profile_script="./public/install.sh"
 
 setup() {
   export DESTDIR="$BATS_TMPDIR/test-bin_$RANDOM"
+  export FORCE="1"
   if ! [ -d $DESTDIR ]; then
     mkdir "$DESTDIR"
   fi
@@ -89,7 +90,7 @@ setup() {
 
   run run_main
   assert_success
-  assert_output -p "Apollo CLI was successfully installed!"
+  assert_output -p "Installed Apollo CLI in"
   unstub curl
 }
 
@@ -126,7 +127,7 @@ setup() {
 
   run run_main
   assert_success
-  assert_output -p "Apollo CLI was successfully installed!"
+  assert_output -p "Installed Apollo CLI in"
 }
 
 @test ".run_main downloads from GitHub if the proxy fails with a specific version passed" {
@@ -140,7 +141,7 @@ setup() {
 
   run run_main
   assert_success
-  assert_output -p "Apollo CLI was successfully installed!"
+  assert_output -p "Installed Apollo CLI in"
 }
 
 @test ".run_main errors if downloading from GitHub fails" {

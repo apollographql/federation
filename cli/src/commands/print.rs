@@ -5,6 +5,7 @@ use structopt::StructOpt;
 
 use crate::commands::Command;
 use crate::errors::{ExitCode, Fallible};
+use crate::telemetry::Session;
 
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]
@@ -23,7 +24,8 @@ pub struct Print {
 }
 
 impl Command for Print {
-    fn run(&self) -> Fallible<ExitCode> {
+    fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
+        session.log_command("print");
         let printing_headers = !self.no_headers && self.files.len() > 1;
         self.files.iter().for_each(move |file| {
             let schema = fs::read_to_string(file).expect("reading schema");
@@ -49,7 +51,7 @@ fn does_not_fail_with_no_files() -> std::io::Result<()> {
         ast: false,
         no_headers: false,
     }
-    .run()
+    .run(&mut Session::init().unwrap())
     .expect("failed to print");
 
     Print {
@@ -57,7 +59,7 @@ fn does_not_fail_with_no_files() -> std::io::Result<()> {
         ast: false,
         no_headers: true,
     }
-    .run()
+    .run(&mut Session::init().unwrap())
     .expect("failed to print with no_headers");
 
     Ok(())
