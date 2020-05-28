@@ -25,7 +25,7 @@ const NO: &str = "n";
 // Input like "yes", "Yes", "no", "No" will be accepted, thanks to the whitespace-stripping
 // and lowercasing logic below.
 pub fn confirm(msg: &str) -> Result<bool, ErrorDetails> {
-    let mut response: String = input(&format!("{} [y/n]", msg))?;
+    let mut response: String = input(&format!("{} [y/n]", msg), false)?;
     response.make_ascii_lowercase(); // ensure response is all lowercase
     response.truncate(INTERACTIVE_RESPONSE_LEN); // at this point, all valid input will be "y" or "n"
 
