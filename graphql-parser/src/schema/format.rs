@@ -22,7 +22,7 @@ fn to_string<T: Displayable>(v: &T) -> String {
     formatter.into_string()
 }
 
-fn description<'a>(description: &Option<String>, f: &mut Formatter) {
+fn description(description: &Option<String>, f: &mut Formatter) {
     if let Some(ref descr) = *description {
         f.indent();
         f.write_quoted(descr.as_ref());

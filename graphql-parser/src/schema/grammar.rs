@@ -1,16 +1,16 @@
-use combine::{parser, ParseResult, Parser};
+use combine::{parser, Parser, ParseResult};
 use combine::easy::{Error, Errors};
 use combine::error::StreamError;
-use combine::combinator::{many, many1, eof, optional, position, choice};
-use combine::combinator::{sep_by1};
+use combine::parser::choice::{choice, optional};
+use combine::parser::item::{eof, position};
+use combine::parser::repeat::{many, many1, sep_by1};
 
-use crate::tokenizer::{Kind as T, Token, TokenStream};
-use crate::helpers::{punct, ident, kind, name};
-use crate::query::{operation_definition, fragment_definition};
-use crate::common::{directives, string, default_value, parse_type};
-use crate::schema::error::{ParseError};
+use crate::common::{default_value, directives, parse_type, string};
+use crate::helpers::{ident, kind, name, punct};
+use crate::query::{fragment_definition, operation_definition};
 use crate::schema::ast::*;
-
+use crate::schema::error::ParseError;
+use crate::tokenizer::{Kind as T, Token, TokenStream};
 
 pub fn schema<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<SchemaDefinition<'a>, TokenStream<'a>>
@@ -538,7 +538,7 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
 }
 
 /// Parses a piece of schema language and returns an AST
-pub fn parse_schema<'a>(s: &'a str) -> Result<Document<'a>, ParseError>
+pub fn parse_schema(s: &str) -> Result<Document, ParseError>
 {
     let mut tokens = TokenStream::new(s);
     let (doc, _) = many1(parser(definition))
@@ -555,6 +555,8 @@ pub fn parse_schema<'a>(s: &'a str) -> Result<Document<'a>, ParseError>
 mod test {
     use crate::position::Pos;
     use crate::schema::grammar::*;
+
+    use super::{Definition, Document, SchemaDefinition};
     use super::parse_schema;
 
     fn ast(s: &str) -> Document {

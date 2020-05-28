@@ -1,11 +1,13 @@
-use combine::{parser, ParseResult, Parser};
-use combine::combinator::{many1, choice, eof, optional, position};
+use combine::{parser, Parser, ParseResult};
+use combine::parser::choice::{choice, optional};
+use combine::parser::item::{eof, position};
+use combine::parser::repeat::many1;
 
-use crate::common::{directives, arguments, default_value, parse_type};
-use crate::tokenizer::{TokenStream};
-use crate::helpers::{punct, ident, name};
-use crate::query::error::{ParseError};
+use crate::common::{arguments, default_value, directives, parse_type};
+use crate::helpers::{ident, name, punct};
 use crate::query::ast::*;
+use crate::query::error::ParseError;
+use crate::tokenizer::TokenStream;
 
 pub fn field<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Field<'a>, TokenStream<'a>>
@@ -142,7 +144,7 @@ pub fn definition<'a>(input: &mut TokenStream<'a>)
 }
 
 /// Parses a piece of query language and returns an AST
-pub fn parse_query<'a>(s: &'a str) -> Result<Document<'a>, ParseError> 
+pub fn parse_query(s: &str) -> Result<Document, ParseError>
 {
     let mut tokens = TokenStream::new(s);
     let (doc, _) = many1(parser(definition))
@@ -158,7 +160,8 @@ pub fn parse_query<'a>(s: &'a str) -> Result<Document<'a>, ParseError>
 mod test {
     use crate::position::Pos;
     use crate::query::grammar::*;
-    use super::parse_query;
+
+    use super::*;
 
     fn ast(s: &str) -> Document {
         parse_query(&s).unwrap().to_owned()

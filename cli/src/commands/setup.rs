@@ -75,7 +75,7 @@ mod os {
         } else {
             Err(ErrorDetails::NoShellProfile {
                 env_profile: String::new(),
-                bin_dir: apollo_home_bin()?.to_owned(),
+                bin_dir: apollo_home_bin()?,
             }
             .into())
         }

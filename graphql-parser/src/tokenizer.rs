@@ -4,7 +4,6 @@ use combine::{StreamOnce, Positioned};
 use combine::error::{StreamError};
 use combine::stream::{Resetable};
 use combine::easy::{Error, Errors};
-
 use crate::position::Pos;
 
 
@@ -312,6 +311,7 @@ impl<'a> TokenStream<'a> {
                 }
                 //comment
                 '#' => {
+                    #[allow(clippy::while_let_on_iterator)]
                     while let Some((_, cur_char)) = iter.next() {
                         // TODO(tailhook) ensure SourceCharacter
                         if cur_char == '\r' || cur_char == '\n' {
@@ -331,7 +331,7 @@ impl<'a> TokenStream<'a> {
     fn update_position(&mut self, len: usize) {
         let val = &self.buf[self.off..][..len];
         self.off += len;
-        let lines = val.as_bytes().iter().filter(|&&x| x == b'\n').count();
+        let lines = bytecount::count(val.as_bytes(), b'\n');
         self.position.line += lines;
         if lines > 0 {
             let line_offset = val.rfind('\n').unwrap()+1;

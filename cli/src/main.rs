@@ -57,15 +57,13 @@ fn main() {
     // Send anonymous telemtry if enabled
     let _telemetry_reported = session.report().unwrap_or(false);
 
-    if latest_version_receiver.is_some() {
-        // Check for updates to the CLI and print out a message if an update is ready
-        if let Ok(latest_version) = latest_version_receiver.unwrap().try_recv() {
-            ::log::info!(
+    // Check for updates to the CLI and print out a message if an update is ready
+    if let Some(Ok(latest_version)) = latest_version_receiver.map(|it| it.try_recv()) {
+        ::log::info!(
                 "\n > A new version of the Apollo CLI ({}) is available! To update, run `{} update`",
                 style(latest_version).green().bold(),
                 command_name()
             );
-        }
     }
 
     match result {
@@ -88,7 +86,7 @@ fn setup_panic_hooks() {
 
     let default_hook = panic::take_hook();
 
-    if let Err(_) = env::var("RUST_BACKTRACE") {
+    if env::var("RUST_BACKTRACE").is_err() {
         panic::set_hook(Box::new(move |info: &panic::PanicInfo| {
             // First call the default hook that prints to standard error.
             default_hook(info);
@@ -99,4 +97,8 @@ fn setup_panic_hooks() {
                 .expect("human-panic: printing error message to console failed");
         }));
     }
+}
+
+pub fn domain() -> String {
+    env::var("APOLLO_CDN_URL").unwrap_or_else(|_| "https://install.apollographql.com".to_string())
 }

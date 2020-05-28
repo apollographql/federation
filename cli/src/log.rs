@@ -48,6 +48,7 @@ fn custom_formatter(
     }
 }
 
+#[allow(clippy::unnecessary_unwrap)]
 pub fn init_logger(verbose: bool, quiet: bool, env_log_level: Result<String, VarError>) {
     // warn if someone is trying to use the flags _and_ env
     if env_log_level.is_ok() && (verbose || quiet) {

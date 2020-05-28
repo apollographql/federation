@@ -43,7 +43,7 @@ impl CliConfig {
             info!("{}", POST_INSTALL_MESSAGE);
         }
 
-        s.try_into().map_err(|e| From::from(e))
+        s.try_into().map_err(From::from)
     }
 }
 

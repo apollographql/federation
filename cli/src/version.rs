@@ -1,5 +1,5 @@
 use std::env::consts::OS;
-use std::env::{args, var};
+use std::env;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
@@ -9,12 +9,13 @@ use std::thread;
 use std::time::SystemTime;
 
 use log::debug;
-use reqwest;
+
 use semver::Version;
 use serde::{Deserialize, Serialize};
 
 use crate::errors::{ErrorDetails, ExitCode};
 use crate::layout::apollo_home;
+use crate::domain;
 
 const ONE_DAY: u64 = 60 * 60 * 24;
 
@@ -87,11 +88,7 @@ pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
     let platform = platform.ok_or(ErrorDetails::UnsupportedPlatformError {
         os: String::from(OS),
     })?;
-    let domain = match var("APOLLO_CDN_URL") {
-        Ok(domain) => domain.to_string(),
-        Err(_) => "https://install.apollographql.com".to_string(),
-    };
-    let url = format!("{}/cli/{}", domain, platform);
+    let url = format!("{}/cli/{}", domain(), platform);
     debug!("Fetching latest version from {}", url);
     let resp = reqwest::blocking::Client::new()
         .head(&url)
@@ -126,15 +123,14 @@ pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
 
     let filename = content.last().ok_or(ErrorDetails::ReleaseFetchError)?;
     let archive_bin_name = filename
-        .split("-")
-        .nth(0)
+        .split('-').next()
         .ok_or(ErrorDetails::ReleaseFetchError)?;
 
     let file_parts: Vec<&str> = filename
-        .split("v")
+        .split('v')
         .last()
         .ok_or(ErrorDetails::ReleaseFetchError)?
-        .split("-")
+        .split('-')
         .collect();
 
     let latest_version = file_parts[0];
@@ -143,7 +139,7 @@ pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
         version: Version::parse(latest_version)?,
         archive_bin_name: archive_bin_name.to_string(),
         filename: filename.to_string(),
-        url: url.to_string(),
+        url,
     })
 }
 
@@ -196,7 +192,7 @@ pub fn background_check_for_updates() -> mpsc::Receiver<Version> {
     let (sender, receiver) = mpsc::channel();
 
     // don't check for updates if APOLLO_UPDATE_CHECK_DISABLED is set
-    if var("APOLLO_UPDATE_CHECK_DISABLED").is_ok() {
+    if env::var("APOLLO_UPDATE_CHECK_DISABLED").is_ok() {
         return receiver;
     }
 
@@ -216,7 +212,7 @@ pub fn background_check_for_updates() -> mpsc::Receiver<Version> {
 // arbitrary text, and may not even exist. This means this property should not be
 // relied upon for security purposes.
 pub fn command_name() -> std::string::String {
-    args()
+    env::args()
         .next()
         .expect("Called help without a path to the binary")
 }
