@@ -18,7 +18,7 @@ use graphql_parser::parse_query;
 use graphql_parser::parse_schema;
 
 \n\n");
-    let mut lines: Vec<String> = Vec::new();
+    let mut tests: Vec<String> = Vec::new();
     for ent in read_dir("tests")? {
         let entry = ent?;
         let mut path = entry.path();
@@ -29,7 +29,7 @@ use graphql_parser::parse_schema;
             let canonical_src = format!("{}.canonical.graphql", name);
             path.pop();
             path.push(canonical_src.clone());
-            lines.push(
+            tests.push(
                 format!(
                     "test!({}, include_str!(\"{}\"), include_str!(\"{}\"));\n",
                     &name, &src, if path.is_file() { &canonical_src } else { &src }
@@ -37,8 +37,8 @@ use graphql_parser::parse_schema;
             );
         }
     }
-    lines.sort();
-    for line in lines.iter() {
+    tests.sort();
+    for line in tests.iter() {
         output.push_str(line.as_str());
     }
     write("tests/tests.rs", output)?;
