@@ -1,12 +1,13 @@
 use crate::errors::ErrorDetails;
 use console::Term;
+use atty::Stream;
 
 // For interactively handling user input
 pub fn input(msg: &str, sensitive: bool) -> Result<String, ErrorDetails> {
     println!("{}", msg);
     let terminal = Term::stdout();
 
-    let mut response: String = if !(sensitive && terminal.is_term()) {
+    let mut response: String = if !(sensitive && atty::is(Stream::Stdin)) {
         read!("{}\n")
     } else {
         terminal.read_secure_line().unwrap()

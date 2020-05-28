@@ -15,7 +15,7 @@ mod unix {
 
     #[test]
     fn no_command_used() -> Result<(), Box<dyn std::error::Error>> {
-        let mut cli = utils::get_cli();
+        let mut cli = utils::get_cli().command;
 
         cli.assert()
             .code(0)

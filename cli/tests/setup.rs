@@ -1,4 +1,5 @@
 mod utils;
+mod commands;
 
 #[cfg(unix)]
 mod unix {
@@ -14,7 +15,7 @@ mod unix {
 
     #[test]
     fn not_found_in_usage() {
-        let mut cli = get_cli();
+        let mut cli = get_cli().command;
 
         cli.assert()
             .code(0)
