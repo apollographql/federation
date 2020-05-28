@@ -7,6 +7,10 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[build-dependencies]
+reqwest = { version = "0.10", features = ["blocking", "json"] }
+uuid = "0.8.1"
+
 [dependencies]
 anyhow = "1.0.31"
 atty = "0.2.14"
@@ -45,4 +49,4 @@ wiremock = "0.2.2"
 async-std = { version = "1.6.0", features = ["attributes"] }
 
 [features]
-vendored-openssl = ['openssl/vendored']
+vendored-openssl = ["openssl/vendored"]
