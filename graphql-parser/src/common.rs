@@ -18,21 +18,10 @@ pub struct Directive<'a> {
 
 pub type Txt<'a> = &'a str;
 
-/// This represents integer number
-///
-/// But since there is no definition on limit of number in spec
-/// (only in implemetation), we do a trick similar to the one
-/// in `serde_json`: encapsulate value in new-type, allowing type
-/// to be extended later.
-#[derive(Debug, Clone, PartialEq)]
-// we use i64 as a reference implementation: graphql-js thinks even 32bit
-// integers is enough. We might consider lift this limit later though
-pub struct Number(pub(crate) i64);
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value<'a> {
     Variable(Txt<'a>),
-    Int(Number),
+    Int(i64),
     Float(f64),
     String(String),
     Boolean(bool),
@@ -47,19 +36,6 @@ pub enum Type<'a> {
     NamedType(Txt<'a>),
     ListType(Box<Type<'a>>),
     NonNullType(Box<Type<'a>>),
-}
-
-impl Number {
-    /// Returns a number as i64 if it fits the type
-    pub fn as_i64(&self) -> Option<i64> {
-        Some(self.0)
-    }
-}
-
-impl From<i32> for Number {
-    fn from(i: i32) -> Self {
-        Number(i as i64)
-    }
 }
 
 pub fn directives<'a>(input: &mut TokenStream<'a>)
@@ -94,7 +70,7 @@ pub fn int_value<'a>(input: &mut TokenStream<'a>)
     -> ParseResult<Value<'a>, TokenStream<'a>>
 {
     kind(T::IntValue).and_then(|tok| tok.value.parse())
-            .map(Number).map(Value::Int)
+            .map(Value::Int)
     .parse_stream(input)
 }
 
@@ -279,16 +255,7 @@ pub fn parse_type<'a>(input: &mut TokenStream<'a>)
 
 #[cfg(test)]
 mod tests {
-    use super::Number;
     use super::unquote_string;
-
-    #[test]
-    fn number_from_i32_and_to_i64_conversion() {
-        assert_eq!(Number::from(1).as_i64(), Some(1));
-        assert_eq!(Number::from(584).as_i64(), Some(584));
-        assert_eq!(Number::from(i32::min_value()).as_i64(), Some(i32::min_value() as i64));
-        assert_eq!(Number::from(i32::max_value()).as_i64(), Some(i32::max_value() as i64));
-    }
 
     #[test]
     fn unquote_unicode_string() {

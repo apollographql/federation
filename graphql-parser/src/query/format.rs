@@ -35,20 +35,9 @@ impl<'a> Displayable for Definition<'a>
 {
     fn display(&self, f: &mut Formatter) {
         match *self {
+            Definition::SelectionSet(ref s) => s.display(f),
             Definition::Operation(ref op) => op.display(f),
             Definition::Fragment(ref frag) => frag.display(f),
-        }
-    }
-}
-
-impl<'a> Displayable for OperationDefinition<'a> 
-{
-    fn display(&self, f: &mut Formatter) {
-        match *self {
-            OperationDefinition::SelectionSet(ref set) => set.display(f),
-            OperationDefinition::Query(ref q) => q.display(f),
-            OperationDefinition::Mutation(ref m) => m.display(f),
-            OperationDefinition::Subscription(ref s) => s.display(f),
         }
     }
 }
@@ -60,8 +49,8 @@ impl<'a> Displayable for FragmentDefinition<'a>
         f.indent();
         f.write("fragment ");
         f.write(self.name.as_ref());
-        f.write(" ");
-        self.type_condition.display(f);
+        f.write(" on ");
+        f.write(self.type_condition);
         format_directives(&self.directives, f);
         f.write(" ");
         f.start_block();
@@ -74,6 +63,7 @@ impl<'a> Displayable for FragmentDefinition<'a>
 
 impl<'a> Displayable for SelectionSet<'a> 
 {
+    #[inline]
     fn display(&self, f: &mut Formatter) {
         f.margin();
         f.indent();
@@ -137,12 +127,12 @@ impl<'a> Displayable for Field<'a>
     }
 }
 
-impl<'a> Displayable for Query<'a> 
+impl<'a> Displayable for OperationDefinition<'a> 
 {
     fn display(&self, f: &mut Formatter) {
         f.margin();
         f.indent();
-        f.write("query");
+        f.write(self.kind.as_str());
         if let Some(ref name) = self.name {
             f.write(" ");
             f.write(name.as_ref());
@@ -151,60 +141,6 @@ impl<'a> Displayable for Query<'a>
                 self.variable_definitions[0].display(f);
                 for var in &self.variable_definitions[1..] {
                     f.write(", ");
-                    var.display(f);
-                }
-                f.write(")");
-            }
-        }
-        format_directives(&self.directives, f);
-        f.write(" ");
-        f.start_block();
-        for item in &self.selection_set.items {
-            item.display(f);
-        }
-        f.end_block();
-    }
-}
-
-impl<'a> Displayable for Mutation<'a> 
-{
-    fn display(&self, f: &mut Formatter) {
-        f.margin();
-        f.indent();
-        f.write("mutation");
-        if let Some(ref name) = self.name {
-            f.write(" ");
-            f.write(name.as_ref());
-            if !self.variable_definitions.is_empty() {
-                f.write("(");
-                for var in &self.variable_definitions {
-                    var.display(f);
-                }
-                f.write(")");
-            }
-        }
-        format_directives(&self.directives, f);
-        f.write(" ");
-        f.start_block();
-        for item in &self.selection_set.items {
-            item.display(f);
-        }
-        f.end_block();
-    }
-}
-
-impl<'a> Displayable for Subscription<'a> 
-{
-    fn display(&self, f: &mut Formatter) {
-        f.margin();
-        f.indent();
-        f.write("subscription");
-        if let Some(ref name) = self.name {
-            f.write(" ");
-            f.write(name.as_ref());
-            if !self.variable_definitions.is_empty() {
-                f.write("(");
-                for var in &self.variable_definitions {
                     var.display(f);
                 }
                 f.write(")");
@@ -257,7 +193,7 @@ impl<'a> Displayable for Value<'a>
     fn display(&self, f: &mut Formatter) {
         match *self {
             Value::Variable(ref name) => { f.write("$"); f.write(name.as_ref()); },
-            Value::Int(ref num) => f.write(&format!("{}", num.0)),
+            Value::Int(ref num) => f.write(&format!("{}", num)),
             Value::Float(val) => f.write(&format!("{}", val)),
             Value::String(ref val) => f.write_quoted(val),
             Value::Boolean(true) => f.write("true"),
@@ -300,8 +236,8 @@ impl<'a> Displayable for InlineFragment<'a>
         f.indent();
         f.write("...");
         if let Some(ref cond) = self.type_condition {
-            f.write(" ");
-            cond.display(f);
+            f.write(" on ");
+            f.write(cond);
         }
         format_directives(&self.directives, f);
         f.write(" ");
@@ -310,18 +246,6 @@ impl<'a> Displayable for InlineFragment<'a>
             item.display(f);
         }
         f.end_block();
-    }
-}
-
-impl<'a> Displayable for TypeCondition<'a> 
-{
-    fn display(&self, f: &mut Formatter) {
-        match *self {
-            TypeCondition::On(ref name) => {
-                f.write("on ");
-                f.write(name.as_ref());
-            }
-        }
     }
 }
 
@@ -354,14 +278,10 @@ impl_display!(
     FragmentDefinition,
     SelectionSet,
     Field,
-    Query,
-    Mutation,
-    Subscription,
     VariableDefinition,
     Type,
     Value,
     InlineFragment,
-    TypeCondition,
     FragmentSpread,
     Directive,
 );

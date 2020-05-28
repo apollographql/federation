@@ -6,67 +6,62 @@ Ok(
     Document {
         definitions: [
             Operation(
-                Query(
-                    Query {
-                        position: Pos(1:1),
-                        description: None,
-                        name: Some(
-                            "Foo",
-                        ),
-                        variable_definitions: [
-                            VariableDefinition {
-                                position: Pos(1:11),
-                                name: "site",
-                                var_type: ListType(
-                                    NamedType(
-                                        "Int",
-                                    ),
+                OperationDefinition {
+                    position: Pos(1:1),
+                    kind: Query,
+                    description: None,
+                    name: Some(
+                        "Foo",
+                    ),
+                    variable_definitions: [
+                        VariableDefinition {
+                            position: Pos(1:11),
+                            name: "site",
+                            var_type: ListType(
+                                NamedType(
+                                    "Int",
                                 ),
-                                default_value: Some(
-                                    List(
-                                        [
-                                            Int(
-                                                Number(
-                                                    123,
-                                                ),
-                                            ),
-                                            Int(
-                                                Number(
-                                                    456,
-                                                ),
-                                            ),
-                                        ],
-                                    ),
-                                ),
-                            },
-                        ],
-                        directives: [],
-                        selection_set: SelectionSet {
-                            span: (
-                                Pos(1:38),
-                                Pos(3:1),
                             ),
-                            items: [
-                                Field(
-                                    Field {
-                                        position: Pos(2:3),
-                                        alias: None,
-                                        name: "field",
-                                        arguments: [],
-                                        directives: [],
-                                        selection_set: SelectionSet {
-                                            span: (
-                                                Pos(2:3),
-                                                Pos(2:3),
-                                            ),
-                                            items: [],
-                                        },
-                                    },
+                            default_value: Some(
+                                List(
+                                    [
+                                        Int(
+                                            123,
+                                        ),
+                                        Int(
+                                            456,
+                                        ),
+                                    ],
                                 ),
-                            ],
+                            ),
                         },
+                    ],
+                    directives: [],
+                    selection_set: SelectionSet {
+                        span: (
+                            Pos(1:38),
+                            Pos(3:1),
+                        ),
+                        items: [
+                            Field(
+                                Field {
+                                    position: Pos(2:3),
+                                    alias: None,
+                                    name: "field",
+                                    arguments: [],
+                                    directives: [],
+                                    selection_set: SelectionSet {
+                                        span: (
+                                            Pos(2:3),
+                                            Pos(2:3),
+                                        ),
+                                        items: [],
+                                    },
+                                },
+                            ),
+                        ],
                     },
-                ),
+                },
             ),
         ],
     },

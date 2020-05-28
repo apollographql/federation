@@ -493,8 +493,6 @@ pub fn described_definition<'a>(input: &mut TokenStream<'a>)
             use crate::schema::ast::TypeDefinition::*;
             use crate::schema::ast::Definition::*;
             use crate::schema::ast::Definition::{Type as T};
-            use crate::schema::ast::Definition::{Operation as Op};
-            use crate::query::OperationDefinition::*;
             match def {
                 T(Scalar(ref mut s)) => s.description = descr,
                 T(Object(ref mut o)) => o.description = descr,
@@ -503,10 +501,7 @@ pub fn described_definition<'a>(input: &mut TokenStream<'a>)
                 T(Enum(ref mut e)) => e.description = descr,
                 T(InputObject(ref mut o)) => o.description = descr,
                 Directive(ref mut d) => d.description = descr,
-                Op(SelectionSet(_)) => {},
-                Op(Query(ref mut op_q)) => op_q.description = descr,
-                Op(Mutation(ref mut op_m)) => op_m.description = descr,
-                Op(Subscription(ref mut op_s)) => op_s.description = descr,
+                Operation(ref mut op) => op.description = descr,
                 Fragment(ref mut f) => f.description = descr,
                 Schema(_) => unreachable!(),
                 TypeExtension(_) => unreachable!(),

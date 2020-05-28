@@ -6,7 +6,7 @@
 //! [graphql grammar]: http://facebook.github.io/graphql/October2016/#sec-Appendix-Grammar-Summary
 //!
 use crate::position::Pos;
-pub use crate::common::{Directive, Number, Type, Value, Txt};
+pub use crate::common::{Directive, Type, Value, Txt};
 
 /// Root of query data
 #[derive(Debug, Clone, PartialEq)]
@@ -16,6 +16,7 @@ pub struct Document<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Definition<'a> {
+    SelectionSet(SelectionSet<'a>),
     Operation(OperationDefinition<'a>),
     Fragment(FragmentDefinition<'a>),
 }
@@ -25,47 +26,36 @@ pub struct FragmentDefinition<'a> {
     pub position: Pos,
     pub description: Option<String>,
     pub name: Txt<'a>,
-    pub type_condition: TypeCondition<'a>,
+    pub type_condition: Txt<'a>,
     pub directives: Vec<Directive<'a>>,
     pub selection_set: SelectionSet<'a>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum OperationDefinition<'a> {
-    SelectionSet(SelectionSet<'a>),
-    Query(Query<'a>),
-    Mutation(Mutation<'a>),
-    Subscription(Subscription<'a>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Query<'a> {
+pub struct OperationDefinition<'a> {
     pub position: Pos,
+    pub kind: Operation,
     pub description: Option<String>,
     pub name: Option<Txt<'a>>,
     pub variable_definitions: Vec<VariableDefinition<'a>>,
     pub directives: Vec<Directive<'a>>,
     pub selection_set: SelectionSet<'a>,
-}
+ }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Mutation<'a> {
-    pub position: Pos,
-    pub description: Option<String>,
-    pub name: Option<Txt<'a>>,
-    pub variable_definitions: Vec<VariableDefinition<'a>>,
-    pub directives: Vec<Directive<'a>>,
-    pub selection_set: SelectionSet<'a>,
+pub enum Operation {
+    Query, Mutation, Subscription
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Subscription<'a> {
-    pub position: Pos,
-    pub description: Option<String>,
-    pub name: Option<Txt<'a>>,
-    pub variable_definitions: Vec<VariableDefinition<'a>>,
-    pub directives: Vec<Directive<'a>>,
-    pub selection_set: SelectionSet<'a>,
+impl Operation {
+    /// Returns GraphQL syntax compatible name of the operation
+    pub fn as_str(&self) -> &'static str {
+        match *self {
+            Self::Query => "query",
+            Self::Mutation => "mutation",
+            Self::Subscription => "subscription",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -107,14 +97,9 @@ pub struct FragmentSpread<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TypeCondition<'a> {
-    On(Txt<'a>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct InlineFragment<'a> {
     pub position: Pos,
-    pub type_condition: Option<TypeCondition<'a>>,
+    pub type_condition: Option<Txt<'a>>,
     pub directives: Vec<Directive<'a>>,
     pub selection_set: SelectionSet<'a>,
 }
