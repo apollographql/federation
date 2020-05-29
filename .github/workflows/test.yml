@@ -82,8 +82,8 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.9.0'
-          timeout: 300 # 5 mins for test coverage
-          args: '--ignore-tests -- --test-threads 1'
+          timeout: 600 # 10 mins for test coverage
+          args: '--ignore-tests'
   
       - name: Upload to codecov.io
         if: matrix.build == 'linux-stable'
