@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fs;
 
-use config::{Config, ConfigError};
+use config::{Config, ConfigError, Environment};
 use log::info;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -49,6 +49,7 @@ impl CliConfig {
             info!("{}", POST_INSTALL_MESSAGE);
         }
 
+        s.merge(Environment::with_prefix("APOLLO_").separator("__")).unwrap();
         s.try_into().map_err(From::from)
     }
 }
