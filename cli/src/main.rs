@@ -19,6 +19,7 @@ use std::panic;
 use console::style;
 use structopt::StructOpt;
 
+use crate::cli::{Apollo, Subcommand};
 use crate::errors::{report, ApolloError};
 use crate::log::{init_logger, APOLLO_LOG_LEVEL};
 use crate::telemetry::Session;
@@ -29,7 +30,7 @@ enum Error {
 }
 
 fn main() {
-    let cli = cli::Apollo::from_args();
+    let cli: Apollo = cli::Apollo::from_args();
 
     // get log level env variable and initialize the global logger (env_logger)
     let env_log_level = var(APOLLO_LOG_LEVEL);
@@ -39,9 +40,10 @@ fn main() {
 
     let mut session = Session::init().unwrap();
 
-    let should_check_for_updates = match env::args().nth(1) {
-        Some(cmd) => !cmd.eq("update"),
-        _ => false,
+    let should_check_for_updates = if let Some(Subcommand::Update(_)) = cli.command {
+        false
+    } else {
+        true
     };
 
     let latest_version_receiver = if should_check_for_updates {
@@ -60,10 +62,10 @@ fn main() {
     // Check for updates to the CLI and print out a message if an update is ready
     if let Some(Ok(latest_version)) = latest_version_receiver.map(|it| it.try_recv()) {
         ::log::info!(
-                "\n > A new version of the Apollo CLI ({}) is available! To update, run `{} update`",
-                style(latest_version).green().bold(),
-                command_name()
-            );
+            "\n > A new version of the Apollo CLI ({}) is available! To update, run `{} update`",
+            style(latest_version).green().bold(),
+            command_name()
+        );
     }
 
     match result {
