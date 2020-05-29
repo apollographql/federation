@@ -48,6 +48,7 @@ pub fn me_query(client: &Client) -> Result<Option<me_query::MeQueryMe>, Box<dyn 
 mod tests {
     #[test]
     #[should_panic] // will not panic with a real API key with access to "my-service".
+    #[ignore]
     fn get_schema_query() {
         use super::*;
         let client = Client::from("todo_get_api_key".to_owned());
@@ -62,6 +63,7 @@ mod tests {
 
     #[test]
     #[should_panic] // will not panic with a real API key.
+    #[ignore]
     fn me_query() {
         use super::*;
         let client = Client::from("todo_get_api_key".to_owned());
