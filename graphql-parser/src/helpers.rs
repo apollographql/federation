@@ -30,7 +30,7 @@ pub struct Value<'a> {
 
 pub fn kind<'x>(kind: Kind) -> TokenMatch<'x> {
     TokenMatch {
-        kind: kind,
+        kind,
         phantom: PhantomData,
     }
 }
@@ -65,7 +65,7 @@ impl<'a> Parser for TokenMatch<'a> {
 pub fn punct<'s>(value: &'static str) -> Value<'s> {
     Value {
         kind: Kind::Punctuator,
-        value: value,
+        value,
         phantom: PhantomData,
     }
 }
@@ -73,7 +73,7 @@ pub fn punct<'s>(value: &'static str) -> Value<'s> {
 pub fn ident<'s>(value: &'static str) -> Value<'s> {
     Value {
         kind: Kind::Name,
-        value: value,
+        value,
         phantom: PhantomData,
     }
 }

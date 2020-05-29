@@ -3,14 +3,13 @@ use std::env::consts::OS;
 use std::error::Error;
 use std::time::Duration;
 
-use ci_info;
 use log::debug;
-use reqwest;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::config::CliConfig;
 use crate::version::get_installed_version;
+use crate::domain;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Platform {
@@ -78,11 +77,8 @@ impl Session {
         if env::var("APOLLO_TELEMETRY_DISABLED").is_ok() {
             return Ok(false);
         }
-        let domain = match env::var("APOLLO_CDN_URL") {
-            Ok(domain) => domain.to_string(),
-            Err(_) => "https://install.apollographql.com".to_string(),
-        };
-        let url = format!("{}/telemetry", domain);
+
+        let url = format!("{}/telemetry", domain());
         let body = serde_json::to_string(&self).unwrap();
         // keep the CLI waiting for 300 ms to send telemetry
         // if the request isn't sent in that time loose that report

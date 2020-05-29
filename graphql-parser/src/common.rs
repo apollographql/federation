@@ -1,13 +1,15 @@
 use std::{collections::BTreeMap};
 
-use combine::{parser, ParseResult, Parser};
+use combine::{parser, Parser, ParseResult};
 use combine::easy::Error;
 use combine::error::StreamError;
-use combine::combinator::{many, many1, optional, position, choice};
+use combine::parser::choice::{choice, optional};
+use combine::parser::item::position;
+use combine::parser::repeat::{many, many1};
 
-use crate::tokenizer::{Kind as T, Token, TokenStream};
-use crate::helpers::{punct, ident, kind, name};
+use crate::helpers::{ident, kind, name, punct};
 use crate::position::Pos;
+use crate::tokenizer::{Kind as T, Token, TokenStream};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Directive<'a> {
@@ -82,7 +84,7 @@ pub fn float_value<'a>(input: &mut TokenStream<'a>)
     .parse_stream(input)
 }
 
-fn unquote_block_string<'a>(src: &'a str) -> Result<String, Error<Token<'a>, Token<'a>>> {
+fn unquote_block_string(src: &str) -> Result<String, Error<Token, Token>> {
     debug_assert!(src.starts_with("\"\"\"") && src.ends_with("\"\"\""));
     let indent = src[3..src.len()-3].lines().skip(1)
         .filter_map(|line| {
@@ -118,7 +120,7 @@ fn unquote_block_string<'a>(src: &'a str) -> Result<String, Error<Token<'a>, Tok
     Ok(result)
 }
 
-fn unquote_string<'a>(s: &'a str) -> Result<String, Error<Token, Token>> 
+fn unquote_string(s: &str) -> Result<String, Error<Token, Token>>
 {
     let mut res = String::with_capacity(s.len());
     debug_assert!(s.starts_with('"') && s.ends_with('"'));
