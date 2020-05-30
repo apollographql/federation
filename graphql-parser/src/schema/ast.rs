@@ -32,6 +32,45 @@ pub struct SchemaDefinition<'a> {
     pub subscription: Option<Txt<'a>>,
 }
 
+impl<'a> Definition<'a> {
+    pub fn name(&self) -> Option<&'a str> {
+        match self {
+            Definition::Schema(_) => None,
+            Definition::Type(t) => t.name(),
+            Definition::TypeExtension(te) => te.name(),
+            Definition::Directive(d) => Some(d.name),
+            Definition::Operation(o) => o.name,
+            Definition::Fragment(f) => Some(f.name),
+        }
+    }
+}
+
+impl<'a> TypeDefinition<'a> {
+    pub fn name(&self) -> Option<&'a str> {
+        match self {
+            TypeDefinition::Scalar(s) => Some(s.name),
+            TypeDefinition::Object(o) => Some(o.name),
+            TypeDefinition::Interface(i) => Some(i.name),
+            TypeDefinition::Union(u) => Some(u.name),
+            TypeDefinition::Enum(e) => Some(e.name),
+            TypeDefinition::InputObject(io) => Some(io.name),
+        }
+    }
+}
+
+impl<'a> TypeExtension<'a> {
+    pub fn name(&self) -> Option<&'a str> {
+        match self {
+            TypeExtension::Scalar(s) => Some(s.name),
+            TypeExtension::Object(o) => Some(o.name),
+            TypeExtension::Interface(i) => Some(i.name),
+            TypeExtension::Union(u) => Some(u.name),
+            TypeExtension::Enum(e) => Some(e.name),
+            TypeExtension::InputObject(io) => Some(io.name),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeDefinition<'a> {
     Scalar(ScalarType<'a>),
