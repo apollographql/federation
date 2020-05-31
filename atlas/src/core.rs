@@ -1,3 +1,7 @@
+use async_std::prelude::*;
+
+use std::{mem::size_of, hash::Hash};
+use chashmap::CHashMap;
 
 pub trait Expr: Hash {
     type Output;

@@ -32,8 +32,12 @@ pub struct SchemaDefinition<'a> {
     pub subscription: Option<Txt<'a>>,
 }
 
-impl<'a> Definition<'a> {
-    pub fn name(&self) -> Option<&'a str> {
+pub trait Named<'a> {
+    fn name(&self) -> Option<&'a str>;
+}
+
+impl<'a> Named<'a> for Definition<'a> {
+    fn name(&self) -> Option<&'a str> {
         match self {
             Definition::Schema(_) => None,
             Definition::Type(t) => t.name(),
@@ -45,8 +49,8 @@ impl<'a> Definition<'a> {
     }
 }
 
-impl<'a> TypeDefinition<'a> {
-    pub fn name(&self) -> Option<&'a str> {
+impl<'a> Named<'a> for TypeDefinition<'a> {
+    fn name(&self) -> Option<&'a str> {
         match self {
             TypeDefinition::Scalar(s) => Some(s.name),
             TypeDefinition::Object(o) => Some(o.name),
@@ -58,8 +62,8 @@ impl<'a> TypeDefinition<'a> {
     }
 }
 
-impl<'a> TypeExtension<'a> {
-    pub fn name(&self) -> Option<&'a str> {
+impl<'a> Named<'a> for TypeExtension<'a> {
+    fn name(&self) -> Option<&'a str> {
         match self {
             TypeExtension::Scalar(s) => Some(s.name),
             TypeExtension::Object(o) => Some(o.name),
@@ -68,6 +72,12 @@ impl<'a> TypeExtension<'a> {
             TypeExtension::Enum(e) => Some(e.name),
             TypeExtension::InputObject(io) => Some(io.name),
         }
+    }
+}
+
+impl<'a> Named<'a> for Field<'a> {
+    fn name(&self) -> Option<&'a str> {
+        Some(self.name)
     }
 }
 
@@ -195,6 +205,12 @@ pub struct InputValue<'a> {
     pub directives: Vec<Directive<'a>>,
 }
 
+impl<'a> Named<'a> for InputValue<'a> {
+    fn name(&self) -> Option<&'a str> {
+        Some(self.name)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceType<'a> {
     pub position: Pos,
@@ -320,6 +336,12 @@ impl<'a> EnumValue<'a>
             name,
             directives: vec![],
         }
+    }
+}
+
+impl<'a> Named<'a> for EnumValue<'a> {
+    fn name(&self) -> Option<&'a str> {
+        Some(self.name)
     }
 }
 
