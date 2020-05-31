@@ -17,7 +17,7 @@ use crate::version::command_name;
     global_setting = AppSettings::DontCollapseArgsInUsage,
     global_setting = AppSettings::VersionlessSubcommands,
 )]
-/// The [Experimental] Apollo CLI, for supporting all your graphql needs :)
+/// The _Experimental_ Apollo CLI, for supporting all your graphql needs :)
 pub struct Apollo {
     #[structopt(subcommand)]
     pub command: Option<Subcommand>,

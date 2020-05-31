@@ -8,15 +8,15 @@ mod queries;
 static PROD_GQL_API_URL: &str = "https://engine-graphql.apollographql.com/api/graphql";
 
 pub struct Client {
-    personal_api_key: String,
+    api_key: String,
     uri: Uri,
     reqwest: blocking::Client,
 }
 
 impl Client {
-    fn from(personal_api_key: String) -> Client {
+    fn from(api_key: String) -> Client {
         Client {
-            personal_api_key,
+            api_key,
             uri: PROD_GQL_API_URL.parse::<Uri>().unwrap(),
             reqwest: blocking::Client::new(),
         }
@@ -34,7 +34,7 @@ impl Client {
             .header("Content-Type", "application/json")
             .header("apollographql-client-name", "internal-apollo-cli")
             .header("apollographql-client-version", "0.1")
-            .header("x-api-key", &self.personal_api_key)
+            .header("x-api-key", &self.api_key)
             .json(&request_body)
             .send()?;
 
