@@ -81,7 +81,8 @@ fn get_version_disk(
 
 pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
     let platform: Option<&str> = match OS {
-        "linux" | "macos" | "windows" => Some(OS),
+        "macos" => Some("darwin"),
+        "linux" | "windows" => Some(OS),
         _ => None,
     };
 
@@ -237,7 +238,8 @@ mod tests {
     ) -> Result<MockServer, Box<dyn Error + 'static>> {
         let proxy = MockServer::start().await;
         let platform: Option<&str> = match OS {
-            "linux" | "macos" | "windows" => Some(OS),
+            "macos" => Some("darwin"),
+            "linux" | "windows" => Some(OS),
             _ => None,
         };
 
