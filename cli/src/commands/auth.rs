@@ -1,8 +1,10 @@
 use crate::commands::Command;
 use crate::config::CliConfig;
 use crate::errors::{ExitCode, Fallible};
+use crate::style::KEY;
 use crate::telemetry::Session;
 use crate::terminal::{confirm, input};
+use console::style;
 use log::{info, warn};
 use structopt::StructOpt;
 
@@ -10,37 +12,38 @@ use structopt::StructOpt;
 #[structopt(rename_all = "kebab-case")]
 pub enum Auth {
     /// Setup your auth stuff
-    /// Requires using an User key which can be found here:
-    /// https://engine.apollographql.com/user-settings
+    /// Link the CLI to your Apollo account using your Personal API Key.
     Setup(Setup),
 }
 
 #[derive(StructOpt)]
-#[structopt(rename_all = "kebab-case")]
 pub struct Setup {}
 
 impl Command for Setup {
-    fn run(&self, _session: &mut Session) -> Fallible<ExitCode> {
+    fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
+        session.log_command("auth setup");
         let mut config = CliConfig::load().unwrap();
 
         if config.api_key.is_some() {
-            warn!("Config auth already setup.");
+            warn!("Authentication already configured.");
 
             if !confirm("Proceed?")? {
                 return Ok(ExitCode::Success);
             }
         }
 
-        info!("Please input a User key which can be found here: https://engine.apollographql.com/user-settings");
+        info!("To link your CLI to your Apollo account go to {} and create a new Personal API Key. Once you've done that, copy the key and paste it into the prompt below.",
+            style("https://engine.apollographql.com/user-settings").cyan());
         let key = input("User key:", true)?;
 
         if key.is_empty() {
-            warn!("Did not update the Apollo CLI Config!");
-            return Ok(ExitCode::Success);
+            warn!("No key was inputed, quitting without changes.");
+            return Ok(ExitCode::ConfigurationError);
         }
 
         config.api_key = Some(key);
         CliConfig::write(&config).unwrap();
+        info!("{} Your personal API key was successfuly set!", KEY);
         Ok(ExitCode::Success)
     }
 }
