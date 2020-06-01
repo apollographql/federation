@@ -17,11 +17,11 @@ pub struct GetSchemaQuery;
 pub fn get_schema_query(
     client: &Client,
     variables: get_schema_query::Variables,
-) -> Result<Option<GraphQLDocument>, Box<dyn Error>> {
+) -> Result<Option<String>, Box<dyn Error>> {
     let response_body: Response<get_schema_query::ResponseData> =
         client.send::<GetSchemaQuery>(variables)?;
 
-    let hash: Option<GraphQLDocument> = response_body.data.and_then(|data| {
+    let hash: Option<String> = response_body.data.and_then(|data| {
         data.service
             .and_then(|service| service.schema.map(|schema| schema.hash))
     });
