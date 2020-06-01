@@ -49,8 +49,18 @@ impl CliConfig {
             info!("{}", POST_INSTALL_MESSAGE);
         }
 
-        s.merge(Environment::with_prefix("APOLLO_").separator("__")).unwrap();
+        s.merge(Environment::with_prefix("APOLLO_").separator("__"))
+            .unwrap();
         s.try_into().map_err(From::from)
+    }
+}
+
+impl Clone for CliConfig {
+    fn clone(&self) -> CliConfig {
+        CliConfig {
+            machine_id: self.machine_id.clone(),
+            api_key: self.api_key.clone(),
+        }
     }
 }
 

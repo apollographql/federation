@@ -33,9 +33,6 @@ pub struct Session {
     /// i.e. ap schema push --graph --variant would become ap/schema/push?graph&variant
     command: Option<String>,
 
-    /// Apollo generated machine ID. This is a UUID and stored globally at ~/.apollo/config.toml
-    machine_id: String,
-
     /// A unique session id
     session_id: String,
 
@@ -44,12 +41,14 @@ pub struct Session {
 
     /// The current version of the CLI
     release_version: String,
+
+    /// The current instantiation of CLIConfig
+    pub config: CliConfig,
 }
 
 impl Session {
     pub fn init() -> Result<Session, Box<dyn Error + 'static>> {
         let command = None;
-        let machine_id = CliConfig::load()?.machine_id;
         let session_id = Uuid::new_v4().to_string();
 
         let platform = Platform {
@@ -61,10 +60,10 @@ impl Session {
         let release_version = get_installed_version()?.to_string();
         Ok(Session {
             command,
-            machine_id,
             session_id,
             platform,
             release_version,
+            config: CliConfig::load()?,
         })
     }
 
@@ -79,7 +78,14 @@ impl Session {
         }
 
         let url = format!("{}/telemetry", domain());
-        let body = serde_json::to_string(&self).unwrap();
+        let telemetry_session = serde_json::json!({
+            "command": self.command,
+            "machine_id": self.config.machine_id,
+            "session_id": self.session_id,
+            "platform": self.platform,
+            "release_version": self.release_version,
+        });
+        let body = serde_json::to_string(&telemetry_session).unwrap();
         // keep the CLI waiting for 300 ms to send telemetry
         // if the request isn't sent in that time loose that report
         // to keep the experience fast for end users

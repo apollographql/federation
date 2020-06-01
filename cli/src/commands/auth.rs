@@ -3,7 +3,7 @@ use crate::config::CliConfig;
 use crate::errors::{ExitCode, Fallible};
 use crate::style::KEY;
 use crate::telemetry::Session;
-use crate::terminal::{input};
+use crate::terminal::input;
 use console::style;
 use log::{info, warn};
 use structopt::StructOpt;
@@ -22,9 +22,8 @@ pub struct Setup {}
 impl Command for Setup {
     fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
         session.log_command("auth setup");
-        let mut config = CliConfig::load().unwrap();
 
-        if config.api_key.is_some() {
+        if session.config.api_key.is_some() {
             warn!("Authentication already configured.");
         }
 
@@ -37,6 +36,7 @@ impl Command for Setup {
             return Ok(ExitCode::ConfigurationError);
         }
 
+        let mut config = session.config.clone();
         config.api_key = Some(key);
         CliConfig::write(&config).unwrap();
         info!("{} Your personal API key was successfuly set!", KEY);
