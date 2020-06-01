@@ -1,11 +1,19 @@
 use graphql_client::{GraphQLQuery, Response};
 use http::Uri;
 use reqwest::blocking;
+use std::env;
 use std::error::Error;
 
 mod queries;
 
 static PROD_GQL_API_URL: &str = "https://engine-graphql.apollographql.com/api/graphql";
+
+fn api_uri() -> Uri {
+    env::var("APOLLO_API_URL")
+        .ok()
+        .and_then(|url| url.parse::<Uri>().ok())
+        .unwrap_or_else(|| PROD_GQL_API_URL.parse::<Uri>().unwrap())
+}
 
 pub struct Client {
     api_key: String,
@@ -17,7 +25,7 @@ impl Client {
     fn from(api_key: String) -> Client {
         Client {
             api_key,
-            uri: PROD_GQL_API_URL.parse::<Uri>().unwrap(),
+            uri: api_uri(),
             reqwest: blocking::Client::new(),
         }
     }
