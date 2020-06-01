@@ -3,7 +3,7 @@ use crate::config::CliConfig;
 use crate::errors::{ExitCode, Fallible};
 use crate::style::KEY;
 use crate::telemetry::Session;
-use crate::terminal::input;
+use crate::terminal::sensitive;
 use console::style;
 use log::{info, warn};
 use structopt::StructOpt;
@@ -29,7 +29,7 @@ impl Command for Setup {
 
         info!("To link your CLI to your Apollo account go to {} and create a new Personal API Key. Once you've done that, copy the key and paste it into the prompt below.",
             style("https://engine.apollographql.com/user-settings").cyan());
-        let key = input("User key:", true)?;
+        let key = sensitive("User key:")?;
 
         if key.is_empty() {
             warn!("No key was inputed, quitting without changes.");

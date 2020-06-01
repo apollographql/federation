@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs;
 
 use config::{Config, Environment};
-use log::info;
+use log::{info, debug};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -17,6 +17,8 @@ To learn more, checkout https://apollo.dev/cli/telemetry\n";
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CliConfig {
     pub machine_id: String,
+    // This can be used for a service api key, or a personal api key.
+    // The CLI doesn't differentiate at the moment.
     pub api_key: Option<String>,
 }
 
@@ -25,6 +27,7 @@ impl CliConfig {
         let toml = toml::to_string(cli_config).unwrap();
 
         fs::create_dir_all(&path.parent().unwrap())?;
+        debug!("Wrote cli config to path {}", path.to_str().unwrap());
         fs::write(&path, toml).map_err(|e| From::from(e))
     }
 
@@ -33,6 +36,8 @@ impl CliConfig {
             machine_id: Uuid::new_v4().to_string(),
             api_key: None,
         };
+
+        debug!("New cli config: {}", serde_json::to_string(&config).unwrap());
 
         CliConfig::save(path, &config)?;
 
@@ -52,6 +57,7 @@ impl CliConfig {
 
         s.merge(Environment::with_prefix("APOLLO_").separator("__"))
             .unwrap();
+        debug!("Loaded cli config from path {}", path.to_str().unwrap());
         s.try_into().map_err(From::from)
     }
 }
