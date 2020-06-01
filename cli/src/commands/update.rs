@@ -31,9 +31,9 @@ impl Command for Update {
             filename,
             url,
         } = get_latest_release()
-            .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
+            .map_err(|e| ErrorDetails::CliInstallError { msg: e.to_string() })?;
         let current_version = get_installed_version()
-            .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
+            .map_err(|e| ErrorDetails::CliInstallError { msg: e.to_string() })?;
 
         debug!(
             "Comparing installed version {} with latest version {}",
@@ -81,7 +81,7 @@ impl Command for Update {
         );
 
         let mut tmp_archive = File::create(&tmp_archive_path)
-            .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
+            .map_err(|e| ErrorDetails::CliInstallError { msg: e.to_string() })?;
 
         info!("Downloading latest build...");
         let mut download = Download::from_url(&url);
@@ -99,7 +99,7 @@ impl Command for Update {
         let archive_bin_path = format!("dist/{}{}", archive_bin_name, EXE_SUFFIX);
         Extract::from_source(&tmp_archive_path)
             .extract_file(&tmp_dir, &archive_bin_path)
-            .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
+            .map_err(|e| ErrorDetails::CliInstallError { msg: e.to_string() })?;
 
         let new_exe = tmp_dir.join(&archive_bin_path);
         // Make executable
@@ -121,7 +121,7 @@ impl Command for Update {
         Move::from_source(&new_exe)
             .replace_using_temp(&tmp_file)
             .to_dest(&bin_install_path)
-            .map_err(|e| ErrorDetails::CLIInstallError { msg: e.to_string() })?;
+            .map_err(|e| ErrorDetails::CliInstallError { msg: e.to_string() })?;
 
         info!(
             "{} Succesfully updated to the latest Apollo CLI. Enjoy!",

@@ -40,7 +40,7 @@ fn main() {
     setup_panic_hooks();
 
     let session_result = Session::init()
-        .map_err(|e| ApolloError::from(ErrorDetails::CLIConfigError { msg: e.to_string() }));
+        .map_err(|e| ApolloError::from(ErrorDetails::CliConfigError { msg: e.to_string() }));
 
     if let Err(err) = session_result {
         report(&err);
