@@ -3,7 +3,7 @@ use crate::config::CliConfig;
 use crate::errors::{ExitCode, Fallible};
 use crate::style::KEY;
 use crate::telemetry::Session;
-use crate::terminal::{confirm, input};
+use crate::terminal::{input};
 use console::style;
 use log::{info, warn};
 use structopt::StructOpt;
@@ -26,10 +26,6 @@ impl Command for Setup {
 
         if config.api_key.is_some() {
             warn!("Authentication already configured.");
-
-            if !confirm("Proceed?")? {
-                return Ok(ExitCode::Success);
-            }
         }
 
         info!("To link your CLI to your Apollo account go to {} and create a new Personal API Key. Once you've done that, copy the key and paste it into the prompt below.",
