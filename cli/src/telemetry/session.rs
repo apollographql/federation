@@ -10,6 +10,9 @@ use uuid::Uuid;
 use crate::config::CliConfig;
 use crate::domain;
 use crate::version::get_installed_version;
+use crate::layout::apollo_config;
+use std::path::PathBuf;
+use crate::errors::{ErrorDetails, ApolloError, Fallible};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Platform {
@@ -44,10 +47,13 @@ pub struct Session {
 
     /// The current instantiation of CLIConfig
     pub config: CliConfig,
+
+    /// The current instantiation of CLIConfig
+    pub config_path: PathBuf,
 }
 
 impl Session {
-    pub fn init() -> Result<Session, Box<dyn Error + 'static>> {
+    pub fn init() -> Fallible<Session> {
         let command = None;
         let session_id = Uuid::new_v4().to_string();
 
@@ -57,13 +63,28 @@ impl Session {
             ci_name: ci_info::get().name,
         };
 
-        let release_version = get_installed_version()?.to_string();
+        let release_version = get_installed_version()
+            .map_err(|e|
+                ApolloError::from(
+                    ErrorDetails::CliInstallError { msg: e.to_string()}
+                )
+            )?.to_string();
+      
+        let config_path = apollo_config()?;
+
+        let config = CliConfig::load(&config_path)
+            .map_err(|e|
+                ApolloError::from(
+                    ErrorDetails::CliConfigError { msg: e.to_string(), path: config_path.to_str().unwrap().to_string() }
+                ))?;
+
         Ok(Session {
             command,
             session_id,
             platform,
             release_version,
-            config: CliConfig::load()?,
+            config,
+            config_path,
         })
     }
 

@@ -49,8 +49,8 @@ Please ensure you have permissions to edit your environment variables."
     #[error("Could not install CLI. {}", .msg)]
     CliInstallError { msg: String },
 
-    #[error("Could not read CLI configuration. {}", .msg)]
-    CliConfigError { msg: String },
+    #[error("Error loading config file {}: {}", .path, .msg)]
+    CliConfigError { msg: String, path: String },
 }
 
 impl ErrorDetails {

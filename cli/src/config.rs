@@ -1,12 +1,12 @@
 use std::error::Error;
 use std::fs;
 
-use config::{Config, ConfigError, Environment};
+use config::{Config, Environment};
 use log::info;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::layout::apollo_config;
+use std::path::PathBuf;
 
 const POST_INSTALL_MESSAGE: &str = "
 Apollo collects anonymous usage analytics to help improve the Apollo CLI for all users.
@@ -21,33 +21,34 @@ pub struct CliConfig {
 }
 
 impl CliConfig {
-    pub fn write(cli_config: &CliConfig) -> Result<(), Box<dyn Error + 'static>> {
-        let config_path = apollo_config().unwrap();
+    pub fn save(path: &PathBuf, cli_config: &CliConfig) -> Result<(), Box<dyn Error + 'static>> {
         let toml = toml::to_string(cli_config).unwrap();
 
-        fs::create_dir_all(&config_path.parent().unwrap())?;
-        fs::write(&config_path, toml).map_err(|e| From::from(e))
+        fs::create_dir_all(&path.parent().unwrap())?;
+        fs::write(&path, toml).map_err(|e| From::from(e))
     }
 
-    pub fn load() -> Result<Self, Box<dyn Error + 'static>> {
+    pub fn create(path: &PathBuf) -> Result<Self, Box<dyn Error + 'static>> {
+        let config = CliConfig {
+            machine_id: Uuid::new_v4().to_string(),
+            api_key: None,
+        };
+
+        CliConfig::save(path, &config)?;
+
+        // log initial telemetry warning
+        info!("{}", POST_INSTALL_MESSAGE);
+        Ok(config)
+    }
+
+    pub fn load(path: &PathBuf) -> Result<Self, Box<dyn Error + 'static>> {
         let mut s = Config::new();
 
-        let config_path = apollo_config().unwrap();
-
-        if config_path.exists() {
-            s.merge(config::File::with_name(config_path.to_str().unwrap()))?;
-        } else {
-            // create new file with uuid
-            let machine_id = Uuid::new_v4().to_string();
-            s.set("machine_id", machine_id)?;
-
-            let generated: Result<CliConfig, ConfigError> = s.clone().try_into();
-
-            CliConfig::write(&generated.unwrap())?;
-
-            // log initial telemetry warning
-            info!("{}", POST_INSTALL_MESSAGE);
+        if !path.exists() {
+            CliConfig::create(path)?;
         }
+
+        s.merge(config::File::with_name(path.to_str().unwrap()))?;
 
         s.merge(Environment::with_prefix("APOLLO_").separator("__"))
             .unwrap();

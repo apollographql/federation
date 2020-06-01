@@ -38,7 +38,7 @@ impl Command for Setup {
 
         let mut config = session.config.clone();
         config.api_key = Some(key);
-        CliConfig::write(&config).unwrap();
+        CliConfig::save(&session.config_path, &config).unwrap();
         info!("{} Your personal API key was successfuly set!", KEY);
         Ok(ExitCode::Success)
     }
