@@ -1,5 +1,5 @@
-use std::env::consts::OS;
 use std::env;
+use std::env::consts::OS;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
@@ -13,9 +13,9 @@ use log::debug;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 
+use crate::domain;
 use crate::errors::{ErrorDetails, ExitCode};
 use crate::layout::apollo_home;
-use crate::domain;
 
 const ONE_DAY: u64 = 60 * 60 * 24;
 
@@ -124,7 +124,8 @@ pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
 
     let filename = content.last().ok_or(ErrorDetails::ReleaseFetchError)?;
     let archive_bin_name = filename
-        .split('-').next()
+        .split('-')
+        .next()
         .ok_or(ErrorDetails::ReleaseFetchError)?;
 
     let file_parts: Vec<&str> = filename

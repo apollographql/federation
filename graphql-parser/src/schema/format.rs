@@ -1,12 +1,10 @@
 use std::fmt;
 
-use crate::format::{Displayable, Formatter, Style, format_directives};
+use crate::format::{format_directives, Displayable, Formatter, Style};
 
 use crate::schema::ast::*;
 
-
-impl<'a> Document<'a> 
-{
+impl<'a> Document<'a> {
     /// Format a document according to style
     pub fn format(&self, style: &Style) -> String {
         let mut formatter = Formatter::new(style);
@@ -30,9 +28,7 @@ fn description(description: &Option<String>, f: &mut Formatter) {
     }
 }
 
-
-impl<'a> Displayable for Document<'a> 
-{
+impl<'a> Displayable for Document<'a> {
     fn display(&self, f: &mut Formatter) {
         for item in &self.definitions {
             item.display(f);
@@ -40,22 +36,32 @@ impl<'a> Displayable for Document<'a>
     }
 }
 
-impl<'a> Displayable for Definition<'a> 
-{
+impl<'a> Displayable for Definition<'a> {
     fn display(&self, f: &mut Formatter) {
         match *self {
-            Definition::Schema(ref s) => { f.margin(); s.display(f) },
-            Definition::Type(ref t) => { f.margin(); t.display(f) },
-            Definition::TypeExtension(ref e) => { f.margin(); e.display(f) },
-            Definition::Directive(ref d) => { f.margin(); d.display(f) },
+            Definition::Schema(ref s) => {
+                f.margin();
+                s.display(f)
+            }
+            Definition::Type(ref t) => {
+                f.margin();
+                t.display(f)
+            }
+            Definition::TypeExtension(ref e) => {
+                f.margin();
+                e.display(f)
+            }
+            Definition::Directive(ref d) => {
+                f.margin();
+                d.display(f)
+            }
             Definition::Operation(ref o) => o.display(f),
             Definition::Fragment(ref g) => g.display(f),
         }
     }
 }
 
-impl<'a> Displayable for SchemaDefinition<'a> 
-{
+impl<'a> Displayable for SchemaDefinition<'a> {
     fn display(&self, f: &mut Formatter) {
         f.indent();
         f.write("schema");
@@ -84,8 +90,7 @@ impl<'a> Displayable for SchemaDefinition<'a>
     }
 }
 
-impl<'a> Displayable for TypeDefinition<'a> 
-{
+impl<'a> Displayable for TypeDefinition<'a> {
     fn display(&self, f: &mut Formatter) {
         match *self {
             TypeDefinition::Scalar(ref s) => s.display(f),
@@ -98,8 +103,7 @@ impl<'a> Displayable for TypeDefinition<'a>
     }
 }
 
-impl<'a> Displayable for ScalarType<'a> 
-{
+impl<'a> Displayable for ScalarType<'a> {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
@@ -110,8 +114,7 @@ impl<'a> Displayable for ScalarType<'a>
     }
 }
 
-impl<'a> Displayable for ScalarTypeExtension<'a> 
-{
+impl<'a> Displayable for ScalarTypeExtension<'a> {
     fn display(&self, f: &mut Formatter) {
         f.indent();
         f.write("extend scalar ");
@@ -121,8 +124,7 @@ impl<'a> Displayable for ScalarTypeExtension<'a>
     }
 }
 
-fn format_fields<'a>(fields: &[Field<'a>], f: &mut Formatter) 
-{
+fn format_fields<'a>(fields: &[Field<'a>], f: &mut Formatter) {
     if !fields.is_empty() {
         f.write(" ");
         f.start_block();
@@ -135,8 +137,7 @@ fn format_fields<'a>(fields: &[Field<'a>], f: &mut Formatter)
     }
 }
 
-impl<'a> Displayable for ObjectType<'a> 
-{
+impl<'a> Displayable for ObjectType<'a> {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
@@ -148,8 +149,7 @@ impl<'a> Displayable for ObjectType<'a>
     }
 }
 
-fn format_interfaces<'a>(implements_interfaces: &[Txt<'a>], f: &mut Formatter)
-{
+fn format_interfaces<'a>(implements_interfaces: &[Txt<'a>], f: &mut Formatter) {
     if !implements_interfaces.is_empty() {
         f.write(" implements ");
         f.write(implements_interfaces[0].as_ref());
@@ -160,8 +160,7 @@ fn format_interfaces<'a>(implements_interfaces: &[Txt<'a>], f: &mut Formatter)
     }
 }
 
-impl<'a> Displayable for ObjectTypeExtension<'a> 
-{
+impl<'a> Displayable for ObjectTypeExtension<'a> {
     fn display(&self, f: &mut Formatter) {
         f.indent();
         f.write("extend type ");
@@ -172,8 +171,7 @@ impl<'a> Displayable for ObjectTypeExtension<'a>
     }
 }
 
-impl<'a> Displayable for InputValue<'a> 
-{
+impl<'a> Displayable for InputValue<'a> {
     fn display(&self, f: &mut Formatter) {
         if let Some(ref descr) = self.description {
             f.write_quoted(descr.as_ref());
@@ -190,8 +188,7 @@ impl<'a> Displayable for InputValue<'a>
     }
 }
 
-fn format_arguments<'a>(arguments: &[InputValue<'a>], f: &mut Formatter) 
-{
+fn format_arguments<'a>(arguments: &[InputValue<'a>], f: &mut Formatter) {
     if !arguments.is_empty() {
         f.write("(");
         arguments[0].display(f);
@@ -203,8 +200,7 @@ fn format_arguments<'a>(arguments: &[InputValue<'a>], f: &mut Formatter)
     }
 }
 
-impl<'a> Displayable for Field<'a> 
-{
+impl<'a> Displayable for Field<'a> {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
@@ -217,8 +213,7 @@ impl<'a> Displayable for Field<'a>
     }
 }
 
-impl<'a> Displayable for InterfaceType<'a> 
-{
+impl<'a> Displayable for InterfaceType<'a> {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
@@ -230,8 +225,7 @@ impl<'a> Displayable for InterfaceType<'a>
     }
 }
 
-impl<'a> Displayable for InterfaceTypeExtension<'a> 
-{
+impl<'a> Displayable for InterfaceTypeExtension<'a> {
     fn display(&self, f: &mut Formatter) {
         f.indent();
         f.write("extend interface ");
@@ -241,8 +235,7 @@ impl<'a> Displayable for InterfaceTypeExtension<'a>
     }
 }
 
-impl<'a> Displayable for UnionType<'a> 
-{
+impl<'a> Displayable for UnionType<'a> {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
@@ -261,8 +254,7 @@ impl<'a> Displayable for UnionType<'a>
     }
 }
 
-impl<'a> Displayable for UnionTypeExtension<'a> 
-{
+impl<'a> Displayable for UnionTypeExtension<'a> {
     fn display(&self, f: &mut Formatter) {
         f.indent();
         f.write("extend union ");
@@ -280,8 +272,7 @@ impl<'a> Displayable for UnionTypeExtension<'a>
     }
 }
 
-impl<'a> Displayable for EnumType<'a> 
-{
+impl<'a> Displayable for EnumType<'a> {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
@@ -308,8 +299,7 @@ impl<'a> Displayable for EnumType<'a>
     }
 }
 
-impl<'a> Displayable for EnumTypeExtension<'a> 
-{
+impl<'a> Displayable for EnumTypeExtension<'a> {
     fn display(&self, f: &mut Formatter) {
         f.indent();
         f.write("extend enum ");
@@ -335,8 +325,7 @@ impl<'a> Displayable for EnumTypeExtension<'a>
     }
 }
 
-fn format_inputs<'a>(fields: &[InputValue<'a>], f: &mut Formatter) 
-{
+fn format_inputs<'a>(fields: &[InputValue<'a>], f: &mut Formatter) {
     if !fields.is_empty() {
         f.write(" ");
         f.start_block();
@@ -351,8 +340,7 @@ fn format_inputs<'a>(fields: &[InputValue<'a>], f: &mut Formatter)
     }
 }
 
-impl<'a> Displayable for InputObjectType<'a> 
-{
+impl<'a> Displayable for InputObjectType<'a> {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
@@ -363,8 +351,7 @@ impl<'a> Displayable for InputObjectType<'a>
     }
 }
 
-impl<'a> Displayable for InputObjectTypeExtension<'a> 
-{
+impl<'a> Displayable for InputObjectTypeExtension<'a> {
     fn display(&self, f: &mut Formatter) {
         f.indent();
         f.write("extend input ");
@@ -374,8 +361,7 @@ impl<'a> Displayable for InputObjectTypeExtension<'a>
     }
 }
 
-impl<'a> Displayable for TypeExtension<'a> 
-{
+impl<'a> Displayable for TypeExtension<'a> {
     fn display(&self, f: &mut Formatter) {
         match *self {
             TypeExtension::Scalar(ref s) => s.display(f),
@@ -388,8 +374,7 @@ impl<'a> Displayable for TypeExtension<'a>
     }
 }
 
-impl<'a> Displayable for DirectiveDefinition<'a> 
-{
+impl<'a> Displayable for DirectiveDefinition<'a> {
     fn display(&self, f: &mut Formatter) {
         description(&self.description, f);
         f.indent();
@@ -413,7 +398,7 @@ impl<'a> Displayable for DirectiveDefinition<'a>
 }
 
 impl_display!(
-    'a 
+    'a
     Document,
     Definition,
     SchemaDefinition,

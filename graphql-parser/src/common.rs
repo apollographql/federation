@@ -1,11 +1,11 @@
-use std::{collections::BTreeMap};
+use std::collections::BTreeMap;
 
-use combine::{parser, Parser, ParseResult};
 use combine::easy::Error;
 use combine::error::StreamError;
 use combine::parser::choice::{choice, optional};
 use combine::parser::item::position;
 use combine::parser::repeat::{many, many1};
+use combine::{parser, ParseResult, Parser};
 
 use crate::helpers::{ident, kind, name, punct};
 use crate::position::Pos;
@@ -40,64 +40,66 @@ pub enum Type<'a> {
     NonNullType(Box<Type<'a>>),
 }
 
-pub fn directives<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Vec<Directive<'a>>, TokenStream<'a>>
-{
-    many(position()
-        .skip(punct("@"))
-        .and(name::<'a>())
-        .and(parser(arguments))
-        .map(|((position, name), arguments)| {
-            Directive { position, name, arguments }
-        }))
+pub fn directives<'a>(
+    input: &mut TokenStream<'a>,
+) -> ParseResult<Vec<Directive<'a>>, TokenStream<'a>> {
+    many(
+        position()
+            .skip(punct("@"))
+            .and(name::<'a>())
+            .and(parser(arguments))
+            .map(|((position, name), arguments)| Directive {
+                position,
+                name,
+                arguments,
+            }),
+    )
     .parse_stream(input)
 }
 
-pub fn arguments<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Vec<(Txt<'a>, Value<'a>)>, TokenStream<'a>>
-{
+pub fn arguments<'a>(
+    input: &mut TokenStream<'a>,
+) -> ParseResult<Vec<(Txt<'a>, Value<'a>)>, TokenStream<'a>> {
     optional(
         punct("(")
-        .with(many1(name::<'a>()
-            .skip(punct(":"))
-            .and(parser(value))))
-        .skip(punct(")")))
-    .map(|opt| {
-        opt.unwrap_or_else(Vec::new)
-    })
+            .with(many1(name::<'a>().skip(punct(":")).and(parser(value))))
+            .skip(punct(")")),
+    )
+    .map(|opt| opt.unwrap_or_else(Vec::new))
     .parse_stream(input)
 }
 
-pub fn int_value<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Value<'a>, TokenStream<'a>>
-{
-    kind(T::IntValue).and_then(|tok| tok.value.parse())
-            .map(Value::Int)
-    .parse_stream(input)
+pub fn int_value<'a>(input: &mut TokenStream<'a>) -> ParseResult<Value<'a>, TokenStream<'a>> {
+    kind(T::IntValue)
+        .and_then(|tok| tok.value.parse())
+        .map(Value::Int)
+        .parse_stream(input)
 }
 
-pub fn float_value<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Value<'a>, TokenStream<'a>>
-{
-    kind(T::FloatValue).and_then(|tok| tok.value.parse())
-            .map(Value::Float)
-    .parse_stream(input)
+pub fn float_value<'a>(input: &mut TokenStream<'a>) -> ParseResult<Value<'a>, TokenStream<'a>> {
+    kind(T::FloatValue)
+        .and_then(|tok| tok.value.parse())
+        .map(Value::Float)
+        .parse_stream(input)
 }
 
 fn unquote_block_string(src: &str) -> Result<String, Error<Token, Token>> {
     debug_assert!(src.starts_with("\"\"\"") && src.ends_with("\"\"\""));
-    let indent = src[3..src.len()-3].lines().skip(1)
+    let indent = src[3..src.len() - 3]
+        .lines()
+        .skip(1)
         .filter_map(|line| {
             let trimmed = line.trim_start().len();
             if trimmed > 0 {
                 Some(line.len() - trimmed)
             } else {
-                None  // skip whitespace-only lines
+                None // skip whitespace-only lines
             }
         })
-        .min().unwrap_or(0);
-    let mut result = String::with_capacity(src.len()-6);
-    let mut lines = src[3..src.len()-3].lines();
+        .min()
+        .unwrap_or(0);
+    let mut result = String::with_capacity(src.len() - 6);
+    let mut lines = src[3..src.len() - 3].lines();
     if let Some(first) = lines.next() {
         let stripped = first.trim();
         if !stripped.is_empty() {
@@ -120,17 +122,16 @@ fn unquote_block_string(src: &str) -> Result<String, Error<Token, Token>> {
     Ok(result)
 }
 
-fn unquote_string(s: &str) -> Result<String, Error<Token, Token>>
-{
+fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
     let mut res = String::with_capacity(s.len());
     debug_assert!(s.starts_with('"') && s.ends_with('"'));
-    let mut chars = s[1..s.len()-1].chars();
+    let mut chars = s[1..s.len() - 1].chars();
     let mut temp_code_point = String::with_capacity(4);
     while let Some(c) = chars.next() {
         match c {
             '\\' => {
                 match chars.next().expect("slash cant be at the end") {
-                    c@'"' | c@'\\' | c@'/' => res.push(c),
+                    c @ '"' | c @ '\\' | c @ '/' => res.push(c),
                     'b' => res.push('\u{0010}'),
                     'f' => res.push('\u{000C}'),
                     'n' => res.push('\n'),
@@ -141,9 +142,12 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>>
                         for _ in 0..4 {
                             match chars.next() {
                                 Some(inner_c) => temp_code_point.push(inner_c),
-                                None => return Err(Error::unexpected_message(
-                                    format_args!("\\u must have 4 characters after it, only found '{}'", temp_code_point)
-                                )),
+                                None => {
+                                    return Err(Error::unexpected_message(format_args!(
+                                        "\\u must have 4 characters after it, only found '{}'",
+                                        temp_code_point
+                                    )))
+                                }
                             }
                         }
 
@@ -151,14 +155,18 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>>
                         match u32::from_str_radix(&temp_code_point, 16).map(std::char::from_u32) {
                             Ok(Some(unicode_char)) => res.push(unicode_char),
                             _ => {
-                                return Err(Error::unexpected_message(
-                                    format_args!("{} is not a valid unicode code point", temp_code_point)))
+                                return Err(Error::unexpected_message(format_args!(
+                                    "{} is not a valid unicode code point",
+                                    temp_code_point
+                                )))
                             }
                         }
-                    },
+                    }
                     c => {
-                        return Err(Error::unexpected_message(
-                            format_args!("bad escaped char {:?}", c)));
+                        return Err(Error::unexpected_message(format_args!(
+                            "bad escaped char {:?}",
+                            c
+                        )));
                     }
                 }
             }
@@ -169,90 +177,89 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>>
     Ok(res)
 }
 
-pub fn string<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<String, TokenStream<'a>>
-{
+pub fn string<'a>(input: &mut TokenStream<'a>) -> ParseResult<String, TokenStream<'a>> {
     choice((
         kind(T::StringValue).and_then(|tok| unquote_string(tok.value)),
         kind(T::BlockString).and_then(|tok| unquote_block_string(tok.value)),
-    )).parse_stream(input)
+    ))
+    .parse_stream(input)
 }
 
-pub fn string_value<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Value<'a>, TokenStream<'a>>
-{
-    kind(T::StringValue).and_then(|tok| unquote_string(tok.value))
+pub fn string_value<'a>(input: &mut TokenStream<'a>) -> ParseResult<Value<'a>, TokenStream<'a>> {
+    kind(T::StringValue)
+        .and_then(|tok| unquote_string(tok.value))
         .map(Value::String)
-    .parse_stream(input)
+        .parse_stream(input)
 }
 
-pub fn block_string_value<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Value<'a>, TokenStream<'a>>
-{
-    kind(T::BlockString).and_then(|tok| unquote_block_string(tok.value))
+pub fn block_string_value<'a>(
+    input: &mut TokenStream<'a>,
+) -> ParseResult<Value<'a>, TokenStream<'a>> {
+    kind(T::BlockString)
+        .and_then(|tok| unquote_block_string(tok.value))
         .map(Value::String)
-    .parse_stream(input)
+        .parse_stream(input)
 }
 
-pub fn plain_value<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Value<'a>, TokenStream<'a>>
-{
-    ident("true").map(|_| Value::Boolean(true))
-    .or(ident("false").map(|_| Value::Boolean(false)))
-    .or(ident("null").map(|_| Value::Null))
-    .or(name::<'a>().map(Value::Enum))
-    .or(parser(int_value))
-    .or(parser(float_value))
-    .or(parser(string_value))
-    .or(parser(block_string_value))
-    .parse_stream(input)
+pub fn plain_value<'a>(input: &mut TokenStream<'a>) -> ParseResult<Value<'a>, TokenStream<'a>> {
+    ident("true")
+        .map(|_| Value::Boolean(true))
+        .or(ident("false").map(|_| Value::Boolean(false)))
+        .or(ident("null").map(|_| Value::Null))
+        .or(name::<'a>().map(Value::Enum))
+        .or(parser(int_value))
+        .or(parser(float_value))
+        .or(parser(string_value))
+        .or(parser(block_string_value))
+        .parse_stream(input)
 }
 
-pub fn value<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Value<'a>, TokenStream<'a>>
-{
+pub fn value<'a>(input: &mut TokenStream<'a>) -> ParseResult<Value<'a>, TokenStream<'a>> {
     parser(plain_value)
-    .or(punct("$").with(name::<'a>()).map(Value::Variable))
-    .or(punct("[").with(many(parser(value))).skip(punct("]"))
-        .map(Value::List))
-    .or(punct("{")
-        .with(many(name::<'a>().skip(punct(":")).and(parser(value))))
-        .skip(punct("}"))
-        .map(Value::Object))
-    .parse_stream(input)
+        .or(punct("$").with(name::<'a>()).map(Value::Variable))
+        .or(punct("[")
+            .with(many(parser(value)))
+            .skip(punct("]"))
+            .map(Value::List))
+        .or(punct("{")
+            .with(many(name::<'a>().skip(punct(":")).and(parser(value))))
+            .skip(punct("}"))
+            .map(Value::Object))
+        .parse_stream(input)
 }
 
-pub fn default_value<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Value<'a>, TokenStream<'a>>
-{
+pub fn default_value<'a>(input: &mut TokenStream<'a>) -> ParseResult<Value<'a>, TokenStream<'a>> {
     parser(plain_value)
-    .or(punct("[").with(many(parser(default_value))).skip(punct("]"))
-        .map(Value::List))
-    .or(punct("{")
-        .with(many(name::<'a>().skip(punct(":")).and(parser(default_value))))
-        .skip(punct("}"))
-        .map(Value::Object))
-    .parse_stream(input)
+        .or(punct("[")
+            .with(many(parser(default_value)))
+            .skip(punct("]"))
+            .map(Value::List))
+        .or(punct("{")
+            .with(many(
+                name::<'a>().skip(punct(":")).and(parser(default_value)),
+            ))
+            .skip(punct("}"))
+            .map(Value::Object))
+        .parse_stream(input)
 }
 
-pub fn parse_type<'a>(input: &mut TokenStream<'a>)
-    -> ParseResult<Type<'a>, TokenStream<'a>>
-{
-    name::<'a>().map(Type::NamedType)
-    .or(punct("[")
-        .with(parser(parse_type))
-        .skip(punct("]"))
-        .map(Box::new)
-        .map(Type::ListType))
-    .and(optional(punct("!")).map(|v| v.is_some()))
-    .map(|(typ, strict)|
-        if strict {
-            Type::NonNullType(Box::new(typ))
-        } else {
-            typ
-        }
-    )
-    .parse_stream(input)
+pub fn parse_type<'a>(input: &mut TokenStream<'a>) -> ParseResult<Type<'a>, TokenStream<'a>> {
+    name::<'a>()
+        .map(Type::NamedType)
+        .or(punct("[")
+            .with(parser(parse_type))
+            .skip(punct("]"))
+            .map(Box::new)
+            .map(Type::ListType))
+        .and(optional(punct("!")).map(|v| v.is_some()))
+        .map(|(typ, strict)| {
+            if strict {
+                Type::NonNullType(Box::new(typ))
+            } else {
+                typ
+            }
+        })
+        .parse_stream(input)
 }
 
 #[cfg(test)]
@@ -269,6 +276,9 @@ mod tests {
         assert_eq!(unquote_string(r#""\uFFFF""#).expect(""), "\u{FFFF}");
 
         // a more complex string
-        assert_eq!(unquote_string(r#""\u0009 hello \u000A there""#).expect(""), "\u{0009} hello \u{000A} there");
+        assert_eq!(
+            unquote_string(r#""\u0009 hello \u000A there""#).expect(""),
+            "\u{0009} hello \u{000A} there"
+        );
     }
 }

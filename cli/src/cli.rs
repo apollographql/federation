@@ -3,8 +3,8 @@ use structopt::StructOpt;
 
 use crate::commands::{self, Command};
 use crate::errors::{ExitCode, Fallible};
-use crate::version::command_name;
 use crate::telemetry::Session;
+use crate::version::command_name;
 
 #[derive(StructOpt)]
 #[structopt(
