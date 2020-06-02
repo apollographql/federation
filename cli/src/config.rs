@@ -27,7 +27,7 @@ fn save(path: &PathBuf, cli_config: &CliConfig) -> Result<(), Box<dyn Error + 's
     let toml = toml::to_string(cli_config).unwrap();
 
     fs::create_dir_all(&path.parent().unwrap())?;
-    debug!("Wrote cli config to path {}", path.to_str().unwrap());
+    debug!("Writing cli config to path {}...", path.to_str().unwrap());
     fs::write(&path, toml).map_err(From::from)
 }
 
@@ -43,7 +43,7 @@ fn load(path: &PathBuf) -> Result<CliConfig, Box<dyn Error + 'static>> {
     s.merge(Environment::with_prefix("APOLLO_").separator("__"))
         .unwrap();
 
-    debug!("Loaded cli config from path {}", path.to_str().unwrap());
+    debug!("Loading cli config from path {}...", path.to_str().unwrap());
     s.try_into().map_err(From::from)
 }
 
