@@ -69,6 +69,7 @@ jobs:
         run: |
           rustup update ${{ matrix.rust }} --no-self-update
           rustup default ${{ matrix.rust }}
+          rustup component add rustfmt
 
       - name: Run Tests
         if: matrix.build != 'linux-stable'
