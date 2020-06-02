@@ -50,7 +50,10 @@ Please ensure you have permissions to edit your environment variables."
     CliInstallError { msg: String },
 
     #[error("Error loading config file {}: {}", .path, .msg)]
-    CliConfigError { msg: String, path: String },
+    CliConfigReadError { msg: String, path: String },
+
+    #[error("Error writing config file {}: {}", .path, .msg)]
+    CliConfigWriteError { msg: String, path: String },
 }
 
 impl ErrorDetails {
@@ -67,7 +70,8 @@ impl ErrorDetails {
             ErrorDetails::ReleaseFetchError => ExitCode::NetworkError,
             ErrorDetails::InputConfirmationError => ExitCode::InvalidArguments,
             ErrorDetails::CliInstallError { .. } => ExitCode::FileSystemError,
-            ErrorDetails::CliConfigError { .. } => ExitCode::ConfigurationError,
+            ErrorDetails::CliConfigReadError { .. } => ExitCode::ConfigurationError,
+            ErrorDetails::CliConfigWriteError { .. } => ExitCode::ConfigurationError,
         }
     }
 }

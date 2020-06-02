@@ -68,12 +68,7 @@ impl Session {
             .to_string();
         let config_path = apollo_config()?;
 
-        let config = CliConfig::load(&config_path).map_err(|e| {
-            ApolloError::from(ErrorDetails::CliConfigError {
-                msg: e.to_string(),
-                path: config_path.to_str().unwrap().to_string(),
-            })
-        })?;
+        let config = CliConfig::load(&config_path)?;
 
         Ok(Session {
             command,

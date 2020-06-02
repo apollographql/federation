@@ -5,13 +5,12 @@ use crate::style::KEY;
 use crate::telemetry::Session;
 use crate::terminal::sensitive;
 use console::style;
-use log::{info, warn};
+use log::{debug, error, info, warn};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]
 pub enum Auth {
-    /// Setup your auth stuff
     /// Link the CLI to your Apollo account using your Personal API Key.
     Setup(Setup),
 }
@@ -23,6 +22,7 @@ impl Command for Setup {
     fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
         session.log_command("auth setup");
 
+        debug!("Checking is config's api_key is already set...");
         if session.config.api_key.is_some() {
             warn!("Authentication already configured.");
         }
@@ -31,14 +31,19 @@ impl Command for Setup {
             style("https://engine.apollographql.com/user-settings").cyan());
         let key = sensitive("User key:")?;
 
+        debug!("Checking user input...");
         if key.is_empty() {
-            warn!("No key was inputed, quitting without changes.");
+            error!("No key was inputed, quitting without changes.");
             return Ok(ExitCode::ConfigurationError);
         }
 
+        debug!("Setting new key...");
         let mut config = session.config.clone();
         config.api_key = Some(key);
-        CliConfig::save(&session.config_path, &config).unwrap();
+
+        debug!("Saving new key...");
+        CliConfig::save(&session.config_path, &config)?;
+
         info!("{} Your personal API key was successfuly set!", KEY);
         Ok(ExitCode::Success)
     }

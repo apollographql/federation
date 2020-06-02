@@ -1,8 +1,9 @@
 use std::error::Error;
 use std::fs;
 
+use crate::errors::{ApolloError, ErrorDetails, Fallible};
 use config::{Config, Environment};
-use log::{info, debug};
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -22,13 +23,38 @@ pub struct CliConfig {
     pub api_key: Option<String>,
 }
 
-impl CliConfig {
-    pub fn save(path: &PathBuf, cli_config: &CliConfig) -> Result<(), Box<dyn Error + 'static>> {
-        let toml = toml::to_string(cli_config).unwrap();
+fn save(path: &PathBuf, cli_config: &CliConfig) -> Result<(), Box<dyn Error + 'static>> {
+    let toml = toml::to_string(cli_config).unwrap();
 
-        fs::create_dir_all(&path.parent().unwrap())?;
-        debug!("Wrote cli config to path {}", path.to_str().unwrap());
-        fs::write(&path, toml).map_err(|e| From::from(e))
+    fs::create_dir_all(&path.parent().unwrap())?;
+    debug!("Wrote cli config to path {}", path.to_str().unwrap());
+    fs::write(&path, toml).map_err(From::from)
+}
+
+fn load(path: &PathBuf) -> Result<CliConfig, Box<dyn Error + 'static>> {
+    let mut s = Config::new();
+
+    if !path.exists() {
+        CliConfig::create(path)?;
+    }
+
+    s.merge(config::File::with_name(path.to_str().unwrap()))?;
+
+    s.merge(Environment::with_prefix("APOLLO_").separator("__"))
+        .unwrap();
+
+    debug!("Loaded cli config from path {}", path.to_str().unwrap());
+    s.try_into().map_err(From::from)
+}
+
+impl CliConfig {
+    pub fn save(path: &PathBuf, cli_config: &CliConfig) -> Fallible<()> {
+        save(path, cli_config).map_err(|e| {
+            ApolloError::from(ErrorDetails::CliConfigWriteError {
+                msg: e.to_string(),
+                path: path.to_str().unwrap().to_string(),
+            })
+        })
     }
 
     pub fn create(path: &PathBuf) -> Result<Self, Box<dyn Error + 'static>> {
@@ -37,7 +63,10 @@ impl CliConfig {
             api_key: None,
         };
 
-        debug!("New cli config: {}", serde_json::to_string(&config).unwrap());
+        debug!(
+            "New cli config: {}",
+            serde_json::to_string(&config).unwrap()
+        );
 
         CliConfig::save(path, &config)?;
 
@@ -46,19 +75,13 @@ impl CliConfig {
         Ok(config)
     }
 
-    pub fn load(path: &PathBuf) -> Result<Self, Box<dyn Error + 'static>> {
-        let mut s = Config::new();
-
-        if !path.exists() {
-            CliConfig::create(path)?;
-        }
-
-        s.merge(config::File::with_name(path.to_str().unwrap()))?;
-
-        s.merge(Environment::with_prefix("APOLLO_").separator("__"))
-            .unwrap();
-        debug!("Loaded cli config from path {}", path.to_str().unwrap());
-        s.try_into().map_err(From::from)
+    pub fn load(path: &PathBuf) -> Fallible<Self> {
+        load(path).map_err(|e| {
+            ApolloError::from(ErrorDetails::CliConfigReadError {
+                msg: e.to_string(),
+                path: path.to_str().unwrap().to_string(),
+            })
+        })
     }
 }
 
