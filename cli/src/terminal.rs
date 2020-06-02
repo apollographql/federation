@@ -1,26 +1,29 @@
-use crate::errors::{ErrorDetails, Fallible, ApolloError};
-use console::Term;
+use crate::errors::{ApolloError, ErrorDetails, Fallible};
 use atty::Stream;
+use console::Term;
 use log::debug;
 
-
+// For interactively handling user input
+// Handles reading from stdin, or interactive user input.
 pub fn input(msg: &str) -> Fallible<String> {
     input_or_sensitive(msg, false)
 }
 
+// For interactively handling sensitive user input
+// Handles reading from stdin, or redacted interactive user input.
 pub fn sensitive(msg: &str) -> Fallible<String> {
     input_or_sensitive(msg, true)
 }
 
-// For interactively handling user input
 fn input_or_sensitive(msg: &str, sensitive: bool) -> Fallible<String> {
     println!("{}", msg);
     let terminal = Term::stdout();
 
-    let is_tty = atty::is(Stream::Stdin);
-    debug!("Reading from {}", is_tty ? "tty" : "non-interactive stream");
-
-    let mut response: String = if !(sensitive && is_tty) {
+    let mut response: String = if !sensitive {
+        debug!("Reading...");
+        read!("{}\n")
+    } else if !atty::is(Stream::Stdin) {
+        debug!("Reading from non-interactive stream...");
         read!("{}\n")
     } else {
         debug!("Reading secure line from tty...");
