@@ -44,7 +44,7 @@ fn main() {
     if let Err(err) = session_result {
         report(&err);
         let code = err.exit_code();
-        code.exit();
+        return code.exit()
     };
 
     let mut session = session_result.unwrap();
@@ -82,7 +82,7 @@ fn main() {
         Err(Error::Apollo(err)) => {
             report(&err);
             let code = err.exit_code();
-            code.exit();
+            return code.exit()
         }
     }
 }
