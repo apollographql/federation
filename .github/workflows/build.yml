@@ -89,6 +89,9 @@ jobs:
         with:
           file: target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }}
 
+      - name: Check formatting
+        run: cargo fmt -- --check
+
       - name: Build (MacOS)
         if: matrix.build == 'macos'
         run: cargo build --release
