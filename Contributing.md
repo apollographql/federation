@@ -104,6 +104,13 @@ and get something back that looks like this:
 
 `cargo 1.42.0 (86334295e 2020-01-31)`
 
+**Getting a recent schema:**
+Some CLI commands talk to the Apollo backend GraphQL API. We generate some Rust code from the schema combined with .graphql files that contain
+queries. 
+The cli project's build.rs script downloads the schema if it's not in the file system (in a path that's .gitignored), if it exists, the script does nothing.
+
+If the `UPDATE_SCHEMA` environment variable is set, we download the schema if the etag header from the remote is different from the local copy.
+
 **Testing the project**
 Rust has great built-in test tooling. You can write tests in-line or under the tests folder for each crate. Tests under the `tests` folder should be integration whereas inline should be unit tests. You can run `cargo test` to test all of the crates at once. For more info on how to write tests, look to similar parts of the codebase or read the [rustlang.org article](https://doc.rust-lang.org/book/ch11-00-testing.html) on testing
 
