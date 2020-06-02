@@ -143,11 +143,11 @@ mod tests {
         let proxy = MockServer::start().await;
 
         let payload_matcher = move |request: &Request| {
-            let body: Session =
+            let body: serde_json::Value =
                 serde_json::from_slice(&request.body).expect("Failed to serialise body");
-            match body.command {
-                Some(cmd) => cmd == "test".to_string(),
-                None => false,
+            match body.get("command").unwrap() {
+                serde_json::Value::String(cmd) => cmd == "test",
+                _ => false,
             }
         };
 
