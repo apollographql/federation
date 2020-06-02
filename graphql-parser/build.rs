@@ -11,6 +11,7 @@ fn main() -> std::io::Result<()> {
 
 // Sample names are easier to read with two underscores in them
 #![allow(non_snake_case)]
+#![rustfmt::skip]
 
 mod helpers;
 use insta::assert_debug_snapshot;
