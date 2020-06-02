@@ -3,12 +3,12 @@ use graphql_client::*;
 use std::error::Error;
 
 // We have to declare types for scalars in the schema.
-type GraphQLDocument = String;
+// type GraphQLDocument = String;
 
 #[derive(GraphQLQuery)]
 #[graphql(
     query_path = "graphql/get_schema_query.graphql",
-    schema_path = "graphql/agm.graphql",
+    schema_path = ".schema/schema.graphql",
     response_derives = "PartialEq, Debug",
     deprecated = "warn"
 )]
@@ -32,7 +32,7 @@ pub fn get_schema_query(
 #[derive(GraphQLQuery)]
 #[graphql(
     query_path = "graphql/me_query.graphql",
-    schema_path = "graphql/agm.graphql",
+    schema_path = ".schema/schema.graphql",
     response_derives = "PartialEq, Debug",
     deprecated = "warn"
 )]
@@ -45,6 +45,7 @@ pub fn me_query(client: &Client) -> Result<Option<me_query::MeQueryMe>, Box<dyn 
     Ok(response_body.data.and_then(|data| data.me))
 }
 
+#[cfg(test)]
 mod tests {
     #[test]
     #[should_panic] // will not panic with a real API key with access to "my-service".
