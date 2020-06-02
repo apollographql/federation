@@ -45,10 +45,10 @@ pub struct Session {
     /// The current version of the CLI
     release_version: String,
 
-    /// The current instantiation of CLIConfig
+    /// The current instantiation of CliConfig
     pub config: CliConfig,
 
-    /// The current instantiation of CLIConfig
+    /// The current instantiation of CliConfig
     pub config_path: PathBuf,
 }
 
