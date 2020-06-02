@@ -71,25 +71,26 @@ jobs:
           rustup default ${{ matrix.rust }}
 
       - name: Run Tests
-        if: matrix.build != 'linux-stable'
+#        if: matrix.build != 'linux-stable'
         run: cargo test
         env:
           RUST_LOG: warn,apollo-cli=info
           RUST_BACKTRACE: 1
-      
-      - name: Run cargo-tarpaulin
-        if: matrix.build == 'linux-stable'
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          version: '0.9.0'
-          timeout: 300 # 5 mins for test coverage
-          args: '--ignore-tests -- --test-threads 1'
+
+# Restore this when we get coverage working well -- integration tests on binary packages don't report coverage correctly.
+#      - name: Run cargo-tarpaulin
+#        if: matrix.build == 'linux-stable'
+#        uses: actions-rs/tarpaulin@v0.1
+#        with:
+#          version: '0.9.0'
+#          timeout: 600 # 10 mins for test coverage
+#          args: '--ignore-tests'
   
-      - name: Upload to codecov.io
-        if: matrix.build == 'linux-stable'
-        uses: codecov/codecov-action@v1.0.2
-        with:
-          token: ${{secrets.CODECOV_TOKEN}}
+#      - name: Upload to codecov.io
+#        if: matrix.build == 'linux-stable'
+#        uses: codecov/codecov-action@v1.0.2
+#        with:
+#          token: ${{secrets.CODECOV_TOKEN}}
 
   test_worker:
     name: Test CDN and installer
