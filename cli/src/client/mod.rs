@@ -40,8 +40,8 @@ impl Client {
             .reqwest
             .post(&self.uri.to_string())
             .header("Content-Type", "application/json")
-            .header("apollographql-client-name", "internal-apollo-cli")
-            .header("apollographql-client-version", "0.1")
+            .header("apollographql-client-name", "experimental-apollo-cli")
+            .header("apollographql-client-version", env::var("CARGO_PKG_VERSION").unwrap())
             .header("x-api-key", &self.api_key)
             .json(&request_body)
             .send()?;
