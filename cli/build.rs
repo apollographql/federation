@@ -8,7 +8,7 @@ use std::fs;
 
 /// This script downloads the schema if it's not in the file system (in a path that's .gitignored)
 /// If it exists, the script does nothing.
-/// If UPDATE_SCHEMA environment variable is set, we download the schema if the etag is different on the
+/// If the UPDATE_SCHEMA environment variable is set, we download the schema if the etag is different on the
 /// remote.
 ///
 /// Example:
