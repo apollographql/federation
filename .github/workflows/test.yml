@@ -86,11 +86,11 @@ jobs:
 #          timeout: 600 # 10 mins for test coverage
 #          args: '--ignore-tests'
   
-      - name: Upload to codecov.io
-        if: matrix.build == 'linux-stable'
-        uses: codecov/codecov-action@v1.0.2
-        with:
-          token: ${{secrets.CODECOV_TOKEN}}
+#      - name: Upload to codecov.io
+#        if: matrix.build == 'linux-stable'
+#        uses: codecov/codecov-action@v1.0.2
+#        with:
+#          token: ${{secrets.CODECOV_TOKEN}}
 
   test_worker:
     name: Test CDN and installer
