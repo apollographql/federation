@@ -9,10 +9,10 @@ use uuid::Uuid;
 
 use crate::config::CliConfig;
 use crate::domain;
-use crate::version::get_installed_version;
+use crate::errors::{ApolloError, ErrorDetails, Fallible};
 use crate::layout::apollo_config;
+use crate::version::get_installed_version;
 use std::path::PathBuf;
-use crate::errors::{ErrorDetails, ApolloError, Fallible};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Platform {
@@ -64,19 +64,16 @@ impl Session {
         };
 
         let release_version = get_installed_version()
-            .map_err(|e|
-                ApolloError::from(
-                    ErrorDetails::CliInstallError { msg: e.to_string()}
-                )
-            )?.to_string();
-      
+            .map_err(|e| ApolloError::from(ErrorDetails::CliInstallError { msg: e.to_string() }))?
+            .to_string();
         let config_path = apollo_config()?;
 
-        let config = CliConfig::load(&config_path)
-            .map_err(|e|
-                ApolloError::from(
-                    ErrorDetails::CliConfigError { msg: e.to_string(), path: config_path.to_str().unwrap().to_string() }
-                ))?;
+        let config = CliConfig::load(&config_path).map_err(|e| {
+            ApolloError::from(ErrorDetails::CliConfigError {
+                msg: e.to_string(),
+                path: config_path.to_str().unwrap().to_string(),
+            })
+        })?;
 
         Ok(Session {
             command,
