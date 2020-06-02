@@ -13,12 +13,12 @@ fn main() -> std::io::Result<()> {
 #![allow(non_snake_case)]
 
 mod helpers;
-use insta::assert_debug_snapshot;
-use pretty_assertions::assert_eq;
 use graphql_parser::parse_query;
 use graphql_parser::parse_schema;
+use insta::assert_debug_snapshot;
+use pretty_assertions::assert_eq;
 
-\n\n",
+",
     );
     let mut tests: Vec<String> = Vec::new();
     for ent in read_dir("tests")? {
@@ -34,7 +34,7 @@ use graphql_parser::parse_schema;
             path.pop();
             path.push(canonical_src.clone());
             tests.push(format!(
-                "test!({}, include_str!(\"{}\"), include_str!(\"{}\"));\n",
+                "test!(\n    {},\n    include_str!(\"{}\"),\n    include_str!(\"{}\")\n);\n",
                 &name,
                 &src,
                 if path.is_file() { &canonical_src } else { &src }

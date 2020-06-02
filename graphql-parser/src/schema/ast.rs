@@ -2,14 +2,13 @@ use std::str::FromStr;
 
 use thiserror::Error;
 
-pub use crate::common::{Directive, Type, Value, Txt};
+pub use crate::common::{Directive, Txt, Type, Value};
 use crate::position::Pos;
 
-pub use crate::query::{OperationDefinition, FragmentDefinition};
+pub use crate::query::{FragmentDefinition, OperationDefinition};
 
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct Document<'a>
-{
+pub struct Document<'a> {
     pub definitions: Vec<Definition<'a>>,
 }
 
@@ -60,8 +59,7 @@ pub struct ScalarType<'a> {
     pub directives: Vec<Directive<'a>>,
 }
 
-impl<'a> ScalarType<'a>
-{
+impl<'a> ScalarType<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -79,8 +77,7 @@ pub struct ScalarTypeExtension<'a> {
     pub directives: Vec<Directive<'a>>,
 }
 
-impl<'a> ScalarTypeExtension<'a>
-{
+impl<'a> ScalarTypeExtension<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -100,8 +97,7 @@ pub struct ObjectType<'a> {
     pub fields: Vec<Field<'a>>,
 }
 
-impl<'a> ObjectType<'a>
-{
+impl<'a> ObjectType<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -123,8 +119,7 @@ pub struct ObjectTypeExtension<'a> {
     pub fields: Vec<Field<'a>>,
 }
 
-impl<'a> ObjectTypeExtension<'a>
-{
+impl<'a> ObjectTypeExtension<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -166,8 +161,7 @@ pub struct InterfaceType<'a> {
     pub fields: Vec<Field<'a>>,
 }
 
-impl<'a> InterfaceType<'a>
-{
+impl<'a> InterfaceType<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -188,8 +182,7 @@ pub struct InterfaceTypeExtension<'a> {
     pub fields: Vec<Field<'a>>,
 }
 
-impl<'a> InterfaceTypeExtension<'a>
-{
+impl<'a> InterfaceTypeExtension<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -209,8 +202,7 @@ pub struct UnionType<'a> {
     pub types: Vec<Txt<'a>>,
 }
 
-impl<'a> UnionType<'a>
-{
+impl<'a> UnionType<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -230,8 +222,7 @@ pub struct UnionTypeExtension<'a> {
     pub types: Vec<Txt<'a>>,
 }
 
-impl<'a> UnionTypeExtension<'a>
-{
+impl<'a> UnionTypeExtension<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -251,8 +242,7 @@ pub struct EnumType<'a> {
     pub values: Vec<EnumValue<'a>>,
 }
 
-impl<'a> EnumType<'a>
-{
+impl<'a> EnumType<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -272,8 +262,7 @@ pub struct EnumValue<'a> {
     pub directives: Vec<Directive<'a>>,
 }
 
-impl<'a> EnumValue<'a>
-{
+impl<'a> EnumValue<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -292,8 +281,7 @@ pub struct EnumTypeExtension<'a> {
     pub values: Vec<EnumValue<'a>>,
 }
 
-impl<'a> EnumTypeExtension<'a>
-{
+impl<'a> EnumTypeExtension<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -313,8 +301,7 @@ pub struct InputObjectType<'a> {
     pub fields: Vec<InputValue<'a>>,
 }
 
-impl<'a> InputObjectType<'a>
-{
+impl<'a> InputObjectType<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -334,8 +321,7 @@ pub struct InputObjectTypeExtension<'a> {
     pub fields: Vec<InputValue<'a>>,
 }
 
-impl<'a> InputObjectTypeExtension<'a>
-{
+impl<'a> InputObjectTypeExtension<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -380,8 +366,7 @@ pub struct DirectiveDefinition<'a> {
     pub locations: Vec<DirectiveLocation>,
 }
 
-impl<'a> DirectiveDefinition<'a>
-{
+impl<'a> DirectiveDefinition<'a> {
     pub fn new(name: Txt<'a>) -> Self {
         Self {
             position: Pos::default(),
@@ -423,27 +408,11 @@ impl DirectiveLocation {
     pub fn is_query(&self) -> bool {
         use self::DirectiveLocation::*;
         match *self {
-            Query
-            | Mutation
-            | Subscription
-            | Field
-            | FragmentDefinition
-            | FragmentSpread
-            | InlineFragment
-                => true,
+            Query | Mutation | Subscription | Field | FragmentDefinition | FragmentSpread
+            | InlineFragment => true,
 
-            Schema
-            | Scalar
-            | Object
-            | FieldDefinition
-            | ArgumentDefinition
-            | Interface
-            | Union
-            | Enum
-            | EnumValue
-            | InputObject
-            | InputFieldDefinition
-                => false,
+            Schema | Scalar | Object | FieldDefinition | ArgumentDefinition | Interface | Union
+            | Enum | EnumValue | InputObject | InputFieldDefinition => false,
         }
     }
 
@@ -457,11 +426,9 @@ impl DirectiveLocation {
 #[error("invalid directive location")]
 pub struct InvalidDirectiveLocation;
 
-
 impl FromStr for DirectiveLocation {
     type Err = InvalidDirectiveLocation;
-    fn from_str(s: &str) -> Result<DirectiveLocation, InvalidDirectiveLocation>
-    {
+    fn from_str(s: &str) -> Result<DirectiveLocation, InvalidDirectiveLocation> {
         use self::DirectiveLocation::*;
         let val = match s {
             "QUERY" => Query,

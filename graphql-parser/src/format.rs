@@ -3,7 +3,6 @@ use std::default::Default;
 
 use crate::common::Directive;
 
-
 #[derive(Debug, PartialEq)]
 pub(crate) struct Formatter<'a> {
     buf: String,
@@ -22,9 +21,7 @@ pub struct Style {
 
 impl Default for Style {
     fn default() -> Style {
-        Style {
-            indent: 2,
-        }
+        Style { indent: 2 }
     }
 }
 
@@ -66,7 +63,9 @@ impl<'a> Formatter<'a> {
     }
 
     pub fn end_block(&mut self) {
-        self.indent = self.indent.checked_sub(self.style.indent)
+        self.indent = self
+            .indent
+            .checked_sub(self.style.indent)
             .expect("negative indent");
         self.indent();
         self.buf.push('}');
@@ -130,8 +129,7 @@ impl<'a> Formatter<'a> {
     }
 }
 
-pub(crate) fn format_directives<'a>(dirs: &[Directive<'a>], f: &mut Formatter) 
-{
+pub(crate) fn format_directives<'a>(dirs: &[Directive<'a>], f: &mut Formatter) {
     for dir in dirs {
         f.write(" ");
         dir.display(f);

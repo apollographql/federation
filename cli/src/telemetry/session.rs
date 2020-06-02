@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::config::CliConfig;
-use crate::version::get_installed_version;
 use crate::domain;
+use crate::version::get_installed_version;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Platform {
