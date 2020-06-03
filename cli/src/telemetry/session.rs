@@ -91,6 +91,14 @@ impl Session {
         }
 
         let url = format!("{}/telemetry", domain());
+        // TODO: FIXME:: https://github.com/apollographql/apollo-cli/pull/50#discussion_r434231100
+        // Requiring effectively copy paste renaming for
+        // data is a _high_ chance for bugs and no something
+        // we should encourage. This was done to unwed the CLI's
+        // notion of a Session from the Typescript telemetry
+        // notion, however a larger refactor to move Session into
+        // a higher up module, which can send a Telemetry struct
+        // etc.
         let telemetry_session = serde_json::json!({
             "command": self.command,
             "machine_id": self.config.machine_id,
