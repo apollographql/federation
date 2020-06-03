@@ -53,11 +53,10 @@ mod unix {
     //         .append_header("content-disposition", "filename=ap-v100.0.0-linux");
     //     let proxy = create_mock_proxy(response).await.unwrap();
 
-    //     let dir = tempdir().unwrap();
-    //     let mut cli = utils::get_bare_cli();
+    //     let mut cli = utils::get_cli();
 
-    //     cli.arg("setup")
-    //         .env("HOME", dir.path())
+    //     cli.command
+    //         .arg("setup")
     //         .env("APOLLO_CDN_URL", &proxy.uri())
     //         .env("SHELL", "/usr/bin/zsh")
     //         .assert()
@@ -72,11 +71,10 @@ mod unix {
     //         ResponseTemplate::new(200).append_header("content-disposition", "filename=ap-v0.1-linux");
 
     //     let proxy = create_mock_proxy(response).await.unwrap();
-    //     let dir = tempdir().unwrap();
-    //     let mut cli = utils::get_bare_cli();
+    //     let mut cli = utils::get_cli();
 
-    //     cli.arg("setup")
-    //         .env("HOME", dir.path())
+    //     cli.command
+    //         .arg("setup")
     //         .env("APOLLO_CDN_URL", &proxy.uri())
     //         .env("SHELL", "/usr/bin/zsh")
     //         .assert()
