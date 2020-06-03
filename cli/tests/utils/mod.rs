@@ -37,7 +37,10 @@ pub fn get_cli() -> TestCommand {
     block_side_effects(&mut cli);
     let home_dir = add_home(&mut cli);
 
-    TestCommand { command: cli, home_dir }
+    TestCommand {
+        command: cli,
+        home_dir,
+    }
 }
 
 pub fn get_bare_cli() -> std::process::Command {

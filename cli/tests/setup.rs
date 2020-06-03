@@ -1,5 +1,5 @@
-mod utils;
 mod commands;
+mod utils;
 
 #[cfg(unix)]
 mod unix {
