@@ -85,15 +85,6 @@ impl CliConfig {
     }
 }
 
-impl Clone for CliConfig {
-    fn clone(&self) -> CliConfig {
-        CliConfig {
-            machine_id: self.machine_id.clone(),
-            api_key: self.api_key.clone(),
-        }
-    }
-}
-
 // #[cfg(test)]
 // mod tests {
 //     use std::env::set_var;

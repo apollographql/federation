@@ -38,11 +38,10 @@ impl Command for Setup {
         }
 
         debug!("Setting new key...");
-        let mut config = session.config.clone();
-        config.api_key = Some(key);
+        session.config.api_key = Some(key.to_string());
 
         debug!("Saving new key...");
-        CliConfig::save(&session.config_path, &config)?;
+        CliConfig::save(&session.config_path, &session.config)?;
 
         info!("{} Your personal API key was successfuly set!", KEY);
         Ok(ExitCode::Success)
