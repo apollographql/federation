@@ -29,8 +29,8 @@ impl Command for Setup {
 
         info!("To link your CLI to your Apollo account go to {} and create a new Personal API Key. Once you've done that, copy the key and paste it into the prompt below.",
             style("https://engine.apollographql.com/user-settings").cyan());
-        let key_input = sensitive("Personal API Key:")?;
-        let key = key_input.trim();
+        let key = sensitive("Personal API Key:")?;
+        let key = key.trim();
 
         debug!("Checking user input...");
         if key.is_empty() {

@@ -91,6 +91,7 @@ impl Session {
         }
 
         let url = format!("{}/telemetry", domain());
+        // TODO: FIXME
         let telemetry_session = serde_json::json!({
             "command": self.command,
             "machine_id": self.config.machine_id,
