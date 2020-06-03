@@ -1,12 +1,12 @@
+pub mod auth;
 pub mod print;
 pub mod setup;
 pub mod update;
-pub mod auth;
 
+pub use auth::Auth;
 pub use print::Print;
 pub use setup::Setup;
 pub use update::Update;
-pub use auth::Auth;
 
 use crate::errors::{ExitCode, Fallible};
 use crate::telemetry::Session;
