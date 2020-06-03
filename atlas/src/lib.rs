@@ -1,4 +1,4 @@
-use std::{sync::Arc, collections::{hash_map::Entry, HashMap}, ops::Index};
+use std::{sync::Arc, collections::HashMap};
 use graphql_parser::{query::Operation, schema::{Document, Definition, parse_schema, ParseError, TypeDefinition, TypeExtension, Named, Field, EnumValue, InputValue}};
 
 #[derive(Debug, PartialEq)]
@@ -8,18 +8,16 @@ pub struct Point {
     edges: Edges,
 }
 
-// pub enum Sel {
-//     Empty,
-//     One(Arc<Point>),
-//     Many(Vec<Arc<Point>>),    
-// }
-
 type Sel = Vec<Arc<Point>>;
 
 type Edges = HashMap<Edge, Sel>;
 
 trait Select {
     fn sel(&self, edge: Edge) -> Sel;
+    fn child(&self, name: &str) -> Sel {
+        self.sel(Edge::name(name))
+    }
+    fn kind(&self) -> Vec<Kind>;    
 }
 
 impl Select for Sel {
@@ -28,14 +26,22 @@ impl Select for Sel {
             .flat_map(|p| { p.iter().map(Arc::clone) })
             .collect()
     }
+
+    fn kind(&self) -> Vec<Kind> {
+        self.iter().map(|p| p.kind).collect()
+    }
 }
 
 impl Select for Point {
     fn sel(&self, edge: Edge) -> Sel {
         match self.edges.get(&edge) {
             Some(s) => s.clone(),
-            None => Vec::<Arc<Point>>::new()
+            None => vec![],
         }
+    }
+    
+    fn kind(&self) -> Vec<Kind> {
+        vec![self.kind]
     }
 }
 
@@ -51,7 +57,7 @@ impl Edge {
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Kind {
     Schema,
     Scalar(Ext),
@@ -68,7 +74,7 @@ pub enum Kind {
     Field,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Ext {
     Definition,
     Extension,
@@ -94,14 +100,6 @@ where T: AsPoint + Named<'a>
         }
     }
     edges    
-}
-
-// impl<I> From<I> for Point where I: Iterator<Item=Point> {
-    
-// }
-
-macro_rules! empty {
-    () => { HashMap::new() }
 }
 
 trait AsPoint {
@@ -154,6 +152,10 @@ impl<'a> AsPoint for InputValue<'a> {
     }
 }
 
+macro_rules! empty {
+    () => { Edges::new() }
+}
+
 impl<'a> AsPoint for Definition<'a> {
     fn point(&self) -> Option<Point> {
         Some(Point {
@@ -186,7 +188,7 @@ impl<'a> AsPoint for Definition<'a> {
 
     fn edges(&self) -> Edges {
         match self {
-            Definition::Schema(_) => empty![],
+            Definition::Schema(_) => empty!(),
             Definition::Type(t) => match t {
                 TypeDefinition::Scalar(_) => empty!(),
                 TypeDefinition::Object(o) => index_names(&o.fields),
@@ -203,16 +205,6 @@ impl<'a> AsPoint for Definition<'a> {
     }    
 }
 
-// macro_rules! select {
-//     ($from:ident . $(eval $es:expr),+$name:ident) => {
-//         $from.sel(Edge::name(stringify!($edge)))
-//     }
-
-//     ($from:ident -> $edge:block) => {
-//         $from.sel($edge)
-//     }
-// }
-
 
 #[test]
 fn parses_graphql() -> Result<(), ParseError> {
@@ -225,9 +217,11 @@ fn parses_graphql() -> Result<(), ParseError> {
     ";
 
     let schema = Point::from_text(text, None)?;
-    let user = schema.sel(Edge::name("User"));
+    let user = schema.child("User");    
     assert_eq!(user[0].kind, Kind::Object(Ext::Definition), "it's an object type");
     assert_eq!(user.sel(Edge::name("id"))[0].kind, Kind::Field, "has an id field");
-    assert_eq!(user.sel(Edge::name("name"))[0].kind, Kind::Field, "has a name field");
+    assert_eq!(user.child("name")[0].kind, Kind::Field, "has a name field");
+
+    assert_eq!(schema.child("User").child("name").kind(), vec![Kind::Field], "has one name field");
     Ok(())
 }
