@@ -295,7 +295,7 @@ mod windows {
 
     #[test]
     fn not_found_in_usage() {
-        let mut cli = get_cli();
+        let mut cli = get_cli().command;
 
         cli.assert()
             .code(0)
@@ -313,7 +313,7 @@ mod windows {
         // delete the Path value in the Environment sub_key
         key.set_value("Path", &";")?;
 
-        let mut cli = get_cli();
+        let mut cli = get_cli().command;
 
         cli.arg("setup")
             .arg("--debug")
@@ -328,7 +328,7 @@ mod windows {
         // delete the Path value in the Environment sub_key
         key.delete_value("Path")?;
 
-        let mut cli_two = get_cli();
+        let mut cli_two = get_cli().command;
 
         cli_two
             .arg("setup")
