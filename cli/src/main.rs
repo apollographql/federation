@@ -39,7 +39,19 @@ fn main() {
 
     setup_panic_hooks();
 
-    let mut session = Session::init().unwrap();
+    let session_result = Session::init();
+
+    if let Err(err) = session_result {
+        report(&err);
+        let code = err.exit_code();
+        // TODO: FIXME:: https://github.com/apollographql/apollo-cli/pull/50#discussion_r434224921
+        // This line hard exits the application but is visually non-distinct.
+        // There _should_ be some way to refactor this file to make it _painfully_
+        // clear how the CLI will execute, fail, and operate.
+        code.exit()
+    };
+
+    let mut session = session_result.unwrap();
 
     let should_check_for_updates = if let Some(Subcommand::Update(_)) = cli.command {
         false
@@ -74,7 +86,11 @@ fn main() {
         Err(Error::Apollo(err)) => {
             report(&err);
             let code = err.exit_code();
-            code.exit();
+            // TODO: FIXME:: https://github.com/apollographql/apollo-cli/pull/50#discussion_r434224921
+            // This line hard exits the application but is visually non-distinct.
+            // There _should_ be some way to refactor this file to make it _painfully_
+            // clear how the CLI will execute, fail, and operate.
+            code.exit()
         }
     }
 }

@@ -9,7 +9,10 @@ use uuid::Uuid;
 
 use crate::config::CliConfig;
 use crate::domain;
+use crate::errors::{ApolloError, ErrorDetails, Fallible};
+use crate::layout::apollo_config;
 use crate::version::get_installed_version;
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Platform {
@@ -33,9 +36,6 @@ pub struct Session {
     /// i.e. ap schema push --graph --variant would become ap/schema/push?graph&variant
     command: Option<String>,
 
-    /// Apollo generated machine ID. This is a UUID and stored globally at ~/.apollo/config.toml
-    machine_id: String,
-
     /// A unique session id
     session_id: String,
 
@@ -44,12 +44,17 @@ pub struct Session {
 
     /// The current version of the CLI
     release_version: String,
+
+    /// The current instantiation of CliConfig
+    pub config: CliConfig,
+
+    /// The current instantiation of CliConfig
+    pub config_path: PathBuf,
 }
 
 impl Session {
-    pub fn init() -> Result<Session, Box<dyn Error + 'static>> {
+    pub fn init() -> Fallible<Session> {
         let command = None;
-        let machine_id = CliConfig::load()?.machine_id;
         let session_id = Uuid::new_v4().to_string();
 
         let platform = Platform {
@@ -58,13 +63,20 @@ impl Session {
             ci_name: ci_info::get().name,
         };
 
-        let release_version = get_installed_version()?.to_string();
+        let release_version = get_installed_version()
+            .map_err(|e| ApolloError::from(ErrorDetails::CliInstallError { msg: e.to_string() }))?
+            .to_string();
+        let config_path = apollo_config()?;
+
+        let config = CliConfig::load(&config_path)?;
+
         Ok(Session {
             command,
-            machine_id,
             session_id,
             platform,
             release_version,
+            config,
+            config_path,
         })
     }
 
@@ -79,7 +91,22 @@ impl Session {
         }
 
         let url = format!("{}/telemetry", domain());
-        let body = serde_json::to_string(&self).unwrap();
+        // TODO: FIXME:: https://github.com/apollographql/apollo-cli/pull/50#discussion_r434231100
+        // Requiring effectively copy paste renaming for
+        // data is a _high_ chance for bugs and no something
+        // we should encourage. This was done to unwed the CLI's
+        // notion of a Session from the Typescript telemetry
+        // notion, however a larger refactor to move Session into
+        // a higher up module, which can send a Telemetry struct
+        // etc.
+        let telemetry_session = serde_json::json!({
+            "command": self.command,
+            "machine_id": self.config.machine_id,
+            "session_id": self.session_id,
+            "platform": self.platform,
+            "release_version": self.release_version,
+        });
+        let body = serde_json::to_string(&telemetry_session).unwrap();
         // keep the CLI waiting for 300 ms to send telemetry
         // if the request isn't sent in that time loose that report
         // to keep the experience fast for end users
@@ -119,11 +146,11 @@ mod tests {
         let proxy = MockServer::start().await;
 
         let payload_matcher = move |request: &Request| {
-            let body: Session =
+            let body: serde_json::Value =
                 serde_json::from_slice(&request.body).expect("Failed to serialise body");
-            match body.command {
-                Some(cmd) => cmd == "test".to_string(),
-                None => false,
+            match body.get("command").unwrap() {
+                serde_json::Value::String(cmd) => cmd == "test",
+                _ => false,
             }
         };
 

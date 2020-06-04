@@ -1,12 +1,13 @@
 use std::error::Error;
 use std::fs;
 
-use config::{Config, ConfigError};
-use log::info;
+use crate::errors::{ApolloError, ErrorDetails, Fallible};
+use config::{Config, Environment};
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::layout::apollo_config;
+use std::path::PathBuf;
 
 const POST_INSTALL_MESSAGE: &str = "
 Apollo collects anonymous usage analytics to help improve the Apollo CLI for all users.
@@ -17,33 +18,70 @@ To learn more, checkout https://apollo.dev/cli/telemetry\n";
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CliConfig {
     pub machine_id: String,
+    // This can be used for a service api key, or a personal api key.
+    // The CLI doesn't differentiate at the moment.
+    pub api_key: Option<String>,
+}
+
+fn save(path: &PathBuf, cli_config: &CliConfig) -> Result<(), Box<dyn Error + 'static>> {
+    let toml = toml::to_string(cli_config).unwrap();
+
+    fs::create_dir_all(&path.parent().unwrap())?;
+    debug!("Writing cli config to path {}...", path.to_str().unwrap());
+    fs::write(&path, toml).map_err(From::from)
+}
+
+fn load(path: &PathBuf) -> Result<CliConfig, Box<dyn Error + 'static>> {
+    let mut s = Config::new();
+
+    if !path.exists() {
+        CliConfig::create(path)?;
+    }
+
+    s.merge(config::File::with_name(path.to_str().unwrap()))?;
+
+    s.merge(Environment::with_prefix("APOLLO_").separator("__"))
+        .unwrap();
+
+    debug!("Loading cli config from path {}...", path.to_str().unwrap());
+    s.try_into().map_err(From::from)
 }
 
 impl CliConfig {
-    pub fn load() -> Result<Self, Box<dyn Error + 'static>> {
-        let mut s = Config::new();
+    pub fn save(path: &PathBuf, cli_config: &CliConfig) -> Fallible<()> {
+        save(path, cli_config).map_err(|e| {
+            ApolloError::from(ErrorDetails::CliConfigWriteError {
+                msg: e.to_string(),
+                path: path.to_str().unwrap().to_string(),
+            })
+        })
+    }
 
-        let config_path = apollo_config().unwrap();
+    pub fn create(path: &PathBuf) -> Result<Self, Box<dyn Error + 'static>> {
+        let config = CliConfig {
+            machine_id: Uuid::new_v4().to_string(),
+            api_key: None,
+        };
 
-        if config_path.exists() {
-            s.merge(config::File::with_name(config_path.to_str().unwrap()))?;
-        } else {
-            // create new file with uuid
-            let machine_id = Uuid::new_v4().to_string();
-            s.set("machine_id", machine_id)?;
+        debug!(
+            "New cli config: {}",
+            serde_json::to_string(&config).unwrap()
+        );
 
-            let generated: Result<CliConfig, ConfigError> = s.clone().try_into();
+        CliConfig::save(path, &config)?;
 
-            let toml = toml::to_string(&generated.unwrap()).unwrap();
+        // log initial telemetry warning
+        info!("{}", POST_INSTALL_MESSAGE);
+        Ok(config)
+    }
 
-            fs::create_dir_all(&config_path.parent().unwrap())?;
-            fs::write(&config_path, toml)?;
-
-            // log initial telemetry warning
-            info!("{}", POST_INSTALL_MESSAGE);
-        }
-
-        s.try_into().map_err(From::from)
+    pub fn load(path: &PathBuf) -> Fallible<Self> {
+        load(path).map_err(|e| {
+            ApolloError::from(ErrorDetails::CliConfigReadError {
+                msg: e.to_string(),
+                path: path.to_str().unwrap().to_string(),
+            })
+        })
     }
 }
 

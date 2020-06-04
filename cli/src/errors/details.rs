@@ -47,7 +47,13 @@ Please ensure you have permissions to edit your environment variables."
     InputConfirmationError,
 
     #[error("Could not install CLI. {}", .msg)]
-    CLIInstallError { msg: String },
+    CliInstallError { msg: String },
+
+    #[error("Error loading config file {}: {}", .path, .msg)]
+    CliConfigReadError { msg: String, path: String },
+
+    #[error("Error writing config file {}: {}", .path, .msg)]
+    CliConfigWriteError { msg: String, path: String },
 }
 
 impl ErrorDetails {
@@ -63,7 +69,9 @@ impl ErrorDetails {
             ErrorDetails::UnsupportedPlatformError { .. } => ExitCode::EnvironmentError,
             ErrorDetails::ReleaseFetchError => ExitCode::NetworkError,
             ErrorDetails::InputConfirmationError => ExitCode::InvalidArguments,
-            ErrorDetails::CLIInstallError { .. } => ExitCode::FileSystemError,
+            ErrorDetails::CliInstallError { .. } => ExitCode::FileSystemError,
+            ErrorDetails::CliConfigReadError { .. } => ExitCode::ConfigurationError,
+            ErrorDetails::CliConfigWriteError { .. } => ExitCode::ConfigurationError,
         }
     }
 }
