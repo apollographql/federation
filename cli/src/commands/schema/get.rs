@@ -20,10 +20,7 @@ struct GetSchemaQuery;
 
 impl Command for Get {
     fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
-        session.require_api_key()?;
-
-        let client = Client::from((session.config.api_key.as_ref().unwrap()).to_string());
-
+        let client = Client::from(session.require_api_key()?);
         let variables = get_schema_query::Variables {
             graph_id: "acephei".into(),
             variant: Some("production".into()),
@@ -37,17 +34,15 @@ impl Command for Get {
                 .and_then(|service| service.schema.map(|schema| schema.document))
         });
 
-        if maybe_document.is_none() {
-            return Err(ErrorDetails::NotFoundError {
+        match maybe_document {
+            None => Err(ErrorDetails::NotFoundError {
                 msg: "Schema not found".to_string(),
             }
-            .into());
+            .into()),
+            Some(document) => {
+                println!("{}", document);
+                Ok(ExitCode::Success)
+            }
         }
-
-        let document = maybe_document.unwrap();
-
-        println!("{}", document);
-
-        Ok(ExitCode::Success)
     }
 }

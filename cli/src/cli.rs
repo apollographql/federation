@@ -65,7 +65,7 @@ pub enum Subcommand {
     #[structopt(name = "auth")]
     ///  🔐  Manage authentication
     Auth(commands::Auth),
-    ///
+    /// 📜 Manage schemas from the registry
     Schema(commands::Schema),
 }
 

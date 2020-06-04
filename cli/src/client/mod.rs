@@ -51,23 +51,18 @@ impl Client {
             .json(&request_body)
             .send()
             .map_err(|e| {
-                ApolloError::from(ErrorDetails::RegistryNetworkError {
-                    msg: e.to_string(),
-                })
+                ApolloError::from(ErrorDetails::RegistryNetworkError { msg: e.to_string() })
             })?;
 
-        let response_body: Response<Q::ResponseData> = res.json()
-            .map_err(|e| {
-                ApolloError::from(ErrorDetails::RegistryNetworkError {
-                    msg: e.to_string(),
-                })
-            })?;
+        let response_body: Response<Q::ResponseData> = res.json().map_err(|e| {
+            ApolloError::from(ErrorDetails::RegistryNetworkError { msg: e.to_string() })
+        })?;
 
         match response_body.errors {
             Some(err) => Err(ErrorDetails::GraphQLError {
                 msg: err
                     .into_iter()
-                    .map(|err| err.message.clone())
+                    .map(|err| err.message)
                     .collect::<Vec<String>>()
                     .join("\n"),
             }

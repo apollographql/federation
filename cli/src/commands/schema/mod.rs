@@ -11,9 +11,7 @@ pub use store::Store;
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]
 pub enum Schema {
-    /// Setup your auth stuff
-    /// Requires using an User key which can be found here:
-    /// https://engine.apollographql.com/user-settings
+    ///  Get schema from a graph variant or schema hash
     Get(get::Get),
     Store(store::Store),
     Check(check::Check),

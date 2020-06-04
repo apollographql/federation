@@ -54,9 +54,9 @@ pub struct Session {
 
 impl Session {
     /// This function will return an error if the api key is not defined
-    pub fn require_api_key(&self) -> Fallible<()> {
+    pub fn require_api_key(&self) -> Fallible<String> {
         match &self.config.api_key {
-            Some(_) => Ok(()),
+            Some(api_key) => Ok(api_key.clone()),
             None => Err(ErrorDetails::NoApiKeyError.into()),
         }
     }
