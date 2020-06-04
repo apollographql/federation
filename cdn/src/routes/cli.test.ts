@@ -4,7 +4,7 @@ jest.mock("../sentry");
 jest.mock("../segment");
 jest.mock("@zeit/fetch-retry", () => (f: any) => f);
 
-const GITHUB_RELEASE = "https://github.com/apollographql/apollo-cli/releases";
+const GITHUB_RELEASE = "https://github.com/apollographql/rust/releases";
 beforeEach(() => {
   mockGlobal();
   jest.resetModules();
@@ -51,7 +51,7 @@ it("redirects to / if navigating to /cli", async () => {
 it("pulls from the latest tag in GitHub if no version is passed", async () => {
   fetchMock.get(`${GITHUB_RELEASE}/latest`, {
     redirectUrl:
-      "https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1",
+      "https://github.com/apollographql/rust/releases/tag/v0.0.1",
   });
 
   fetchMock.get(`${GITHUB_RELEASE}/download/v0.0.1/ap-v0.0.1-linux.tar.gz`, {

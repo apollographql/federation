@@ -190,12 +190,12 @@ fallback_and_download_from_github() {
   fi
 
   # GitHub's URL for the latest release, will redirect.
-  LATEST_URL="https://github.com/apollographql/apollo-cli/releases/latest/"
+  LATEST_URL="https://github.com/apollographql/rust/releases/latest/"
   if [ -z "$VERSION" ]; then
     VERSION=$(curl -sLI -o /dev/null -w '%{url_effective}' $LATEST_URL | cut -d "v" -f 2)
   fi
 
-  RELEASE_URL="https://github.com/apollographql/apollo-cli/releases/download/v${VERSION}/ap-v${VERSION}-${OS}.tar.gz"
+  RELEASE_URL="https://github.com/apollographql/rust/releases/download/v${VERSION}/ap-v${VERSION}-${OS}.tar.gz"
 
   if [ -n "${VERBOSE-}" ]; then
     info "Installing CLI from ${MAGENTA}$RELEASE_URL${NO_COLOR}"

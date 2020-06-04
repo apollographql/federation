@@ -3,7 +3,7 @@ import { track } from "../segment";
 
 const f = setup(fetch);
 
-const GITHUB_RELEASE = "https://github.com/apollographql/apollo-cli/releases";
+const GITHUB_RELEASE = "https://github.com/apollographql/rust/releases";
 
 type CLIArgs = {
   platform: string; // "linux" | "windows" | "darwin";

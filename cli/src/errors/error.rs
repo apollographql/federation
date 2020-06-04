@@ -85,7 +85,7 @@ pub type Fallible<T> = Result<T, ApolloError>;
 
 const REPORT_BUG_CTA: &str = "Please rerun the command that triggered this error with 
 `APOLLO_LOG_LEVEL=debug` and open an issue at
-https://github.com/apollographql/apollo-cli/issues with the details!";
+https://github.com/apollographql/rust/issues with the details!";
 
 pub fn report(err: &ApolloError) {
     error!("{}\n{}", err.to_string(), REPORT_BUG_CTA);

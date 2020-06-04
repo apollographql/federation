@@ -91,7 +91,7 @@ impl Session {
         }
 
         let url = format!("{}/telemetry", domain());
-        // TODO: FIXME:: https://github.com/apollographql/apollo-cli/pull/50#discussion_r434231100
+        // TODO: FIXME:: https://github.com/apollographql/rust/pull/50#discussion_r434231100
         // Requiring effectively copy paste renaming for
         // data is a _high_ chance for bugs and no something
         // we should encourage. This was done to unwed the CLI's

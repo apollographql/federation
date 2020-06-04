@@ -5,7 +5,7 @@ jest.mock("uuid-browser", () => ({
   v4: jest.fn(() => `mock_uuid`),
 }));
 
-const GITHUB_RELEASE = "https://github.com/apollographql/apollo-cli/releases";
+const GITHUB_RELEASE = "https://github.com/apollographql/rust/releases";
 beforeEach(() => {
   mockGlobal();
   jest.resetModules();
