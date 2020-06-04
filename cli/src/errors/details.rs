@@ -54,6 +54,18 @@ Please ensure you have permissions to edit your environment variables."
 
     #[error("Error writing config file {}: {}", .path, .msg)]
     CliConfigWriteError { msg: String, path: String },
+
+    #[error("No api key found in config file: Please run `ap auth setup` first")]
+    NoApiKeyError,
+
+    #[error("Received invalid graphql response from Apollo Studio: {}", .msg)]
+    RegistryNetworkError { msg: String },
+
+    #[error("Received GraphQL Errors from Apollo Studio: {}", .msg)]
+    GraphQLError { msg: String },
+
+    #[error("{}", .msg)]
+    NotFoundError { msg: String },
 }
 
 impl ErrorDetails {
@@ -72,6 +84,10 @@ impl ErrorDetails {
             ErrorDetails::CliInstallError { .. } => ExitCode::FileSystemError,
             ErrorDetails::CliConfigReadError { .. } => ExitCode::ConfigurationError,
             ErrorDetails::CliConfigWriteError { .. } => ExitCode::ConfigurationError,
+            ErrorDetails::NoApiKeyError { .. } => ExitCode::ConfigurationError,
+            ErrorDetails::RegistryNetworkError { .. } => ExitCode::NetworkError,
+            ErrorDetails::GraphQLError { .. } => ExitCode::NetworkError,
+            ErrorDetails::NotFoundError { .. } => ExitCode::NotFound,
         }
     }
 }

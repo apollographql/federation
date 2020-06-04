@@ -1,10 +1,8 @@
-# Provided as example. Remove at some point if not used.
-
-query GetSchemaQuery($serviceId: ID!, $variant: String!) {
-    service(id: $serviceId) {
-        schema(tag: $variant) {
-            hash
-        }
+query GetSchemaQuery($variant: String, $graphId: ID!) {
+  service(id: $graphId) {
+    schema(tag: $variant) {
+      document
     }
+  }
 }
 

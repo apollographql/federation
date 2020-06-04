@@ -28,6 +28,9 @@ pub enum ExitCode {
 
     /// The command or feature is not yet implemented.
     NotYetImplemented = 7,
+
+    /// The command or feature is not yet implemented.
+    NotFound = 8,
 }
 
 impl ExitCode {

@@ -1,8 +1,8 @@
+use crate::errors::{ApolloError, ErrorDetails, Fallible};
 use graphql_client::{GraphQLQuery, Response};
 use http::Uri;
 use reqwest::blocking;
 use std::env;
-use std::error::Error;
 
 mod queries;
 
@@ -21,8 +21,10 @@ pub struct Client {
     reqwest: blocking::Client,
 }
 
+pub type GraphQLDocument = String;
+
 impl Client {
-    fn from(api_key: String) -> Client {
+    pub(crate) fn from(api_key: String) -> Client {
         Client {
             api_key,
             uri: api_uri(),
@@ -30,10 +32,10 @@ impl Client {
         }
     }
 
-    fn send<Q: GraphQLQuery>(
+    pub(crate) fn send<Q: GraphQLQuery>(
         &self,
         variables: Q::Variables,
-    ) -> Result<Response<Q::ResponseData>, Box<dyn Error>> {
+    ) -> Fallible<Option<Q::ResponseData>> {
         let request_body = Q::build_query(variables);
 
         let res = self
@@ -43,13 +45,34 @@ impl Client {
             .header("apollographql-client-name", "experimental-apollo-cli")
             .header(
                 "apollographql-client-version",
-                env::var("CARGO_PKG_VERSION").unwrap(),
+                env::var("CARGO_PKG_VERSION").unwrap_or("testing".into()),
             )
             .header("x-api-key", &self.api_key)
             .json(&request_body)
-            .send()?;
+            .send()
+            .map_err(|e| {
+                ApolloError::from(ErrorDetails::RegistryNetworkError {
+                    msg: e.to_string(),
+                })
+            })?;
 
-        let response_body: Response<Q::ResponseData> = res.json()?;
-        Ok(response_body)
+        let response_body: Response<Q::ResponseData> = res.json()
+            .map_err(|e| {
+                ApolloError::from(ErrorDetails::RegistryNetworkError {
+                    msg: e.to_string(),
+                })
+            })?;
+
+        match response_body.errors {
+            Some(err) => Err(ErrorDetails::GraphQLError {
+                msg: err
+                    .into_iter()
+                    .map(|err| err.message.clone())
+                    .collect::<Vec<String>>()
+                    .join("\n"),
+            }
+            .into()),
+            None => Ok(response_body.data),
+        }
     }
 }
