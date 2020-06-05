@@ -12,6 +12,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 pub struct TestCommand {
     pub command: Command,
     pub home_dir: TempDir,
+    pub server: Option<MockServer>,
 }
 
 fn block_telmetry(cmd: &mut Command) {
@@ -40,21 +41,18 @@ pub async fn add_mock_graphql(
     response: ResponseTemplate,
 ) -> Result<&mut TestCommand, Box<dyn Error + 'static>> {
     let proxy = MockServer::start().await;
-    let platform: Option<&str> = match OS {
-        "linux" | "macos" | "windows" => Some(OS),
-        _ => None,
-    };
 
-    Mock::given(method("GET"))
-        .and(PathExactMatcher::new(format!("cli/{}", platform.unwrap())))
+    Mock::given(method("POST"))
         .respond_with(response)
         .expect(1..)
         .mount(&proxy)
         .await;
 
     cli.command
-        .env("APOLLO_URL", proxy.uri())
+        .env("APOLLO__API_URL", proxy.uri())
         .env("APOLLO__API_KEY", "__test__");
+
+    cli.server = Some(proxy);
 
     Ok(cli)
 }
@@ -68,5 +66,6 @@ pub fn get_cli() -> TestCommand {
     TestCommand {
         command: cli,
         home_dir,
+        server: None,
     }
 }

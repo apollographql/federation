@@ -7,10 +7,19 @@ mod unix {
     #[async_std::test]
     async fn gets_acephi_schema() {
         let mut cli = get_cli();
-        let test_command = add_mock_graphql(&mut cli, ResponseTemplate::new(200))
-            .await
-            .unwrap();
+        let response = ResponseTemplate::new(200).set_body_bytes(
+            r#"{
+                "data": {
+                    "service": {
+                        "schema": {
+                            "document": "__test__"
+                        }
+                    }
+                }
+            }"#,
+        );
+        add_mock_graphql(&mut cli, response).await.unwrap();
 
-        test_command.command.arg("schema").arg("get").assert();
+        cli.command.arg("schema").arg("get").assert().code(0);
     }
 }
