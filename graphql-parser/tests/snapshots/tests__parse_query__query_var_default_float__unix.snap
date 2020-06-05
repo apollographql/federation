@@ -22,7 +22,9 @@ Ok(
                             ),
                             default_value: Some(
                                 Float(
-                                    0.5,
+                                    OrderedFloat(
+                                        0.5,
+                                    ),
                                 ),
                             ),
                         },

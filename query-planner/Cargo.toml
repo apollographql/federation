@@ -10,3 +10,4 @@ edition = "2018"
 [dependencies]
 graphql-parser = { path = "../graphql-parser" }
 itertools = "0.9.0"
+indexmap = "1.4.0"

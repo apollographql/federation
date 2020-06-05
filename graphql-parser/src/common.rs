@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 
 use combine::easy::Error;
 use combine::error::StreamError;
@@ -6,12 +7,13 @@ use combine::parser::choice::{choice, optional};
 use combine::parser::item::position;
 use combine::parser::repeat::{many, many1};
 use combine::{parser, ParseResult, Parser};
+use ordered_float::OrderedFloat;
 
 use crate::helpers::{ident, kind, name, punct};
 use crate::position::Pos;
 use crate::tokenizer::{Kind as T, Token, TokenStream};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Directive<'a> {
     pub position: Pos,
     pub name: &'a str,
@@ -20,11 +22,11 @@ pub struct Directive<'a> {
 
 pub type Txt<'a> = &'a str;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Value<'a> {
     Variable(Txt<'a>),
     Int(i64),
-    Float(f64),
+    Float(OrderedFloat<f64>),
     String(String),
     Boolean(bool),
     Null,
@@ -146,7 +148,7 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
                                     return Err(Error::unexpected_message(format_args!(
                                         "\\u must have 4 characters after it, only found '{}'",
                                         temp_code_point
-                                    )))
+                                    )));
                                 }
                             }
                         }
@@ -158,7 +160,7 @@ fn unquote_string(s: &str) -> Result<String, Error<Token, Token>> {
                                 return Err(Error::unexpected_message(format_args!(
                                     "{} is not a valid unicode code point",
                                     temp_code_point
-                                )))
+                                )));
                             }
                         }
                     }
