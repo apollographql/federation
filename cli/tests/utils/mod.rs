@@ -48,6 +48,7 @@ pub async fn add_mock_graphql(
     Mock::given(method("GET"))
         .and(PathExactMatcher::new(format!("cli/{}", platform.unwrap())))
         .respond_with(response)
+        .expect(1..)
         .mount(&proxy)
         .await;
 
