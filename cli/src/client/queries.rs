@@ -24,7 +24,7 @@ mod tests {
     #[ignore]
     fn me_query() {
         use super::*;
-        let client = Client::from("todo_get_api_key".to_owned());
+        let client = Client::from("todo_get_api_key".to_owned(), "todo_get_api_uri".to_owned());
         let me = me_query(&client).unwrap().unwrap();
         println!("{:?}", me);
     }

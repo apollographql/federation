@@ -6,15 +6,6 @@ use std::env;
 
 mod queries;
 
-static PROD_GQL_API_URL: &str = "https://engine-graphql.apollographql.com/api/graphql";
-
-fn api_uri() -> Uri {
-    env::var("APOLLO_API_URL")
-        .ok()
-        .and_then(|url| url.parse::<Uri>().ok())
-        .unwrap_or_else(|| PROD_GQL_API_URL.parse::<Uri>().unwrap())
-}
-
 pub struct Client {
     api_key: String,
     uri: Uri,
@@ -24,10 +15,10 @@ pub struct Client {
 pub type GraphQLDocument = String;
 
 impl Client {
-    pub(crate) fn from(api_key: String) -> Client {
+    pub(crate) fn from(api_key: String, uri: String) -> Client {
         Client {
             api_key,
-            uri: api_uri(),
+            uri: uri.parse::<Uri>().unwrap(),
             reqwest: blocking::Client::new(),
         }
     }
