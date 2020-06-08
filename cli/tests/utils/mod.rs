@@ -1,10 +1,9 @@
 use std::process::Command;
 
 use assert_cmd::prelude::*;
-use std::env::consts::OS;
 use std::error::Error;
 use tempfile::{tempdir, TempDir};
-use wiremock::matchers::{method, PathExactMatcher};
+use wiremock::matchers::method;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 // Run programs // Used for writing assertions // Add methods on commands
