@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-
-use indexmap::IndexSet;
-
 use graphql_parser::query::{FragmentDefinition, SelectionSet, VariableDefinition};
+use indexmap::IndexSet;
+use std::collections::HashMap;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 use crate::serialize;
 
@@ -20,9 +20,7 @@ impl ToString for ResponsePathElement {
     }
 }
 
-pub struct QueryPlan<'a> {
-    pub node: Option<PlanNode<'a>>,
-}
+pub struct QueryPlan<'a>(pub Option<PlanNode<'a>>);
 
 pub struct FetchNode<'a> {
     pub service_name: String,
@@ -34,12 +32,8 @@ pub struct FetchNode<'a> {
 }
 
 pub enum PlanNode<'a> {
-    Sequence {
-        nodes: Vec<PlanNode<'a>>,
-    },
-    Parallel {
-        nodes: Vec<PlanNode<'a>>,
-    },
+    Sequence(Vec<PlanNode<'a>>),
+    Parallel(Vec<PlanNode<'a>>),
     Fetch(Box<FetchNode<'a>>),
     Flatten {
         path: Vec<ResponsePathElement>,
@@ -48,7 +42,13 @@ pub enum PlanNode<'a> {
 }
 
 impl<'a> QueryPlan<'a> {
-    fn serialize(&self) -> String {
+    pub fn serialize(&self) -> String {
         serialize::serialize(self)
+    }
+}
+
+impl<'a> Display for QueryPlan<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(self.serialize().as_str())
     }
 }
