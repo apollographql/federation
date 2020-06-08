@@ -1,4 +1,5 @@
-use crate::client::{Client, GraphQLDocument};
+use crate::client::Client;
+use crate::commands::schema::GraphQLDocument;
 use crate::commands::Command;
 use crate::errors::{ErrorDetails, ExitCode, Fallible};
 use crate::telemetry::Session;

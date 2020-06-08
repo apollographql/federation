@@ -12,8 +12,6 @@ pub struct Client {
     reqwest: blocking::Client,
 }
 
-pub type GraphQLDocument = String;
-
 impl Client {
     pub(crate) fn from(api_key: String, uri: String) -> Client {
         Client {
