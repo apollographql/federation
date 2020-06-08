@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs;
 
 use crate::errors::{ApolloError, ErrorDetails, Fallible};
-use config::{Config};
+use config::Config;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
