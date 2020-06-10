@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-use crate::serialize;
+use crate::display;
 
 pub enum ResponsePathElement {
     Field(String),
@@ -41,14 +41,8 @@ pub enum PlanNode<'a> {
     },
 }
 
-impl<'a> QueryPlan<'a> {
-    pub fn serialize(&self) -> String {
-        serialize::serialize(self)
-    }
-}
-
 impl<'a> Display for QueryPlan<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(self.serialize().as_str())
+        f.write_str(display::display(self).as_str())
     }
 }

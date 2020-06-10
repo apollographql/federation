@@ -4,7 +4,7 @@ use crate::model::{PlanNode, QueryPlan};
 
 static INDENT: &str = "  ";
 
-pub fn serialize(qp: &QueryPlan) -> String {
+pub fn display(qp: &QueryPlan) -> String {
     let mut result: Vec<String> = Vec::new();
     result.push("QueryPlan {\n".to_string());
     for n in qp.0.iter() {

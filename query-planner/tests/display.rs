@@ -17,7 +17,7 @@ fn test_simple_query_plan() {
     let qp = QueryPlan(Some(PlanNode::Sequence(vec![fetch(), fetch()])));
 
     assert_eq!(
-        qp.serialize(),
+        format!("{}", qp),
         "\
 QueryPlan {
   Sequence {
@@ -187,7 +187,7 @@ fn complex_query_plan() {
     ])));
 
     assert_eq!(
-        qp.serialize(),
+        format!("{}", qp),
         "\
 QueryPlan {
   Sequence {
