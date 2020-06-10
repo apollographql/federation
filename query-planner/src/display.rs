@@ -28,7 +28,6 @@ fn append_nodes(nodes: Vec<&PlanNode>, indentation: &str, result: &mut Vec<Strin
 fn append_node(node: &PlanNode, indentation: &str, result: &mut Vec<String>) {
     let indent_all = |str: String| -> String {
         str.lines()
-            .into_iter()
             .map(|l| indentation.to_string() + INDENT + l)
             .join("\n")
     };
