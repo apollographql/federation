@@ -1,4 +1,4 @@
-use graphql_parser::query::{FragmentDefinition, SelectionSet, VariableDefinition};
+use graphql_parser::query::{FragmentDefinition, SelectionSet};
 use indexmap::IndexSet;
 use std::collections::HashMap;
 use std::fmt;
@@ -25,7 +25,7 @@ pub struct QueryPlan<'a>(pub Option<PlanNode<'a>>);
 pub struct FetchNode<'a> {
     pub service_name: String,
     pub selection_set: SelectionSet<'a>,
-    pub variable_usages: Option<HashMap<String, VariableDefinition<'a>>>,
+    pub variable_usages: Vec<String>,
     pub requires: Option<SelectionSet<'a>>,
     pub internal_fragments: IndexSet<FragmentDefinition<'a>>,
     pub source: String,

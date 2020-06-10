@@ -307,7 +307,7 @@ fn fetch_node<'a>(
     PlanNode::Fetch(Box::new(FetchNode {
         service_name: service_name.to_string(),
         selection_set,
-        variable_usages: None,
+        variable_usages: vec![],
         requires,
         internal_fragments,
         source: "???".to_string(),
