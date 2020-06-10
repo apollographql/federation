@@ -1,7 +1,6 @@
 use crate::display;
 use graphql_parser::query::{FragmentDefinition, SelectionSet};
 use indexmap::IndexSet;
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
