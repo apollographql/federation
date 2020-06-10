@@ -1,6 +1,9 @@
 use std::{sync::Arc, collections::HashMap};
 use graphql_parser::{query::Operation, schema::{Document, Definition, parse_schema, ParseError, TypeDefinition, TypeExtension, Named, Field, EnumValue, InputValue}};
 
+mod node;
+pub use node::*;
+
 #[derive(Debug, PartialEq)]
 pub struct Point {
     kind: Kind,
