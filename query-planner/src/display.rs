@@ -7,9 +7,11 @@ static INDENT: &str = "  ";
 pub fn display(qp: &QueryPlan) -> String {
     let mut result: Vec<String> = Vec::new();
     result.push("QueryPlan {\n".to_string());
-    for n in qp.0.iter() {
-        append_nodes(vec![&n], INDENT, &mut result)
+
+    if let Some(root) = &(qp.0) {
+        append_nodes(vec![&root], INDENT, &mut result)
     }
+
     result.push("}".to_string());
     result.join("")
 }
