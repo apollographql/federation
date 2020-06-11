@@ -24,7 +24,7 @@ impl Command for Get {
         let client = Client::from(
             session.require_api_key()?,
             session.config.api_url.as_ref().unwrap().clone(),
-        );
+        )?;
         let variables = get_schema_query::Variables {
             graph_id: "acephei".into(),
             variant: Some("production".into()),

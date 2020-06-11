@@ -13,12 +13,17 @@ pub struct Client {
 }
 
 impl Client {
-    pub(crate) fn from(api_key: String, uri: String) -> Client {
-        Client {
+    pub(crate) fn from(api_key: String, uri: String) -> Fallible<Client> {
+        Ok(Client {
             api_key,
-            uri: uri.parse::<Uri>().unwrap(),
+            uri: uri
+                .parse::<Uri>()
+                .map_err(|e| ErrorDetails::CliConfigReadError {
+                    msg: format!("Invalid api url: {:?}", e),
+                    path: "api_url".to_string(),
+                })?,
             reqwest: blocking::Client::new(),
-        }
+        })
     }
 
     pub(crate) fn send<Q: GraphQLQuery>(
@@ -34,7 +39,7 @@ impl Client {
             .header("apollographql-client-name", "experimental-apollo-cli")
             .header(
                 "apollographql-client-version",
-                env::var("CARGO_PKG_VERSION").unwrap_or("testing".into()),
+                env::var("CARGO_PKG_VERSION").unwrap_or("dev".into()),
             )
             .header("x-api-key", &self.api_key)
             .json(&request_body)

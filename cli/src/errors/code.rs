@@ -29,7 +29,7 @@ pub enum ExitCode {
     /// The command or feature is not yet implemented.
     NotYetImplemented = 7,
 
-    /// The command or feature is not yet implemented.
+    /// No object found at given location
     NotFound = 8,
 }
 

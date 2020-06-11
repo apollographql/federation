@@ -55,7 +55,7 @@ mod unix {
             .arg("schema")
             .arg("get")
             .assert()
-            .code(predicate::ne(0));
+            .code(predicate::eq(3));
     }
 
     #[async_std::test]
@@ -74,6 +74,6 @@ mod unix {
             .arg("schema")
             .arg("get")
             .assert()
-            .code(predicate::ne(0));
+            .code(predicate::eq(8));
     }
 }

@@ -16,16 +16,3 @@ pub fn me_query(client: &Client) -> Result<Option<me_query::MeQueryMe>, Box<dyn 
 
     Ok(data.and_then(|data| data.me))
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    #[should_panic] // will not panic with a real API key.
-    #[ignore]
-    fn me_query() {
-        use super::*;
-        let client = Client::from("todo_get_api_key".to_owned(), "todo_get_api_uri".to_owned());
-        let me = me_query(&client).unwrap().unwrap();
-        println!("{:?}", me);
-    }
-}
