@@ -1,8 +1,10 @@
 use std::{sync::Arc, collections::HashMap};
 use graphql_parser::{query::Operation, schema::{Document, Definition, parse_schema, ParseError, TypeDefinition, TypeExtension, Named, Field, EnumValue, InputValue}};
 
-mod node;
-pub use node::*;
+mod id;
+pub use id::*;
+
+mod graph;
 
 #[derive(Debug, PartialEq)]
 pub struct Point {
@@ -102,7 +104,7 @@ where T: AsPoint + Named<'a>
             family.push(Arc::new(point));
         }
     }
-    edges    
+    edges
 }
 
 trait AsPoint {
