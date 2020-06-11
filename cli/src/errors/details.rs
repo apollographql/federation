@@ -59,7 +59,7 @@ Please ensure you have permissions to edit your environment variables."
     NoApiKeyError,
 
     #[error("Received invalid graphql response from Apollo Studio: {}", .msg)]
-    RegistryNetworkError { msg: String },
+    RegistryInvalidGraphQLError { msg: String },
 
     #[error("Received GraphQL Errors from Apollo Studio: {}", .msg)]
     GraphQLError { msg: String },
@@ -85,7 +85,7 @@ impl ErrorDetails {
             ErrorDetails::CliConfigReadError { .. } => ExitCode::ConfigurationError,
             ErrorDetails::CliConfigWriteError { .. } => ExitCode::ConfigurationError,
             ErrorDetails::NoApiKeyError { .. } => ExitCode::ConfigurationError,
-            ErrorDetails::RegistryNetworkError { .. } => ExitCode::NetworkError,
+            ErrorDetails::RegistryInvalidGraphQLError { .. } => ExitCode::NetworkError,
             ErrorDetails::GraphQLError { .. } => ExitCode::NetworkError,
             ErrorDetails::NotFoundError { .. } => ExitCode::NotFound,
         }

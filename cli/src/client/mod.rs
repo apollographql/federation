@@ -45,11 +45,11 @@ impl Client {
             .json(&request_body)
             .send()
             .map_err(|e| {
-                ApolloError::from(ErrorDetails::RegistryNetworkError { msg: e.to_string() })
+                ApolloError::from(ErrorDetails::RegistryInvalidGraphQLError { msg: e.to_string() })
             })?;
 
         let response_body: Response<Q::ResponseData> = res.json().map_err(|e| {
-            ApolloError::from(ErrorDetails::RegistryNetworkError { msg: e.to_string() })
+            ApolloError::from(ErrorDetails::RegistryInvalidGraphQLError { msg: e.to_string() })
         })?;
 
         match response_body.errors {
