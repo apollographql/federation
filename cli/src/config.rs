@@ -14,7 +14,7 @@ static PROD_GQL_API_URL: &str = "https://engine-graphql.apollographql.com/api/gr
 static POST_INSTALL_MESSAGE: &str = "
 Apollo collects anonymous usage analytics to help improve the Apollo CLI for all users.
 
-If you'd like to opt-out, set the APOLLO_TELEMETRY_DISABLE=true
+If you'd like to opt-out, set APOLLO_TELEMETRY_DISABLED=true
 To learn more, checkout https://apollo.dev/cli/telemetry\n";
 
 #[derive(Debug, Serialize, Deserialize)]
