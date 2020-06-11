@@ -839,9 +839,7 @@ Ok(
                                 ),
                                 default_value: Some(
                                     Float(
-                                        OrderedFloat(
-                                            12300.0,
-                                        ),
+                                        12300.0,
                                     ),
                                 ),
                                 directives: [],

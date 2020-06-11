@@ -184,7 +184,7 @@ impl<'a> Displayable for Value<'a> {
                 f.write(name.as_ref());
             }
             Value::Int(ref num) => f.write(&format!("{}", num)),
-            Value::Float(val) => f.write(&format!("{}", val.into_inner())),
+            Value::Float(val) => f.write(&format!("{}", val)),
             Value::String(ref val) => f.write_quoted(val),
             Value::Boolean(true) => f.write("true"),
             Value::Boolean(false) => f.write("false"),

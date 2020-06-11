@@ -18,9 +18,8 @@ edition = "2018"
 combine = "3.8.1"
 thiserror = "1.0.19"
 bytecount = "0.6.0"
-ordered-float = "1.0.2"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
 insta = "0.16.0"
-paste = "0.1.16"
+paste = "0.1.15"

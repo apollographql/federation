@@ -9,5 +9,3 @@ edition = "2018"
 
 [dependencies]
 graphql-parser = { path = "../graphql-parser" }
-indexmap = "1.4.0"
-itertools = "0.9.0"
