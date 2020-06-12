@@ -43,6 +43,9 @@ Please ensure you have permissions to edit your environment variables."
     #[error("Unable to fetch release")]
     ReleaseFetchError,
 
+    #[error("Invalid input {}", .msg)]
+    InputError { msg: String },
+
     #[error("Response must either be \"y\" for yes or \"n\" for no")]
     InputConfirmationError,
 
@@ -81,6 +84,7 @@ impl ErrorDetails {
             ErrorDetails::UnsupportedPlatformError { .. } => ExitCode::EnvironmentError,
             ErrorDetails::ReleaseFetchError => ExitCode::NetworkError,
             ErrorDetails::InputConfirmationError => ExitCode::InvalidArguments,
+            ErrorDetails::InputError { .. } => ExitCode::InvalidArguments,
             ErrorDetails::CliInstallError { .. } => ExitCode::FileSystemError,
             ErrorDetails::CliConfigReadError { .. } => ExitCode::ConfigurationError,
             ErrorDetails::CliConfigWriteError { .. } => ExitCode::ConfigurationError,

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::commands::schema::GraphQLDocument;
+use crate::commands::schema::{parse_schema_ref, GraphQLDocument, SchemaRef};
 use crate::commands::Command;
 use crate::errors::{ErrorDetails, ExitCode, Fallible};
 use crate::telemetry::Session;
@@ -8,7 +8,10 @@ use structopt::StructOpt;
 
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]
-pub struct Get {}
+pub struct Get {
+    /// schema reference to get
+    schema_ref: String,
+}
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -25,9 +28,20 @@ impl Command for Get {
             session.require_api_key()?,
             session.config.api_url.as_ref().unwrap().clone(),
         )?;
-        let variables = get_schema_query::Variables {
-            graph_id: "acephei".into(),
-            variant: Some("production".into()),
+
+        let schema_ref = parse_schema_ref(&self.schema_ref)?;
+
+        let variables = match schema_ref {
+            SchemaRef::SchemaVariantRef { graph_id, variant } => get_schema_query::Variables {
+                graph_id,
+                variant: Some(variant),
+                hash: None,
+            },
+            SchemaRef::SchemaHashRef { graph_id, hash } => get_schema_query::Variables {
+                graph_id,
+                variant: None,
+                hash: Some(hash),
+            },
         };
 
         let data: Option<get_schema_query::ResponseData> =
