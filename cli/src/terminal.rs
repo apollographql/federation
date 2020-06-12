@@ -1,4 +1,4 @@
-use crate::errors::{ApolloError, ErrorDetails, Fallible};
+use crate::errors::{ErrorDetails, Fallible};
 use atty::Stream;
 use console::Term;
 use log::debug;
@@ -50,6 +50,6 @@ pub fn confirm(msg: &str) -> Fallible<bool> {
     match response.as_ref() {
         YES => Ok(true),
         NO => Ok(false),
-        _ => Err(ApolloError::from(ErrorDetails::InputConfirmationError)),
+        _ => Err(ErrorDetails::InputConfirmationError.into()),
     }
 }

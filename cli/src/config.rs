@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fs;
 
-use crate::errors::{ApolloError, ErrorDetails, Fallible};
+use crate::errors::{ErrorDetails, Fallible};
 use config::Config;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -58,10 +58,11 @@ fn load(path: &PathBuf) -> Result<CliConfig, Box<dyn Error + 'static>> {
 impl CliConfig {
     pub fn save(path: &PathBuf, cli_config: &CliConfig) -> Fallible<()> {
         save(path, cli_config).map_err(|e| {
-            ApolloError::from(ErrorDetails::CliConfigWriteError {
+            ErrorDetails::CliConfigWriteError {
                 msg: e.to_string(),
                 path: path.to_str().unwrap().to_string(),
-            })
+            }
+            .into()
         })
     }
 
@@ -86,10 +87,11 @@ impl CliConfig {
 
     pub fn load(path: &PathBuf) -> Fallible<Self> {
         load(path).map_err(|e| {
-            ApolloError::from(ErrorDetails::CliConfigReadError {
+            ErrorDetails::CliConfigReadError {
                 msg: e.to_string(),
                 path: path.to_str().unwrap().to_string(),
-            })
+            }
+            .into()
         })
     }
 }
