@@ -3,8 +3,7 @@ use std::process::Command;
 use assert_cmd::prelude::*;
 use std::error::Error;
 use tempfile::{tempdir, TempDir};
-use wiremock::matchers::method;
-use wiremock::{Mock, MockServer, ResponseTemplate};
+use wiremock::{Match, Mock, MockServer, ResponseTemplate};
 
 // Run programs // Used for writing assertions // Add methods on commands
 
@@ -35,13 +34,14 @@ fn add_home(cmd: &mut Command) -> TempDir {
     dir
 }
 
-pub async fn add_mock_graphql(
+pub async fn add_mock_graphql<M: 'static + Match>(
     cli: &mut TestCommand,
     response: ResponseTemplate,
+    matcher: M,
 ) -> Result<&mut TestCommand, Box<dyn Error + 'static>> {
     let proxy = MockServer::start().await;
 
-    Mock::given(method("POST"))
+    Mock::given(matcher)
         .respond_with(response)
         .expect(1..)
         .mount(&proxy)
