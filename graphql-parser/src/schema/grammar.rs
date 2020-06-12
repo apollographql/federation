@@ -593,11 +593,9 @@ pub fn parse_schema(s: &str) -> Result<Document, ParseError> {
 
 #[cfg(test)]
 mod test {
-    use crate::position::Pos;
-    use crate::schema::grammar::*;
-
     use super::parse_schema;
     use super::{Definition, Document, SchemaDefinition};
+    use crate::position::Pos;
 
     fn ast(s: &str) -> Document {
         parse_schema(&s).unwrap().to_owned()
