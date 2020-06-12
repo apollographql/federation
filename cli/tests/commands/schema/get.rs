@@ -1,12 +1,21 @@
 use crate::utils::{add_mock_graphql, get_cli};
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
-use serde_json::{json, Value};
+use serde_json::Value;
+use std::str;
 use wiremock::matchers::method;
 use wiremock::{Request, ResponseTemplate};
-use std::str;
-use std::str::from_utf8;
-use json::object::Object;
+
+#[test]
+fn schem_ref_error() {
+    let mut cli = get_cli();
+    cli.command
+        .arg("schema")
+        .arg("get")
+        .arg("test")
+        .assert()
+        .code(6);
+}
 
 #[async_std::test]
 async fn gets_schema_by_hash() {
@@ -24,12 +33,14 @@ async fn gets_schema_by_hash() {
     );
 
     let matcher = move |request: &Request| {
-        let body: Value= serde_json::from_str(str::from_utf8(&request.body).unwrap())
-            .unwrap();
-        let variables= body.get("variables").unwrap();
+        let body: Value = serde_json::from_str(str::from_utf8(&request.body).unwrap()).unwrap();
+        let variables = body.get("variables").unwrap();
         assert!(variables.get("graphId").unwrap() == "test");
         assert!(variables.get("variant").unwrap().is_null());
-        assert!(variables.get("hash").unwrap() == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert!(
+            variables.get("hash").unwrap()
+                == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
         true
     };
 
@@ -59,9 +70,8 @@ async fn gets_schema() {
     );
 
     let matcher = move |request: &Request| {
-        let body: Value= serde_json::from_str(str::from_utf8(&request.body).unwrap())
-            .unwrap();
-        let variables= body.get("variables").unwrap();
+        let body: Value = serde_json::from_str(str::from_utf8(&request.body).unwrap()).unwrap();
+        let variables = body.get("variables").unwrap();
         assert!(variables.get("graphId").unwrap() == "test");
         assert!(variables.get("variant").unwrap() == "test");
         assert!(variables.get("hash").unwrap().is_null());
