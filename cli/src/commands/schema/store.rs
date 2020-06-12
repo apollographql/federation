@@ -8,7 +8,8 @@ use structopt::StructOpt;
 pub struct Store {}
 
 impl Command for Store {
-    fn run(&self, _session: &mut Session) -> Fallible<ExitCode> {
+    fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
+        session.log_command("schema store");
         Ok(ExitCode::NotYetImplemented)
     }
 }

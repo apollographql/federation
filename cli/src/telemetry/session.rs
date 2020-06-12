@@ -60,6 +60,7 @@ impl Session {
             None => Err(ErrorDetails::NoApiKeyError.into()),
         }
     }
+
     pub fn init() -> Fallible<Session> {
         let command = None;
         let session_id = Uuid::new_v4().to_string();

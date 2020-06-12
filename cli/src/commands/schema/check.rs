@@ -8,7 +8,8 @@ use structopt::StructOpt;
 pub struct Check {}
 
 impl Command for Check {
-    fn run(&self, _session: &mut Session) -> Fallible<ExitCode> {
+    fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
+        session.log_command("schema check");
         Ok(ExitCode::NotYetImplemented)
     }
 }

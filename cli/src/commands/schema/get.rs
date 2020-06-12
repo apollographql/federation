@@ -24,6 +24,8 @@ struct GetSchemaQuery;
 
 impl Command for Get {
     fn run(&self, session: &mut Session) -> Fallible<ExitCode> {
+        session.log_command("schema get");
+
         let client = Client::from(
             session.require_api_key()?,
             session.config.api_url.as_ref().unwrap().clone(),
