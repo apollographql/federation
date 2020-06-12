@@ -1,8 +1,0 @@
-# Provided as example. Remove at some point if not used.
-query MeQuery {
-    me {
-        __typename
-        id
-        name
-    }
-}

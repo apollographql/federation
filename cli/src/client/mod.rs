@@ -4,8 +4,6 @@ use http::Uri;
 use reqwest::blocking;
 use std::env;
 
-mod queries;
-
 pub struct Client {
     api_key: String,
     uri: Uri,
