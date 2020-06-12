@@ -22,24 +22,23 @@ async fn gets_schema_by_hash() {
     let mut cli = get_cli();
     let response = ResponseTemplate::new(200).set_body_bytes(
         r#"{
-                "data": {
-                    "service": {
-                        "schema": {
-                            "document": "__test__"
-                        }
+            "data": {
+                "service": {
+                    "schema": {
+                        "document": "__test__"
                     }
                 }
-            }"#,
+            }
+        }"#,
     );
 
     let matcher = move |request: &Request| {
         let body: Value = serde_json::from_str(str::from_utf8(&request.body).unwrap()).unwrap();
-        let variables = body.get("variables").unwrap();
-        assert!(variables.get("graphId").unwrap() == "test");
-        assert!(variables.get("variant").unwrap().is_null());
+        let variables = &body["variables"];
+        assert!(variables["graphId"] == "test");
+        assert!(variables["variant"].is_null());
         assert!(
-            variables.get("hash").unwrap()
-                == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            variables["hash"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         );
         true
     };
@@ -59,22 +58,22 @@ async fn gets_schema() {
     let mut cli = get_cli();
     let response = ResponseTemplate::new(200).set_body_bytes(
         r#"{
-                "data": {
-                    "service": {
-                        "schema": {
-                            "document": "__test__"
-                        }
+            "data": {
+                "service": {
+                    "schema": {
+                        "document": "__test__"
                     }
                 }
-            }"#,
+            }
+        }"#,
     );
 
     let matcher = move |request: &Request| {
         let body: Value = serde_json::from_str(str::from_utf8(&request.body).unwrap()).unwrap();
-        let variables = body.get("variables").unwrap();
-        assert!(variables.get("graphId").unwrap() == "test");
-        assert!(variables.get("variant").unwrap() == "test");
-        assert!(variables.get("hash").unwrap().is_null());
+        let variables = &body["variables"];
+        assert!(variables["graphId"] == "test");
+        assert!(variables["variant"] == "test");
+        assert!(variables["hash"].is_null());
         true
     };
 
@@ -109,12 +108,12 @@ async fn error_graphql_errors() {
     let mut cli = get_cli();
     let response = ResponseTemplate::new(200).set_body_bytes(
         r#"{
-                "errors": [
-                    {
-                        "__test__": 0
-                    }
-                ]
-            }"#,
+            "errors": [
+                {
+                    "__test__": 0
+                }
+            ]
+        }"#,
     );
     add_mock_graphql(&mut cli, response, method("POST"))
         .await
@@ -133,10 +132,10 @@ async fn error_schema_not_found() {
     let mut cli = get_cli();
     let response = ResponseTemplate::new(200).set_body_bytes(
         r#"{
-                "data": {
-                    "service": {}
-                }
-            }"#,
+            "data": {
+                "service": {}
+            }
+        }"#,
     );
     add_mock_graphql(&mut cli, response, method("POST"))
         .await
