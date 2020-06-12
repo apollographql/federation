@@ -18,20 +18,18 @@ enum SchemaRef {
 fn parse_schema_ref(src: &str) -> Fallible<SchemaRef> {
     let schema_variant_ref_regex =
         Regex::new("^([a-zA-Z][a-zA-Z0-9_-]{0,63})@([a-zA-Z0-9][/.a-zA-Z0-9_:-]{0,63})$").unwrap();
-    let schema_hash_ref_regex =
-        Regex::new("^([a-zA-Z][a-zA-Z0-9_-]{0,63})#([[:xdigit:]]{64})$").unwrap();
-    let variant_capture = schema_variant_ref_regex.captures(src);
-    if variant_capture.is_some() {
-        let cap = variant_capture.unwrap();
+
+    if let Some(cap) = schema_variant_ref_regex.captures(src) {
         return Ok(SchemaRef::SchemaVariantRef {
             graph_id: cap[1].to_string(),
             variant: cap[2].to_string(),
         });
     }
 
-    let hash_capture = schema_hash_ref_regex.captures(src);
-    if hash_capture.is_some() {
-        let cap = hash_capture.unwrap();
+    let schema_hash_ref_regex =
+        Regex::new("^([a-zA-Z][a-zA-Z0-9_-]{0,63})#([[:xdigit:]]{64})$").unwrap();
+
+    if let Some(cap) = schema_hash_ref_regex.captures(src) {
         return Ok(SchemaRef::SchemaHashRef {
             graph_id: cap[1].to_string(),
             hash: cap[2].to_string(),
