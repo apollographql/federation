@@ -37,7 +37,7 @@ fn parse_schema_ref(src: &str) -> Fallible<SchemaRef> {
     }
 
     Err(ErrorDetails::InputError {
-        msg: format!("Schemaref {} is not a valid schemaref", src),
+        msg: format!("{} is not a valid schema reference", src),
     }
     .into())
 }
