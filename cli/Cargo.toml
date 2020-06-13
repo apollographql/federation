@@ -51,6 +51,7 @@ assert_cmd = "1.0.1"
 predicates = "1.0.4"
 wiremock = "0.2.2"
 async-std = { version = "1.6.0", features = ["attributes"] }
+rand = "0.7.3"
 
 [features]
 vendored-openssl = ["openssl/vendored"]
