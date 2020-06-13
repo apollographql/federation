@@ -1,4 +1,5 @@
 mod utils;
+pub use utils::*; // this gets rid of a dead code warning.
 
 #[cfg(unix)]
 mod unix {

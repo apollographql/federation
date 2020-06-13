@@ -27,6 +27,7 @@ human-panic = "1.0.3"
 json = "0.12.4"
 log = { version = "0.4.8", features = ["std"] }
 openssl = { version = "0.10.29", optional = true }
+regex = "1.3.9"
 reqwest = { version = "0.10.6", features = ["blocking", "json"] }
 self_update = { version = "0.16.0", features = ["archive-tar", "compression-flate2"] }
 semver = "0.10.0"
@@ -50,6 +51,7 @@ assert_cmd = "1.0.1"
 predicates = "1.0.4"
 wiremock = "0.2.2"
 async-std = { version = "1.6.0", features = ["attributes"] }
+rand = "0.7.3"
 
 [features]
 vendored-openssl = ["openssl/vendored"]

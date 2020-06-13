@@ -1,18 +1,20 @@
 use std::error::Error;
 use std::fs;
 
-use crate::errors::{ApolloError, ErrorDetails, Fallible};
-use config::{Config, Environment};
+use crate::errors::{ErrorDetails, Fallible};
+use config::Config;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use std::path::PathBuf;
 
-const POST_INSTALL_MESSAGE: &str = "
+static PROD_GQL_API_URL: &str = "https://engine-graphql.apollographql.com/api/graphql";
+
+static POST_INSTALL_MESSAGE: &str = "
 Apollo collects anonymous usage analytics to help improve the Apollo CLI for all users.
 
-If you'd like to opt-out, set the APOLLO_TELEMETRY_DISABLE=true
+If you'd like to opt-out, set APOLLO_TELEMETRY_DISABLED=true
 To learn more, checkout https://apollo.dev/cli/telemetry\n";
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -21,6 +23,7 @@ pub struct CliConfig {
     // This can be used for a service api key, or a personal api key.
     // The CLI doesn't differentiate at the moment.
     pub api_key: Option<String>,
+    pub api_url: Option<String>,
 }
 
 fn save(path: &PathBuf, cli_config: &CliConfig) -> Result<(), Box<dyn Error + 'static>> {
@@ -38,9 +41,14 @@ fn load(path: &PathBuf) -> Result<CliConfig, Box<dyn Error + 'static>> {
         CliConfig::create(path)?;
     }
 
+    let mut s_defaults = Config::new();
+    s_defaults.set("api_url", PROD_GQL_API_URL)?;
+
+    s.merge(s_defaults)?;
+
     s.merge(config::File::with_name(path.to_str().unwrap()))?;
 
-    s.merge(Environment::with_prefix("APOLLO_").separator("__"))
+    s.merge(config::Environment::with_prefix("APOLLO_").separator("__"))
         .unwrap();
 
     debug!("Loading cli config from path {}...", path.to_str().unwrap());
@@ -50,10 +58,11 @@ fn load(path: &PathBuf) -> Result<CliConfig, Box<dyn Error + 'static>> {
 impl CliConfig {
     pub fn save(path: &PathBuf, cli_config: &CliConfig) -> Fallible<()> {
         save(path, cli_config).map_err(|e| {
-            ApolloError::from(ErrorDetails::CliConfigWriteError {
+            ErrorDetails::CliConfigWriteError {
                 msg: e.to_string(),
                 path: path.to_str().unwrap().to_string(),
-            })
+            }
+            .into()
         })
     }
 
@@ -61,6 +70,7 @@ impl CliConfig {
         let config = CliConfig {
             machine_id: Uuid::new_v4().to_string(),
             api_key: None,
+            api_url: None,
         };
 
         debug!(
@@ -77,10 +87,11 @@ impl CliConfig {
 
     pub fn load(path: &PathBuf) -> Fallible<Self> {
         load(path).map_err(|e| {
-            ApolloError::from(ErrorDetails::CliConfigReadError {
+            ErrorDetails::CliConfigReadError {
                 msg: e.to_string(),
                 path: path.to_str().unwrap().to_string(),
-            })
+            }
+            .into()
         })
     }
 }

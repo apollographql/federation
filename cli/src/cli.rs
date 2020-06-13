@@ -57,14 +57,16 @@ pub enum Subcommand {
     Update(commands::Update),
 
     #[structopt(name = "print", setting = AppSettings::Hidden)]
-    ///  🖨   parse and pretty print schemas to stdout
+    ///  🖨  parse and pretty print schemas to stdout
     Print(commands::Print),
     #[structopt(name = "setup", setting = AppSettings::Hidden)]
     ///  🚜  setup the Apollo toolchain in your environment
     Setup(commands::Setup),
     #[structopt(name = "auth")]
-    ///  🔐 Manage authentication
+    ///  🔐  Manage authentication
     Auth(commands::Auth),
+    ///  📜  Manage schemas from the registry
+    Schema(commands::Schema),
 }
 
 impl Subcommand {
@@ -75,6 +77,11 @@ impl Subcommand {
             Subcommand::Setup(setup) => setup.run(session),
             Subcommand::Auth(auth) => match auth {
                 commands::Auth::Setup(setup) => setup.run(session),
+            },
+            Subcommand::Schema(schema) => match schema {
+                commands::Schema::Get(get) => get.run(session),
+                commands::Schema::Check(check) => check.run(session),
+                commands::Schema::Store(store) => store.run(session),
             },
         }
     }

@@ -181,10 +181,9 @@ pub fn parse_query(s: &str) -> Result<Document, ParseError> {
 
 #[cfg(test)]
 mod test {
+    use super::{Definition, Document, Field, Selection, SelectionSet, Value};
     use crate::position::Pos;
     use crate::query::grammar::*;
-
-    use super::*;
 
     fn ast(s: &str) -> Document {
         parse_query(&s).unwrap().to_owned()
