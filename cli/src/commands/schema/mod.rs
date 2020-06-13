@@ -73,11 +73,11 @@ mod tests {
 
     #[test]
     fn parse_variant_ref() {
-        let output = parse_schema_ref("graphID@variant");
+        let output = parse_schema_ref("graphId@variant");
         assert_eq!(
             output.unwrap(),
             SchemaRef::SchemaVariantRef {
-                graph_id: "graphID".to_string(),
+                graph_id: "graphId".to_string(),
                 variant: "variant".to_string()
             }
         );
@@ -86,11 +86,11 @@ mod tests {
     #[test]
     fn parse_hash_ref() {
         let h = hash();
-        let output = parse_schema_ref(format!("graphID#{}", h).as_str());
+        let output = parse_schema_ref(format!("graphId#{}", h).as_str());
         assert_eq!(
             output.unwrap(),
             SchemaRef::SchemaHashRef {
-                graph_id: "graphID".to_string(),
+                graph_id: "graphId".to_string(),
                 hash: h
             }
         );
