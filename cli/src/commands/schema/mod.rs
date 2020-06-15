@@ -58,7 +58,6 @@ pub enum Schema {
 #[cfg(test)]
 mod tests {
     use super::{parse_schema_ref, SchemaRef};
-    use rand;
     use rand::seq::SliceRandom;
 
     fn hash() -> String {
