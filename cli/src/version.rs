@@ -1,3 +1,10 @@
+use crate::domain;
+use crate::errors::{ErrorDetails, Fallible};
+use crate::layout::apollo_home;
+
+use log::debug;
+use semver::Version;
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::env::consts::OS;
 use std::error::Error;
@@ -7,15 +14,6 @@ use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
 use std::time::SystemTime;
-
-use log::debug;
-
-use semver::Version;
-use serde::{Deserialize, Serialize};
-
-use crate::domain;
-use crate::errors::{ErrorDetails, ExitCode};
-use crate::layout::apollo_home;
 
 const ONE_DAY: u64 = 60 * 60 * 24;
 
@@ -79,7 +77,7 @@ fn get_version_disk(
     Ok(local_version)
 }
 
-pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
+pub(crate) fn get_latest_release() -> Fallible<Release> {
     let platform: Option<&str> = match OS {
         "macos" => Some("darwin"),
         "linux" | "windows" => Some(OS),
@@ -95,24 +93,24 @@ pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
         .head(&url)
         .header("User-Agent", "Apollo CLI")
         .send()
-        .map_err(|_err| ExitCode::NetworkError)
-        .unwrap();
+        .map_err(|_err| ErrorDetails::ReleaseFetchError)?;
 
     if !resp.status().is_success() {
         debug!("Request to load the latest release");
-        return Err(From::from(ErrorDetails::ReleaseFetchError));
+        return Err(ErrorDetails::ReleaseFetchError.into());
     }
 
     let headers = resp.headers().clone();
-    let content = headers
+
+    let content: &str = headers
         .get(reqwest::header::CONTENT_DISPOSITION)
-        .ok_or(ErrorDetails::ReleaseFetchError)?
+        .ok_or_else(|| ErrorDetails::ReleaseFetchError)?
         .to_str()
-        .unwrap();
+        .expect("content-disposition header contains non-visible characters");
 
     if !content.contains("filename") {
         debug!(
-            "No release found to install, content-distribution headers was {}",
+            "No release found to install, content-disposition headers was {}",
             content
         );
         return Err(From::from(ErrorDetails::ReleaseFetchError));
@@ -135,10 +133,11 @@ pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
         .split('-')
         .collect();
 
-    let latest_version = file_parts[0];
+    let latest_version =
+        Version::parse(file_parts[0]).map_err(|_| ErrorDetails::ReleaseFetchError)?;
 
     Ok(Release {
-        version: Version::parse(latest_version)?,
+        version: latest_version,
         archive_bin_name: archive_bin_name.to_string(),
         filename: filename.to_string(),
         url,
@@ -151,7 +150,7 @@ pub fn get_installed_version() -> Result<Version, Box<dyn Error + 'static>> {
     Ok(parsed_version)
 }
 
-pub fn needs_updating() -> Result<CLIVersionDiff, Box<dyn Error + 'static>> {
+fn needs_updating() -> Result<CLIVersionDiff, Box<dyn Error + 'static>> {
     let config_dir = apollo_home()?;
     let version_file = config_dir.join("version.toml");
     let current_time = SystemTime::now();
