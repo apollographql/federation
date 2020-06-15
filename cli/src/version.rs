@@ -189,7 +189,7 @@ pub fn needs_updating() -> Result<CLIVersionDiff, Box<dyn Error + 'static>> {
     })
 }
 
-pub fn background_check_for_updates() -> mpsc::Receiver<Version> {
+pub(crate) fn background_check_for_updates() -> mpsc::Receiver<Version> {
     debug!("Checking to see if there is a latest version");
     let (sender, receiver) = mpsc::channel();
 
