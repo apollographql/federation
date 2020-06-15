@@ -27,7 +27,7 @@ pub struct FetchNode {
     pub service_name: String,
     pub variable_usages: Vec<String>,
     pub requires: Option<SelectionSet>,
-    pub operation: String,
+    pub operation: GraphQLDocument,
 }
 
 #[derive(Debug, PartialEq)]
@@ -65,3 +65,4 @@ impl fmt::Display for ResponsePathElement {
 }
 
 pub type SelectionSet = Vec<Selection>;
+pub type GraphQLDocument = String;
