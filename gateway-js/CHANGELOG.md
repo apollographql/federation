@@ -6,6 +6,10 @@
 
 -  _Nothing yet! Stay tuned!_
 
+## v0.27.0
+
+- Fix query plans missing fields in some situations involving nested type conditions (#396).
+
 ## v0.26.3
 
 - Update `apollo-graphql` dependency which resolves a missing dependency (`sha.js`) within that package. [PR #699](https://github.com/apollographql/federation/pull/699)

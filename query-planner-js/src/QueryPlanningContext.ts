@@ -1,4 +1,5 @@
 import {
+  DirectiveNode,
   DocumentNode,
   FieldNode,
   FragmentDefinitionNode,
@@ -21,8 +22,13 @@ import {
   visit
 } from "graphql";
 import { FragmentMap } from "./buildQueryPlan";
-import { getFederationMetadataForField, getFederationMetadataForType, isEntityTypeMetadata } from "./composedSchema";
-import { FieldSet, Scope } from "./FieldSet";
+import {
+  getFederationMetadataForField,
+  getFederationMetadataForType,
+  isEntityTypeMetadata
+} from "./composedSchema";
+import { FieldSet } from "./FieldSet";
+import { Scope } from "./Scope";
 import { getFieldDef } from "./utilities/graphql";
 
 const typenameField = {
@@ -115,21 +121,6 @@ export class QueryPlanningContext {
     return usages;
   }
 
-  newScope<TParent extends GraphQLCompositeType>(
-    parentType: TParent,
-    enclosingScope?: Scope<GraphQLCompositeType>,
-  ): Scope<TParent> {
-    return {
-      parentType,
-      possibleTypes: enclosingScope
-        ? this.getPossibleTypes(parentType).filter(type =>
-            enclosingScope.possibleTypes.includes(type),
-          )
-        : this.getPossibleTypes(parentType),
-      enclosingScope,
-    };
-  }
-
   getBaseService(parentType: GraphQLObjectType): string | undefined {
     const type = getFederationMetadataForType(parentType);
     return (type && isEntityTypeMetadata(type)) ? type.graphName : undefined;
@@ -145,27 +136,20 @@ export class QueryPlanningContext {
     );
   }
 
-  getKeyFields({
-    parentType,
-    serviceName,
-    fetchAll = false,
-  }: {
-    parentType: GraphQLCompositeType;
-    serviceName: string;
-    fetchAll?: boolean;
-  }): FieldSet {
+  getKeyFields(
+    scope: Scope,
+    serviceName: string,
+    fetchAll: boolean = false,
+  ): FieldSet {
     const keyFields: FieldSet = [];
 
     keyFields.push({
-      scope: {
-        parentType,
-        possibleTypes: this.getPossibleTypes(parentType),
-      },
+      scope: scope,
       fieldNode: typenameField,
       fieldDef: TypeNameMetaFieldDef,
     });
 
-    for (const possibleType of this.getPossibleTypes(parentType)) {
+    for (const possibleType of scope.possibleRuntimeTypes()) {
       const type = getFederationMetadataForType(possibleType);
       const keys =
         type && isEntityTypeMetadata(type)
@@ -177,7 +161,7 @@ export class QueryPlanningContext {
       if (fetchAll) {
         keyFields.push(
           ...keys.flatMap(key =>
-            this.collectFields(this.newScope(possibleType), {
+            this.collectFields(scope.refine(possibleType), {
               kind: Kind.SELECTION_SET,
               selections: key,
             }),
@@ -185,7 +169,7 @@ export class QueryPlanningContext {
         );
       } else {
         keyFields.push(
-          ...this.collectFields(this.newScope(possibleType), {
+          ...this.collectFields(scope.refine(possibleType), {
             kind: Kind.SELECTION_SET,
             selections: keys[0],
           }),
@@ -197,18 +181,18 @@ export class QueryPlanningContext {
   }
 
   getRequiredFields(
-    parentType: GraphQLCompositeType,
+    scope: Scope,
     fieldDef: GraphQLField<any, any>,
     serviceName: string,
   ): FieldSet {
     const requiredFields: FieldSet = [];
 
-    requiredFields.push(...this.getKeyFields({ parentType, serviceName }));
+    requiredFields.push(...this.getKeyFields(scope, serviceName));
 
     const fieldFederationMetadata = getFederationMetadataForField(fieldDef);
     if (fieldFederationMetadata?.requires) {
       requiredFields.push(
-        ...this.collectFields(this.newScope(parentType), {
+        ...this.collectFields(scope, {
           kind: Kind.SELECTION_SET,
           selections: fieldFederationMetadata.requires,
         }),
@@ -227,18 +211,12 @@ export class QueryPlanningContext {
 
     const providedFields: FieldSet = [];
 
-    providedFields.push(
-      ...this.getKeyFields({
-        parentType: returnType,
-        serviceName,
-        fetchAll: true,
-      }),
-    );
+    providedFields.push(...this.getKeyFields(Scope.create(this, returnType), serviceName, true));
 
     const fieldFederationMetadata = getFederationMetadataForField(fieldDef);
     if (fieldFederationMetadata?.provides) {
       providedFields.push(
-        ...this.collectFields(this.newScope(returnType), {
+        ...this.collectFields(Scope.create(this, returnType), {
           kind: Kind.SELECTION_SET,
           selections: fieldFederationMetadata.provides,
         }),
@@ -249,16 +227,41 @@ export class QueryPlanningContext {
   }
 
   private getFragmentCondition(
-    scope: Scope<GraphQLCompositeType>,
+    parentType: GraphQLCompositeType,
     fragment: FragmentDefinitionNode | InlineFragmentNode,
   ): GraphQLCompositeType {
     const typeConditionNode = fragment.typeCondition;
-    if (!typeConditionNode) return scope.parentType;
+    if (!typeConditionNode) return parentType;
 
     return typeFromAST(
       this.schema,
       typeConditionNode,
     ) as GraphQLCompositeType;
+  }
+
+  /**
+   * Given a current scope and a new type condition (fragment spread or inline fragment), computes the scope
+   * inside that new condition.
+   *
+   * Note that it is possible the new condition makes the branch unreachable (meaning that no possible
+   * runtime types can implement/be part of the previous type condition (in the scope) and the new one).
+   * In that case this method returns undefined and the branch should be ignored.
+   *
+   * @param currentScope - the current when the provided fragment (inline or spread) is reached.
+   * @param fragment - the definition of a fragment being applied (a named or inline one).
+   * @param appliedDirectives - potential directives being applied to the type condition this is called for.
+   * @returns the new scope valid within the type condition provided as argument, or `undefined` if that
+   * scope is "unreachable" (the new type condition, added to the pre-existing ones in `currentScope` cannot
+   * match any runtime object).
+   */
+  private scopeForFragment(
+    currentScope: Scope,
+    fragment: FragmentDefinitionNode | InlineFragmentNode,
+    appliedDirectives?: ReadonlyArray<DirectiveNode>
+  ) : Scope | undefined {
+    const condition = this.getFragmentCondition(currentScope.parentType, fragment);
+    const newScope = currentScope.refine(condition, appliedDirectives);
+    return (newScope.possibleRuntimeTypes().length == 0) ? undefined : newScope;
   }
 
   /**
@@ -269,9 +272,10 @@ export class QueryPlanningContext {
    * @param scope - the scope of the provided selection set.
    * @param selectionSet - the selection set with fields to collect.
    * @param fields - the array to which the collected fields are added.
+   * @returns the collected fields.
    */
   collectFields(
-    scope: Scope<GraphQLCompositeType>,
+    scope: Scope,
     selectionSet: SelectionSetNode,
     fields: FieldSet = [],
     visitedFragmentNames: { [fragmentName: string]: boolean } = Object.create(null)
@@ -283,19 +287,10 @@ export class QueryPlanningContext {
           fields.push({ scope, fieldNode: selection, fieldDef });
           break;
         case Kind.INLINE_FRAGMENT: {
-          const newScope = this.newScope(this.getFragmentCondition(scope, selection), scope);
-          if (newScope.possibleTypes.length === 0) {
-            break;
+          const newScope = this.scopeForFragment(scope, selection, selection.directives);
+          if (newScope) {
+            this.collectFields(newScope, selection.selectionSet, fields, visitedFragmentNames);
           }
-
-          newScope.directives = selection.directives;
-
-          this.collectFields(
-            newScope,
-            selection.selectionSet,
-            fields,
-            visitedFragmentNames,
-          );
           break;
         }
         case Kind.FRAGMENT_SPREAD:
@@ -306,22 +301,15 @@ export class QueryPlanningContext {
             continue;
           }
 
-          const newScope = this.newScope(this.getFragmentCondition(scope, fragment), scope);
-          if (newScope.possibleTypes.length === 0) {
-            continue;
-          }
-
           if (visitedFragmentNames[fragmentName]) {
             continue;
           }
           visitedFragmentNames[fragmentName] = true;
 
-          this.collectFields(
-            newScope,
-            fragment.selectionSet,
-            fields,
-            visitedFragmentNames,
-          );
+          const newScope = this.scopeForFragment(scope, fragment, selection.directives);
+          if (newScope) {
+            this.collectFields(newScope, fragment.selectionSet, fields, visitedFragmentNames);
+          }
           break;
       }
     }

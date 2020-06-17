@@ -6,6 +6,10 @@
 
 -  _Nothing yet! Stay tuned!_
 
+# v0.1.3
+
+- Fix query plans missing fields in some situations involving nested type conditions (#396).
+
 # v0.1.2
 
 - This change is mostly a set of follow-up changes for PR #622. Most of these changes are internal (renaming, etc.). Some noteworthy changes worth mentioning are: the splitting of entity and value type metadata types and a conversion of GraphMap to an actual `Map` (which resulted in some additional assertions). [PR #656](https://github.com/apollographql/federation/pull/656)
