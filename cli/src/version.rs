@@ -93,9 +93,8 @@ pub(crate) fn get_latest_release(cdn_host: &str) -> Fallible<Release> {
         .map_err(|_err| ErrorDetails::ReleaseFetchError)?;
 
     if !resp.status().is_success() {
-        debug!("Request to load the latest release");
         debug!(
-            "response status is {}, response is {:?}",
+            "Request to load the latest release failed. status: {}, response: {:?}",
             resp.status(),
             resp
         );
