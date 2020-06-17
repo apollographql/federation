@@ -857,6 +857,104 @@ describe('buildQueryPlan', () => {
         }
       `);
     });
+
+    it(`should not get confused by a fragment spread multiple times`, () => {
+      const operationString = `#graphql
+        fragment Price on Product {
+          price
+        }
+
+        query {
+          topProducts {
+            __typename
+            ... on Book {
+              ...Price
+            }
+            ... on Furniture {
+              ...Price
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const queryPlan = buildQueryPlan(
+        buildOperationContext({
+          schema,
+          operationDocument,
+          operationString,
+          queryPlannerPointer,
+        })
+      );
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+                QueryPlan {
+                  Fetch(service: "product") {
+                    {
+                      topProducts {
+                        __typename
+                        ... on Book {
+                          price
+                        }
+                        ... on Furniture {
+                          price
+                        }
+                      }
+                    }
+                  },
+                }
+            `);
+    });
+
+    it(`should not get confused by a fragment spread multiple times`, () => {
+      const operationString = `#graphql
+        fragment Price on Product {
+          price
+        }
+
+        query {
+          topProducts {
+            __typename
+            ... on Book {
+              ...Price
+            }
+            ... on Furniture {
+              ...Price
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const queryPlan = buildQueryPlan(
+        buildOperationContext({
+          schema,
+          operationDocument,
+          operationString,
+          queryPlannerPointer,
+        })
+      );
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+                QueryPlan {
+                  Fetch(service: "product") {
+                    {
+                      topProducts {
+                        __typename
+                        ... on Book {
+                          price
+                        }
+                        ... on Furniture {
+                          price
+                        }
+                      }
+                    }
+                  },
+                }
+            `);
+    });
   });
 
   // GraphQLError: Cannot query field "isbn" on type "Book"
