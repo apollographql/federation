@@ -1,7 +1,6 @@
 use crate::utils::{add_mock_graphql, get_cli};
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
-use rand;
 use rand::seq::SliceRandom;
 use serde_json::Value;
 use std::str;

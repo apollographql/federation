@@ -598,7 +598,7 @@ mod test {
     use crate::position::Pos;
 
     fn ast(s: &str) -> Document {
-        parse_schema(&s).unwrap().to_owned()
+        parse_schema(&s).unwrap()
     }
 
     #[test]
@@ -609,7 +609,7 @@ mod test {
                 definitions: vec![Definition::Schema(SchemaDefinition {
                     position: Pos { line: 1, column: 1 },
                     directives: vec![],
-                    query: Some("Query".into()),
+                    query: Some("Query"),
                     mutation: None,
                     subscription: None
                 })],

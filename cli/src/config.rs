@@ -95,29 +95,3 @@ impl CliConfig {
         })
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use std::env::set_var;
-//     use tempfile::tempdir;
-
-//     use super::CliConfig;
-
-//     // environment variables are a shared resource on the thread so we combine these tests
-//     // together to prevent env clobbering
-//     #[test]
-//     fn creates_machine_id_or_reads_it() -> Result<(), Box<dyn std::error::Error>> {
-//         let dir = tempdir().unwrap();
-//         set_var("HOME", dir.path());
-//         dbg!(dir.path());
-//         // write new config to $HOME
-//         let config = CliConfig::load()?;
-//         assert_ne!(config.machine_id.is_empty(), true);
-//         dbg!(std::env::var("HOME").unwrap());
-//         // read config
-//         let config_two = CliConfig::load()?;
-//         assert_eq!(config.machine_id, config_two.machine_id);
-
-//         Ok(())
-//     }
-// }

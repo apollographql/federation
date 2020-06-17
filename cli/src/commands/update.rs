@@ -30,8 +30,8 @@ impl Command for Update {
             archive_bin_name,
             filename,
             url,
-        } = get_latest_release()
-            .map_err(|e| ErrorDetails::CliInstallError { msg: e.to_string() })?;
+        } = get_latest_release(&session.cdn_host)?;
+
         let current_version = get_installed_version()
             .map_err(|e| ErrorDetails::CliInstallError { msg: e.to_string() })?;
 

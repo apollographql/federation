@@ -38,7 +38,7 @@ impl Command for Setup {
         }
 
         debug!("Setting new key...");
-        session.config.api_key = Some(key.to_string());
+        session.config.api_key = Some(key);
 
         debug!("Saving new key...");
         CliConfig::save(&session.config_path, &session.config)?;

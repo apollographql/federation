@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::config::CliConfig;
-use crate::domain;
 use crate::errors::{ApolloError, ErrorDetails, Fallible};
 use crate::layout::apollo_config;
 use crate::version::get_installed_version;
@@ -50,6 +49,10 @@ pub struct Session {
 
     /// The current instantiation of CliConfig
     pub config_path: PathBuf,
+
+    /// The current host for the Apollo CDN, normally retreived from the APOLLO_CDN_URL
+    /// environment variable, and defaults to https://install.apollographql.com
+    pub cdn_host: String,
 }
 
 impl Session {
@@ -78,6 +81,9 @@ impl Session {
 
         let config = CliConfig::load(&config_path)?;
 
+        let cdn_host = env::var("APOLLO_CDN_URL")
+            .unwrap_or_else(|_| "https://install.apollographql.com".to_string());
+
         Ok(Session {
             command,
             session_id,
@@ -85,6 +91,7 @@ impl Session {
             release_version,
             config,
             config_path,
+            cdn_host,
         })
     }
 
@@ -98,7 +105,7 @@ impl Session {
             return Ok(false);
         }
 
-        let url = format!("{}/telemetry", domain());
+        let url = format!("{}/telemetry", &self.cdn_host);
         // TODO: FIXME:: https://github.com/apollographql/rust/pull/50#discussion_r434231100
         // Requiring effectively copy paste renaming for
         // data is a _high_ chance for bugs and no something
@@ -130,7 +137,10 @@ impl Session {
 
         debug!("Telemetry request done");
         match resp {
-            Ok(res) => Ok(res.status().is_success()),
+            Ok(res) => {
+                debug!("response status is {}, response is {:?}", res.status(), res);
+                Ok(res.status().is_success())
+            }
             Err(_e) => Ok(false),
         }
     }
@@ -140,18 +150,20 @@ impl Session {
 mod tests {
     use std::env::set_var;
 
-    use wiremock::matchers::{method, PathExactMatcher};
+    use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
     use super::Session;
 
     #[async_std::test]
     async fn reports_session() -> Result<(), Box<dyn std::error::Error>> {
+        let proxy = MockServer::start().await;
+
         // create a session
         let mut session = Session::init()?;
         session.log_command("test");
 
-        let proxy = MockServer::start().await;
+        session.cdn_host = proxy.uri();
 
         let payload_matcher = move |request: &Request| {
             let body: serde_json::Value =
@@ -163,14 +175,13 @@ mod tests {
         };
 
         Mock::given(method("POST"))
-            .and(PathExactMatcher::new("/telemetry"))
+            .and(path("/telemetry"))
             .and(payload_matcher)
             .respond_with(ResponseTemplate::new(200))
             .expect(1)
             .mount(&proxy)
             .await;
 
-        set_var("APOLLO_CDN_URL", &proxy.uri());
         assert_eq!(session.report()?, true);
 
         // the mock will panic if it this report is sent

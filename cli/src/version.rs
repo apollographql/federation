@@ -1,3 +1,9 @@
+use crate::errors::{ErrorDetails, Fallible};
+use crate::layout::apollo_home;
+
+use log::debug;
+use semver::Version;
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::env::consts::OS;
 use std::error::Error;
@@ -7,15 +13,6 @@ use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
 use std::time::SystemTime;
-
-use log::debug;
-
-use semver::Version;
-use serde::{Deserialize, Serialize};
-
-use crate::domain;
-use crate::errors::{ErrorDetails, ExitCode};
-use crate::layout::apollo_home;
 
 const ONE_DAY: u64 = 60 * 60 * 24;
 
@@ -79,40 +76,42 @@ fn get_version_disk(
     Ok(local_version)
 }
 
-pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
-    let platform: Option<&str> = match OS {
-        "macos" => Some("darwin"),
-        "linux" | "windows" => Some(OS),
-        _ => None,
-    };
+pub(crate) fn get_latest_release(cdn_host: &str) -> Fallible<Release> {
+    let platform: &str = match OS {
+        "macos" => Ok("darwin"),
+        "linux" | "windows" => Ok(OS),
+        _ => Err(ErrorDetails::UnsupportedPlatformError { os: OS.to_string() }),
+    }?;
 
-    let platform = platform.ok_or(ErrorDetails::UnsupportedPlatformError {
-        os: String::from(OS),
-    })?;
-    let url = format!("{}/cli/{}", domain(), platform);
+    let url = format!("{}/cli/{}", cdn_host, platform);
+
     debug!("Fetching latest version from {}", url);
     let resp = reqwest::blocking::Client::new()
         .head(&url)
         .header("User-Agent", "Apollo CLI")
         .send()
-        .map_err(|_err| ExitCode::NetworkError)
-        .unwrap();
+        .map_err(|_err| ErrorDetails::ReleaseFetchError)?;
 
     if !resp.status().is_success() {
-        debug!("Request to load the latest release");
-        return Err(From::from(ErrorDetails::ReleaseFetchError));
+        debug!(
+            "Request to load the latest release failed. status: {}, response: {:?}",
+            resp.status(),
+            resp
+        );
+        return Err(ErrorDetails::ReleaseFetchError.into());
     }
 
     let headers = resp.headers().clone();
-    let content = headers
+
+    let content: &str = headers
         .get(reqwest::header::CONTENT_DISPOSITION)
-        .ok_or(ErrorDetails::ReleaseFetchError)?
+        .ok_or_else(|| ErrorDetails::ReleaseFetchError)?
         .to_str()
-        .unwrap();
+        .expect("content-disposition header contains non-visible characters");
 
     if !content.contains("filename") {
         debug!(
-            "No release found to install, content-distribution headers was {}",
+            "No release found to install, content-disposition headers was {}",
             content
         );
         return Err(From::from(ErrorDetails::ReleaseFetchError));
@@ -135,10 +134,11 @@ pub fn get_latest_release() -> Result<Release, Box<dyn Error + 'static>> {
         .split('-')
         .collect();
 
-    let latest_version = file_parts[0];
+    let latest_version =
+        Version::parse(file_parts[0]).map_err(|_| ErrorDetails::ReleaseFetchError)?;
 
     Ok(Release {
-        version: Version::parse(latest_version)?,
+        version: latest_version,
         archive_bin_name: archive_bin_name.to_string(),
         filename: filename.to_string(),
         url,
@@ -151,7 +151,7 @@ pub fn get_installed_version() -> Result<Version, Box<dyn Error + 'static>> {
     Ok(parsed_version)
 }
 
-pub fn needs_updating() -> Result<CLIVersionDiff, Box<dyn Error + 'static>> {
+fn needs_updating(cdn_host: String) -> Result<CLIVersionDiff, Box<dyn Error + 'static>> {
     let config_dir = apollo_home()?;
     let version_file = config_dir.join("version.toml");
     let current_time = SystemTime::now();
@@ -170,7 +170,7 @@ pub fn needs_updating() -> Result<CLIVersionDiff, Box<dyn Error + 'static>> {
         }
         // If version.toml doesn't exist, fetch latest version and write to file
         None => {
-            let latest_version = get_latest_release()?;
+            let latest_version = get_latest_release(&cdn_host)?;
             let updated_file_contents = toml::to_string(&LastCheckedVersion {
                 latest_version: latest_version.version.to_string(),
                 last_checked: current_time,
@@ -189,23 +189,23 @@ pub fn needs_updating() -> Result<CLIVersionDiff, Box<dyn Error + 'static>> {
     })
 }
 
-pub(crate) fn background_check_for_updates() -> mpsc::Receiver<Version> {
+pub(crate) fn background_check_for_updates(cdn_host: &str) -> mpsc::Receiver<Version> {
     debug!("Checking to see if there is a latest version");
     let (sender, receiver) = mpsc::channel();
 
     // don't check for updates if APOLLO_UPDATE_CHECK_DISABLED is set
-    if env::var("APOLLO_UPDATE_CHECK_DISABLED").is_ok() {
-        return receiver;
+    if env::var("APOLLO_UPDATE_CHECK_DISABLED").is_err() {
+        let cloned_cdn_host = cdn_host.to_string();
+        let _detached_thread = thread::spawn(move || match needs_updating(cloned_cdn_host) {
+            Ok(versions) => {
+                if !versions.checked && (versions.latest > versions.current) {
+                    let _ = sender.send(versions.latest);
+                }
+            }
+            Err(e) => debug!("Failed to determined if new updated was needed:\n{}", e),
+        });
     }
 
-    let _detached_thread = thread::spawn(move || match needs_updating() {
-        Ok(versions) => {
-            if !versions.checked && (versions.latest > versions.current) {
-                let _ = sender.send(versions.latest);
-            }
-        }
-        Err(e) => debug!("Failed to determined if new updated was needed:\n{}", e),
-    });
     receiver
 }
 
@@ -228,7 +228,7 @@ mod tests {
     use std::error::Error;
 
     use tempfile::tempdir;
-    use wiremock::matchers::{method, PathExactMatcher};
+    use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::*;
@@ -238,14 +238,14 @@ mod tests {
         times: u64,
     ) -> Result<MockServer, Box<dyn Error + 'static>> {
         let proxy = MockServer::start().await;
-        let platform: Option<&str> = match OS {
-            "macos" => Some("darwin"),
-            "linux" | "windows" => Some(OS),
-            _ => None,
+        let platform = match OS {
+            "macos" => "darwin",
+            "linux" | "windows" => OS,
+            _ => panic!("unsupported OS {}", OS),
         };
 
         Mock::given(method("HEAD"))
-            .and(PathExactMatcher::new(format!("cli/{}", platform.unwrap())))
+            .and(path(format!("/cli/{}", platform)))
             .respond_with(response)
             .expect(times)
             .mount(&proxy)
@@ -269,9 +269,8 @@ mod tests {
             let response = ResponseTemplate::new(200)
                 .append_header("content-disposition", "filename=ap-v100.0.0-linux");
             let proxy = create_mock_proxy(response, 1).await.unwrap();
-            set_var("APOLLO_CDN_URL", &proxy.uri());
 
-            let receiver = background_check_for_updates();
+            let receiver = background_check_for_updates(&proxy.uri());
             let latest_version = receiver.recv().unwrap();
             assert_eq!(Version::parse("100.0.0").unwrap(), latest_version);
         }
@@ -283,9 +282,8 @@ mod tests {
                 .append_header("content-disposition", "filename=ap-v0.0.1-linux");
 
             let proxy = create_mock_proxy(response, 1).await.unwrap();
-            set_var("APOLLO_CDN_URL", &proxy.uri());
 
-            let receiver = background_check_for_updates();
+            let receiver = background_check_for_updates(&proxy.uri());
             assert_eq!(receiver.recv().is_err(), true);
         }
 
@@ -295,9 +293,8 @@ mod tests {
                 .append_header("content-disposition", "filename=ap-v0.0.1-linux");
 
             let proxy = create_mock_proxy(response, 0).await.unwrap();
-            set_var("APOLLO_CDN_URL", &proxy.uri());
 
-            let receiver = background_check_for_updates();
+            let receiver = background_check_for_updates(&proxy.uri());
             assert_eq!(receiver.recv().is_err(), true);
         }
 
@@ -307,10 +304,9 @@ mod tests {
                 .append_header("content-disposition", "filename=ap-v0.0.1-linux");
 
             let proxy = create_mock_proxy(response, 0).await.unwrap();
-            set_var("APOLLO_CDN_URL", &proxy.uri());
             set_var("APOLLO_UPDATE_CHECK_DISABLED", "1");
 
-            let receiver = background_check_for_updates();
+            let receiver = background_check_for_updates(&proxy.uri());
             assert_eq!(receiver.recv().is_err(), true);
         }
 

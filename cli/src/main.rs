@@ -61,7 +61,7 @@ fn main() {
 
     let latest_version_receiver = if should_check_for_updates {
         // Check for updates to the CLI in the background
-        Some(background_check_for_updates())
+        Some(background_check_for_updates(&session.cdn_host))
     } else {
         None
     };
@@ -73,7 +73,7 @@ fn main() {
     let _telemetry_reported = session.report().unwrap_or(false);
 
     // Check for updates to the CLI and print out a message if an update is ready
-    if let Some(Ok(latest_version)) = latest_version_receiver.map(|it| it.try_recv()) {
+    if let Some(Ok(latest_version)) = latest_version_receiver.map(|r| r.try_recv()) {
         ::log::info!(
             "\n > A new version of the Apollo CLI ({}) is available! To update, run `{} update`",
             style(latest_version).green().bold(),
@@ -116,8 +116,4 @@ fn setup_panic_hooks() {
                 .expect("human-panic: printing error message to console failed");
         }));
     }
-}
-
-pub fn domain() -> String {
-    env::var("APOLLO_CDN_URL").unwrap_or_else(|_| "https://install.apollographql.com".to_string())
 }
