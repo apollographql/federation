@@ -186,7 +186,7 @@ mod test {
     use crate::query::grammar::*;
 
     fn ast(s: &str) -> Document {
-        parse_query(&s).unwrap().to_owned()
+        parse_query(&s).unwrap()
     }
 
     #[test]
@@ -199,7 +199,7 @@ mod test {
                     items: vec![Selection::Field(Field {
                         position: Pos { line: 1, column: 3 },
                         alias: None,
-                        name: "a".into(),
+                        name: "a",
                         arguments: Vec::new(),
                         directives: Vec::new(),
                         selection_set: SelectionSet {
@@ -228,11 +228,11 @@ mod test {
                     items: vec![Selection::Field(Field {
                         position: Pos { line: 1, column: 3 },
                         alias: None,
-                        name: "a".into(),
+                        name: "a",
                         arguments: vec![
-                            ("t".into(), Value::Boolean(true)),
-                            ("f".into(), Value::Boolean(false)),
-                            ("n".into(), Value::Null),
+                            ("t", Value::Boolean(true)),
+                            ("f", Value::Boolean(false)),
+                            ("n", Value::Null),
                         ],
                         directives: Vec::new(),
                         selection_set: SelectionSet {

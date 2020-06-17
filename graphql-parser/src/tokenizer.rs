@@ -342,7 +342,7 @@ mod test {
                 Err(e) => panic!("Parse error at {}: {}", s.position(), e),
             }
         }
-        return r;
+        r
     }
     fn tok_typ(s: &str) -> Vec<Kind> {
         let mut r = Vec::new();
@@ -354,7 +354,7 @@ mod test {
                 Err(e) => panic!("Parse error at {}: {}", s.position(), e),
             }
         }
-        return r;
+        r
     }
 
     #[test]

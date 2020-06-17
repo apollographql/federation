@@ -76,8 +76,7 @@ fn get_version_disk(
     Ok(local_version)
 }
 
-// TODO(ran) FIXME: find new warnings
-pub(crate) fn get_latest_release(cdn_host: &String) -> Fallible<Release> {
+pub(crate) fn get_latest_release(cdn_host: &str) -> Fallible<Release> {
     let platform: &str = match OS {
         "macos" => Ok("darwin"),
         "linux" | "windows" => Ok(OS),

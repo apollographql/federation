@@ -37,7 +37,7 @@ impl Client {
             .header("apollographql-client-name", "experimental-apollo-cli")
             .header(
                 "apollographql-client-version",
-                env::var("CARGO_PKG_VERSION").unwrap_or("dev".into()),
+                env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "dev".into()),
             )
             .header("x-api-key", &self.api_key)
             .json(&request_body)
