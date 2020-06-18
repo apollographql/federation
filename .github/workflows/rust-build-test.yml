@@ -1,0 +1,94 @@
+name: PR and Push Builds
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check_format_and_lint:
+    name: Check formatting (rustfmt) and lint with Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Check Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+
+  build_and_test:
+    name: Build artifacts
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [linux, macos, windows]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-musl
+          - build: macos
+            os: macos-latest
+            rust: stable
+            target: x86_64-apple-darwin
+          - build: windows
+            os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Cache Cargo
+        uses: actions/cache@v1
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.build }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.build }}-cargo-${{ matrix.rust }}-
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+          profile: minimal
+          override: true
+
+      - name: Build and run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+        env:
+          RUST_LOG: warn,apollo-cli=info
+          RUST_BACKTRACE: 1
+
+#      - name: Run cargo-tarpaulin
+#        if: matrix.build == 'linux-stable'
+#        uses: actions-rs/tarpaulin@v0.1
+#        with:
+#          version: '0.9.0'
+#          timeout: 300
+#          args: '--ignore-tests'
+#
+#      - name: Upload to codecov.io
+#        if: matrix.build == 'linux-stable'
+#        uses: codecov/codecov-action@v1
+#        with:
+#          token: ${{secrets.CODECOV_TOKEN}}
