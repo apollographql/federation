@@ -1,0 +1,72 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: visit
+---
+Print {
+    output: [
+        Visit {
+            event: "enter_query",
+            name: None,
+        },
+        Visit {
+            event: "enter_query_def",
+            name: None,
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "node",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "id",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "id",
+            ),
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "node",
+            ),
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_query_def",
+            name: None,
+        },
+        Visit {
+            event: "leave_query",
+            name: None,
+        },
+    ],
+}

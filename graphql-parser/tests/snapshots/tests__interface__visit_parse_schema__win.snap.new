@@ -1,0 +1,16 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: visit
+---
+Print {
+    output: [
+        Visit {
+            event: "enter_schema",
+            name: None,
+        },
+        Visit {
+            event: "leave_schema",
+            name: None,
+        },
+    ],
+}

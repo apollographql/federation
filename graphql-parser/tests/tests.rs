@@ -8,6 +8,7 @@
 #![allow(non_snake_case)]
 
 mod helpers;
+use helpers::*;
 use insta::assert_debug_snapshot;
 use pretty_assertions::assert_eq;
 use graphql_parser::parse_query;
