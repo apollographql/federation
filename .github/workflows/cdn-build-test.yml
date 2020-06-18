@@ -2,6 +2,9 @@ name: CDN Build and Test
 
 on: [pull_request]
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
 
   test_worker:

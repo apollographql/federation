@@ -10,6 +10,7 @@ env:
   RELEASE_BIN: ap
   RELEASE_DIR: artifacts
   GITHUB_REF: "${{ github.ref }}"
+  CARGO_TERM_COLOR: always
   WINDOWS_TARGET: x86_64-pc-windows-msvc
   MACOS_TARGET: x86_64-apple-darwin
   LINUX_TARGET: x86_64-unknown-linux-musl
