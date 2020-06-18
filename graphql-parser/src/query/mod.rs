@@ -13,3 +13,9 @@ pub use self::grammar::{
 };
 pub use self::error::ParseError;
 pub use self::ast::*;
+
+mod visit;
+pub use self::visit::*;
+
+mod name;
+pub use self::name::*;
