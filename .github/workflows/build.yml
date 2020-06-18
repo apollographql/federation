@@ -67,6 +67,7 @@ jobs:
           rustup update ${{ matrix.rust }} --no-self-update
           rustup default ${{ matrix.rust }}
           rustup component add rustfmt
+          rustup component add clippy
 
       - name: Install musl-tools (Linux)
         if: matrix.build == 'linux'
@@ -78,20 +79,26 @@ jobs:
         if: matrix.build == 'macos'
         run: brew install p7zip
 
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Clippy check
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+
       - name: Build (Linux)
         if: matrix.build == 'linux'
         run: |
           rustup target add ${{ env.LINUX_TARGET }}
-          cd cli && cargo build --release --target ${{ env.LINUX_TARGET }} --features vendored-openssl
+          cargo build --release --target ${{ env.LINUX_TARGET }} --features vendored-openssl
       
       - name: Compress binaries (Linux)
         if: matrix.build == 'linux'
         uses: svenstaro/upx-action@v1-release
         with:
           file: target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }}
-
-      - name: Check formatting
-        run: cargo fmt -- --check
 
       - name: Build (MacOS)
         if: matrix.build == 'macos'
