@@ -7,6 +7,7 @@
 //! names, aliases, type conditions, and recurively sub [SelectionSet]s.
 
 use std::fmt;
+use std::thread::JoinHandle;
 
 #[derive(Debug, PartialEq)]
 pub struct QueryPlan(pub Option<PlanNode>);
