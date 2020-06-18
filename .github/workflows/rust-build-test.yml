@@ -1,4 +1,4 @@
-name: PR and Push Builds
+name: Rust Lint, Build and Test
 
 on: [push]
 
@@ -30,7 +30,7 @@ jobs:
           args: --all-features
 
   build_and_test:
-    name: Build artifacts
+    name: Build and Test
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
