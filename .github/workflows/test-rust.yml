@@ -1,6 +1,10 @@
 name: Tests
 
-on: [push] # temporary!! FIXME: Do not merge, restore to `pull_request`
+on:
+  push: # temporary!! FIXME: Do not merge, restore to `pull_request`
+    paths: # this is meant to mean any change except in `cdn`.
+      - '**'
+      - '!cdn/**'
 
 jobs:
   test:
@@ -9,12 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build:
-          [
-            linux-stable,
-            macos-stable,
-            windows-stable,
-          ]
+        build: [linux-stable, macos-stable, windows-stable]
         include:
           - build: linux
             os: ubuntu-latest

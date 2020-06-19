@@ -3,7 +3,7 @@ name: Test CDN and installer
 on:
   pull_request:
     paths:
-      - 'cdn/**/*'
+      - 'cdn/**'
 
 jobs:
   test_worker:
