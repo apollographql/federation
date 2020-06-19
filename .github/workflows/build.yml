@@ -78,7 +78,7 @@ jobs:
         if: matrix.rust
         with:
           path: ~/.cargo/registry
-          key: ${{ matrix.build }}-stable-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-stable-cargo-registry-${{ hashFiles('**/Cargo.*') }}
           restore-keys: |
             ${{ matrix.build }}-stable-cargo-registry-
 
@@ -87,7 +87,7 @@ jobs:
         if: matrix.rust
         with:
           path: ~/.cargo/git
-          key: ${{ matrix.build }}-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-stable-cargo-index-${{ hashFiles('**/Cargo.*') }}
           restore-keys: |
             ${{ matrix.build }}-stable-cargo-index-
 
@@ -96,7 +96,7 @@ jobs:
         if: matrix.rust
         with:
           path: target/release
-          key: ${{ matrix.build }}-stable-release-target-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-stable-release-target-${{ hashFiles('**/Cargo.*') }}
           restore-keys: |
             ${{ matrix.build }}-stable-release-target-
 
