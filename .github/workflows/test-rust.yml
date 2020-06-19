@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Test Rust Packages
+    name: Build Rust Packages
 
     runs-on: ${{ matrix.os }}
     strategy:
@@ -64,7 +64,7 @@ jobs:
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-debug-target-
 
-      - name: Build and run tests
+      - name: Build (cargo build)
         uses: actions-rs/cargo@v1
         with:
           command: build
@@ -127,7 +127,7 @@ jobs:
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-debug-target-
 
-      - name: Build and run tests
+      - name: Test (cargo test)
         uses: actions-rs/cargo@v1
         with:
           command: test
