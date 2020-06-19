@@ -125,7 +125,7 @@ impl Session {
         // keep the CLI waiting for 300 ms to send telemetry
         // if the request isn't sent in that time loose that report
         // to keep the experience fast for end users
-        let timeout = Duration::from_millis(300);
+        let timeout = Duration::from_millis(if self.platform.is_ci { 3000 } else { 300 });
         debug!("Sending telemetry to {}", &url);
         let resp = reqwest::blocking::Client::new()
             .post(&url)
@@ -166,9 +166,8 @@ mod tests {
 
         // create a session
         let mut session = Session::init()?;
-        session.log_command("test");
-
         session.cdn_host = proxy.uri();
+        session.log_command("test");
 
         let payload_matcher = move |request: &Request| {
             let body: serde_json::Value =
