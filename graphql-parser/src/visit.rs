@@ -15,14 +15,14 @@ pub trait Map {
     }
 }
 
-#[derive(Default)]
-pub struct Transform<M: Map> {
+#[derive(Debug)]
+pub struct Mapping<M: Map> {
     pub stack: Vec<Option<M::Output>>,
     pub map: M,
     pub output: Option<M::Output>,
 }
 
-impl<M: Map> Transform<M> {
+impl<M: Map> Mapping<M> {
     pub fn pop(&mut self) {
         self.output = self.stack.pop().unwrap();        
         if self.stack.is_empty() { return; }

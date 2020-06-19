@@ -1,5 +1,6 @@
 use super::{Definition, Document, Selection, SelectionSet};
 use crate::{visit, visit_each};
+use visit::Mapping;
 
 #[allow(unused_variables)]
 pub trait Visitor {
@@ -18,13 +19,10 @@ pub trait Map: visit::Map {
     fn query(&mut self, doc: &Document, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
     fn query_def(&mut self, def: &Definition, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
     fn sel_set(&mut self, sel_set: &SelectionSet, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
-    fn sel(&mut self, sel: &Selection, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
-    fn merge(&mut self, parent: Option<Self::Output>, child: &Option<Self::Output>) -> Option<Self::Output> {
-        parent
-    }
+    fn sel(&mut self, sel: &Selection, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }   
 }
 
-impl<M: Map> Visitor for visit::Transform<M> {
+impl<M: Map> Visitor for visit::Mapping<M> {
     fn enter_query(&mut self, doc: &Document) {
         self.stack.push(self.map.query(doc, &self.stack));
     }
@@ -53,6 +51,13 @@ impl<M: Map> Visitor for visit::Transform<M> {
 
 pub trait Node {
     fn accept<V: Visitor>(&self, visitor: &mut V);
+    fn map<M: Map>(&self, map: M) -> visit::Mapping<M> {
+        let mut mapping = Mapping {
+            stack: vec![], map, output: None
+        };
+        self.accept(&mut mapping);
+        mapping
+    }
 }
 
 impl<'a> Node for Document<'a> {
@@ -209,7 +214,7 @@ fn maps_a_query() -> Result<(), crate::query::ParseError> {
         }
     }
 
-    let tx = &mut visit::Transform {
+    let tx = &mut visit::Mapping {
         output: None,
         map: TestMap {},
         stack: vec![],

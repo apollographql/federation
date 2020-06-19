@@ -1,5 +1,5 @@
 use super::*;
-use crate::visit_each;
+use crate::{visit, visit_each};
 use crate::query;
 use crate::query::{Node as QueryNode};
 
@@ -16,8 +16,50 @@ pub trait Visitor: query::Visitor {
 }
 
 #[allow(unused_variables)]
+pub trait Map: query::Map {
+  fn schema<'a>(&mut self, doc: &Document<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
+  fn schema_def<'a>(&mut self, def: &Definition<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
+  fn field<'a>(&mut self, field: &Field<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
+  fn input_value<'a>(&mut self, input_value: &InputValue<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
+}
+
+impl<M: Map> Visitor for visit::Mapping<M> {
+    fn enter_schema<'a>(&mut self, doc: &Document<'a>) {
+      self.stack.push(self.map.schema(doc, &self.stack));
+    }
+    fn enter_schema_def<'a>(&mut self, def: &Definition<'a>) {
+      self.stack.push(self.map.schema_def(def, &self.stack));
+    }
+    fn enter_field<'a>(&mut self, field: &Field<'a>) {
+      self.stack.push(self.map.field(field, &self.stack));
+    }
+    fn enter_input_value<'a>(&mut self, input_value: &InputValue<'a>) {
+      self.stack.push(self.map.input_value(input_value, &self.stack));
+    }
+    fn leave_field<'a>(&mut self, _: &Field<'a>) {
+      self.pop();
+    }
+    fn leave_input_value<'a>(&mut self, _: &InputValue<'a>) {
+      self.pop();
+    }
+    fn leave_schema_def<'a>(&mut self, _: &Definition<'a>) {
+      self.pop();
+    }
+    fn leave_schema<'a>(&mut self, _: &Document<'a>) {
+      self.pop();
+    }
+}
+
+#[allow(unused_variables)]
 pub trait Node {
-  fn accept<V: Visitor>(&self, visitor: &mut V) {}
+  fn accept<V: Visitor>(&self, visitor: &mut V);
+  fn map<M: Map>(&self, map: M) -> visit::Mapping<M> {
+    let mut mapping = visit::Mapping {
+        stack: vec![], map, output: None
+    };
+    self.accept(&mut mapping);
+    mapping
+  }
 }
 
 impl<'a> Node for Document<'a> {
