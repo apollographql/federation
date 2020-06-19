@@ -1,4 +1,4 @@
-name: PR Builds
+name: Rust PR Builds
 
 on:
   pull_request:
