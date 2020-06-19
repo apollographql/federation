@@ -1,6 +1,6 @@
 ---
 source: graphql-parser/tests/tests.rs
-expression: "format!(\"{}\\n---\\n{:#?}\", & input, & parse_schema_result)"
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
 ---
 extend input InputType {
   other: Float = 1.23e4

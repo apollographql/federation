@@ -6,15 +6,15 @@ macro_rules! tests_for_parser {
             #[test] fn [<$name __ $parser __ unix>]() {
                 let input = $input.replace("\r\n", "\n");
                 let expected = $expected.replace("\r\n", "\n");
-                let [<$parser _ result>] = $parser(&input);
+                let result = $parser(&input);
                 assert_snapshot!(
                     stringify!([<$name __ $parser __ unix>]),
-                    format!("{}\n---\n{:#?}", &input, &[<$parser _ result>]));
-                if let Ok(ast) = [<$parser _ result>] {
+                    format!("{}\n---\n{:#?}", &$input, &result));
+                if let Ok(ast) = result {
                     assert_eq!(ast.to_string(), expected);
                     assert_snapshot!(
                         stringify!([<$name __ visit _ $parser __ win>]),
-                        format!("{}\n---\n{:#?}", &input, [<visit _ $parser>](&ast)));
+                        format!("{}\n---\n{:#?}", &$input, [<visit _ $parser>](&ast)));
                 }
             }
 
@@ -24,15 +24,15 @@ macro_rules! tests_for_parser {
                 let input = $input.replace("\r\n", "\n").replace("\n", "\r\n");
                 // always expect unix line endings as output
                 let expected = $expected.replace("\r\n", "\n");
-                let [<$parser _ result>] = $parser(&input);
+                let result = $parser(&input);
                 assert_snapshot!(
                     stringify!([<$name __ $parser __ win>]),
-                    format!("{}\n---\n{:#?}", &input, &[<$parser _ result>]));
-                if let Ok(ast) = [<$parser _ result>] {
+                    format!("{}\n---\n{:#?}", &$input, &result));
+                if let Ok(ast) = result {
                     assert_eq!(ast.to_string(), expected);
                     assert_snapshot!(
                         stringify!([<$name __ visit _ $parser __ win>]),
-                        format!("{}\n---\n{:#?}", &input, &[<visit _ $parser>](&ast)));                    
+                        format!("{}\n---\n{:#?}", &$input, &[<visit _ $parser>](&ast)));
                 }
             }
         }

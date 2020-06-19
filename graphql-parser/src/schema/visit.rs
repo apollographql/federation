@@ -26,7 +26,6 @@ impl<'a> Node for Document<'a> {
         visit_each!(visitor: self.definitions);
         visitor.leave_schema(self);
     }
-
 }
 
 impl<'a> Node for Definition<'a> {

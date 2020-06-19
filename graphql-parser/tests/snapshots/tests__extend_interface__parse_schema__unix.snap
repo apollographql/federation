@@ -1,6 +1,6 @@
 ---
 source: graphql-parser/tests/tests.rs
-expression: "format!(\"{}\\n---\\n{:#?}\", & input, & parse_schema_result)"
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
 ---
 extend interface Bar {
   two(argument: InputType!): Type

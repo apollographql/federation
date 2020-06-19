@@ -1,17 +1,56 @@
 use super::{Definition, Document, Selection, SelectionSet};
-use crate::visit_each;
+use crate::{visit, visit_each};
 
 #[allow(unused_variables)]
 pub trait Visitor {
-    fn enter_query<'a>(&mut self, doc: &Document<'a>) {}
-    fn leave_query<'a>(&mut self, doc: &Document<'a>) {}
-    fn enter_query_def<'a>(&mut self, def: &Definition<'a>) {}
-    fn leave_query_def<'a>(&mut self, def: &Definition<'a>) {}
-    fn enter_sel_set<'a>(&mut self, sel_set: &SelectionSet<'a>) {}
-    fn leave_sel_set<'a>(&mut self, sel_set: &SelectionSet<'a>) {}
-    fn enter_sel<'a>(&mut self, sel: &Selection<'a>) {}    
-    fn leave_sel<'a>(&mut self, sel: &Selection<'a>) {}
+    fn enter_query(&mut self, doc: &Document) {}
+    fn enter_query_def(&mut self, def: &Definition) {}
+    fn enter_sel_set(&mut self, sel_set: &SelectionSet) {}
+    fn enter_sel(&mut self, sel: &Selection) {}    
+    fn leave_sel(&mut self, sel: &Selection) {}
+    fn leave_sel_set(&mut self, sel_set: &SelectionSet) {}
+    fn leave_query_def(&mut self, def: &Definition) {}
+    fn leave_query(&mut self, doc: &Document) {}
 }
+
+#[allow(unused_variables)]
+pub trait Map: visit::Map {
+    fn query(&mut self, doc: &Document, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
+    fn query_def(&mut self, def: &Definition, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
+    fn sel_set(&mut self, sel_set: &SelectionSet, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
+    fn sel(&mut self, sel: &Selection, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
+    fn merge(&mut self, parent: Option<Self::Output>, child: &Option<Self::Output>) -> Option<Self::Output> {
+        parent
+    }
+}
+
+impl<M: Map> Visitor for visit::Transform<M> {
+    fn enter_query(&mut self, doc: &Document) {
+        self.stack.push(self.map.query(doc, &self.stack));
+    }
+    fn enter_query_def(&mut self, def: &Definition) {
+        self.stack.push(self.map.query_def(def, &self.stack));
+    }
+    fn enter_sel_set(&mut self, sel_set: &SelectionSet) {
+        self.stack.push(self.map.sel_set(sel_set, &self.stack));
+    }
+    fn enter_sel(&mut self, sel: &Selection) {
+        self.stack.push(self.map.sel(&sel, &self.stack));
+    }
+    fn leave_sel(&mut self, _sel: &Selection) {
+        self.pop();
+    }
+    fn leave_sel_set(&mut self, _sel_set: &SelectionSet) {
+        self.pop();
+    }
+    fn leave_query_def(&mut self, _def: &Definition) {
+        self.pop();
+    }
+    fn leave_query(&mut self, _doc: &Document) {
+        self.pop();
+    }
+}
+
 pub trait Node {
     fn accept<V: Visitor>(&self, visitor: &mut V);
 }
@@ -136,5 +175,53 @@ fn visits_a_query() -> Result<(), super::ParseError> {
         r#"leave_query (None)"#
     ]);
 
+    Ok(())
+}
+
+#[test]
+fn maps_a_query() -> Result<(), crate::query::ParseError> {
+    let query = crate::parse_query(r#"
+        query {
+            someField
+            another { ...withFragment @directive }
+        }
+    "#)?;
+    struct TestMap {}
+    impl visit::Map for TestMap {
+        type Output = String;
+        fn merge(&mut self, parent: Option<String>, child: &Option<String>) -> Option<String> {
+            let child_txt = if let Some(txt) = child { txt } else { "" };
+            Some(format!("{}\n{}", parent.unwrap_or("".into()), child_txt))
+        }
+    }
+    impl Map for TestMap {
+        fn query<'a>(&mut self, _: &Document<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> {
+            Some(format!("{}query", "  ".repeat(stack.len())))
+        }
+        fn query_def<'a>(&mut self, _: &Definition<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> {
+            Some(format!("{}query_def", "  ".repeat(stack.len())))
+        }
+        fn sel_set<'a>(&mut self, _: &SelectionSet<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> {
+            Some(format!("{}sel_set", "  ".repeat(stack.len())))
+        }
+        fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> {
+            Some(format!("{}sel", "  ".repeat(stack.len())))
+        }
+    }
+
+    let tx = &mut visit::Transform {
+        output: None,
+        map: TestMap {},
+        stack: vec![],
+    };
+    query.accept(tx);
+    pretty_assertions::assert_eq!(tx.output, Some(String::from(r#"query
+  query_def
+    sel_set
+      sel
+        sel_set
+      sel
+        sel_set
+          sel"#)));
     Ok(())
 }
