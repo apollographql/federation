@@ -52,6 +52,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+          profile: minimal
+          override: true
+
       - name: Cache Cargo
         uses: actions/cache@v1
         with:
@@ -59,24 +68,17 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ matrix.build }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-cargo-${{ steps.toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.build }}-cargo-${{ matrix.rust }}-
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          target: ${{ matrix.target }}
-          profile: minimal
-          override: true
+            ${{ matrix.build }}-cargo-${{ steps.toolchain.outputs.rustc_hash }}-
 
       - name: Build and run tests
         uses: actions-rs/cargo@v1
         with:
           command: test
+          args: "-v -- --nocapture"
         env:
-          RUST_LOG: warn,apollo-cli=info
+          RUST_LOG: debug,apollo-cli=debug
           RUST_BACKTRACE: 1
 
 #      - name: Run cargo-tarpaulin
