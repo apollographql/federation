@@ -32,30 +32,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Cache Cargo registry
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/registry
-          key: ${{ matrix.build }}-${{ matrix.rust }}-cargo-registry-${{ hashFiles('**/Cargo.*') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ matrix.rust }}-cargo-registry-
-
-      - name: Cache Cargo index
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/git
-          key: ${{ matrix.build }}-${{ matrix.rust }}-cargo-index-${{ hashFiles('**/Cargo.*') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ matrix.rust }}-cargo-index-
-
-      - name: Cache Cargo build
-        uses: actions/cache@v1
-        with:
-          path: target/debug
-          key: ${{ matrix.build }}-${{ matrix.rust }}-debug-target-${{ hashFiles('**/Cargo.*') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ matrix.rust }}-debug-target-
-
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         id: toolchain
@@ -64,6 +40,30 @@ jobs:
           target: ${{ matrix.target }}
           profile: minimal
           override: true
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-${{ hashFiles('**/Cargo.*') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-
+
+      - name: Cache Cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-${{ hashFiles('**/Cargo.*') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v1
+        with:
+          path: target/debug
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-debug-target-${{ hashFiles('**/Cargo.*') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-debug-target-
 
       - name: Run Tests
 #        if: matrix.build != 'linux-stable'
