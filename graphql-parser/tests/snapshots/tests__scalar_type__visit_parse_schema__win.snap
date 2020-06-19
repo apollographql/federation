@@ -1,0 +1,32 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, visit_parse_schema(& ast))"
+---
+"This is the best scalar type"
+scalar BestType @perfectness(value: 100500)
+
+---
+Print {
+    output: [
+        Visit {
+            event: "enter_schema",
+            name: None,
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "BestType",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "BestType",
+            ),
+        },
+        Visit {
+            event: "leave_schema",
+            name: None,
+        },
+    ],
+}

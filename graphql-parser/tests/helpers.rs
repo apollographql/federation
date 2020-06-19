@@ -6,17 +6,15 @@ macro_rules! tests_for_parser {
             #[test] fn [<$name __ $parser __ unix>]() {
                 let input = $input.replace("\r\n", "\n");
                 let expected = $expected.replace("\r\n", "\n");
-                let result = $parser(&input);
-                assert_debug_snapshot!(
+                let [<$parser _ result>] = $parser(&input);
+                assert_snapshot!(
                     stringify!([<$name __ $parser __ unix>]),
-                    result);
-                if let Ok(ast) = result {
+                    format!("{}\n---\n{:#?}", &input, &[<$parser _ result>]));
+                if let Ok(ast) = [<$parser _ result>] {
                     assert_eq!(ast.to_string(), expected);
-                    let visit = [<visit _ $parser>](&ast);
-                    assert_debug_snapshot!(
+                    assert_snapshot!(
                         stringify!([<$name __ visit _ $parser __ win>]),
-                        visit
-                    )
+                        format!("{}\n---\n{:#?}", &input, [<visit _ $parser>](&ast)));
                 }
             }
 
@@ -26,17 +24,15 @@ macro_rules! tests_for_parser {
                 let input = $input.replace("\r\n", "\n").replace("\n", "\r\n");
                 // always expect unix line endings as output
                 let expected = $expected.replace("\r\n", "\n");
-                let result = $parser(&input);
-                assert_debug_snapshot!(
+                let [<$parser _ result>] = $parser(&input);
+                assert_snapshot!(
                     stringify!([<$name __ $parser __ win>]),
-                    result);
-                if let Ok(ast) = result {
+                    format!("{}\n---\n{:#?}", &input, &[<$parser _ result>]));
+                if let Ok(ast) = [<$parser _ result>] {
                     assert_eq!(ast.to_string(), expected);
-                    let visit = [<visit _ $parser>](&ast);
-                    assert_debug_snapshot!(
+                    assert_snapshot!(
                         stringify!([<$name __ visit _ $parser __ win>]),
-                        visit
-                    )
+                        format!("{}\n---\n{:#?}", &input, &[<visit _ $parser>](&ast)));                    
                 }
             }
         }

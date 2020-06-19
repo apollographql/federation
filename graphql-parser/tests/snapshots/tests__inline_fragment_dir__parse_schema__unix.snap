@@ -1,6 +1,16 @@
 ---
 source: graphql-parser/tests/tests.rs
-expression: result
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & parse_schema_result)"
+---
+query {
+  node {
+    id
+    ... on User @defer {
+      name
+    }
+  }
+}
+
 ---
 Ok(
     Document {

@@ -1,6 +1,11 @@
 ---
 source: graphql-parser/tests/tests.rs
-expression: result
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & parse_schema_result)"
+---
+querry MyQuery {
+  field1
+}
+
 ---
 Err(
     ParseError(

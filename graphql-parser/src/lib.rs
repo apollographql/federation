@@ -100,6 +100,8 @@ mod format;
 mod position;
 mod tokenizer;
 mod helpers;
+mod visit;
+
 pub mod query;
 pub mod schema;
 

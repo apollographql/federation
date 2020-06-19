@@ -1,59 +1,52 @@
 use super::{Definition, Document, Selection, SelectionSet};
+use crate::visit_each;
+
 #[allow(unused_variables)]
-trait QueryVisitor {
-    fn enter_doc<'a>(&mut self, doc: &Document<'a>) {}
-    fn leave_doc<'a>(&mut self, doc: &Document<'a>) {}
-    fn enter_def<'a>(&mut self, def: &Definition<'a>) {}
-    fn leave_def<'a>(&mut self, def: &Definition<'a>) {}
+pub trait Visitor {
+    fn enter_query<'a>(&mut self, doc: &Document<'a>) {}
+    fn leave_query<'a>(&mut self, doc: &Document<'a>) {}
+    fn enter_query_def<'a>(&mut self, def: &Definition<'a>) {}
+    fn leave_query_def<'a>(&mut self, def: &Definition<'a>) {}
     fn enter_sel_set<'a>(&mut self, sel_set: &SelectionSet<'a>) {}
     fn leave_sel_set<'a>(&mut self, sel_set: &SelectionSet<'a>) {}
     fn enter_sel<'a>(&mut self, sel: &Selection<'a>) {}    
     fn leave_sel<'a>(&mut self, sel: &Selection<'a>) {}
 }
-
-trait QueryNode {
-    fn accept<V: QueryVisitor>(&self, visitor: &mut V);
+pub trait Node {
+    fn accept<V: Visitor>(&self, visitor: &mut V);
 }
 
-macro_rules! visit {
-    ($visitor:ident : $vec:expr) => (
-        for item in $vec.iter() {
-            item.accept($visitor);
-        }
-    )
-}
-
-impl<'a> QueryNode for Document<'a> {
-    fn accept<V: QueryVisitor>(&self, visitor: &mut V) {
-        visitor.enter_doc(self);
-        visit!(visitor: self.definitions);
-        visitor.leave_doc(self);
+impl<'a> Node for Document<'a> {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.enter_query(self);
+        visit_each!(visitor: self.definitions);
+        visitor.leave_query(self);
     }
 }
 
-impl<'a> QueryNode for Definition<'a> {
-    fn accept<V: QueryVisitor>(&self, visitor: &mut V) {
-        visitor.enter_def(self);
+impl<'a> Node for Definition<'a> {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.enter_query_def(self);
         use Definition::*;
         match self {
             SelectionSet(sel_set) => sel_set.accept(visitor),
             Operation(op) => op.selection_set.accept(visitor),
             Fragment(frag) => frag.selection_set.accept(visitor),
         }
-        visitor.leave_def(self);
+        visitor.leave_query_def(self);
     }
 }
 
-impl<'a> QueryNode for SelectionSet<'a> {
-    fn accept<V: QueryVisitor>(&self, visitor: &mut V) {
+impl<'a> Node for SelectionSet<'a> {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.enter_sel_set(self);
-        visit!(visitor: self.items);
+        visit_each!(visitor: self.items);
         visitor.leave_sel_set(self);
     }
 }
 
-impl<'a> QueryNode for Selection<'a> {
-    fn accept<V: QueryVisitor>(&self, visitor: &mut V) {
+impl<'a> Node for Selection<'a> {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.enter_sel(self);
         use Selection::*;
         match self {
@@ -82,65 +75,66 @@ fn visits_a_query() -> Result<(), super::ParseError> {
     "###)?;
 
     struct Print {
-        output: String
+        output: Vec<String>
     };
 
     macro_rules! print {
         ($action:ident $Type:ident) => {
             fn $action<'a>(&mut self, node: &$Type<'a>) {
-                self.output.push_str(format!("\n        {} ({:?})", stringify!($action), node.name()).as_str());
+                self.output.push(format!("{} ({:?})", stringify!($action), node.name()));
             }
         }
     }
     
     use crate::Name;
-    impl QueryVisitor for Print {
-        print!(enter_doc Document);
-        print!(leave_doc Document);
-        print!(enter_def Definition);
-        print!(leave_def Definition);
+    impl Visitor for Print {
+        print!(enter_query Document);
+        print!(leave_query Document);
+        print!(enter_query_def Definition);
+        print!(leave_query_def Definition);
         print!(enter_sel_set SelectionSet);
         print!(leave_sel_set SelectionSet);
         print!(enter_sel Selection);
         print!(leave_sel Selection);
     }
 
-    let mut print = Print { output: String::from("") };
+    let mut print = Print { output: vec![] };
     query.accept(&mut print);
 
-    assert_eq!(print.output, r#"
-        enter_doc (None)
-        enter_def (Some("SomeQuery"))
-        enter_sel_set (None)
-        enter_sel (Some("fieldA"))
-        enter_sel_set (None)
-        leave_sel_set (None)
-        leave_sel (Some("fieldA"))
-        enter_sel (Some("fieldB"))
-        enter_sel_set (None)
-        enter_sel (Some("innerFieldOne"))
-        enter_sel_set (None)
-        leave_sel_set (None)
-        leave_sel (Some("innerFieldOne"))
-        enter_sel (Some("innerFieldTwo"))
-        enter_sel_set (None)
-        leave_sel_set (None)
-        leave_sel (Some("innerFieldTwo"))
-        enter_sel (Some("fragmentSpread"))
-        leave_sel (Some("fragmentSpread"))
-        enter_sel (Some("SomeType"))
-        enter_sel_set (None)
-        enter_sel (Some("someTypeField"))
-        enter_sel_set (None)
-        leave_sel_set (None)
-        leave_sel (Some("someTypeField"))
-        leave_sel_set (None)
-        leave_sel (Some("SomeType"))
-        leave_sel_set (None)
-        leave_sel (Some("fieldB"))
-        leave_sel_set (None)
-        leave_def (Some("SomeQuery"))
-        leave_doc (None)"#);
+    assert_eq!(print.output, vec![
+        r#"enter_query (None)"#,
+        r#"enter_query_def (Some("SomeQuery"))"#,
+        r#"enter_sel_set (None)"#,
+        r#"enter_sel (Some("fieldA"))"#,
+        r#"enter_sel_set (None)"#,
+        r#"leave_sel_set (None)"#,
+        r#"leave_sel (Some("fieldA"))"#,
+        r#"enter_sel (Some("fieldB"))"#,
+        r#"enter_sel_set (None)"#,
+        r#"enter_sel (Some("innerFieldOne"))"#,
+        r#"enter_sel_set (None)"#,
+        r#"leave_sel_set (None)"#,
+        r#"leave_sel (Some("innerFieldOne"))"#,
+        r#"enter_sel (Some("innerFieldTwo"))"#,
+        r#"enter_sel_set (None)"#,
+        r#"leave_sel_set (None)"#,
+        r#"leave_sel (Some("innerFieldTwo"))"#,
+        r#"enter_sel (Some("fragmentSpread"))"#,
+        r#"leave_sel (Some("fragmentSpread"))"#,
+        r#"enter_sel (Some("SomeType"))"#,
+        r#"enter_sel_set (None)"#,
+        r#"enter_sel (Some("someTypeField"))"#,
+        r#"enter_sel_set (None)"#,
+        r#"leave_sel_set (None)"#,
+        r#"leave_sel (Some("someTypeField"))"#,
+        r#"leave_sel_set (None)"#,
+        r#"leave_sel (Some("SomeType"))"#,
+        r#"leave_sel_set (None)"#,
+        r#"leave_sel (Some("fieldB"))"#,
+        r#"leave_sel_set (None)"#,
+        r#"leave_query_def (Some("SomeQuery"))"#,
+        r#"leave_query (None)"#
+    ]);
 
     Ok(())
 }

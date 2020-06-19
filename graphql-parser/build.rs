@@ -12,7 +12,7 @@ fn main() -> std::io::Result<()> {
 
 mod helpers;
 use helpers::*;
-use insta::assert_debug_snapshot;
+use insta::assert_snapshot;
 use pretty_assertions::assert_eq;
 use graphql_parser::parse_query;
 use graphql_parser::parse_schema;

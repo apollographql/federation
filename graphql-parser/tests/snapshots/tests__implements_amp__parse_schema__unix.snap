@@ -1,6 +1,10 @@
 ---
 source: graphql-parser/tests/tests.rs
-expression: result
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & parse_schema_result)"
+---
+type Type1 implements & IOne & ITwo
+type Type2 implements & IOne
+
 ---
 Ok(
     Document {

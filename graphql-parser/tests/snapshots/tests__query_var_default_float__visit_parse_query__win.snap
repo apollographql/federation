@@ -1,0 +1,61 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, visit_parse_query(& ast))"
+---
+query Foo($site: Float = 0.5) {
+  field
+}
+
+---
+Print {
+    output: [
+        Visit {
+            event: "enter_query",
+            name: None,
+        },
+        Visit {
+            event: "enter_query_def",
+            name: Some(
+                "Foo",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "field",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "field",
+            ),
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_query_def",
+            name: Some(
+                "Foo",
+            ),
+        },
+        Visit {
+            event: "leave_query",
+            name: None,
+        },
+    ],
+}

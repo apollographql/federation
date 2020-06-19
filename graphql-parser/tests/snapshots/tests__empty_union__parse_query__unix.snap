@@ -1,6 +1,9 @@
 ---
 source: graphql-parser/tests/tests.rs
-expression: result
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & parse_query_result)"
+---
+union UndefinedUnion
+
 ---
 Err(
     ParseError(
