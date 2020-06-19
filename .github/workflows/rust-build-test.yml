@@ -76,7 +76,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: "-v -- --nocapture"
+          args: "-- --nocapture"
         env:
           RUST_LOG: debug,apollo-cli=debug
           RUST_BACKTRACE: 1
