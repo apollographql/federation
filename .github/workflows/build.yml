@@ -6,13 +6,14 @@ on:
       - '**'
       - '!cdn/**'
 
+defaults:
+  run:
+    shell: bash
+
 env:
   SOURCE_BIN: apollo-cli
   RELEASE_BIN: ap
   GITHUB_REF: "${{ github.ref }}"
-  WINDOWS_TARGET: x86_64-pc-windows-msvc
-  MACOS_TARGET: x86_64-apple-darwin
-  LINUX_TARGET: x86_64-unknown-linux-musl
 
   # Space separated paths to include in the archive.
   RELEASE_ADDS: README.md
@@ -52,12 +53,18 @@ jobs:
           - build: linux
             os: ubuntu-latest
             rust: stable
+            target: x86_64-unknown-linux-musl
+            bin_extension: ''
           - build: macos
             os: macos-latest
             rust: stable
+            target: x86_64-apple-darwin
+            bin_extension: ''
           - build: windows
             os: windows-latest
             rust: stable
+            target: x86_64-pc-windows-msvc
+            bin_extension: '.exe'
 
     steps:
       - uses: actions/checkout@v2
@@ -115,10 +122,6 @@ jobs:
           command: build
           args: "--release"
 
-      - name: Build CLI (Linux)
-        if: matrix.build == 'linux'
-        run: cargo build --release -p apollo-cli --features vendored-openssl
-
       - name: Build workspace (Windows)
         if: matrix.build == 'windows'
         uses: actions-rs/cargo@v1
@@ -128,47 +131,25 @@ jobs:
         env:
           RUSTFLAGS: -Ctarget-feature=+crt-static
 
-      ### COMPRESS ###
-      - name: Compress binaries (Linux)
+      - name: Build CLI (Linux)
         if: matrix.build == 'linux'
-        uses: svenstaro/upx-action@v1-release
-        with:
-          file: target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }}
+        run: cargo build --release -p apollo-cli --features vendored-openssl
 
-      - name: Compress binaries (Windows)
-        if: matrix.build == 'windows'
+      ### COMPRESS ###
+      - name: Compress binaries
         uses: svenstaro/upx-action@v1-release
         with:
-          file: target/release/${{ env.SOURCE_BIN }}.exe
-
-      - name: Compress binaries (MacOS)
-        if: matrix.build == 'macos'
-        uses: svenstaro/upx-action@v1-release
-        with:
-          file: target/release/${{ env.SOURCE_BIN }}
+          file: target/${{ matrix.target }}/release/${{ env.SOURCE_BIN }}${{ matrix.bin_extension}}
 
       - name: Create artifact directory
         run: |
           mkdir dist
 
       ### CREATE DISTRIBUTION ###
-      - name: Create distribution (Linux)
+      - name: Create distribution
         if: matrix.build == 'linux'
         run: |
-          mv ./target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }} ./dist/${{ env.RELEASE_BIN }}
-          mv ${{ env.RELEASE_ADDS }} ./dist
-
-      - name: Create distribution (Windows)
-        if: matrix.build == 'windows'
-        shell: bash
-        run: |
-          mv ./target/release/${{ env.SOURCE_BIN }}.exe ./dist/${{ env.RELEASE_BIN }}.exe
-          mv ${{ env.RELEASE_ADDS }} ./dist
-
-      - name: Create distribution (MacOS)
-        if: matrix.build == 'macos'
-        run: |
-          mv ./target/release/${{ env.SOURCE_BIN }} ./dist/${{ env.RELEASE_BIN }}
+          mv ./target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }}${{ matrix.bin_extension}} ./dist/${{ env.RELEASE_BIN }}${{ matrix.bin_extension}}
           mv ${{ env.RELEASE_ADDS }} ./dist
 
       - name: Upload Zip
@@ -187,7 +168,6 @@ jobs:
       - uses: actions/download-artifact@v2-preview
 
       - name: Create sha output file
-        shell: bash
         run: |
           touch sha256.txt
           echo "$(sha256sum -b ./linux/${{ env.RELEASE_BIN }})" >> sha256.txt
