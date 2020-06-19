@@ -1,6 +1,6 @@
 name: Tests
 
-on: [pull_request]
+on: [push] # temporary!! FIXME: Do not merge, restore to `pull_request`
 
 jobs:
   test:
@@ -45,7 +45,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: ~/.cargo/registry
-          key: ${{ matrix.build }}-${{ matrix.rust }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-${{ matrix.rust }}-cargo-registry-${{ hashFiles('**/Cargo.*') }}
           restore-keys: |
             ${{ matrix.build }}-${{ matrix.rust }}-cargo-registry-
 
@@ -53,7 +53,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: ~/.cargo/git
-          key: ${{ matrix.build }}-${{ matrix.rust }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-${{ matrix.rust }}-cargo-index-${{ hashFiles('**/Cargo.*') }}
           restore-keys: |
             ${{ matrix.build }}-${{ matrix.rust }}-cargo-index-
 
@@ -61,7 +61,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: target/debug
-          key: ${{ matrix.build }}-${{ matrix.rust }}-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-${{ matrix.rust }}-debug-target-${{ hashFiles('**/Cargo.*') }}
           restore-keys: |
             ${{ matrix.build }}-${{ matrix.rust }}-debug-target-
 
