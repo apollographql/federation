@@ -5,6 +5,10 @@ on:
     tags:
       - "v*" # Run when tag matches v*, i.e. v1.0, v20.15.10
 
+defaults:
+  run:
+    shell: bash
+
 env:
   SOURCE_BIN: apollo-cli
   RELEASE_BIN: ap
@@ -72,7 +76,6 @@ jobs:
 
       - name: Query version number
         id: get_version
-        shell: bash
         run: |
           echo "using version tag ${GITHUB_REF:10}"
           echo ::set-output name=version::"${GITHUB_REF:10}"
@@ -141,7 +144,6 @@ jobs:
 
       - name: Create tarball (Windows)
         if: matrix.build == 'windows'
-        shell: bash
         run: |
           mv ./target/release/${{ env.SOURCE_BIN }}.exe ./dist/${{ env.RELEASE_BIN }}.exe
           mv ${{ env.RELEASE_ADDS }} ./dist
@@ -169,7 +171,6 @@ jobs:
 
       - name: Query version number
         id: get_version
-        shell: bash
         run: |
           echo "using version tag ${GITHUB_REF:10}"
           echo ::set-output name=version::"${GITHUB_REF:10}"
@@ -184,7 +185,6 @@ jobs:
       - uses: actions/download-artifact@v2-preview
 
       - name: Unzip all files
-        shell: bash
         run: |
           tar -xzvf ./linux/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }} ./linux-cli && rm -rf dist
           tar -xzvf ./windows/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }}.exe ./windows-cli.exe && rm -rf dist
@@ -192,7 +192,6 @@ jobs:
       
       - name: Get Shas of builds
         id: get_shas
-        shell: bash
         run: |
           echo ::set-output name=linux::"- __Linux__: $(sha256sum -b linux-cli | cut -d ' ' -f1)"
           echo ::set-output name=windows::"- __Windows__: $(sha256sum -b windows-cli.exe | cut -d ' ' -f1)"
