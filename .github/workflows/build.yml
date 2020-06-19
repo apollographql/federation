@@ -14,6 +14,30 @@ env:
   RELEASE_ADDS: Readme.md
 
 jobs:
+  check_format_and_lint:
+    continue-on-error: true # we want to show this check failure in GH but to not prevent building.
+    name: Check formatting (rustfmt) and lint with Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Check Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+
   build:
     name: Build artifacts
     runs-on: ${{ matrix.os }}
@@ -34,6 +58,17 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      ### INSTALL RUST ###
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+          profile: minimal
+          override: true
+
+      ### BUILD CACHE ###
       - name: Cache Cargo registry
         uses: actions/cache@v1
         if: matrix.rust
@@ -61,13 +96,7 @@ jobs:
           restore-keys: |
             ${{ matrix.build }}-stable-release-target-
 
-      - name: Install Rust
-        if: matrix.rust
-        run: |
-          rustup update ${{ matrix.rust }} --no-self-update
-          rustup default ${{ matrix.rust }}
-          rustup component add rustfmt
-
+      ### OS SPECIFIC ###
       - name: Install musl-tools (Linux)
         if: matrix.build == 'linux'
         run: |
@@ -78,30 +107,12 @@ jobs:
         if: matrix.build == 'macos'
         run: brew install p7zip
 
+      ### BUILD ###
       - name: Build (Linux)
         if: matrix.build == 'linux'
         run: |
           rustup target add ${{ env.LINUX_TARGET }}
           cd cli && cargo build --release --target ${{ env.LINUX_TARGET }} --features vendored-openssl
-      
-      - name: Compress binaries (Linux)
-        if: matrix.build == 'linux'
-        uses: svenstaro/upx-action@v1-release
-        with:
-          file: target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }}
-
-      - name: Check formatting
-        run: cargo fmt -- --check
-
-      - name: Build (MacOS)
-        if: matrix.build == 'macos'
-        run: cargo build --release
-      
-      - name: Compress binaries (MacOS)
-        if: matrix.build == 'macos'
-        uses: svenstaro/upx-action@v1-release
-        with:
-          file: target/release/${{ env.SOURCE_BIN }}
 
       - name: Build (Windows)
         if: matrix.build == 'windows'
@@ -109,16 +120,34 @@ jobs:
         env:
           RUSTFLAGS: -Ctarget-feature=+crt-static
 
+      - name: Build (MacOS)
+        if: matrix.build == 'macos'
+        run: cargo build --release
+      
+      ### COMPRESS ###
+      - name: Compress binaries (Linux)
+        if: matrix.build == 'linux'
+        uses: svenstaro/upx-action@v1-release
+        with:
+          file: target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }}
+
       - name: Compress binaries (Windows)
         if: matrix.build == 'windows'
         uses: svenstaro/upx-action@v1-release
         with:
           file: target/release/${{ env.SOURCE_BIN }}.exe
-      
+
+      - name: Compress binaries (MacOS)
+        if: matrix.build == 'macos'
+        uses: svenstaro/upx-action@v1-release
+        with:
+          file: target/release/${{ env.SOURCE_BIN }}
+
       - name: Create artifact directory
         run: |
           mkdir dist
                   
+      ### CREATE DISTRIBUTION ###
       - name: Create distribution (Linux)
         if: matrix.build == 'linux'
         run: |
