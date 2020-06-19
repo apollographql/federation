@@ -141,7 +141,10 @@ impl Session {
                 debug!("response status is {}, response is {:?}", res.status(), res);
                 Ok(res.status().is_success())
             }
-            Err(_e) => Ok(false),
+            Err(e) => {
+                debug!("telemetry request failed: {}", e);
+                Ok(false)
+            }
         }
     }
 }
