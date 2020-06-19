@@ -78,7 +78,7 @@ jobs:
           command: test
           args: "-- --nocapture"
         env:
-          RUST_LOG: debug,apollo-cli=debug
+          RUST_LOG: debug
           RUST_BACKTRACE: 1
 
 #      - name: Run cargo-tarpaulin

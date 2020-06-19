@@ -157,6 +157,8 @@ mod tests {
 
     #[async_std::test]
     async fn reports_session() -> Result<(), Box<dyn std::error::Error>> {
+        let _ = env_logger::builder().is_test(true).try_init();
+
         let proxy = MockServer::start().await;
 
         // create a session
