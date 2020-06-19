@@ -10,6 +10,7 @@ defaults:
     shell: bash
 
 env:
+  CARGO_TERM_COLOR: always
   SOURCE_BIN: apollo-cli
   RELEASE_BIN: ap
   RELEASE_DIR: artifacts

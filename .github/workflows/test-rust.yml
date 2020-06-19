@@ -6,6 +6,9 @@ on:
       - '**'
       - '!cdn/**'
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   build:
     name: Build
