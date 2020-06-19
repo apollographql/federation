@@ -11,6 +11,7 @@ defaults:
     shell: bash
 
 env:
+  CARGO_TERM_COLOR: always
   SOURCE_BIN: apollo-cli
   RELEASE_BIN: ap
   GITHUB_REF: "${{ github.ref }}"
