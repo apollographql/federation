@@ -112,21 +112,25 @@ jobs:
         run: brew install p7zip
 
       ### BUILD ###
-      - name: Build (Linux)
-        if: matrix.build == 'linux'
-        run: |
-          rustup target add ${{ env.LINUX_TARGET }}
-          cd cli && cargo build --release --target ${{ env.LINUX_TARGET }} --features vendored-openssl
+      - name: Build workspace (MacOS, Linux)
+        if: matrix.build != 'windows'
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: "--release"
 
-      - name: Build (Windows)
+      - name: Build CLI (Linux)
+        if: matrix.build == 'linux'
+        run: cargo build --release -p apollo-cli --features vendored-openssl
+
+      - name: Build workspace (Windows)
         if: matrix.build == 'windows'
-        run: cargo build --release
+        uses: actions-rs/cargo@v1
+          with:
+            command: build
+            args: "--release"
         env:
           RUSTFLAGS: -Ctarget-feature=+crt-static
-
-      - name: Build (MacOS)
-        if: matrix.build == 'macos'
-        run: cargo build --release
 
       ### COMPRESS ###
       - name: Compress binaries (Linux)
