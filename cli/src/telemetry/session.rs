@@ -18,7 +18,7 @@ pub struct Platform {
     /// the platform from which the command was run (i.e. linux, macOS, or windows)
     os: String,
 
-    /// if we think this command is being run in a CLI
+    /// if we think this command is being run in CI
     is_ci: bool,
 
     /// the name of the CI we think is being used
@@ -126,6 +126,7 @@ impl Session {
         // if the request isn't sent in that time loose that report
         // to keep the experience fast for end users
         let timeout = Duration::from_millis(300);
+
         debug!("Sending telemetry to {}", &url);
         let resp = reqwest::blocking::Client::new()
             .post(&url)
@@ -141,7 +142,10 @@ impl Session {
                 debug!("response status is {}, response is {:?}", res.status(), res);
                 Ok(res.status().is_success())
             }
-            Err(_e) => Ok(false),
+            Err(e) => {
+                debug!("telemetry request failed: {}", e);
+                Ok(false)
+            }
         }
     }
 }
@@ -157,17 +161,18 @@ mod tests {
 
     #[async_std::test]
     async fn reports_session() -> Result<(), Box<dyn std::error::Error>> {
+        let _ = env_logger::builder().is_test(true).try_init();
+
         let proxy = MockServer::start().await;
 
         // create a session
         let mut session = Session::init()?;
-        session.log_command("test");
-
         session.cdn_host = proxy.uri();
+        session.log_command("test");
 
         let payload_matcher = move |request: &Request| {
             let body: serde_json::Value =
-                serde_json::from_slice(&request.body).expect("Failed to serialise body");
+                serde_json::from_slice(&request.body).expect("Failed to serialize body");
             match body.get("command").unwrap() {
                 serde_json::Value::String(cmd) => cmd == "test",
                 _ => false,

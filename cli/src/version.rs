@@ -190,7 +190,7 @@ fn needs_updating(cdn_host: String) -> Result<CLIVersionDiff, Box<dyn Error + 's
 }
 
 pub(crate) fn background_check_for_updates(cdn_host: &str) -> mpsc::Receiver<Version> {
-    debug!("Checking to see if there is a latest version");
+    debug!("Checking to see if there is a newer version");
     let (sender, receiver) = mpsc::channel();
 
     // don't check for updates if APOLLO_UPDATE_CHECK_DISABLED is set
