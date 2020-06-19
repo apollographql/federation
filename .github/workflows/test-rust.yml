@@ -60,9 +60,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: target
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-debug-target-${{ hashFiles('**/Cargo.*') }}
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-${{ hashFiles('**/Cargo.*') }}
           restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-debug-target-
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-
 
       - name: Build (cargo build)
         uses: actions-rs/cargo@v1
@@ -123,9 +123,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: target
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-debug-target-${{ hashFiles('**/Cargo.*') }}
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-${{ hashFiles('**/Cargo.*') }}
           restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-debug-target-
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-
 
       - name: Test (cargo test)
         uses: actions-rs/cargo@v1
