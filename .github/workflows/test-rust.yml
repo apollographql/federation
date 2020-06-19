@@ -13,17 +13,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [linux-stable, macos-stable, windows-stable]
+        build: [linux, macos, windows]
         include:
-          - build: linux-stable
+          - build: linux
             os: ubuntu-latest
             rust: stable
             target: x86_64-unknown-linux-musl
-          - build: macos-stable
+          - build: macos
             os: macos-latest
             rust: stable
             target: x86_64-apple-darwin
-          - build: windows-stable
+          - build: windows
             os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
