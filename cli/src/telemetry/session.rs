@@ -125,17 +125,8 @@ impl Session {
         // keep the CLI waiting for 300 ms to send telemetry
         // if the request isn't sent in that time loose that report
         // to keep the experience fast for end users
-        debug!(
-            "GITHUB_ACTIONS = {}",
-            env::var("GITHUB_ACTIONS").unwrap_or("(not set)".to_string())
-        );
-        let timeout = if self.platform.is_ci {
-            debug!("setting timeout to 3000 millis");
-            Duration::from_millis(3000)
-        } else {
-            debug!("setting timeout to 300 millis");
-            Duration::from_millis(300)
-        };
+        let timeout = Duration::from_millis(300);
+
         debug!("Sending telemetry to {}", &url);
         let resp = reqwest::blocking::Client::new()
             .post(&url)

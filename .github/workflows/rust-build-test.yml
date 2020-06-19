@@ -75,8 +75,8 @@ jobs:
       - name: Build and run tests
         uses: actions-rs/cargo@v1
         with:
-          command: build
-#          args: "-- --nocapture"
+          command: test
+          args: "-- --nocapture"
         env:
           RUST_LOG: debug
           RUST_BACKTRACE: 1
