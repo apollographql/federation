@@ -172,7 +172,7 @@ mod tests {
 
         let payload_matcher = move |request: &Request| {
             let body: serde_json::Value =
-                serde_json::from_slice(&request.body).expect("Failed to serialise body");
+                serde_json::from_slice(&request.body).expect("Failed to serialize body");
             match body.get("command").unwrap() {
                 serde_json::Value::String(cmd) => cmd == "test",
                 _ => false,
