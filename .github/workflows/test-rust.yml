@@ -10,26 +10,19 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    name: Build
+
+  test-no-run:
+    name: Compile tests
 
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [linux, macos, windows]
+        build: [macos]
         include:
-          - build: linux
-            os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-musl
           - build: macos
             os: macos-latest
             rust: stable
             target: x86_64-apple-darwin
-          - build: windows
-            os: windows-latest
-            rust: stable
-            target: x86_64-pc-windows-msvc
 
     steps:
       - uses: actions/checkout@v2
@@ -67,32 +60,25 @@ jobs:
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-
 
-      - name: Build (cargo build)
+      - name: Compile tests
         uses: actions-rs/cargo@v1
         with:
-          command: build
+          command: test
+          args: "--no-run"
 
   test:
     name: Test
-    needs: build
+    needs: test-no-run
 
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [linux, macos, windows]
+        build: [macos]
         include:
-          - build: linux
-            os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-musl
           - build: macos
             os: macos-latest
             rust: stable
             target: x86_64-apple-darwin
-          - build: windows
-            os: windows-latest
-            rust: stable
-            target: x86_64-pc-windows-msvc
 
     steps:
       - uses: actions/checkout@v2
