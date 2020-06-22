@@ -237,7 +237,7 @@ The Apollo CLI is designed and built to be easily distributed across a number of
 
 Before you create a release there are a couple of steps that aren’t yet automated that we ask you to do:
 
-1. **Update the [Changelog](./Changelog.md):** The Changelog is used to create the notes of the GitHub release and, more importantly, it is an important tool to help maintainers and users alike understand how the project has changed over time. This project uses [Keep a Changelog](`https://keepachangelog.com/en/1.0.0/) to make a legible and helpful log
+1. **Update the [Changelog](./CHANGELOG.md):** The Changelog is used to create the notes of the GitHub release and, more importantly, it is an important tool to help maintainers and users alike understand how the project has changed over time. This project uses [Keep a Changelog](`https://keepachangelog.com/en/1.0.0/) to make a legible and helpful log
 2. **Bump the package versions**: The main [cargo](./cli/Cargo.toml] file should be bumped to a new version. The `npm` package (once added 😅) should also be bumped until it is automated as part of the release cycle.
 
 After you have done the above, it is time to cut a release!
