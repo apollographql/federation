@@ -52,6 +52,8 @@ predicates = "1.0.4"
 wiremock = "0.2.2"
 async-std = { version = "1.6.1", features = ["attributes"] }
 rand = "0.7.3"
+# TODO(#81): override the patch version of smol to avoid panic
+smol = "=0.1.12"
 
 [features]
 vendored-openssl = ["openssl/vendored"]
