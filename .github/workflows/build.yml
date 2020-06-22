@@ -86,7 +86,7 @@ jobs:
         if: matrix.rust
         with:
           path: ~/.cargo/registry
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-${{ hashFiles('**/Cargo.*') }}
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-
 
@@ -95,7 +95,7 @@ jobs:
         if: matrix.rust
         with:
           path: ~/.cargo/git
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-${{ hashFiles('**/Cargo.*') }}
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-
 
@@ -103,7 +103,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: target
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-${{ hashFiles('**/Cargo.*') }}
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-
 
