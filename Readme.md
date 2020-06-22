@@ -4,7 +4,8 @@
 
 > This is a new version of the Apollo CLI. If you are looking for the currently released and supported version, please go to the [docs page](https://www.apollographql.com/docs/devtools/cli/) or the [Apollo Tooling repository](https://github.com/apollographql/apollo-tooling). As this library matures, we will being pointing users to use the new CLI for certain features in a gradual roll out.
 
-![Tests](https://github.com/apollographql/rust/workflows/Tests/badge.svg) ![Security audit](https://github.com/apollographql/rust/workflows/Security%20audit/badge.svg)
+[![Tests](https://github.com/apollographql/rust/workflows/Tests/badge.svg)](https://github.com/apollographql/rust/actions?query=workflow%3ATests)
+[![Security audit](https://github.com/apollographql/rust/workflows/Security%20audit/badge.svg)](https://github.com/apollographql/rust/actions?query=workflow%3A%22Security+audit%22)
 
 `ap` is a command line interface designed for people who want to design, build, and manage a data graph. It is built to work seamless with the [Apollo Platform](https://www.apollographql.com/) and provide the core tooling for teams implementing a [principled data graph](https://principledgraphql.com/)
 
