@@ -75,7 +75,7 @@ All information for the CLI or using the Apollo Platform is available on our [do
 
 ## Contributing
 
-If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://www.apollographql.com/docs/community/code-of-conduct/) and then head on over to the [contributing guide](./Contributing.md) to learn how to work on this project. If you're just looking for how to add a command to the project, check out [this section](./Contributing.md#adding-a-new-command) of the contributing guide.
+If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://www.apollographql.com/docs/community/code-of-conduct/) and then head on over to the [contributing guide](./CONTRIBUTING.md) to learn how to work on this project. If you're just looking for how to add a command to the project, check out [this section](./CONTRIBUTING.md#adding-a-new-command) of the contributing guide.
 
 If you ever have any problems, questions, or ideas; the maintainers of this project are
 

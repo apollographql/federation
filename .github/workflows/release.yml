@@ -18,7 +18,7 @@ env:
   LINUX_BUILD_NAME: linux
 
   # Space separated paths to include in the archive.
-  RELEASE_ADDS: Readme.md
+  RELEASE_ADDS: README.md
 
 # in the future, it may be worth tyring out thining binaries if they start to get large
 # with https://github.com/marketplace/actions/strip-and-run-upx-on-executables
