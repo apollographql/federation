@@ -227,7 +227,7 @@ This project uses GitHub Actions to run a continuous integration and delivery pi
 - **Coverage**: This project runs a job to collect information on how much of the library has been tested using code coverage tools. This is a WIP but you may see a status check related to how you have improved (or lowered 😢) the amount covered. Don’t worry, it happens to all of us and we are here to help out!
 - **Build**: Each PR will build a set of binaries that can be installed and used like the full release. In fact, it uses most of the same process as our release setup! Currently this is limited to only people with write access to the repo but we are working on a way to make this easy for anyone to use.
 
-After you have opened your PR and all of the status checks are passing, please assign it to one of the maintainers (found in the bottom of [the readme](./Readme.md#contributing) who will review it and give feedback.
+After you have opened your PR and all of the status checks are passing, please assign it to one of the maintainers (found in the bottom of [the README](./README.md#contributing) who will review it and give feedback.
 
 ## Releasing the CLI
 
