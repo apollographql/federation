@@ -17,10 +17,10 @@ pub trait Visitor: query::Visitor {
 
 #[allow(unused_variables)]
 pub trait Map: query::Map {
-  fn schema<'a>(&mut self, doc: &Document<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
-  fn schema_def<'a>(&mut self, def: &Definition<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
-  fn field<'a>(&mut self, field: &Field<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
-  fn input_value<'a>(&mut self, input_value: &InputValue<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
+  fn schema<'a>(&mut self, doc: &Document<'a>, stack: &[Self::Output]) -> Self::Output;
+  fn schema_def<'a>(&mut self, def: &Definition<'a>, stack: &[Self::Output]) -> Self::Output;
+  fn field<'a>(&mut self, field: &Field<'a>, stack: &[Self::Output]) -> Self::Output;
+  fn input_value<'a>(&mut self, input_value: &InputValue<'a>, stack: &[Self::Output]) -> Self::Output;
 }
 
 impl<M: Map> Visitor for visit::Mapping<M> {

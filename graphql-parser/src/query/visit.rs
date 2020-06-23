@@ -16,10 +16,10 @@ pub trait Visitor {
 
 #[allow(unused_variables)]
 pub trait Map: visit::Map {
-    fn query(&mut self, doc: &Document, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
-    fn query_def(&mut self, def: &Definition, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
-    fn sel_set(&mut self, sel_set: &SelectionSet, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }
-    fn sel(&mut self, sel: &Selection, stack: &[Option<Self::Output>]) -> Option<Self::Output> { None }   
+    fn query(&mut self, doc: &Document, stack: &[Self::Output]) -> Self::Output;
+    fn query_def(&mut self, def: &Definition, stack: &[Self::Output]) -> Self::Output;
+    fn sel_set(&mut self, sel_set: &SelectionSet, stack: &[Self::Output]) -> Self::Output;
+    fn sel(&mut self, sel: &Selection, stack: &[Self::Output]) -> Self::Output;
 }
 
 impl<M: Map> Visitor for visit::Mapping<M> {
@@ -194,32 +194,26 @@ fn maps_a_query() -> Result<(), crate::query::ParseError> {
     struct TestMap {}
     impl visit::Map for TestMap {
         type Output = String;
-        fn merge(&mut self, parent: Option<String>, child: &Option<String>) -> Option<String> {
-            let child_txt = if let Some(txt) = child { txt } else { "" };
-            Some(format!("{}\n{}", parent.unwrap_or("".into()), child_txt))
+        fn merge(&mut self, parent: String, child: &String) -> String {
+            format!("{}\n{}", parent, child)
         }
     }
     impl Map for TestMap {
-        fn query<'a>(&mut self, _: &Document<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> {
-            Some(format!("{}query", "  ".repeat(stack.len())))
+        fn query<'a>(&mut self, _: &Document<'a>, stack: &[Self::Output]) -> Self::Output {
+            format!("{}query", "  ".repeat(stack.len()))
         }
-        fn query_def<'a>(&mut self, _: &Definition<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> {
-            Some(format!("{}query_def", "  ".repeat(stack.len())))
+        fn query_def<'a>(&mut self, _: &Definition<'a>, stack: &[Self::Output]) -> Self::Output {
+            format!("{}query_def", "  ".repeat(stack.len()))
         }
-        fn sel_set<'a>(&mut self, _: &SelectionSet<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> {
-            Some(format!("{}sel_set", "  ".repeat(stack.len())))
+        fn sel_set<'a>(&mut self, _: &SelectionSet<'a>, stack: &[Self::Output]) -> Self::Output {
+            format!("{}sel_set", "  ".repeat(stack.len()))
         }
-        fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Option<Self::Output>]) -> Option<Self::Output> {
-            Some(format!("{}sel", "  ".repeat(stack.len())))
+        fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Self::Output]) -> Self::Output {
+            format!("{}sel", "  ".repeat(stack.len()))
         }
     }
 
-    let tx = &mut visit::Mapping {
-        output: None,
-        map: TestMap {},
-        stack: vec![],
-    };
-    query.accept(tx);
+    let tx = query.map(TestMap{});
     pretty_assertions::assert_eq!(tx.output, Some(String::from(r#"query
   query_def
     sel_set
