@@ -10,6 +10,55 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  check_format_and_lint:
+    continue-on-error: true # we want to show this check failure in GH but to not prevent building.
+    name: Check formatting (rustfmt) and lint with Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          components: rustfmt, clippy
+
+      ### BUILD CACHE ###
+      - name: Cache Cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-
+
+      - name: Cache Cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            linux-${{ steps.toolchain.outputs.rustc_hash }}-target-
+
+      ### FORMATTING AND STYLE ###
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Check Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
 
   test-no-run:
     name: Compile tests
@@ -19,14 +68,23 @@ jobs:
       matrix:
         build: [macos]
         include:
+          - build: linux
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-musl
           - build: macos
             os: macos-latest
             rust: stable
             target: x86_64-apple-darwin
+          - build: windows
+            os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
 
     steps:
       - uses: actions/checkout@v2
 
+      ### INSTALL RUST ###
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         id: toolchain
@@ -36,6 +94,7 @@ jobs:
           profile: minimal
           override: true
 
+      ### BUILD CACHE ###
       - name: Cache Cargo registry
         uses: actions/cache@v1
         with:
@@ -60,6 +119,8 @@ jobs:
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-
 
+      ### COMPILE INCLUDING TESTS ###
+      # Note: we do this so that we'll cache the compile results/registry even if test might fail
       - name: Compile tests
         uses: actions-rs/cargo@v1
         with:
@@ -83,6 +144,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      ### INSTALL RUST ###
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         id: toolchain
@@ -92,6 +154,7 @@ jobs:
           profile: minimal
           override: true
 
+      ### BUILD CACHE ###
       - name: Cache Cargo registry
         uses: actions/cache@v1
         with:
@@ -116,6 +179,7 @@ jobs:
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-
 
+      ### RUN TESTS ###
       - name: Test (cargo test)
         uses: actions-rs/cargo@v1
         with:
