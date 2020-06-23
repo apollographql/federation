@@ -28,17 +28,14 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: stable
             target: x86_64-unknown-linux-musl
             bin_extension: ''
           - build: macos
             os: macos-latest
-            rust: stable
             target: x86_64-apple-darwin
             bin_extension: ''
           - build: windows
             os: windows-latest
-            rust: stable
             target: x86_64-pc-windows-msvc
             bin_extension: '.exe'
 
@@ -52,7 +49,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         id: toolchain
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           target: ${{ matrix.target }}
           profile: minimal
           override: true
@@ -60,7 +57,6 @@ jobs:
       ### BUILD CACHE ###
       - name: Cache Cargo registry, target, index
         uses: actions/cache@v2
-        if: matrix.rust
         with:
           path: |
             ~/.cargo/registry
