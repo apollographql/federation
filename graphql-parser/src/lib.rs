@@ -110,8 +110,6 @@ pub use crate::format::Style;
 pub use crate::position::Pos;
 pub use crate::query::parse_query;
 pub use crate::schema::parse_schema;
-pub use crate::position::Pos;
-pub use crate::format::Style;
 
 mod name;
 pub use crate::name::*;
