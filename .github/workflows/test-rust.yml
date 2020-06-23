@@ -85,6 +85,7 @@ jobs:
       ### BUILD CACHE ###
       - name: Cache Cargo registry, target, index
         uses: actions/cache@v2
+        id: cache-cargo
         if: matrix.rust
         with:
           path: |
@@ -97,7 +98,9 @@ jobs:
 
       ### COMPILE INCLUDING TESTS ###
       # Note: we do this so that we'll cache the compile results/registry even if test might fail
+      # We don't need to do it if there was a cache hit.
       - name: Compile tests
+        if: steps.cache-cargo.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1
         with:
           command: test
