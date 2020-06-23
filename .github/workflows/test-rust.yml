@@ -1,7 +1,7 @@
-name: Build and Test Rust
+name: Lint, Build and Test Rust
 
 on:
-  push: # temporary!! FIXME: Do not merge, restore to `pull_request`
+  pull_request:
     paths: # this is meant to mean any change except in `cdn`.
       - '**'
       - '!cdn/**'
