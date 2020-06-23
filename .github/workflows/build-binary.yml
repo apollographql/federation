@@ -78,34 +78,28 @@ jobs:
           sudo apt-get install musl-tools -y
 
       ### BUILD ###
-      - name: Build workspace (MacOS, Linux)
-        if: matrix.build != 'windows'
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: "--release -p apollo-cli"
+      - name: Build CLI (Linux)
+        if: matrix.build == 'linux'
+        run: |
+          cd cli && cargo build --release -p apollo-cli --features vendored-openssl --target ${{ matrix.target }}
 
-      - name: Build workspace (Windows)
+      - name: Build CLI (Windows)
         if: matrix.build == 'windows'
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: "--release -p apollo-cli"
+        run: |
+          cd cli && cargo build --release -p apollo-cli --target ${{ matrix.target }}
         env:
           RUSTFLAGS: -Ctarget-feature=+crt-static
 
-      - name: Build CLI (Linux)
-        if: matrix.build == 'linux'
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: "--release -p apollo-cli --features vendored-openssl"
+      - name: Build CLI (MacOS)
+        if: matrix.build == 'macos'
+        run: |
+          cd cli && cargo build --release -p apollo-cli --target ${{ matrix.target }}
 
       ### COMPRESS ###
       - name: Compress binaries
         uses: svenstaro/upx-action@v1-release
         with:
-          file: target/${{ matrix.target }}/release/${{ env.SOURCE_BIN }}${{ matrix.bin_extension}}
+          file: target/${{ matrix.target }}/release/${{ env.SOURCE_BIN }}${{ matrix.bin_extension }}
 
       - name: Create artifact directory
         run: |
@@ -113,9 +107,8 @@ jobs:
 
       ### CREATE DISTRIBUTION ###
       - name: Create distribution
-        if: matrix.build == 'linux'
         run: |
-          mv ./target/${{ env.LINUX_TARGET }}/release/${{ env.SOURCE_BIN }}${{ matrix.bin_extension}} ./dist/${{ env.RELEASE_BIN }}${{ matrix.bin_extension}}
+          mv ./target/${{ matrix.target }}/release/${{ env.SOURCE_BIN }}${{ matrix.bin_extension }} ./dist/${{ env.RELEASE_BIN }}${{ matrix.bin_extension }}
           mv ${{ env.RELEASE_ADDS }} ./dist
 
       - name: Upload Zip
