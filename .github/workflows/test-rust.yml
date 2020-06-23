@@ -26,29 +26,17 @@ jobs:
           components: rustfmt, clippy
 
       ### BUILD CACHE ###
-      - name: Cache Cargo registry
-        uses: actions/cache@v1
+      - name: Cache Cargo registry, target, index
+        uses: actions/cache@v2
+        if: matrix.rust
         with:
-          path: ~/.cargo/registry
-          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-
-
-      - name: Cache Cargo index
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/git
-          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-
-
-      - name: Cache Cargo build
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-target-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            linux-${{ steps.toolchain.outputs.rustc_hash }}-target-
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
 
       ### FORMATTING AND STYLE ###
       - name: Check formatting
@@ -95,29 +83,17 @@ jobs:
           override: true
 
       ### BUILD CACHE ###
-      - name: Cache Cargo registry
-        uses: actions/cache@v1
+      - name: Cache Cargo registry, target, index
+        uses: actions/cache@v2
+        if: matrix.rust
         with:
-          path: ~/.cargo/registry
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-
-
-      - name: Cache Cargo index
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/git
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-
-
-      - name: Cache Cargo build
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
 
       ### COMPILE INCLUDING TESTS ###
       # Note: we do this so that we'll cache the compile results/registry even if test might fail
@@ -155,29 +131,17 @@ jobs:
           override: true
 
       ### BUILD CACHE ###
-      - name: Cache Cargo registry
-        uses: actions/cache@v1
+      - name: Cache Cargo registry, target, index
+        uses: actions/cache@v2
+        if: matrix.rust
         with:
-          path: ~/.cargo/registry
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-
-
-      - name: Cache Cargo index
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/git
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-
-
-      - name: Cache Cargo build
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
 
       ### RUN TESTS ###
       - name: Test (cargo test)
