@@ -31,9 +31,9 @@ jobs:
         if: matrix.rust
         with:
           path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
           key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
@@ -89,9 +89,9 @@ jobs:
         if: matrix.rust
         with:
           path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
           key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
@@ -139,9 +139,9 @@ jobs:
         if: matrix.rust
         with:
           path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
           key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
