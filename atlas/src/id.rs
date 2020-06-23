@@ -11,6 +11,10 @@ impl fmt::Display for Id {
   }
 }
 
+pub trait Identified {
+  fn id(&self) -> Id;
+}
+
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU64, Ordering};
 
