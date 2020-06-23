@@ -1,10 +1,7 @@
-name: Rust PR Builds
+name: Build CLI Binary
 
 on:
-  pull_request:
-    paths: # this is meant to mean any change except in `cdn`.
-      - '**'
-      - '!cdn/**'
+  deployment
 
 defaults:
   run:
@@ -14,38 +11,15 @@ env:
   CARGO_TERM_COLOR: always
   SOURCE_BIN: apollo-cli
   RELEASE_BIN: ap
-  GITHUB_REF: "${{ github.ref }}"
+  GITHUB_REF: "${{ github.event.deployment.ref }}"
 
   # Space separated paths to include in the archive.
   RELEASE_ADDS: README.md
 
 jobs:
-  check_format_and_lint:
-    continue-on-error: true # we want to show this check failure in GH but to not prevent building.
-    name: Check formatting (rustfmt) and lint with Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          profile: minimal
-          components: rustfmt, clippy
-
-      - name: Check formatting
-        run: cargo fmt -- --check
-
-      - name: Check Clippy
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
-
   build:
     name: Build artifacts
+    if: github.event.deployment.task == 'cli'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -69,6 +43,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.deployment.ref }}
 
       ### INSTALL RUST ###
       - name: Install Rust
@@ -81,31 +57,17 @@ jobs:
           override: true
 
       ### BUILD CACHE ###
-      - name: Cache Cargo registry
-        uses: actions/cache@v1
+      - name: Cache Cargo registry, target, index
+        uses: actions/cache@v2
         if: matrix.rust
         with:
-          path: ~/.cargo/registry
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-registry-
-
-      - name: Cache Cargo index
-        uses: actions/cache@v1
-        if: matrix.rust
-        with:
-          path: ~/.cargo/git
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-index-
-
-      - name: Cache Cargo build
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-target-
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
 
       ### OS SPECIFIC ###
       - name: Install musl-tools (Linux)
@@ -120,20 +82,23 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: "--release"
+          args: "--release -p apollo-cli"
 
       - name: Build workspace (Windows)
         if: matrix.build == 'windows'
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: "--release"
+          args: "--release -p apollo-cli"
         env:
           RUSTFLAGS: -Ctarget-feature=+crt-static
 
       - name: Build CLI (Linux)
         if: matrix.build == 'linux'
-        run: cargo build --release -p apollo-cli --features vendored-openssl
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: "--release -p apollo-cli --features vendored-openssl"
 
       ### COMPRESS ###
       - name: Compress binaries
