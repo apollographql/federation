@@ -104,6 +104,13 @@ and get something back that looks like this:
 
 `cargo 1.42.0 (86334295e 2020-01-31)`
 
+**Getting a recent schema:**
+Some CLI commands talk to the Apollo backend GraphQL API. We generate some Rust code from the schema combined with .graphql files that contain
+queries. 
+The cli project's build.rs script downloads the schema if it's not in the file system (in a path that's .gitignored), if it exists, the script does nothing.
+
+If the `UPDATE_SCHEMA` environment variable is set, we download the schema if the etag header from the remote is different from the local copy.
+
 **Testing the project**
 Rust has great built-in test tooling. You can write tests in-line or under the tests folder for each crate. Tests under the `tests` folder should be integration whereas inline should be unit tests. You can run `cargo test` to test all of the crates at once. For more info on how to write tests, look to similar parts of the codebase or read the [rustlang.org article](https://doc.rust-lang.org/book/ch11-00-testing.html) on testing
 
@@ -220,7 +227,7 @@ This project uses GitHub Actions to run a continuous integration and delivery pi
 - **Coverage**: This project runs a job to collect information on how much of the library has been tested using code coverage tools. This is a WIP but you may see a status check related to how you have improved (or lowered 😢) the amount covered. Don’t worry, it happens to all of us and we are here to help out!
 - **Build**: Each PR will build a set of binaries that can be installed and used like the full release. In fact, it uses most of the same process as our release setup! Currently this is limited to only people with write access to the repo but we are working on a way to make this easy for anyone to use.
 
-After you have opened your PR and all of the status checks are passing, please assign it to one of the maintainers (found in the bottom of [the readme](./Readme.md#contributing) who will review it and give feedback.
+After you have opened your PR and all of the status checks are passing, please assign it to one of the maintainers (found in the bottom of [the README](./README.md#contributing) who will review it and give feedback.
 
 ## Releasing the CLI
 
@@ -230,7 +237,7 @@ The Apollo CLI is designed and built to be easily distributed across a number of
 
 Before you create a release there are a couple of steps that aren’t yet automated that we ask you to do:
 
-1. **Update the [Changelog](./Changelog.md):** The Changelog is used to create the notes of the GitHub release and, more importantly, it is an important tool to help maintainers and users alike understand how the project has changed over time. This project uses [Keep a Changelog](`https://keepachangelog.com/en/1.0.0/) to make a legible and helpful log
+1. **Update the [Changelog](./CHANGELOG.md):** The Changelog is used to create the notes of the GitHub release and, more importantly, it is an important tool to help maintainers and users alike understand how the project has changed over time. This project uses [Keep a Changelog](`https://keepachangelog.com/en/1.0.0/) to make a legible and helpful log
 2. **Bump the package versions**: The main [cargo](./cli/Cargo.toml] file should be bumped to a new version. The `npm` package (once added 😅) should also be bumped until it is automated as part of the release cycle.
 
 After you have done the above, it is time to cut a release!

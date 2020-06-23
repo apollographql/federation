@@ -1,0 +1,16 @@
+{
+  "name": "Apollo Graph Manager GraphQL Schema",
+  "schemaPath": ".schema/schema.graphql",
+  "includes": ["graphql/**.graphql"],
+  "extensions": {
+    "endpoints": {
+      "Default GraphQL Endpoint": {
+        "url": "https://engine-graphql.apollographql.com/api/graphql",
+        "headers": {
+          "user-agent": "JS GraphQL"
+        },
+        "introspect": false
+      }
+    }
+  }
+}

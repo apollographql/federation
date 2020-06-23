@@ -1,8 +1,8 @@
 import { mockGlobal } from "./mock";
 import fetchMock from "fetch-mock";
-jest.mock('@zeit/fetch-retry', () => (f: any) => f);
+jest.mock("@zeit/fetch-retry", () => (f: any) => f);
 
-const GITHUB_RELEASE = "https://github.com/apollographql/apollo-cli/releases";
+const GITHUB_RELEASE = "https://github.com/apollographql/rust/releases";
 beforeEach(() => {
   mockGlobal();
   jest.resetModules();
@@ -46,11 +46,11 @@ it("logs an error if GitHub is down", async () => {
               "frames": Array [],
             },
             "type": "Error",
-            "value": "Error loading latest release for CLI at https://github.com/apollographql/apollo-cli/releases/latest",
+            "value": "Error loading latest release for CLI at https://github.com/apollographql/rust/releases/latest",
           },
         ],
       },
-      "message": "Error: Error loading latest release for CLI at https://github.com/apollographql/apollo-cli/releases/latest",
+      "message": "Error: Error loading latest release for CLI at https://github.com/apollographql/rust/releases/latest",
       "platform": "javascript",
       "request": Object {
         "data": Object {

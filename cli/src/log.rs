@@ -22,13 +22,13 @@ fn custom_formatter(
         match level {
             Level::Trace => {
                 style.set_color(Color::Cyan).set_intense(true);
-            },
+            }
             Level::Debug => {
                 style.set_color(Color::Magenta);
-            },
+            }
             Level::Warn => {
                 style.set_color(Color::Yellow);
-            },
+            }
             Level::Error => {
                 style.set_color(Color::Red).set_bold(true);
             }
@@ -48,6 +48,7 @@ fn custom_formatter(
     }
 }
 
+#[allow(clippy::unnecessary_unwrap)]
 pub fn init_logger(verbose: bool, quiet: bool, env_log_level: Result<String, VarError>) {
     // warn if someone is trying to use the flags _and_ env
     if env_log_level.is_ok() && (verbose || quiet) {

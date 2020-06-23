@@ -4,7 +4,8 @@
 
 > This is a new version of the Apollo CLI. If you are looking for the currently released and supported version, please go to the [docs page](https://www.apollographql.com/docs/devtools/cli/) or the [Apollo Tooling repository](https://github.com/apollographql/apollo-tooling). As this library matures, we will being pointing users to use the new CLI for certain features in a gradual roll out.
 
-![Tests](https://github.com/apollographql/apollo-cli/workflows/Tests/badge.svg) ![Security audit](https://github.com/apollographql/apollo-cli/workflows/Security%20audit/badge.svg)
+[![Tests](https://github.com/apollographql/rust/workflows/Tests/badge.svg)](https://github.com/apollographql/rust/actions?query=workflow%3ATests)
+[![Security audit](https://github.com/apollographql/rust/workflows/Security%20audit/badge.svg)](https://github.com/apollographql/rust/actions?query=workflow%3A%22Security+audit%22)
 
 `ap` is a command line interface designed for people who want to design, build, and manage a data graph. It is built to work seamless with the [Apollo Platform](https://www.apollographql.com/) and provide the core tooling for teams implementing a [principled data graph](https://principledgraphql.com/)
 
@@ -42,7 +43,7 @@ Set-ExecutionPolicy RemoteSigned -scope CurrentUser
 
 **Verifying the Install**
 
-If you want to verify the binary you have installed, each [release]([https://github.com/apollographql/apollo-cli/releases/latest) has a list of SHA256 values for each binary. To verify the CLI, you can run `sha256sum -b $(which apollo)` and compare the sha hash to the one next to your platform on the releases page. Note this requires you to have `sha256sum` installed to work.
+If you want to verify the binary you have installed, each [release]([https://github.com/apollographql/rust/releases/latest) has a list of SHA256 values for each binary. To verify the CLI, you can run `sha256sum -b $(which apollo)` and compare the sha hash to the one next to your platform on the releases page. Note this requires you to have `sha256sum` installed to work.
 
 ### On your CI provider
 
@@ -74,7 +75,7 @@ All information for the CLI or using the Apollo Platform is available on our [do
 
 ## Contributing
 
-If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://www.apollographql.com/docs/community/code-of-conduct/) and then head on over to the [contributing guide](./Contributing.md) to learn how to work on this project. If you're just looking for how to add a command to the project, check out [this section](./Contributing.md#adding-a-new-command) of the contributing guide.
+If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://www.apollographql.com/docs/community/code-of-conduct/) and then head on over to the [contributing guide](./CONTRIBUTING.md) to learn how to work on this project. If you're just looking for how to add a command to the project, check out [this section](./CONTRIBUTING.md#adding-a-new-command) of the contributing guide.
 
 If you ever have any problems, questions, or ideas; the maintainers of this project are
 

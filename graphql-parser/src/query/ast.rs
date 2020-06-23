@@ -5,8 +5,8 @@
 //!
 //! [graphql grammar]: http://facebook.github.io/graphql/October2016/#sec-Appendix-Grammar-Summary
 //!
+pub use crate::common::{Directive, Txt, Type, Value};
 use crate::position::Pos;
-pub use crate::common::{Directive, Type, Value, Txt};
 
 /// Root of query data
 #[derive(Debug, Clone, PartialEq)]
@@ -40,11 +40,13 @@ pub struct OperationDefinition<'a> {
     pub variable_definitions: Vec<VariableDefinition<'a>>,
     pub directives: Vec<Directive<'a>>,
     pub selection_set: SelectionSet<'a>,
- }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Operation {
-    Query, Mutation, Subscription
+    Query,
+    Mutation,
+    Subscription,
 }
 
 impl Operation {

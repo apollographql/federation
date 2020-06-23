@@ -93,6 +93,6 @@ The CDN is connected to our [status page](https://status.apollographql.com) with
 
 __404 when installing a package__:
 
-If there is an elevated number of `404`s happening check the `Releases` tab of the `apollo-cli` or the `apollo-tooling` (for legacy CLI) to ensure that the release in question (typically latest) has all of its tarballs for each platform. There should be three tarballs present. If there aren't, you will need to cut a new release or manually build the tarballs. You can follow the steps in the release CI job [here](../.github/workflows/release.yml) but it is often easier to cut a new release using the [release steps](../Contributing.md#Releasing-the-CLI).
+If there is an elevated number of `404`s happening check the `Releases` tab of the `apollo-cli` or the `apollo-tooling` (for legacy CLI) to ensure that the release in question (typically latest) has all of its tarballs for each platform. There should be three tarballs present. If there aren't, you will need to cut a new release or manually build the tarballs. You can follow the steps in the release CI job [here](../.github/workflows/release.yml) but it is often easier to cut a new release using the [release steps](../CONTRIBUTING.md#Releasing-the-CLI).
 
 <img src="https://raw.githubusercontent.com/apollographql/space-kit/master/src/illustrations/svgs/moon.svg" width="100%" height="144">

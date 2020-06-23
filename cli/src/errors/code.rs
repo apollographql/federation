@@ -1,4 +1,3 @@
-// inspired by Volta https://github.com/volta-cli/volta/blob/09daab55c821e943f867ad95a560bb2c34c3f1e2/crates/volta-fail/src/lib.rs
 use std::process::exit;
 
 use serde::Serialize;
@@ -29,6 +28,9 @@ pub enum ExitCode {
 
     /// The command or feature is not yet implemented.
     NotYetImplemented = 7,
+
+    /// No object found at given location
+    NotFound = 8,
 }
 
 impl ExitCode {

@@ -7,6 +7,7 @@ profile_script="./public/install.sh"
 
 setup() {
   export DESTDIR="$BATS_TMPDIR/test-bin_$RANDOM"
+  export FORCE="1"
   if ! [ -d $DESTDIR ]; then
     mkdir "$DESTDIR"
   fi
@@ -89,7 +90,7 @@ setup() {
 
   run run_main
   assert_success
-  assert_output -p "Apollo CLI was successfully installed!"
+  assert_output -p "Installed Apollo CLI in"
   unstub curl
 }
 
@@ -107,8 +108,8 @@ setup() {
   # intentionally missing .gz to fail install
   stub curl \
     "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar"  \
-    "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/apollo-cli/releases/latest/ : echo https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1"  \
-    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.g"
+    "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/rust/releases/latest/ : echo https://github.com/apollographql/rust/releases/tag/v0.0.1"  \
+    "-sL --retry 3 https://github.com/apollographql/rust/releases/download/v0.0.1/ap-v0.0.1-x86_64-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.g"
 
   run run_main
   assert_failure
@@ -121,12 +122,12 @@ setup() {
   # intentionally missing .gz to fail install
   stub curl \
     "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar"  \
-    "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/apollo-cli/releases/latest/ : echo https://github.com/apollographql/apollo-cli/releases/tag/v0.0.1"  \
-    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/ap-v0.0.1-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
+    "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/rust/releases/latest/ : echo https://github.com/apollographql/rust/releases/tag/v0.0.1"  \
+    "-sL --retry 3 https://github.com/apollographql/rust/releases/download/v0.0.1/ap-v0.0.1-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
 
   run run_main
   assert_success
-  assert_output -p "Apollo CLI was successfully installed!"
+  assert_output -p "Installed Apollo CLI in"
 }
 
 @test ".run_main downloads from GitHub if the proxy fails with a specific version passed" {
@@ -136,11 +137,11 @@ setup() {
   # intentionally missing .gz to fail install
   stub curl \
     "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar"  \
-    "-sL --retry 3 https://github.com/apollographql/apollo-cli/releases/download/v0.0.1/ap-v0.0.1-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
+    "-sL --retry 3 https://github.com/apollographql/rust/releases/download/v0.0.1/ap-v0.0.1-linux.tar.gz : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar.gz"
 
   run run_main
   assert_success
-  assert_output -p "Apollo CLI was successfully installed!"
+  assert_output -p "Installed Apollo CLI in"
 }
 
 @test ".run_main errors if downloading from GitHub fails" {
@@ -149,7 +150,7 @@ setup() {
   # intentionally missing .gz to fail install
   stub curl \
     "-sL --retry 3 https://install.apollographql.com/cli/linux/ : cat $FIXTURE_ROOT/ap-v0.0.1-x86_64-linux.tar"  \
-    "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/apollo-cli/releases/latest/ : echo failure"
+    "-sLI -o /dev/null -w %{url_effective} https://github.com/apollographql/rust/releases/latest/ : echo failure"
 
   run run_main
   assert_failure

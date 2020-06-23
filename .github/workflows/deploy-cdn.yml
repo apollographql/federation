@@ -3,7 +3,7 @@ name: Deploy CDN Proxy
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - 'cdn/**/*'
 

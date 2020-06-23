@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/cdn/cdn.iml" filepath="$PROJECT_DIR$/cdn/cdn.iml" />
+      <module fileurl="file://$PROJECT_DIR$/cli/cli.iml" filepath="$PROJECT_DIR$/cli/cli.iml" />
+      <module fileurl="file://$PROJECT_DIR$/graphql-parser/graphql-parser.iml" filepath="$PROJECT_DIR$/graphql-parser/graphql-parser.iml" />
+      <module fileurl="file://$PROJECT_DIR$/query-planner/query-planner.iml" filepath="$PROJECT_DIR$/query-planner/query-planner.iml" />
+    </modules>
+  </component>
+</project>

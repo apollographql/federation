@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::errors::{ApolloFail, ExitCode};
+use crate::errors::ExitCode;
 
 #[derive(Error, Debug)]
 pub enum ErrorDetails {
@@ -35,10 +35,44 @@ Please ensure you have access to the your environment variables."
 Please ensure you have permissions to edit your environment variables."
     )]
     WriteUserPathError,
+
+    /// Thrown when trying to work on an unsupported platform
+    #[error("Current platform ({}) is not supported", .os)]
+    UnsupportedPlatformError { os: String },
+
+    #[error("Unable to fetch release")]
+    ReleaseFetchError,
+
+    #[error("Invalid input {}", .msg)]
+    InputError { msg: String },
+
+    #[error("Response must either be \"y\" for yes or \"n\" for no")]
+    InputConfirmationError,
+
+    #[error("Could not install CLI. {}", .msg)]
+    CliInstallError { msg: String },
+
+    #[error("Error loading config file {}: {}", .path, .msg)]
+    CliConfigReadError { msg: String, path: String },
+
+    #[error("Error writing config file {}: {}", .path, .msg)]
+    CliConfigWriteError { msg: String, path: String },
+
+    #[error("No api key found in config file: Please run `ap auth setup` first")]
+    NoApiKeyError,
+
+    #[error("Received invalid graphql response from Apollo Studio: {}", .msg)]
+    RegistryInvalidGraphQLError { msg: String },
+
+    #[error("Received GraphQL Errors from Apollo Studio: {}", .msg)]
+    GraphQLError { msg: String },
+
+    #[error("{}", .msg)]
+    NotFoundError { msg: String },
 }
 
-impl ApolloFail for ErrorDetails {
-    fn exit_code(&self) -> ExitCode {
+impl ErrorDetails {
+    pub fn exit_code(&self) -> ExitCode {
         match self {
             ErrorDetails::NoHomeEnvironmentVar => ExitCode::EnvironmentError,
             #[cfg(unix)]
@@ -47,6 +81,17 @@ impl ApolloFail for ErrorDetails {
             ErrorDetails::ReadUserPathError => ExitCode::EnvironmentError,
             #[cfg(windows)]
             ErrorDetails::WriteUserPathError => ExitCode::EnvironmentError,
+            ErrorDetails::UnsupportedPlatformError { .. } => ExitCode::EnvironmentError,
+            ErrorDetails::ReleaseFetchError => ExitCode::NetworkError,
+            ErrorDetails::InputConfirmationError => ExitCode::InvalidArguments,
+            ErrorDetails::InputError { .. } => ExitCode::InvalidArguments,
+            ErrorDetails::CliInstallError { .. } => ExitCode::FileSystemError,
+            ErrorDetails::CliConfigReadError { .. } => ExitCode::ConfigurationError,
+            ErrorDetails::CliConfigWriteError { .. } => ExitCode::ConfigurationError,
+            ErrorDetails::NoApiKeyError { .. } => ExitCode::ConfigurationError,
+            ErrorDetails::RegistryInvalidGraphQLError { .. } => ExitCode::NetworkError,
+            ErrorDetails::GraphQLError { .. } => ExitCode::NetworkError,
+            ErrorDetails::NotFoundError { .. } => ExitCode::NotFound,
         }
     }
 }

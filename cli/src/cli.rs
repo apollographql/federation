@@ -1,9 +1,10 @@
-use std::env::args;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
 use crate::commands::{self, Command};
 use crate::errors::{ExitCode, Fallible};
+use crate::telemetry::Session;
+use crate::version::command_name;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -16,7 +17,7 @@ use crate::errors::{ExitCode, Fallible};
     global_setting = AppSettings::DontCollapseArgsInUsage,
     global_setting = AppSettings::VersionlessSubcommands,
 )]
-/// The [Experimental] Apollo CLI, for supporting all your graphql needs :)
+/// The _Experimental_ Apollo CLI, for supporting all your graphql needs :)
 pub struct Apollo {
     #[structopt(subcommand)]
     pub command: Option<Subcommand>,
@@ -40,42 +41,48 @@ pub struct Apollo {
 }
 
 impl Apollo {
-    pub fn run(self) -> Fallible<ExitCode> {
+    pub fn run(self, session: &mut Session) -> Fallible<ExitCode> {
         if let Some(command) = self.command {
-            command.run()
+            command.run(session)
         } else {
-            // per the docs on std::env::arg
-            // The first element is traditionally the path of the executable, but it can be set to
-            // arbitrary text, and may not even exist. This means this property should not be
-            // relied upon for security purposes.
-            let command_name = args()
-                .next()
-                .expect("Called help without a path to the binary");
-
-            Apollo::from_iter([&command_name, "help"].iter()).run()
+            Apollo::from_iter([&command_name(), "help"].iter()).run(session)
         }
     }
 }
 
 #[derive(StructOpt)]
 pub enum Subcommand {
-    #[structopt(name = "login")]
-    ///  🔓  log in to apollo
-    Login(commands::Login),
+    #[structopt(name = "update")]
+    ///  🚀  update the Apollo CLI
+    Update(commands::Update),
+
     #[structopt(name = "print", setting = AppSettings::Hidden)]
-    ///  🖨   parse and pretty print schemas to stdout
+    ///  🖨  parse and pretty print schemas to stdout
     Print(commands::Print),
     #[structopt(name = "setup", setting = AppSettings::Hidden)]
     ///  🚜  setup the Apollo toolchain in your environment
     Setup(commands::Setup),
+    #[structopt(name = "auth")]
+    ///  🔐  Manage authentication
+    Auth(commands::Auth),
+    ///  📜  Manage schemas from the registry
+    Schema(commands::Schema),
 }
 
 impl Subcommand {
-    pub fn run(self) -> Fallible<ExitCode> {
+    pub fn run(self, session: &mut Session) -> Fallible<ExitCode> {
         match self {
-            Subcommand::Login(login) => login.run(),
-            Subcommand::Print(print) => print.run(),
-            Subcommand::Setup(setup) => setup.run(),
+            Subcommand::Update(update) => update.run(session),
+            Subcommand::Print(print) => print.run(session),
+            Subcommand::Setup(setup) => setup.run(session),
+            Subcommand::Auth(auth) => match auth {
+                commands::Auth::Setup(setup) => setup.run(session),
+            },
+            Subcommand::Schema(schema) => match schema {
+                commands::Schema::Get(get) => get.run(session),
+                commands::Schema::Check(check) => check.run(session),
+                commands::Schema::Store(store) => store.run(session),
+            },
         }
     }
 }
