@@ -34,7 +34,9 @@ pub struct Mapping<M: Map> {
 impl<M: Map> Mapping<M> {
     pub fn pop(&mut self) {
         self.output = self.stack.pop();
-        if self.stack.is_empty() { return; }
+        if self.stack.is_empty() {
+            return;
+        }
         if let Some(ref child) = self.output {
             let parent = self.stack.pop().unwrap();
             self.stack.push(self.map.merge(parent, child));
@@ -44,9 +46,9 @@ impl<M: Map> Mapping<M> {
 
 #[macro_export]
 macro_rules! visit_each {
-    ($visitor:ident : $vec:expr) => (
+    ($visitor:ident : $vec:expr) => {
         for item in $vec.iter() {
             item.accept($visitor);
         }
-    )
+    };
 }

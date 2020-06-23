@@ -3,9 +3,9 @@
 mod ast;
 mod error;
 mod format;
+mod grammar;
 mod name;
 mod visit;
-mod grammar;
 
 pub use self::ast::*;
 pub use self::error::ParseError;

@@ -100,7 +100,7 @@
 //!
 //! ```
 //! use graphql_parser::{parse_schema, Name, schema, query, schema::Node};
-//! 
+//!
 //! let ast = parse_schema(r###"
 //! type MyType {
 //!   fieldA: Int
@@ -146,6 +146,9 @@
 //! impl Map for ToIndentedNodeTypes {
 //!     // We're mapping the query AST into a string
 //!     type Output = String;
+//!     // The *merge* function controls how we merge child output data up the tree
+//!     // when the map of the child is complete. Here we join parent and child
+//!     // with a newline.
 //!     fn merge(&mut self, parent: String, child: &String) -> String {
 //!         format!("{}\n{}", parent, child)
 //!     }

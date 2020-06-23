@@ -47,7 +47,7 @@ macro_rules! test {
     };
 }
 
-use graphql_parser::{query, schema, Name, query::Node as QueryNode, schema::Node as SchemaNode};
+use graphql_parser::{query, query::Node as QueryNode, schema, schema::Node as SchemaNode, Name};
 
 pub fn visit_parse_query<'a>(doc: &query::Document<'a>) -> Print {
     let mut p = Print::default();
@@ -61,16 +61,15 @@ pub fn visit_parse_schema<'a>(doc: &schema::Document<'a>) -> Print {
     p
 }
 
-
 #[derive(Debug, Default)]
 pub struct Print {
-    output: Vec<Visit>
+    output: Vec<Visit>,
 }
 
 #[derive(Debug)]
 pub struct Visit {
     event: String,
-    name: Option<String>
+    name: Option<String>,
 }
 
 macro_rules! print {
@@ -81,7 +80,7 @@ macro_rules! print {
                 name: node.name().map(String::from),
             })
         }
-    }
+    };
 }
 
 impl query::Visitor for Print {

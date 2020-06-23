@@ -9,10 +9,10 @@
 #![allow(non_snake_case)]
 
 mod helpers;
-use helpers::*;
-use insta::assert_snapshot;
 use graphql_parser::parse_query;
 use graphql_parser::parse_schema;
+use helpers::*;
+use insta::assert_snapshot;
 use pretty_assertions::assert_eq;
 
 test!(

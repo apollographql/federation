@@ -7,7 +7,7 @@ pub trait Visitor {
     fn enter_query(&mut self, doc: &Document) {}
     fn enter_query_def(&mut self, def: &Definition) {}
     fn enter_sel_set(&mut self, sel_set: &SelectionSet) {}
-    fn enter_sel(&mut self, sel: &Selection) {}    
+    fn enter_sel(&mut self, sel: &Selection) {}
     fn leave_sel(&mut self, sel: &Selection) {}
     fn leave_sel_set(&mut self, sel_set: &SelectionSet) {}
     fn leave_query_def(&mut self, def: &Definition) {}
@@ -53,7 +53,9 @@ pub trait Node {
     fn accept<V: Visitor>(&self, visitor: &mut V);
     fn map<M: Map>(&self, map: M) -> visit::Mapping<M> {
         let mut mapping = Mapping {
-            stack: vec![], map, output: None
+            stack: vec![],
+            map,
+            output: None,
         };
         self.accept(&mut mapping);
         mapping
@@ -95,7 +97,7 @@ impl<'a> Node for Selection<'a> {
         use Selection::*;
         match self {
             Field(field) => field.selection_set.accept(visitor),
-            FragmentSpread(_) => {},
+            FragmentSpread(_) => {}
             InlineFragment(inline) => inline.selection_set.accept(visitor),
         }
         visitor.leave_sel(self);
@@ -104,7 +106,8 @@ impl<'a> Node for Selection<'a> {
 
 #[test]
 fn visits_a_query() -> Result<(), super::ParseError> {
-    let query = super::parse_query(r###"
+    let query = super::parse_query(
+        r###"
     query SomeQuery {
         fieldA
         fieldB(arg: "hello", arg2: 48) {
@@ -116,20 +119,22 @@ fn visits_a_query() -> Result<(), super::ParseError> {
             }            
         }
     }
-    "###)?;
+    "###,
+    )?;
 
     struct Print {
-        output: Vec<String>
+        output: Vec<String>,
     };
 
     macro_rules! print {
         ($action:ident $Type:ident) => {
             fn $action<'a>(&mut self, node: &$Type<'a>) {
-                self.output.push(format!("{} ({:?})", stringify!($action), node.name()));
+                self.output
+                    .push(format!("{} ({:?})", stringify!($action), node.name()));
             }
-        }
+        };
     }
-    
+
     use crate::Name;
     impl Visitor for Print {
         print!(enter_query Document);
@@ -145,52 +150,57 @@ fn visits_a_query() -> Result<(), super::ParseError> {
     let mut print = Print { output: vec![] };
     query.accept(&mut print);
 
-    assert_eq!(print.output, vec![
-        r#"enter_query (None)"#,
-        r#"enter_query_def (Some("SomeQuery"))"#,
-        r#"enter_sel_set (None)"#,
-        r#"enter_sel (Some("fieldA"))"#,
-        r#"enter_sel_set (None)"#,
-        r#"leave_sel_set (None)"#,
-        r#"leave_sel (Some("fieldA"))"#,
-        r#"enter_sel (Some("fieldB"))"#,
-        r#"enter_sel_set (None)"#,
-        r#"enter_sel (Some("innerFieldOne"))"#,
-        r#"enter_sel_set (None)"#,
-        r#"leave_sel_set (None)"#,
-        r#"leave_sel (Some("innerFieldOne"))"#,
-        r#"enter_sel (Some("innerFieldTwo"))"#,
-        r#"enter_sel_set (None)"#,
-        r#"leave_sel_set (None)"#,
-        r#"leave_sel (Some("innerFieldTwo"))"#,
-        r#"enter_sel (Some("fragmentSpread"))"#,
-        r#"leave_sel (Some("fragmentSpread"))"#,
-        r#"enter_sel (Some("SomeType"))"#,
-        r#"enter_sel_set (None)"#,
-        r#"enter_sel (Some("someTypeField"))"#,
-        r#"enter_sel_set (None)"#,
-        r#"leave_sel_set (None)"#,
-        r#"leave_sel (Some("someTypeField"))"#,
-        r#"leave_sel_set (None)"#,
-        r#"leave_sel (Some("SomeType"))"#,
-        r#"leave_sel_set (None)"#,
-        r#"leave_sel (Some("fieldB"))"#,
-        r#"leave_sel_set (None)"#,
-        r#"leave_query_def (Some("SomeQuery"))"#,
-        r#"leave_query (None)"#
-    ]);
+    assert_eq!(
+        print.output,
+        vec![
+            r#"enter_query (None)"#,
+            r#"enter_query_def (Some("SomeQuery"))"#,
+            r#"enter_sel_set (None)"#,
+            r#"enter_sel (Some("fieldA"))"#,
+            r#"enter_sel_set (None)"#,
+            r#"leave_sel_set (None)"#,
+            r#"leave_sel (Some("fieldA"))"#,
+            r#"enter_sel (Some("fieldB"))"#,
+            r#"enter_sel_set (None)"#,
+            r#"enter_sel (Some("innerFieldOne"))"#,
+            r#"enter_sel_set (None)"#,
+            r#"leave_sel_set (None)"#,
+            r#"leave_sel (Some("innerFieldOne"))"#,
+            r#"enter_sel (Some("innerFieldTwo"))"#,
+            r#"enter_sel_set (None)"#,
+            r#"leave_sel_set (None)"#,
+            r#"leave_sel (Some("innerFieldTwo"))"#,
+            r#"enter_sel (Some("fragmentSpread"))"#,
+            r#"leave_sel (Some("fragmentSpread"))"#,
+            r#"enter_sel (Some("SomeType"))"#,
+            r#"enter_sel_set (None)"#,
+            r#"enter_sel (Some("someTypeField"))"#,
+            r#"enter_sel_set (None)"#,
+            r#"leave_sel_set (None)"#,
+            r#"leave_sel (Some("someTypeField"))"#,
+            r#"leave_sel_set (None)"#,
+            r#"leave_sel (Some("SomeType"))"#,
+            r#"leave_sel_set (None)"#,
+            r#"leave_sel (Some("fieldB"))"#,
+            r#"leave_sel_set (None)"#,
+            r#"leave_query_def (Some("SomeQuery"))"#,
+            r#"leave_query (None)"#
+        ]
+    );
 
     Ok(())
 }
 
 #[test]
 fn maps_a_query() -> Result<(), crate::query::ParseError> {
-    let query = crate::parse_query(r#"
+    let query = crate::parse_query(
+        r#"
         query {
             someField
             another { ...withFragment @directive }
         }
-    "#)?;
+    "#,
+    )?;
     struct TestMap {}
     impl visit::Map for TestMap {
         type Output = String;
@@ -213,14 +223,19 @@ fn maps_a_query() -> Result<(), crate::query::ParseError> {
         }
     }
 
-    let tx = query.map(TestMap{});
-    pretty_assertions::assert_eq!(tx.output, Some(String::from(r#"query
+    let tx = query.map(TestMap {});
+    pretty_assertions::assert_eq!(
+        tx.output,
+        Some(String::from(
+            r#"query
   query_def
     sel_set
       sel
         sel_set
       sel
         sel_set
-          sel"#)));
+          sel"#
+        ))
+    );
     Ok(())
 }
