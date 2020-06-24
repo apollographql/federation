@@ -114,11 +114,11 @@
 //! };
 //!
 //! /// Schemas can contain queries, so all visitors must at least implement query::Visitor.
-//! impl query::Visitor for Fields {}
+//! impl query::QueryVisitor for Fields {}
 //!
 //! /// To collect field definitions, we'll also want to implement the appropriate method of
 //! /// schema::Visitor
-//! impl schema::Visitor for Fields {
+//! impl schema::SchemaVisitor for Fields {
 //!     fn enter_field<'a>(&mut self, field: &schema::Field<'a>) {
 //!         self.output.push(String::from(field.name().unwrap()));
 //!     }

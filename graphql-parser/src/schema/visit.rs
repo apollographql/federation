@@ -4,7 +4,7 @@ use crate::query::Node as QueryNode;
 use crate::{visit, visit_each};
 
 #[allow(unused_variables)]
-pub trait Visitor: query::Visitor {
+pub trait SchemaVisitor: query::QueryVisitor {
     fn enter_schema<'a>(&mut self, doc: &Document<'a>) {}
     fn enter_schema_def<'a>(&mut self, def: &Definition<'a>) {}
     fn enter_field<'a>(&mut self, field: &Field<'a>) {}
@@ -27,7 +27,7 @@ pub trait Fold: query::Fold {
     ) -> Self::Output;
 }
 
-impl<F: Fold> Visitor for visit::Folding<F> {
+impl<F: Fold> SchemaVisitor for visit::Folding<F> {
     fn enter_schema<'a>(&mut self, doc: &Document<'a>) {
         self.stack.push(self.fold.schema(doc, &self.stack));
     }
@@ -57,7 +57,8 @@ impl<F: Fold> Visitor for visit::Folding<F> {
 
 #[allow(unused_variables)]
 pub trait Node {
-    fn accept<V: Visitor>(&self, visitor: &mut V);
+    fn accept<V: SchemaVisitor>(&self, visitor: &mut V);
+
     fn fold<F: Fold>(&self, fold: F) -> visit::Folding<F> {
         let mut folding = visit::Folding::new(fold);
         self.accept(&mut folding);
@@ -66,7 +67,7 @@ pub trait Node {
 }
 
 impl<'a> Node for Document<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+    fn accept<V: SchemaVisitor>(&self, visitor: &mut V) {
         visitor.enter_schema(self);
         visit_each!(visitor: self.definitions);
         visitor.leave_schema(self);
@@ -74,7 +75,7 @@ impl<'a> Node for Document<'a> {
 }
 
 impl<'a> Node for Definition<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+    fn accept<V: SchemaVisitor>(&self, visitor: &mut V) {
         visitor.enter_schema_def(self);
         match self {
             Definition::Schema(_) => {}
@@ -89,7 +90,7 @@ impl<'a> Node for Definition<'a> {
 }
 
 impl<'a> Node for TypeDefinition<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+    fn accept<V: SchemaVisitor>(&self, visitor: &mut V) {
         match self {
             TypeDefinition::Scalar(_) => {}
             TypeDefinition::Object(o) => visit_each!(visitor: o.fields),
@@ -102,7 +103,7 @@ impl<'a> Node for TypeDefinition<'a> {
 }
 
 impl<'a> Node for TypeExtension<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+    fn accept<V: SchemaVisitor>(&self, visitor: &mut V) {
         match self {
             TypeExtension::Scalar(_) => {}
             TypeExtension::Object(o) => visit_each!(visitor: o.fields),
@@ -115,14 +116,14 @@ impl<'a> Node for TypeExtension<'a> {
 }
 
 impl<'a> Node for Field<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+    fn accept<V: SchemaVisitor>(&self, visitor: &mut V) {
         visitor.enter_field(self);
         visitor.leave_field(self);
     }
 }
 
 impl<'a> Node for InputValue<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+    fn accept<V: SchemaVisitor>(&self, visitor: &mut V) {
         visitor.enter_input_value(self);
         visitor.leave_input_value(self);
     }
