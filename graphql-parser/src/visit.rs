@@ -1,6 +1,6 @@
-/// The Map trait describes how to convert one tree shape into another (possibly) tree shape.
+/// The [Fold] trait describes how to convert one tree shape into another (possibly) tree shape.
 ///
-/// This trait is extended by query::Map and schema::Map, which add methods to define the
+/// This trait is extended by [crate::query::Fold] and [crate::schema::Fold], which add methods to define the
 /// projection from AST nodes to the map's output type.
 #[allow(unused_variables)]
 pub trait Fold {
@@ -16,7 +16,7 @@ pub trait Fold {
     }
 }
 
-/// The output of a call to `map` is a Mappping
+/// The output of a call to `fold` is a Folding
 #[derive(Debug)]
 pub struct Folding<F: Fold> {
     /// The stack only contains elements while the map operation is in progress.
@@ -32,6 +32,14 @@ pub struct Folding<F: Fold> {
 }
 
 impl<F: Fold> Folding<F> {
+    pub fn new(fold: F) -> Self {
+        Self {
+            stack: vec![],
+            fold,
+            output: None,
+        }
+    }
+
     pub fn pop(&mut self) {
         self.output = self.stack.pop();
         if self.stack.is_empty() {

@@ -50,12 +50,9 @@ impl<F: Fold> Visitor for visit::Folding<F> {
 
 pub trait Node {
     fn accept<V: Visitor>(&self, visitor: &mut V);
+
     fn fold<F: Fold>(&self, fold: F) -> visit::Folding<F> {
-        let mut folding = visit::Folding {
-            stack: vec![],
-            fold,
-            output: None,
-        };
+        let mut folding = visit::Folding::new(fold);
         self.accept(&mut folding);
         folding
     }
