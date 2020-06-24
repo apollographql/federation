@@ -168,8 +168,8 @@
 //!     }
 //! }
 //!
-//! let tx = ast.fold(ToIndentedNodeTypes{});
-//! pretty_assertions::assert_eq!(tx.output, Some(String::from("query
+//! let output = ast.fold(ToIndentedNodeTypes{});
+//! pretty_assertions::assert_eq!(output, Some(String::from("query
 //!   query_def
 //!     sel_set
 //!       sel

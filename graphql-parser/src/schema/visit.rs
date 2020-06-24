@@ -59,10 +59,10 @@ impl<F: Fold> SchemaVisitor for visit::Folding<F> {
 pub trait Node {
     fn accept<V: SchemaVisitor>(&self, visitor: &mut V);
 
-    fn fold<F: Fold>(&self, fold: F) -> visit::Folding<F> {
+    fn fold<F: Fold>(&self, fold: F) -> Option<F::Output> {
         let mut folding = visit::Folding::new(fold);
         self.accept(&mut folding);
-        folding
+        folding.output
     }
 }
 
