@@ -325,7 +325,7 @@ impl<'a> fmt::Display for Token<'a> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::Kind::*;
     use super::{Kind, TokenStream};
     use combine::easy::Error;

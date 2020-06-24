@@ -180,7 +180,7 @@ pub fn parse_query(s: &str) -> Result<Document, ParseError> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::{Definition, Document, Field, Selection, SelectionSet, Value};
     use crate::position::Pos;
     use crate::query::grammar::*;

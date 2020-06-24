@@ -592,7 +592,7 @@ pub fn parse_schema(s: &str) -> Result<Document, ParseError> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::parse_schema;
     use super::{Definition, Document, SchemaDefinition};
     use crate::position::Pos;
