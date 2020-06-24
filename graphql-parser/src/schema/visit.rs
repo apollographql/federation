@@ -16,7 +16,7 @@ pub trait Visitor: query::Visitor {
 }
 
 #[allow(unused_variables)]
-pub trait Map: query::Map {
+pub trait Fold: query::Fold {
     fn schema<'a>(&mut self, doc: &Document<'a>, stack: &[Self::Output]) -> Self::Output;
     fn schema_def<'a>(&mut self, def: &Definition<'a>, stack: &[Self::Output]) -> Self::Output;
     fn field<'a>(&mut self, field: &Field<'a>, stack: &[Self::Output]) -> Self::Output;
@@ -27,22 +27,22 @@ pub trait Map: query::Map {
     ) -> Self::Output;
 }
 
-impl<M: Map> Visitor for visit::Mapping<M> {
+impl<F: Fold> Visitor for visit::Folding<F> {
     fn enter_schema<'a>(&mut self, doc: &Document<'a>) {
-        self.stack.push(self.map.schema(doc, &self.stack));
+        self.stack.push(self.fold.schema(doc, &self.stack));
     }
     fn enter_schema_def<'a>(&mut self, def: &Definition<'a>) {
-        self.stack.push(self.map.schema_def(def, &self.stack));
+        self.stack.push(self.fold.schema_def(def, &self.stack));
     }
     fn enter_field<'a>(&mut self, field: &Field<'a>) {
-        self.stack.push(self.map.field(field, &self.stack));
-    }
-    fn enter_input_value<'a>(&mut self, input_value: &InputValue<'a>) {
-        self.stack
-            .push(self.map.input_value(input_value, &self.stack));
+        self.stack.push(self.fold.field(field, &self.stack));
     }
     fn leave_field<'a>(&mut self, _: &Field<'a>) {
         self.pop();
+    }
+    fn enter_input_value<'a>(&mut self, input_value: &InputValue<'a>) {
+        self.stack
+            .push(self.fold.input_value(input_value, &self.stack));
     }
     fn leave_input_value<'a>(&mut self, _: &InputValue<'a>) {
         self.pop();
@@ -58,14 +58,14 @@ impl<M: Map> Visitor for visit::Mapping<M> {
 #[allow(unused_variables)]
 pub trait Node {
     fn accept<V: Visitor>(&self, visitor: &mut V);
-    fn map<M: Map>(&self, map: M) -> visit::Mapping<M> {
-        let mut mapping = visit::Mapping {
+    fn fold<F: Fold>(&self, fold: F) -> visit::Folding<F> {
+        let mut folding = visit::Folding {
             stack: vec![],
-            map,
+            fold,
             output: None,
         };
-        self.accept(&mut mapping);
-        mapping
+        self.accept(&mut folding);
+        folding
     }
 }
 

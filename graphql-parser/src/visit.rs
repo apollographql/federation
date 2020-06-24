@@ -3,7 +3,7 @@
 /// This trait is extended by query::Map and schema::Map, which add methods to define the
 /// projection from AST nodes to the map's output type.
 #[allow(unused_variables)]
-pub trait Map {
+pub trait Fold {
     type Output;
 
     /// Merge a child output node into a parent output node.
@@ -18,20 +18,20 @@ pub trait Map {
 
 /// The output of a call to `map` is a Mappping
 #[derive(Debug)]
-pub struct Mapping<M: Map> {
+pub struct Folding<F: Fold> {
     /// The stack only contains elements while the map operation is in progress.
-    /// Specifically, it holds output nodes nodes for every ancestor of the
+    /// Specifically, it holds output nodes for every ancestor of the
     /// current node, and is passed to the projection functions.
-    pub stack: Vec<M::Output>,
+    pub stack: Vec<F::Output>,
 
     /// The map being applied.
-    pub map: M,
+    pub fold: F,
 
     /// The root output node.
-    pub output: Option<M::Output>,
+    pub output: Option<F::Output>,
 }
 
-impl<M: Map> Mapping<M> {
+impl<F: Fold> Folding<F> {
     pub fn pop(&mut self) {
         self.output = self.stack.pop();
         if self.stack.is_empty() {
@@ -39,7 +39,7 @@ impl<M: Map> Mapping<M> {
         }
         if let Some(ref child) = self.output {
             let parent = self.stack.pop().unwrap();
-            self.stack.push(self.map.merge(parent, child));
+            self.stack.push(self.fold.merge(parent, child));
         }
     }
 }

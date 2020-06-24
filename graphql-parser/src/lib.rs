@@ -135,7 +135,7 @@
 //! You can also `map` an AST into another form.
 //!
 //! ```rust
-//! use graphql_parser::{parse_query, Map, query, query::{Node, Document, Definition, SelectionSet, Selection}};
+//! use graphql_parser::{parse_query, Fold, query, query::{Node, Document, Definition, SelectionSet, Selection}};
 //! let ast = graphql_parser::parse_query(r#"
 //! query {
 //!     someField
@@ -143,8 +143,8 @@
 //! }
 //! "#)?;
 //! struct ToIndentedNodeTypes {}
-//! impl Map for ToIndentedNodeTypes {
-//!     // We're mapping the query AST into a string
+//! impl Fold for ToIndentedNodeTypes {
+//!     // We're folding the query AST into a string
 //!     type Output = String;
 //!     // The *merge* function controls how we merge child output data up the tree
 //!     // when the map of the child is complete. Here we join parent and child
@@ -153,7 +153,7 @@
 //!         format!("{}\n{}", parent, child)
 //!     }
 //! }
-//! impl query::Map for ToIndentedNodeTypes {
+//! impl query::Fold for ToIndentedNodeTypes {
 //!     fn query<'a>(&mut self, _: &Document<'a>, stack: &[Self::Output]) -> Self::Output {
 //!         format!("{}query", "  ".repeat(stack.len()))
 //!     }
@@ -168,7 +168,7 @@
 //!     }
 //! }
 //!
-//! let tx = ast.map(ToIndentedNodeTypes{});
+//! let tx = ast.fold(ToIndentedNodeTypes{});
 //! pretty_assertions::assert_eq!(tx.output, Some(String::from("query
 //!   query_def
 //!     sel_set
@@ -203,4 +203,4 @@ pub use crate::schema::parse_schema;
 
 mod name;
 pub use crate::name::*;
-pub use visit::Map;
+pub use visit::Fold;

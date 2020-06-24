@@ -1,6 +1,5 @@
 use super::{Definition, Document, Selection, SelectionSet};
 use crate::{visit, visit_each};
-use visit::Mapping;
 
 #[allow(unused_variables)]
 pub trait Visitor {
@@ -15,25 +14,25 @@ pub trait Visitor {
 }
 
 #[allow(unused_variables)]
-pub trait Map: visit::Map {
+pub trait Fold: visit::Fold {
     fn query(&mut self, doc: &Document, stack: &[Self::Output]) -> Self::Output;
     fn query_def(&mut self, def: &Definition, stack: &[Self::Output]) -> Self::Output;
     fn sel_set(&mut self, sel_set: &SelectionSet, stack: &[Self::Output]) -> Self::Output;
     fn sel(&mut self, sel: &Selection, stack: &[Self::Output]) -> Self::Output;
 }
 
-impl<M: Map> Visitor for visit::Mapping<M> {
+impl<F: Fold> Visitor for visit::Folding<F> {
     fn enter_query(&mut self, doc: &Document) {
-        self.stack.push(self.map.query(doc, &self.stack));
+        self.stack.push(self.fold.query(doc, &self.stack));
     }
     fn enter_query_def(&mut self, def: &Definition) {
-        self.stack.push(self.map.query_def(def, &self.stack));
+        self.stack.push(self.fold.query_def(def, &self.stack));
     }
     fn enter_sel_set(&mut self, sel_set: &SelectionSet) {
-        self.stack.push(self.map.sel_set(sel_set, &self.stack));
+        self.stack.push(self.fold.sel_set(sel_set, &self.stack));
     }
     fn enter_sel(&mut self, sel: &Selection) {
-        self.stack.push(self.map.sel(&sel, &self.stack));
+        self.stack.push(self.fold.sel(&sel, &self.stack));
     }
     fn leave_sel(&mut self, _sel: &Selection) {
         self.pop();
@@ -51,14 +50,14 @@ impl<M: Map> Visitor for visit::Mapping<M> {
 
 pub trait Node {
     fn accept<V: Visitor>(&self, visitor: &mut V);
-    fn map<M: Map>(&self, map: M) -> visit::Mapping<M> {
-        let mut mapping = Mapping {
+    fn fold<F: Fold>(&self, fold: F) -> visit::Folding<F> {
+        let mut folding = visit::Folding {
             stack: vec![],
-            map,
+            fold,
             output: None,
         };
-        self.accept(&mut mapping);
-        mapping
+        self.accept(&mut folding);
+        folding
     }
 }
 
@@ -202,13 +201,13 @@ fn maps_a_query() -> Result<(), crate::query::ParseError> {
     "#,
     )?;
     struct TestMap {}
-    impl visit::Map for TestMap {
+    impl visit::Fold for TestMap {
         type Output = String;
         fn merge(&mut self, parent: String, child: &String) -> String {
             format!("{}\n{}", parent, child)
         }
     }
-    impl Map for TestMap {
+    impl Fold for TestMap {
         fn query<'a>(&mut self, _: &Document<'a>, stack: &[Self::Output]) -> Self::Output {
             format!("{}query", "  ".repeat(stack.len()))
         }
@@ -223,7 +222,7 @@ fn maps_a_query() -> Result<(), crate::query::ParseError> {
         }
     }
 
-    let tx = query.map(TestMap {});
+    let tx = query.fold(TestMap {});
     pretty_assertions::assert_eq!(
         tx.output,
         Some(String::from(
