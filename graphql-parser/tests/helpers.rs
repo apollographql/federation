@@ -83,7 +83,7 @@ macro_rules! print {
     };
 }
 
-impl query::QueryVisitor for Print {
+impl query::Visitor for Print {
     print!(enter_query query::Document);
     print!(leave_query query::Document);
     print!(enter_query_def query::Definition);
@@ -94,7 +94,7 @@ impl query::QueryVisitor for Print {
     print!(leave_sel query::Selection);
 }
 
-impl schema::SchemaVisitor for Print {
+impl schema::Visitor for Print {
     print!(enter_schema schema::Document);
     print!(enter_schema_def schema::Definition);
     print!(enter_field schema::Field);

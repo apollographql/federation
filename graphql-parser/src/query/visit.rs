@@ -2,7 +2,7 @@ use super::{Definition, Document, Selection, SelectionSet};
 use crate::{visit, visit_each};
 
 #[allow(unused_variables)]
-pub trait QueryVisitor {
+pub trait Visitor {
     fn enter_query(&mut self, doc: &Document) {}
     fn enter_query_def(&mut self, def: &Definition) {}
     fn enter_sel_set(&mut self, sel_set: &SelectionSet) {}
@@ -21,7 +21,7 @@ pub trait Fold: visit::Fold {
     fn sel(&mut self, sel: &Selection, stack: &[Self::Output]) -> Self::Output;
 }
 
-impl<F: Fold> QueryVisitor for visit::Folding<F> {
+impl<F: Fold> Visitor for visit::Folding<F> {
     fn enter_query(&mut self, doc: &Document) {
         self.stack.push(self.fold.query(doc, &self.stack));
     }
@@ -49,7 +49,7 @@ impl<F: Fold> QueryVisitor for visit::Folding<F> {
 }
 
 pub trait Node {
-    fn accept<V: QueryVisitor>(&self, visitor: &mut V);
+    fn accept<V: Visitor>(&self, visitor: &mut V);
 
     fn fold<F: Fold>(&self, fold: F) -> Option<F::Output> {
         let mut folding = visit::Folding::new(fold);
@@ -59,7 +59,7 @@ pub trait Node {
 }
 
 impl<'a> Node for Document<'a> {
-    fn accept<V: QueryVisitor>(&self, visitor: &mut V) {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.enter_query(self);
         visit_each!(visitor: self.definitions);
         visitor.leave_query(self);
@@ -67,7 +67,7 @@ impl<'a> Node for Document<'a> {
 }
 
 impl<'a> Node for Definition<'a> {
-    fn accept<V: QueryVisitor>(&self, visitor: &mut V) {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.enter_query_def(self);
         use Definition::*;
         match self {
@@ -80,7 +80,7 @@ impl<'a> Node for Definition<'a> {
 }
 
 impl<'a> Node for SelectionSet<'a> {
-    fn accept<V: QueryVisitor>(&self, visitor: &mut V) {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.enter_sel_set(self);
         visit_each!(visitor: self.items);
         visitor.leave_sel_set(self);
@@ -88,7 +88,7 @@ impl<'a> Node for SelectionSet<'a> {
 }
 
 impl<'a> Node for Selection<'a> {
-    fn accept<V: QueryVisitor>(&self, visitor: &mut V) {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.enter_sel(self);
         use Selection::*;
         match self {
@@ -102,7 +102,7 @@ impl<'a> Node for Selection<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Fold, QueryVisitor};
+    use super::{Fold, Visitor};
     use crate::query::{Definition, Document, Selection, SelectionSet, Node};
     use crate::visit;
 
@@ -138,7 +138,7 @@ mod tests {
         }
 
         use crate::Name;
-        impl QueryVisitor for Print {
+        impl Visitor for Print {
             print!(enter_query Document);
             print!(leave_query Document);
             print!(enter_query_def Definition);
