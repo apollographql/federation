@@ -1,6 +1,5 @@
 use super::{Definition, Document, Selection, SelectionSet};
 use crate::{visit, visit_each};
-use visit::Mapping;
 
 #[allow(unused_variables)]
 pub trait Visitor {
@@ -22,7 +21,7 @@ pub trait Map: visit::Map {
     fn sel(&mut self, sel: &Selection, stack: &[Self::Output]) -> Self::Output;
 }
 
-impl<M: Map> Visitor for visit::Mapping<M> {
+impl<M: Map> Visitor for visit::Fold<M> {
     fn enter_query(&mut self, doc: &Document) {
         self.stack.push(self.map.query(doc, &self.stack));
     }
@@ -51,8 +50,8 @@ impl<M: Map> Visitor for visit::Mapping<M> {
 
 pub trait Node {
     fn accept<V: Visitor>(&self, visitor: &mut V);
-    fn map<M: Map>(&self, map: M) -> visit::Mapping<M> {
-        let mut mapping = Mapping {
+    fn map<M: Map>(&self, map: M) -> visit::Fold<M> {
+        let mut mapping = visit::Fold {
             stack: vec![],
             map,
             output: None,

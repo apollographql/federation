@@ -16,9 +16,9 @@ pub trait Map {
     }
 }
 
-/// The output of a call to `map` is a Mappping
+/// The output of a call to `map` is a Fold.
 #[derive(Debug)]
-pub struct Mapping<M: Map> {
+pub struct Fold<M: Map> {
     /// The stack only contains elements while the map operation is in progress.
     /// Specifically, it holds output nodes nodes for every ancestor of the
     /// current node, and is passed to the projection functions.
@@ -31,7 +31,7 @@ pub struct Mapping<M: Map> {
     pub output: Option<M::Output>,
 }
 
-impl<M: Map> Mapping<M> {
+impl<M: Map> Fold<M> {
     pub fn pop(&mut self) {
         self.output = self.stack.pop();
         if self.stack.is_empty() {

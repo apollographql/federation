@@ -27,7 +27,7 @@ pub trait Map: query::Map {
     ) -> Self::Output;
 }
 
-impl<M: Map> Visitor for visit::Mapping<M> {
+impl<M: Map> Visitor for visit::Fold<M> {
     fn enter_schema<'a>(&mut self, doc: &Document<'a>) {
         self.stack.push(self.map.schema(doc, &self.stack));
     }
@@ -58,8 +58,8 @@ impl<M: Map> Visitor for visit::Mapping<M> {
 #[allow(unused_variables)]
 pub trait Node {
     fn accept<V: Visitor>(&self, visitor: &mut V);
-    fn map<M: Map>(&self, map: M) -> visit::Mapping<M> {
-        let mut mapping = visit::Mapping {
+    fn map<M: Map>(&self, map: M) -> visit::Fold<M> {
+        let mut mapping = visit::Fold {
             stack: vec![],
             map,
             output: None,
