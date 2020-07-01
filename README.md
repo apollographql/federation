@@ -25,3 +25,22 @@
 - ### [🤓 QueryPlanner](https://github.com/apollographql/rust/tree/main/query-planner)
 
 	TBD
+
+## Contributing
+
+### License
+
+All projects within this repo are licensed under the MIT license
+([LICENSE] or  http://opensource.org/licenses/MIT).
+
+[LICENSE]: https://github.com/apollographql/rust/blob/main/LICENSE
+
+### Contributor License Agreement (CLA)
+
+In order to have a PR merged to any of these proejcts, you must sign a Contributor
+License Agreement, or CLA. There is a check that runs on every PR; if you haven't
+signed you will be prompted to in a PR comment.
+
+You can preview the text of the agreement [here][CLA].
+
+[CLA]: https://contribute.apollographql.com/
