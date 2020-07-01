@@ -69,7 +69,6 @@ dependencies = [
  "serde 1.0.114",
  "serde_json",
  "sha2",
- "smol",
  "structopt",
  "tempfile",
  "term_size",
@@ -2309,6 +2308,7 @@ dependencies = [
  "scoped-tls-hkt",
  "slab",
  "socket2",
+ "tokio",
  "wepoll-binding",
 ]
 
