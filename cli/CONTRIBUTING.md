@@ -1,6 +1,12 @@
 <img src="https://raw.githubusercontent.com/apollographql/space-kit/master/src/illustrations/svgs/astronaut1.svg" width="100%" height="144">
 
-# Apollo Contributor Guide
+🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧
+
+**CAUTION: This is a Work in Progress! This project is not ready for external contribution**
+
+🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧🚧
+
+# Apollo CLI Contributor Guide
 
 > If this is your first time or 100th time contributing to a project, the [Open Source Guide](https://opensource.guide/how-to-contribute/) is a fantastic place to learn about Open Source Software (OSS) and how to get involed.
 
