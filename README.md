@@ -28,6 +28,12 @@
 
 ## Contributing
 
+All of the projects in this repo are in the very early iteration stages, and therefore
+not in a great place for external contributions. That being said, if you have an idea or
+question feel free to [file an issue]. 
+
+[file an issue]: https://github.com/apollographql/rust/issues/new/choose
+
 ### License
 
 All projects within this repo are licensed under the MIT license
