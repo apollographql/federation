@@ -103,138 +103,142 @@ impl<'a> Node for Selection<'a> {
     }
 }
 
-#[test]
-fn visits_a_query() -> Result<(), super::ParseError> {
-    let query = super::parse_query(
-        r###"
-    query SomeQuery {
-        fieldA
-        fieldB(arg: "hello", arg2: 48) {
-            innerFieldOne
-            innerFieldTwo
-            ...fragmentSpread
-            ...on SomeType {
-                someTypeField
-            }            
-        }
-    }
-    "###,
-    )?;
+mod tests {
+    use crate::{query, visit, parse_query, query::ParseError, query::*};
 
-    struct Print {
-        output: Vec<String>,
-    };
-
-    macro_rules! print {
-        ($action:ident $Type:ident) => {
-            fn $action<'a>(&mut self, node: &$Type<'a>) {
-                self.output
-                    .push(format!("{} ({:?})", stringify!($action), node.name()));
+    #[test]
+    fn visits_a_query() -> Result<(), ParseError> {
+        let query = parse_query(
+            r###"
+        query SomeQuery {
+            fieldA
+            fieldB(arg: "hello", arg2: 48) {
+                innerFieldOne
+                innerFieldTwo
+                ...fragmentSpread
+                ...on SomeType {
+                    someTypeField
+                }            
             }
+        }
+        "###,
+        )?;
+
+        struct Print {
+            output: Vec<String>,
         };
+
+        macro_rules! print {
+            ($action:ident $Type:ident) => {
+                fn $action<'a>(&mut self, node: &$Type<'a>) {
+                    self.output
+                        .push(format!("{} ({:?})", stringify!($action), node.name()));
+                }
+            };
+        }
+
+        use crate::Name;
+        impl query::Visitor for Print {
+            print!(enter_query Document);
+            print!(leave_query Document);
+            print!(enter_query_def Definition);
+            print!(leave_query_def Definition);
+            print!(enter_sel_set SelectionSet);
+            print!(leave_sel_set SelectionSet);
+            print!(enter_sel Selection);
+            print!(leave_sel Selection);
+        }
+
+        let mut print = Print { output: vec![] };
+        query.accept(&mut print);
+
+        assert_eq!(
+            print.output,
+            vec![
+                r#"enter_query (None)"#,
+                r#"enter_query_def (Some("SomeQuery"))"#,
+                r#"enter_sel_set (None)"#,
+                r#"enter_sel (Some("fieldA"))"#,
+                r#"enter_sel_set (None)"#,
+                r#"leave_sel_set (None)"#,
+                r#"leave_sel (Some("fieldA"))"#,
+                r#"enter_sel (Some("fieldB"))"#,
+                r#"enter_sel_set (None)"#,
+                r#"enter_sel (Some("innerFieldOne"))"#,
+                r#"enter_sel_set (None)"#,
+                r#"leave_sel_set (None)"#,
+                r#"leave_sel (Some("innerFieldOne"))"#,
+                r#"enter_sel (Some("innerFieldTwo"))"#,
+                r#"enter_sel_set (None)"#,
+                r#"leave_sel_set (None)"#,
+                r#"leave_sel (Some("innerFieldTwo"))"#,
+                r#"enter_sel (Some("fragmentSpread"))"#,
+                r#"leave_sel (Some("fragmentSpread"))"#,
+                r#"enter_sel (Some("SomeType"))"#,
+                r#"enter_sel_set (None)"#,
+                r#"enter_sel (Some("someTypeField"))"#,
+                r#"enter_sel_set (None)"#,
+                r#"leave_sel_set (None)"#,
+                r#"leave_sel (Some("someTypeField"))"#,
+                r#"leave_sel_set (None)"#,
+                r#"leave_sel (Some("SomeType"))"#,
+                r#"leave_sel_set (None)"#,
+                r#"leave_sel (Some("fieldB"))"#,
+                r#"leave_sel_set (None)"#,
+                r#"leave_query_def (Some("SomeQuery"))"#,
+                r#"leave_query (None)"#
+            ]
+        );
+
+        Ok(())
     }
 
-    use crate::Name;
-    impl Visitor for Print {
-        print!(enter_query Document);
-        print!(leave_query Document);
-        print!(enter_query_def Definition);
-        print!(leave_query_def Definition);
-        print!(enter_sel_set SelectionSet);
-        print!(leave_sel_set SelectionSet);
-        print!(enter_sel Selection);
-        print!(leave_sel Selection);
-    }
+    #[test]
+    fn maps_a_query() -> Result<(), crate::query::ParseError> {
+        let query = crate::parse_query(
+            r#"
+            query {
+                someField
+                another { ...withFragment @directive }
+            }
+        "#,
+        )?;
+        struct TestMap {}
+        impl visit::Map for TestMap {
+            type Output = String;
+            fn merge(&mut self, parent: String, child: &String) -> String {
+                format!("{}\n{}", parent, child)
+            }
+        }
+        impl Map for TestMap {
+            fn query<'a>(&mut self, _: &Document<'a>, stack: &[Self::Output]) -> Self::Output {
+                format!("{}query", "  ".repeat(stack.len()))
+            }
+            fn query_def<'a>(&mut self, _: &Definition<'a>, stack: &[Self::Output]) -> Self::Output {
+                format!("{}query_def", "  ".repeat(stack.len()))
+            }
+            fn sel_set<'a>(&mut self, _: &SelectionSet<'a>, stack: &[Self::Output]) -> Self::Output {
+                format!("{}sel_set", "  ".repeat(stack.len()))
+            }
+            fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Self::Output]) -> Self::Output {
+                format!("{}sel", "  ".repeat(stack.len()))
+            }
+        }
 
-    let mut print = Print { output: vec![] };
-    query.accept(&mut print);
-
-    assert_eq!(
-        print.output,
-        vec![
-            r#"enter_query (None)"#,
-            r#"enter_query_def (Some("SomeQuery"))"#,
-            r#"enter_sel_set (None)"#,
-            r#"enter_sel (Some("fieldA"))"#,
-            r#"enter_sel_set (None)"#,
-            r#"leave_sel_set (None)"#,
-            r#"leave_sel (Some("fieldA"))"#,
-            r#"enter_sel (Some("fieldB"))"#,
-            r#"enter_sel_set (None)"#,
-            r#"enter_sel (Some("innerFieldOne"))"#,
-            r#"enter_sel_set (None)"#,
-            r#"leave_sel_set (None)"#,
-            r#"leave_sel (Some("innerFieldOne"))"#,
-            r#"enter_sel (Some("innerFieldTwo"))"#,
-            r#"enter_sel_set (None)"#,
-            r#"leave_sel_set (None)"#,
-            r#"leave_sel (Some("innerFieldTwo"))"#,
-            r#"enter_sel (Some("fragmentSpread"))"#,
-            r#"leave_sel (Some("fragmentSpread"))"#,
-            r#"enter_sel (Some("SomeType"))"#,
-            r#"enter_sel_set (None)"#,
-            r#"enter_sel (Some("someTypeField"))"#,
-            r#"enter_sel_set (None)"#,
-            r#"leave_sel_set (None)"#,
-            r#"leave_sel (Some("someTypeField"))"#,
-            r#"leave_sel_set (None)"#,
-            r#"leave_sel (Some("SomeType"))"#,
-            r#"leave_sel_set (None)"#,
-            r#"leave_sel (Some("fieldB"))"#,
-            r#"leave_sel_set (None)"#,
-            r#"leave_query_def (Some("SomeQuery"))"#,
-            r#"leave_query (None)"#
-        ]
-    );
-
-    Ok(())
-}
-
-#[test]
-fn maps_a_query() -> Result<(), crate::query::ParseError> {
-    let query = crate::parse_query(
-        r#"
-        query {
-            someField
-            another { ...withFragment @directive }
-        }
-    "#,
-    )?;
-    struct TestMap {}
-    impl visit::Map for TestMap {
-        type Output = String;
-        fn merge(&mut self, parent: String, child: &String) -> String {
-            format!("{}\n{}", parent, child)
-        }
-    }
-    impl Map for TestMap {
-        fn query<'a>(&mut self, _: &Document<'a>, stack: &[Self::Output]) -> Self::Output {
-            format!("{}query", "  ".repeat(stack.len()))
-        }
-        fn query_def<'a>(&mut self, _: &Definition<'a>, stack: &[Self::Output]) -> Self::Output {
-            format!("{}query_def", "  ".repeat(stack.len()))
-        }
-        fn sel_set<'a>(&mut self, _: &SelectionSet<'a>, stack: &[Self::Output]) -> Self::Output {
-            format!("{}sel_set", "  ".repeat(stack.len()))
-        }
-        fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Self::Output]) -> Self::Output {
-            format!("{}sel", "  ".repeat(stack.len()))
-        }
-    }
-
-    let tx = query.map(TestMap {});
-    pretty_assertions::assert_eq!(
-        tx.output,
-        Some(String::from(
-            r#"query
-  query_def
-    sel_set
-      sel
+        let tx = query.map(TestMap {});
+        pretty_assertions::assert_eq!(
+            tx.output,
+            Some(String::from(
+                r#"query
+    query_def
         sel_set
-      sel
-        sel_set
-          sel"#
-        ))
-    );
-    Ok(())
+        sel
+            sel_set
+        sel
+            sel_set
+            sel"#
+            ))
+        );
+        Ok(())
+    }
 }
