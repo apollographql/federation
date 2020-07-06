@@ -6,7 +6,6 @@ mod format;
 mod grammar;
 
 pub use self::ast::*;
-pub use self::ast::*;
 pub use self::error::ParseError;
 
 mod visit;
