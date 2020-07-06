@@ -103,7 +103,8 @@ impl<'a> Node for Selection<'a> {
 }
 
 mod tests {
-    use crate::{query, visit, parse_query, query::ParseError, query::*};
+    #[allow(unused)]
+    use crate::{query, query::*, visit, parse_query, query::ParseError};
 
     #[test]
     fn visits_a_query() -> Result<(), ParseError> {
@@ -139,13 +140,13 @@ mod tests {
         use crate::Name;
         impl query::Visitor for Print {
             print!(enter_query Document);
-            print!(leave_query Document);
             print!(enter_query_def Definition);
-            print!(leave_query_def Definition);
             print!(enter_sel_set SelectionSet);
-            print!(leave_sel_set SelectionSet);
             print!(enter_sel Selection);
+            print!(leave_sel_set SelectionSet);
             print!(leave_sel Selection);
+            print!(leave_query_def Definition);
+            print!(leave_query Document);
         }
 
         let mut print = Print { output: vec![] };
