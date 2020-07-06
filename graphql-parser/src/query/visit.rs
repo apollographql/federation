@@ -13,7 +13,6 @@ pub trait Visitor {
     fn leave_query(&mut self, doc: &Document) {}
 }
 
-#[allow(unused_variables)]
 pub trait Map: visit::Map {
     fn query(&mut self, doc: &Document, stack: &[Self::Output]) -> Self::Output;
     fn query_def(&mut self, def: &Definition, stack: &[Self::Output]) -> Self::Output;

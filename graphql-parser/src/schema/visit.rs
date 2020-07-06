@@ -15,7 +15,6 @@ pub trait Visitor: query::Visitor {
     fn leave_schema<'a>(&mut self, doc: &Document<'a>) {}
 }
 
-#[allow(unused_variables)]
 pub trait Map: query::Map {
     fn schema<'a>(&mut self, doc: &Document<'a>, stack: &[Self::Output]) -> Self::Output;
     fn schema_def<'a>(&mut self, def: &Definition<'a>, stack: &[Self::Output]) -> Self::Output;
