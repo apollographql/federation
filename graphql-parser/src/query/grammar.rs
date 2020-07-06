@@ -6,7 +6,7 @@ use combine::{parser, ParseResult, Parser};
 use crate::common::{arguments, default_value, directives, parse_type};
 use crate::helpers::{ident, name, punct};
 use crate::query::ast::*;
-use crate::query::error::ParseError;
+use crate::ParseError;
 use crate::tokenizer::TokenStream;
 
 pub fn field<'a>(input: &mut TokenStream<'a>) -> ParseResult<Field<'a>, TokenStream<'a>> {

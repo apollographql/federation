@@ -21,7 +21,7 @@
 //!
 //! ```rust
 //! # extern crate graphql_parser;
-//! use graphql_parser::query::{parse_query, ParseError};
+//! use graphql_parser::{parse_query, ParseError};
 //!
 //! # fn parse() -> Result<(), ParseError> {
 //! let ast = parse_query("query MyQuery { field1, field2 }")?;
@@ -44,7 +44,7 @@
 //!
 //! ```rust
 //! # extern crate graphql_parser;
-//! use graphql_parser::schema::{parse_schema, ParseError};
+//! use graphql_parser::{parse_schema, ParseError};
 //!
 //! # fn parse() -> Result<(), ParseError> {
 //! let ast = parse_schema(r#"
@@ -127,7 +127,7 @@
 //! let mut fields = Fields { output: vec![] };
 //! ast.accept(&mut fields);
 //! assert_eq!(fields.output, vec!["fieldA", "fieldB", "fieldC"]);
-//!# Ok::<(), schema::ParseError>(())
+//!# Ok::<(), graphql_parser::ParseError>(())
 //! ```
 //!
 //! Example: Map a query into a string
@@ -177,7 +177,7 @@
 //!       sel
 //!         sel_set
 //!           sel")));
-//!# Ok::<(), query::ParseError>(())
+//!# Ok::<(), graphql_parser::ParseError>(())
 //! ```
 #![warn(missing_debug_implementations)]
 
@@ -190,6 +190,8 @@ mod common;
 mod format;
 mod helpers;
 mod visit;
+mod error;
+pub use error::*;
 
 mod position;
 pub mod query;

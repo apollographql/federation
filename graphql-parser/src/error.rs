@@ -6,12 +6,12 @@ use crate::tokenizer::Token;
 
 pub type InternalError<'a> = Errors<Token<'a>, Token<'a>, Pos>;
 
-/// Error parsing schema
+/// Parse error
 ///
 /// This structure is opaque for forward compatibility. We are exploring a
 /// way to improve both error message and API.
 #[derive(Error, Debug)]
-#[error("schema parse error: {}", _0)]
+#[error("parse error: {}", _0)]
 pub struct ParseError(String);
 
 impl<'a> From<InternalError<'a>> for ParseError {

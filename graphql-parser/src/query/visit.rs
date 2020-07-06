@@ -104,7 +104,7 @@ impl<'a> Node for Selection<'a> {
 
 mod tests {
     #[allow(unused)]
-    use crate::{query, query::*, visit, parse_query, query::ParseError};
+    use crate::{query, query::*, visit, parse_query, ParseError};
 
     #[test]
     fn visits_a_query() -> Result<(), ParseError> {
@@ -194,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn maps_a_query() -> Result<(), crate::query::ParseError> {
+    fn maps_a_query() -> Result<(), crate::ParseError> {
         let query = crate::parse_query(
             r#"
             query {
@@ -212,16 +212,16 @@ mod tests {
         }
         impl Map for TestMap {
             fn query<'a>(&mut self, _: &Document<'a>, stack: &[Self::Output]) -> Self::Output {
-                format!("{}query", "  ".repeat(stack.len()))
+                format!("{}query", "    ".repeat(stack.len()))
             }
             fn query_def<'a>(&mut self, _: &Definition<'a>, stack: &[Self::Output]) -> Self::Output {
-                format!("{}query_def", "  ".repeat(stack.len()))
+                format!("{}query_def", "    ".repeat(stack.len()))
             }
             fn sel_set<'a>(&mut self, _: &SelectionSet<'a>, stack: &[Self::Output]) -> Self::Output {
-                format!("{}sel_set", "  ".repeat(stack.len()))
+                format!("{}sel_set", "    ".repeat(stack.len()))
             }
             fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Self::Output]) -> Self::Output {
-                format!("{}sel", "  ".repeat(stack.len()))
+                format!("{}sel", "    ".repeat(stack.len()))
             }
         }
 
@@ -232,11 +232,11 @@ mod tests {
                 r#"query
     query_def
         sel_set
-        sel
-            sel_set
-        sel
-            sel_set
-            sel"#
+            sel
+                sel_set
+            sel
+                sel_set
+                    sel"#
             ))
         );
         Ok(())
