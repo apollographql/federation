@@ -54,7 +54,6 @@ impl<M: Map> Visitor for visit::Fold<M> {
     }
 }
 
-#[allow(unused_variables)]
 pub trait Node {
     fn accept<V: Visitor>(&self, visitor: &mut V);
     fn map<M: Map>(&self, map: M) -> visit::Fold<M> {
