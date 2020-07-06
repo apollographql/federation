@@ -12,7 +12,7 @@ use std::fmt;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(from = "QueryPlanSerde", into = "QueryPlanSerde")]
 pub struct QueryPlan {
-    node: Option<PlanNode>,
+    pub node: Option<PlanNode>,
 }
 
 impl From<QueryPlanSerde> for QueryPlan {
