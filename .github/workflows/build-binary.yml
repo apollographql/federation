@@ -1,8 +1,7 @@
 name: Build CLI Binary
 
 on:
-  pull_request:
-    types: [labeled]
+  workflow_dispatch:
 
 defaults:
   run:
@@ -18,9 +17,8 @@ env:
   RELEASE_ADDS: README.md
 
 jobs:
-  build:
+  build-cli-binary:
     name: Build artifacts
-    if: github.event.label.name == 'build-binary'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -118,7 +116,7 @@ jobs:
 
   sha256:
     name: Create sha256 of binaries
-    needs: build
+    needs: build-cli-binary
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
