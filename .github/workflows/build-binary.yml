@@ -1,6 +1,14 @@
 name: Build CLI Binary
 
 on:
+  push:
+    paths: # this is meant to mean any change except in `cdn`.
+      - '**'
+      - '!cdn/**'
+    branches:
+      - main
+    tags:
+      - "v*" # Run when tag matches v*, i.e. v1.0, v20.15.10
   workflow_dispatch:
 
 defaults:
@@ -11,14 +19,29 @@ env:
   CARGO_TERM_COLOR: always
   SOURCE_BIN: apollo-cli
   RELEASE_BIN: ap
-  GITHUB_REF: "${{ github.event.deployment.ref }}"
+  RELEASE_DIR: artifacts
+  WINDOWS_BUILD_NAME: windows
+  MACOS_BUILD_NAME: darwin
+  LINUX_BUILD_NAME: linux
 
   # Space separated paths to include in the archive.
   RELEASE_ADDS: README.md
 
 jobs:
-  build-cli-binary:
+  bools:
+    name: Set up convenience booleans
+    outputs:
+      is-tag-release: ${{ steps.is-tag-release.outputs.value }}
+      is-not-tag-release: ${{ steps.is-not-tag-release.outputs.value }}
+    steps:
+      - id: is-tag-release
+        run: echo "::set-output name=value::${{ github.event == 'push' && startsWith(github.ref, 'refs/tags/v') }}"
+      - id: is-not-tag-release
+        run: echo "::set-output name=value::${{ !(github.event == 'push' && startsWith(github.ref, 'refs/tags/v')) }}"
+
+  build:
     name: Build artifacts
+    needs: bools
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -28,19 +51,20 @@ jobs:
             os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             bin_extension: ''
+            build_name: linux
           - build: macos
             os: macos-latest
             target: x86_64-apple-darwin
             bin_extension: ''
+            build_name: darwin
           - build: windows
             os: windows-latest
             target: x86_64-pc-windows-msvc
             bin_extension: '.exe'
+            build_name: windows
 
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.deployment.ref }}
 
       ### INSTALL RUST ###
       - name: Install Rust
@@ -71,6 +95,10 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install musl-tools -y
 
+      - name: Install p7zip (MacOS)
+        if: matrix.build == 'macos'
+        run: brew install p7zip
+
       ### BUILD ###
       - name: Build CLI (Linux)
         if: matrix.build == 'linux'
@@ -100,6 +128,7 @@ jobs:
 
       - name: Create artifact directory
         run: |
+          mkdir ${{ env.RELEASE_DIR }}
           mkdir dist
 
       ### CREATE DISTRIBUTION ###
@@ -108,15 +137,36 @@ jobs:
           mv ./target/${{ matrix.target }}/release/${{ env.SOURCE_BIN }}${{ matrix.bin_extension }} ./dist/${{ env.RELEASE_BIN }}${{ matrix.bin_extension }}
           mv ${{ env.RELEASE_ADDS }} ./dist
 
+      - name: Query version number
+        if: needs.bools.outputs.is-tag-release
+        id: get_version
+        run: |
+          echo "using version tag ${GITHUB_REF:10}"
+          echo ::set-output name=version::"${GITHUB_REF:10}"
+
+      - name: Create tarball
+        if: needs.bools.outputs.is-tag-release
+        run: |
+          7z a -ttar -so -an ./dist | 7z a -si ./${{ env.RELEASE_DIR }}/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ matrix.build_name }}.tar.gz
+
       - name: Upload Zip
+        if: needs.bools.outputs.is-not-tag-release
         uses: actions/upload-artifact@v1
         with:
           name: ${{ matrix.build }}
           path: ./dist
 
+      - name: Upload Zip
+        if: needs.bools.outputs.is-tag-release
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ matrix.build }}
+          path: ./${{ env.RELEASE_DIR }}
+
   sha256:
     name: Create sha256 of binaries
-    needs: build-cli-binary
+    needs: [bools, build]
+    if: needs.bools.outputs.is-not-tag-release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -134,3 +184,97 @@ jobs:
         with:
           name: sha256
           path: ./sha256.txt
+
+  release:
+    name: Github Release
+    needs: [bools, build]
+    if: needs.bools.outputs.is-tag-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Query version number
+        id: get_version
+        run: |
+          echo "using version tag ${GITHUB_REF:10}"
+          echo ::set-output name=version::"${GITHUB_REF:10}"
+
+      - name: Get Changelog Entry
+        id: changelog_reader
+        uses: mindsers/changelog-reader-action@v1.1.0
+        with:
+          version: ${{ github.ref }}
+          path: ./CHANGELOG.md
+
+      - uses: actions/download-artifact@v2-preview
+
+      - name: Unzip all files
+        run: |
+          tar -xzvf ./linux/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }} ./linux-cli && rm -rf dist
+          tar -xzvf ./windows/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }}.exe ./windows-cli.exe && rm -rf dist
+          tar -xzvf ./macos/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz && mv ./dist/${{ env.RELEASE_BIN }} ./macos-cli && rm -rf dist
+
+      - name: Get Shas of builds
+        id: get_shas
+        run: |
+          echo ::set-output name=linux::"- __Linux__: $(sha256sum -b linux-cli | cut -d ' ' -f1)"
+          echo ::set-output name=windows::"- __Windows__: $(sha256sum -b windows-cli.exe | cut -d ' ' -f1)"
+          echo ::set-output name=macos::"- __MacOS__: $(sha256sum -b macos-cli | cut -d ' ' -f1)"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: ${{ steps.get_version.outputs.VERSION }}
+          prerelease: ${{ contains(steps.get_version.outputs.VERSION, 'alpha') || contains(steps.get_version.outputs.VERSION, 'beta') }}
+          body: |
+            ${{ steps.changelog_reader.outputs.log_entry }}
+            ---
+            ### SHA256 of binaries below for validation:
+            ${{ steps.get_shas.outputs.LINUX }}
+            ${{ steps.get_shas.outputs.WINDOWS }}
+            ${{ steps.get_shas.outputs.MACOS }}
+
+      - name: Release Linux tarball
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./linux/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
+          asset_content_type: application/gzip
+          asset_name: ${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.LINUX_BUILD_NAME }}.tar.gz
+
+      - name: Release Windows tarball
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./windows/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
+          asset_content_type: application/gzip
+          asset_name: ${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.WINDOWS_BUILD_NAME }}.tar.gz
+
+      - name: Release MacOS tarball
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./macos/${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
+          asset_content_type: application/gzip
+          asset_name: ${{ env.RELEASE_BIN }}-${{ steps.get_version.outputs.VERSION }}-${{ env.MACOS_BUILD_NAME }}.tar.gz
+
+      - name: Slack Notification
+        uses: homoluctus/slatify@master
+        if: always()
+        with:
+          type: ${{ job.status }}
+          job_name: '*New release created*: ${{ steps.create_release.outputs.html_url }}'
+          channel: '#eng-apollo-tooling'
+          url: ${{ secrets.SLACK_WEBHOOK }}
+          commit: true
+          token: ${{ secrets.GITHUB_TOKEN }}
