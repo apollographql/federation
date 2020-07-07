@@ -214,10 +214,18 @@ mod tests {
             fn query<'a>(&mut self, _: &Document<'a>, stack: &[Self::Output]) -> Self::Output {
                 format!("{}query", "    ".repeat(stack.len()))
             }
-            fn query_def<'a>(&mut self, _: &Definition<'a>, stack: &[Self::Output]) -> Self::Output {
+            fn query_def<'a>(
+                &mut self,
+                _: &Definition<'a>,
+                stack: &[Self::Output],
+            ) -> Self::Output {
                 format!("{}query_def", "    ".repeat(stack.len()))
             }
-            fn sel_set<'a>(&mut self, _: &SelectionSet<'a>, stack: &[Self::Output]) -> Self::Output {
+            fn sel_set<'a>(
+                &mut self,
+                _: &SelectionSet<'a>,
+                stack: &[Self::Output],
+            ) -> Self::Output {
                 format!("{}sel_set", "    ".repeat(stack.len()))
             }
             fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Self::Output]) -> Self::Output {

@@ -188,9 +188,9 @@ extern crate pretty_assertions;
 mod common;
 #[macro_use]
 mod format;
+mod error;
 mod helpers;
 mod visit;
-mod error;
 pub use error::*;
 
 mod position;

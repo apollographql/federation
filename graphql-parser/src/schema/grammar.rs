@@ -9,8 +9,8 @@ use crate::common::{default_value, directives, parse_type, string};
 use crate::helpers::{ident, kind, name, punct};
 use crate::query::{fragment_definition, operation_definition};
 use crate::schema::ast::*;
-use crate::ParseError;
 use crate::tokenizer::{Kind as T, Token, TokenStream};
+use crate::ParseError;
 
 pub fn schema<'a>(
     input: &mut TokenStream<'a>,
