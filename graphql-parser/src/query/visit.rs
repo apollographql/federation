@@ -104,8 +104,7 @@ impl<'a> Node for Selection<'a> {
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused)]
-    use crate::{query, query::*, visit, parse_query, ParseError};
+    use crate::{parse_query, query, query::*, visit, ParseError};
 
     #[test]
     fn visits_a_query() -> Result<(), ParseError> {
