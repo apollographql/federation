@@ -1,6 +1,6 @@
 ---
 source: graphql-parser/tests/tests.rs
-expression: "format!(\"{}\\n---\\n{:#?}\", & input, visit_parse_schema(& ast))"
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & visit_parse_schema(& ast))"
 ---
 input InputType {
   key: String!
