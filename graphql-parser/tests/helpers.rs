@@ -27,12 +27,12 @@ macro_rules! tests_for_parser {
                 let result = $parser(&input);
                 assert_snapshot!(
                     stringify!([<$name __ $parser __ win>]),
-                    format!("{}\n---\n{:#?}", &$input, &result));
+                    format!("{}\n---\n{:#?}", &$input.replace("\r\n", "\n"), &result));
                 if let Ok(ast) = result {
                     assert_eq!(ast.to_string(), expected);
                     assert_snapshot!(
                         stringify!([<$name __ visit _ $parser __ win>]),
-                        format!("{}\n---\n{:#?}", &$input, &[<visit _ $parser>](&ast)));
+                        format!("{}\n---\n{:#?}", &$input.replace("\r\n", "\n"), &[<visit _ $parser>](&ast)));
                 }
             }
         }
