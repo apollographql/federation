@@ -88,6 +88,12 @@ jobs:
           restore-keys: |
             ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
 
+      ### RUN TESTS ###
+      - name: Test (cargo test)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
       ### OS SPECIFIC ###
       - name: Install musl-tools (Linux)
         if: matrix.build == 'linux'
