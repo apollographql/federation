@@ -102,15 +102,9 @@ impl<'a> Node for Selection<'a> {
     }
 }
 
-<<<<<<< Updated upstream
 #[cfg(test)]
 mod tests {
     use crate::{parse_query, query, query::*, visit, ParseError};
-=======
-#[cfg(tests)]
-mod tests {
-    use crate::{query, query::*, visit, parse_query, ParseError};
->>>>>>> Stashed changes
 
     #[test]
     fn visits_a_query() -> Result<(), ParseError> {
