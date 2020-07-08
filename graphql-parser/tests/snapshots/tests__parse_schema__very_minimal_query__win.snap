@@ -1,9 +1,0 @@
----
-source: graphql-parser/tests/tests.rs
-expression: result
----
-Err(
-    ParseError(
-        "Parse error at 1:1\nUnexpected `{[Punctuator]`\nExpected `schema`, `extend`, `scalar`, `type`, `interface`, `union`, `enum`, `input`, `query`, `mutation`, `subscription`, `fragment` or `directive`\n",
-    ),
-)

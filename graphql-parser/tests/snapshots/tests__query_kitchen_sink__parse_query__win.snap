@@ -1,0 +1,697 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+---
+# Copyright (c) 2015-present, Facebook, Inc.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+query queryName($foo: ComplexType, $site: Site = MOBILE) {
+  whoever123is: node(id: [123, 456]) {
+    id ,
+    ... on User @defer {
+      field2 {
+        id ,
+        alias: field1(first:10, after:$foo,) @include(if: $foo) {
+          id,
+          ...frag
+        }
+      }
+    }
+    ... @skip(unless: $foo) {
+      id
+    }
+    ... {
+      id
+    }
+  }
+}
+
+mutation likeStory {
+  like(story: 123) @defer {
+    story {
+      id
+    }
+  }
+}
+
+subscription StoryLikeSubscription($input: StoryLikeSubscribeInput) {
+  storyLikeSubscribe(input: $input) {
+    story {
+      likers {
+        count
+      }
+      likeSentence {
+        text
+      }
+    }
+  }
+}
+
+fragment frag on Friend {
+  foo(size: $size, bar: $b, obj: {key: "value", block: """
+
+      block string uses \"""
+
+  """})
+}
+
+{
+  unnamed(truthy: true, falsey: false, nullish: null),
+  query
+}
+
+---
+Ok(
+    Document {
+        definitions: [
+            Operation(
+                OperationDefinition {
+                    position: Pos(10:1),
+                    kind: Query,
+                    description: None,
+                    name: Some(
+                        "queryName",
+                    ),
+                    variable_definitions: [
+                        VariableDefinition {
+                            position: Pos(10:17),
+                            name: "foo",
+                            var_type: NamedType(
+                                "ComplexType",
+                            ),
+                            default_value: None,
+                        },
+                        VariableDefinition {
+                            position: Pos(10:36),
+                            name: "site",
+                            var_type: NamedType(
+                                "Site",
+                            ),
+                            default_value: Some(
+                                Enum(
+                                    "MOBILE",
+                                ),
+                            ),
+                        },
+                    ],
+                    directives: [],
+                    selection_set: SelectionSet {
+                        span: (
+                            Pos(10:58),
+                            Pos(29:1),
+                        ),
+                        items: [
+                            Field(
+                                Field {
+                                    position: Pos(11:3),
+                                    alias: Some(
+                                        "whoever123is",
+                                    ),
+                                    name: "node",
+                                    arguments: [
+                                        (
+                                            "id",
+                                            List(
+                                                [
+                                                    Int(
+                                                        123,
+                                                    ),
+                                                    Int(
+                                                        456,
+                                                    ),
+                                                ],
+                                            ),
+                                        ),
+                                    ],
+                                    directives: [],
+                                    selection_set: SelectionSet {
+                                        span: (
+                                            Pos(11:38),
+                                            Pos(28:3),
+                                        ),
+                                        items: [
+                                            Field(
+                                                Field {
+                                                    position: Pos(12:5),
+                                                    alias: None,
+                                                    name: "id",
+                                                    arguments: [],
+                                                    directives: [],
+                                                    selection_set: SelectionSet {
+                                                        span: (
+                                                            Pos(12:5),
+                                                            Pos(12:5),
+                                                        ),
+                                                        items: [],
+                                                    },
+                                                },
+                                            ),
+                                            InlineFragment(
+                                                InlineFragment {
+                                                    position: Pos(13:9),
+                                                    type_condition: Some(
+                                                        "User",
+                                                    ),
+                                                    directives: [
+                                                        Directive {
+                                                            position: Pos(13:17),
+                                                            name: "defer",
+                                                            arguments: [],
+                                                        },
+                                                    ],
+                                                    selection_set: SelectionSet {
+                                                        span: (
+                                                            Pos(13:24),
+                                                            Pos(21:5),
+                                                        ),
+                                                        items: [
+                                                            Field(
+                                                                Field {
+                                                                    position: Pos(14:7),
+                                                                    alias: None,
+                                                                    name: "field2",
+                                                                    arguments: [],
+                                                                    directives: [],
+                                                                    selection_set: SelectionSet {
+                                                                        span: (
+                                                                            Pos(14:14),
+                                                                            Pos(20:7),
+                                                                        ),
+                                                                        items: [
+                                                                            Field(
+                                                                                Field {
+                                                                                    position: Pos(15:9),
+                                                                                    alias: None,
+                                                                                    name: "id",
+                                                                                    arguments: [],
+                                                                                    directives: [],
+                                                                                    selection_set: SelectionSet {
+                                                                                        span: (
+                                                                                            Pos(15:9),
+                                                                                            Pos(15:9),
+                                                                                        ),
+                                                                                        items: [],
+                                                                                    },
+                                                                                },
+                                                                            ),
+                                                                            Field(
+                                                                                Field {
+                                                                                    position: Pos(16:9),
+                                                                                    alias: Some(
+                                                                                        "alias",
+                                                                                    ),
+                                                                                    name: "field1",
+                                                                                    arguments: [
+                                                                                        (
+                                                                                            "first",
+                                                                                            Int(
+                                                                                                10,
+                                                                                            ),
+                                                                                        ),
+                                                                                        (
+                                                                                            "after",
+                                                                                            Variable(
+                                                                                                "foo",
+                                                                                            ),
+                                                                                        ),
+                                                                                    ],
+                                                                                    directives: [
+                                                                                        Directive {
+                                                                                            position: Pos(16:46),
+                                                                                            name: "include",
+                                                                                            arguments: [
+                                                                                                (
+                                                                                                    "if",
+                                                                                                    Variable(
+                                                                                                        "foo",
+                                                                                                    ),
+                                                                                                ),
+                                                                                            ],
+                                                                                        },
+                                                                                    ],
+                                                                                    selection_set: SelectionSet {
+                                                                                        span: (
+                                                                                            Pos(16:65),
+                                                                                            Pos(19:9),
+                                                                                        ),
+                                                                                        items: [
+                                                                                            Field(
+                                                                                                Field {
+                                                                                                    position: Pos(17:11),
+                                                                                                    alias: None,
+                                                                                                    name: "id",
+                                                                                                    arguments: [],
+                                                                                                    directives: [],
+                                                                                                    selection_set: SelectionSet {
+                                                                                                        span: (
+                                                                                                            Pos(17:11),
+                                                                                                            Pos(17:11),
+                                                                                                        ),
+                                                                                                        items: [],
+                                                                                                    },
+                                                                                                },
+                                                                                            ),
+                                                                                            FragmentSpread(
+                                                                                                FragmentSpread {
+                                                                                                    position: Pos(18:14),
+                                                                                                    fragment_name: "frag",
+                                                                                                    directives: [],
+                                                                                                },
+                                                                                            ),
+                                                                                        ],
+                                                                                    },
+                                                                                },
+                                                                            ),
+                                                                        ],
+                                                                    },
+                                                                },
+                                                            ),
+                                                        ],
+                                                    },
+                                                },
+                                            ),
+                                            InlineFragment(
+                                                InlineFragment {
+                                                    position: Pos(22:9),
+                                                    type_condition: None,
+                                                    directives: [
+                                                        Directive {
+                                                            position: Pos(22:9),
+                                                            name: "skip",
+                                                            arguments: [
+                                                                (
+                                                                    "unless",
+                                                                    Variable(
+                                                                        "foo",
+                                                                    ),
+                                                                ),
+                                                            ],
+                                                        },
+                                                    ],
+                                                    selection_set: SelectionSet {
+                                                        span: (
+                                                            Pos(22:29),
+                                                            Pos(24:5),
+                                                        ),
+                                                        items: [
+                                                            Field(
+                                                                Field {
+                                                                    position: Pos(23:7),
+                                                                    alias: None,
+                                                                    name: "id",
+                                                                    arguments: [],
+                                                                    directives: [],
+                                                                    selection_set: SelectionSet {
+                                                                        span: (
+                                                                            Pos(23:7),
+                                                                            Pos(23:7),
+                                                                        ),
+                                                                        items: [],
+                                                                    },
+                                                                },
+                                                            ),
+                                                        ],
+                                                    },
+                                                },
+                                            ),
+                                            InlineFragment(
+                                                InlineFragment {
+                                                    position: Pos(25:9),
+                                                    type_condition: None,
+                                                    directives: [],
+                                                    selection_set: SelectionSet {
+                                                        span: (
+                                                            Pos(25:9),
+                                                            Pos(27:5),
+                                                        ),
+                                                        items: [
+                                                            Field(
+                                                                Field {
+                                                                    position: Pos(26:7),
+                                                                    alias: None,
+                                                                    name: "id",
+                                                                    arguments: [],
+                                                                    directives: [],
+                                                                    selection_set: SelectionSet {
+                                                                        span: (
+                                                                            Pos(26:7),
+                                                                            Pos(26:7),
+                                                                        ),
+                                                                        items: [],
+                                                                    },
+                                                                },
+                                                            ),
+                                                        ],
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                    },
+                                },
+                            ),
+                        ],
+                    },
+                },
+            ),
+            Operation(
+                OperationDefinition {
+                    position: Pos(31:1),
+                    kind: Mutation,
+                    description: None,
+                    name: Some(
+                        "likeStory",
+                    ),
+                    variable_definitions: [],
+                    directives: [],
+                    selection_set: SelectionSet {
+                        span: (
+                            Pos(31:20),
+                            Pos(37:1),
+                        ),
+                        items: [
+                            Field(
+                                Field {
+                                    position: Pos(32:3),
+                                    alias: None,
+                                    name: "like",
+                                    arguments: [
+                                        (
+                                            "story",
+                                            Int(
+                                                123,
+                                            ),
+                                        ),
+                                    ],
+                                    directives: [
+                                        Directive {
+                                            position: Pos(32:20),
+                                            name: "defer",
+                                            arguments: [],
+                                        },
+                                    ],
+                                    selection_set: SelectionSet {
+                                        span: (
+                                            Pos(32:27),
+                                            Pos(36:3),
+                                        ),
+                                        items: [
+                                            Field(
+                                                Field {
+                                                    position: Pos(33:5),
+                                                    alias: None,
+                                                    name: "story",
+                                                    arguments: [],
+                                                    directives: [],
+                                                    selection_set: SelectionSet {
+                                                        span: (
+                                                            Pos(33:11),
+                                                            Pos(35:5),
+                                                        ),
+                                                        items: [
+                                                            Field(
+                                                                Field {
+                                                                    position: Pos(34:7),
+                                                                    alias: None,
+                                                                    name: "id",
+                                                                    arguments: [],
+                                                                    directives: [],
+                                                                    selection_set: SelectionSet {
+                                                                        span: (
+                                                                            Pos(34:7),
+                                                                            Pos(34:7),
+                                                                        ),
+                                                                        items: [],
+                                                                    },
+                                                                },
+                                                            ),
+                                                        ],
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                    },
+                                },
+                            ),
+                        ],
+                    },
+                },
+            ),
+            Operation(
+                OperationDefinition {
+                    position: Pos(39:1),
+                    kind: Subscription,
+                    description: None,
+                    name: Some(
+                        "StoryLikeSubscription",
+                    ),
+                    variable_definitions: [
+                        VariableDefinition {
+                            position: Pos(39:36),
+                            name: "input",
+                            var_type: NamedType(
+                                "StoryLikeSubscribeInput",
+                            ),
+                            default_value: None,
+                        },
+                    ],
+                    directives: [],
+                    selection_set: SelectionSet {
+                        span: (
+                            Pos(39:69),
+                            Pos(50:1),
+                        ),
+                        items: [
+                            Field(
+                                Field {
+                                    position: Pos(40:3),
+                                    alias: None,
+                                    name: "storyLikeSubscribe",
+                                    arguments: [
+                                        (
+                                            "input",
+                                            Variable(
+                                                "input",
+                                            ),
+                                        ),
+                                    ],
+                                    directives: [],
+                                    selection_set: SelectionSet {
+                                        span: (
+                                            Pos(40:37),
+                                            Pos(49:3),
+                                        ),
+                                        items: [
+                                            Field(
+                                                Field {
+                                                    position: Pos(41:5),
+                                                    alias: None,
+                                                    name: "story",
+                                                    arguments: [],
+                                                    directives: [],
+                                                    selection_set: SelectionSet {
+                                                        span: (
+                                                            Pos(41:11),
+                                                            Pos(48:5),
+                                                        ),
+                                                        items: [
+                                                            Field(
+                                                                Field {
+                                                                    position: Pos(42:7),
+                                                                    alias: None,
+                                                                    name: "likers",
+                                                                    arguments: [],
+                                                                    directives: [],
+                                                                    selection_set: SelectionSet {
+                                                                        span: (
+                                                                            Pos(42:14),
+                                                                            Pos(44:7),
+                                                                        ),
+                                                                        items: [
+                                                                            Field(
+                                                                                Field {
+                                                                                    position: Pos(43:9),
+                                                                                    alias: None,
+                                                                                    name: "count",
+                                                                                    arguments: [],
+                                                                                    directives: [],
+                                                                                    selection_set: SelectionSet {
+                                                                                        span: (
+                                                                                            Pos(43:9),
+                                                                                            Pos(43:9),
+                                                                                        ),
+                                                                                        items: [],
+                                                                                    },
+                                                                                },
+                                                                            ),
+                                                                        ],
+                                                                    },
+                                                                },
+                                                            ),
+                                                            Field(
+                                                                Field {
+                                                                    position: Pos(45:7),
+                                                                    alias: None,
+                                                                    name: "likeSentence",
+                                                                    arguments: [],
+                                                                    directives: [],
+                                                                    selection_set: SelectionSet {
+                                                                        span: (
+                                                                            Pos(45:20),
+                                                                            Pos(47:7),
+                                                                        ),
+                                                                        items: [
+                                                                            Field(
+                                                                                Field {
+                                                                                    position: Pos(46:9),
+                                                                                    alias: None,
+                                                                                    name: "text",
+                                                                                    arguments: [],
+                                                                                    directives: [],
+                                                                                    selection_set: SelectionSet {
+                                                                                        span: (
+                                                                                            Pos(46:9),
+                                                                                            Pos(46:9),
+                                                                                        ),
+                                                                                        items: [],
+                                                                                    },
+                                                                                },
+                                                                            ),
+                                                                        ],
+                                                                    },
+                                                                },
+                                                            ),
+                                                        ],
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                    },
+                                },
+                            ),
+                        ],
+                    },
+                },
+            ),
+            Fragment(
+                FragmentDefinition {
+                    position: Pos(52:1),
+                    description: None,
+                    name: "frag",
+                    type_condition: "Friend",
+                    directives: [],
+                    selection_set: SelectionSet {
+                        span: (
+                            Pos(52:25),
+                            Pos(58:1),
+                        ),
+                        items: [
+                            Field(
+                                Field {
+                                    position: Pos(53:3),
+                                    alias: None,
+                                    name: "foo",
+                                    arguments: [
+                                        (
+                                            "size",
+                                            Variable(
+                                                "size",
+                                            ),
+                                        ),
+                                        (
+                                            "bar",
+                                            Variable(
+                                                "b",
+                                            ),
+                                        ),
+                                        (
+                                            "obj",
+                                            Object(
+                                                {
+                                                    "block": String(
+                                                        "\nblock string uses \"\"\"\n\n",
+                                                    ),
+                                                    "key": String(
+                                                        "value",
+                                                    ),
+                                                },
+                                            ),
+                                        ),
+                                    ],
+                                    directives: [],
+                                    selection_set: SelectionSet {
+                                        span: (
+                                            Pos(53:3),
+                                            Pos(53:3),
+                                        ),
+                                        items: [],
+                                    },
+                                },
+                            ),
+                        ],
+                    },
+                },
+            ),
+            SelectionSet(
+                SelectionSet {
+                    span: (
+                        Pos(60:1),
+                        Pos(63:1),
+                    ),
+                    items: [
+                        Field(
+                            Field {
+                                position: Pos(61:3),
+                                alias: None,
+                                name: "unnamed",
+                                arguments: [
+                                    (
+                                        "truthy",
+                                        Boolean(
+                                            true,
+                                        ),
+                                    ),
+                                    (
+                                        "falsey",
+                                        Boolean(
+                                            false,
+                                        ),
+                                    ),
+                                    (
+                                        "nullish",
+                                        Null,
+                                    ),
+                                ],
+                                directives: [],
+                                selection_set: SelectionSet {
+                                    span: (
+                                        Pos(61:3),
+                                        Pos(61:3),
+                                    ),
+                                    items: [],
+                                },
+                            },
+                        ),
+                        Field(
+                            Field {
+                                position: Pos(62:3),
+                                alias: None,
+                                name: "query",
+                                arguments: [],
+                                directives: [],
+                                selection_set: SelectionSet {
+                                    span: (
+                                        Pos(62:3),
+                                        Pos(62:3),
+                                    ),
+                                    items: [],
+                                },
+                            },
+                        ),
+                    ],
+                },
+            ),
+        ],
+    },
+)

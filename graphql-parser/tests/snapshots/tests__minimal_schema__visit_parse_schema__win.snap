@@ -1,0 +1,29 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & visit_parse_schema(& ast))"
+---
+schema {
+  query: Query
+}
+
+---
+Print {
+    output: [
+        Visit {
+            event: "enter_schema",
+            name: None,
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: None,
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: None,
+        },
+        Visit {
+            event: "leave_schema",
+            name: None,
+        },
+    ],
+}

@@ -1,0 +1,896 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & visit_parse_schema(& ast))"
+---
+# Copyright (c) 2015-present, Facebook, Inc.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+schema {
+  query: QueryType
+  mutation: MutationType
+}
+
+"""
+This is a description
+of the `Foo` type.
+"""
+type Foo implements Bar & Baz {
+  one: Type
+  two(argument: InputType!): Type
+  three(argument: InputType, other: String): Int
+  four(argument: String = "string"): String
+  five(argument: [String] = ["string", "string"]): String
+  six(argument: InputType = {key: "value"}): Type
+  seven(argument: Int = null): Type
+}
+
+type AnnotatedObject @onObject(arg: "value") {
+  annotatedField(arg: Type = "default" @onArg): Type @onField
+}
+
+type UndefinedType
+
+extend type Foo {
+  seven(argument: [String]): Type
+}
+
+extend type Foo @onType
+
+interface Bar {
+  one: Type
+  four(argument: String = "string"): String
+}
+
+interface AnnotatedInterface @onInterface {
+  annotatedField(arg: Type @onArg): Type @onField
+}
+
+interface UndefinedInterface
+
+extend interface Bar {
+  two(argument: InputType!): Type
+}
+
+extend interface Bar @onInterface
+
+union Feed = Story | Article | Advert
+
+union AnnotatedUnion @onUnion = A | B
+
+union AnnotatedUnionTwo @onUnion = | A | B
+
+union UndefinedUnion
+
+extend union Feed = Photo | Video
+
+extend union Feed @onUnion
+
+scalar CustomScalar
+
+scalar AnnotatedScalar @onScalar
+
+extend scalar CustomScalar @onScalar
+
+enum Site {
+  DESKTOP
+  MOBILE
+}
+
+enum AnnotatedEnum @onEnum {
+  ANNOTATED_VALUE @onEnumValue
+  OTHER_VALUE
+}
+
+enum UndefinedEnum
+
+extend enum Site {
+  VR
+}
+
+extend enum Site @onEnum
+
+input InputType {
+  key: String!
+  answer: Int = 42
+}
+
+input AnnotatedInput @onInputObject {
+  annotatedField: Type @onField
+}
+
+input UndefinedInput
+
+extend input InputType {
+  other: Float = 1.23e4
+}
+
+extend input InputType @onInputObject
+
+directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+directive @include(if: Boolean!)
+  on FIELD
+   | FRAGMENT_SPREAD
+   | INLINE_FRAGMENT
+
+directive @include2(if: Boolean!) on
+  | FIELD
+  | FRAGMENT_SPREAD
+  | INLINE_FRAGMENT
+
+fragment SomeNamedFragment on SomeType {
+  fieldOne
+  aliased: fieldTwo {
+    some { deep }
+  }
+  yetAnother @withADirective(param: 3, enumParam: VALUE)
+}
+
+query StoredQuery($param: InputType, $other: ScalarType) {
+  lookup {
+    various things  
+  }
+}
+---
+Print {
+    output: [
+        Visit {
+            event: "enter_schema",
+            name: None,
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: None,
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: None,
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Foo",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "one",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "one",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "two",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "two",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "three",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "three",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "four",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "four",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "five",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "five",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "six",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "six",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "seven",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "seven",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Foo",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "AnnotatedObject",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "annotatedField",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "annotatedField",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "AnnotatedObject",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "UndefinedType",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "UndefinedType",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Foo",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "seven",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "seven",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Foo",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Foo",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Foo",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Bar",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "one",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "one",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "four",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "four",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Bar",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "AnnotatedInterface",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "annotatedField",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "annotatedField",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "AnnotatedInterface",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "UndefinedInterface",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "UndefinedInterface",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Bar",
+            ),
+        },
+        Visit {
+            event: "enter_field",
+            name: Some(
+                "two",
+            ),
+        },
+        Visit {
+            event: "leave_field",
+            name: Some(
+                "two",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Bar",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Bar",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Bar",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Feed",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Feed",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "AnnotatedUnion",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "AnnotatedUnion",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "AnnotatedUnionTwo",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "AnnotatedUnionTwo",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "UndefinedUnion",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "UndefinedUnion",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Feed",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Feed",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Feed",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Feed",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "CustomScalar",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "CustomScalar",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "AnnotatedScalar",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "AnnotatedScalar",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "CustomScalar",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "CustomScalar",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Site",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Site",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "AnnotatedEnum",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "AnnotatedEnum",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "UndefinedEnum",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "UndefinedEnum",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Site",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Site",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "Site",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "Site",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "InputType",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "InputType",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "AnnotatedInput",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "AnnotatedInput",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "UndefinedInput",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "UndefinedInput",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "InputType",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "InputType",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "InputType",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "InputType",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "skip",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "skip",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "include",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "include",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "include2",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "include2",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "SomeNamedFragment",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "fieldOne",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "fieldOne",
+            ),
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "fieldTwo",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "some",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "deep",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "deep",
+            ),
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "some",
+            ),
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "fieldTwo",
+            ),
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "yetAnother",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "yetAnother",
+            ),
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "SomeNamedFragment",
+            ),
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "StoredQuery",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "lookup",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "various",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "various",
+            ),
+        },
+        Visit {
+            event: "enter_sel",
+            name: Some(
+                "things",
+            ),
+        },
+        Visit {
+            event: "enter_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "things",
+            ),
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_sel",
+            name: Some(
+                "lookup",
+            ),
+        },
+        Visit {
+            event: "leave_sel_set",
+            name: None,
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "StoredQuery",
+            ),
+        },
+        Visit {
+            event: "leave_schema",
+            name: None,
+        },
+    ],
+}

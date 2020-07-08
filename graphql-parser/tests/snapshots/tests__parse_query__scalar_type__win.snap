@@ -1,9 +1,0 @@
----
-source: graphql-parser/tests/tests.rs
-expression: result
----
-Err(
-    ParseError(
-        "Parse error at 1:1\nUnexpected `\"This is the best scalar type\"[StringValue]`\nExpected `{`, `query`, `mutation`, `subscription` or `fragment`\n",
-    ),
-)

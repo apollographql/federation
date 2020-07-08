@@ -1,0 +1,41 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+---
+{
+  a
+}
+
+---
+Ok(
+    Document {
+        definitions: [
+            SelectionSet(
+                SelectionSet {
+                    span: (
+                        Pos(1:1),
+                        Pos(3:1),
+                    ),
+                    items: [
+                        Field(
+                            Field {
+                                position: Pos(2:3),
+                                alias: None,
+                                name: "a",
+                                arguments: [],
+                                directives: [],
+                                selection_set: SelectionSet {
+                                    span: (
+                                        Pos(2:3),
+                                        Pos(2:3),
+                                    ),
+                                    items: [],
+                                },
+                            },
+                        ),
+                    ],
+                },
+            ),
+        ],
+    },
+)

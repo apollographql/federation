@@ -15,7 +15,8 @@ fn main() -> std::io::Result<()> {
 mod helpers;
 use graphql_parser::parse_query;
 use graphql_parser::parse_schema;
-use insta::assert_debug_snapshot;
+use helpers::*;
+use insta::assert_snapshot;
 use pretty_assertions::assert_eq;
 
 ",

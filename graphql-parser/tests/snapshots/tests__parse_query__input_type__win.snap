@@ -1,9 +1,0 @@
----
-source: graphql-parser/tests/tests.rs
-expression: result
----
-Err(
-    ParseError(
-        "Parse error at 1:1\nUnexpected `input[Name]`\nExpected `{`, `query`, `mutation`, `subscription` or `fragment`\n",
-    ),
-)

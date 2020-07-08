@@ -1,0 +1,14 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+---
+querry MyQuery {
+  field1
+}
+
+---
+Err(
+    ParseError(
+        "Parse error at 1:1\nUnexpected `querry[Name]`\nExpected `{`, `query`, `mutation`, `subscription` or `fragment`\n",
+    ),
+)
