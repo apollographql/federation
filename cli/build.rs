@@ -29,7 +29,7 @@ fn main() -> std::io::Result<()> {
         .expect("Failed writing uuid file");
 
     let schema_url = env::var("APOLLO_GPAPHQL_SCHEMA_URL")
-        .unwrap_or_else(|_| "https://engine-graphql.apollographql.com/api/schema".to_owned());
+        .unwrap_or_else(|_| String::from("https://engine-graphql.apollographql.com/api/schema"));
 
     let schema_url_str = schema_url.as_str();
 
