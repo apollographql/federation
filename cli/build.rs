@@ -1,10 +1,9 @@
-use std::fs::{read, write};
-use std::path::PathBuf;
-use uuid::Uuid;
-
-use reqwest::blocking::Client;
 use std::env;
 use std::fs;
+use std::path::PathBuf;
+
+use reqwest::blocking::Client;
+use uuid::Uuid;
 
 /// This script downloads the schema if it's not in the file system (in a path that's .gitignored)
 /// If it exists, the script does nothing.
@@ -26,7 +25,8 @@ fn main() -> std::io::Result<()> {
     // and most of the time it doesn't do anything.
     println!("cargo:rerun-if-changed=.schema/last_run.uuid");
     fs::create_dir_all(".schema").expect("failed creating the .schema directory");
-    write(".schema/last_run.uuid", Uuid::new_v4().to_string()).expect("Failed writing uuid file");
+    fs::write(".schema/last_run.uuid", Uuid::new_v4().to_string())
+        .expect("Failed writing uuid file");
 
     let schema_url = env::var("APOLLO_GPAPHQL_SCHEMA_URL")
         .unwrap_or_else(|_| "https://engine-graphql.apollographql.com/api/schema".to_owned());
@@ -51,7 +51,7 @@ fn main() -> std::io::Result<()> {
             update_schema(&client, schema_url_str)
         } else {
             println!(".schema/etag.id exists");
-            let curr_etag = String::from_utf8(read(etag_path).unwrap()).unwrap();
+            let curr_etag = String::from_utf8(fs::read(etag_path).unwrap()).unwrap();
             println!("curr etag: {}", curr_etag);
 
             let response = client
@@ -89,7 +89,7 @@ fn update_schema(client: &Client, url: &str) -> std::io::Result<()> {
         .expect("Failed getting etag header from response.");
 
     println!("Saving {} to .schema/etag.id", etag);
-    write(".schema/etag.id", etag)?;
+    fs::write(".schema/etag.id", etag)?;
 
     let schema = response
         .text()
@@ -97,7 +97,7 @@ fn update_schema(client: &Client, url: &str) -> std::io::Result<()> {
 
     println!("Writing schema text to .schema/schema.graphql");
 
-    write(".schema/schema.graphql", schema)?;
+    fs::write(".schema/schema.graphql", schema)?;
 
     Ok(())
 }
