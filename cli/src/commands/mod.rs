@@ -1,8 +1,8 @@
-pub mod auth;
-pub mod print;
-pub mod schema;
-pub mod setup;
-pub mod update;
+mod auth;
+mod print;
+mod schema;
+mod setup;
+mod update;
 
 pub use auth::Auth;
 pub use print::Print;
