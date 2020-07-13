@@ -40,9 +40,7 @@ fn main() -> std::io::Result<()> {
 
     println!(
         "UPDATE_SCHEMA = {}",
-        env::var("UPDATE_SCHEMA")
-            .unwrap_or_else(|_| String::from("null"))
-            .as_str()
+        &env::var("UPDATE_SCHEMA").unwrap_or_else(|_| String::from("null"))
     );
 
     if should_update_schema || !(etag_path.exists()) {
@@ -63,7 +61,7 @@ fn main() -> std::io::Result<()> {
             println!("remote etag: {}", remote_etag.unwrap_or("None"));
 
             match remote_etag {
-                Some(etag) if etag == curr_etag.as_str() => {
+                Some(etag) if etag == &curr_etag => {
                     println!("etags match. Not updating schema.");
                     Ok(())
                 }
