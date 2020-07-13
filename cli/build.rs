@@ -61,7 +61,7 @@ fn main() -> std::io::Result<()> {
             println!("remote etag: {}", remote_etag.unwrap_or("None"));
 
             match remote_etag {
-                Some(etag) if etag == &curr_etag => {
+                etag if etag == Some(&curr_etag) => {
                     println!("etags match. Not updating schema.");
                     Ok(())
                 }
