@@ -6,12 +6,10 @@
 pub trait Map {
     type Output;
 
-    /// Merge a child output node into a parent output node.
-    ///
-    /// Implementing this method lets you update and/or replace parent nodes
-    /// by including data from their children. The default implementation returns
-    /// the parent output node unchanged.
-    fn merge(&mut self, parent: Self::Output, child: &Self::Output) -> Self::Output {
+    /// Merge a child output node and a parent output node.
+    /// The default implementation returns the parent output node unchanged
+    /// and discards the child output node.
+    fn merge(&mut self, parent: Self::Output, child: Self::Output) -> Self::Output {
         parent
     }
 }
@@ -33,11 +31,11 @@ pub struct Fold<M: Map> {
 
 impl<M: Map> Fold<M> {
     pub fn pop(&mut self) {
-        self.output = self.stack.pop();
-        if self.stack.is_empty() {
-            return;
-        }
-        if let Some(ref child) = self.output {
+        let output = self.stack.pop();
+        if self.stack.is_empty() || output.is_none() {
+            self.output = output;
+        } else {
+            let child = output.expect("bug! is_none is checked above.");
             let parent = self.stack.pop().unwrap();
             self.stack.push(self.map.merge(parent, child));
         }
