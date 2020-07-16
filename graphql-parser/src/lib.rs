@@ -20,11 +20,9 @@
 //! -------------------------------
 //!
 //! ```rust
-//! # extern crate graphql_parser;
 //! use graphql_parser::{parse_query, ParseError};
 //!
-//! # fn parse() -> Result<(), ParseError> {
-//! let ast = parse_query("query MyQuery { field1, field2 }")?;
+//! let ast = parse_query("query MyQuery { field1, field2 }").unwrap();
 //! // Format canonical representation
 //! assert_eq!(format!("{}", ast), "\
 //! query MyQuery {
@@ -32,21 +30,14 @@
 //!   field2
 //! }
 //! ");
-//! # Ok(())
-//! # }
-//! # fn main() {
-//! #    parse().unwrap()
-//! # }
 //! ```
 //!
 //! Example: Parse and Format Schema
 //! --------------------------------
 //!
 //! ```rust
-//! # extern crate graphql_parser;
 //! use graphql_parser::{parse_schema, ParseError};
 //!
-//! # fn parse() -> Result<(), ParseError> {
 //! let ast = parse_schema(r#"
 //!     schema {
 //!         query: Query
@@ -62,7 +53,7 @@
 //!     type User {
 //!         name: String!,
 //!     }
-//! "#)?.to_owned();
+//! "#).unwrap().to_owned();
 //! // Format canonical representation
 //! assert_eq!(format!("{}", ast), "\
 //! schema {
@@ -82,11 +73,6 @@
 //!   name: String!
 //! }
 //! ");
-//! # Ok(())
-//! # }
-//! # fn main() {
-//! #    parse().unwrap()
-//! # }
 //! ```
 //!
 //! Visitors
@@ -107,7 +93,7 @@
 //!   fieldB: String
 //!   fieldC: [String]  
 //! }
-//! "###)?;
+//! "###).unwrap();
 //!
 //! struct Fields {
 //!     output: Vec<String>
@@ -127,7 +113,6 @@
 //! let mut fields = Fields { output: vec![] };
 //! ast.accept(&mut fields);
 //! assert_eq!(fields.output, vec!["fieldA", "fieldB", "fieldC"]);
-//!# Ok::<(), graphql_parser::ParseError>(())
 //! ```
 //!
 //! Example: Map a query into a string
@@ -141,18 +126,20 @@
 //!     someField
 //!     another { ...withFragment @directive }
 //! }
-//! "#)?;
+//! "#).unwrap();
 //! struct ToIndentedNodeTypes {}
+//!
 //! impl Map for ToIndentedNodeTypes {
 //!     // We're mapping the query AST into a string
 //!     type Output = String;
 //!     // The *merge* function controls how we merge child output data up the tree
 //!     // when the map of the child is complete. Here we join parent and child
 //!     // with a newline.
-//!     fn merge(&mut self, parent: String, child: &String) -> String {
+//!     fn merge(&mut self, parent: String, child: String) -> String {
 //!         format!("{}\n{}", parent, child)
 //!     }
 //! }
+//!
 //! impl query::Map for ToIndentedNodeTypes {
 //!     fn query<'a>(&mut self, _: &Document<'a>, stack: &[Self::Output]) -> Self::Output {
 //!         format!("{}query", "  ".repeat(stack.len()))
@@ -177,7 +164,6 @@
 //!       sel
 //!         sel_set
 //!           sel")));
-//!# Ok::<(), graphql_parser::ParseError>(())
 //! ```
 #![warn(missing_debug_implementations)]
 

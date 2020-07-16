@@ -206,7 +206,7 @@ mod tests {
         struct TestMap {}
         impl visit::Map for TestMap {
             type Output = String;
-            fn merge(&mut self, parent: String, child: &String) -> String {
+            fn merge(&mut self, parent: String, child: String) -> String {
                 format!("{}\n{}", parent, child)
             }
         }
