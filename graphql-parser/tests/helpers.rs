@@ -74,7 +74,10 @@ pub struct Visit {
 
 macro_rules! print {
     ($action:ident $mod:ident :: $Type:ident) => {
-        fn $action<'a>(&mut self, node: &$mod::$Type<'a>) {
+        fn $action<'a>(&'a mut self, node: &'q $mod::$Type<'q>)
+        where
+            'q: 'a,
+        {
             self.output.push(Visit {
                 event: String::from(stringify!($action)),
                 name: node.name().map(String::from),
@@ -83,7 +86,7 @@ macro_rules! print {
     };
 }
 
-impl query::Visitor for Print {
+impl<'q> query::Visitor<'q> for Print {
     print!(enter_query query::Document);
     print!(leave_query query::Document);
     print!(enter_query_def query::Definition);
@@ -94,7 +97,7 @@ impl query::Visitor for Print {
     print!(leave_sel query::Selection);
 }
 
-impl schema::Visitor for Print {
+impl<'q> schema::Visitor<'q> for Print {
     print!(enter_schema schema::Document);
     print!(enter_schema_def schema::Definition);
     print!(enter_field schema::Field);

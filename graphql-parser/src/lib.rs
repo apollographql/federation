@@ -99,13 +99,13 @@
 //!     output: Vec<String>
 //! };
 //!
-//! /// Schemas can contain queries, so all visitors must at least implement query::Visitor.
-//! impl query::Visitor for Fields {}
+//! // Schemas can contain queries, so all visitors must at least implement query::Visitor.
+//! impl<'q> query::Visitor<'q> for Fields {}
 //!
-//! /// To collect field definitions, we'll also want to implement the appropriate method of
-//! /// schema::Visitor
-//! impl schema::Visitor for Fields {
-//!     fn enter_field<'a>(&mut self, field: &schema::Field<'a>) {
+//! // To collect field definitions, we'll also want to implement the appropriate method of
+//! // schema::Visitor
+//! impl<'q> schema::Visitor<'q> for Fields {
+//!     fn enter_field<'a>(&'a mut self, field: &'q schema::Field<'q>) where 'q: 'a {
 //!         self.output.push(String::from(field.name().unwrap()));
 //!     }
 //! }

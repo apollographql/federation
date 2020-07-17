@@ -1,16 +1,49 @@
-use super::{Definition, Document, Selection, SelectionSet};
 use crate::{visit, visit_each};
 
+use super::{Definition, Document, Selection, SelectionSet};
+
 #[allow(unused_variables)]
-pub trait Visitor {
-    fn enter_query(&mut self, doc: &Document) {}
-    fn enter_query_def(&mut self, def: &Definition) {}
-    fn enter_sel_set(&mut self, sel_set: &SelectionSet) {}
-    fn enter_sel(&mut self, sel: &Selection) {}
-    fn leave_sel(&mut self, sel: &Selection) {}
-    fn leave_sel_set(&mut self, sel_set: &SelectionSet) {}
-    fn leave_query_def(&mut self, def: &Definition) {}
-    fn leave_query(&mut self, doc: &Document) {}
+pub trait Visitor<'q> {
+    fn enter_query<'a>(&'a mut self, doc: &'q Document<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn enter_query_def<'a>(&'a mut self, def: &'q Definition<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn enter_sel_set<'a>(&'a mut self, sel_set: &'q SelectionSet<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn enter_sel<'a>(&'a mut self, sel: &'q Selection<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn leave_sel<'a>(&'a mut self, sel: &'q Selection<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn leave_sel_set<'a>(&'a mut self, sel_set: &'q SelectionSet<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn leave_query_def<'a>(&'a mut self, def: &'q Definition<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn leave_query<'a>(&'a mut self, doc: &'q Document<'q>)
+    where
+        'q: 'a,
+    {
+    }
 }
 
 pub trait Map: visit::Map {
@@ -20,36 +53,73 @@ pub trait Map: visit::Map {
     fn sel(&mut self, sel: &Selection, stack: &[Self::Output]) -> Self::Output;
 }
 
-impl<M: Map> Visitor for visit::Fold<M> {
-    fn enter_query(&mut self, doc: &Document) {
+impl<'q, M: Map> Visitor<'q> for visit::Fold<M> {
+    fn enter_query<'a>(&'a mut self, doc: &'q Document<'q>)
+    where
+        'q: 'a,
+    {
         self.stack.push(self.map.query(doc, &self.stack));
     }
-    fn enter_query_def(&mut self, def: &Definition) {
+
+    fn enter_query_def<'a>(&'a mut self, def: &'q Definition<'q>)
+    where
+        'q: 'a,
+    {
         self.stack.push(self.map.query_def(def, &self.stack));
     }
-    fn enter_sel_set(&mut self, sel_set: &SelectionSet) {
+
+    fn enter_sel_set<'a>(&'a mut self, sel_set: &'q SelectionSet<'q>)
+    where
+        'q: 'a,
+    {
         self.stack.push(self.map.sel_set(sel_set, &self.stack));
     }
-    fn enter_sel(&mut self, sel: &Selection) {
+
+    fn enter_sel<'a>(&'a mut self, sel: &'q Selection<'q>)
+    where
+        'q: 'a,
+    {
         self.stack.push(self.map.sel(&sel, &self.stack));
     }
-    fn leave_sel(&mut self, _sel: &Selection) {
+
+    fn leave_sel<'a>(&'a mut self, _sel: &'q Selection<'q>)
+    where
+        'q: 'a,
+    {
         self.pop();
     }
-    fn leave_sel_set(&mut self, _sel_set: &SelectionSet) {
+
+    fn leave_sel_set<'a>(&'a mut self, _sel_set: &'q SelectionSet<'q>)
+    where
+        'q: 'a,
+    {
         self.pop();
     }
-    fn leave_query_def(&mut self, _def: &Definition) {
+
+    fn leave_query_def<'a>(&'a mut self, _def: &'q Definition<'q>)
+    where
+        'q: 'a,
+    {
         self.pop();
     }
-    fn leave_query(&mut self, _doc: &Document) {
+
+    fn leave_query<'a>(&'a mut self, _doc: &'q Document<'q>)
+    where
+        'q: 'a,
+    {
         self.pop();
     }
 }
 
-pub trait Node {
-    fn accept<V: Visitor>(&self, visitor: &mut V);
-    fn map<M: Map>(&self, map: M) -> visit::Fold<M> {
+pub trait Node<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a;
+
+    fn map<'a, M: Map>(&'q self, map: M) -> visit::Fold<M>
+    where
+        'q: 'a,
+    {
         let mut mapping = visit::Fold {
             stack: vec![],
             map,
@@ -60,16 +130,22 @@ pub trait Node {
     }
 }
 
-impl<'a> Node for Document<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+impl<'q> Node<'q> for Document<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a,
+    {
         visitor.enter_query(self);
         visit_each!(visitor: self.definitions);
         visitor.leave_query(self);
     }
 }
 
-impl<'a> Node for Definition<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+impl<'q> Node<'q> for Definition<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a,
+    {
         visitor.enter_query_def(self);
         use Definition::*;
         match self {
@@ -81,16 +157,22 @@ impl<'a> Node for Definition<'a> {
     }
 }
 
-impl<'a> Node for SelectionSet<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+impl<'q> Node<'q> for SelectionSet<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a,
+    {
         visitor.enter_sel_set(self);
         visit_each!(visitor: self.items);
         visitor.leave_sel_set(self);
     }
 }
 
-impl<'a> Node for Selection<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+impl<'q> Node<'q> for Selection<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a,
+    {
         visitor.enter_sel(self);
         use Selection::*;
         match self {
@@ -104,7 +186,8 @@ impl<'a> Node for Selection<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse_query, query, query::*, visit, ParseError};
+    use crate::schema;
+    use crate::{parse_query, parse_schema, query, query::*, visit, ParseError};
 
     #[test]
     fn visits_a_query() -> Result<(), ParseError> {
@@ -130,7 +213,10 @@ mod tests {
 
         macro_rules! print {
             ($action:ident $Type:ident) => {
-                fn $action<'a>(&mut self, node: &$Type<'a>) {
+                fn $action<'a>(&'a mut self, node: &'q $Type<'q>)
+                where
+                    'q: 'a,
+                {
                     self.output
                         .push(format!("{} ({:?})", stringify!($action), node.name()));
                 }
@@ -138,7 +224,7 @@ mod tests {
         }
 
         use crate::Name;
-        impl query::Visitor for Print {
+        impl<'q> query::Visitor<'q> for Print {
             print!(enter_query Document);
             print!(enter_query_def Definition);
             print!(enter_sel_set SelectionSet);
@@ -248,5 +334,51 @@ mod tests {
             ))
         );
         Ok(())
+    }
+
+    #[test]
+    fn visitor_with_lifetimes() {
+        pub struct QueryPlanContext<'q> {
+            pub fragments: Vec<&'q query::FragmentDefinition<'q>>,
+        }
+
+        pub struct QueryPlanVisitor<'q, 's> {
+            pub schema: &'q schema::Document<'s>,
+            pub context: Option<QueryPlanContext<'q>>,
+        }
+
+        impl<'q, 's: 'q> Visitor<'q> for QueryPlanVisitor<'q, 's> {
+            fn enter_query<'a>(&'a mut self, doc: &'q Document<'q>)
+            where
+                'q: 'a,
+            {
+                let fragments: Vec<&'q query::FragmentDefinition<'q>> = doc
+                    .definitions
+                    .iter()
+                    .flat_map(|d| match d {
+                        query::Definition::Fragment(frag) => Some(frag),
+                        _ => None,
+                    })
+                    .collect();
+
+                let context = QueryPlanContext { fragments };
+                self.context = Some(context);
+            }
+        }
+
+        let schema = "schema { query: Query } type Query { i: Int, j: Int }";
+        let schema = parse_schema(schema).unwrap();
+        let query = "query { ...ij } fragment ij on Query { i j }";
+        let query = parse_query(query).unwrap();
+        let mut visitor = QueryPlanVisitor {
+            schema: &schema,
+            context: None,
+        };
+        query.accept(&mut visitor);
+        if let Some(context) = visitor.context {
+            assert_eq!(context.fragments.len(), 1);
+        } else {
+            panic!("context should be Some");
+        }
     }
 }

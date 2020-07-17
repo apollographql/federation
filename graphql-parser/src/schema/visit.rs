@@ -4,15 +4,47 @@ use crate::query::Node as QueryNode;
 use crate::{visit, visit_each};
 
 #[allow(unused_variables)]
-pub trait Visitor: query::Visitor {
-    fn enter_schema<'a>(&mut self, doc: &Document<'a>) {}
-    fn enter_schema_def<'a>(&mut self, def: &Definition<'a>) {}
-    fn enter_field<'a>(&mut self, field: &Field<'a>) {}
-    fn leave_field<'a>(&mut self, field: &Field<'a>) {}
-    fn enter_input_value<'a>(&mut self, input_value: &InputValue<'a>) {}
-    fn leave_input_value<'a>(&mut self, input_value: &InputValue<'a>) {}
-    fn leave_schema_def<'a>(&mut self, def: &Definition<'a>) {}
-    fn leave_schema<'a>(&mut self, doc: &Document<'a>) {}
+pub trait Visitor<'q>: query::Visitor<'q> {
+    fn enter_schema<'a>(&'a mut self, doc: &'q Document<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn enter_schema_def<'a>(&'a mut self, def: &'q Definition<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn enter_field<'a>(&'a mut self, field: &'q Field<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn leave_field<'a>(&'a mut self, field: &'q Field<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn enter_input_value<'a>(&'a mut self, input_value: &'q InputValue<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn leave_input_value<'a>(&'a mut self, input_value: &'q InputValue<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn leave_schema_def<'a>(&'a mut self, def: &'q Definition<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn leave_schema<'a>(&'a mut self, doc: &'q Document<'q>)
+    where
+        'q: 'a,
+    {
+    }
 }
 
 pub trait Map: query::Map {
@@ -26,37 +58,76 @@ pub trait Map: query::Map {
     ) -> Self::Output;
 }
 
-impl<M: Map> Visitor for visit::Fold<M> {
-    fn enter_schema<'a>(&mut self, doc: &Document<'a>) {
+impl<'q, M: Map> Visitor<'q> for visit::Fold<M> {
+    fn enter_schema<'a>(&'a mut self, doc: &'q Document<'q>)
+    where
+        'q: 'a,
+    {
         self.stack.push(self.map.schema(doc, &self.stack));
     }
-    fn enter_schema_def<'a>(&mut self, def: &Definition<'a>) {
+
+    fn enter_schema_def<'a>(&'a mut self, def: &'q Definition<'q>)
+    where
+        'q: 'a,
+    {
         self.stack.push(self.map.schema_def(def, &self.stack));
     }
-    fn enter_field<'a>(&mut self, field: &Field<'a>) {
+
+    fn enter_field<'a>(&'a mut self, field: &'q Field<'q>)
+    where
+        'q: 'a,
+    {
         self.stack.push(self.map.field(field, &self.stack));
     }
-    fn enter_input_value<'a>(&mut self, input_value: &InputValue<'a>) {
+
+
+    fn leave_field<'a>(&'a mut self, _field: &'q Field<'q>)
+    where
+        'q: 'a,
+    {
+        self.pop();
+    }
+
+
+    fn enter_input_value<'a>(&'a mut self, input_value: &'q InputValue<'q>)
+    where
+        'q: 'a,
+    {
         self.stack
             .push(self.map.input_value(input_value, &self.stack));
     }
-    fn leave_field<'a>(&mut self, _: &Field<'a>) {
+
+    fn leave_input_value<'a>(&'a mut self, _input_value: &'q InputValue<'q>)
+    where
+        'q: 'a,
+    {
         self.pop();
     }
-    fn leave_input_value<'a>(&mut self, _: &InputValue<'a>) {
+
+    fn leave_schema_def<'a>(&'a mut self, _def: &'q Definition<'q>)
+    where
+        'q: 'a,
+    {
         self.pop();
     }
-    fn leave_schema_def<'a>(&mut self, _: &Definition<'a>) {
-        self.pop();
-    }
-    fn leave_schema<'a>(&mut self, _: &Document<'a>) {
+
+    fn leave_schema<'a>(&'a mut self, _doc: &'q Document<'q>)
+    where
+        'q: 'a,
+    {
         self.pop();
     }
 }
 
-pub trait Node {
-    fn accept<V: Visitor>(&self, visitor: &mut V);
-    fn map<M: Map>(&self, map: M) -> visit::Fold<M> {
+pub trait Node<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a;
+
+    fn map<'a, M: Map>(&'q self, map: M) -> visit::Fold<M>
+    where
+        'q: 'a,
+    {
         let mut mapping = visit::Fold {
             stack: vec![],
             map,
@@ -67,16 +138,22 @@ pub trait Node {
     }
 }
 
-impl<'a> Node for Document<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+impl<'q> Node<'q> for Document<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a,
+    {
         visitor.enter_schema(self);
         visit_each!(visitor: self.definitions);
         visitor.leave_schema(self);
     }
 }
 
-impl<'a> Node for Definition<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+impl<'q> Node<'q> for Definition<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a,
+    {
         visitor.enter_schema_def(self);
         match self {
             Definition::Schema(_) => {}
@@ -90,8 +167,11 @@ impl<'a> Node for Definition<'a> {
     }
 }
 
-impl<'a> Node for TypeDefinition<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+impl<'q> Node<'q> for TypeDefinition<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a,
+    {
         match self {
             TypeDefinition::Scalar(_) => {}
             TypeDefinition::Object(o) => visit_each!(visitor: o.fields),
@@ -103,8 +183,11 @@ impl<'a> Node for TypeDefinition<'a> {
     }
 }
 
-impl<'a> Node for TypeExtension<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+impl<'q> Node<'q> for TypeExtension<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a,
+    {
         match self {
             TypeExtension::Scalar(_) => {}
             TypeExtension::Object(o) => visit_each!(visitor: o.fields),
@@ -116,15 +199,21 @@ impl<'a> Node for TypeExtension<'a> {
     }
 }
 
-impl<'a> Node for Field<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+impl<'q> Node<'q> for Field<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a,
+    {
         visitor.enter_field(self);
         visitor.leave_field(self);
     }
 }
 
-impl<'a> Node for InputValue<'a> {
-    fn accept<V: Visitor>(&self, visitor: &mut V) {
+impl<'q> Node<'q> for InputValue<'q> {
+    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+    where
+        'q: 'a,
+    {
         visitor.enter_input_value(self);
         visitor.leave_input_value(self);
     }
