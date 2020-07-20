@@ -80,14 +80,12 @@ impl<'q, M: Map> Visitor<'q> for visit::Fold<M> {
         self.stack.push(self.map.field(field, &self.stack));
     }
 
-
     fn leave_field<'a>(&'a mut self, _field: &'q Field<'q>)
     where
         'q: 'a,
     {
         self.pop();
     }
-
 
     fn enter_input_value<'a>(&'a mut self, input_value: &'q InputValue<'q>)
     where

@@ -6,8 +6,9 @@
 //! execute a query plan. Furthermore, within a [Field] or [InlineFragment], we only need
 //! names, aliases, type conditions, and recurively sub [SelectionSet]s.
 
-use serde::{Deserialize, Serialize};
 use std::fmt;
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(from = "QueryPlanSerde", into = "QueryPlanSerde")]
@@ -107,8 +108,9 @@ enum QueryPlanSerde {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::Value;
+
+    use super::*;
 
     fn qp_json_string() -> &'static str {
         r#"
