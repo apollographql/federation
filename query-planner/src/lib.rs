@@ -1,8 +1,7 @@
 use graphql_parser::ParseError;
 
 pub mod builder;
-mod context;
-mod map;
+mod visitor;
 pub mod model;
 
 #[derive(Debug)]
