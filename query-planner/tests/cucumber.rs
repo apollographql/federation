@@ -92,18 +92,11 @@ mod query_planner_tests {
     });
 }
 
+// TODO: how to ignore
 cucumber! {
-    // path relative to cargo.lock
     features: "./", // Path to our feature files
     world: crate::MyWorld, // The world needs to be the same for steps and the main cucumber call
     steps: &[
         query_planner_tests::steps // the `steps!` macro creates a `steps` function in a module
     ]
-    // setup: setup, // Optional; called once before everything
-    // before: &[
-    //     a_before_fn // Optional; called before each scenario
-    // ],
-    // after: &[
-    //     an_after_fn // Optional; called after each scenario
-    // ]
 }
