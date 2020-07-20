@@ -67,7 +67,7 @@ mod query_planner_tests {
                 Some(query_string) => {
                     // store the query on context so other steps can acces it
                     context.query = Some(query_string.clone());
-                }, 
+                },
                 None => panic!("no argument to query step")
             }
         };
@@ -77,12 +77,12 @@ mod query_planner_tests {
                 Some(query) => {
                     // todo use a schema here rather than this stub
                     let built_plan = build_query_plan_from_str("type Query { hello: String }", query.as_ref());
-                    
+
                     match &step.docstring {
                         // todo: deserialize from string to query plan
                         Some(_expected_plan_string) => {
                             assert_eq!(built_plan, QueryPlan { foo: "okay then".to_string() });
-                        }, 
+                        },
                         None => panic!("no argument to query plan step")
                     }
                 },
