@@ -2,6 +2,7 @@ use graphql_parser::ParseError;
 
 pub mod builder;
 mod context;
+mod map;
 pub mod model;
 
 #[derive(Debug)]

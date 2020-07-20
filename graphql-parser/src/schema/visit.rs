@@ -47,84 +47,84 @@ pub trait Visitor<'q>: query::Visitor<'q> {
     }
 }
 
-pub trait Map: query::Map {
-    fn schema<'a>(&mut self, doc: &Document<'a>, stack: &[Self::Output]) -> Self::Output;
-    fn schema_def<'a>(&mut self, def: &Definition<'a>, stack: &[Self::Output]) -> Self::Output;
-    fn field<'a>(&mut self, field: &Field<'a>, stack: &[Self::Output]) -> Self::Output;
+pub trait Map<'s>: query::Map<'s> {
+    fn schema<'a>(&'a mut self, doc: &'s Document<'s>, stack: &[Self::Output]) -> Self::Output;
+    fn schema_def<'a>(&'a mut self, def: &'s Definition<'s>, stack: &[Self::Output]) -> Self::Output;
+    fn field<'a>(&'a mut self, field: &'s Field<'s>, stack: &[Self::Output]) -> Self::Output;
     fn input_value<'a>(
-        &mut self,
-        input_value: &InputValue<'a>,
+        &'a mut self,
+        input_value: &'s InputValue<'s>,
         stack: &[Self::Output],
     ) -> Self::Output;
 }
 
-impl<'q, M: Map> Visitor<'q> for visit::Fold<M> {
-    fn enter_schema<'a>(&'a mut self, doc: &'q Document<'q>)
+impl<'s, M: Map<'s>> Visitor<'s> for visit::Fold<M> {
+    fn enter_schema<'a>(&'a mut self, doc: &'s Document<'s>)
     where
-        'q: 'a,
+        's: 'a,
     {
         self.stack.push(self.map.schema(doc, &self.stack));
     }
 
-    fn enter_schema_def<'a>(&'a mut self, def: &'q Definition<'q>)
+    fn enter_schema_def<'a>(&'a mut self, def: &'s Definition<'s>)
     where
-        'q: 'a,
+        's: 'a,
     {
         self.stack.push(self.map.schema_def(def, &self.stack));
     }
 
-    fn enter_field<'a>(&'a mut self, field: &'q Field<'q>)
+    fn enter_field<'a>(&'a mut self, field: &'s Field<'s>)
     where
-        'q: 'a,
+        's: 'a,
     {
         self.stack.push(self.map.field(field, &self.stack));
     }
 
-    fn leave_field<'a>(&'a mut self, _field: &'q Field<'q>)
+    fn leave_field<'a>(&'a mut self, _field: &'s Field<'s>)
     where
-        'q: 'a,
+        's: 'a,
     {
         self.pop();
     }
 
-    fn enter_input_value<'a>(&'a mut self, input_value: &'q InputValue<'q>)
+    fn enter_input_value<'a>(&'a mut self, input_value: &'s InputValue<'s>)
     where
-        'q: 'a,
+        's: 'a,
     {
         self.stack
             .push(self.map.input_value(input_value, &self.stack));
     }
 
-    fn leave_input_value<'a>(&'a mut self, _input_value: &'q InputValue<'q>)
+    fn leave_input_value<'a>(&'a mut self, _input_value: &'s InputValue<'s>)
     where
-        'q: 'a,
+        's: 'a,
     {
         self.pop();
     }
 
-    fn leave_schema_def<'a>(&'a mut self, _def: &'q Definition<'q>)
+    fn leave_schema_def<'a>(&'a mut self, _def: &'s Definition<'s>)
     where
-        'q: 'a,
+        's: 'a,
     {
         self.pop();
     }
 
-    fn leave_schema<'a>(&'a mut self, _doc: &'q Document<'q>)
+    fn leave_schema<'a>(&'a mut self, _doc: &'s Document<'s>)
     where
-        'q: 'a,
+        's: 'a,
     {
         self.pop();
     }
 }
 
-pub trait Node<'q> {
-    fn accept<'a, V: Visitor<'q>>(&'q self, visitor: &'a mut V)
+pub trait Node<'s> {
+    fn accept<'a, V: Visitor<'s>>(&'s self, visitor: &'a mut V)
     where
-        'q: 'a;
+        's: 'a;
 
-    fn map<'a, M: Map>(&'q self, map: M) -> visit::Fold<M>
+    fn map<'a, M: Map<'s>>(&'s self, map: M) -> visit::Fold<M>
     where
-        'q: 'a,
+        's: 'a,
     {
         let mut mapping = visit::Fold {
             stack: vec![],

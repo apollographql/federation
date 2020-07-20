@@ -46,14 +46,14 @@ pub trait Visitor<'q> {
     }
 }
 
-pub trait Map: visit::Map {
-    fn query(&mut self, doc: &Document, stack: &[Self::Output]) -> Self::Output;
-    fn query_def(&mut self, def: &Definition, stack: &[Self::Output]) -> Self::Output;
-    fn sel_set(&mut self, sel_set: &SelectionSet, stack: &[Self::Output]) -> Self::Output;
-    fn sel(&mut self, sel: &Selection, stack: &[Self::Output]) -> Self::Output;
+pub trait Map<'q>: visit::Map {
+    fn query<'a>(&'a mut self, doc: &'q Document<'q>, stack: &'a [Self::Output]) -> Self::Output;
+    fn query_def<'a>(&'a mut self, def: &'q Definition<'q>, stack: &'a [Self::Output]) -> Self::Output;
+    fn sel_set<'a>(&'a mut self, sel_set: &'q SelectionSet<'q>, stack: &'a [Self::Output]) -> Self::Output;
+    fn sel<'a>(&'a mut self, sel: &'q Selection<'q>, stack: &'a [Self::Output]) -> Self::Output;
 }
 
-impl<'q, M: Map> Visitor<'q> for visit::Fold<M> {
+impl<'q, M: Map<'q>> Visitor<'q> for visit::Fold<M> {
     fn enter_query<'a>(&'a mut self, doc: &'q Document<'q>)
     where
         'q: 'a,
@@ -116,7 +116,7 @@ pub trait Node<'q> {
     where
         'q: 'a;
 
-    fn map<'a, M: Map>(&'q self, map: M) -> visit::Fold<M>
+    fn map<'a, M: Map<'q>>(&'q self, map: M) -> visit::Fold<M>
     where
         'q: 'a,
     {
@@ -296,25 +296,25 @@ mod tests {
                 format!("{}\n{}", parent, child)
             }
         }
-        impl Map for TestMap {
-            fn query<'a>(&mut self, _: &Document<'a>, stack: &[Self::Output]) -> Self::Output {
+        impl<'q> Map<'q> for TestMap {
+            fn query<'a>(&'a mut self, _: &'q Document<'q>, stack: &[Self::Output]) -> Self::Output {
                 format!("{}query", "    ".repeat(stack.len()))
             }
             fn query_def<'a>(
-                &mut self,
-                _: &Definition<'a>,
+                &'a mut self,
+                _: &'q Definition<'q>,
                 stack: &[Self::Output],
             ) -> Self::Output {
                 format!("{}query_def", "    ".repeat(stack.len()))
             }
             fn sel_set<'a>(
-                &mut self,
-                _: &SelectionSet<'a>,
+                &'a mut self,
+                _: &'q SelectionSet<'q>,
                 stack: &[Self::Output],
             ) -> Self::Output {
                 format!("{}sel_set", "    ".repeat(stack.len()))
             }
-            fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Self::Output]) -> Self::Output {
+            fn sel<'a>(&'a mut self, _: &'q Selection<'q>, stack: &[Self::Output]) -> Self::Output {
                 format!("{}sel", "    ".repeat(stack.len()))
             }
         }
