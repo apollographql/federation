@@ -1,4 +1,6 @@
+use apollo_query_planner::model::QueryPlan;
 use cucumber::cucumber;
+use graphql_parser::{parse_query, parse_schema, query, schema};
 use std::fmt;
 
 type Result<T> = std::result::Result<T, QueryPlanError>;
@@ -12,29 +14,8 @@ impl fmt::Display for QueryPlanError {
     }
 }
 
-struct Schema {}
-fn parse_schema(_schema: &str) -> Result<Schema> {
-    Ok(Schema {})
-}
-
-struct Query {}
-fn parse_query(_query: &str) -> Result<Query> {
-    Ok(Query {})
-}
-#[derive(Debug)]
-struct QueryPlan {
-    foo: String,
-}
-impl std::cmp::PartialEq for QueryPlan {
-    fn eq(&self, other: &QueryPlan) -> bool {
-        self.foo == other.foo
-    }
-}
-
-fn build_query_plan(_schema: &Schema, _query: &Query) -> Result<QueryPlan> {
-    Ok(QueryPlan {
-        foo: "okay then".to_string(),
-    })
+fn build_query_plan(_schema: &schema::Document, _query: &query::Document) -> Result<QueryPlan> {
+    Ok(QueryPlan { node: None })
 }
 
 // // only used by tests for now
@@ -72,6 +53,10 @@ mod query_planner_tests {
             }
         };
 
+        when "using autofragmentization" |_context, _step | {
+            panic!("not implemented");
+        };
+
         then "query plan" |context, step| {
             match &context.query {
                 Some(query) => {
@@ -79,9 +64,8 @@ mod query_planner_tests {
                     let built_plan = build_query_plan_from_str("type Query { hello: String }", query.as_ref());
 
                     match &step.docstring {
-                        // todo: deserialize from string to query plan
-                        Some(_expected_plan_string) => {
-                            assert_eq!(built_plan, QueryPlan { foo: "okay then".to_string() });
+                        Some(expected_plan_string) => {
+                            assert_eq!(built_plan, serde_json::from_str::<QueryPlan>(expected_plan_string).unwrap());
                         },
                         None => panic!("no argument to query plan step")
                     }
@@ -92,11 +76,11 @@ mod query_planner_tests {
     });
 }
 
-// TODO: how to ignore
+// To ignore: comment out the [[test]] block in cargo.toml
 cucumber! {
     features: "./", // Path to our feature files
     world: crate::MyWorld, // The world needs to be the same for steps and the main cucumber call
     steps: &[
         query_planner_tests::steps // the `steps!` macro creates a `steps` function in a module
-    ]
+        ]
 }

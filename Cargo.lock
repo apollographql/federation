@@ -87,6 +87,7 @@ name = "apollo-query-planner"
 version = "0.0.1"
 dependencies = [
  "cucumber_rust",
+ "graphql-parser 0.3.0",
  "serde 1.0.114",
  "serde_json",
 ]
