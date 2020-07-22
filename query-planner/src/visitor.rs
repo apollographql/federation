@@ -26,6 +26,7 @@ impl<'q, 's: 'q> QueryVisitor<'q, 's> {
             .map(|td| (td.name().unwrap(), td))
             .collect();
 
+        // TODO(ran) FIXME: Make sure this is correct (override or fail?)
         let fragments_from_schema = schema.definitions.iter().flat_map(|d| match d {
             schema::Definition::Fragment(frag) => Some((frag.name, frag)),
             _ => None,
@@ -112,6 +113,8 @@ impl<'q, 's: 'q> query::Visitor<'q> for QueryVisitor<'q, 's> {
         let frame = self.stack.last().unwrap();
         match sel {
             Selection::Field(field) => {
+                // TODO(ran) FIXME: handle __typename because it can be on any type
+
                 // create the path of the current field in the query
                 let path = vec_concat(&frame.path, field.name.clone());
 
@@ -127,6 +130,8 @@ impl<'q, 's: 'q> query::Visitor<'q> for QueryVisitor<'q, 's> {
                 };
 
                 if field.selection_set.items.is_empty() {
+                    // TODO(ran) FIXME: any DAG nodes created here should depend on any that might
+                    //  be in the stack frame.
                     // check if there are dependencies
                     // append to ops
                     unimplemented!()
@@ -139,6 +144,13 @@ impl<'q, 's: 'q> query::Visitor<'q> for QueryVisitor<'q, 's> {
                         path,
                         owner_service,
                     };
+
+                    // TODO(ran) FIXME: if there is a resolve, there has to be some dependency.
+                    //  check parent type, iterate over @key directives, there has to be only one
+                    //  where graph == @resolve(graph) from the field def.
+                    //  if the field def also has @requires, we need to get that as well as the key.
+                    //  we need to keep track of DAG nodes we've created in the stack so that
+                    //  any other DAG nodes we create below this AST nodes depend on them.
 
                     // We push a new frame and do nothing, ops are pushed only on leaves.
                     // The visitor will use this on further visits.
@@ -159,6 +171,7 @@ impl<'q, 's: 'q> query::Visitor<'q> for QueryVisitor<'q, 's> {
                 let tc = frag.type_condition;
                 let mut new_frame = frame.clone();
                 new_frame.parent_type = self.types[tc];
+                // TODO(ran) FIXME: do we need a new owner service??
                 self.stack.push(new_frame);
                 // NB: The visitor Node implementation for Selection does nothing for FragmentSpread
                 frag.selection_set.accept(self);
