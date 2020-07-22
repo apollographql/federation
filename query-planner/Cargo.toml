@@ -15,6 +15,7 @@ serde_json = "1.0.56"
 [dev-dependencies]
 cucumber = { package = "cucumber_rust", version = "^0.6.0" } 
 
+# Having this commented out is preventing the cucumber tests from running, but still compiles them. Uncomment to run them.
 # [[test]]
 # name = "cucumber"
 # harness = false # Allows Cucumber to print output instead of libtest
