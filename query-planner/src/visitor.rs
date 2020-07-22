@@ -29,12 +29,6 @@ impl<'q, 's: 'q> QueryVisitor<'q, 's> {
             .map(|td| (td.name().unwrap(), td))
             .collect();
 
-        // TODO(ran) FIXME: Make sure this is correct (override or fail?)
-        let fragments_from_schema = schema.definitions.iter().flat_map(|d| match d {
-            schema::Definition::Fragment(frag) => Some((frag.name, frag)),
-            _ => None,
-        });
-
         let fragments: HashMap<&'q str, &FragmentDefinition<'q>> = query
             .definitions
             .iter()
@@ -42,7 +36,6 @@ impl<'q, 's: 'q> QueryVisitor<'q, 's> {
                 Definition::Fragment(frag) => Some((frag.name, frag)),
                 _ => None,
             })
-            .chain(fragments_from_schema)
             .collect();
 
         QueryVisitor {
