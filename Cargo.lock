@@ -88,6 +88,7 @@ version = "0.0.1"
 dependencies = [
  "cucumber_rust",
  "graphql-parser 0.3.0",
+ "lazy_static",
  "petgraph",
  "serde 1.0.114",
  "serde_json",

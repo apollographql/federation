@@ -1,13 +1,7 @@
+#[macro_use]
+extern crate lazy_static;
+
 use cucumber::cucumber;
-
-use apollo_query_planner::model::QueryPlan;
-use apollo_query_planner::QueryPlanner;
-
-// // only used by tests for now
-fn build_query_plan_from_str(schema: &str, query: &str) -> QueryPlan {
-    let planner = QueryPlanner::new(schema);
-    planner.plan(query).expect("failed building QueryPlan")
-}
 
 pub struct QueryPlannerTestContext {
     // You can use this struct for mutable context in scenarios.
@@ -24,9 +18,15 @@ impl std::default::Default for QueryPlannerTestContext {
 }
 
 mod query_planner_tests {
+    use apollo_query_planner::model::QueryPlan;
+    use apollo_query_planner::QueryPlanner;
     use cucumber::steps;
 
-    use crate::{build_query_plan_from_str, QueryPlan};
+    static SCHEMA: &'static str = include_str!("csdl.graphql");
+
+    lazy_static! {
+        static ref PLANNER: QueryPlanner<'static> = QueryPlanner::new(SCHEMA);
+    }
 
     // Any type that implements cucumber::World + Default can be the world
     steps!(crate::QueryPlannerTestContext => {
@@ -47,8 +47,7 @@ mod query_planner_tests {
         then "query plan" |context, step| {
             match &context.query {
                 Some(query) => {
-                    // todo use a schema here rather than this stub
-                    let built_plan = build_query_plan_from_str("type Query { hello: String }", query.as_ref());
+                    let built_plan = PLANNER.plan(query.as_ref()).expect("failed building QueryPlan");
 
                     match &step.docstring {
                         Some(expected_plan_string) => {
@@ -57,7 +56,7 @@ mod query_planner_tests {
                         None => panic!("no argument to query plan step")
                     }
                 },
-                None => std::unreachable!()
+                None => unreachable!()
             }
         };
     });
