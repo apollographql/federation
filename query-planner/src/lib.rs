@@ -3,6 +3,7 @@ use crate::model::QueryPlan;
 use graphql_parser::{parse_query, parse_schema, schema, ParseError};
 
 mod builder;
+mod dag;
 pub mod model;
 mod visitor;
 

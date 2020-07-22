@@ -32,13 +32,17 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
     let mut visitor = QueryVisitor::new(schema, query);
     query.accept(&mut visitor);
 
-    let root_type = get_operation_root_type(schema, operations[0], &visitor.types);
+    let is_query = match operations[0].kind {
+        Operation::Query => true,
+        Operation::Mutation => false,
+        _ => panic!("already verified this op is not a subscription"),
+    };
 
-    unimplemented!()
+    Ok(visitor.into_query_plan(is_query))
 }
 
 fn get_operations<'q>(query: &'q Document<'q>) -> Vec<&'q OperationDefinition<'q>> {
-    // TODO(ran) FIXME: optimize?
+    // TODO(ran) FIXME: If there's a SelectionSet instead of an Operation, we need to handle it.
     query
         .definitions
         .iter()
@@ -47,42 +51,6 @@ fn get_operations<'q>(query: &'q Document<'q>) -> Vec<&'q OperationDefinition<'q
             _ => None,
         })
         .collect()
-}
-
-fn get_operation_root_type<'q, 's: 'q>(
-    schema: &'s schema::Document<'s>,
-    op: &'q OperationDefinition<'q>,
-    type_name_to_type: &'q HashMap<&'s str, &'s schema::TypeDefinition<'s>>,
-) -> &'s schema::TypeDefinition<'s> {
-    let is_query = match op.kind {
-        Operation::Query => true,
-        Operation::Mutation => false,
-        _ => panic!("already verified this op is not a subscription"),
-    };
-
-    let maybe_schema = schema.definitions.iter().find(|d| {
-        if let schema::Definition::Schema(_) = d {
-            true
-        } else {
-            false
-        }
-    });
-
-    let type_name = match maybe_schema {
-        Some(schema::Definition::Schema(sd)) => {
-            (if is_query { sd.query } else { sd.mutation }).unwrap()
-        }
-        None => {
-            if is_query {
-                "Query"
-            } else {
-                "Mutation"
-            }
-        }
-        _ => panic!("Impossible because `find` checks for `schema::Definition::Schema`"),
-    };
-
-    type_name_to_type[type_name]
 }
 
 #[cfg(test)]
@@ -142,7 +110,7 @@ type Mutation {
     #[test]
     #[should_panic]
     fn simple_case_attempt_1() {
-        let query = parse_query("query { me { name } user(id: \"12\") { name } }").unwrap();
+        let query = parse_query("query { me { name } }").unwrap();
         let schema = parse_schema(schema()).unwrap();
         println!("{:?}", query);
         println!("{:?}", schema);

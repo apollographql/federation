@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::iter::FromIterator;
 
+use crate::dag::QueryPlanGraph;
+use crate::model::QueryPlan;
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{query, schema, Name};
@@ -9,6 +11,7 @@ pub struct QueryVisitor<'q, 's> {
     pub types: HashMap<&'s str, &'s schema::TypeDefinition<'s>>,
     fragments: HashMap<&'q str, &'q FragmentDefinition<'q>>,
     stack: Vec<QueryPlanFrame<'s>>,
+    dag: QueryPlanGraph,
 }
 
 impl<'q, 's: 'q> QueryVisitor<'q, 's> {
@@ -46,7 +49,12 @@ impl<'q, 's: 'q> QueryVisitor<'q, 's> {
             types,
             fragments,
             stack: vec![],
+            dag: QueryPlanGraph::new(),
         }
+    }
+
+    pub fn into_query_plan(self, is_query: bool) -> QueryPlan {
+        self.dag.into_query_plan(is_query)
     }
 }
 
