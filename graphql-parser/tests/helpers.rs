@@ -49,13 +49,13 @@ macro_rules! test {
 
 use graphql_parser::{query, query::Node as QueryNode, schema, schema::Node as SchemaNode, Name};
 
-pub fn visit_parse_query<'a>(doc: &query::Document<'a>) -> Print {
+pub fn visit_parse_query(doc: &query::Document) -> Print {
     let mut p = Print::default();
     doc.accept(&mut p);
     p
 }
 
-pub fn visit_parse_schema<'a>(doc: &schema::Document<'a>) -> Print {
+pub fn visit_parse_schema(doc: &schema::Document) -> Print {
     let mut p = Print::default();
     doc.accept(&mut p);
     p
@@ -73,6 +73,19 @@ pub struct Visit {
 }
 
 macro_rules! print {
+    ($action:ident $mod:ident :: $Type:ident $bool:expr) => {
+        fn $action<'a>(&'a mut self, node: &'q $mod::$Type<'q>) -> bool
+        where
+            'q: 'a,
+        {
+            self.output.push(Visit {
+                event: String::from(stringify!($action)),
+                name: node.name().map(String::from),
+            });
+            $bool
+        }
+    };
+
     ($action:ident $mod:ident :: $Type:ident) => {
         fn $action<'a>(&'a mut self, node: &'q $mod::$Type<'q>)
         where
@@ -81,25 +94,25 @@ macro_rules! print {
             self.output.push(Visit {
                 event: String::from(stringify!($action)),
                 name: node.name().map(String::from),
-            })
+            });
         }
     };
 }
 
 impl<'q> query::Visitor<'q> for Print {
-    print!(enter_query query::Document);
-    print!(leave_query query::Document);
-    print!(enter_query_def query::Definition);
-    print!(leave_query_def query::Definition);
-    print!(enter_sel_set query::SelectionSet);
-    print!(leave_sel_set query::SelectionSet);
-    print!(enter_sel query::Selection);
+    print!(enter_query query::Document true);
+    print!(enter_query_def query::Definition true);
+    print!(enter_sel_set query::SelectionSet true);
+    print!(enter_sel query::Selection true);
     print!(leave_sel query::Selection);
+    print!(leave_sel_set query::SelectionSet);
+    print!(leave_query_def query::Definition);
+    print!(leave_query query::Document);
 }
 
 impl<'q> schema::Visitor<'q> for Print {
-    print!(enter_schema schema::Document);
-    print!(enter_schema_def schema::Definition);
+    print!(enter_schema schema::Document true);
+    print!(enter_schema_def schema::Definition true);
     print!(enter_field schema::Field);
     print!(leave_field schema::Field);
     print!(leave_schema_def schema::Definition);

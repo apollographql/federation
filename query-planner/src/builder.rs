@@ -3,11 +3,9 @@ use std::collections::HashMap;
 use graphql_parser::query::*;
 use graphql_parser::schema;
 
-use crate::context::QueryPlanVisitor;
 use crate::model::QueryPlan;
-use crate::QueryPlanError;
-
-type Result<T> = std::result::Result<T, QueryPlanError>;
+use crate::visitor::QueryVisitor;
+use crate::{QueryPlanError, Result};
 
 fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
     // TODO(ran) FIXME: a Definition could be a SelectionSet which is techinically valid,
@@ -31,7 +29,7 @@ fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<Query
         ));
     }
 
-    let mut visitor = QueryPlanVisitor::new(schema);
+    let mut visitor = QueryVisitor::new(schema, query);
     query.accept(&mut visitor);
 
     let root_type = get_operation_root_type(schema, operations[0], &visitor.types);
@@ -146,6 +144,8 @@ type Mutation {
     fn simple_case_attempt_1() {
         let query = parse_query("query { me { name } user(id: \"12\") { name } }").unwrap();
         let schema = parse_schema(schema()).unwrap();
+        println!("{:?}", query);
+        println!("{:?}", schema);
 
         let result = build_query_plan(&schema, &query).unwrap();
         let expected = QueryPlan {

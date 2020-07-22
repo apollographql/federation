@@ -4,25 +4,29 @@ use super::{Definition, Document, Selection, SelectionSet};
 
 #[allow(unused_variables)]
 pub trait Visitor<'q> {
-    fn enter_query<'a>(&'a mut self, doc: &'q Document<'q>)
+    fn enter_query<'a>(&'a mut self, doc: &'q Document<'q>) -> bool
     where
         'q: 'a,
     {
+        true
     }
-    fn enter_query_def<'a>(&'a mut self, def: &'q Definition<'q>)
+    fn enter_query_def<'a>(&'a mut self, def: &'q Definition<'q>) -> bool
     where
         'q: 'a,
     {
+        true
     }
-    fn enter_sel_set<'a>(&'a mut self, sel_set: &'q SelectionSet<'q>)
+    fn enter_sel_set<'a>(&'a mut self, sel_set: &'q SelectionSet<'q>) -> bool
     where
         'q: 'a,
     {
+        true
     }
-    fn enter_sel<'a>(&'a mut self, sel: &'q Selection<'q>)
+    fn enter_sel<'a>(&'a mut self, sel: &'q Selection<'q>) -> bool
     where
         'q: 'a,
     {
+        true
     }
     fn leave_sel<'a>(&'a mut self, sel: &'q Selection<'q>)
     where
@@ -46,40 +50,44 @@ pub trait Visitor<'q> {
     }
 }
 
-pub trait Map<'q>: visit::Map {
-    fn query<'a>(&'a mut self, doc: &'q Document<'q>, stack: &'a [Self::Output]) -> Self::Output;
-    fn query_def<'a>(&'a mut self, def: &'q Definition<'q>, stack: &'a [Self::Output]) -> Self::Output;
-    fn sel_set<'a>(&'a mut self, sel_set: &'q SelectionSet<'q>, stack: &'a [Self::Output]) -> Self::Output;
-    fn sel<'a>(&'a mut self, sel: &'q Selection<'q>, stack: &'a [Self::Output]) -> Self::Output;
+pub trait Map: visit::Map {
+    fn query(&mut self, doc: &Document, stack: &[Self::Output]) -> Self::Output;
+    fn query_def(&mut self, def: &Definition, stack: &[Self::Output]) -> Self::Output;
+    fn sel_set(&mut self, sel_set: &SelectionSet, stack: &[Self::Output]) -> Self::Output;
+    fn sel(&mut self, sel: &Selection, stack: &[Self::Output]) -> Self::Output;
 }
 
-impl<'q, M: Map<'q>> Visitor<'q> for visit::Fold<M> {
-    fn enter_query<'a>(&'a mut self, doc: &'q Document<'q>)
+impl<'q, M: Map> Visitor<'q> for visit::Fold<M> {
+    fn enter_query<'a>(&'a mut self, doc: &'q Document<'q>) -> bool
     where
         'q: 'a,
     {
         self.stack.push(self.map.query(doc, &self.stack));
+        true
     }
 
-    fn enter_query_def<'a>(&'a mut self, def: &'q Definition<'q>)
+    fn enter_query_def<'a>(&'a mut self, def: &'q Definition<'q>) -> bool
     where
         'q: 'a,
     {
         self.stack.push(self.map.query_def(def, &self.stack));
+        true
     }
 
-    fn enter_sel_set<'a>(&'a mut self, sel_set: &'q SelectionSet<'q>)
+    fn enter_sel_set<'a>(&'a mut self, sel_set: &'q SelectionSet<'q>) -> bool
     where
         'q: 'a,
     {
         self.stack.push(self.map.sel_set(sel_set, &self.stack));
+        true
     }
 
-    fn enter_sel<'a>(&'a mut self, sel: &'q Selection<'q>)
+    fn enter_sel<'a>(&'a mut self, sel: &'q Selection<'q>) -> bool
     where
         'q: 'a,
     {
         self.stack.push(self.map.sel(&sel, &self.stack));
+        true
     }
 
     fn leave_sel<'a>(&'a mut self, _sel: &'q Selection<'q>)
@@ -116,7 +124,7 @@ pub trait Node<'q> {
     where
         'q: 'a;
 
-    fn map<'a, M: Map<'q>>(&'q self, map: M) -> visit::Fold<M>
+    fn map<'a, M: Map>(&'q self, map: M) -> visit::Fold<M>
     where
         'q: 'a,
     {
@@ -135,8 +143,10 @@ impl<'q> Node<'q> for Document<'q> {
     where
         'q: 'a,
     {
-        visitor.enter_query(self);
-        visit_each!(visitor: self.definitions);
+        if visitor.enter_query(self) {
+            visit_each!(visitor: self.definitions);
+        }
+
         visitor.leave_query(self);
     }
 }
@@ -146,12 +156,13 @@ impl<'q> Node<'q> for Definition<'q> {
     where
         'q: 'a,
     {
-        visitor.enter_query_def(self);
-        use Definition::*;
-        match self {
-            SelectionSet(sel_set) => sel_set.accept(visitor),
-            Operation(op) => op.selection_set.accept(visitor),
-            Fragment(frag) => frag.selection_set.accept(visitor),
+        if visitor.enter_query_def(self) {
+            use Definition::*;
+            match self {
+                SelectionSet(sel_set) => sel_set.accept(visitor),
+                Operation(op) => op.selection_set.accept(visitor),
+                Fragment(frag) => frag.selection_set.accept(visitor),
+            }
         }
         visitor.leave_query_def(self);
     }
@@ -162,8 +173,9 @@ impl<'q> Node<'q> for SelectionSet<'q> {
     where
         'q: 'a,
     {
-        visitor.enter_sel_set(self);
-        visit_each!(visitor: self.items);
+        if visitor.enter_sel_set(self) {
+            visit_each!(visitor: self.items);
+        }
         visitor.leave_sel_set(self);
     }
 }
@@ -173,12 +185,14 @@ impl<'q> Node<'q> for Selection<'q> {
     where
         'q: 'a,
     {
-        visitor.enter_sel(self);
-        use Selection::*;
-        match self {
-            Field(field) => field.selection_set.accept(visitor),
-            FragmentSpread(_) => {}
-            InlineFragment(inline) => inline.selection_set.accept(visitor),
+        if visitor.enter_sel(self) {
+            use Selection::*;
+            match self {
+                Field(field) => field.selection_set.accept(visitor),
+                // TODO(ran) FIXME: fix me .. this should do something?
+                FragmentSpread(_) => {}
+                InlineFragment(inline) => inline.selection_set.accept(visitor),
+            }
         }
         visitor.leave_sel(self);
     }
@@ -221,14 +235,26 @@ mod tests {
                         .push(format!("{} ({:?})", stringify!($action), node.name()));
                 }
             };
+
+            // TODO(ran) FIXME: can this be simplified to one pattern?
+            ($action:ident $Type:ident $bool:expr) => {
+                fn $action<'a>(&'a mut self, node: &'q $Type<'q>) -> bool
+                where
+                    'q: 'a,
+                {
+                    self.output
+                        .push(format!("{} ({:?})", stringify!($action), node.name()));
+                    $bool
+                }
+            };
         }
 
         use crate::Name;
         impl<'q> query::Visitor<'q> for Print {
-            print!(enter_query Document);
-            print!(enter_query_def Definition);
-            print!(enter_sel_set SelectionSet);
-            print!(enter_sel Selection);
+            print!(enter_query Document true);
+            print!(enter_query_def Definition true);
+            print!(enter_sel_set SelectionSet true);
+            print!(enter_sel Selection true);
             print!(leave_sel_set SelectionSet);
             print!(leave_sel Selection);
             print!(leave_query_def Definition);
@@ -296,25 +322,17 @@ mod tests {
                 format!("{}\n{}", parent, child)
             }
         }
-        impl<'q> Map<'q> for TestMap {
-            fn query<'a>(&'a mut self, _: &'q Document<'q>, stack: &[Self::Output]) -> Self::Output {
+        impl Map for TestMap {
+            fn query<'a>(&'a mut self, _: &Document, stack: &[Self::Output]) -> Self::Output {
                 format!("{}query", "    ".repeat(stack.len()))
             }
-            fn query_def<'a>(
-                &'a mut self,
-                _: &'q Definition<'q>,
-                stack: &[Self::Output],
-            ) -> Self::Output {
+            fn query_def<'a>(&'a mut self, _: &Definition, stack: &[Self::Output]) -> Self::Output {
                 format!("{}query_def", "    ".repeat(stack.len()))
             }
-            fn sel_set<'a>(
-                &'a mut self,
-                _: &'q SelectionSet<'q>,
-                stack: &[Self::Output],
-            ) -> Self::Output {
+            fn sel_set<'a>(&'a mut self, _: &SelectionSet, stack: &[Self::Output]) -> Self::Output {
                 format!("{}sel_set", "    ".repeat(stack.len()))
             }
-            fn sel<'a>(&'a mut self, _: &'q Selection<'q>, stack: &[Self::Output]) -> Self::Output {
+            fn sel<'a>(&'a mut self, _: &Selection, stack: &[Self::Output]) -> Self::Output {
                 format!("{}sel", "    ".repeat(stack.len()))
             }
         }
@@ -348,7 +366,7 @@ mod tests {
         }
 
         impl<'q, 's: 'q> Visitor<'q> for QueryPlanVisitor<'q, 's> {
-            fn enter_query<'a>(&'a mut self, doc: &'q Document<'q>)
+            fn enter_query<'a>(&'a mut self, doc: &'q Document<'q>) -> bool
             where
                 'q: 'a,
             {
@@ -363,6 +381,7 @@ mod tests {
 
                 let context = QueryPlanContext { fragments };
                 self.context = Some(context);
+                true
             }
         }
 

@@ -1,8 +1,8 @@
 use graphql_parser::ParseError;
 
 pub mod builder;
-mod visitor;
 pub mod model;
+mod visitor;
 
 #[derive(Debug)]
 pub enum QueryPlanError {
@@ -10,3 +10,5 @@ pub enum QueryPlanError {
     FailedParsingQuery(ParseError),
     InvalidQuery(&'static str),
 }
+
+type Result<T> = std::result::Result<T, QueryPlanError>;

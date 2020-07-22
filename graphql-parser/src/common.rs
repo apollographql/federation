@@ -10,6 +10,7 @@ use combine::{parser, ParseResult, Parser};
 use crate::helpers::{ident, kind, name, punct};
 use crate::position::Pos;
 use crate::tokenizer::{Kind as T, Token, TokenStream};
+use crate::Name;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Directive<'a> {
@@ -38,6 +39,16 @@ pub enum Type<'a> {
     NamedType(Txt<'a>),
     ListType(Box<Type<'a>>),
     NonNullType(Box<Type<'a>>),
+}
+
+impl<'a> Name<'a> for Type<'a> {
+    fn name(&self) -> Option<&'a str> {
+        match self {
+            Type::NamedType(s) => Some(s),
+            Type::ListType(b) => b.name(),
+            Type::NonNullType(b) => b.name(),
+        }
+    }
 }
 
 pub fn directives<'a>(

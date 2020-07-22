@@ -5,22 +5,19 @@ use crate::{visit, visit_each};
 
 #[allow(unused_variables)]
 pub trait Visitor<'q>: query::Visitor<'q> {
-    fn enter_schema<'a>(&'a mut self, doc: &'q Document<'q>)
+    fn enter_schema<'a>(&'a mut self, doc: &'q Document<'q>) -> bool
     where
         'q: 'a,
     {
+        true
     }
-    fn enter_schema_def<'a>(&'a mut self, def: &'q Definition<'q>)
+    fn enter_schema_def<'a>(&'a mut self, def: &'q Definition<'q>) -> bool
     where
         'q: 'a,
     {
+        true
     }
     fn enter_field<'a>(&'a mut self, field: &'q Field<'q>)
-    where
-        'q: 'a,
-    {
-    }
-    fn leave_field<'a>(&'a mut self, field: &'q Field<'q>)
     where
         'q: 'a,
     {
@@ -31,6 +28,11 @@ pub trait Visitor<'q>: query::Visitor<'q> {
     {
     }
     fn leave_input_value<'a>(&'a mut self, input_value: &'q InputValue<'q>)
+    where
+        'q: 'a,
+    {
+    }
+    fn leave_field<'a>(&'a mut self, field: &'q Field<'q>)
     where
         'q: 'a,
     {
@@ -47,30 +49,32 @@ pub trait Visitor<'q>: query::Visitor<'q> {
     }
 }
 
-pub trait Map<'s>: query::Map<'s> {
-    fn schema<'a>(&'a mut self, doc: &'s Document<'s>, stack: &[Self::Output]) -> Self::Output;
-    fn schema_def<'a>(&'a mut self, def: &'s Definition<'s>, stack: &[Self::Output]) -> Self::Output;
-    fn field<'a>(&'a mut self, field: &'s Field<'s>, stack: &[Self::Output]) -> Self::Output;
+pub trait Map: query::Map {
+    fn schema<'a>(&mut self, doc: &Document<'a>, stack: &[Self::Output]) -> Self::Output;
+    fn schema_def<'a>(&mut self, def: &Definition<'a>, stack: &[Self::Output]) -> Self::Output;
+    fn field<'a>(&mut self, field: &Field<'a>, stack: &[Self::Output]) -> Self::Output;
     fn input_value<'a>(
-        &'a mut self,
-        input_value: &'s InputValue<'s>,
+        &mut self,
+        input_value: &InputValue<'a>,
         stack: &[Self::Output],
     ) -> Self::Output;
 }
 
-impl<'s, M: Map<'s>> Visitor<'s> for visit::Fold<M> {
-    fn enter_schema<'a>(&'a mut self, doc: &'s Document<'s>)
+impl<'s, M: Map> Visitor<'s> for visit::Fold<M> {
+    fn enter_schema<'a>(&'a mut self, doc: &'s Document<'s>) -> bool
     where
         's: 'a,
     {
         self.stack.push(self.map.schema(doc, &self.stack));
+        true
     }
 
-    fn enter_schema_def<'a>(&'a mut self, def: &'s Definition<'s>)
+    fn enter_schema_def<'a>(&'a mut self, def: &'s Definition<'s>) -> bool
     where
         's: 'a,
     {
         self.stack.push(self.map.schema_def(def, &self.stack));
+        true
     }
 
     fn enter_field<'a>(&'a mut self, field: &'s Field<'s>)
@@ -78,13 +82,6 @@ impl<'s, M: Map<'s>> Visitor<'s> for visit::Fold<M> {
         's: 'a,
     {
         self.stack.push(self.map.field(field, &self.stack));
-    }
-
-    fn leave_field<'a>(&'a mut self, _field: &'s Field<'s>)
-    where
-        's: 'a,
-    {
-        self.pop();
     }
 
     fn enter_input_value<'a>(&'a mut self, input_value: &'s InputValue<'s>)
@@ -96,6 +93,13 @@ impl<'s, M: Map<'s>> Visitor<'s> for visit::Fold<M> {
     }
 
     fn leave_input_value<'a>(&'a mut self, _input_value: &'s InputValue<'s>)
+    where
+        's: 'a,
+    {
+        self.pop();
+    }
+
+    fn leave_field<'a>(&'a mut self, _field: &'s Field<'s>)
     where
         's: 'a,
     {
@@ -122,7 +126,7 @@ pub trait Node<'s> {
     where
         's: 'a;
 
-    fn map<'a, M: Map<'s>>(&'s self, map: M) -> visit::Fold<M>
+    fn map<'a, M: Map>(&'s self, map: M) -> visit::Fold<M>
     where
         's: 'a,
     {
@@ -141,8 +145,9 @@ impl<'q> Node<'q> for Document<'q> {
     where
         'q: 'a,
     {
-        visitor.enter_schema(self);
-        visit_each!(visitor: self.definitions);
+        if visitor.enter_schema(self) {
+            visit_each!(visitor: self.definitions);
+        }
         visitor.leave_schema(self);
     }
 }
@@ -152,14 +157,15 @@ impl<'q> Node<'q> for Definition<'q> {
     where
         'q: 'a,
     {
-        visitor.enter_schema_def(self);
-        match self {
-            Definition::Schema(_) => {}
-            Definition::Type(t) => t.accept(visitor),
-            Definition::TypeExtension(tx) => tx.accept(visitor),
-            Definition::Directive(_) => {}
-            Definition::Operation(o) => o.selection_set.accept(visitor),
-            Definition::Fragment(f) => f.selection_set.accept(visitor),
+        if visitor.enter_schema_def(self) {
+            match self {
+                Definition::Schema(_) => {}
+                Definition::Type(t) => t.accept(visitor),
+                Definition::TypeExtension(tx) => tx.accept(visitor),
+                Definition::Directive(_) => {}
+                Definition::Operation(o) => o.selection_set.accept(visitor),
+                Definition::Fragment(f) => f.selection_set.accept(visitor),
+            }
         }
         visitor.leave_schema_def(self);
     }
