@@ -7,7 +7,7 @@ use crate::model::QueryPlan;
 use crate::visitor::QueryVisitor;
 use crate::{QueryPlanError, Result};
 
-fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
+pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
     // TODO(ran) FIXME: a Definition could be a SelectionSet which is techinically valid,
     //  but this code for now doesn't handle them.
     let operations = get_operations(query);

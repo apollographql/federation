@@ -1,35 +1,21 @@
-use apollo_query_planner::model::QueryPlan;
 use cucumber::cucumber;
-use graphql_parser::{parse_query, parse_schema, query, schema};
-use std::fmt;
 
-type Result<T> = std::result::Result<T, QueryPlanError>;
-
-// stub out a custom QueryPlanError
-#[derive(Debug, Clone)]
-struct QueryPlanError;
-impl fmt::Display for QueryPlanError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "error in building query plan")
-    }
-}
-
-fn build_query_plan(_schema: &schema::Document, _query: &query::Document) -> Result<QueryPlan> {
-    Ok(QueryPlan { node: None })
-}
+use apollo_query_planner::model::QueryPlan;
+use apollo_query_planner::QueryPlanner;
 
 // // only used by tests for now
 fn build_query_plan_from_str(schema: &str, query: &str) -> QueryPlan {
-    let schema = parse_schema(schema).expect("failed parsing schema");
-    let query = parse_query(query).expect("failed parsing query");
-    build_query_plan(&schema, &query).expect("failed building QueryPlan")
+    let planner = QueryPlanner::new(schema);
+    planner.plan(query).expect("failed building QueryPlan")
 }
 
 pub struct QueryPlannerTestContext {
     // You can use this struct for mutable context in scenarios.
     query: Option<String>,
 }
+
 impl cucumber::World for QueryPlannerTestContext {}
+
 impl std::default::Default for QueryPlannerTestContext {
     fn default() -> QueryPlannerTestContext {
         // This function is called every time a new scenario is started
@@ -38,8 +24,9 @@ impl std::default::Default for QueryPlannerTestContext {
 }
 
 mod query_planner_tests {
-    use crate::{build_query_plan_from_str, QueryPlan};
     use cucumber::steps;
+
+    use crate::{build_query_plan_from_str, QueryPlan};
 
     // Any type that implements cucumber::World + Default can be the world
     steps!(crate::QueryPlannerTestContext => {
@@ -54,7 +41,7 @@ mod query_planner_tests {
         };
 
         when "using autofragmentization" |_context, _step | {
-            panic!("not implemented");
+            unimplemented!()
         };
 
         then "query plan" |context, step| {
