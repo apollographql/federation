@@ -1,17 +1,20 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 
-use crate::dag::QueryPlanGraph;
-use crate::model::QueryPlan;
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{query, schema, Name};
+
+use crate::dag::QueryPlanGraph;
+use crate::model::QueryPlan;
 
 pub struct QueryVisitor<'q, 's> {
     pub types: HashMap<&'s str, &'s schema::TypeDefinition<'s>>,
     fragments: HashMap<&'q str, &'q FragmentDefinition<'q>>,
     stack: Vec<QueryPlanFrame<'s>>,
     dag: QueryPlanGraph,
+    // Interface name to implementing types.
+    implementing_types: HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>>,
 }
 
 impl<'q, 's: 'q> QueryVisitor<'q, 's> {
@@ -19,15 +22,11 @@ impl<'q, 's: 'q> QueryVisitor<'q, 's> {
         schema: &'s schema::Document<'s>,
         query: &'q query::Document<'q>,
     ) -> QueryVisitor<'q, 's> {
-        let types: HashMap<&'s str, &'s schema::TypeDefinition<'s>> = schema
-            .definitions
-            .iter()
-            .flat_map(|d| match d {
-                schema::Definition::Type(td) => Some(td),
-                _ => None,
-            })
-            .map(|td| (td.name().unwrap(), td))
-            .collect();
+        // TODO(ran) FIXME: create the stuff from the schema separately for performance,
+        //  i.e. do once what we only need to do once.
+
+        let types: HashMap<&'s str, &'s schema::TypeDefinition<'s>> = names_to_types(schema);
+        let mut implementing_types = implementing_types(&types);
 
         let fragments: HashMap<&'q str, &FragmentDefinition<'q>> = query
             .definitions
@@ -43,6 +42,7 @@ impl<'q, 's: 'q> QueryVisitor<'q, 's> {
             fragments,
             stack: vec![],
             dag: QueryPlanGraph::new(),
+            implementing_types,
         }
     }
 
@@ -146,12 +146,13 @@ impl<'q, 's: 'q> query::Visitor<'q> for QueryVisitor<'q, 's> {
                         owner_service,
                     };
 
-                    // TODO(ran) FIXME: if there is a resolve, there has to be some dependency.
+                    // TODO(ran) FIXME: if there is a @resolve (except in root nodes), there has to be some dependency.
                     //  check parent type, iterate over @key directives, there has to be only one
                     //  where graph == @resolve(graph) from the field def.
                     //  if the field def also has @requires, we need to get that as well as the key.
                     //  we need to keep track of DAG nodes we've created in the stack so that
                     //  any other DAG nodes we create below this AST nodes depend on them.
+                    //  line 491 in js
 
                     // We push a new frame and do nothing, ops are pushed only on leaves.
                     // The visitor will use this on further visits.
@@ -226,4 +227,115 @@ fn find_resolve_directive_graph(field_def: &schema::Field) -> Option<String> {
                 panic!("The `graph` value in the `resolve` directive must be a Value::String")
             }
         })
+}
+
+fn names_to_types<'s>(
+    schema: &'s schema::Document<'s>,
+) -> HashMap<&'s str, &'s TypeDefinition<'s>> {
+    schema
+        .definitions
+        .iter()
+        .flat_map(|d| match d {
+            schema::Definition::Type(td) => Some(td),
+            _ => None,
+        })
+        .map(|td| (td.name().unwrap(), td))
+        .collect()
+}
+
+fn implementing_types<'a, 's: 'a>(
+    types: &'a HashMap<&'s str, &'s schema::TypeDefinition<'s>>,
+) -> HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>> {
+    let mut implementing_types: HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>> = HashMap::new();
+    // NB: This will loop infinitely if the schema has implementation loops (A: B, B: A)
+    // we must validate that before query planning.
+    for (_, td) in types {
+        match *td {
+            TypeDefinition::Object(obj) if !obj.implements_interfaces.is_empty() => {
+                let mut queue: VecDeque<&str> =
+                    VecDeque::from_iter(obj.implements_interfaces.iter().map(|x| *x));
+
+                while !queue.is_empty() {
+                    // get iface from queue.
+                    let iface = queue.pop_front().unwrap();
+
+                    // associate iface with obj
+                    implementing_types.entry(iface).or_insert(vec![]).push(obj);
+                    println!("adding {:?} to {:?}", obj.name, iface);
+
+                    if let TypeDefinition::Interface(iface) = types[iface] {
+                        // iterate over more ifaces that this iface may be extending
+                        for iface in &iface.implements_interfaces {
+                            // add them to the queue.
+                            let iface = *iface;
+                            queue.push_back(iface);
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+            _ => (),
+        }
+    }
+
+    implementing_types
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::visitor::{implementing_types, names_to_types};
+    use graphql_parser::{parse_schema, schema};
+    use std::collections::HashMap;
+    use std::iter::FromIterator;
+
+    #[test]
+    fn test_add_implementing_types() {
+        let s = r#"
+            interface A { a: Int }
+            interface B implements A { b: Int }
+            interface C implements A { c: Int }
+            interface D implements B { D: Int }
+            
+            type T implements B
+            type K implements D
+        "#;
+        let s = parse_schema(s).unwrap();
+        let types = names_to_types(&s);
+        let mut implementing_types = implementing_types(&types);
+        assert_eq!(3, implementing_types.len());
+
+        let finder = |name: &str| {
+            let def = s.definitions
+                .iter()
+                .find(|d|
+                    matches!(d, schema::Definition::Type(schema::TypeDefinition::Object(obj)) if obj.name == name)
+                ).unwrap();
+            if let schema::Definition::Type(schema::TypeDefinition::Object(res)) = def {
+                res
+            } else {
+                unreachable!()
+            }
+        };
+
+        let t = finder("T");
+        let k = finder("K");
+
+        macro_rules! assert_same_elements {
+            ($x:expr, $y:expr) => {
+                assert_eq!($x.len(), $y.len());
+
+                for x in &$x {
+                    assert!($y.contains(x))
+                }
+                for y in &$y {
+                    assert!($x.contains(y))
+                }
+            };
+        }
+
+        assert_same_elements!(implementing_types["A"], vec![t, k]);
+        assert_same_elements!(implementing_types["B"], vec![t, k]);
+        assert_same_elements!(implementing_types["D"], vec![k]);
+    }
 }

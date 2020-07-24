@@ -24,6 +24,7 @@ impl QueryPlanGraph {
 
 #[cfg(test)]
 mod tests {
+    // TODO(ran) FIXME: remove if not really used a lot.
     macro_rules! pq {
         ($str:expr) => {
             graphql_parser::parse_query($str).expect("failed parsing query");

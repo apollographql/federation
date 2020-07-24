@@ -1,11 +1,8 @@
-use std::collections::HashMap;
-
-use graphql_parser::query::*;
-use graphql_parser::schema;
-
 use crate::model::QueryPlan;
 use crate::visitor::QueryVisitor;
 use crate::{QueryPlanError, Result};
+use graphql_parser::query::*;
+use graphql_parser::schema;
 
 pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
     // TODO(ran) FIXME: a Definition could be a SelectionSet which is techinically valid,
