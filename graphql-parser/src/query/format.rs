@@ -110,7 +110,7 @@ impl<'a> Displayable for Field<'a> {
             f.start_block();
             for (i, item) in self.selection_set.items.iter().enumerate() {
                 item.display(f);
-                if i < self.selection_set.items.len() - 1 {
+                if f.is_minified() && i < self.selection_set.items.len() - 1 {
                     f.write(" ");
                 }
             }

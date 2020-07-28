@@ -61,6 +61,11 @@ impl<T: Displayable> DisplayMinified for T {
 }
 
 impl<'a> Formatter<'a> {
+    // TODO(ran) FIXME: implement minified better... this is awful.
+    pub fn is_minified(&self) -> bool {
+        self.style.minified
+    }
+
     pub fn new(style: &Style) -> Formatter {
         Formatter {
             buf: String::with_capacity(1024),
@@ -76,13 +81,13 @@ impl<'a> Formatter<'a> {
     }
 
     pub fn space(&mut self) {
-        if !self.style.minified {
+        if !self.is_minified() {
             self.buf.push(' ')
         }
     }
 
     pub fn endline(&mut self) {
-        if !self.style.minified {
+        if !self.is_minified() {
             self.buf.push('\n')
         };
     }
@@ -105,7 +110,7 @@ impl<'a> Formatter<'a> {
 
     pub fn margin(&mut self) {
         if !self.buf.is_empty() {
-            if !self.style.minified {
+            if !self.is_minified() {
                 self.endline()
             } else {
                 self.buf.push(' ');
