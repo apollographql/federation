@@ -89,6 +89,8 @@ dependencies = [
  "cucumber_rust",
  "graphql-parser 0.3.0",
  "lazy_static",
+ "linked-hash-map 0.5.3",
+ "linked_hash_set",
  "petgraph",
  "serde 1.0.114",
  "serde_json",
@@ -1631,6 +1633,15 @@ name = "linked-hash-map"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8dd5a6d5999d9907cda8ed67bbd137d3af8085216c2ac62de5be860bd41f304a"
+
+[[package]]
+name = "linked_hash_set"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47186c6da4d81ca383c7c47c1bfc80f4b95f4720514d860a5407aaf4233f9588"
+dependencies = [
+ "linked-hash-map 0.5.3",
+]
 
 [[package]]
 name = "log"

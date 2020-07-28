@@ -5,14 +5,14 @@ use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{query, schema, Name};
 
-use crate::dag::QueryPlanGraph;
+use crate::dag::{DagNode, QueryPlanGraph};
 use crate::model::QueryPlan;
 
 pub struct QueryVisitor<'q, 's> {
     pub types: HashMap<&'s str, &'s schema::TypeDefinition<'s>>,
     fragments: HashMap<&'q str, &'q FragmentDefinition<'q>>,
     stack: Vec<QueryPlanFrame<'s>>,
-    dag: QueryPlanGraph,
+    dag: QueryPlanGraph<'q>,
     // Interface name to implementing types.
     implementing_types: HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>>,
 }
@@ -60,21 +60,6 @@ pub struct QueryPlanFrame<'s> {
     pub path: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct FetchGroup<'q, 's: 'q> {
-    pub service: &'s str,
-    // TODO(ran) FIXME: add internalFragments (see js)
-    pub field_set: Vec<Field<'q, 's>>,
-    pub dependent_groups_by_service: HashMap<&'s str, FetchGroup<'q, 's>>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Field<'q, 's: 'q> {
-    parent: &'s schema::TypeDefinition<'s>,
-    field_node: &'q query::Field<'q>,
-    field_def: &'s schema::Field<'s>,
-}
-
 impl<'q, 's: 'q> query::Visitor<'q> for QueryVisitor<'q, 's> {
     fn enter_query_def<'a>(&'a mut self, def: &'q Definition<'q>) -> bool
     where
@@ -120,22 +105,31 @@ impl<'q, 's: 'q> query::Visitor<'q> for QueryVisitor<'q, 's> {
                 let path = vec_concat(&frame.path, field.name.clone());
 
                 // Get the field definition of the current field.
-                let field_def = {
-                    let parent_fields = match frame.parent_type {
-                        TypeDefinition::Object(object) => &object.fields,
-                        TypeDefinition::Interface(iface) => &iface.fields,
-                        _ => panic!("We are only visiting fields when the parent type is an object or interface"),
-                    };
-
-                    parent_fields.iter().find(|f| f.name == field.name).unwrap()
-                };
+                let field_def = field_def_from_type(field.name, frame.parent_type);
+                let has_prerequisites = field_def
+                    .directives
+                    .iter()
+                    .find(|d| d.name == "resolve" || d.name == "requires")
+                    .is_some();
 
                 if field.selection_set.items.is_empty() {
-                    // TODO(ran) FIXME: any DAG nodes created here should depend on any that might
-                    //  be in the stack frame.
-                    // check if there are dependencies
-                    // append to ops
-                    unimplemented!()
+                    // TODO(ran) FIXME: start with simple case first:
+                    //  - Not an interface
+                    //  - field owner is parent type.
+                    if let TypeDefinition::Object(_) = frame.parent_type {
+                        if !has_prerequisites {
+                            self.dag.add(DagNode {
+                                service: frame.owner_service.as_ref().unwrap().clone(),
+                                path: path.clone(),
+                                dependencies: vec![],
+                            });
+                        }
+                    }
+
+                // TODO(ran) FIXME: any DAG nodes created here should depend on any that might
+                //  be in the stack frame.
+                // check if there are dependencies
+                // append to ops
                 } else {
                     let owner_service: Option<String> =
                         find_resolve_directive_graph(field_def).or(frame.owner_service.clone());
@@ -206,6 +200,19 @@ impl<'q, 's: 'q> query::Visitor<'q> for QueryVisitor<'q, 's> {
         // NB: The stack might be empty.
         self.stack.pop();
     }
+}
+
+fn field_def_from_type<'q, 's: 'q>(
+    field_name: &'q str,
+    parent_type: &'s TypeDefinition<'s>,
+) -> &'s schema::Field<'s> {
+    let parent_fields = match parent_type {
+        TypeDefinition::Object(object) => &object.fields,
+        TypeDefinition::Interface(iface) => &iface.fields,
+        _ => panic!("We are only visiting fields when the parent type is an object or interface"),
+    };
+
+    parent_fields.iter().find(|f| f.name == field_name).unwrap()
 }
 
 fn vec_concat(v1: &Vec<String>, s: &str) -> Vec<String> {
@@ -339,3 +346,19 @@ mod tests {
         assert_same_elements!(implementing_types["D"], vec![k]);
     }
 }
+
+// Unused for now
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct FetchGroup<'q, 's: 'q> {
+//     pub service: &'s str,
+//     // TODO(ran) FIXME: add internalFragments (see js)
+//     pub field_set: Vec<Field<'q, 's>>,
+//     pub dependent_groups_by_service: HashMap<&'s str, FetchGroup<'q, 's>>,
+// }
+//
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct Field<'q, 's: 'q> {
+//     parent: &'s schema::TypeDefinition<'s>,
+//     field_node: &'q query::Field<'q>,
+//     field_def: &'s schema::Field<'s>,
+// }
