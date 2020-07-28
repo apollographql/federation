@@ -309,7 +309,7 @@ mod tests {
         "#;
         let s = parse_schema(s).unwrap();
         let types = names_to_types(&s);
-        let mut implementing_types = implementing_types(&types);
+        let implementing_types = implementing_types(&types);
         assert_eq!(3, implementing_types.len());
 
         let finder = |name: &str| {
