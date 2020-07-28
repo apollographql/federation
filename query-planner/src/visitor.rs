@@ -26,7 +26,7 @@ impl<'q, 's: 'q> QueryVisitor<'q, 's> {
         //  i.e. do once what we only need to do once.
 
         let types: HashMap<&'s str, &'s schema::TypeDefinition<'s>> = names_to_types(schema);
-        let mut implementing_types = implementing_types(&types);
+        let implementing_types = implementing_types(&types);
 
         let fragments: HashMap<&'q str, &FragmentDefinition<'q>> = query
             .definitions

@@ -1,6 +1,6 @@
 use crate::model::{FetchNode, QueryPlan};
 use graphql_parser::query::{Field, Selection, SelectionSet};
-use graphql_parser::{query, Pos};
+use graphql_parser::{query, DisplayMinified, Pos};
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::{Iter, LinkedHashSet};
 use std::cmp::max;
@@ -63,41 +63,41 @@ impl<'q> QueryPlanGraph<'q> {
     }
 }
 
-fn to_fetch_node(service: String, nodes: Vec<&DagNode>) -> FetchNode {
-    #[derive(Debug)]
-    struct TreeNode {
-        name: String,
-        foos: Vec<TreeNode>,
-    }
+#[derive(Debug)]
+struct TreeNode<'a> {
+    name: &'a str,
+    sub_nodes: Vec<TreeNode<'a>>,
+}
 
-    impl TreeNode {
-        pub fn add(&mut self, path: &[String]) {
-            if !path.is_empty() {
-                match self.foos.iter_mut().find(|f| f.name == path[0]) {
-                    Some(tree_node) => tree_node.add(&path[1..]),
-                    None => {
-                        let mut tree_node = TreeNode {
-                            name: path[0].clone(),
-                            foos: vec![],
-                        };
+impl<'a> TreeNode<'a> {
+    pub fn add(&mut self, path: &'a [String]) {
+        if !path.is_empty() {
+            match self.sub_nodes.iter_mut().find(|f| f.name == path[0]) {
+                Some(tree_node) => tree_node.add(&path[1..]),
+                None => {
+                    let mut tree_node = TreeNode {
+                        name: path[0].as_str(),
+                        sub_nodes: vec![],
+                    };
 
-                        tree_node.add(&path[1..]);
+                    tree_node.add(&path[1..]);
 
-                        self.foos.push(tree_node);
-                    }
+                    self.sub_nodes.push(tree_node);
                 }
             }
         }
     }
+}
 
-    fn to_tree_nodes(nodes: Vec<&DagNode>) -> Vec<TreeNode> {
+fn to_fetch_node(service: String, nodes: Vec<&DagNode>) -> FetchNode {
+    fn to_tree_nodes<'a>(nodes: Vec<&'a DagNode>) -> Vec<TreeNode<'a>> {
         let mut tree_nodes = LinkedHashMap::<String, TreeNode>::new();
         for node in nodes {
             tree_nodes
                 .entry(node.path[0].clone())
                 .or_insert(TreeNode {
-                    name: node.path[0].clone(),
-                    foos: vec![],
+                    name: node.path[0].as_str(),
+                    sub_nodes: vec![],
                 })
                 .add(&node.path[1..])
         }
@@ -108,9 +108,30 @@ fn to_fetch_node(service: String, nodes: Vec<&DagNode>) -> FetchNode {
             .collect::<Vec<TreeNode>>()
     }
 
-    fn to_selection_set<'a>(tree_nodes: Vec<TreeNode>) -> query::SelectionSet<'a> {}
+    fn to_selection(tn: TreeNode) -> Selection {
+        Selection::Field(Field {
+            position: pos(),
+            alias: None,
+            name: tn.name,
+            arguments: vec![],
+            directives: vec![],
+            selection_set: to_selection_set(tn.sub_nodes),
+        })
+    }
 
-    let tree_nodes = to_tree_nodes(nodes);
+    fn to_selection_set(tree_nodes: Vec<TreeNode>) -> query::SelectionSet {
+        SelectionSet {
+            span: span(),
+            items: tree_nodes.into_iter().map(|tn| to_selection(tn)).collect(),
+        }
+    }
+
+    fn to_operation(ss: query::SelectionSet) -> String {
+        String::from("hi!")
+    }
+
+    let selection_set = to_selection_set(to_tree_nodes(nodes));
+    println!("{}", selection_set.minified());
 
     unimplemented!()
 }
@@ -125,7 +146,7 @@ fn span() -> (Pos, Pos) {
 
 #[cfg(test)]
 mod tests {
-    use crate::dag::{to_tree_nodes, DagNode};
+    use crate::dag::{to_fetch_node, DagNode};
     // TODO(ran) FIXME: remove if not really used a lot.
     macro_rules! pq {
         ($str:expr) => {
@@ -163,7 +184,7 @@ mod tests {
                 dependencies: vec![],
             },
         ];
-        let tree_nodes = to_tree_nodes(s!("X"), paths.iter().collect());
+        let tree_nodes = to_fetch_node(s!("X"), paths.iter().collect());
         println!("{:?}", tree_nodes);
     }
 }

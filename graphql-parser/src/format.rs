@@ -4,7 +4,7 @@ use std::default::Default;
 use crate::common::Directive;
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct Formatter<'a> {
+pub struct Formatter<'a> {
     buf: String,
     style: &'a Style,
     indent: u32,
@@ -17,15 +17,25 @@ pub(crate) struct Formatter<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Style {
     indent: u32,
+    minified: bool,
 }
 
 impl Default for Style {
     fn default() -> Style {
-        Style { indent: 2 }
+        Style {
+            indent: 2,
+            minified: false,
+        }
     }
 }
 
 impl Style {
+    pub fn minified() -> Self {
+        Self {
+            minified: true,
+            indent: 0,
+        }
+    }
     /// Change the number of spaces used for indentation
     pub fn indent(&mut self, indent: u32) -> &mut Self {
         self.indent = indent;
@@ -33,8 +43,21 @@ impl Style {
     }
 }
 
-pub(crate) trait Displayable {
+pub trait Displayable {
     fn display(&self, f: &mut Formatter);
+}
+
+pub trait DisplayMinified {
+    fn minified(&self) -> String;
+}
+
+impl<T: Displayable> DisplayMinified for T {
+    fn minified(&self) -> String {
+        let style = Style::minified();
+        let mut formatter = Formatter::new(&style);
+        self.display(&mut formatter);
+        formatter.into_string()
+    }
 }
 
 impl<'a> Formatter<'a> {
@@ -53,7 +76,11 @@ impl<'a> Formatter<'a> {
     }
 
     pub fn endline(&mut self) {
-        self.buf.push('\n');
+        if self.style.minified {
+            self.buf.push(' ')
+        } else {
+            self.buf.push('\n')
+        };
     }
 
     pub fn start_block(&mut self) {
