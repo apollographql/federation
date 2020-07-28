@@ -75,10 +75,14 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    pub fn endline(&mut self) {
-        if self.style.minified {
+    pub fn space(&mut self) {
+        if !self.style.minified {
             self.buf.push(' ')
-        } else {
+        }
+    }
+
+    pub fn endline(&mut self) {
+        if !self.style.minified {
             self.buf.push('\n')
         };
     }
@@ -101,7 +105,11 @@ impl<'a> Formatter<'a> {
 
     pub fn margin(&mut self) {
         if !self.buf.is_empty() {
-            self.buf.push('\n');
+            if !self.style.minified {
+                self.endline()
+            } else {
+                self.buf.push(' ');
+            }
         }
     }
 

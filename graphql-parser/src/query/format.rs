@@ -106,10 +106,13 @@ impl<'a> Displayable for Field<'a> {
         format_arguments(&self.arguments, f);
         format_directives(&self.directives, f);
         if !self.selection_set.items.is_empty() {
-            f.write(" ");
+            f.space();
             f.start_block();
-            for item in &self.selection_set.items {
+            for (i, item) in self.selection_set.items.iter().enumerate() {
                 item.display(f);
+                if i < self.selection_set.items.len() - 1 {
+                    f.write(" ");
+                }
             }
             f.end_block();
         } else {

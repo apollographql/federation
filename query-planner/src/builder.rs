@@ -88,11 +88,17 @@ type UserMetadata {
   description: String
 }
 
+type Check {
+  sum: Float
+  tip: Float
+}
+
 type User
 @owner(graph: "accounts")
 @key(fields: "id", graph: "accounts") {
   id: ID!
   name: String
+  check: Check
   username: String
   birthDate(locale: String): String
   account: AccountType
@@ -105,21 +111,21 @@ type Mutation {
     }
 
     #[test]
-    #[should_panic]
+    // #[should_panic]
     fn simple_case_attempt_1() {
-        let query = parse_query("query { me { name } }").unwrap();
+        let query = parse_query("query { me { name check { tip sum } id } }").unwrap();
         let schema = parse_schema(schema()).unwrap();
-        println!("{:?}", query);
-        println!("{:?}", schema);
 
         let result = build_query_plan(&schema, &query).unwrap();
         let expected = QueryPlan {
-            node: Some(PlanNode::Fetch(FetchNode {
-                service_name: String::from("accounts"),
-                variable_usages: vec![],
-                operation: String::from("{me{name}}"),
-                requires: None,
-            })),
+            node: Some(PlanNode::Parallel {
+                nodes: vec![PlanNode::Fetch(FetchNode {
+                    service_name: String::from("accounts"),
+                    variable_usages: vec![],
+                    operation: String::from("{me{name check{tip sum} id}}"),
+                    requires: None,
+                })],
+            }),
         };
         assert_eq!(result, expected);
     }

@@ -1,4 +1,4 @@
-use crate::model::{FetchNode, QueryPlan};
+use crate::model::{FetchNode, PlanNode, QueryPlan};
 use graphql_parser::query::{Field, Selection, SelectionSet};
 use graphql_parser::{query, DisplayMinified, Pos};
 use linked_hash_map::LinkedHashMap;
@@ -49,17 +49,19 @@ impl<'q> QueryPlanGraph<'q> {
                 .push(node)
         }
 
-        let fetch_nodes: Vec<FetchNode> = grouped
+        let fetch_nodes: Vec<PlanNode> = grouped
             .into_iter()
             .map(|(service, nodes)| to_fetch_node(service, nodes))
+            .map(|n| PlanNode::Fetch(n))
             .collect();
 
-        if parallel_root_fields {
+        let pn = if parallel_root_fields {
+            PlanNode::Parallel { nodes: fetch_nodes }
         } else {
-            unimplemented!()
-        }
+            PlanNode::Sequence { nodes: fetch_nodes }
+        };
 
-        unimplemented!()
+        QueryPlan { node: Some(pn) }
     }
 }
 
@@ -126,14 +128,14 @@ fn to_fetch_node(service: String, nodes: Vec<&DagNode>) -> FetchNode {
         }
     }
 
-    fn to_operation(ss: query::SelectionSet) -> String {
-        String::from("hi!")
+    let operation = to_selection_set(to_tree_nodes(nodes)).minified();
+
+    FetchNode {
+        service_name: service,
+        variable_usages: vec![],
+        requires: None,
+        operation,
     }
-
-    let selection_set = to_selection_set(to_tree_nodes(nodes));
-    println!("{}", selection_set.minified());
-
-    unimplemented!()
 }
 
 fn pos() -> Pos {
@@ -158,33 +160,5 @@ mod tests {
         ($str:expr) => {
             String::from($str)
         };
-    }
-
-    #[test]
-    fn temp() {
-        let paths = vec![
-            DagNode {
-                path: vec![s!("a"), s!("b"), s!("c")],
-                service: s!("X"),
-                dependencies: vec![],
-            },
-            DagNode {
-                path: vec![s!("a"), s!("b"), s!("d")],
-                service: s!("X"),
-                dependencies: vec![],
-            },
-            DagNode {
-                path: vec![s!("a"), s!("c")],
-                service: s!("X"),
-                dependencies: vec![],
-            },
-            DagNode {
-                path: vec![s!("d"), s!("x")],
-                service: s!("X"),
-                dependencies: vec![],
-            },
-        ];
-        let tree_nodes = to_fetch_node(s!("X"), paths.iter().collect());
-        println!("{:?}", tree_nodes);
     }
 }
