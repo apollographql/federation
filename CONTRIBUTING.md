@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/apollographql/space-kit/master/src/illustrations/svgs/astronaut1.svg" width="100%" height="144">
+<img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/astronaut1.svg" width="100%" height="144">
 
 # Apollo Contributor Guide
 
@@ -257,4 +257,4 @@ Cutting an `alpha` or `beta` follows the exact same step with the only change co
 
 If you have any problems with this release process, please create an issue and tag [@jbaxleyiii](https://github.com/jbaxleyiii)
 
-<img src="https://raw.githubusercontent.com/apollographql/space-kit/master/src/illustrations/svgs/observatory.svg" width="100%" height="144">
+<img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/observatory.svg" width="100%" height="144">
