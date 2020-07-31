@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/apollographql/space-kit/master/src/illustrations/svgs/rocket1.svg" width="100%" height="144">
+<img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/rocket1.svg" width="100%" height="144">
 
 # Apollo CLI
 
@@ -83,4 +83,4 @@ If you ever have any problems, questions, or ideas; the maintainers of this proj
 - [@jbaxleyiii](https://github.com/jbaxleyiii)
 - [@jakedawkins](https://github.com/jakedawkins)
 
-<img src="https://raw.githubusercontent.com/apollographql/space-kit/master/src/illustrations/svgs/telescope.svg" width="100%" height="144">
+<img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/telescope.svg" width="100%" height="144">
