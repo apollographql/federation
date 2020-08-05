@@ -4,6 +4,7 @@ use graphql_parser::query::*;
 use graphql_parser::schema::{InterfaceType, ObjectType, TypeDefinition, UnionType};
 use graphql_parser::{query, schema, Name};
 use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct QueryPlanningContext<'q, 's: 'q> {
@@ -103,6 +104,10 @@ pub struct FetchGroup<'q> {
 
 impl<'q> FetchGroup<'q> {
     pub fn dependent_groups(self) -> Vec<FetchGroup<'q>> {
-        unimplemented!()
+        self.dependent_groups_by_service
+            .into_iter()
+            .map(|(_, v)| v)
+            .chain(self.other_dependent_groups.into_iter())
+            .collect()
     }
 }
