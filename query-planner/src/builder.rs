@@ -205,10 +205,28 @@ fn operation_for_entities_fetch<'q>(
 fn operation_for_root_fetch<'q>(
     selection_set: SelectionSet<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
-    internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
+    internal_fragments: HashSet<&'q FragmentDefinition<'q>>, // TODO(ran) FIXME: use ordered set
     op_kind: Operation,
 ) -> GraphQLDocument {
-    unimplemented!()
+    let vars = variable_definitions
+        .iter()
+        .map(|vd| vd.to_string())
+        .collect::<Vec<String>>()
+        .join(",");
+
+    let frags: String = internal_fragments
+        .iter()
+        .map(|fd| fd.to_string())
+        .collect::<Vec<String>>()
+        .join("");
+
+    format!(
+        "{}{}{}{}",
+        op_kind.as_str(),
+        vars,
+        selection_set.to_string(), // TODO(ran) FIXME: replace with .minified
+        frags
+    )
 }
 
 fn into_model_selection_set(selection_set: SelectionSet) -> ModelSelectionSet {
