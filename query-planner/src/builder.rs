@@ -196,8 +196,32 @@ fn into_model_selection_set(selection_set: SelectionSet) -> ModelSelectionSet {
     unimplemented!()
 }
 
-fn flat_wrap(kind: NodeCollectionKind, nodes: Vec<PlanNode>) -> PlanNode {
-    unimplemented!()
+fn flat_wrap(kind: NodeCollectionKind, mut nodes: Vec<PlanNode>) -> PlanNode {
+    if nodes.is_empty() {
+        panic!("programming error: should always be called with nodes")
+    }
+
+    if nodes.len() == 1 {
+        nodes.pop().unwrap()
+    } else {
+        let nodes = nodes
+            .into_iter()
+            .flat_map(|n| match n {
+                PlanNode::Sequence { nodes } if matches!(kind, NodeCollectionKind::Sequence) => {
+                    nodes
+                }
+                PlanNode::Parallel { nodes } if matches!(kind, NodeCollectionKind::Parallel) => {
+                    nodes
+                }
+                n => vec![n],
+            })
+            .collect();
+
+        match kind {
+            NodeCollectionKind::Sequence => PlanNode::Sequence { nodes },
+            NodeCollectionKind::Parallel => PlanNode::Parallel { nodes },
+        }
+    }
 }
 
 #[cfg(test)]
