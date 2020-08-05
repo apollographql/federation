@@ -1,6 +1,6 @@
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
-use graphql_parser::{query, schema, Name};
+use graphql_parser::{query, schema, Name, Pos};
 use std::collections::{HashMap, VecDeque};
 use std::iter::FromIterator;
 
@@ -89,6 +89,28 @@ pub fn variable_name_to_def<'q>(
             defs.iter().map(|vd| (vd.name, vd)).collect()
         }
         None => HashMap::new(),
+    }
+}
+
+pub(crate) fn pos() -> Pos {
+    Pos { line: 0, column: 0 }
+}
+
+pub fn span() -> (Pos, Pos) {
+    (pos(), pos())
+}
+
+pub fn empty_field<'q>() -> Field<'q> {
+    Field {
+        position: pos(),
+        alias: None,
+        name: "empty",
+        arguments: vec![],
+        directives: vec![],
+        selection_set: SelectionSet {
+            span: span(),
+            items: vec![],
+        },
     }
 }
 

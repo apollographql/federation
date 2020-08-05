@@ -3,9 +3,11 @@ use crate::helpers::*;
 use crate::model::Selection as ModelSelection;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
-use crate::{model, QueryPlanError, Result};
+use crate::{context, model, QueryPlanError, Result};
 use graphql_parser::query::*;
-use graphql_parser::schema;
+use graphql_parser::schema::GraphQLCompositeType;
+use graphql_parser::{schema, Name};
+use linked_hash_map::LinkedHashMap;
 use std::collections::HashSet;
 
 pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
@@ -122,12 +124,13 @@ fn execution_node_for_group(
         merge_at,
     } = group;
 
-    let selection_set = selection_set_from_field_set(fields, parent_type);
+    let selection_set = selection_set_from_field_set(fields, parent_type, context);
 
     let requires = if !required_fields.is_empty() {
         Some(into_model_selection_set(selection_set_from_field_set(
             required_fields,
             None,
+            context,
         )))
     } else {
         None
@@ -188,10 +191,86 @@ fn execution_node_for_group(
 }
 
 fn selection_set_from_field_set<'q>(
-    fields: FieldSet,
+    fields: FieldSet<'q>,
     parent_type: Option<GraphQLCompositeType>,
+    context: &QueryPlanningContext,
 ) -> SelectionSet<'q> {
-    unimplemented!()
+    fn wrap_in_inline_fragment_if_needed<'q>(
+        selections: Vec<Selection<'q>>,
+        type_condition: &'q GraphQLCompositeType,
+        parent_type: Option<&GraphQLCompositeType>,
+    ) -> Vec<Selection<'q>> {
+        if parent_type.map(|pt| pt == type_condition).unwrap_or(false) {
+            selections
+        } else {
+            vec![Selection::InlineFragment(InlineFragment {
+                type_condition: type_condition.name(),
+                position: pos(),
+                directives: vec![],
+                selection_set: SelectionSet {
+                    span: span(),
+                    items: selections,
+                },
+            })]
+        }
+    }
+
+    fn combine_fields<'q>(
+        fields_with_same_reponse_name: FieldSet,
+        context: &QueryPlanningContext,
+    ) -> Selection<'q> {
+        let td = context.names_to_types[fields_with_same_reponse_name[0]
+            .field_def
+            .field_type
+            .name()
+            .unwrap()];
+        let is_composite_type = td.is_composite_type();
+
+        if is_composite_type {
+            unimplemented!()
+        } else {
+            unimplemented!()
+        }
+    }
+
+    let mut items: Vec<Selection<'q>> = vec![];
+
+    let mut fields_by_parent_type: LinkedHashMap<&str, FieldSet> = LinkedHashMap::new();
+    for field in fields {
+        fields_by_parent_type
+            .entry(field.scope.parent_type.name().unwrap())
+            .or_insert(vec![])
+            .push(field)
+    }
+
+    for (_, fields_by_parent_type) in fields_by_parent_type {
+        let type_condition = &fields_by_parent_type[0].scope.parent_type;
+
+        let mut fields_by_response_name: LinkedHashMap<&str, FieldSet> = LinkedHashMap::new();
+
+        for f in fields_by_parent_type {
+            fields_by_response_name
+                .entry(f.field_node.alias.unwrap_or_else(|| f.field_node.name))
+                .or_insert(vec![])
+                .push(f)
+        }
+
+        for sel in wrap_in_inline_fragment_if_needed(
+            fields_by_response_name
+                .into_iter()
+                .map(|(_, fs)| combine_fields(fs, context))
+                .collect(),
+            type_condition,
+            parent_type.as_ref(),
+        ) {
+            items.push(sel);
+        }
+    }
+
+    SelectionSet {
+        span: span(),
+        items,
+    }
 }
 
 fn operation_for_entities_fetch<'q>(

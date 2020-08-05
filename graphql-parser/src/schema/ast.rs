@@ -41,6 +41,12 @@ pub enum TypeDefinition<'a> {
     InputObject(InputObjectType<'a>),
 }
 
+impl<'a> TypeDefinition<'a> {
+    pub fn is_composite_type(&self) -> bool {
+        matches!(self, TypeDefinition::Object(_) | TypeDefinition::Interface(_) | TypeDefinition::Union(_))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeExtension<'a> {
     Scalar(ScalarTypeExtension<'a>),
@@ -210,6 +216,24 @@ impl<'a> UnionType<'a> {
             name,
             directives: vec![],
             types: vec![],
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum GraphQLCompositeType<'s> {
+    Object(&'s ObjectType<'s>),
+    Interface(&'s InterfaceType<'s>),
+    Union(&'s UnionType<'s>),
+}
+
+impl<'q> From<&'q TypeDefinition<'q>> for GraphQLCompositeType<'q> {
+    fn from(td: &'q TypeDefinition<'q>) -> Self {
+        match td {
+            TypeDefinition::Object(o) => GraphQLCompositeType::Object(o),
+            TypeDefinition::Interface(iface) => GraphQLCompositeType::Interface(iface),
+            TypeDefinition::Union(un) => GraphQLCompositeType::Union(un),
+            _ => unreachable!(),
         }
     }
 }

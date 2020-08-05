@@ -397,6 +397,16 @@ impl<'a> Displayable for DirectiveDefinition<'a> {
     }
 }
 
+impl<'q> Displayable for GraphQLCompositeType<'q> {
+    fn display(&self, f: &mut Formatter) {
+        match self {
+            GraphQLCompositeType::Object(x) => x.display(f),
+            GraphQLCompositeType::Interface(x) => x.display(f),
+            GraphQLCompositeType::Union(x) => x.display(f),
+        }
+    }
+}
+
 impl_display!(
     'a
     Document,
@@ -419,4 +429,5 @@ impl_display!(
     InputObjectType,
     InputObjectTypeExtension,
     DirectiveDefinition,
+    GraphQLCompositeType,
 );

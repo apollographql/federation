@@ -59,3 +59,13 @@ impl<'a> Name<'a> for EnumValue<'a> {
         Some(self.name)
     }
 }
+
+impl<'a> Name<'a> for GraphQLCompositeType<'a> {
+    fn name(&self) -> Option<&'a str> {
+        match self {
+            GraphQLCompositeType::Object(o) => Some(o.name),
+            GraphQLCompositeType::Interface(i) => Some(i.name),
+            GraphQLCompositeType::Union(u) => Some(u.name),
+        }
+    }
+}

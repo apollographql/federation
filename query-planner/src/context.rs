@@ -2,7 +2,7 @@ use crate::helpers::Op;
 use crate::model::ResponsePathElement;
 use crate::visitors::VariableUsagesMap;
 use graphql_parser::query::*;
-use graphql_parser::schema::{InterfaceType, ObjectType, TypeDefinition, UnionType};
+use graphql_parser::schema::{GraphQLCompositeType, TypeDefinition};
 use graphql_parser::{query, schema, Name};
 use std::collections::{HashMap, HashSet};
 
@@ -71,34 +71,16 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Scope<'q> {
-    parent_type: GraphQLCompositeType<'q>,
-    possible_types: Vec<&'q schema::ObjectType<'q>>,
-    enclosing_scope: Option<&'q Scope<'q>>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum GraphQLCompositeType<'q> {
-    Object(&'q ObjectType<'q>),
-    Interface(&'q InterfaceType<'q>),
-    Union(&'q UnionType<'q>),
-}
-
-impl<'q> From<&'q TypeDefinition<'q>> for GraphQLCompositeType<'q> {
-    fn from(td: &'q TypeDefinition<'q>) -> Self {
-        match td {
-            TypeDefinition::Object(o) => GraphQLCompositeType::Object(o),
-            TypeDefinition::Interface(iface) => GraphQLCompositeType::Interface(iface),
-            TypeDefinition::Union(un) => GraphQLCompositeType::Union(un),
-            _ => unreachable!(),
-        }
-    }
+    pub parent_type: GraphQLCompositeType<'q>,
+    pub possible_types: Vec<&'q schema::ObjectType<'q>>,
+    pub enclosing_scope: Option<&'q Scope<'q>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field<'q> {
-    scope: &'q Scope<'q>,
-    field_node: &'q query::Field<'q>,
-    field_def: &'q schema::Field<'q>,
+    pub scope: &'q Scope<'q>,
+    pub field_node: &'q query::Field<'q>,
+    pub field_def: &'q schema::Field<'q>,
 }
 
 pub type FieldSet<'q> = Vec<Field<'q>>;
