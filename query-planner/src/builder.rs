@@ -199,7 +199,19 @@ fn operation_for_entities_fetch<'q>(
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
     internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
 ) -> GraphQLDocument {
-    unimplemented!()
+    let vars = vec![String::from("$representations:[_Any!]!")]
+        .into_iter()
+        .chain(variable_definitions.iter().map(|vd| vd.to_string())) // TODO(ran) FIXME: replace with .minified
+        .collect::<Vec<String>>()
+        .join(",");
+
+    let frags: String = internal_fragments
+        .iter()
+        .map(|fd| fd.to_string()) // TODO(ran) FIXME: replace with .minified
+        .collect::<Vec<String>>()
+        .join("");
+
+    format!("query({}){}{}", vars, selection_set.to_string(), frags) // TODO(ran) FIXME: replace with .minified
 }
 
 fn operation_for_root_fetch<'q>(
@@ -208,15 +220,22 @@ fn operation_for_root_fetch<'q>(
     internal_fragments: HashSet<&'q FragmentDefinition<'q>>, // TODO(ran) FIXME: use ordered set
     op_kind: Operation,
 ) -> GraphQLDocument {
-    let vars = variable_definitions
-        .iter()
-        .map(|vd| vd.to_string())
-        .collect::<Vec<String>>()
-        .join(",");
+    let vars = if variable_definitions.is_empty() {
+        String::from("")
+    } else {
+        format!(
+            "({})",
+            variable_definitions
+                .iter()
+                .map(|vd| vd.to_string()) // TODO(ran) FIXME: replace with .minified
+                .collect::<Vec<String>>()
+                .join(",")
+        )
+    };
 
     let frags: String = internal_fragments
         .iter()
-        .map(|fd| fd.to_string())
+        .map(|fd| fd.to_string()) // TODO(ran) FIXME: replace with .minified
         .collect::<Vec<String>>()
         .join("");
 
