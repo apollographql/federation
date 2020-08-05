@@ -1,5 +1,6 @@
 use crate::context::*;
 use crate::helpers::*;
+use crate::model::Selection as ModelSelection;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
 use crate::{model, QueryPlanError, Result};
@@ -193,7 +194,31 @@ fn operation_for_root_fetch<'q>(
 }
 
 fn into_model_selection_set(selection_set: SelectionSet) -> ModelSelectionSet {
-    unimplemented!()
+    fn into_model_selection(sel: Selection) -> ModelSelection {
+        match sel {
+            Selection::Field(field) => ModelSelection::Field(model::Field {
+                alias: field.alias.map(String::from),
+                name: String::from(field.name),
+                selections: if field.selection_set.items.is_empty() {
+                    None
+                } else {
+                    Some(into_model_selection_set(field.selection_set))
+                },
+            }),
+            Selection::InlineFragment(inline) => ModelSelection::InlineFragment(model::InlineFragment {
+                type_condition: inline.type_condition.map(String::from),
+                selections: into_model_selection_set(inline.selection_set)
+            }),
+            Selection::FragmentSpread(_) =>
+                unreachable!("the current query planner doesn't seem to support these in the resulting query plan")
+        }
+    }
+
+    selection_set
+        .items
+        .into_iter()
+        .map(into_model_selection)
+        .collect()
 }
 
 fn flat_wrap(kind: NodeCollectionKind, mut nodes: Vec<PlanNode>) -> PlanNode {
