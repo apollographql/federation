@@ -110,10 +110,22 @@ fn execution_node_for_group(
     group: FetchGroup,
     parent_type: Option<GraphQLCompositeType>,
 ) -> PlanNode {
-    let selection_set = selection_set_from_field_set(&group.fields, parent_type);
-    let requires = if !group.required_fields.is_empty() {
+    let FetchGroup {
+        service_name,
+        fields,
+        internal_fragments,
+        required_fields,
+        provided_fields,
+        dependent_groups_by_service,
+        other_dependent_groups,
+        merge_at,
+    } = group;
+
+    let selection_set = selection_set_from_field_set(fields, parent_type);
+
+    let requires = if !required_fields.is_empty() {
         Some(into_model_selection_set(selection_set_from_field_set(
-            &group.required_fields,
+            required_fields,
             None,
         )))
     } else {
@@ -121,36 +133,41 @@ fn execution_node_for_group(
     };
 
     let variable_usages: Vec<String> =
-        context.get_variable_usages(&selection_set, &group.internal_fragments);
+        context.get_variable_usages(&selection_set, &internal_fragments);
 
     let operation = if let Some(_) = requires {
-        operation_for_entities_fetch(selection_set, &variable_usages, &group.internal_fragments)
+        operation_for_entities_fetch(selection_set, &variable_usages, internal_fragments)
     } else {
         operation_for_root_fetch(
             selection_set,
             &variable_usages,
-            &group.internal_fragments,
+            internal_fragments,
             context.operation.kind,
         )
     };
 
     let fetch_node = PlanNode::Fetch(FetchNode {
-        service_name: group.service_name.clone(),
+        service_name: service_name.clone(),
         variable_usages,
         requires,
         operation,
     });
 
-    let plan_node = if !&group.merge_at.is_empty() {
+    let plan_node = if merge_at.is_empty() {
         PlanNode::Flatten(FlattenNode {
-            path: group.merge_at.clone(),
+            path: merge_at.clone(),
             node: Box::new(fetch_node),
         })
     } else {
         fetch_node
     };
 
-    let dependent_groups = group.dependent_groups();
+    let dependent_groups: Vec<FetchGroup> = dependent_groups_by_service
+        .into_iter()
+        .map(|(_, v)| v)
+        .chain(other_dependent_groups.into_iter())
+        .collect();
+
     if !dependent_groups.is_empty() {
         let dependent_nodes = dependent_groups
             .into_iter()
@@ -170,7 +187,7 @@ fn execution_node_for_group(
 }
 
 fn selection_set_from_field_set<'q>(
-    fields: &'q FieldSet<'q>,
+    fields: FieldSet,
     parent_type: Option<GraphQLCompositeType>,
 ) -> SelectionSet<'q> {
     unimplemented!()
@@ -179,7 +196,7 @@ fn selection_set_from_field_set<'q>(
 fn operation_for_entities_fetch<'q>(
     selection_set: SelectionSet<'q>,
     variable_usages: &Vec<String>,
-    internal_fragments: &HashSet<&'q FragmentDefinition<'q>>,
+    internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
 ) -> GraphQLDocument {
     unimplemented!()
 }
@@ -187,7 +204,7 @@ fn operation_for_entities_fetch<'q>(
 fn operation_for_root_fetch<'q>(
     selection_set: SelectionSet<'q>,
     variable_usages: &Vec<String>,
-    internal_fragments: &HashSet<&'q FragmentDefinition<'q>>,
+    internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
     op_kind: Operation,
 ) -> GraphQLDocument {
     unimplemented!()

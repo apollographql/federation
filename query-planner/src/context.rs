@@ -109,13 +109,3 @@ pub struct FetchGroup<'q> {
     pub other_dependent_groups: Vec<FetchGroup<'q>>,
     pub merge_at: Vec<ResponsePathElement>,
 }
-
-impl<'q> FetchGroup<'q> {
-    pub fn dependent_groups(self) -> Vec<FetchGroup<'q>> {
-        self.dependent_groups_by_service
-            .into_iter()
-            .map(|(_, v)| v)
-            .chain(self.other_dependent_groups.into_iter())
-            .collect()
-    }
-}
