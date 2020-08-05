@@ -13,6 +13,7 @@ pub struct QueryPlanningContext<'q, 's: 'q> {
     pub fragments: HashMap<&'q str, &'q FragmentDefinition<'q>>,
     pub possible_types: HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>>,
     pub names_to_types: HashMap<&'s str, &'s TypeDefinition<'s>>,
+    pub variable_name_to_def: HashMap<&'q str, &'q VariableDefinition<'q>>,
     pub auto_fragmentization: bool,
 }
 
@@ -51,16 +52,20 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
         &self,
         selection_set: &SelectionSet,
         fragments: &HashSet<&'q FragmentDefinition<'q>>,
-    ) -> Vec<String> {
-        let mut v = selection_set.map(VariableUsagesMap {}).output.unwrap();
+    ) -> (Vec<String>, Vec<&VariableDefinition>) {
+        let mut v = selection_set
+            .map(VariableUsagesMap::new(&self.variable_name_to_def))
+            .output
+            .unwrap();
 
-        v.extend(
-            fragments
-                .iter()
-                .flat_map(|fd| fd.selection_set.map(VariableUsagesMap {}).output.unwrap()),
-        );
+        v.extend(fragments.iter().flat_map(|fd| {
+            fd.selection_set
+                .map(VariableUsagesMap::new(&self.variable_name_to_def))
+                .output
+                .unwrap()
+        }));
 
-        v
+        v.into_iter().unzip()
     }
 }
 

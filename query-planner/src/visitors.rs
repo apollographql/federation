@@ -1,29 +1,39 @@
 use graphql_parser::query::*;
+use std::collections::HashMap;
 
-pub struct VariableUsagesMap {}
+pub struct VariableUsagesMap<'q> {
+    variable_definitions: &'q HashMap<&'q str, &'q VariableDefinition<'q>>,
+}
 
-impl graphql_parser::Map for VariableUsagesMap {
-    type Output = Vec<String>;
-
-    fn merge(&mut self, parent: Self::Output, child: Self::Output) -> Self::Output {
-        let mut v = parent;
-        let mut v2 = child;
-        v.append(&mut v2);
-        v
+impl<'q> VariableUsagesMap<'q> {
+    pub fn new(
+        variable_definitions: &'q HashMap<&'q str, &'q VariableDefinition<'q>>,
+    ) -> VariableUsagesMap<'q> {
+        VariableUsagesMap {
+            variable_definitions,
+        }
     }
 }
 
-impl Map for VariableUsagesMap {
+impl<'q> graphql_parser::Map for VariableUsagesMap<'q> {
+    type Output = HashMap<String, &'q VariableDefinition<'q>>;
+
+    fn merge(&mut self, parent: Self::Output, child: Self::Output) -> Self::Output {
+        parent.into_iter().chain(child.into_iter()).collect()
+    }
+}
+
+impl<'q> Map for VariableUsagesMap<'q> {
     fn query(&mut self, _doc: &Document, _stack: &[Self::Output]) -> Self::Output {
-        vec![]
+        HashMap::new()
     }
 
     fn query_def(&mut self, _def: &Definition, _stack: &[Self::Output]) -> Self::Output {
-        vec![]
+        HashMap::new()
     }
 
     fn sel_set(&mut self, _sel_set: &SelectionSet, _stack: &[Self::Output]) -> Self::Output {
-        vec![]
+        HashMap::new()
     }
 
     fn sel(&mut self, sel: &Selection, _stack: &[Self::Output]) -> Self::Output {
@@ -36,7 +46,7 @@ impl Map for VariableUsagesMap {
             }
         }
 
-        if let Selection::Field(field) = sel {
+        let names = if let Selection::Field(field) = sel {
             field
                 .arguments
                 .iter()
@@ -44,6 +54,14 @@ impl Map for VariableUsagesMap {
                 .collect()
         } else {
             vec![]
-        }
+        };
+
+        names
+            .into_iter()
+            .map(|name| {
+                let fd = self.variable_definitions[name.as_str()];
+                (name, fd)
+            })
+            .collect()
     }
 }

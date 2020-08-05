@@ -76,6 +76,22 @@ pub fn names_to_types<'s>(
         .collect()
 }
 
+pub fn variable_name_to_def<'q>(
+    query: &'q query::Document<'q>,
+) -> HashMap<&'q str, &'q VariableDefinition<'q>> {
+    match query
+        .definitions
+        .iter()
+        .find(|d| matches!(d, Definition::Operation(_)))
+    {
+        Some(op) => {
+            let defs = letp!(Definition::Operation(op) = op => &op.variable_definitions);
+            defs.iter().map(|vd| (vd.name, vd)).collect()
+        }
+        None => HashMap::new(),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Op<'q> {
     pub selection_set: &'q SelectionSet<'q>,

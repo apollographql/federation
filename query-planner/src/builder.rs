@@ -43,6 +43,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
             .collect(),
         auto_fragmentization: false,
         possible_types: ifaces_to_implementors(&types),
+        variable_name_to_def: variable_name_to_def(query),
         names_to_types: types,
     };
 
@@ -115,7 +116,7 @@ fn execution_node_for_group(
         fields,
         internal_fragments,
         required_fields,
-        provided_fields,
+        provided_fields: _provided_fields,
         dependent_groups_by_service,
         other_dependent_groups,
         merge_at,
@@ -132,30 +133,30 @@ fn execution_node_for_group(
         None
     };
 
-    let variable_usages: Vec<String> =
+    let (variable_names, variable_defs) =
         context.get_variable_usages(&selection_set, &internal_fragments);
 
-    let operation = if let Some(_) = requires {
-        operation_for_entities_fetch(selection_set, &variable_usages, internal_fragments)
+    let operation = if requires.is_some() {
+        operation_for_entities_fetch(selection_set, variable_defs, internal_fragments)
     } else {
         operation_for_root_fetch(
             selection_set,
-            &variable_usages,
+            variable_defs,
             internal_fragments,
             context.operation.kind,
         )
     };
 
     let fetch_node = PlanNode::Fetch(FetchNode {
-        service_name: service_name.clone(),
-        variable_usages,
+        service_name,
+        variable_usages: variable_names,
         requires,
         operation,
     });
 
     let plan_node = if merge_at.is_empty() {
         PlanNode::Flatten(FlattenNode {
-            path: merge_at.clone(),
+            path: merge_at,
             node: Box::new(fetch_node),
         })
     } else {
@@ -195,7 +196,7 @@ fn selection_set_from_field_set<'q>(
 
 fn operation_for_entities_fetch<'q>(
     selection_set: SelectionSet<'q>,
-    variable_usages: &Vec<String>,
+    variable_definitions: Vec<&'q VariableDefinition<'q>>,
     internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
 ) -> GraphQLDocument {
     unimplemented!()
@@ -203,7 +204,7 @@ fn operation_for_entities_fetch<'q>(
 
 fn operation_for_root_fetch<'q>(
     selection_set: SelectionSet<'q>,
-    variable_usages: &Vec<String>,
+    variable_definitions: Vec<&'q VariableDefinition<'q>>,
     internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
     op_kind: Operation,
 ) -> GraphQLDocument {
