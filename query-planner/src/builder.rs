@@ -7,22 +7,20 @@ use graphql_parser::schema;
 use graphql_parser::schema::TypeDefinition;
 
 pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
-    // TODO(ran) FIXME: a Definition could be a SelectionSet which is techinically valid,
-    //  but this code for now doesn't handle them.
-    let operations = get_operations(query);
+    let mut ops = get_operations(query);
 
-    if operations.is_empty() {
+    if ops.is_empty() {
         return Ok(QueryPlan { node: None });
     }
 
-    if operations.len() > 1 {
+    if ops.len() > 1 {
         return Err(QueryPlanError::InvalidQuery(
             "multiple operations are not supported",
         ));
     }
 
     // TODO(ran) FIXME: we can validate this before calling `build_query_plan`
-    if let Operation::Subscription = operations[0].kind {
+    if let Operation::Subscription = ops[0].kind {
         return Err(QueryPlanError::InvalidQuery(
             "subscriptions are not supported",
         ));
@@ -32,7 +30,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
 
     let context = QueryPlanningContext {
         schema,
-        operation: operations[0],
+        operation: ops.pop().unwrap(),
         fragments: query
             .definitions
             .iter()
@@ -84,22 +82,22 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
     }
 }
 
-fn collect_fields<'a>(
+fn collect_fields<'q>(
     context: &QueryPlanningContext,
     scope: Scope,
     selection_set: &SelectionSet,
-) -> FieldSet<'a> {
+) -> FieldSet<'q> {
     unimplemented!()
 }
 
-fn split_root_fields_serially<'a>(
+fn split_root_fields_serially<'q>(
     context: &QueryPlanningContext,
-    fields: FieldSet<'a>,
-) -> Vec<FetchGroup<'a>> {
+    fields: FieldSet<'q>,
+) -> Vec<FetchGroup<'q>> {
     unimplemented!()
 }
 
-fn split_root_fields<'a>(context: &QueryPlanningContext, fields: FieldSet) -> Vec<FetchGroup<'a>> {
+fn split_root_fields<'q>(context: &QueryPlanningContext, fields: FieldSet) -> Vec<FetchGroup<'q>> {
     unimplemented!()
 }
 

@@ -1,16 +1,22 @@
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
-use graphql_parser::{schema, Name};
+use graphql_parser::{query, schema, Name};
 use std::collections::{HashMap, VecDeque};
 use std::iter::FromIterator;
 
-pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<&'q OperationDefinition<'q>> {
-    // TODO(ran) FIXME: If there's a SelectionSet instead of an Operation, we need to handle it.
+pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
     query
         .definitions
         .iter()
         .flat_map(|d| match d {
-            Definition::Operation(op) => Some(op),
+            Definition::Operation(op) => Some(Op {
+                kind: op.kind,
+                selection_set: &op.selection_set,
+            }),
+            Definition::SelectionSet(ss) => Some(Op {
+                kind: query::Operation::Query,
+                selection_set: ss,
+            }),
             _ => None,
         })
         .collect()
@@ -68,4 +74,10 @@ pub fn names_to_types<'s>(
         })
         .map(|td| (td.name().unwrap(), td))
         .collect()
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Op<'q> {
+    pub selection_set: &'q SelectionSet<'q>,
+    pub kind: query::Operation,
 }

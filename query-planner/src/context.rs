@@ -1,3 +1,4 @@
+use crate::helpers::Op;
 use graphql_parser::query::*;
 use graphql_parser::schema::{InterfaceType, ObjectType, TypeDefinition, UnionType};
 use graphql_parser::{query, schema, Name};
@@ -6,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug, Clone, PartialEq)]
 pub struct QueryPlanningContext<'q, 's: 'q> {
     pub schema: &'s schema::Document<'s>,
-    pub operation: &'q OperationDefinition<'q>,
+    pub operation: Op<'q>,
     pub fragments: HashMap<&'q str, &'q FragmentDefinition<'q>>,
     pub possible_types: HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>>,
     pub names_to_types: HashMap<&'s str, &'s TypeDefinition<'s>>,
@@ -80,8 +81,8 @@ pub struct Field<'q> {
 pub type FieldSet<'q> = Vec<Field<'q>>;
 
 #[derive(Debug, Clone)]
-pub struct FetchGroup<'a> {
+pub struct FetchGroup<'q> {
     service: String,
-    fields: FieldSet<'a>,
-    internal_fragments: HashSet<&'a FragmentDefinition<'a>>,
+    fields: FieldSet<'q>,
+    internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
 }
