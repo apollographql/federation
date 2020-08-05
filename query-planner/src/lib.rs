@@ -8,6 +8,7 @@ mod builder;
 mod context;
 mod helpers;
 pub mod model;
+mod visitors;
 
 #[derive(Debug)]
 pub enum QueryPlanError {

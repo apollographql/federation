@@ -1,10 +1,10 @@
 use crate::helpers::Op;
 use crate::model::ResponsePathElement;
+use crate::visitors::VariableUsagesMap;
 use graphql_parser::query::*;
 use graphql_parser::schema::{InterfaceType, ObjectType, TypeDefinition, UnionType};
 use graphql_parser::{query, schema, Name};
 use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct QueryPlanningContext<'q, 's: 'q> {
@@ -50,9 +50,17 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
     pub fn get_variable_usages(
         &self,
         selection_set: &SelectionSet,
-        internal_fragments: &HashSet<&'q FragmentDefinition<'q>>,
+        fragments: &HashSet<&'q FragmentDefinition<'q>>,
     ) -> Vec<String> {
-        unimplemented!()
+        let mut v = selection_set.map(VariableUsagesMap {}).output.unwrap();
+
+        v.extend(
+            fragments
+                .iter()
+                .flat_map(|fd| fd.selection_set.map(VariableUsagesMap {}).output.unwrap()),
+        );
+
+        v
     }
 }
 
