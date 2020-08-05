@@ -1,10 +1,11 @@
 use crate::context::*;
 use crate::helpers::*;
-use crate::model::{PlanNode, QueryPlan};
-use crate::{QueryPlanError, Result};
+use crate::model::SelectionSet as ModelSelectionSet;
+use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
+use crate::{model, QueryPlanError, Result};
 use graphql_parser::query::*;
 use graphql_parser::schema;
-use graphql_parser::schema::TypeDefinition;
+use std::collections::HashSet;
 
 pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
     let mut ops = get_operations(query);
@@ -66,7 +67,9 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
 
     let nodes: Vec<PlanNode> = groups
         .into_iter()
-        .map(|group| execution_node_for_group(&context, group, root_type))
+        .map(|group| {
+            execution_node_for_group(&context, group, Some(GraphQLCompositeType::from(root_type)))
+        })
         .collect();
 
     if nodes.is_empty() {
@@ -104,8 +107,96 @@ fn split_root_fields<'q>(context: &QueryPlanningContext, fields: FieldSet) -> Ve
 fn execution_node_for_group(
     context: &QueryPlanningContext,
     group: FetchGroup,
-    typ: &TypeDefinition,
+    parent_type: Option<GraphQLCompositeType>,
 ) -> PlanNode {
+    let selection_set = selection_set_from_field_set(&group.fields, parent_type);
+    let requires = if !group.required_fields.is_empty() {
+        Some(into_model_selection_set(selection_set_from_field_set(
+            &group.required_fields,
+            None,
+        )))
+    } else {
+        None
+    };
+
+    let variable_usages: Vec<String> =
+        context.get_variable_usages(&selection_set, &group.internal_fragments);
+
+    let operation = if let Some(_) = requires {
+        operation_for_entities_fetch(selection_set, &variable_usages, &group.internal_fragments)
+    } else {
+        operation_for_root_fetch(
+            selection_set,
+            &variable_usages,
+            &group.internal_fragments,
+            context.operation.kind,
+        )
+    };
+
+    let fetch_node = PlanNode::Fetch(FetchNode {
+        service_name: group.service_name.clone(),
+        variable_usages,
+        requires,
+        operation,
+    });
+
+    let plan_node = if !&group.merge_at.is_empty() {
+        PlanNode::Flatten(FlattenNode {
+            path: group.merge_at.clone(),
+            node: Box::new(fetch_node),
+        })
+    } else {
+        fetch_node
+    };
+
+    let dependent_groups = group.dependent_groups();
+    if !dependent_groups.is_empty() {
+        let dependent_nodes = dependent_groups
+            .into_iter()
+            .map(|group| execution_node_for_group(context, group, None))
+            .collect();
+
+        flat_wrap(
+            NodeCollectionKind::Sequence,
+            vec![
+                plan_node,
+                flat_wrap(NodeCollectionKind::Parallel, dependent_nodes),
+            ],
+        )
+    } else {
+        plan_node
+    }
+}
+
+fn selection_set_from_field_set<'q>(
+    fields: &'q FieldSet<'q>,
+    parent_type: Option<GraphQLCompositeType>,
+) -> SelectionSet<'q> {
+    unimplemented!()
+}
+
+fn operation_for_entities_fetch<'q>(
+    selection_set: SelectionSet<'q>,
+    variable_usages: &Vec<String>,
+    internal_fragments: &HashSet<&'q FragmentDefinition<'q>>,
+) -> GraphQLDocument {
+    unimplemented!()
+}
+
+fn operation_for_root_fetch<'q>(
+    selection_set: SelectionSet<'q>,
+    variable_usages: &Vec<String>,
+    internal_fragments: &HashSet<&'q FragmentDefinition<'q>>,
+    op_kind: Operation,
+) -> GraphQLDocument {
+    unimplemented!()
+}
+
+fn into_model_selection_set(selection_set: SelectionSet) -> ModelSelectionSet {
+    unimplemented!()
+}
+
+fn flat_wrap(kind: NodeCollectionKind, nodes: Vec<PlanNode>) -> PlanNode {
     unimplemented!()
 }
 

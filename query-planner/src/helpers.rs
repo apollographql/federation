@@ -81,3 +81,8 @@ pub struct Op<'q> {
     pub selection_set: &'q SelectionSet<'q>,
     pub kind: query::Operation,
 }
+
+pub enum NodeCollectionKind {
+    Sequence,
+    Parallel,
+}

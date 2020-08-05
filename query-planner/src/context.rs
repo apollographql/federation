@@ -1,4 +1,5 @@
 use crate::helpers::Op;
+use crate::model::ResponsePathElement;
 use graphql_parser::query::*;
 use graphql_parser::schema::{InterfaceType, ObjectType, TypeDefinition, UnionType};
 use graphql_parser::{query, schema, Name};
@@ -44,6 +45,14 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
     fn get_possible_types(&self, td: &'s TypeDefinition<'s>) -> Vec<&'s schema::ObjectType<'s>> {
         self.possible_types[td.name().unwrap()].clone()
     }
+
+    pub fn get_variable_usages(
+        &self,
+        selection_set: &SelectionSet,
+        internal_fragments: &HashSet<&'q FragmentDefinition<'q>>,
+    ) -> Vec<String> {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -82,7 +91,18 @@ pub type FieldSet<'q> = Vec<Field<'q>>;
 
 #[derive(Debug, Clone)]
 pub struct FetchGroup<'q> {
-    service: String,
-    fields: FieldSet<'q>,
-    internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
+    pub service_name: String,
+    pub fields: FieldSet<'q>,
+    pub internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
+    pub required_fields: FieldSet<'q>,
+    pub provided_fields: FieldSet<'q>,
+    pub dependent_groups_by_service: HashMap<String, FetchGroup<'q>>,
+    pub other_dependent_groups: Vec<FetchGroup<'q>>,
+    pub merge_at: Vec<ResponsePathElement>,
+}
+
+impl<'q> FetchGroup<'q> {
+    pub fn dependent_groups(self) -> Vec<FetchGroup<'q>> {
+        unimplemented!()
+    }
 }
