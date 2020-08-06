@@ -1,6 +1,7 @@
 use crate::helpers::Op;
 use crate::model::ResponsePathElement;
 use crate::visitors::VariableUsagesMap;
+use graphql_parser::query::refs::SelectionSetRef;
 use graphql_parser::query::*;
 use graphql_parser::schema::{GraphQLCompositeType, TypeDefinition};
 use graphql_parser::{query, schema, Name};
@@ -50,7 +51,7 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
 
     pub fn get_variable_usages(
         &self,
-        selection_set: &SelectionSet,
+        selection_set: &SelectionSetRef,
         fragments: &HashSet<&'q FragmentDefinition<'q>>,
     ) -> (Vec<String>, Vec<&VariableDefinition>) {
         let mut v = selection_set

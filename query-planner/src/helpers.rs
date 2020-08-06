@@ -1,7 +1,10 @@
+use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{query, schema, Name, Pos};
+use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, VecDeque};
+use std::hash::Hash;
 use std::iter::FromIterator;
 
 pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
@@ -41,7 +44,7 @@ pub fn ifaces_to_implementors<'a, 's: 'a>(
                     // associate iface with obj
                     implementing_types
                         .entry(iface)
-                        .or_insert_with(|| vec![])
+                        .or_insert_with(Vec::new)
                         .push(obj);
                     println!("adding {:?} to {:?}", obj.name, iface);
 
@@ -100,18 +103,98 @@ pub fn span() -> (Pos, Pos) {
     (pos(), pos())
 }
 
-pub fn empty_field<'q>() -> Field<'q> {
-    Field {
-        position: pos(),
-        alias: None,
-        name: "empty",
-        arguments: vec![],
-        directives: vec![],
-        selection_set: SelectionSet {
-            span: span(),
-            items: vec![],
-        },
+pub fn merge_selection_sets<'q>(fields: Vec<&'q Field<'q>>) -> SelectionSetRef<'q> {
+    fn merge_field_selection_sets<'q>(fields: Vec<&'q Selection<'q>>) -> Vec<SelectionRef<'q>> {
+        let (field_nodes, fragment_nodes): (Vec<&Selection>, Vec<&Selection>) = fields
+            .into_iter()
+            .partition(|s| matches!(s, Selection::Field(_)));
+
+        let (aliased_field_nodes, non_aliased_field_nodes): (Vec<&Selection>, Vec<&Selection>) =
+            field_nodes.into_iter().partition(
+                |s| letp!(Selection::Field(Field { alias, .. }) = *s => alias.is_some()),
+            );
+
+        let nodes_by_same_name = group_by(
+            non_aliased_field_nodes,
+            |s| letp!(Selection::Field(Field { name, .. }) = *s => *name),
+        );
+
+        let merged_field_nodes =
+            nodes_by_same_name
+                .into_iter()
+                .map(|(_, v)| v)
+                .map(|nodes_with_same_name| {
+                    let node = nodes_with_same_name[0];
+                    if node.selection_set().is_some() {
+                        let items: Vec<SelectionRef<'q>> = merge_field_selection_sets(
+                            nodes_with_same_name
+                                .iter()
+                                .flat_map(|s| s.selection_set())
+                                .flat_map(|ss| ss.items.iter().collect::<Vec<&Selection>>())
+                                .collect(),
+                        );
+
+                        let ssref = SelectionSetRef {
+                            span: span(),
+                            items,
+                        };
+                        match node {
+                            Selection::FragmentSpread(_) => unreachable!(),
+                            Selection::Field(f) => SelectionRef::FieldRef(FieldRef {
+                                position: pos(),
+                                alias: f.alias,
+                                name: f.name,
+                                arguments: f.arguments.clone(),
+                                directives: f.directives.clone(),
+                                selection_set: ssref,
+                            }),
+                            Selection::InlineFragment(inline) => {
+                                SelectionRef::InlineFragmentRef(InlineFragmentRef {
+                                    position: pos(),
+                                    type_condition: inline.type_condition,
+                                    directives: inline.directives.clone(),
+                                    selection_set: ssref,
+                                })
+                            }
+                        }
+                    } else {
+                        SelectionRef::Ref(node)
+                    }
+                });
+
+        let aliased_field_nodes = aliased_field_nodes.into_iter().map(SelectionRef::Ref);
+        let fragment_nodes = fragment_nodes.into_iter().map(SelectionRef::Ref);
+
+        merged_field_nodes
+            .chain(aliased_field_nodes)
+            .chain(fragment_nodes)
+            .collect()
     }
+
+    let selections: Vec<&'q Selection<'q>> = fields
+        .into_iter()
+        .map(|f| &f.selection_set)
+        .flat_map(|ss| ss.items.iter().collect::<Vec<&Selection>>())
+        .collect();
+
+    let items: Vec<SelectionRef<'q>> = merge_field_selection_sets(selections);
+
+    SelectionSetRef {
+        span: span(),
+        items,
+    }
+}
+
+pub fn group_by<T, K, F>(v: Vec<T>, f: F) -> LinkedHashMap<K, Vec<T>>
+where
+    F: Fn(&T) -> K,
+    K: Hash + PartialEq + Eq,
+{
+    let mut map: LinkedHashMap<K, Vec<T>> = LinkedHashMap::new();
+    for element in v.into_iter() {
+        map.entry(f(&element)).or_insert(vec![]).push(element)
+    }
+    map
 }
 
 #[derive(Debug, Clone, PartialEq)]

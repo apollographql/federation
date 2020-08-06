@@ -1,4 +1,5 @@
 use super::{Definition, Document, Selection, SelectionSet};
+use crate::query::refs::{SelectionRef, SelectionSetRef};
 use crate::{visit, visit_each};
 
 #[allow(unused_variables)]
@@ -6,9 +7,13 @@ pub trait Visitor {
     fn enter_query(&mut self, doc: &Document) {}
     fn enter_query_def(&mut self, def: &Definition) {}
     fn enter_sel_set(&mut self, sel_set: &SelectionSet) {}
+    fn enter_sel_set_ref(&mut self, sel_set: &SelectionSetRef) {}
     fn enter_sel(&mut self, sel: &Selection) {}
+    fn enter_sel_ref(&mut self, sel: &SelectionRef) {}
     fn leave_sel(&mut self, sel: &Selection) {}
+    fn leave_sel_ref(&mut self, sel: &SelectionRef) {}
     fn leave_sel_set(&mut self, sel_set: &SelectionSet) {}
+    fn leave_sel_set_ref(&mut self, sel_set: &SelectionSetRef) {}
     fn leave_query_def(&mut self, def: &Definition) {}
     fn leave_query(&mut self, doc: &Document) {}
 }

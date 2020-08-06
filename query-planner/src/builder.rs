@@ -4,9 +4,10 @@ use crate::model::Selection as ModelSelection;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
 use crate::{context, model, QueryPlanError, Result};
+use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::GraphQLCompositeType;
-use graphql_parser::{schema, Name};
+use graphql_parser::{query, schema, Name};
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashSet;
 
@@ -127,7 +128,7 @@ fn execution_node_for_group(
     let selection_set = selection_set_from_field_set(fields, parent_type, context);
 
     let requires = if !required_fields.is_empty() {
-        Some(into_model_selection_set(selection_set_from_field_set(
+        Some(ref_into_model_selection_set(selection_set_from_field_set(
             required_fields,
             None,
             context,
@@ -190,24 +191,24 @@ fn execution_node_for_group(
     }
 }
 
-fn selection_set_from_field_set<'q>(
+fn selection_set_from_field_set<'q, 's: 'q>(
     fields: FieldSet<'q>,
     parent_type: Option<GraphQLCompositeType>,
-    context: &QueryPlanningContext,
-) -> SelectionSet<'q> {
+    context: &'q QueryPlanningContext<'q, 's>,
+) -> SelectionSetRef<'q> {
     fn wrap_in_inline_fragment_if_needed<'q>(
-        selections: Vec<Selection<'q>>,
+        selections: Vec<SelectionRef<'q>>,
         type_condition: &'q GraphQLCompositeType,
         parent_type: Option<&GraphQLCompositeType>,
-    ) -> Vec<Selection<'q>> {
+    ) -> Vec<SelectionRef<'q>> {
         if parent_type.map(|pt| pt == type_condition).unwrap_or(false) {
             selections
         } else {
-            vec![Selection::InlineFragment(InlineFragment {
-                type_condition: type_condition.name(),
+            vec![SelectionRef::InlineFragmentRef(InlineFragmentRef {
                 position: pos(),
+                type_condition: type_condition.name(),
                 directives: vec![],
-                selection_set: SelectionSet {
+                selection_set: SelectionSetRef {
                     span: span(),
                     items: selections,
                 },
@@ -216,44 +217,56 @@ fn selection_set_from_field_set<'q>(
     }
 
     fn combine_fields<'q>(
-        fields_with_same_reponse_name: FieldSet,
-        context: &QueryPlanningContext,
-    ) -> Selection<'q> {
-        let td = context.names_to_types[fields_with_same_reponse_name[0]
-            .field_def
-            .field_type
-            .name()
-            .unwrap()];
-        let is_composite_type = td.is_composite_type();
+        fields_with_same_reponse_name: Vec<context::Field<'q>>,
+        context: &'q QueryPlanningContext,
+    ) -> SelectionRef<'q> {
+        let is_composite_type = {
+            let name = fields_with_same_reponse_name[0]
+                .field_def
+                .field_type
+                .name()
+                .unwrap();
+            let td = context.names_to_types[name];
+            td.is_composite_type()
+        };
 
-        if is_composite_type {
-            unimplemented!()
+        let context::Field {
+            scope: _scope,
+            field_node,
+            field_def: _field_def,
+        } = fields_with_same_reponse_name[0];
+
+        if !is_composite_type || fields_with_same_reponse_name.len() == 1 {
+            SelectionRef::Field(field_node)
         } else {
-            unimplemented!()
+            let field_ref = FieldRef {
+                position: pos(),
+                alias: field_node.alias,
+                name: field_node.name,
+                arguments: field_node.arguments.clone(),
+                directives: field_node.directives.clone(),
+                selection_set: merge_selection_sets(
+                    fields_with_same_reponse_name
+                        .into_iter()
+                        .map(|f| f.field_node)
+                        .collect(),
+                ),
+            };
+            SelectionRef::FieldRef(field_ref)
         }
     }
 
-    let mut items: Vec<Selection<'q>> = vec![];
+    let mut items: Vec<SelectionRef<'q>> = vec![];
 
-    let mut fields_by_parent_type: LinkedHashMap<&str, FieldSet> = LinkedHashMap::new();
-    for field in fields {
-        fields_by_parent_type
-            .entry(field.scope.parent_type.name().unwrap())
-            .or_insert(vec![])
-            .push(field)
-    }
+    let fields_by_parent_type = group_by(fields, |f| f.scope.parent_type.name().unwrap());
 
     for (_, fields_by_parent_type) in fields_by_parent_type {
         let type_condition = &fields_by_parent_type[0].scope.parent_type;
 
-        let mut fields_by_response_name: LinkedHashMap<&str, FieldSet> = LinkedHashMap::new();
-
-        for f in fields_by_parent_type {
-            fields_by_response_name
-                .entry(f.field_node.alias.unwrap_or_else(|| f.field_node.name))
-                .or_insert(vec![])
-                .push(f)
-        }
+        let fields_by_response_name: LinkedHashMap<&str, FieldSet> =
+            group_by(fields_by_parent_type, |f| {
+                f.field_node.alias.unwrap_or_else(|| f.field_node.name)
+            });
 
         for sel in wrap_in_inline_fragment_if_needed(
             fields_by_response_name
@@ -267,14 +280,14 @@ fn selection_set_from_field_set<'q>(
         }
     }
 
-    SelectionSet {
+    SelectionSetRef {
         span: span(),
         items,
     }
 }
 
 fn operation_for_entities_fetch<'q>(
-    selection_set: SelectionSet<'q>,
+    selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
     internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
 ) -> GraphQLDocument {
@@ -294,7 +307,7 @@ fn operation_for_entities_fetch<'q>(
 }
 
 fn operation_for_root_fetch<'q>(
-    selection_set: SelectionSet<'q>,
+    selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
     internal_fragments: HashSet<&'q FragmentDefinition<'q>>, // TODO(ran) FIXME: use ordered set
     op_kind: Operation,
@@ -327,30 +340,67 @@ fn operation_for_root_fetch<'q>(
     )
 }
 
-fn into_model_selection_set(selection_set: SelectionSet) -> ModelSelectionSet {
-    fn into_model_selection(sel: Selection) -> ModelSelection {
-        match sel {
-            Selection::Field(field) => ModelSelection::Field(model::Field {
+fn field_into_model_selection(field: &query::Field) -> ModelSelection {
+    ModelSelection::Field(model::Field {
+        alias: field.alias.map(String::from),
+        name: String::from(field.name),
+        selections: if field.selection_set.items.is_empty() {
+            None
+        } else {
+            Some(into_model_selection_set(&field.selection_set))
+        },
+    })
+}
+
+fn into_model_selection(sel: &Selection) -> ModelSelection {
+    match sel {
+        Selection::Field(field) => field_into_model_selection(field),
+        Selection::InlineFragment(inline) => {
+            ModelSelection::InlineFragment(model::InlineFragment {
+                type_condition: inline.type_condition.map(String::from),
+                selections: into_model_selection_set(&inline.selection_set),
+            })
+        }
+        Selection::FragmentSpread(_) => unreachable!(
+            "the current query planner doesn't seem to support these in the resulting query plan"
+        ),
+    }
+}
+
+fn ref_into_model_selection_set(selection_set_ref: SelectionSetRef) -> ModelSelectionSet {
+    fn ref_into_model_selection(sel_ref: SelectionRef) -> ModelSelection {
+        match sel_ref {
+            SelectionRef::Ref(sel) => into_model_selection(sel),
+            SelectionRef::Field(field) => field_into_model_selection(field),
+            SelectionRef::FieldRef(field) => ModelSelection::Field(model::Field {
                 alias: field.alias.map(String::from),
                 name: String::from(field.name),
                 selections: if field.selection_set.items.is_empty() {
                     None
                 } else {
-                    Some(into_model_selection_set(field.selection_set))
+                    Some(ref_into_model_selection_set(field.selection_set))
                 },
             }),
-            Selection::InlineFragment(inline) => ModelSelection::InlineFragment(model::InlineFragment {
-                type_condition: inline.type_condition.map(String::from),
-                selections: into_model_selection_set(inline.selection_set)
-            }),
-            Selection::FragmentSpread(_) =>
-                unreachable!("the current query planner doesn't seem to support these in the resulting query plan")
+            SelectionRef::InlineFragmentRef(inline) => {
+                ModelSelection::InlineFragment(model::InlineFragment {
+                    type_condition: inline.type_condition.map(String::from),
+                    selections: ref_into_model_selection_set(inline.selection_set),
+                })
+            }
         }
     }
 
-    selection_set
+    selection_set_ref
         .items
         .into_iter()
+        .map(ref_into_model_selection)
+        .collect()
+}
+
+fn into_model_selection_set(selection_set: &SelectionSet) -> ModelSelectionSet {
+    selection_set
+        .items
+        .iter()
         .map(into_model_selection)
         .collect()
 }

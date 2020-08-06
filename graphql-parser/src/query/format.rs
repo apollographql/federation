@@ -3,6 +3,7 @@ use std::fmt;
 use crate::format::{format_directives, Displayable, Formatter, Style};
 
 use crate::query::ast::*;
+use crate::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 
 impl<'a> Document<'a> {
     /// Format a document according to style
@@ -69,6 +70,19 @@ impl<'a> Displayable for SelectionSet<'a> {
     }
 }
 
+impl<'a> Displayable for SelectionSetRef<'a> {
+    #[inline]
+    fn display(&self, f: &mut Formatter) {
+        f.margin();
+        f.indent();
+        f.start_block();
+        for item in &self.items {
+            item.display(f);
+        }
+        f.end_block();
+    }
+}
+
 impl<'a> Displayable for Selection<'a> {
     fn display(&self, f: &mut Formatter) {
         match *self {
@@ -76,6 +90,61 @@ impl<'a> Displayable for Selection<'a> {
             Selection::InlineFragment(ref frag) => frag.display(f),
             Selection::FragmentSpread(ref frag) => frag.display(f),
         }
+    }
+}
+
+impl<'a> Displayable for SelectionRef<'a> {
+    fn display(&self, f: &mut Formatter) {
+        use SelectionRef::*;
+        match self {
+            Ref(sel) => sel.display(f),
+            Field(field) => field.display(f),
+            FieldRef(field_ref) => field_ref.display(f),
+            InlineFragmentRef(ifr) => ifr.display(f),
+        }
+    }
+}
+
+impl<'a> Displayable for FieldRef<'a> {
+    // NB: This is cargo culted straight from Displayable for Field
+    fn display(&self, f: &mut Formatter) {
+        f.indent();
+        if let Some(ref alias) = self.alias {
+            f.write(alias.as_ref());
+            f.write(": ");
+        }
+        f.write(self.name.as_ref());
+        format_arguments(&self.arguments, f);
+        format_directives(&self.directives, f);
+        if !self.selection_set.items.is_empty() {
+            f.write(" ");
+            f.start_block();
+            for item in &self.selection_set.items {
+                item.display(f);
+            }
+            f.end_block();
+        } else {
+            f.endline();
+        }
+    }
+}
+
+impl<'a> Displayable for InlineFragmentRef<'a> {
+    // NB: This is cargo culted straight from Displayable for InlineFragment
+    fn display(&self, f: &mut Formatter) {
+        f.indent();
+        f.write("...");
+        if let Some(ref cond) = self.type_condition {
+            f.write(" on ");
+            f.write(cond);
+        }
+        format_directives(&self.directives, f);
+        f.write(" ");
+        f.start_block();
+        for item in &self.selection_set.items {
+            item.display(f);
+        }
+        f.end_block();
     }
 }
 
@@ -270,4 +339,8 @@ impl_display!(
     InlineFragment,
     FragmentSpread,
     Directive,
+    SelectionSetRef,
+    SelectionRef,
+    FieldRef,
+    InlineFragmentRef,
 );

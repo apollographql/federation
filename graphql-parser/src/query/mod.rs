@@ -3,6 +3,7 @@
 mod ast;
 mod format;
 mod grammar;
+pub mod refs;
 
 pub use self::ast::*;
 

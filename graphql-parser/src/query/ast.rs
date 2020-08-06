@@ -81,6 +81,16 @@ pub enum Selection<'a> {
     InlineFragment(InlineFragment<'a>),
 }
 
+impl<'a> Selection<'a> {
+    pub fn selection_set(&self) -> Option<&SelectionSet> {
+        match &self {
+            Selection::Field(Field { selection_set, .. }) => Some(&selection_set),
+            Selection::InlineFragment(InlineFragment { selection_set, .. }) => Some(&selection_set),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field<'a> {
     pub position: Pos,
