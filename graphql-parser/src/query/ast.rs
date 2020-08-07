@@ -101,6 +101,12 @@ pub struct Field<'a> {
     pub selection_set: SelectionSet<'a>,
 }
 
+impl<'a> Field<'a> {
+    pub fn response_name(&self) -> Txt<'a> {
+        self.alias.unwrap_or(self.name)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct FragmentSpread<'a> {
     pub position: Pos,

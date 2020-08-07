@@ -9,10 +9,11 @@ edition = "2018"
 
 [dependencies]
 graphql-parser = { path = "../graphql-parser" }
+itertools = "0.9.0"
+lazy_static = "1.4.0"
+linked-hash-map = "0.5.3"
 serde = { version = "1.0.114", features = ["derive"] }
 serde_json = "1.0.56"
-itertools = "0.9.0"
-linked-hash-map = "0.5.3"
 
 [dev-dependencies]
 cucumber = { package = "cucumber_rust", version = "^0.6.0" } 

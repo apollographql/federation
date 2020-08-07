@@ -1,3 +1,4 @@
+use crate::consts;
 use crate::context::*;
 use crate::helpers::*;
 use crate::model::SelectionSet as ModelSelectionSet;
@@ -6,7 +7,7 @@ use crate::model::{ResponsePathElement, Selection as ModelSelection};
 use crate::{context, model, QueryPlanError, Result};
 use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
-use graphql_parser::schema::GraphQLCompositeType;
+use graphql_parser::schema::{GraphQLCompositeType, TypeDefinition};
 use graphql_parser::{query, schema, Name};
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashSet;
@@ -118,12 +119,11 @@ fn split_fields<'q, 's: 'q, F>(
     F: Fn(&context::Field) -> &'q mut FetchGroup<'q>,
 {
     // TODO(ran) FIXME: dedupe this.
-    let fields_for_response_names: Vec<FieldSet> = group_by(fields, |f| {
-        f.field_node.alias.unwrap_or_else(|| f.field_node.name)
-    })
-    .into_iter()
-    .map(|(_, v)| v)
-    .collect();
+    let fields_for_response_names: Vec<FieldSet> =
+        group_by(fields, |f| f.field_node.response_name())
+            .into_iter()
+            .map(|(_, v)| v)
+            .collect();
 
     for field_for_resposne_name in fields_for_response_names {
         let fields_by_parent_type: LinkedHashMap<&str, FieldSet> =
@@ -132,7 +132,7 @@ fn split_fields<'q, 's: 'q, F>(
             });
         for (parent_type, fields_for_parent_type) in fields_by_parent_type {
             let field = &fields_for_parent_type[0];
-            let scope = field.scope;
+            let scope = &field.scope;
             let field_def = field.field_def;
 
             if is_introspection_type(field_def.field_type.name().unwrap())
@@ -149,7 +149,7 @@ fn split_fields<'q, 's: 'q, F>(
 
             if can_find_group {
                 let group = group_for_field(field);
-                complete_field(context, scope, group, path.clone(), fields_for_parent_type)
+                complete_field(context, group, path.clone(), fields_for_parent_type)
             } else {
                 unimplemented!()
             }
@@ -159,13 +159,86 @@ fn split_fields<'q, 's: 'q, F>(
 
 fn complete_field<'q, 's: 'q>(
     context: &'q QueryPlanningContext<'q, 's>,
-    scope: &'q Scope<'q>,
     parent_group: &'q mut FetchGroup<'q>,
     path: Vec<ResponsePathElement>,
     fields: FieldSet<'q>,
 ) {
-    let field: context::Field = { unimplemented!() };
+    let field: context::Field = {
+        let context::Field {
+            field_def,
+            field_node,
+            scope,
+        } = &fields[0];
+
+        let return_type = context.names_to_types[field_def.field_type.name().unwrap()];
+
+        if !return_type.is_composite_type() {
+            context::Field {
+                scope: scope.clone(),
+                field_node,
+                field_def,
+            }
+        } else {
+            let field_path = add_path(path, field_node.response_name(), &field_def.field_type);
+            let mut sub_group = FetchGroup::new(
+                parent_group.service_name.clone(),
+                field_path.clone(),
+                context.get_provided_fields(*field_def, &parent_group.service_name),
+            );
+
+            if return_type.is_abstract_type() {
+                sub_group.fields.push(context::Field {
+                    scope: context.new_scope(return_type, Some(scope)),
+                    field_node: &*consts::TYPENAME_QUERY_FIELD,
+                    field_def: &*consts::TYPENAME_SCHEMA_FIELD,
+                })
+            }
+
+            let sub_fields = collect_sub_fields(context, return_type, &fields);
+            split_sub_fields(context, field_path, sub_fields, &sub_group);
+
+            unimplemented!()
+        }
+    };
     parent_group.fields.push(field);
+}
+
+fn add_path(
+    mut path: Vec<ResponsePathElement>,
+    response_name: &str,
+    typ: &Type,
+) -> Vec<ResponsePathElement> {
+    path.push(ResponsePathElement::Field(String::from(response_name)));
+    let mut typ = typ;
+
+    loop {
+        match typ {
+            Type::NamedType(_) => break,
+            Type::ListType(t) => {
+                path.push(ResponsePathElement::Field(String::from("@")));
+                typ = t.as_ref()
+            }
+            Type::NonNullType(t) => typ = t.as_ref(),
+        }
+    }
+    path
+}
+
+fn collect_sub_fields<'q, 's: 'q>(
+    context: &'q QueryPlanningContext<'q, 's>,
+    return_type: &'s TypeDefinition<'s>,
+    fields: &FieldSet,
+) -> FieldSet<'q> {
+    unimplemented!()
+}
+
+fn split_sub_fields<'q, 's: 'q>(
+    context: &'q QueryPlanningContext<'q, 's>,
+    field_path: Vec<ResponsePathElement>, // TODO(ran) FIXME: alias this type
+    sub_fields: FieldSet,
+    sub_group: &FetchGroup,
+) {
+    unimplemented!()
 }
 
 fn execution_node_for_group(
@@ -257,10 +330,10 @@ fn selection_set_from_field_set<'q, 's: 'q>(
 ) -> SelectionSetRef<'q> {
     fn wrap_in_inline_fragment_if_needed<'q>(
         selections: Vec<SelectionRef<'q>>,
-        type_condition: &'q GraphQLCompositeType,
+        type_condition: GraphQLCompositeType<'q>,
         parent_type: Option<&GraphQLCompositeType>,
     ) -> Vec<SelectionRef<'q>> {
-        if parent_type.map(|pt| pt == type_condition).unwrap_or(false) {
+        if parent_type.map(|pt| *pt == type_condition).unwrap_or(false) {
             selections
         } else {
             vec![SelectionRef::InlineFragmentRef(InlineFragmentRef {
@@ -289,11 +362,7 @@ fn selection_set_from_field_set<'q, 's: 'q>(
             td.is_composite_type()
         };
 
-        let context::Field {
-            scope: _scope,
-            field_node,
-            field_def: _field_def,
-        } = fields_with_same_reponse_name[0];
+        let context::Field { field_node, .. } = fields_with_same_reponse_name[0];
 
         if !is_composite_type || fields_with_same_reponse_name.len() == 1 {
             SelectionRef::Field(field_node)
@@ -320,12 +389,10 @@ fn selection_set_from_field_set<'q, 's: 'q>(
     let fields_by_parent_type = group_by(fields, |f| f.scope.parent_type.name().unwrap());
 
     for (_, fields_by_parent_type) in fields_by_parent_type {
-        let type_condition = &fields_by_parent_type[0].scope.parent_type;
+        let type_condition = fields_by_parent_type[0].scope.parent_type.clone();
 
         let fields_by_response_name: LinkedHashMap<&str, FieldSet> =
-            group_by(fields_by_parent_type, |f| {
-                f.field_node.alias.unwrap_or_else(|| f.field_node.name)
-            });
+            group_by(fields_by_parent_type, |f| f.field_node.response_name());
 
         for sel in wrap_in_inline_fragment_if_needed(
             fields_by_response_name

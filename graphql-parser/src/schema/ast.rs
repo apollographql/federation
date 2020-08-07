@@ -45,6 +45,10 @@ impl<'a> TypeDefinition<'a> {
     pub fn is_composite_type(&self) -> bool {
         matches!(self, TypeDefinition::Object(_) | TypeDefinition::Interface(_) | TypeDefinition::Union(_))
     }
+
+    pub fn is_abstract_type(&self) -> bool {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

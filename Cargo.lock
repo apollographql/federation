@@ -89,6 +89,7 @@ dependencies = [
  "cucumber_rust",
  "graphql-parser 0.3.0",
  "itertools",
+ "lazy_static",
  "linked-hash-map 0.5.3",
  "serde 1.0.114",
  "serde_json",

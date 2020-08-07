@@ -69,6 +69,14 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
 
         v.into_iter().unzip()
     }
+
+    pub fn get_provided_fields(
+        &self,
+        field_def: &schema::Field,
+        service_name: &String,
+    ) -> FieldSet {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -80,7 +88,7 @@ pub struct Scope<'q> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field<'q> {
-    pub scope: &'q Scope<'q>,
+    pub scope: Scope<'q>,
     pub field_node: &'q query::Field<'q>,
     pub field_def: &'q schema::Field<'q>,
 }
@@ -97,4 +105,24 @@ pub struct FetchGroup<'q> {
     pub dependent_groups_by_service: HashMap<String, FetchGroup<'q>>,
     pub other_dependent_groups: Vec<FetchGroup<'q>>,
     pub merge_at: Vec<ResponsePathElement>,
+}
+
+impl<'q> FetchGroup<'q> {
+    pub fn new(
+        service_name: String,
+        merge_at: Vec<ResponsePathElement>,
+        provided_fields: FieldSet<'q>,
+    ) -> FetchGroup<'q> {
+        FetchGroup {
+            service_name,
+            merge_at,
+            provided_fields,
+
+            fields: vec![],
+            internal_fragments: HashSet::new(),
+            required_fields: vec![],
+            dependent_groups_by_service: HashMap::new(),
+            other_dependent_groups: vec![],
+        }
+    }
 }
