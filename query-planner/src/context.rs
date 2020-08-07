@@ -24,15 +24,16 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
         td: &'s TypeDefinition<'s>,
         enclosing_scope: Option<&'q Scope<'q>>,
     ) -> Scope<'q> {
-        let parent_possible_types = self.get_possible_types(td);
-
-        let possible_types = match enclosing_scope {
-            Some(enclosing_scope) => parent_possible_types
-                .into_iter()
-                .filter(|t| enclosing_scope.possible_types.contains(t))
-                .collect(),
-            None => parent_possible_types,
-        };
+        let possible_types: Vec<&'q schema::ObjectType<'q>> = self
+            .get_possible_types(td)
+            .iter()
+            .copied()
+            .filter(|t| {
+                enclosing_scope
+                    .map(|enclosing_scope| enclosing_scope.possible_types.contains(t))
+                    .unwrap_or(true)
+            })
+            .collect();
 
         Scope {
             parent_type: GraphQLCompositeType::from(td),
@@ -45,8 +46,8 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
         self.names_to_types[type_name]
     }
 
-    fn get_possible_types(&self, td: &'s TypeDefinition<'s>) -> Vec<&'s schema::ObjectType<'s>> {
-        self.possible_types[td.name().unwrap()].clone()
+    fn get_possible_types(&self, td: &'s TypeDefinition<'s>) -> &Vec<&'s schema::ObjectType<'s>> {
+        &self.possible_types[td.name().unwrap()]
     }
 
     pub fn get_variable_usages(

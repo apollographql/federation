@@ -28,11 +28,13 @@ pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
 pub fn ifaces_to_implementors<'a, 's: 'a>(
     types: &'a HashMap<&'s str, &'s schema::TypeDefinition<'s>>,
 ) -> HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>> {
+    // TODO(ran) FIXME: make sure we also have obj.name -> [obj] mapping
+    //  and maybe also union.name -> [obj,..] mappings, that might be tricky since it also needs a recursion.
     let mut implementing_types: HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>> = HashMap::new();
     // NB: This will loop infinitely if the schema has implementation loops (A: B, B: A)
     // we must validate that before query planning.
-    for td in types.values() {
-        match *td {
+    for &td in types.values() {
+        match td {
             TypeDefinition::Object(ref obj) if !obj.implements_interfaces.is_empty() => {
                 let mut queue: VecDeque<&str> =
                     VecDeque::from_iter(obj.implements_interfaces.iter().cloned());
@@ -50,9 +52,8 @@ pub fn ifaces_to_implementors<'a, 's: 'a>(
 
                     letp!(
                         TypeDefinition::Interface(iface) = types[iface] =>
-                            for iface in &iface.implements_interfaces {
+                            for &iface in &iface.implements_interfaces {
                                 // add them to the queue.
-                                let iface = *iface;
                                 queue.push_back(iface);
                             }
                     );
@@ -116,7 +117,7 @@ pub fn merge_selection_sets<'q>(fields: Vec<&'q Field<'q>>) -> SelectionSetRef<'
 
         let nodes_by_same_name = group_by(
             non_aliased_field_nodes,
-            |s| letp!(Selection::Field(Field { name, .. }) = *s => *name),
+            |&s| letp!(Selection::Field(Field { name, .. }) = s => *name),
         );
 
         let merged_field_nodes =
