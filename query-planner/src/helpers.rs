@@ -197,6 +197,11 @@ where
     map
 }
 
+pub fn is_introspection_type(name: &str) -> bool {
+    // TODO(ran) FIXME: more? check "isIntrospectionType" in js.
+    name == "__type" || name == "__schema"
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Op<'q> {
     pub selection_set: &'q SelectionSet<'q>,

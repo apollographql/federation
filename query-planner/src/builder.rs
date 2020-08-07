@@ -1,8 +1,8 @@
 use crate::context::*;
 use crate::helpers::*;
-use crate::model::Selection as ModelSelection;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
+use crate::model::{ResponsePathElement, Selection as ModelSelection};
 use crate::{context, model, QueryPlanError, Result};
 use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
@@ -107,6 +107,65 @@ fn split_root_fields_serially<'q>(
 
 fn split_root_fields<'q>(context: &QueryPlanningContext, fields: FieldSet) -> Vec<FetchGroup<'q>> {
     unimplemented!()
+}
+
+fn split_fields<'q, 's: 'q, F>(
+    context: &'q QueryPlanningContext<'q, 's>,
+    path: Vec<ResponsePathElement>,
+    fields: FieldSet<'q>,
+    group_for_field: F,
+) where
+    F: Fn(&context::Field) -> &'q mut FetchGroup<'q>,
+{
+    // TODO(ran) FIXME: dedupe this.
+    let fields_for_response_names: Vec<FieldSet> = group_by(fields, |f| {
+        f.field_node.alias.unwrap_or_else(|| f.field_node.name)
+    })
+    .into_iter()
+    .map(|(_, v)| v)
+    .collect();
+
+    for field_for_resposne_name in fields_for_response_names {
+        let fields_by_parent_type: LinkedHashMap<&str, FieldSet> =
+            group_by(field_for_resposne_name, |f| {
+                f.scope.parent_type.name().unwrap()
+            });
+        for (parent_type, fields_for_parent_type) in fields_by_parent_type {
+            let field = &fields_for_parent_type[0];
+            let scope = field.scope;
+            let field_def = field.field_def;
+
+            if is_introspection_type(field_def.field_type.name().unwrap())
+                || (field_def.name == "__typename"
+                    && (parent_type == "Query" || parent_type == "Mutation"))
+            {
+                continue;
+            }
+
+            let can_find_group = match context.names_to_types[parent_type] {
+                schema::TypeDefinition::Object(obj) if scope.possible_types.contains(&obj) => true,
+                _ => false,
+            };
+
+            if can_find_group {
+                let group = group_for_field(field);
+                complete_field(context, scope, group, path.clone(), fields_for_parent_type)
+            } else {
+                unimplemented!()
+            }
+        }
+    }
+}
+
+fn complete_field<'q, 's: 'q>(
+    context: &'q QueryPlanningContext<'q, 's>,
+    scope: &'q Scope<'q>,
+    parent_group: &'q mut FetchGroup<'q>,
+    path: Vec<ResponsePathElement>,
+    fields: FieldSet<'q>,
+) {
+    let field: context::Field = { unimplemented!() };
+    parent_group.fields.push(field);
 }
 
 fn execution_node_for_group(
