@@ -1,4 +1,4 @@
-use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
+use graphql_parser::query::refs::{FieldRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{query, schema, Name, Pos};
@@ -104,67 +104,82 @@ pub fn span() -> (Pos, Pos) {
     (pos(), pos())
 }
 
-pub fn merge_selection_sets<'q>(fields: Vec<&'q Field<'q>>) -> SelectionSetRef<'q> {
-    fn merge_field_selection_sets<'q>(fields: Vec<&'q Selection<'q>>) -> Vec<SelectionRef<'q>> {
-        let (field_nodes, fragment_nodes): (Vec<&Selection>, Vec<&Selection>) = fields
-            .into_iter()
-            .partition(|s| matches!(s, Selection::Field(_)));
+pub fn merge_selection_sets<'q>(fields: Vec<FieldRef<'q>>) -> SelectionSetRef<'q> {
+    macro_rules! field_ref_from_field_like {
+        ($f:ident) => {
+            FieldRef {
+                position: pos(),
+                alias: $f.alias,
+                name: $f.name,
+                arguments: $f.arguments.clone(),
+                directives: $f.directives.clone(),
+                selection_set: SelectionSetRef {
+                    span: span(),
+                    items: $f
+                        .selection_set
+                        .items
+                        .iter()
+                        .map(|s| SelectionRef::Ref(s))
+                        .collect(),
+                },
+            }
+        };
+    }
 
-        let (aliased_field_nodes, non_aliased_field_nodes): (Vec<&Selection>, Vec<&Selection>) =
-            field_nodes.into_iter().partition(
-                |s| letp!(Selection::Field(Field { alias, .. }) = *s => alias.is_some()),
-            );
+    fn merge_field_selection_sets(fields: Vec<SelectionRef>) -> Vec<SelectionRef> {
+        let (field_nodes, fragment_nodes): (Vec<SelectionRef>, Vec<SelectionRef>) =
+            fields.into_iter().partition(|s| s.is_field());
 
-        let nodes_by_same_name = group_by(
-            non_aliased_field_nodes,
-            |&s| letp!(Selection::Field(Field { name, .. }) = s => *name),
-        );
+        let (aliased_field_nodes, non_aliased_field_nodes): (Vec<SelectionRef>, Vec<SelectionRef>) =
+            field_nodes.into_iter().partition(|s| s.is_aliased_field());
+
+        let nodes_by_same_name = group_by(non_aliased_field_nodes, |s| match s {
+            // TODO(ran) FIXME: macro this match -- repeated a lot.
+            SelectionRef::Ref(Selection::Field(Field { name, .. })) => *name,
+            SelectionRef::Field(Field { name, .. }) => *name,
+            SelectionRef::FieldRef(FieldRef { name, .. }) => *name,
+            _ => unreachable!(),
+        });
 
         let merged_field_nodes =
             nodes_by_same_name
                 .into_iter()
                 .map(|(_, v)| v)
                 .map(|nodes_with_same_name| {
-                    let node = nodes_with_same_name[0];
-                    if node.selection_set().is_some() {
-                        let items: Vec<SelectionRef<'q>> = merge_field_selection_sets(
-                            nodes_with_same_name
-                                .iter()
-                                .flat_map(|s| s.selection_set())
-                                .flat_map(|ss| ss.items.iter().collect::<Vec<&Selection>>())
+                    let nothing_to_do = nodes_with_same_name.len() == 1
+                        || nodes_with_same_name[0].no_or_empty_selection_set();
+
+                    if !nothing_to_do {
+                        let (head, tail) = nodes_with_same_name.head();
+
+                        let mut field_ref = match head {
+                            SelectionRef::FieldRef(f) => f,
+                            SelectionRef::Field(f) => field_ref_from_field_like!(f),
+                            SelectionRef::Ref(Selection::Field(f)) => field_ref_from_field_like!(f),
+                            _ => unreachable!(),
+                        };
+
+                        let head_items =
+                            std::mem::replace(&mut field_ref.selection_set.items, vec![]);
+
+                        let items = merge_field_selection_sets(
+                            head_items
+                                .into_iter()
+                                .chain(
+                                    tail.into_iter()
+                                        .flat_map(|s| s.into_fields_selection_set())
+                                        .flat_map(|ss| ss.items),
+                                )
                                 .collect(),
                         );
 
-                        let ssref = SelectionSetRef {
-                            span: span(),
-                            items,
-                        };
-                        match node {
-                            Selection::FragmentSpread(_) => unreachable!(),
-                            Selection::Field(f) => SelectionRef::FieldRef(FieldRef {
-                                position: pos(),
-                                alias: f.alias,
-                                name: f.name,
-                                arguments: f.arguments.clone(),
-                                directives: f.directives.clone(),
-                                selection_set: ssref,
-                            }),
-                            Selection::InlineFragment(inline) => {
-                                SelectionRef::InlineFragmentRef(InlineFragmentRef {
-                                    position: pos(),
-                                    type_condition: inline.type_condition,
-                                    directives: inline.directives.clone(),
-                                    selection_set: ssref,
-                                })
-                            }
-                        }
+                        field_ref.selection_set.items = items;
+
+                        SelectionRef::FieldRef(field_ref)
                     } else {
-                        SelectionRef::Ref(node)
+                        nodes_with_same_name.head().0
                     }
                 });
-
-        let aliased_field_nodes = aliased_field_nodes.into_iter().map(SelectionRef::Ref);
-        let fragment_nodes = fragment_nodes.into_iter().map(SelectionRef::Ref);
 
         merged_field_nodes
             .chain(aliased_field_nodes)
@@ -172,10 +187,10 @@ pub fn merge_selection_sets<'q>(fields: Vec<&'q Field<'q>>) -> SelectionSetRef<'
             .collect()
     }
 
-    let selections: Vec<&'q Selection<'q>> = fields
+    let selections = fields
         .into_iter()
-        .map(|f| &f.selection_set)
-        .flat_map(|ss| ss.items.iter().collect::<Vec<&Selection>>())
+        .map(|f| f.selection_set)
+        .flat_map(|ss| ss.items)
         .collect();
 
     let items: Vec<SelectionRef<'q>> = merge_field_selection_sets(selections);
@@ -198,9 +213,32 @@ where
     map
 }
 
+// https://github.com/graphql/graphql-js/blob/7b3241329e1ff49fb647b043b80568f0cf9e1a7c/src/type/introspection.js#L500-L509
 pub fn is_introspection_type(name: &str) -> bool {
-    // TODO(ran) FIXME: more? check "isIntrospectionType" in js.
-    name == "__type" || name == "__schema"
+    name == "__Schema"
+        || name == "__Directive"
+        || name == "__DirectiveLocation"
+        || name == "__Type"
+        || name == "__Field"
+        || name == "__InputValue"
+        || name == "__EnumValue"
+        || name == "__TypeKind"
+}
+
+pub trait Head<T> {
+    /// gets the head and tail of a vector
+    fn head(self) -> (T, Vec<T>);
+}
+
+impl<T> Head<T> for Vec<T> {
+    fn head(self) -> (T, Vec<T>) {
+        if self.is_empty() {
+            panic!("head must be called on a non empty Vec")
+        } else {
+            let mut iter = self.into_iter();
+            (iter.next().unwrap(), iter.collect())
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

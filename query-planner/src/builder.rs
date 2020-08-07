@@ -10,7 +10,7 @@ use graphql_parser::query::*;
 use graphql_parser::schema::{GraphQLCompositeType, TypeDefinition};
 use graphql_parser::{query, schema, Name};
 use linked_hash_map::LinkedHashMap;
-use std::collections::HashSet;
+use std::rc::Rc;
 
 pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
     let mut ops = get_operations(query);
@@ -93,7 +93,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
 
 fn collect_fields<'q>(
     context: &QueryPlanningContext,
-    scope: Scope,
+    scope: Rc<Scope>,
     selection_set: &SelectionSet,
 ) -> FieldSet<'q> {
     unimplemented!()
@@ -164,40 +164,60 @@ fn complete_field<'q, 's: 'q>(
     fields: FieldSet<'q>,
 ) {
     let field: context::Field = {
-        let context::Field {
-            field_def,
-            field_node,
-            scope,
-        } = &fields[0];
-
-        let return_type = context.names_to_types[field_def.field_type.name().unwrap()];
+        let return_type = context.names_to_types[fields[0].field_def.field_type.name().unwrap()];
 
         if !return_type.is_composite_type() {
-            context::Field {
-                scope: scope.clone(),
-                field_node,
-                field_def,
-            }
+            let mut fields = fields;
+            fields.pop().unwrap()
         } else {
-            let field_path = add_path(path, field_node.response_name(), &field_def.field_type);
+            let (head, tail) = fields.head();
+
+            let field_path = add_path(
+                path,
+                head.field_node.response_name(),
+                &head.field_def.field_type,
+            );
             let mut sub_group = FetchGroup::new(
                 parent_group.service_name.clone(),
                 field_path.clone(),
-                context.get_provided_fields(*field_def, &parent_group.service_name),
+                context.get_provided_fields(head.field_def, &parent_group.service_name),
             );
 
             if return_type.is_abstract_type() {
                 sub_group.fields.push(context::Field {
-                    scope: context.new_scope(return_type, Some(scope)),
-                    field_node: &*consts::TYPENAME_QUERY_FIELD,
+                    scope: context.new_scope(return_type, Some(Rc::clone(&head.scope))),
+                    field_node: (*consts::TYPENAME_QUERY_FIELD).clone(),
                     field_def: &*consts::TYPENAME_SCHEMA_FIELD,
                 })
             }
 
+            let fields = vec![head].into_iter().chain(tail).collect();
             let sub_fields = collect_sub_fields(context, return_type, &fields);
             split_sub_fields(context, field_path, sub_fields, &sub_group);
 
+            let return_type = GraphQLCompositeType::from(return_type);
+            let sub_group_fields_length = sub_group.fields.len();
+            let sub_group_fields = sub_group.give_fields();
+            let selection_set_ref =
+                selection_set_from_field_set(sub_group_fields, Some(return_type), context);
+
+            if context.auto_fragmentization && sub_group_fields_length > 2 {
+                unimplemented!()
+            }
+
+            for (name, sg_internal_fragment) in sub_group.give_internal_fragments() {
+                parent_group
+                    .internal_fragments
+                    .insert(name, sg_internal_fragment);
+            }
+
+            parent_group
+                .other_dependent_groups
+                .extend(sub_group.dependent_groups().into_iter());
+
+            // TODO(ran) FIXME: continue here
             unimplemented!()
+            // context::Field { scope, field_def }
         }
     };
     parent_group.fields.push(field);
@@ -251,7 +271,7 @@ fn execution_node_for_group(
         fields,
         internal_fragments,
         required_fields,
-        provided_fields: _provided_fields,
+        provided_fields,
         dependent_groups_by_service,
         other_dependent_groups,
         merge_at,
@@ -269,6 +289,8 @@ fn execution_node_for_group(
         None
     };
 
+    let internal_fragments = internal_fragments.owned_values();
+
     let (variable_names, variable_defs) =
         context.get_variable_usages(&selection_set, &internal_fragments);
 
@@ -284,7 +306,7 @@ fn execution_node_for_group(
     };
 
     let fetch_node = PlanNode::Fetch(FetchNode {
-        service_name,
+        service_name: service_name.clone(),
         variable_usages: variable_names,
         requires,
         operation,
@@ -292,22 +314,18 @@ fn execution_node_for_group(
 
     let plan_node = if merge_at.is_empty() {
         PlanNode::Flatten(FlattenNode {
-            path: merge_at,
+            path: merge_at.clone(),
             node: Box::new(fetch_node),
         })
     } else {
         fetch_node
     };
 
-    let dependent_groups: Vec<FetchGroup> = dependent_groups_by_service
-        .into_iter()
-        .map(|(_, v)| v)
-        .chain(other_dependent_groups.into_iter())
-        .collect();
-
-    if !dependent_groups.is_empty() {
-        let dependent_nodes = dependent_groups
+    if !dependent_groups_by_service.is_empty() {
+        let dependent_nodes = dependent_groups_by_service
             .into_iter()
+            .map(|(_, v)| v)
+            .chain(other_dependent_groups.into_iter())
             .map(|group| execution_node_for_group(context, group, None))
             .collect();
 
@@ -362,24 +380,26 @@ fn selection_set_from_field_set<'q, 's: 'q>(
             td.is_composite_type()
         };
 
-        let context::Field { field_node, .. } = fields_with_same_reponse_name[0];
-
         if !is_composite_type || fields_with_same_reponse_name.len() == 1 {
-            SelectionRef::Field(field_node)
+            let field_ref = fields_with_same_reponse_name
+                .into_iter()
+                .next()
+                .unwrap()
+                .field_node;
+            SelectionRef::FieldRef(field_ref)
         } else {
+            let nodes: Vec<FieldRef> = fields_with_same_reponse_name
+                .into_iter()
+                .map(|f| f.field_node)
+                .collect();
+
+            let fr = nodes[0].clone();
+
             let field_ref = FieldRef {
-                position: pos(),
-                alias: field_node.alias,
-                name: field_node.name,
-                arguments: field_node.arguments.clone(),
-                directives: field_node.directives.clone(),
-                selection_set: merge_selection_sets(
-                    fields_with_same_reponse_name
-                        .into_iter()
-                        .map(|f| f.field_node)
-                        .collect(),
-                ),
+                selection_set: merge_selection_sets(nodes),
+                ..fr
             };
+
             SelectionRef::FieldRef(field_ref)
         }
     }
@@ -412,30 +432,31 @@ fn selection_set_from_field_set<'q, 's: 'q>(
     }
 }
 
+// TODO(ran) FIXME: replace all relevant .to_string with .minified
 fn operation_for_entities_fetch<'q>(
     selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
-    internal_fragments: HashSet<&'q FragmentDefinition<'q>>,
+    internal_fragments: Vec<&'q FragmentDefinition<'q>>,
 ) -> GraphQLDocument {
     let vars = vec![String::from("$representations:[_Any!]!")]
         .into_iter()
-        .chain(variable_definitions.iter().map(|vd| vd.to_string())) // TODO(ran) FIXME: replace with .minified
+        .chain(variable_definitions.iter().map(|vd| vd.to_string()))
         .collect::<Vec<String>>()
         .join(",");
 
     let frags: String = internal_fragments
         .iter()
-        .map(|fd| fd.to_string()) // TODO(ran) FIXME: replace with .minified
+        .map(|fd| fd.to_string())
         .collect::<Vec<String>>()
         .join("");
 
-    format!("query({}){}{}", vars, selection_set.to_string(), frags) // TODO(ran) FIXME: replace with .minified
+    format!("query({}){}{}", vars, selection_set.to_string(), frags)
 }
 
 fn operation_for_root_fetch<'q>(
     selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
-    internal_fragments: HashSet<&'q FragmentDefinition<'q>>, // TODO(ran) FIXME: use ordered set
+    internal_fragments: Vec<&'q FragmentDefinition<'q>>,
     op_kind: Operation,
 ) -> GraphQLDocument {
     let vars = if variable_definitions.is_empty() {
@@ -445,7 +466,7 @@ fn operation_for_root_fetch<'q>(
             "({})",
             variable_definitions
                 .iter()
-                .map(|vd| vd.to_string()) // TODO(ran) FIXME: replace with .minified
+                .map(|vd| vd.to_string())
                 .collect::<Vec<String>>()
                 .join(",")
         )
@@ -453,7 +474,7 @@ fn operation_for_root_fetch<'q>(
 
     let frags: String = internal_fragments
         .iter()
-        .map(|fd| fd.to_string()) // TODO(ran) FIXME: replace with .minified
+        .map(|fd| fd.to_string())
         .collect::<Vec<String>>()
         .join("");
 
@@ -461,7 +482,7 @@ fn operation_for_root_fetch<'q>(
         "{}{}{}{}",
         op_kind.as_str(),
         vars,
-        selection_set.to_string(), // TODO(ran) FIXME: replace with .minified
+        selection_set.to_string(),
         frags
     )
 }

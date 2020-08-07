@@ -1,14 +1,15 @@
 use crate::helpers::{pos, span};
-use graphql_parser::{query, schema, schema::Type};
+use graphql_parser::{schema, schema::Type};
+use graphql_parser::query::refs::{FieldRef, SelectionSetRef};
 
 lazy_static! {
-    pub static ref TYPENAME_QUERY_FIELD: query::Field<'static> = query::Field {
+    pub static ref TYPENAME_QUERY_FIELD: FieldRef<'static> = FieldRef {
         position: pos(),
         alias: None,
         name: "__typename",
         arguments: vec![],
         directives: vec![],
-        selection_set: query::SelectionSet {
+        selection_set: SelectionSetRef {
             span: span(),
             items: vec![],
         },

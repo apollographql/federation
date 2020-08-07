@@ -47,7 +47,7 @@ impl<'a> TypeDefinition<'a> {
     }
 
     pub fn is_abstract_type(&self) -> bool {
-        unimplemented!()
+        matches!(self, TypeDefinition::Interface(_) | TypeDefinition::Union(_))
     }
 }
 
