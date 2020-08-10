@@ -231,12 +231,6 @@ pub enum GraphQLCompositeType<'s> {
     Union(&'s UnionType<'s>),
 }
 
-impl<'s> GraphQLCompositeType<'s> {
-    pub fn get_type_def(&self) -> &'s TypeDefinition<'s> {
-        unimplemented!()
-    }
-}
-
 impl<'q> From<&'q TypeDefinition<'q>> for GraphQLCompositeType<'q> {
     fn from(td: &'q TypeDefinition<'q>) -> Self {
         match td {

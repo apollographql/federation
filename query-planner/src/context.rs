@@ -3,7 +3,7 @@ use crate::model::ResponsePathElement;
 use crate::visitors::VariableUsagesMap;
 use graphql_parser::query::refs::{FieldRef, SelectionSetRef};
 use graphql_parser::query::*;
-use graphql_parser::schema::{GraphQLCompositeType, ObjectType, TypeDefinition};
+use graphql_parser::schema::{GraphQLCompositeType, TypeDefinition};
 use graphql_parser::{schema, Name};
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
@@ -83,6 +83,13 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
 
     /// find the TypeDefinition enum value that wraps `obj`
     pub fn type_def_for_object(&self, obj: &schema::ObjectType) -> &schema::TypeDefinition {
+        unimplemented!()
+    }
+
+    pub fn type_def_for_composite_type(
+        &self,
+        composite: &GraphQLCompositeType,
+    ) -> &schema::TypeDefinition {
         unimplemented!()
     }
 }

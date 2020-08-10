@@ -149,7 +149,10 @@ fn split_fields<'q, 's: 'q, F>(
             };
 
             if can_find_group {
-                let group = group_for_field(scope.parent_type.get_type_def(), field_def);
+                let group = group_for_field(
+                    context.type_def_for_composite_type(&scope.parent_type),
+                    field_def,
+                );
                 complete_field(
                     context,
                     Rc::clone(scope),
@@ -166,7 +169,10 @@ fn split_fields<'q, 's: 'q, F>(
                         get_federation_medatadata(fd).is_some());
 
                 if has_no_extending_field_defs {
-                    let group = group_for_field(scope.parent_type.get_type_def(), field_def);
+                    let group = group_for_field(
+                        context.type_def_for_composite_type(&scope.parent_type),
+                        field_def,
+                    );
                     // TODO(ran) FIXME: in .ts this is using fieldsForResponseName, seems wrong.
                     complete_field(
                         context,
@@ -188,7 +194,10 @@ fn split_fields<'q, 's: 'q, F>(
                     let field_def = get_field_def(runtime_parent_obj_type, field.field_node.name);
                     let parent_type_def = context.type_def_for_object(runtime_parent_obj_type);
                     let new_scope = context.new_scope(parent_type_def, Some(Rc::clone(scope)));
-                    let group = group_for_field(new_scope.parent_type.get_type_def(), field_def);
+                    let group = group_for_field(
+                        context.type_def_for_composite_type(&new_scope.parent_type),
+                        field_def,
+                    );
 
                     let fields_with_runtime_parent_type = fields_for_parent_type
                         .iter()
