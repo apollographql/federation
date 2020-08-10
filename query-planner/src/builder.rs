@@ -287,18 +287,12 @@ fn get_field_def_from_obj<'q>(
     get_field_def!(obj, name)
 }
 
-fn get_field_def_from_iface<'q>(
-    iface: &'q schema::InterfaceType<'q>,
-    name: &'q str,
-) -> &'q schema::Field<'q> {
-    get_field_def!(iface, name)
-}
-
-fn get_field_def_from_type<'q>(
-    obj: &'q TypeDefinition<'q>,
-    name: &'q str,
-) -> &'q schema::Field<'q> {
-    unimplemented!()
+fn get_field_def_from_type<'q>(td: &'q TypeDefinition<'q>, name: &'q str) -> &'q schema::Field<'q> {
+    match td {
+        TypeDefinition::Object(obj) => get_field_def_from_obj(obj, name),
+        TypeDefinition::Interface(iface) => get_field_def!(iface, name),
+        _ => unreachable!(),
+    }
 }
 
 fn get_federation_medatadata(field: &schema::Field) -> Option<FederationMetadata> {
