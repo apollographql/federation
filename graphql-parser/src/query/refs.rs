@@ -1,5 +1,5 @@
 use crate::common::{Directive, Txt, Value};
-use crate::query::{Field, Node, Visitor};
+use crate::query::{Field, Node, Selection, SelectionSet, Visitor};
 use crate::visit_each;
 use crate::{query, Pos};
 
@@ -70,6 +70,15 @@ pub struct SelectionSetRef<'a> {
     pub items: Vec<SelectionRef<'a>>,
 }
 
+impl<'a> From<&'a SelectionSet<'a>> for SelectionSetRef<'a> {
+    fn from(ss: &'a SelectionSet<'a>) -> Self {
+        SelectionSetRef {
+            span: ss.span,
+            items: ss.items.iter().map(SelectionRef::Ref).collect(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct FieldRef<'a> {
     pub position: Pos,
@@ -81,19 +90,21 @@ pub struct FieldRef<'a> {
 }
 
 impl<'a> FieldRef<'a> {
-    pub fn from_field(f: &'a Field<'a>, selection_set: SelectionSetRef<'a>) -> FieldRef<'a> {
+    pub fn response_name(&self) -> Txt<'a> {
+        self.alias.unwrap_or(self.name)
+    }
+}
+
+impl<'a> From<&'a Field<'a>> for FieldRef<'a> {
+    fn from(f: &'a Field<'a>) -> Self {
         FieldRef {
             position: Pos { line: 0, column: 0 },
             alias: f.alias,
             name: f.name,
             arguments: f.arguments.clone(),
             directives: f.directives.clone(),
-            selection_set,
+            selection_set: SelectionSetRef::from(&f.selection_set),
         }
-    }
-
-    pub fn response_name(&self) -> Txt<'a> {
-        self.alias.unwrap_or(self.name)
     }
 }
 

@@ -11,6 +11,7 @@ use graphql_parser::query::*;
 use graphql_parser::schema::{GraphQLCompositeType, TypeDefinition};
 use graphql_parser::{query, schema, Name};
 use linked_hash_map::LinkedHashMap;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
@@ -92,12 +93,71 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
     }
 }
 
-fn collect_fields<'q>(
-    context: &QueryPlanningContext,
-    scope: Rc<Scope>,
-    selection_set: &SelectionSet,
+fn collect_fields<'q, 's: 'q>(
+    context: &'q QueryPlanningContext<'q, 's>,
+    scope: Rc<Scope<'q>>,
+    selection_set: &'q SelectionSet<'q>,
 ) -> FieldSet<'q> {
-    unimplemented!()
+    struct Args<'q> {
+        scope: Rc<Scope<'q>>,
+        selection_set: &'q SelectionSet<'q>,
+    }
+
+    let mut stack: Vec<Args> = vec![Args {
+        scope,
+        selection_set,
+    }];
+
+    let mut visited_fragment_names = HashSet::new();
+    let mut fields = vec![];
+
+    while !stack.is_empty() {
+        let Args {
+            scope,
+            selection_set,
+        } = stack.pop().unwrap();
+
+        for selection in selection_set.items.iter() {
+            match selection {
+                Selection::Field(field) => fields.push(context::Field {
+                    scope: Rc::clone(&scope),
+                    field_node: FieldRef::from(field),
+                    field_def: get_field_def_from_type(&scope.parent_type, field.name),
+                }),
+                Selection::InlineFragment(inline) => {
+                    let fragment_condition = inline
+                        .type_condition
+                        .map(|tc| context.names_to_types[tc])
+                        .unwrap_or_else(|| context.type_def_for_composite_type(&scope.parent_type));
+                    let new_scope = context.new_scope(fragment_condition, Some(Rc::clone(&scope)));
+                    if !new_scope.possible_types.is_empty() {
+                        stack.push(Args {
+                            scope: new_scope,
+                            selection_set: &inline.selection_set,
+                        });
+                    }
+                }
+                Selection::FragmentSpread(spread) => {
+                    let fragment = context.fragments[spread.fragment_name];
+                    let new_scope = context.new_scope(
+                        context.names_to_types[fragment.type_condition],
+                        Some(Rc::clone(&scope)),
+                    );
+                    if !new_scope.possible_types.is_empty()
+                        && !visited_fragment_names.contains(spread.fragment_name)
+                    {
+                        visited_fragment_names.insert(spread.fragment_name);
+                        stack.push(Args {
+                            scope: new_scope,
+                            selection_set: &fragment.selection_set,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    fields
 }
 
 fn split_root_fields_serially<'q>(
@@ -164,7 +224,7 @@ fn split_fields<'q, 's: 'q, F>(
                 let has_no_extending_field_defs = scope
                     .possible_types
                     .iter()
-                    .map(|runtime_type| get_field_def(runtime_type, field.field_node.name))
+                    .map(|runtime_type| get_field_def_from_obj(runtime_type, field.field_node.name))
                     .any(|fd| // TODO(ran) FIXME: this is kind of janky. Change.  
                         get_federation_medatadata(fd).is_some());
 
@@ -191,7 +251,8 @@ fn split_fields<'q, 's: 'q, F>(
 
                 for runtime_parent_type in &scope.possible_types {
                     let runtime_parent_obj_type = *runtime_parent_type;
-                    let field_def = get_field_def(runtime_parent_obj_type, field.field_node.name);
+                    let field_def =
+                        get_field_def_from_obj(runtime_parent_obj_type, field.field_node.name);
                     let parent_type_def = context.type_def_for_object(runtime_parent_obj_type);
                     let new_scope = context.new_scope(parent_type_def, Some(Rc::clone(scope)));
                     let group = group_for_field(
@@ -221,11 +282,38 @@ fn split_fields<'q, 's: 'q, F>(
     }
 }
 
-fn get_field_def<'q>(obj: &'q schema::ObjectType<'q>, name: &'q str) -> &'q schema::Field<'q> {
-    obj.fields
-        .iter()
-        .find(|f| f.name == name)
-        .unwrap_or_else(|| panic!("Cannot query field {} on type {}", name, obj.name,))
+macro_rules! get_field_def {
+    ($obj:ident, $name:ident) => {
+        $obj.fields
+            .iter()
+            .find(|f| f.name == $name)
+            .unwrap_or_else(|| panic!("Cannot query field {} on type {}", $name, $obj.name))
+    };
+}
+
+fn get_field_def_from_obj<'q>(
+    obj: &'q schema::ObjectType<'q>,
+    name: &'q str,
+) -> &'q schema::Field<'q> {
+    get_field_def!(obj, name)
+}
+
+fn get_field_def_from_iface<'q>(
+    iface: &'q schema::InterfaceType<'q>,
+    name: &'q str,
+) -> &'q schema::Field<'q> {
+    get_field_def!(iface, name)
+}
+
+fn get_field_def_from_type<'q>(
+    obj: &'q GraphQLCompositeType<'q>,
+    name: &'q str,
+) -> &'q schema::Field<'q> {
+    match obj {
+        GraphQLCompositeType::Object(obj) => get_field_def_from_obj(obj, name),
+        GraphQLCompositeType::Interface(iface) => get_field_def_from_iface(iface, name),
+        _ => unreachable!("No other type has fields"),
+    }
 }
 
 fn get_federation_medatadata(field: &schema::Field) -> Option<FederationMetadata> {
