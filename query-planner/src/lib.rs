@@ -10,6 +10,7 @@ mod macros;
 mod builder;
 mod consts;
 mod context;
+mod federation;
 mod helpers;
 pub mod model;
 mod visitors;

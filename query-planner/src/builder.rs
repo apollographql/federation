@@ -1,5 +1,6 @@
 use crate::consts;
 use crate::context::*;
+use crate::federation::FederationMetadata;
 use crate::helpers::*;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
@@ -116,7 +117,7 @@ fn split_fields<'q, 's: 'q, F>(
     fields: FieldSet<'q>,
     group_for_field: F,
 ) where
-    F: Fn(&context::Field) -> &'q mut FetchGroup<'q>,
+    F: Fn(&'q TypeDefinition<'q>, &'q schema::Field<'q>) -> &'q mut FetchGroup<'q>,
 {
     // TODO(ran) FIXME: dedupe this.
     let fields_for_response_names: Vec<FieldSet> =
@@ -148,17 +149,83 @@ fn split_fields<'q, 's: 'q, F>(
             };
 
             if can_find_group {
-                let group = group_for_field(field);
-                complete_field(context, group, path.clone(), fields_for_parent_type)
+                let group = group_for_field(scope.parent_type.get_type_def(), field_def);
+                complete_field(
+                    context,
+                    Rc::clone(scope),
+                    group,
+                    path.clone(),
+                    fields_for_parent_type,
+                )
             } else {
-                unimplemented!()
+                let has_no_extending_field_defs = scope
+                    .possible_types
+                    .iter()
+                    .map(|runtime_type| get_field_def(runtime_type, field.field_node.name))
+                    .any(|fd| // TODO(ran) FIXME: this is kind of janky. Change.  
+                        get_federation_medatadata(fd).is_some());
+
+                if has_no_extending_field_defs {
+                    let group = group_for_field(scope.parent_type.get_type_def(), field_def);
+                    // TODO(ran) FIXME: in .ts this is using fieldsForResponseName, seems wrong.
+                    complete_field(
+                        context,
+                        Rc::clone(scope),
+                        group,
+                        path.clone(),
+                        fields_for_parent_type,
+                    );
+                    continue;
+                }
+
+                // TODO(ran) FIXME: the .ts code creates a map and keys by group,
+                //  which implies some kind of group equality of some sort.
+                //  we need to ensure that our closure of `group_for_field` (in all calls) returns
+                //  the "same" group under the same conditions that the .ts code considers equal.
+
+                for runtime_parent_type in &scope.possible_types {
+                    let runtime_parent_obj_type = *runtime_parent_type;
+                    let field_def = get_field_def(runtime_parent_obj_type, field.field_node.name);
+                    let parent_type_def = context.type_def_for_object(runtime_parent_obj_type);
+                    let new_scope = context.new_scope(parent_type_def, Some(Rc::clone(scope)));
+                    let group = group_for_field(new_scope.parent_type.get_type_def(), field_def);
+
+                    let fields_with_runtime_parent_type = fields_for_parent_type
+                        .iter()
+                        .map(|field| context::Field {
+                            scope: Rc::clone(&field.scope),
+                            field_node: field.field_node.clone(),
+                            field_def,
+                        })
+                        .collect();
+
+                    complete_field(
+                        context,
+                        new_scope,
+                        group,
+                        path.clone(),
+                        fields_with_runtime_parent_type,
+                    );
+                }
             }
         }
     }
 }
 
+fn get_field_def<'q>(obj: &'q schema::ObjectType<'q>, name: &'q str) -> &'q schema::Field<'q> {
+    obj.fields
+        .iter()
+        .find(|f| f.name == name)
+        .unwrap_or_else(|| panic!("Cannot query field {} on type {}", name, obj.name,))
+}
+
+fn get_federation_medatadata(field: &schema::Field) -> Option<FederationMetadata> {
+    unimplemented!()
+}
+
 fn complete_field<'q, 's: 'q>(
     context: &'q QueryPlanningContext<'q, 's>,
+    scope: Rc<Scope<'q>>,
     parent_group: &'q mut FetchGroup<'q>,
     path: Vec<ResponsePathElement>,
     fields: FieldSet<'q>,
@@ -168,7 +235,10 @@ fn complete_field<'q, 's: 'q>(
 
         if !return_type.is_composite_type() {
             let mut fields = fields;
-            fields.pop().unwrap()
+            context::Field {
+                scope,
+                ..fields.pop().unwrap()
+            }
         } else {
             let (head, tail) = fields.head();
 
@@ -185,7 +255,7 @@ fn complete_field<'q, 's: 'q>(
 
             if return_type.is_abstract_type() {
                 sub_group.fields.push(context::Field {
-                    scope: context.new_scope(return_type, Some(Rc::clone(&head.scope))),
+                    scope: context.new_scope(return_type, Some(scope)),
                     field_node: (*consts::TYPENAME_QUERY_FIELD).clone(),
                     field_def: &*consts::TYPENAME_SCHEMA_FIELD,
                 })
