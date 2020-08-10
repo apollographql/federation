@@ -225,24 +225,6 @@ impl<'a> UnionType<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum GraphQLCompositeType<'s> {
-    Object(&'s ObjectType<'s>),
-    Interface(&'s InterfaceType<'s>),
-    Union(&'s UnionType<'s>),
-}
-
-impl<'q> From<&'q TypeDefinition<'q>> for GraphQLCompositeType<'q> {
-    fn from(td: &'q TypeDefinition<'q>) -> Self {
-        match td {
-            TypeDefinition::Object(o) => GraphQLCompositeType::Object(o),
-            TypeDefinition::Interface(iface) => GraphQLCompositeType::Interface(iface),
-            TypeDefinition::Union(un) => GraphQLCompositeType::Union(un),
-            _ => unreachable!(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct UnionTypeExtension<'a> {
     pub position: Pos,
     pub name: Txt<'a>,

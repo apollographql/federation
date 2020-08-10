@@ -8,7 +8,7 @@ use crate::model::{ResponsePathElement, Selection as ModelSelection};
 use crate::{context, model, QueryPlanError, Result};
 use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
-use graphql_parser::schema::{GraphQLCompositeType, TypeDefinition};
+use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{query, schema, Name};
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashSet;
@@ -75,9 +75,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
 
     let nodes: Vec<PlanNode> = groups
         .into_iter()
-        .map(|group| {
-            execution_node_for_group(&context, group, Some(GraphQLCompositeType::from(root_type)))
-        })
+        .map(|group| execution_node_for_group(&context, group, Some(root_type)))
         .collect();
 
     if nodes.is_empty() {
@@ -128,7 +126,7 @@ fn collect_fields<'q, 's: 'q>(
                     let fragment_condition = inline
                         .type_condition
                         .map(|tc| context.names_to_types[tc])
-                        .unwrap_or_else(|| context.type_def_for_composite_type(&scope.parent_type));
+                        .unwrap_or_else(|| scope.parent_type);
                     let new_scope = context.new_scope(fragment_condition, Some(Rc::clone(&scope)));
                     if !new_scope.possible_types.is_empty() {
                         stack.push(Args {
@@ -209,10 +207,7 @@ fn split_fields<'q, 's: 'q, F>(
             };
 
             if can_find_group {
-                let group = group_for_field(
-                    context.type_def_for_composite_type(&scope.parent_type),
-                    field_def,
-                );
+                let group = group_for_field(scope.parent_type, field_def);
                 complete_field(
                     context,
                     Rc::clone(scope),
@@ -229,10 +224,7 @@ fn split_fields<'q, 's: 'q, F>(
                         get_federation_medatadata(fd).is_some());
 
                 if has_no_extending_field_defs {
-                    let group = group_for_field(
-                        context.type_def_for_composite_type(&scope.parent_type),
-                        field_def,
-                    );
+                    let group = group_for_field(scope.parent_type, field_def);
                     // TODO(ran) FIXME: in .ts this is using fieldsForResponseName, seems wrong.
                     complete_field(
                         context,
@@ -255,10 +247,7 @@ fn split_fields<'q, 's: 'q, F>(
                         get_field_def_from_obj(runtime_parent_obj_type, field.field_node.name);
                     let parent_type_def = context.type_def_for_object(runtime_parent_obj_type);
                     let new_scope = context.new_scope(parent_type_def, Some(Rc::clone(scope)));
-                    let group = group_for_field(
-                        context.type_def_for_composite_type(&new_scope.parent_type),
-                        field_def,
-                    );
+                    let group = group_for_field(new_scope.parent_type, field_def);
 
                     let fields_with_runtime_parent_type = fields_for_parent_type
                         .iter()
@@ -306,14 +295,10 @@ fn get_field_def_from_iface<'q>(
 }
 
 fn get_field_def_from_type<'q>(
-    obj: &'q GraphQLCompositeType<'q>,
+    obj: &'q TypeDefinition<'q>,
     name: &'q str,
 ) -> &'q schema::Field<'q> {
-    match obj {
-        GraphQLCompositeType::Object(obj) => get_field_def_from_obj(obj, name),
-        GraphQLCompositeType::Interface(iface) => get_field_def_from_iface(iface, name),
-        _ => unreachable!("No other type has fields"),
-    }
+    unimplemented!()
 }
 
 fn get_federation_medatadata(field: &schema::Field) -> Option<FederationMetadata> {
@@ -362,7 +347,6 @@ fn complete_field<'q, 's: 'q>(
             let sub_fields = collect_sub_fields(context, return_type, &fields);
             split_sub_fields(context, field_path, sub_fields, &sub_group);
 
-            let return_type = GraphQLCompositeType::from(return_type);
             let sub_group_fields_length = sub_group.fields.len();
             let sub_group_fields = sub_group.fields;
             let selection_set_ref =
@@ -449,17 +433,17 @@ fn split_sub_fields<'q, 's: 'q>(
 fn execution_node_for_group(
     context: &QueryPlanningContext,
     group: FetchGroup,
-    parent_type: Option<GraphQLCompositeType>,
+    parent_type: Option<&TypeDefinition>,
 ) -> PlanNode {
     let FetchGroup {
         service_name,
         fields,
         internal_fragments,
         required_fields,
-        provided_fields,
         dependent_groups_by_service,
         other_dependent_groups,
         merge_at,
+        ..
     } = group;
 
     let selection_set = selection_set_from_field_set(fields, parent_type, context);
@@ -528,15 +512,15 @@ fn execution_node_for_group(
 
 fn selection_set_from_field_set<'q, 's: 'q>(
     fields: FieldSet<'q>,
-    parent_type: Option<GraphQLCompositeType>,
+    parent_type: Option<&'s TypeDefinition<'s>>,
     context: &'q QueryPlanningContext<'q, 's>,
 ) -> SelectionSetRef<'q> {
     fn wrap_in_inline_fragment_if_needed<'q>(
         selections: Vec<SelectionRef<'q>>,
-        type_condition: GraphQLCompositeType<'q>,
-        parent_type: Option<&GraphQLCompositeType>,
+        type_condition: &'q TypeDefinition<'q>,
+        parent_type: Option<&'q TypeDefinition<'q>>,
     ) -> Vec<SelectionRef<'q>> {
-        if parent_type.map(|pt| *pt == type_condition).unwrap_or(false) {
+        if parent_type.map(|pt| pt == type_condition).unwrap_or(false) {
             selections
         } else {
             vec![SelectionRef::InlineFragmentRef(InlineFragmentRef {
@@ -594,7 +578,7 @@ fn selection_set_from_field_set<'q, 's: 'q>(
     let fields_by_parent_type = group_by(fields, |f| f.scope.parent_type.name().unwrap());
 
     for (_, fields_by_parent_type) in fields_by_parent_type {
-        let type_condition = fields_by_parent_type[0].scope.parent_type.clone();
+        let type_condition = fields_by_parent_type[0].scope.parent_type;
 
         let fields_by_response_name: LinkedHashMap<&str, FieldSet> =
             group_by(fields_by_parent_type, |f| f.field_node.response_name());
@@ -605,7 +589,7 @@ fn selection_set_from_field_set<'q, 's: 'q>(
                 .map(|(_, fs)| combine_fields(fs, context))
                 .collect(),
             type_condition,
-            parent_type.as_ref(),
+            parent_type,
         ) {
             items.push(sel);
         }

@@ -1,5 +1,5 @@
 use crate::common::{Directive, Txt, Value};
-use crate::query::{Field, Node, Selection, SelectionSet, Visitor};
+use crate::query::{Field, Node, SelectionSet, Visitor};
 use crate::visit_each;
 use crate::{query, Pos};
 

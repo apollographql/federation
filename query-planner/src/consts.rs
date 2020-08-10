@@ -1,6 +1,6 @@
 use crate::helpers::{pos, span};
-use graphql_parser::{schema, schema::Type};
 use graphql_parser::query::refs::{FieldRef, SelectionSetRef};
+use graphql_parser::{schema, schema::Type};
 
 lazy_static! {
     pub static ref TYPENAME_QUERY_FIELD: FieldRef<'static> = FieldRef {
