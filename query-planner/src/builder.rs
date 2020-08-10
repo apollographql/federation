@@ -11,7 +11,7 @@ use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{query, schema, Name};
 use linked_hash_map::LinkedHashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
@@ -91,8 +91,8 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
     }
 }
 
-fn collect_fields<'q, 's: 'q>(
-    context: &'q QueryPlanningContext<'q, 's>,
+fn collect_fields<'q>(
+    context: &'q QueryPlanningContext<'q>,
     scope: Rc<Scope<'q>>,
     selection_set: &'q SelectionSet<'q>,
 ) -> FieldSet<'q> {
@@ -158,6 +158,24 @@ fn collect_fields<'q, 's: 'q>(
     fields
 }
 
+fn split_root_fields<'q>(
+    context: &'q QueryPlanningContext<'q>,
+    fields: FieldSet<'q>,
+) -> Vec<FetchGroup<'q>> {
+    // let mut group_for_service: HashMap<String, FetchGroup<'q>> = HashMap::new();
+    //
+    // split_fields(context, vec![], fields, |parent_type, field_def| {
+    //     let service_name = context.get_owning_service(parent_type, field_def);
+    //     group_for_service
+    //         .entry(service_name.clone())
+    //         .or_insert_with(|| FetchGroup::init(service_name))
+    // });
+    //
+    // group_for_service.into_iter().map(|(_, v)| v).collect()
+
+    unimplemented!()
+}
+
 fn split_root_fields_serially<'q>(
     context: &QueryPlanningContext,
     fields: FieldSet<'q>,
@@ -165,12 +183,8 @@ fn split_root_fields_serially<'q>(
     unimplemented!()
 }
 
-fn split_root_fields<'q>(context: &QueryPlanningContext, fields: FieldSet) -> Vec<FetchGroup<'q>> {
-    unimplemented!()
-}
-
-fn split_fields<'q, 's: 'q, F>(
-    context: &'q QueryPlanningContext<'q, 's>,
+fn split_fields<'q, F>(
+    context: &'q QueryPlanningContext<'q>,
     path: Vec<ResponsePathElement>,
     fields: FieldSet<'q>,
     group_for_field: F,
@@ -299,8 +313,8 @@ fn get_federation_medatadata(field: &schema::Field) -> Option<FederationMetadata
     unimplemented!()
 }
 
-fn complete_field<'q, 's: 'q>(
-    context: &'q QueryPlanningContext<'q, 's>,
+fn complete_field<'q>(
+    context: &'q QueryPlanningContext<'q>,
     scope: Rc<Scope<'q>>,
     parent_group: &'q mut FetchGroup<'q>,
     path: Vec<ResponsePathElement>,
@@ -407,16 +421,16 @@ fn add_path(
     path
 }
 
-fn collect_sub_fields<'q, 's: 'q>(
-    context: &'q QueryPlanningContext<'q, 's>,
-    return_type: &'s TypeDefinition<'s>,
+fn collect_sub_fields<'q>(
+    context: &'q QueryPlanningContext<'q>,
+    return_type: &'q TypeDefinition<'q>,
     fields: &FieldSet,
 ) -> FieldSet<'q> {
     unimplemented!()
 }
 
-fn split_sub_fields<'q, 's: 'q>(
-    context: &'q QueryPlanningContext<'q, 's>,
+fn split_sub_fields<'q>(
+    context: &'q QueryPlanningContext<'q>,
     field_path: Vec<ResponsePathElement>, // TODO(ran) FIXME: alias this type
     sub_fields: FieldSet,
     sub_group: &FetchGroup,
@@ -504,10 +518,10 @@ fn execution_node_for_group(
     }
 }
 
-fn selection_set_from_field_set<'q, 's: 'q>(
+fn selection_set_from_field_set<'q>(
     fields: FieldSet<'q>,
-    parent_type: Option<&'s TypeDefinition<'s>>,
-    context: &'q QueryPlanningContext<'q, 's>,
+    parent_type: Option<&'q TypeDefinition<'q>>,
+    context: &'q QueryPlanningContext<'q>,
 ) -> SelectionSetRef<'q> {
     fn wrap_in_inline_fragment_if_needed<'q>(
         selections: Vec<SelectionRef<'q>>,

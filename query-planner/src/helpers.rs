@@ -25,12 +25,12 @@ pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
         .collect()
 }
 
-pub fn ifaces_to_implementors<'a, 's: 'a>(
-    types: &'a HashMap<&'s str, &'s schema::TypeDefinition<'s>>,
-) -> HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>> {
+pub fn ifaces_to_implementors<'a, 'q>(
+    types: &'a HashMap<&'q str, &'q schema::TypeDefinition<'q>>,
+) -> HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> {
     // TODO(ran) FIXME: make sure we also have obj.name -> [obj] mapping
     //  and maybe also union.name -> [obj,..] mappings, that might be tricky since it also needs a recursion.
-    let mut implementing_types: HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>> = HashMap::new();
+    let mut implementing_types: HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> = HashMap::new();
     // NB: This will loop infinitely if the schema has implementation loops (A: B, B: A)
     // we must validate that before query planning.
     for &td in types.values() {
@@ -66,9 +66,9 @@ pub fn ifaces_to_implementors<'a, 's: 'a>(
     implementing_types
 }
 
-pub fn names_to_types<'s>(
-    schema: &'s schema::Document<'s>,
-) -> HashMap<&'s str, &'s TypeDefinition<'s>> {
+pub fn names_to_types<'q>(
+    schema: &'q schema::Document<'q>,
+) -> HashMap<&'q str, &'q TypeDefinition<'q>> {
     schema
         .definitions
         .iter()

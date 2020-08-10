@@ -10,20 +10,20 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct QueryPlanningContext<'q, 's: 'q> {
-    pub schema: &'s schema::Document<'s>,
+pub struct QueryPlanningContext<'q> {
+    pub schema: &'q schema::Document<'q>,
     pub operation: Op<'q>,
     pub fragments: HashMap<&'q str, &'q FragmentDefinition<'q>>,
-    pub possible_types: HashMap<&'s str, Vec<&'s schema::ObjectType<'s>>>,
-    pub names_to_types: HashMap<&'s str, &'s TypeDefinition<'s>>,
+    pub possible_types: HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>>,
+    pub names_to_types: HashMap<&'q str, &'q TypeDefinition<'q>>,
     pub variable_name_to_def: HashMap<&'q str, &'q VariableDefinition<'q>>,
     pub auto_fragmentization: bool,
 }
 
-impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
+impl<'q> QueryPlanningContext<'q> {
     pub fn new_scope(
         &self,
-        td: &'s TypeDefinition<'s>,
+        td: &'q TypeDefinition<'q>,
         enclosing_scope: Option<Rc<Scope<'q>>>,
     ) -> Rc<Scope<'q>> {
         let possible_types: Vec<&'q schema::ObjectType<'q>> = self
@@ -49,7 +49,7 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
         self.names_to_types[type_name]
     }
 
-    fn get_possible_types(&self, td: &'s TypeDefinition<'s>) -> &Vec<&'s schema::ObjectType<'s>> {
+    fn get_possible_types(&self, td: &'q TypeDefinition<'q>) -> &Vec<&'q schema::ObjectType<'q>> {
         &self.possible_types[td.name().unwrap()]
     }
 
@@ -85,6 +85,15 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
     pub fn type_def_for_object(&self, obj: &schema::ObjectType) -> &schema::TypeDefinition {
         self.names_to_types[obj.name]
     }
+
+    pub fn get_owning_service(
+        &self,
+        parent_type: &TypeDefinition,
+        field_def: &schema::Field,
+    ) -> String {
+        // panic if we can't find one.
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -107,6 +116,7 @@ pub type FieldSet<'q> = Vec<Field<'q>>;
 pub struct FetchGroup<'q> {
     pub service_name: String,
     pub fields: FieldSet<'q>,
+    // This is only for auto_fragmentization -- which is currently unimplemented
     pub internal_fragments: LinkedHashMap<&'q str, &'q FragmentDefinition<'q>>,
     pub required_fields: FieldSet<'q>,
     pub provided_fields: FieldSet<'q>,
@@ -126,6 +136,10 @@ impl<'q> OwnedValues<'q> for LinkedHashMap<&'q str, &'q FragmentDefinition<'q>> 
 }
 
 impl<'q> FetchGroup<'q> {
+    pub fn init(service_name: String) -> FetchGroup<'q> {
+        FetchGroup::new(service_name, vec![], vec![])
+    }
+
     pub fn new(
         service_name: String,
         merge_at: Vec<ResponsePathElement>,
