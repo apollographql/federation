@@ -83,7 +83,7 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
 
     /// find the TypeDefinition enum value that wraps `obj`
     pub fn type_def_for_object(&self, obj: &schema::ObjectType) -> &schema::TypeDefinition {
-        unimplemented!()
+        self.names_to_types[obj.name]
     }
 }
 
