@@ -95,20 +95,6 @@ impl<'a> FieldRef<'a> {
     pub fn response_name(&self) -> Txt<'a> {
         self.alias.unwrap_or(self.name)
     }
-
-    pub fn clone_except_selection_set(
-        f: &'a FieldRef<'a>,
-        selection_set: SelectionSetRef<'a>,
-    ) -> FieldRef<'a> {
-        FieldRef {
-            position: Pos { line: 0, column: 0 },
-            alias: f.alias,
-            name: f.name,
-            arguments: f.arguments.clone(),
-            directives: f.directives.clone(),
-            selection_set,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

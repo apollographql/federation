@@ -56,7 +56,7 @@ impl<'q, 's: 'q> QueryPlanningContext<'q, 's> {
     pub fn get_variable_usages(
         &self,
         selection_set: &SelectionSetRef,
-        fragments: &Vec<&'q FragmentDefinition<'q>>,
+        fragments: &[&'q FragmentDefinition<'q>],
     ) -> (Vec<String>, Vec<&VariableDefinition>) {
         let mut v = selection_set
             .map(VariableUsagesMap::new(&self.variable_name_to_def))
@@ -121,25 +121,6 @@ impl<'q> OwnedValues<'q> for LinkedHashMap<&'q str, &'q FragmentDefinition<'q>> 
 }
 
 impl<'q> FetchGroup<'q> {
-    pub fn give_fields(&mut self) -> FieldSet {
-        std::mem::replace(&mut self.fields, vec![])
-    }
-
-    pub fn give_internal_fragments(
-        &mut self,
-    ) -> LinkedHashMap<&'q str, &'q FragmentDefinition<'q>> {
-        std::mem::replace(&mut self.internal_fragments, LinkedHashMap::new())
-    }
-
-    // TODO(ran) FIXME: figure out how to return iterator
-    pub fn dependent_groups(self) -> Vec<FetchGroup<'q>> {
-        self.dependent_groups_by_service
-            .into_iter()
-            .map(|(_, v)| v)
-            .chain(self.other_dependent_groups.into_iter())
-            .collect()
-    }
-
     pub fn new(
         service_name: String,
         merge_at: Vec<ResponsePathElement>,

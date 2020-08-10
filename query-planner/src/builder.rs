@@ -191,13 +191,13 @@ fn complete_field<'q, 's: 'q>(
                 })
             }
 
-            let fields = vec![head].into_iter().chain(tail).collect();
+            let fields: FieldSet = vec![head].into_iter().chain(tail).collect();
             let sub_fields = collect_sub_fields(context, return_type, &fields);
             split_sub_fields(context, field_path, sub_fields, &sub_group);
 
             let return_type = GraphQLCompositeType::from(return_type);
             let sub_group_fields_length = sub_group.fields.len();
-            let sub_group_fields = sub_group.give_fields();
+            let sub_group_fields = sub_group.fields;
             let selection_set_ref =
                 selection_set_from_field_set(sub_group_fields, Some(return_type), context);
 
@@ -205,19 +205,37 @@ fn complete_field<'q, 's: 'q>(
                 unimplemented!()
             }
 
-            for (name, sg_internal_fragment) in sub_group.give_internal_fragments() {
+            for (name, sg_internal_fragment) in sub_group.internal_fragments {
                 parent_group
                     .internal_fragments
                     .insert(name, sg_internal_fragment);
             }
 
+            let mut sub_group_dependent_groups = {
+                sub_group
+                    .dependent_groups_by_service
+                    .into_iter()
+                    .map(|(_, v)| v)
+                    .chain(sub_group.other_dependent_groups.into_iter())
+                    .collect()
+            };
+
             parent_group
                 .other_dependent_groups
-                .extend(sub_group.dependent_groups().into_iter());
+                .append(&mut sub_group_dependent_groups);
 
-            // TODO(ran) FIXME: continue here
-            unimplemented!()
-            // context::Field { scope, field_def }
+            context::Field {
+                scope: Rc::clone(&fields[0].scope),
+                field_def: &fields[0].field_def,
+                field_node: FieldRef {
+                    position: pos(),
+                    alias: fields[0].field_node.alias,
+                    name: fields[0].field_node.name,
+                    arguments: fields[0].field_node.arguments.clone(),
+                    directives: fields[0].field_node.directives.clone(),
+                    selection_set: selection_set_ref,
+                },
+            }
         }
     };
     parent_group.fields.push(field);
