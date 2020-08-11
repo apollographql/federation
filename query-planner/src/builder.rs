@@ -389,7 +389,7 @@ fn complete_field<'a, 'q: 'a>(
                     name: head.field_node.name,
                     arguments: head.field_node.arguments.clone(),
                     directives: head.field_node.directives.clone(),
-                    selection_set: SelectionSetRef::new(),
+                    selection_set: SelectionSetRef::default(),
                 },
             };
 

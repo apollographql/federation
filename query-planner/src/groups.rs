@@ -116,7 +116,7 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
         };
 
         // Is the field defined on the base service?
-        return if owning_service == base_service {
+        if owning_service == base_service {
             // Can we fetch the field from the parent group?
             if owning_service == self.parent_group.service_name
                 || self
@@ -153,12 +153,13 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
                     .get_required_fields(parent_type, field_def, &owning_service);
 
             // Can we fetch the required fields from the parent group?
-            if required_fields.iter().all(|required_field| {
+            let all_required_fields_are_provided = required_fields.iter().all(|required_field| {
                 self.parent_group
                     .provided_fields
                     .iter()
                     .any(|f| f.field_def.name == required_field.field_def.name)
-            }) {
+            });
+            if all_required_fields_are_provided {
                 if owning_service == self.parent_group.service_name {
                     &mut self.parent_group
                 } else {
@@ -180,7 +181,7 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
                         .dependent_group_for_service(owning_service, required_fields)
                 }
             }
-        };
+        }
     }
 
     fn into_groups(self) -> Vec<FetchGroup<'q>> {

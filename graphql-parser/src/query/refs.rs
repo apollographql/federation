@@ -64,19 +64,10 @@ impl<'a> SelectionRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SelectionSetRef<'a> {
     pub span: (Pos, Pos),
     pub items: Vec<SelectionRef<'a>>,
-}
-
-impl<'a> SelectionSetRef<'a> {
-    pub fn new() -> SelectionSetRef<'a> {
-        SelectionSetRef {
-            span: (Pos { line: 0, column: 0 }, Pos { line: 0, column: 0 }),
-            items: vec![],
-        }
-    }
 }
 
 impl<'a> From<&'a SelectionSet<'a>> for SelectionSetRef<'a> {
