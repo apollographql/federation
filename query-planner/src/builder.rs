@@ -1,6 +1,7 @@
 use crate::consts;
 use crate::context::*;
 use crate::federation::FederationMetadata;
+use crate::groups::{GroupForField, GroupForService};
 use crate::helpers::*;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
@@ -162,18 +163,14 @@ fn split_root_fields<'q>(
     context: &'q QueryPlanningContext<'q>,
     fields: FieldSet<'q>,
 ) -> Vec<FetchGroup<'q>> {
-    // let mut group_for_service: HashMap<String, FetchGroup<'q>> = HashMap::new();
-    //
-    // split_fields(context, vec![], fields, |parent_type, field_def| {
-    //     let service_name = context.get_owning_service(parent_type, field_def);
-    //     group_for_service
-    //         .entry(service_name.clone())
-    //         .or_insert_with(|| FetchGroup::init(service_name))
-    // });
-    //
-    // group_for_service.into_iter().map(|(_, v)| v).collect()
+    let mut group_for_service = GroupForService {
+        context,
+        groups_map: HashMap::new(),
+    };
 
-    unimplemented!()
+    split_fields(context, vec![], fields, &mut group_for_service);
+
+    group_for_service.into_groups()
 }
 
 fn split_root_fields_serially<'q>(
@@ -183,14 +180,12 @@ fn split_root_fields_serially<'q>(
     unimplemented!()
 }
 
-fn split_fields<'q, F>(
+fn split_fields<'a, 'q: 'a>(
     context: &'q QueryPlanningContext<'q>,
     path: Vec<ResponsePathElement>,
     fields: FieldSet<'q>,
-    group_for_field: F,
-) where
-    F: Fn(&'q TypeDefinition<'q>, &'q schema::Field<'q>) -> &'q mut FetchGroup<'q>,
-{
+    group_for_field: &'a mut dyn GroupForField<'q>,
+) {
     // TODO(ran) FIXME: dedupe this.
     let fields_for_response_names: Vec<FieldSet> =
         group_by(fields, |f| f.field_node.response_name())
@@ -221,7 +216,7 @@ fn split_fields<'q, F>(
             };
 
             if can_find_group {
-                let group = group_for_field(scope.parent_type, field_def);
+                let group = group_for_field.group_for_field(scope.parent_type, field_def);
                 complete_field(
                     context,
                     Rc::clone(scope),
@@ -238,7 +233,7 @@ fn split_fields<'q, F>(
                         get_federation_medatadata(fd).is_none());
 
                 if has_no_extending_field_defs {
-                    let group = group_for_field(scope.parent_type, field_def);
+                    let group = group_for_field.group_for_field(scope.parent_type, field_def);
                     // TODO(ran) FIXME: in .ts this is using fieldsForResponseName, seems wrong.
                     complete_field(
                         context,
@@ -261,7 +256,7 @@ fn split_fields<'q, F>(
                         get_field_def_from_obj(runtime_parent_obj_type, field.field_node.name);
                     let parent_type_def = context.type_def_for_object(runtime_parent_obj_type);
                     let new_scope = context.new_scope(parent_type_def, Some(Rc::clone(scope)));
-                    let group = group_for_field(new_scope.parent_type, field_def);
+                    let group = group_for_field.group_for_field(new_scope.parent_type, field_def);
 
                     let fields_with_runtime_parent_type = fields_for_parent_type
                         .iter()
@@ -313,10 +308,10 @@ fn get_federation_medatadata(field: &schema::Field) -> Option<FederationMetadata
     unimplemented!()
 }
 
-fn complete_field<'q>(
+fn complete_field<'a, 'q: 'a>(
     context: &'q QueryPlanningContext<'q>,
     scope: Rc<Scope<'q>>,
-    parent_group: &'q mut FetchGroup<'q>,
+    parent_group: &'a mut FetchGroup<'q>,
     path: Vec<ResponsePathElement>,
     fields: FieldSet<'q>,
 ) {
@@ -483,7 +478,7 @@ fn execution_node_for_group(
     };
 
     let fetch_node = PlanNode::Fetch(FetchNode {
-        service_name: service_name.clone(),
+        service_name,
         variable_usages: variable_names,
         requires,
         operation,
@@ -491,7 +486,7 @@ fn execution_node_for_group(
 
     let plan_node = if merge_at.is_empty() {
         PlanNode::Flatten(FlattenNode {
-            path: merge_at.clone(),
+            path: merge_at,
             node: Box::new(fetch_node),
         })
     } else {

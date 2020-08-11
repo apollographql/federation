@@ -11,6 +11,7 @@ mod builder;
 mod consts;
 mod context;
 mod federation;
+mod groups;
 mod helpers;
 pub mod model;
 mod visitors;

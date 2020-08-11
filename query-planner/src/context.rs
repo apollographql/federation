@@ -73,11 +73,14 @@ impl<'q> QueryPlanningContext<'q> {
         v.into_iter().unzip()
     }
 
-    pub fn get_provided_fields(
+    pub fn get_provided_fields<'a>(
         &self,
-        field_def: &schema::Field,
-        service_name: &String,
-    ) -> FieldSet {
+        field_def: &'q schema::Field<'q>,
+        service_name: &'a str,
+    ) -> FieldSet
+    where
+        'q: 'a,
+    {
         unimplemented!()
     }
 
