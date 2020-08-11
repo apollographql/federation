@@ -73,6 +73,7 @@ impl<'q> QueryPlanningContext<'q> {
         v.into_iter().unzip()
     }
 
+    // TODO(ran) FIXME: move to federation.rs
     pub fn get_provided_fields<'a>(
         &self,
         field_def: &'q schema::Field<'q>,
@@ -89,6 +90,7 @@ impl<'q> QueryPlanningContext<'q> {
         self.names_to_types[obj.name]
     }
 
+    // TODO(ran) FIXME: move to federation.rs
     pub fn get_owning_service(
         &self,
         parent_type: &TypeDefinition,

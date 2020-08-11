@@ -1,6 +1,6 @@
 use crate::consts;
 use crate::context::*;
-use crate::federation::FederationMetadata;
+use crate::federation::{get_federation_medatadata, FederationMetadata};
 use crate::groups::{GroupForField, ParallelGroupForField, SerialGroupForField};
 use crate::helpers::*;
 use crate::model::SelectionSet as ModelSelectionSet;
@@ -339,10 +339,6 @@ fn get_field_def_from_type<'q>(td: &'q TypeDefinition<'q>, name: &'q str) -> &'q
         TypeDefinition::Interface(iface) => get_field_def!(iface, name),
         _ => unreachable!(),
     }
-}
-
-fn get_federation_medatadata(field: &schema::Field) -> Option<FederationMetadata> {
-    unimplemented!()
 }
 
 fn complete_field<'a, 'q: 'a>(
