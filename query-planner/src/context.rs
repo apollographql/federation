@@ -187,11 +187,28 @@ impl<'q> FetchGroup<'q> {
     }
 
     pub fn dependent_group_for_service<'a>(
-        &'a self,
+        &'a mut self,
         service: String,
-        fields: FieldSet<'q>,
+        required_fields: FieldSet<'q>,
     ) -> &'a mut FetchGroup<'q> {
-        unimplemented!()
+        let group = self
+            .dependent_groups_by_service
+            .entry(service.clone())
+            .or_insert_with(|| FetchGroup::init(service));
+
+        if group.merge_at.is_empty() {
+            group.merge_at = self.merge_at.clone();
+        }
+
+        if !required_fields.is_empty() {
+            // TODO(ran) FIXME: this clones, ensure that's ok.
+            group.required_fields.extend_from_slice(&required_fields);
+
+            // TODO(ran) FIXME: consider using Rc for .fields and .required_fields
+            self.fields.extend(required_fields.into_iter());
+        }
+
+        group
     }
 }
 
