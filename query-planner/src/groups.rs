@@ -1,24 +1,34 @@
 use crate::context::{FetchGroup, QueryPlanningContext};
 use graphql_parser::schema;
-use graphql_parser::schema::TypeDefinition;
+use graphql_parser::schema::{Field, TypeDefinition};
 use std::collections::HashMap;
 
 pub(crate) trait GroupForField<'q> {
     fn group_for_field<'a>(
         &'a mut self,
-        td: &'q TypeDefinition<'q>,
-        field: &'q schema::Field<'q>,
+        parent_type: &'q TypeDefinition<'q>,
+        field_def: &'q Field<'q>,
     ) -> &'a mut FetchGroup<'q>;
 
     fn into_groups(self) -> Vec<FetchGroup<'q>>;
 }
 
-pub struct GroupForService<'q> {
+// Used by split_root_fields
+pub struct ParallelGroupForField<'q> {
     pub context: &'q QueryPlanningContext<'q>,
-    pub groups_map: HashMap<String, FetchGroup<'q>>,
+    groups_map: HashMap<String, FetchGroup<'q>>,
 }
 
-impl<'q> GroupForField<'q> for GroupForService<'q> {
+impl<'q> ParallelGroupForField<'q> {
+    pub fn new(context: &'q QueryPlanningContext<'q>) -> Self {
+        Self {
+            context,
+            groups_map: HashMap::new(),
+        }
+    }
+}
+
+impl<'q> GroupForField<'q> for ParallelGroupForField<'q> {
     fn group_for_field<'a>(
         &'a mut self,
         parent_type: &'q TypeDefinition<'q>,
@@ -33,5 +43,41 @@ impl<'q> GroupForField<'q> for GroupForService<'q> {
 
     fn into_groups(self) -> Vec<FetchGroup<'q>> {
         self.groups_map.into_iter().map(|(_, v)| v).collect()
+    }
+}
+
+// Used by split_root_fields_serially
+pub struct SerialGroupForField<'q> {
+    pub context: &'q QueryPlanningContext<'q>,
+    pub groups: Vec<FetchGroup<'q>>,
+}
+
+impl<'q> SerialGroupForField<'q> {
+    pub fn new(context: &'q QueryPlanningContext<'q>) -> Self {
+        Self {
+            context,
+            groups: vec![],
+        }
+    }
+}
+
+impl<'q> GroupForField<'q> for SerialGroupForField<'q> {
+    fn group_for_field<'a>(
+        &'a mut self,
+        parent_type: &'q TypeDefinition<'q>,
+        field_def: &'q Field<'q>,
+    ) -> &'a mut FetchGroup<'q> {
+        let service_name = self.context.get_owning_service(parent_type, field_def);
+
+        match self.groups.last() {
+            Some(group) if group.service_name == service_name => (),
+            _ => self.groups.push(FetchGroup::init(service_name)),
+        }
+
+        self.groups.last_mut().unwrap()
+    }
+
+    fn into_groups(self) -> Vec<FetchGroup<'q>> {
+        self.groups
     }
 }

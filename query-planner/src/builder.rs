@@ -1,7 +1,7 @@
 use crate::consts;
 use crate::context::*;
 use crate::federation::FederationMetadata;
-use crate::groups::{GroupForField, GroupForService};
+use crate::groups::{GroupForField, ParallelGroupForField, SerialGroupForField};
 use crate::helpers::*;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
@@ -12,7 +12,7 @@ use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{query, schema, Name};
 use linked_hash_map::LinkedHashMap;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::rc::Rc;
 
 pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
@@ -199,10 +199,7 @@ fn split_root_fields<'q>(
     context: &'q QueryPlanningContext<'q>,
     fields: FieldSet<'q>,
 ) -> Vec<FetchGroup<'q>> {
-    let mut group_for_service = GroupForService {
-        context,
-        groups_map: HashMap::new(),
-    };
+    let mut group_for_service = ParallelGroupForField::new(context);
 
     split_fields(context, vec![], fields, &mut group_for_service);
 
@@ -210,10 +207,14 @@ fn split_root_fields<'q>(
 }
 
 fn split_root_fields_serially<'q>(
-    context: &QueryPlanningContext,
+    context: &'q QueryPlanningContext<'q>,
     fields: FieldSet<'q>,
 ) -> Vec<FetchGroup<'q>> {
-    unimplemented!()
+    let mut serial_group_for_field = SerialGroupForField::new(context);
+
+    split_fields(context, vec![], fields, &mut serial_group_for_field);
+
+    serial_group_for_field.into_groups()
 }
 
 fn split_fields<'a, 'q: 'a>(
