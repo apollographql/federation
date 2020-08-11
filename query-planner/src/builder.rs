@@ -65,7 +65,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
     let fields = collect_fields(
         &context,
         context.new_scope(root_type, None),
-        &context.operation.selection_set,
+        SelectionSetRef::from(context.operation.selection_set),
     );
 
     let groups = if is_mutation {
@@ -95,12 +95,34 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
 fn collect_fields<'q>(
     context: &'q QueryPlanningContext<'q>,
     scope: Rc<Scope<'q>>,
-    selection_set: &'q SelectionSet<'q>,
+    selection_set: SelectionSetRef<'q>,
 ) -> FieldSet<'q> {
+    if selection_set.items.is_empty() {
+        return vec![];
+    }
+
+    macro_rules! collect_inline_fragment {
+        ($inline:ident, $selection_set:expr, $context:ident, $scope:ident, $stack:ident) => {
+            let fragment_condition = $inline
+                .type_condition
+                .map(|tc| $context.names_to_types[tc])
+                .unwrap_or_else(|| $scope.parent_type);
+            let new_scope = $context.new_scope(fragment_condition, Some(Rc::clone(&$scope)));
+            if !new_scope.possible_types.is_empty() {
+                $stack.push(Args {
+                    scope: new_scope,
+                    selection_set: $selection_set,
+                });
+            }
+        };
+    }
+
     struct Args<'q> {
         scope: Rc<Scope<'q>>,
-        selection_set: &'q SelectionSet<'q>,
+        selection_set: SelectionSetRef<'q>,
     }
+
+    ///// implementation starts here //////
 
     let mut stack: Vec<Args> = vec![Args {
         scope,
@@ -116,27 +138,41 @@ fn collect_fields<'q>(
             selection_set,
         } = stack.pop().unwrap();
 
-        for selection in selection_set.items.iter() {
+        for selection in selection_set.items.into_iter() {
             match selection {
-                Selection::Field(field) => fields.push(context::Field {
-                    scope: Rc::clone(&scope),
-                    field_node: FieldRef::from(field),
-                    field_def: get_field_def_from_type(&scope.parent_type, field.name),
-                }),
-                Selection::InlineFragment(inline) => {
-                    let fragment_condition = inline
-                        .type_condition
-                        .map(|tc| context.names_to_types[tc])
-                        .unwrap_or_else(|| scope.parent_type);
-                    let new_scope = context.new_scope(fragment_condition, Some(Rc::clone(&scope)));
-                    if !new_scope.possible_types.is_empty() {
-                        stack.push(Args {
-                            scope: new_scope,
-                            selection_set: &inline.selection_set,
-                        });
-                    }
+                SelectionRef::FieldRef(field) => {
+                    let name = field.name;
+                    fields.push(context::Field {
+                        scope: Rc::clone(&scope),
+                        field_node: field,
+                        field_def: get_field_def_from_type(&scope.parent_type, name),
+                    })
                 }
-                Selection::FragmentSpread(spread) => {
+                SelectionRef::Field(field) | SelectionRef::Ref(Selection::Field(field)) => fields
+                    .push(context::Field {
+                        scope: Rc::clone(&scope),
+                        field_node: FieldRef::from(field),
+                        field_def: get_field_def_from_type(&scope.parent_type, field.name),
+                    }),
+                SelectionRef::Ref(Selection::InlineFragment(inline)) => {
+                    collect_inline_fragment!(
+                        inline,
+                        SelectionSetRef::from(&inline.selection_set),
+                        context,
+                        scope,
+                        stack
+                    );
+                }
+                SelectionRef::InlineFragmentRef(inline_ref) => {
+                    collect_inline_fragment!(
+                        inline_ref,
+                        inline_ref.selection_set,
+                        context,
+                        scope,
+                        stack
+                    );
+                }
+                SelectionRef::Ref(Selection::FragmentSpread(spread)) => {
                     let fragment = context.fragments[spread.fragment_name];
                     let new_scope = context.new_scope(
                         context.names_to_types[fragment.type_condition],
@@ -148,7 +184,7 @@ fn collect_fields<'q>(
                         visited_fragment_names.insert(spread.fragment_name);
                         stack.push(Args {
                             scope: new_scope,
-                            selection_set: &fragment.selection_set,
+                            selection_set: SelectionSetRef::from(&fragment.selection_set),
                         });
                     }
                 }
@@ -346,8 +382,21 @@ fn complete_field<'a, 'q: 'a>(
                 })
             }
 
+            let mut response_field = context::Field {
+                scope: Rc::clone(&head.scope),
+                field_def: head.field_def,
+                field_node: FieldRef {
+                    position: pos(),
+                    alias: head.field_node.alias,
+                    name: head.field_node.name,
+                    arguments: head.field_node.arguments.clone(),
+                    directives: head.field_node.directives.clone(),
+                    selection_set: SelectionSetRef::new(),
+                },
+            };
+
             let fields: FieldSet = vec![head].into_iter().chain(tail).collect();
-            let sub_fields = collect_sub_fields(context, return_type, &fields);
+            let sub_fields = collect_sub_fields(context, return_type, fields);
             split_sub_fields(context, field_path, sub_fields, &sub_group);
 
             let sub_group_fields_length = sub_group.fields.len();
@@ -378,18 +427,8 @@ fn complete_field<'a, 'q: 'a>(
                 .other_dependent_groups
                 .append(&mut sub_group_dependent_groups);
 
-            context::Field {
-                scope: Rc::clone(&fields[0].scope),
-                field_def: &fields[0].field_def,
-                field_node: FieldRef {
-                    position: pos(),
-                    alias: fields[0].field_node.alias,
-                    name: fields[0].field_node.name,
-                    arguments: fields[0].field_node.arguments.clone(),
-                    directives: fields[0].field_node.directives.clone(),
-                    selection_set: selection_set_ref,
-                },
-            }
+            response_field.field_node.selection_set = selection_set_ref;
+            response_field
         }
     };
     parent_group.fields.push(field);
@@ -419,9 +458,18 @@ fn add_path(
 fn collect_sub_fields<'q>(
     context: &'q QueryPlanningContext<'q>,
     return_type: &'q TypeDefinition<'q>,
-    fields: &FieldSet,
+    fields: FieldSet<'q>,
 ) -> FieldSet<'q> {
-    unimplemented!()
+    fields
+        .into_iter()
+        .flat_map(|field| {
+            collect_fields(
+                context,
+                context.new_scope(return_type, None),
+                field.field_node.selection_set,
+            )
+        })
+        .collect()
 }
 
 fn split_sub_fields<'q>(
