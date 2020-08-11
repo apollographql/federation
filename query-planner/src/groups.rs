@@ -1,4 +1,5 @@
 use crate::context::{FetchGroup, QueryPlanningContext};
+use crate::federation::get_federation_type_medatadata;
 use graphql_parser::schema;
 use graphql_parser::schema::{Field, TypeDefinition};
 use std::collections::HashMap;
@@ -15,7 +16,7 @@ pub(crate) trait GroupForField<'q> {
 
 // Used by split_root_fields
 pub struct ParallelGroupForField<'q> {
-    pub context: &'q QueryPlanningContext<'q>,
+    context: &'q QueryPlanningContext<'q>,
     groups_map: HashMap<String, FetchGroup<'q>>,
 }
 
@@ -48,8 +49,8 @@ impl<'q> GroupForField<'q> for ParallelGroupForField<'q> {
 
 // Used by split_root_fields_serially
 pub struct SerialGroupForField<'q> {
-    pub context: &'q QueryPlanningContext<'q>,
-    pub groups: Vec<FetchGroup<'q>>,
+    context: &'q QueryPlanningContext<'q>,
+    groups: Vec<FetchGroup<'q>>,
 }
 
 impl<'q> SerialGroupForField<'q> {
@@ -79,5 +80,110 @@ impl<'q> GroupForField<'q> for SerialGroupForField<'q> {
 
     fn into_groups(self) -> Vec<FetchGroup<'q>> {
         self.groups
+    }
+}
+
+// Used by split_sub_fields
+pub struct GroupForSubField<'q> {
+    context: &'q QueryPlanningContext<'q>,
+    parent_group: FetchGroup<'q>,
+}
+
+impl<'q> GroupForSubField<'q> {
+    pub fn new(context: &'q QueryPlanningContext<'q>, parent_group: FetchGroup<'q>) -> Self {
+        Self {
+            context,
+            parent_group,
+        }
+    }
+}
+
+impl<'q> GroupForField<'q> for GroupForSubField<'q> {
+    fn group_for_field<'a>(
+        &'a mut self,
+        parent_type: &'q TypeDefinition<'q>,
+        field_def: &'q Field<'q>,
+    ) -> &'a mut FetchGroup<'q> {
+        let (base_service, owning_service) = match get_federation_type_medatadata(parent_type) {
+            Some(metadata) if metadata.is_value_type() => (
+                self.parent_group.service_name.clone(),
+                self.parent_group.service_name.clone(),
+            ),
+            _ => (
+                self.context.get_base_service(parent_type),
+                self.context.get_owning_service(parent_type, field_def),
+            ),
+        };
+
+        // Is the field defined on the base service?
+        return if owning_service == base_service {
+            // Can we fetch the field from the parent group?
+            if owning_service == self.parent_group.service_name
+                || self
+                    .parent_group
+                    .provided_fields
+                    .iter()
+                    .any(|f| f.field_def.name == field_def.name)
+            {
+                &mut self.parent_group
+            } else {
+                // We need to fetch the key fields from the parent group first, and then
+                // use a dependent fetch from the owning service.
+                let key_fields = self
+                    .context
+                    .get_key_fields(parent_type, &self.parent_group.service_name);
+                // TODO(ran) FIXME: extern "__typename"
+                let key_fields =
+                    if key_fields.len() == 1 && key_fields[0].field_def.name == "__typename" {
+                        // Only __typename key found.
+                        // In some cases, the parent group does not have any @key directives.
+                        // Fall back to owning group's keys
+                        self.context.get_key_fields(parent_type, &owning_service)
+                    } else {
+                        key_fields
+                    };
+
+                self.parent_group
+                    .dependent_group_for_service(owning_service, key_fields)
+            }
+        } else {
+            // It's an extension field, so we need to fetch the required fields first.
+            let required_fields =
+                self.context
+                    .get_required_fields(parent_type, field_def, &owning_service);
+
+            // Can we fetch the required fields from the parent group?
+            if required_fields.iter().all(|required_field| {
+                self.parent_group
+                    .provided_fields
+                    .iter()
+                    .any(|f| f.field_def.name == required_field.field_def.name)
+            }) {
+                if owning_service == self.parent_group.service_name {
+                    &mut self.parent_group
+                } else {
+                    self.parent_group
+                        .dependent_group_for_service(owning_service, required_fields)
+                }
+            } else {
+                // We need to go through the base group first.
+                let key_fields = self
+                    .context
+                    .get_key_fields(parent_type, &self.parent_group.service_name);
+
+                if base_service == self.parent_group.service_name {
+                    self.parent_group
+                        .dependent_group_for_service(owning_service, required_fields)
+                } else {
+                    self.parent_group
+                        .dependent_group_for_service(base_service, key_fields)
+                        .dependent_group_for_service(owning_service, required_fields)
+                }
+            }
+        };
+    }
+
+    fn into_groups(self) -> Vec<FetchGroup<'q>> {
+        vec![self.parent_group]
     }
 }

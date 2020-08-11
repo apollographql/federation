@@ -1,7 +1,7 @@
 use crate::consts;
 use crate::context::*;
-use crate::federation::{get_federation_medatadata, FederationMetadata};
-use crate::groups::{GroupForField, ParallelGroupForField, SerialGroupForField};
+use crate::federation::get_federation_field_medatadata;
+use crate::groups::{GroupForField, GroupForSubField, ParallelGroupForField, SerialGroupForField};
 use crate::helpers::*;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
@@ -117,6 +117,7 @@ fn collect_fields<'q>(
         };
     }
 
+    // TODO(ran) FIXME: can we try this again with a recursion now that we've resolved some other lifetime stuff.
     struct Args<'q> {
         scope: Rc<Scope<'q>>,
         selection_set: SelectionSetRef<'q>,
@@ -221,7 +222,7 @@ fn split_fields<'a, 'q: 'a>(
     context: &'q QueryPlanningContext<'q>,
     path: Vec<ResponsePathElement>,
     fields: FieldSet<'q>,
-    group_for_field: &'a mut dyn GroupForField<'q>,
+    grouper: &'a mut dyn GroupForField<'q>,
 ) {
     // TODO(ran) FIXME: dedupe this.
     let fields_for_response_names: Vec<FieldSet> =
@@ -253,7 +254,7 @@ fn split_fields<'a, 'q: 'a>(
             };
 
             if can_find_group {
-                let group = group_for_field.group_for_field(scope.parent_type, field_def);
+                let group = grouper.group_for_field(scope.parent_type, field_def);
                 complete_field(
                     context,
                     Rc::clone(scope),
@@ -267,10 +268,10 @@ fn split_fields<'a, 'q: 'a>(
                     .iter()
                     .map(|runtime_type| get_field_def_from_obj(runtime_type, field.field_node.name))
                     .all(|fd| // TODO(ran) FIXME: this is kind of janky. Change.  
-                        get_federation_medatadata(fd).is_none());
+                        get_federation_field_medatadata(fd).is_none());
 
                 if has_no_extending_field_defs {
-                    let group = group_for_field.group_for_field(scope.parent_type, field_def);
+                    let group = grouper.group_for_field(scope.parent_type, field_def);
                     // TODO(ran) FIXME: in .ts this is using fieldsForResponseName, seems wrong.
                     complete_field(
                         context,
@@ -293,7 +294,7 @@ fn split_fields<'a, 'q: 'a>(
                         get_field_def_from_obj(runtime_parent_obj_type, field.field_node.name);
                     let parent_type_def = context.type_def_for_object(runtime_parent_obj_type);
                     let new_scope = context.new_scope(parent_type_def, Some(Rc::clone(scope)));
-                    let group = group_for_field.group_for_field(new_scope.parent_type, field_def);
+                    let group = grouper.group_for_field(new_scope.parent_type, field_def);
 
                     let fields_with_runtime_parent_type = fields_for_parent_type
                         .iter()
@@ -394,7 +395,7 @@ fn complete_field<'a, 'q: 'a>(
 
             let fields: FieldSet = vec![head].into_iter().chain(tail).collect();
             let sub_fields = collect_sub_fields(context, return_type, fields);
-            split_sub_fields(context, field_path, sub_fields, &sub_group);
+            let sub_group = split_sub_fields(context, field_path, sub_fields, sub_group);
 
             let sub_group_fields_length = sub_group.fields.len();
             let sub_group_fields = sub_group.fields;
@@ -472,10 +473,12 @@ fn collect_sub_fields<'q>(
 fn split_sub_fields<'q>(
     context: &'q QueryPlanningContext<'q>,
     field_path: Vec<ResponsePathElement>, // TODO(ran) FIXME: alias this type
-    sub_fields: FieldSet,
-    sub_group: &FetchGroup,
-) {
-    unimplemented!()
+    sub_fields: FieldSet<'q>,
+    parent_group: FetchGroup<'q>,
+) -> FetchGroup<'q> {
+    let mut grouper = GroupForSubField::new(context, parent_group);
+    split_fields(context, field_path, sub_fields, &mut grouper);
+    grouper.into_groups().pop().unwrap()
 }
 
 fn execution_node_for_group(

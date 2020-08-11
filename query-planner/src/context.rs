@@ -99,6 +99,29 @@ impl<'q> QueryPlanningContext<'q> {
         // panic if we can't find one.
         unimplemented!()
     }
+
+    // TODO(ran) FIXME: move to federation.rs
+    pub fn get_base_service(&self, parent_type: &TypeDefinition) -> String {
+        // panic if we can't find one.
+        unimplemented!()
+    }
+
+    // TODO(ran) FIXME: move to federation.rs
+    pub fn get_key_fields(&self, parent_type: &TypeDefinition, service_name: &str) -> FieldSet {
+        // panic if we can't find one.
+        unimplemented!()
+    }
+
+    // TODO(ran) FIXME: move to federation.rs
+    pub fn get_required_fields(
+        &self,
+        parent_type: &TypeDefinition,
+        field_def: &schema::Field,
+        owning_service: &str,
+    ) -> FieldSet {
+        // panic if we can't find one.
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -161,6 +184,14 @@ impl<'q> FetchGroup<'q> {
             dependent_groups_by_service: HashMap::new(),
             other_dependent_groups: vec![],
         }
+    }
+
+    pub fn dependent_group_for_service<'a>(
+        &'a self,
+        service: String,
+        fields: FieldSet<'q>,
+    ) -> &'a mut FetchGroup<'q> {
+        unimplemented!()
     }
 }
 
