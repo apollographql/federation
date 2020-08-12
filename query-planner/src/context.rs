@@ -166,7 +166,7 @@ impl<'q> QueryPlanningContext<'q> {
         &self,
         field_def: &'q schema::Field<'q>,
         service_name: &'a str,
-    ) -> FieldSet
+    ) -> Vec<&'q str>
     where
         'q: 'a,
     {
@@ -197,7 +197,7 @@ pub struct FetchGroup<'q> {
     // This is only for auto_fragmentization -- which is currently unimplemented
     pub internal_fragments: LinkedHashMap<&'q str, &'q FragmentDefinition<'q>>,
     pub required_fields: FieldSet<'q>,
-    pub provided_fields: FieldSet<'q>,
+    pub provided_fields: Vec<&'q str>,
     pub dependent_groups_by_service: HashMap<String, FetchGroup<'q>>,
     pub other_dependent_groups: Vec<FetchGroup<'q>>,
     pub merge_at: Vec<ResponsePathElement>,
@@ -221,7 +221,7 @@ impl<'q> FetchGroup<'q> {
     pub fn new(
         service_name: String,
         merge_at: Vec<ResponsePathElement>,
-        provided_fields: FieldSet<'q>,
+        provided_fields: Vec<&'q str>,
     ) -> FetchGroup<'q> {
         FetchGroup {
             service_name,

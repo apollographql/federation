@@ -123,7 +123,7 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
                     .parent_group
                     .provided_fields
                     .iter()
-                    .any(|f| f.field_def.name == field_def.name)
+                    .any(|field_name| *field_name == field_def.name)
             {
                 &mut self.parent_group
             } else {
@@ -160,7 +160,7 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
                 self.parent_group
                     .provided_fields
                     .iter()
-                    .any(|f| f.field_def.name == required_field.field_def.name)
+                    .any(|field_name| *field_name == required_field.field_def.name)
             });
             if all_required_fields_are_provided {
                 if owning_service == self.parent_group.service_name {
