@@ -143,7 +143,15 @@ impl<'q> QueryPlanningContext<'q> {
                         });
                         key_fields.extend(collected_fields);
                     } else {
-                        unimplemented!()
+                        if keys.len() > 1 {
+                            panic!("We think this is not possible; get_key_fields should be \
+                            called with fetch_all = false on cases where there's only one key for the service_name. \
+                            Only for the extending service case. \
+                            parent: {}, service_name: {}", parent_type.name().unwrap(), service_name);
+                        }
+                        let mut fields =
+                            collect_fields(self, Rc::clone(&new_scope), keys[0].selection_set());
+                        key_fields.append(&mut fields)
                     }
                 }
             }
