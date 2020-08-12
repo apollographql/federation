@@ -129,16 +129,19 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
             } else {
                 // We need to fetch the key fields from the parent group first, and then
                 // use a dependent fetch from the owning service.
-                let key_fields = self
-                    .context
-                    .get_key_fields(parent_type, &self.parent_group.service_name);
+                let key_fields = self.context.get_key_fields(
+                    parent_type,
+                    &self.parent_group.service_name,
+                    false,
+                );
                 // TODO(ran) FIXME: extern "__typename"
                 let key_fields =
                     if key_fields.len() == 1 && key_fields[0].field_def.name == "__typename" {
                         // Only __typename key found.
                         // In some cases, the parent group does not have any @key directives.
                         // Fall back to owning group's keys
-                        self.context.get_key_fields(parent_type, &owning_service)
+                        self.context
+                            .get_key_fields(parent_type, &owning_service, false)
                     } else {
                         key_fields
                     };
@@ -168,9 +171,11 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
                 }
             } else {
                 // We need to go through the base group first.
-                let key_fields = self
-                    .context
-                    .get_key_fields(parent_type, &self.parent_group.service_name);
+                let key_fields = self.context.get_key_fields(
+                    parent_type,
+                    &self.parent_group.service_name,
+                    false,
+                );
 
                 if base_service == self.parent_group.service_name {
                     self.parent_group

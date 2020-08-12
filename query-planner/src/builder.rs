@@ -92,7 +92,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
     }
 }
 
-fn collect_fields<'q>(
+pub(crate) fn collect_fields<'q>(
     context: &'q QueryPlanningContext<'q>,
     scope: Rc<Scope<'q>>,
     selection_set: SelectionSetRef<'q>,

@@ -1,6 +1,5 @@
-use crate::context::FieldSet;
+use graphql_parser::query::refs::SelectionSetRef;
 use graphql_parser::schema::{Field, ObjectType, TypeDefinition};
-use graphql_parser::Name;
 
 pub struct FederationMetadata {}
 
@@ -14,6 +13,18 @@ impl FederationMetadata {
     }
 
     pub fn belongs_to_value_type(&self) -> bool {
+        unimplemented!()
+    }
+
+    pub fn key(&self, service_name: &str) -> Option<Vec<KeyDirective>> {
+        unimplemented!()
+    }
+}
+
+pub struct KeyDirective {}
+
+impl KeyDirective {
+    pub fn selection_set<'q>(&self) -> SelectionSetRef<'q> {
         unimplemented!()
     }
 }

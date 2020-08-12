@@ -1,3 +1,5 @@
+use crate::builder::collect_fields;
+use crate::consts;
 use crate::federation::{federation_metadata, get_federation_metadata};
 use crate::helpers::Op;
 use crate::model::ResponsePathElement;
@@ -74,7 +76,10 @@ impl<'q> QueryPlanningContext<'q> {
         v.into_iter().unzip()
     }
 
-    pub fn type_def_for_object(&self, obj: &schema::ObjectType) -> &schema::TypeDefinition {
+    pub fn type_def_for_object(
+        &self,
+        obj: &'q schema::ObjectType<'q>,
+    ) -> &'q schema::TypeDefinition<'q> {
         self.names_to_types[obj.name]
     }
 
@@ -102,9 +107,49 @@ impl<'q> QueryPlanningContext<'q> {
         }
     }
 
-    pub fn get_key_fields(&self, parent_type: &TypeDefinition, service_name: &str) -> FieldSet {
-        // panic if we can't find one.
-        unimplemented!()
+    pub fn get_key_fields<'a>(
+        &'q self,
+        parent_type: &'q TypeDefinition<'q>,
+        service_name: &'a str,
+        fetch_all: bool,
+    ) -> FieldSet<'q> {
+        let mut key_fields = vec![];
+
+        key_fields.push(Field {
+            scope: self.new_scope(parent_type, None),
+            field_node: (*consts::TYPENAME_QUERY_FIELD).clone(),
+            field_def: &*consts::TYPENAME_SCHEMA_FIELD,
+        });
+
+        for possible_type in self.get_possible_types(parent_type) {
+            let possible_type = *possible_type;
+            let keys = get_federation_metadata(possible_type).and_then(|md| md.key(service_name));
+
+            match keys {
+                None => continue,
+                Some(keys) if keys.is_empty() => continue,
+                Some(keys) => {
+                    let possible_type: &'q TypeDefinition<'q> =
+                        self.type_def_for_object(possible_type);
+                    let new_scope = self.new_scope(possible_type, None);
+
+                    if fetch_all {
+                        let collected_fields = keys.into_iter().flat_map(|key_directive| {
+                            collect_fields(
+                                self,
+                                Rc::clone(&new_scope),
+                                key_directive.selection_set(),
+                            )
+                        });
+                        key_fields.extend(collected_fields);
+                    } else {
+                        unimplemented!()
+                    }
+                }
+            }
+        }
+
+        key_fields
     }
 
     pub fn get_required_fields(
