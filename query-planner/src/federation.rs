@@ -16,14 +16,22 @@ impl FederationMetadata {
         unimplemented!()
     }
 
-    pub fn key(&self, service_name: &str) -> Option<Vec<KeyDirective>> {
+    pub fn key(&self, service_name: &str) -> Option<Vec<DirectiveSelection>> {
+        unimplemented!()
+    }
+
+    pub fn requires(&self) -> Option<DirectiveSelection> {
+        unimplemented!()
+    }
+
+    pub fn provides(&self) -> Option<DirectiveSelection> {
         unimplemented!()
     }
 }
 
-pub struct KeyDirective {}
+pub struct DirectiveSelection {}
 
-impl KeyDirective {
+impl DirectiveSelection {
     pub fn selection_set<'q>(&self) -> SelectionSetRef<'q> {
         unimplemented!()
     }

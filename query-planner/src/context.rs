@@ -107,6 +107,7 @@ impl<'q> QueryPlanningContext<'q> {
         }
     }
 
+    // TODO(ran) FIXME: for get_X_fields, we can calculate it once from the schema and put it in some maps or something.
     pub fn get_key_fields<'a>(
         &'q self,
         parent_type: &'q TypeDefinition<'q>,
@@ -160,25 +161,60 @@ impl<'q> QueryPlanningContext<'q> {
         key_fields
     }
 
-    pub fn get_required_fields(
-        &self,
-        parent_type: &TypeDefinition,
-        field_def: &schema::Field,
-        owning_service: &str,
-    ) -> FieldSet {
-        // panic if we can't find one.
-        unimplemented!()
-    }
-
-    pub fn get_provided_fields<'a>(
-        &self,
+    pub fn get_required_fields<'a>(
+        &'q self,
+        parent_type: &'q TypeDefinition<'q>,
         field_def: &'q schema::Field<'q>,
         service_name: &'a str,
-    ) -> Vec<&'q str>
-    where
-        'q: 'a,
-    {
-        unimplemented!()
+    ) -> FieldSet<'q> {
+        let mut required_fields = self.get_key_fields(parent_type, service_name, false);
+
+        if let Some(requires) = get_federation_metadata(field_def).and_then(|md| md.requires()) {
+            let mut fields = collect_fields(
+                self,
+                self.new_scope(parent_type, None),
+                requires.selection_set(),
+            );
+            required_fields.append(&mut fields);
+        }
+
+        required_fields
+    }
+
+    // TODO(ran) FIXME: we've discovered that provided fields is only used with
+    //  matchesField which only uses the .field_def.name, so we really just care about
+    //  field names, all collecting here does is "de-selection-set"ing the .provides
+    //  value to get fields, which are later just use for getting names.
+    pub fn get_provided_fields<'a>(
+        &'q self,
+        field_def: &'q schema::Field<'q>,
+        service_name: &'a str,
+    ) -> Vec<&'q str> {
+        let return_type = self.names_to_types[field_def.field_type.name().unwrap()];
+        let field_type_is_not_composite = !return_type.is_composite_type();
+
+        if field_type_is_not_composite {
+            return vec![];
+        }
+
+        let mut provided_fields: Vec<&'q str> = self
+            .get_key_fields(return_type, service_name, true)
+            .into_iter()
+            .map(|f| f.field_def.name)
+            .collect();
+
+        if let Some(provides) = get_federation_metadata(field_def).and_then(|md| md.provides()) {
+            let fields = collect_fields(
+                self,
+                self.new_scope(return_type, None),
+                provides.selection_set(),
+            )
+            .into_iter()
+            .map(|f| f.field_def.name);
+            provided_fields.extend(fields);
+        }
+
+        provided_fields
     }
 }
 
