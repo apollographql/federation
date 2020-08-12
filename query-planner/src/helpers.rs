@@ -63,7 +63,8 @@ pub fn ifaces_to_implementors<'a, 'q>(
         }
     }
 
-    implementing_types
+    implementing_types;
+    unimplemented!()
 }
 
 pub fn names_to_types<'q>(

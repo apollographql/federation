@@ -1,3 +1,4 @@
+use crate::federation::get_federation_metadata;
 use crate::helpers::Op;
 use crate::model::ResponsePathElement;
 use crate::visitors::VariableUsagesMap;
@@ -73,7 +74,10 @@ impl<'q> QueryPlanningContext<'q> {
         v.into_iter().unzip()
     }
 
-    // TODO(ran) FIXME: move to federation.rs
+    pub fn type_def_for_object(&self, obj: &schema::ObjectType) -> &schema::TypeDefinition {
+        self.names_to_types[obj.name]
+    }
+
     pub fn get_provided_fields<'a>(
         &self,
         field_def: &'q schema::Field<'q>,
@@ -85,12 +89,6 @@ impl<'q> QueryPlanningContext<'q> {
         unimplemented!()
     }
 
-    /// find the TypeDefinition enum value that wraps `obj`
-    pub fn type_def_for_object(&self, obj: &schema::ObjectType) -> &schema::TypeDefinition {
-        self.names_to_types[obj.name]
-    }
-
-    // TODO(ran) FIXME: move to federation.rs
     pub fn get_owning_service(
         &self,
         parent_type: &TypeDefinition,
@@ -100,19 +98,24 @@ impl<'q> QueryPlanningContext<'q> {
         unimplemented!()
     }
 
-    // TODO(ran) FIXME: move to federation.rs
+    // TODO(ran) FIXME: we may be able to change this return type to &str
     pub fn get_base_service(&self, parent_type: &TypeDefinition) -> String {
-        // panic if we can't find one.
-        unimplemented!()
+        get_federation_metadata(parent_type)
+            .unwrap_or_else(|| {
+                panic!(
+                    "There is no federation metadata for {}",
+                    parent_type.name().unwrap()
+                )
+            })
+            .service_name
+            .to_string()
     }
 
-    // TODO(ran) FIXME: move to federation.rs
     pub fn get_key_fields(&self, parent_type: &TypeDefinition, service_name: &str) -> FieldSet {
         // panic if we can't find one.
         unimplemented!()
     }
 
-    // TODO(ran) FIXME: move to federation.rs
     pub fn get_required_fields(
         &self,
         parent_type: &TypeDefinition,

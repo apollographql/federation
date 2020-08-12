@@ -1,5 +1,5 @@
 use crate::context::{FetchGroup, QueryPlanningContext};
-use crate::federation::get_federation_type_medatadata;
+use crate::federation::get_federation_metadata;
 use graphql_parser::schema;
 use graphql_parser::schema::{Field, TypeDefinition};
 use std::collections::HashMap;
@@ -104,7 +104,7 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
         parent_type: &'q TypeDefinition<'q>,
         field_def: &'q Field<'q>,
     ) -> &'a mut FetchGroup<'q> {
-        let (base_service, owning_service) = match get_federation_type_medatadata(parent_type) {
+        let (base_service, owning_service) = match get_federation_metadata(parent_type) {
             Some(metadata) if metadata.is_value_type() => (
                 self.parent_group.service_name.clone(),
                 self.parent_group.service_name.clone(),
