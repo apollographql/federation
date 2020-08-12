@@ -26,11 +26,11 @@ pub struct QueryPlanningContext<'q> {
 impl<'q> QueryPlanningContext<'q> {
     pub fn new_scope(
         &self,
-        td: &'q TypeDefinition<'q>,
+        parent_type: &'q TypeDefinition<'q>,
         enclosing_scope: Option<Rc<Scope<'q>>>,
     ) -> Rc<Scope<'q>> {
         let possible_types: Vec<&'q schema::ObjectType<'q>> = self
-            .get_possible_types(td)
+            .get_possible_types(parent_type)
             .iter()
             .copied()
             .filter(|t| {
@@ -42,7 +42,7 @@ impl<'q> QueryPlanningContext<'q> {
             .collect();
 
         Rc::new(Scope {
-            parent_type: td,
+            parent_type,
             possible_types,
             enclosing_scope,
         })

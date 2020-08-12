@@ -25,7 +25,7 @@ pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
         .collect()
 }
 
-pub fn ifaces_to_implementors<'a, 'q>(
+pub fn build_possible_types<'a, 'q>(
     types: &'a HashMap<&'q str, &'q schema::TypeDefinition<'q>>,
 ) -> HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> {
     let mut implementing_types: HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> = HashMap::new();
@@ -33,37 +33,45 @@ pub fn ifaces_to_implementors<'a, 'q>(
     // we must validate that before query planning.
     for &td in types.values() {
         match td {
-            TypeDefinition::Object(ref obj) if !obj.implements_interfaces.is_empty() => {
-                let mut queue: VecDeque<&str> =
-                    VecDeque::from_iter(obj.implements_interfaces.iter().cloned());
+            TypeDefinition::Union(ref union) => {
+                let objects_for_union = union
+                    .types
+                    .iter()
+                    .map(|o_name| letp!(TypeDefinition::Object(obj) = types[*o_name] => obj))
+                    .collect();
+                implementing_types.insert(union.name, objects_for_union);
+            }
+            TypeDefinition::Object(ref obj) => {
+                implementing_types.insert(obj.name, vec![obj]);
 
-                while !queue.is_empty() {
-                    // get iface from queue.
-                    let iface = queue.pop_front().unwrap();
+                if !obj.implements_interfaces.is_empty() {
+                    let mut queue: VecDeque<&str> =
+                        VecDeque::from_iter(obj.implements_interfaces.iter().cloned());
 
-                    // associate iface with obj
-                    implementing_types
-                        .entry(iface)
-                        .or_insert_with(Vec::new)
-                        .push(obj);
-                    println!("adding {:?} to {:?}", obj.name, iface);
+                    while !queue.is_empty() {
+                        // get iface from queue.
+                        let iface = queue.pop_front().unwrap();
 
-                    letp!(
-                        TypeDefinition::Interface(iface) = types[iface] =>
-                            for &iface in &iface.implements_interfaces {
-                                // add them to the queue.
-                                queue.push_back(iface);
-                            }
-                    );
+                        // associate iface with obj
+                        implementing_types
+                            .entry(iface)
+                            .or_insert_with(Vec::new)
+                            .push(obj);
+                        println!("adding {:?} to {:?}", obj.name, iface);
+
+                        letp!(
+                            TypeDefinition::Interface(iface) = types[iface] =>
+                                for &iface in &iface.implements_interfaces {
+                                    // add them to the queue.
+                                    queue.push_back(iface);
+                                }
+                        );
+                    }
                 }
             }
             _ => (),
         }
     }
-
-    unimplemented!();
-    // TODO(ran) FIXME: make sure we also have obj.name -> [obj] mapping
-    //  and maybe also union.name -> [obj,..] mappings, that might be tricky since it also needs a recursion.
 
     implementing_types
 }

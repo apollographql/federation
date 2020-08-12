@@ -37,6 +37,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
 
     let types = names_to_types(schema);
 
+    // TODO(ran) FIXME: see if we can optimize and memoize the stuff we build only using the schema.
     let context = QueryPlanningContext {
         schema,
         operation: ops.pop().unwrap(),
@@ -49,7 +50,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
             })
             .collect(),
         auto_fragmentization: false,
-        possible_types: ifaces_to_implementors(&types),
+        possible_types: build_possible_types(&types),
         variable_name_to_def: variable_name_to_def(query),
         names_to_types: types,
     };
