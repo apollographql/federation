@@ -268,8 +268,10 @@ fn split_fields<'a, 'q: 'a>(
                     .possible_types
                     .iter()
                     .map(|runtime_type| get_field_def_from_obj(runtime_type, field.field_node.name))
-                    .all(|fd| // TODO(ran) FIXME: this is kind of janky. Change.  
-                        get_federation_metadata(fd).is_none());
+                    .all(
+                        |field_def| // TODO(ran) FIXME: this is kind of janky. Change.  
+                        get_federation_metadata(field_def).is_none(),
+                    );
 
                 if has_no_extending_field_defs {
                     let group = grouper.group_for_field(scope.parent_type, field_def);

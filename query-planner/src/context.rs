@@ -1,6 +1,6 @@
 use crate::builder::collect_fields;
 use crate::consts;
-use crate::federation::{federation_metadata, get_federation_metadata};
+use crate::federation::get_federation_metadata;
 use crate::helpers::Op;
 use crate::model::ResponsePathElement;
 use crate::visitors::VariableUsagesMap;
@@ -84,8 +84,9 @@ impl<'q> QueryPlanningContext<'q> {
     }
 
     // TODO(ran) FIXME: we may be able to change this return type to &str
-    pub fn get_base_service(&self, parent_type: &TypeDefinition) -> String {
-        federation_metadata(parent_type)
+    pub fn get_base_service(&self, parent_type: &schema::ObjectType) -> String {
+        get_federation_metadata(parent_type)
+            .expect("Cannot find federation metadata")
             .service_name()
             .unwrap()
             .to_string()
@@ -93,7 +94,7 @@ impl<'q> QueryPlanningContext<'q> {
 
     pub fn get_owning_service(
         &self,
-        parent_type: &TypeDefinition,
+        parent_type: &schema::ObjectType,
         field_def: &schema::Field,
     ) -> String {
         match get_federation_metadata(field_def) {

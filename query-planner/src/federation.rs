@@ -1,5 +1,5 @@
 use graphql_parser::query::refs::SelectionSetRef;
-use graphql_parser::schema::{Field, ObjectType, TypeDefinition};
+use graphql_parser::schema::{Field, ObjectType};
 
 pub struct FederationMetadata {}
 
@@ -39,7 +39,6 @@ impl DirectiveSelection {
 
 pub enum SchemaRef<'q> {
     FieldDef(&'q Field<'q>),
-    TypeDef(&'q TypeDefinition<'q>),
     ObjType(&'q ObjectType<'q>),
 }
 
@@ -56,7 +55,6 @@ macro_rules! impl_from {
 }
 
 impl_from!(Field<'q>, FieldDef);
-impl_from!(TypeDefinition<'q>, TypeDef);
 impl_from!(ObjectType<'q>, ObjType);
 
 pub fn get_federation_metadata<'q, T: Into<SchemaRef<'q>>>(
@@ -64,14 +62,6 @@ pub fn get_federation_metadata<'q, T: Into<SchemaRef<'q>>>(
 ) -> Option<FederationMetadata> {
     match handle.into() {
         SchemaRef::FieldDef(field_def) => unimplemented!(),
-        SchemaRef::TypeDef(type_def) => unimplemented!(),
         SchemaRef::ObjType(object_type) => unimplemented!(),
     }
-}
-
-pub fn federation_metadata<'q, T>(handle: T) -> FederationMetadata
-where
-    T: Into<SchemaRef<'q>>,
-{
-    get_federation_metadata(handle).expect("Cannot find federation metadata")
 }

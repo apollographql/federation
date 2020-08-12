@@ -35,6 +35,14 @@ impl<'q> GroupForField<'q> for ParallelGroupForField<'q> {
         parent_type: &'q TypeDefinition<'q>,
         field_def: &'q schema::Field<'q>,
     ) -> &'a mut FetchGroup<'q> {
+        let parent_type = match parent_type {
+            TypeDefinition::Object(obj) => obj,
+            _ => unreachable!(
+                "Based on the .ts implementation, it's impossible to call this \
+                function with a parent_type that is not an ObjectType"
+            ),
+        };
+
         let service_name = self.context.get_owning_service(parent_type, field_def);
 
         self.groups_map
@@ -68,6 +76,14 @@ impl<'q> GroupForField<'q> for SerialGroupForField<'q> {
         parent_type: &'q TypeDefinition<'q>,
         field_def: &'q Field<'q>,
     ) -> &'a mut FetchGroup<'q> {
+        let parent_type = match parent_type {
+            TypeDefinition::Object(obj) => obj,
+            _ => unreachable!(
+                "Based on the .ts implementation, it's impossible to call this \
+                function with a parent_type that is not an ObjectType"
+            ),
+        };
+
         let service_name = self.context.get_owning_service(parent_type, field_def);
 
         match self.groups.last() {
@@ -104,14 +120,22 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
         parent_type: &'q TypeDefinition<'q>,
         field_def: &'q Field<'q>,
     ) -> &'a mut FetchGroup<'q> {
-        let (base_service, owning_service) = match get_federation_metadata(parent_type) {
+        let obj_type = match parent_type {
+            TypeDefinition::Object(obj) => obj,
+            _ => unreachable!(
+                "Based on the .ts implementation, it's impossible to call this \
+                function with a parent_type that is not an ObjectType"
+            ),
+        };
+
+        let (base_service, owning_service) = match get_federation_metadata(obj_type) {
             Some(metadata) if metadata.is_value_type() => (
                 self.parent_group.service_name.clone(),
                 self.parent_group.service_name.clone(),
             ),
             _ => (
-                self.context.get_base_service(parent_type),
-                self.context.get_owning_service(parent_type, field_def),
+                self.context.get_base_service(obj_type),
+                self.context.get_owning_service(obj_type, field_def),
             ),
         };
 
