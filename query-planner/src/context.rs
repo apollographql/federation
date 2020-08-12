@@ -1,4 +1,4 @@
-use crate::federation::get_federation_metadata;
+use crate::federation::{federation_metadata, get_federation_metadata};
 use crate::helpers::Op;
 use crate::model::ResponsePathElement;
 use crate::visitors::VariableUsagesMap;
@@ -78,15 +78,12 @@ impl<'q> QueryPlanningContext<'q> {
         self.names_to_types[obj.name]
     }
 
-    pub fn get_provided_fields<'a>(
-        &self,
-        field_def: &'q schema::Field<'q>,
-        service_name: &'a str,
-    ) -> FieldSet
-    where
-        'q: 'a,
-    {
-        unimplemented!()
+    // TODO(ran) FIXME: we may be able to change this return type to &str
+    pub fn get_base_service(&self, parent_type: &TypeDefinition) -> String {
+        federation_metadata(parent_type)
+            .service_name()
+            .unwrap()
+            .to_string()
     }
 
     pub fn get_owning_service(
@@ -94,21 +91,15 @@ impl<'q> QueryPlanningContext<'q> {
         parent_type: &TypeDefinition,
         field_def: &schema::Field,
     ) -> String {
-        // panic if we can't find one.
-        unimplemented!()
-    }
-
-    // TODO(ran) FIXME: we may be able to change this return type to &str
-    pub fn get_base_service(&self, parent_type: &TypeDefinition) -> String {
-        get_federation_metadata(parent_type)
-            .unwrap_or_else(|| {
-                panic!(
-                    "There is no federation metadata for {}",
-                    parent_type.name().unwrap()
-                )
-            })
-            .service_name
-            .to_string()
+        match get_federation_metadata(field_def) {
+            Some(fed_metadata)
+                if fed_metadata.service_name().is_some()
+                    && !fed_metadata.belongs_to_value_type() =>
+            {
+                fed_metadata.service_name().unwrap()
+            }
+            _ => self.get_base_service(parent_type),
+        }
     }
 
     pub fn get_key_fields(&self, parent_type: &TypeDefinition, service_name: &str) -> FieldSet {
@@ -123,6 +114,17 @@ impl<'q> QueryPlanningContext<'q> {
         owning_service: &str,
     ) -> FieldSet {
         // panic if we can't find one.
+        unimplemented!()
+    }
+
+    pub fn get_provided_fields<'a>(
+        &self,
+        field_def: &'q schema::Field<'q>,
+        service_name: &'a str,
+    ) -> FieldSet
+    where
+        'q: 'a,
+    {
         unimplemented!()
     }
 }

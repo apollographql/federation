@@ -1,12 +1,19 @@
 use crate::context::FieldSet;
 use graphql_parser::schema::{Field, ObjectType, TypeDefinition};
+use graphql_parser::Name;
 
-pub struct FederationMetadata<'q> {
-    pub service_name: &'q str,
-}
+pub struct FederationMetadata {}
 
-impl<'q> FederationMetadata<'q> {
+impl FederationMetadata {
     pub fn is_value_type(&self) -> bool {
+        unimplemented!()
+    }
+
+    pub fn service_name(&self) -> Option<String> {
+        unimplemented!()
+    }
+
+    pub fn belongs_to_value_type(&self) -> bool {
         unimplemented!()
     }
 }
@@ -35,10 +42,17 @@ impl_from!(ObjectType<'q>, ObjType);
 
 pub fn get_federation_metadata<'q, T: Into<SchemaRef<'q>>>(
     handle: T,
-) -> Option<FederationMetadata<'q>> {
+) -> Option<FederationMetadata> {
     match handle.into() {
         SchemaRef::FieldDef(field_def) => unimplemented!(),
         SchemaRef::TypeDef(type_def) => unimplemented!(),
         SchemaRef::ObjType(object_type) => unimplemented!(),
     }
+}
+
+pub fn federation_metadata<'q, T>(handle: T) -> FederationMetadata
+where
+    T: Into<SchemaRef<'q>>,
+{
+    get_federation_metadata(handle).expect("Cannot find federation metadata")
 }

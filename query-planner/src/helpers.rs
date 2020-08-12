@@ -28,8 +28,6 @@ pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
 pub fn ifaces_to_implementors<'a, 'q>(
     types: &'a HashMap<&'q str, &'q schema::TypeDefinition<'q>>,
 ) -> HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> {
-    // TODO(ran) FIXME: make sure we also have obj.name -> [obj] mapping
-    //  and maybe also union.name -> [obj,..] mappings, that might be tricky since it also needs a recursion.
     let mut implementing_types: HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> = HashMap::new();
     // NB: This will loop infinitely if the schema has implementation loops (A: B, B: A)
     // we must validate that before query planning.
@@ -63,8 +61,11 @@ pub fn ifaces_to_implementors<'a, 'q>(
         }
     }
 
-    implementing_types;
-    unimplemented!()
+    unimplemented!();
+    // TODO(ran) FIXME: make sure we also have obj.name -> [obj] mapping
+    //  and maybe also union.name -> [obj,..] mappings, that might be tricky since it also needs a recursion.
+
+    implementing_types
 }
 
 pub fn names_to_types<'q>(
