@@ -270,18 +270,13 @@ fn split_fields<'a, 'q: 'a>(
                 let has_no_extending_field_defs = scope
                     .possible_types
                     .iter()
-                    .map(|runtime_type| {
-                        (
-                            runtime_type,
-                            get_field_def!(runtime_type, field.field_node.name),
-                        )
-                    })
+                    .map(|runtime_type| get_field_def!(runtime_type, field.field_node.name))
                     .all(
                         // TODO(ran) FIXME: this is kind of janky. Change.
-                        |(runtime_type, field_def)| {
+                        |field_def| {
                             context
                                 .federation
-                                .service_name_for_field(field_def, Some(*runtime_type))
+                                .service_name_for_field(field_def)
                                 .is_none()
                         },
                     );

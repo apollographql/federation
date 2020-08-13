@@ -96,7 +96,7 @@ impl<'q> QueryPlanningContext<'q> {
         field_def: &schema::Field,
     ) -> String {
         self.federation
-            .service_name_for_field(field_def, Some(parent_type))
+            .service_name_for_field(field_def)
             .unwrap_or_else(|| self.get_base_service(parent_type))
     }
 
