@@ -48,10 +48,6 @@ impl<'q> QueryPlanningContext<'q> {
         })
     }
 
-    pub fn get_type(&self, type_name: &str) -> &TypeDefinition {
-        self.names_to_types[type_name]
-    }
-
     fn get_possible_types(&self, td: &'q TypeDefinition<'q>) -> &Vec<&'q schema::ObjectType<'q>> {
         &self.possible_types[td.name().unwrap()]
     }
@@ -175,12 +171,17 @@ impl<'q> QueryPlanningContext<'q> {
         field_def: &'q schema::Field<'q>,
         service_name: &'a str,
     ) -> Vec<&'q str> {
-        let return_type = self.names_to_types[field_def.field_type.name().unwrap()];
-        let field_type_is_not_composite = !return_type.is_composite_type();
+        let return_type = self
+            .names_to_types
+            .get(field_def.field_type.name().unwrap());
+        let field_type_is_not_composite =
+            return_type.is_none() || !return_type.unwrap().is_composite_type();
 
         if field_type_is_not_composite {
             return vec![];
         }
+
+        let return_type = return_type.unwrap();
 
         let mut provided_fields: Vec<&'q str> = self
             .get_key_fields(return_type, service_name, true)

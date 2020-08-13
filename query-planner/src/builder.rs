@@ -61,9 +61,9 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
     let is_mutation = context.operation.kind.as_str() == "mutation";
 
     let root_type = if is_mutation {
-        context.get_type("Mutation")
+        context.names_to_types["Mutation"]
     } else {
-        context.get_type("Query")
+        context.names_to_types["Query"]
     };
 
     let fields = collect_fields(
@@ -344,15 +344,18 @@ fn complete_field<'a, 'q: 'a>(
     fields: FieldSet<'q>,
 ) {
     let field: context::Field = {
-        let return_type = context.names_to_types[fields[0].field_def.field_type.name().unwrap()];
+        let type_name = fields[0].field_def.field_type.name().unwrap();
+        // the type_name could be a primitive type which is not in our names_to_types map.
+        let return_type = context.names_to_types.get(type_name);
 
-        if !return_type.is_composite_type() {
+        if return_type.is_none() || !return_type.unwrap().is_composite_type() {
             let mut fields = fields;
             context::Field {
                 scope,
                 ..fields.pop().unwrap()
             }
         } else {
+            let return_type = return_type.unwrap();
             let (head, tail) = fields.head();
 
             let field_path = add_path(
@@ -590,8 +593,14 @@ fn selection_set_from_field_set<'q>(
                 .field_type
                 .name()
                 .unwrap();
-            let td = context.names_to_types[name];
-            td.is_composite_type()
+
+            // NB: we don't have specified types (i.e. primitives) in our map.
+            // They are not composite types.
+            context
+                .names_to_types
+                .get(name)
+                .map(|td| td.is_composite_type())
+                .unwrap_or(false)
         };
 
         if !is_composite_type || fields_with_same_reponse_name.len() == 1 {
