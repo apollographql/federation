@@ -880,7 +880,6 @@ type Mutation {
     fn simple_case_attempt_1() {
         let query = parse_query("query { me { name id } bill { sum } }").unwrap();
         let schema = parse_schema(schema()).unwrap();
-        println!("{:?}", schema);
 
         let result = build_query_plan(&schema, &query).unwrap();
         let expected = QueryPlan {

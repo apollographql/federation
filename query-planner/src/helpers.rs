@@ -57,7 +57,6 @@ pub fn build_possible_types<'a, 'q>(
                             .entry(iface)
                             .or_insert_with(Vec::new)
                             .push(obj);
-                        println!("adding {:?} to {:?}", obj.name, iface);
 
                         letp!(
                             TypeDefinition::Interface(iface) = types[iface] =>

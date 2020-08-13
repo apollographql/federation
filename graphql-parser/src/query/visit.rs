@@ -2,6 +2,7 @@ use super::{Definition, Document, Selection, SelectionSet};
 use crate::query::refs::{SelectionRef, SelectionSetRef};
 use crate::{visit, visit_each};
 
+// TODO(ran) FIXME: consider separating the visitor to RefVisitor
 #[allow(unused_variables)]
 pub trait Visitor {
     fn enter_query(&mut self, doc: &Document) {}
@@ -22,7 +23,9 @@ pub trait Map: visit::Map {
     fn query(&mut self, doc: &Document, stack: &[Self::Output]) -> Self::Output;
     fn query_def(&mut self, def: &Definition, stack: &[Self::Output]) -> Self::Output;
     fn sel_set(&mut self, sel_set: &SelectionSet, stack: &[Self::Output]) -> Self::Output;
+    fn sel_set_ref(&mut self, sel_set: &SelectionSetRef, stack: &[Self::Output]) -> Self::Output;
     fn sel(&mut self, sel: &Selection, stack: &[Self::Output]) -> Self::Output;
+    fn sel_ref(&mut self, sel: &SelectionRef, stack: &[Self::Output]) -> Self::Output;
 }
 
 impl<M: Map> Visitor for visit::Fold<M> {
@@ -35,15 +38,35 @@ impl<M: Map> Visitor for visit::Fold<M> {
     fn enter_sel_set(&mut self, sel_set: &SelectionSet) {
         self.stack.push(self.map.sel_set(sel_set, &self.stack));
     }
+
+    fn enter_sel_set_ref(&mut self, sel_set: &SelectionSetRef) {
+        self.stack.push(self.map.sel_set_ref(sel_set, &self.stack));
+    }
+
     fn enter_sel(&mut self, sel: &Selection) {
         self.stack.push(self.map.sel(&sel, &self.stack));
     }
+
+    fn enter_sel_ref(&mut self, sel: &SelectionRef) {
+        self.stack.push(self.map.sel_ref(&sel, &self.stack));
+    }
+
     fn leave_sel(&mut self, _sel: &Selection) {
         self.pop();
     }
+
+    fn leave_sel_ref(&mut self, _sel: &SelectionRef) {
+        self.pop();
+    }
+
     fn leave_sel_set(&mut self, _sel_set: &SelectionSet) {
         self.pop();
     }
+
+    fn leave_sel_set_ref(&mut self, _sel_set: &SelectionSetRef) {
+        self.pop();
+    }
+
     fn leave_query_def(&mut self, _def: &Definition) {
         self.pop();
     }
@@ -109,6 +132,7 @@ impl<'a> Node for Selection<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::query::refs::{SelectionRef, SelectionSetRef};
     use crate::{parse_query, query, query::*, visit, ParseError};
 
     #[test]
@@ -233,8 +257,20 @@ mod tests {
             ) -> Self::Output {
                 format!("{}sel_set", "    ".repeat(stack.len()))
             }
+            fn sel_set_ref(
+                &mut self,
+                _sel_set: &SelectionSetRef,
+                _stack: &[Self::Output],
+            ) -> Self::Output {
+                unreachable!()
+            }
+
             fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Self::Output]) -> Self::Output {
                 format!("{}sel", "    ".repeat(stack.len()))
+            }
+
+            fn sel_ref(&mut self, _sel: &SelectionRef, _stack: &[Self::Output]) -> Self::Output {
+                unreachable!()
             }
         }
 

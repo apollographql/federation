@@ -121,6 +121,7 @@
 //!
 //! ```rust
 //! use graphql_parser::{parse_query, Map, query, query::{Node, Document, Definition, SelectionSet, Selection}};
+//! use graphql_parser::query::refs::{SelectionRef, SelectionSetRef};
 //! let ast = graphql_parser::parse_query(r#"
 //! query {
 //!     someField
@@ -150,8 +151,14 @@
 //!     fn sel_set<'a>(&mut self, _: &SelectionSet<'a>, stack: &[Self::Output]) -> Self::Output {
 //!         format!("{}sel_set", "  ".repeat(stack.len()))
 //!     }
+//!     fn sel_set_ref(&mut self,sel_set: &SelectionSetRef<'a>,stack: &[Self::Output]) -> Self::Output {
+//!         unreachable!()
+//!     }
 //!     fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Self::Output]) -> Self::Output {
 //!         format!("{}sel", "  ".repeat(stack.len()))
+//!     }
+//!     fn sel_ref(&mut self,sel: &SelectionRef<'a>,stack: &[Self::Output]) -> Self::Output {
+//!         unreachable!()
 //!     }
 //! }
 //!

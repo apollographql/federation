@@ -128,16 +128,20 @@ impl<'a> Node for SelectionSetRef<'a> {
 
 impl<'a> Node for SelectionRef<'a> {
     fn accept<V: Visitor>(&self, visitor: &mut V) {
-        visitor.enter_sel_ref(self);
-        {
-            use SelectionRef::*;
-            match self {
-                Ref(sel) => visitor.enter_sel(sel),
-                Field(field) => field.selection_set.accept(visitor),
-                FieldRef(field_ref) => field_ref.selection_set.accept(visitor),
-                InlineFragmentRef(ifr) => ifr.selection_set.accept(visitor),
+        if let SelectionRef::Ref(sel) = self {
+            sel.accept(visitor)
+        } else {
+            visitor.enter_sel_ref(self);
+            {
+                use SelectionRef::*;
+                match self {
+                    Field(field) => field.selection_set.accept(visitor),
+                    FieldRef(field_ref) => field_ref.selection_set.accept(visitor),
+                    InlineFragmentRef(ifr) => ifr.selection_set.accept(visitor),
+                    _ => unreachable!(),
+                }
             }
+            visitor.leave_sel_ref(self);
         }
-        visitor.leave_sel_ref(self);
     }
 }
