@@ -1,6 +1,6 @@
 use crate::builder::collect_fields;
 use crate::consts;
-use crate::federation::{fed_field_metadata, fed_obj_metadata};
+use crate::federation::Federation;
 use crate::helpers::Op;
 use crate::visitors::VariableUsagesMap;
 use graphql_parser::query::refs::{FieldRef, SelectionSetRef};
@@ -11,7 +11,7 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct QueryPlanningContext<'q> {
     pub schema: &'q schema::Document<'q>,
     pub operation: Op<'q>,
@@ -19,6 +19,7 @@ pub struct QueryPlanningContext<'q> {
     pub possible_types: HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>>,
     pub names_to_types: HashMap<&'q str, &'q TypeDefinition<'q>>,
     pub variable_name_to_def: HashMap<&'q str, &'q VariableDefinition<'q>>,
+    pub federation: Federation<'q>,
     pub auto_fragmentization: bool,
 }
 
@@ -84,9 +85,9 @@ impl<'q> QueryPlanningContext<'q> {
 
     // TODO(ran) FIXME: we may be able to change this return type to &str
     pub fn get_base_service(&self, parent_type: &schema::ObjectType) -> String {
-        fed_obj_metadata(parent_type)
+        self.federation
+            .service_name_for_type(parent_type)
             .expect("Cannot find federation metadata")
-            .service_name()
     }
 
     pub fn get_owning_service(
@@ -94,13 +95,9 @@ impl<'q> QueryPlanningContext<'q> {
         parent_type: &schema::ObjectType,
         field_def: &schema::Field,
     ) -> String {
-        match fed_field_metadata(field_def, Some(parent_type)) {
-            Some(fed_metadata) if !fed_metadata.belongs_to_value_type() => {
-                // TODO(ran) FIXME: TOMORROW: Ask trevor how we can get to this if case, see is_value_type
-                fed_metadata.service_name()
-            }
-            _ => self.get_base_service(parent_type),
-        }
+        self.federation
+            .service_name_for_field(field_def, Some(parent_type))
+            .unwrap_or_else(|| self.get_base_service(parent_type))
     }
 
     // TODO(ran) FIXME: for get_X_fields, we can calculate it once from the schema and put it in some maps or something.
@@ -120,7 +117,7 @@ impl<'q> QueryPlanningContext<'q> {
 
         for possible_type in self.get_possible_types(parent_type) {
             let possible_type = *possible_type;
-            let keys = fed_obj_metadata(possible_type).and_then(|md| md.key(service_name));
+            let keys = self.federation.key(possible_type, service_name);
 
             match keys {
                 None => continue,
@@ -159,19 +156,9 @@ impl<'q> QueryPlanningContext<'q> {
         field_def: &'q schema::Field<'q>,
         service_name: &'a str,
     ) -> FieldSet<'q> {
-        let obj_type = match parent_type {
-            TypeDefinition::Object(obj) => obj,
-            _ => unreachable!(
-                "Based on the .ts implementation, it's impossible to call this \
-                function with a parent_type that is not an ObjectType"
-            ),
-        };
-
         let mut required_fields = self.get_key_fields(parent_type, service_name, false);
 
-        if let Some(requires) =
-            fed_field_metadata(field_def, Some(obj_type)).and_then(|md| md.requires())
-        {
+        if let Some(requires) = self.federation.requires(field_def) {
             let mut fields = collect_fields(self, self.new_scope(parent_type, None), requires);
             required_fields.append(&mut fields);
         }
@@ -201,7 +188,7 @@ impl<'q> QueryPlanningContext<'q> {
             .map(|f| f.field_def.name)
             .collect();
 
-        if let Some(provides) = fed_field_metadata(field_def, None).and_then(|md| md.provides()) {
+        if let Some(provides) = self.federation.provides(field_def) {
             // TODO(ran) FIXME: redundant allocations happening here.
             let fields = collect_fields(self, self.new_scope(return_type, None), provides)
                 .into_iter()

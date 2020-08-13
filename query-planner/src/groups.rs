@@ -1,5 +1,4 @@
 use crate::context::{FieldSet, QueryPlanningContext};
-use crate::federation::fed_obj_metadata;
 use crate::model::ResponsePathElement;
 use graphql_parser::query::FragmentDefinition;
 use graphql_parser::schema;
@@ -193,15 +192,16 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
             ),
         };
 
-        let (base_service, owning_service) = match fed_obj_metadata(obj_type) {
-            Some(metadata) if metadata.is_value_type() => (
+        let (base_service, owning_service) = if self.context.federation.is_value_type(obj_type) {
+            (
                 self.parent_group.service_name.clone(),
                 self.parent_group.service_name.clone(),
-            ),
-            _ => (
+            )
+        } else {
+            (
                 self.context.get_base_service(obj_type),
                 self.context.get_owning_service(obj_type, field_def),
-            ),
+            )
         };
 
         // Is the field defined on the base service?

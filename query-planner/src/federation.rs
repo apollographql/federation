@@ -1,79 +1,73 @@
 use graphql_parser::query::refs::SelectionSetRef;
-use graphql_parser::schema::{Directive, Field, ObjectType, Value};
+use graphql_parser::schema::{Document, Field, ObjectType, Txt};
+use graphql_parser::Pos;
+use std::collections::HashMap;
 
-pub struct FedFieldMetadata {
-    service_name: String,
+#[derive(Debug, PartialEq)]
+struct FederationTypeMetadata<'q> {
+    type_is_value_type: HashMap<Pos, bool>,
+    type_keys: HashMap<Pos, HashMap<Txt<'q>, Vec<SelectionSetRef<'q>>>>,
+    type_service_name: HashMap<Pos, Txt<'q>>,
 }
 
-impl FedFieldMetadata {
-    // from @owner on type, and @resolve on field.
-    // but if there are no directives, we need to check the parent. move this stuff to context.
-    pub fn service_name(&self) -> String {
-        // TODO(ran) FIXME: check if this can be a &str
-        self.service_name.clone()
-    }
+#[derive(Debug, PartialEq)]
+struct FederationFieldMetadata<'q> {
+    field_service_name: HashMap<Pos, Txt<'q>>,
+    field_requires: HashMap<Pos, SelectionSetRef<'q>>,
+    field_provides: HashMap<Pos, SelectionSetRef<'q>>,
+}
 
-    // only on a field
-    pub fn requires<'q>(&self) -> Option<SelectionSetRef<'q>> {
+#[derive(Debug, PartialEq)]
+pub struct Federation<'q> {
+    types: FederationTypeMetadata<'q>,
+    fields: FederationFieldMetadata<'q>,
+}
+
+impl<'q> Federation<'q> {
+    pub fn new(schema: &'q Document<'q>) -> Federation<'q> {
         unimplemented!()
     }
 
-    // only on a field
-    pub fn provides<'q>(&self) -> Option<SelectionSetRef<'q>> {
-        unimplemented!()
+    pub fn service_name_for_field(
+        &self,
+        field_def: &'q Field<'q>,
+        parent_type: Option<&'q ObjectType<'q>>,
+    ) -> Option<String> {
+        self.fields
+            .field_service_name
+            .get(&field_def.position)
+            .map(|s| String::from(*s))
+            .or_else(|| parent_type.and_then(|pt| self.service_name_for_type(pt)))
     }
 
-    // only on fields where the parent is a value type.
-    pub fn belongs_to_value_type(&self) -> bool {
-        unimplemented!()
-    }
-}
-
-pub struct FedObjectMetadata {
-    service_name: String,
-}
-
-impl FedObjectMetadata {
-    // from @owner on type, and @resolve on field.
-    // but if there are no directives, we need to check the parent. move this stuff to context.
-    pub fn service_name(&self) -> String {
-        // TODO(ran) FIXME: check if this can be a &str
-        self.service_name.clone()
+    pub fn requires(&self, field_def: &'q Field<'q>) -> Option<SelectionSetRef<'q>> {
+        // we can clone these, they're tiny.
+        self.fields.field_requires.get(&field_def.position).cloned()
     }
 
-    pub fn key<'q>(&self, service_name: &str) -> Option<Vec<SelectionSetRef<'q>>> {
-        unimplemented!()
+    pub fn provides(&self, field_def: &'q Field<'q>) -> Option<SelectionSetRef<'q>> {
+        self.fields.field_provides.get(&field_def.position).cloned()
     }
 
-    // every type that is not an entitiy (i.e. a type with an @owner)
-    // TODO(ran) FIXME: @trevor to verify this ^^
-    // false for fields
-    pub fn is_value_type(&self) -> bool {
-        unimplemented!()
+    pub fn service_name_for_type(&self, object_type: &'q ObjectType<'q>) -> Option<String> {
+        self.types
+            .type_service_name
+            .get(&object_type.position)
+            .map(|s| String::from(*s))
     }
-}
 
-pub fn fed_field_metadata<'q>(
-    field_def: &'q Field<'q>,
-    parent_type: Option<&'q ObjectType<'q>>,
-) -> Option<FedFieldMetadata> {
-    match get_directive!(field_def.directives, "resolve").next() {
-        Some(d) => Some(FedFieldMetadata {
-            service_name: service_name_from_directive(d),
-        }),
-        None => parent_type
-            .and_then(|parent_type| fed_obj_metadata(parent_type).map(|md| md.service_name()))
-            .map(|service_name| FedFieldMetadata { service_name }),
+    pub fn key(
+        &self,
+        object_type: &'q ObjectType<'q>,
+        service_name: &str,
+    ) -> Option<Vec<SelectionSetRef<'q>>> {
+        self.types
+            .type_keys
+            .get(&object_type.position)
+            .and_then(|keys_map| keys_map.get(service_name).map(|v| v.clone()))
     }
-}
 
-pub fn fed_obj_metadata<'q>(object_type: &'q ObjectType<'q>) -> Option<FedObjectMetadata> {
-    let d = get_directive!(object_type.directives, "owner").next();
-    d.map(|d| FedObjectMetadata {
-        service_name: service_name_from_directive(d),
-    })
-}
-
-fn service_name_from_directive(d: &Directive) -> String {
-    letp!(Value::String(str) = &d.arguments[0].1 => str.clone())
+    pub fn is_value_type(&self, object_type: &'q ObjectType<'q>) -> bool {
+        self.types.type_is_value_type[&object_type.position]
+    }
 }

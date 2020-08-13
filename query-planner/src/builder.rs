@@ -1,6 +1,6 @@
 use crate::consts;
 use crate::context::*;
-use crate::federation::fed_field_metadata;
+use crate::federation::Federation;
 use crate::groups::{
     FetchGroup, GroupForField, GroupForSubField, ParallelGroupForField, SerialGroupForField,
 };
@@ -54,6 +54,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
         auto_fragmentization: false,
         possible_types: build_possible_types(&types),
         variable_name_to_def: variable_name_to_def(query),
+        federation: Federation::new(schema),
         names_to_types: types,
     };
 
@@ -278,7 +279,10 @@ fn split_fields<'a, 'q: 'a>(
                     .all(
                         // TODO(ran) FIXME: this is kind of janky. Change.
                         |(runtime_type, field_def)| {
-                            fed_field_metadata(field_def, Some(*runtime_type)).is_none()
+                            context
+                                .federation
+                                .service_name_for_field(field_def, Some(*runtime_type))
+                                .is_none()
                         },
                     );
 
