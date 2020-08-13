@@ -825,19 +825,19 @@ type Query {
 
 type Bill 
 @owner(graph: "bills")
-@key(fields: "id", graph: "bills") 
-@key(fields: "id", graph: "accounts")
+@key(fields: "{id}", graph: "bills") 
+@key(fields: "{id}", graph: "accounts")
 {
   id: ID!
   sum: Float
   tip: Float
 } 
 
-type PasswordAccount @key(fields: "email", graph: "accounts") {
+type PasswordAccount @key(fields: "{email}", graph: "accounts") {
   email: String!
 }
 
-type SMSAccount @key(fields: "number", graph: "accounts") {
+type SMSAccount @key(fields: "{number}", graph: "accounts") {
   number: String
 }
 
@@ -851,7 +851,7 @@ type UserMetadata {
 
 type User
 @owner(graph: "accounts")
-@key(fields: "id", graph: "accounts") {
+@key(fields: "{id}", graph: "accounts") {
   id: ID!
   name: String
   bill: Bill @resolve(graph: "bills")

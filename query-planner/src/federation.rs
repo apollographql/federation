@@ -3,7 +3,6 @@ use graphql_parser::query::refs::SelectionSetRef;
 use graphql_parser::schema::*;
 use graphql_parser::{parse_query, Pos};
 use std::collections::HashMap;
-use std::sync::Mutex;
 
 #[derive(Debug, PartialEq)]
 struct FederationTypeMetadata<'q> {
@@ -74,17 +73,17 @@ impl<'q> Federation<'q> {
                 }
 
                 // keys
+                let mut keys_for_obj: HashMap<String, Vec<query::SelectionSet<'q>>> =
+                    HashMap::new();
+
                 let graph_to_key_tuples = get_directive!(obj_type.directives, "key")
                     .map(|key_dir| directive_args_as_map(&key_dir.arguments))
                     .map(|args| {
                         (
-                            args["graph"].clone(),
-                            as_selection_set_ref(args["fields"].clone()),
+                            String::from(args["graph"]),
+                            as_selection_set_ref(args["fields"]),
                         )
                     });
-
-                let mut keys_for_obj: HashMap<String, Vec<query::SelectionSet<'q>>> =
-                    HashMap::new();
 
                 for (graph, key) in graph_to_key_tuples {
                     keys_for_obj.entry(graph).or_insert(vec![]).push(key)
@@ -99,13 +98,13 @@ impl<'q> Federation<'q> {
                     for d in field.directives.iter() {
                         match d.name {
                             "requires" => {
-                                let requires = letp!((_, Value::String(requires)) = &d.arguments[0] => requires.clone());
+                                let requires = letp!((_, Value::String(requires)) = &d.arguments[0] => requires);
                                 fields
                                     .requires
                                     .insert(field.position, as_selection_set_ref(requires));
                             }
                             "provides" => {
-                                let provides = letp!((_, Value::String(provides)) = &d.arguments[0] => provides.clone());
+                                let provides = letp!((_, Value::String(provides)) = &d.arguments[0] => provides);
                                 fields
                                     .provides
                                     .insert(field.position, as_selection_set_ref(provides));
@@ -179,24 +178,20 @@ impl<'q> Federation<'q> {
     }
 }
 
-fn as_selection_set_ref<'q>(value: String) -> query::SelectionSet<'q> {
-    unimplemented!()
-
-    // STRINGS.lock().unwrap().push(format!("{{ {} }}", value));
-    // let temp_query: &'static str = STRINGS.lock().unwrap().last().unwrap();
-    // let ss = parse_query(temp_query)
-    //     .expect("failed parsing directive value as selection set")
-    //     .definitions
-    //     .pop()
-    //     .unwrap();
-    // letp!(query::Definition::SelectionSet(ss) = ss => ss)
+fn as_selection_set_ref(value: &str) -> query::SelectionSet {
+    let ss = parse_query(value)
+        .expect("failed parsing directive value as selection set")
+        .definitions
+        .pop()
+        .unwrap();
+    letp!(query::Definition::SelectionSet(ss) = ss => ss)
 }
 
-fn directive_args_as_map<'q>(args: &'q Vec<(Txt<'q>, Value<'q>)>) -> HashMap<Txt<'q>, String> {
+fn directive_args_as_map<'q>(args: &'q Vec<(Txt<'q>, Value<'q>)>) -> HashMap<Txt<'q>, Txt<'q>> {
     args.iter()
         .map(|(k, v)| {
-            let str = letp!(Value::String(str) = v => str.clone());
-            (*k, str)
+            let str = letp!(Value::String(str) = v => str);
+            (*k, str.as_str())
         })
         .collect()
 }
