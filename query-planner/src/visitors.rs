@@ -73,7 +73,7 @@ impl<'q> Map for VariableUsagesMap<'q> {
     }
 }
 
-fn output_from_sel_args<'q>(args: &'q Vec<(&'q str, Value)>) -> Vec<String> {
+fn output_from_sel_args(args: &[(&str, Value)]) -> Vec<String> {
     args.iter()
         .flat_map(|(_, v)| variable_usage_from_value(v))
         .collect()

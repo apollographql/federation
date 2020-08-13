@@ -86,7 +86,7 @@ impl<'q> Federation<'q> {
                     });
 
                 for (graph, key) in graph_to_key_tuples {
-                    keys_for_obj.entry(graph).or_insert(vec![]).push(key)
+                    keys_for_obj.entry(graph).or_insert_with(Vec::new).push(key)
                 }
 
                 types.keys.insert(obj_type.position, keys_for_obj);
@@ -131,10 +131,7 @@ impl<'q> Federation<'q> {
     }
 
     pub fn service_name_for_field<'a>(&'a self, field_def: &'q Field<'q>) -> Option<String> {
-        self.fields
-            .service_name
-            .get(&field_def.position)
-            .map(|s| s.clone())
+        self.fields.service_name.get(&field_def.position).cloned()
     }
 
     pub fn requires<'a>(&'a self, field_def: &'q Field<'q>) -> Option<SelectionSetRef<'a>> {
@@ -152,10 +149,7 @@ impl<'q> Federation<'q> {
     }
 
     pub fn service_name_for_type<'a>(&'a self, object_type: &'q ObjectType<'q>) -> Option<String> {
-        self.types
-            .owner
-            .get(&object_type.position)
-            .map(|s| s.clone())
+        self.types.owner.get(&object_type.position).cloned()
     }
 
     pub fn key<'a>(
@@ -187,7 +181,7 @@ fn as_selection_set_ref(value: &str) -> query::SelectionSet {
     letp!(query::Definition::SelectionSet(ss) = ss => ss)
 }
 
-fn directive_args_as_map<'q>(args: &'q Vec<(Txt<'q>, Value<'q>)>) -> HashMap<Txt<'q>, Txt<'q>> {
+fn directive_args_as_map<'q>(args: &'q [(Txt<'q>, Value<'q>)]) -> HashMap<Txt<'q>, Txt<'q>> {
     args.iter()
         .map(|(k, v)| {
             let str = letp!(Value::String(str) = v => str);
