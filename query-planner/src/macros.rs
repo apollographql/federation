@@ -1,4 +1,3 @@
-// TODO(ran) FIXME: add docstring
 #[macro_export]
 macro_rules! get_directive {
     ($directives:expr , $name:expr) => {
@@ -17,7 +16,6 @@ macro_rules! get_directive {
     };
 }
 
-// TODO(ran) FIXME: add docstring, maybe rename?
 #[macro_export]
 macro_rules! letp {
     ($pat:pat = $expr:expr => $stmt:stmt ) => {
@@ -26,5 +24,15 @@ macro_rules! letp {
         } else {
             unreachable!()
         }
+    };
+}
+
+#[macro_export]
+macro_rules! get_field_def {
+    ($obj:ident, $name:expr) => {
+        $obj.fields
+            .iter()
+            .find(|f| f.name == $name)
+            .unwrap_or_else(|| panic!("Cannot query field {} on type {}", $name, $obj.name))
     };
 }

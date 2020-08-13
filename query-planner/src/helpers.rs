@@ -261,3 +261,19 @@ pub enum NodeCollectionKind {
     Sequence,
     Parallel,
 }
+
+// TODO(ran) FIXME: use or delete
+trait VecMap<K, T> {
+    fn map<F>(&self, f: F) -> Vec<T>
+    where
+        F: Fn(&K) -> T;
+}
+
+impl<K, T> VecMap<K, T> for Vec<K> {
+    fn map<F>(&self, f: F) -> Vec<T>
+    where
+        F: Fn(&K) -> T,
+    {
+        self.iter().map(f).collect()
+    }
+}

@@ -1,8 +1,7 @@
 use crate::builder::collect_fields;
 use crate::consts;
-use crate::federation::get_federation_metadata;
+use crate::federation::{fed_field_metadata, fed_obj_metadata};
 use crate::helpers::Op;
-use crate::model::ResponsePathElement;
 use crate::visitors::VariableUsagesMap;
 use graphql_parser::query::refs::{FieldRef, SelectionSetRef};
 use graphql_parser::query::*;
@@ -85,11 +84,9 @@ impl<'q> QueryPlanningContext<'q> {
 
     // TODO(ran) FIXME: we may be able to change this return type to &str
     pub fn get_base_service(&self, parent_type: &schema::ObjectType) -> String {
-        get_federation_metadata(parent_type)
+        fed_obj_metadata(parent_type)
             .expect("Cannot find federation metadata")
             .service_name()
-            .unwrap()
-            .to_string()
     }
 
     pub fn get_owning_service(
@@ -97,12 +94,10 @@ impl<'q> QueryPlanningContext<'q> {
         parent_type: &schema::ObjectType,
         field_def: &schema::Field,
     ) -> String {
-        match get_federation_metadata(field_def) {
-            Some(fed_metadata)
-                if fed_metadata.service_name().is_some()
-                    && !fed_metadata.belongs_to_value_type() =>
-            {
-                fed_metadata.service_name().unwrap()
+        match fed_field_metadata(field_def, Some(parent_type)) {
+            Some(fed_metadata) if !fed_metadata.belongs_to_value_type() => {
+                // TODO(ran) FIXME: TOMORROW: Ask trevor how we can get to this if case, see is_value_type
+                fed_metadata.service_name()
             }
             _ => self.get_base_service(parent_type),
         }
@@ -125,23 +120,19 @@ impl<'q> QueryPlanningContext<'q> {
 
         for possible_type in self.get_possible_types(parent_type) {
             let possible_type = *possible_type;
-            let keys = get_federation_metadata(possible_type).and_then(|md| md.key(service_name));
+            let keys = fed_obj_metadata(possible_type).and_then(|md| md.key(service_name));
 
             match keys {
                 None => continue,
                 Some(keys) if keys.is_empty() => continue,
-                Some(keys) => {
+                Some(mut keys) => {
                     let possible_type: &'q TypeDefinition<'q> =
                         self.type_def_for_object(possible_type);
                     let new_scope = self.new_scope(possible_type, None);
 
                     if fetch_all {
-                        let collected_fields = keys.into_iter().flat_map(|key_directive| {
-                            collect_fields(
-                                self,
-                                Rc::clone(&new_scope),
-                                key_directive.selection_set(),
-                            )
+                        let collected_fields = keys.into_iter().flat_map(|key_selection_set| {
+                            collect_fields(self, Rc::clone(&new_scope), key_selection_set)
                         });
                         key_fields.extend(collected_fields);
                     } else {
@@ -152,7 +143,7 @@ impl<'q> QueryPlanningContext<'q> {
                             parent: {}, service_name: {}", parent_type.name().unwrap(), service_name);
                         }
                         let mut fields =
-                            collect_fields(self, Rc::clone(&new_scope), keys[0].selection_set());
+                            collect_fields(self, Rc::clone(&new_scope), keys.pop().unwrap());
                         key_fields.append(&mut fields)
                     }
                 }
@@ -168,14 +159,20 @@ impl<'q> QueryPlanningContext<'q> {
         field_def: &'q schema::Field<'q>,
         service_name: &'a str,
     ) -> FieldSet<'q> {
+        let obj_type = match parent_type {
+            TypeDefinition::Object(obj) => obj,
+            _ => unreachable!(
+                "Based on the .ts implementation, it's impossible to call this \
+                function with a parent_type that is not an ObjectType"
+            ),
+        };
+
         let mut required_fields = self.get_key_fields(parent_type, service_name, false);
 
-        if let Some(requires) = get_federation_metadata(field_def).and_then(|md| md.requires()) {
-            let mut fields = collect_fields(
-                self,
-                self.new_scope(parent_type, None),
-                requires.selection_set(),
-            );
+        if let Some(requires) =
+            fed_field_metadata(field_def, Some(obj_type)).and_then(|md| md.requires())
+        {
+            let mut fields = collect_fields(self, self.new_scope(parent_type, None), requires);
             required_fields.append(&mut fields);
         }
 
@@ -204,14 +201,11 @@ impl<'q> QueryPlanningContext<'q> {
             .map(|f| f.field_def.name)
             .collect();
 
-        if let Some(provides) = get_federation_metadata(field_def).and_then(|md| md.provides()) {
-            let fields = collect_fields(
-                self,
-                self.new_scope(return_type, None),
-                provides.selection_set(),
-            )
-            .into_iter()
-            .map(|f| f.field_def.name);
+        if let Some(provides) = fed_field_metadata(field_def, None).and_then(|md| md.provides()) {
+            // TODO(ran) FIXME: redundant allocations happening here.
+            let fields = collect_fields(self, self.new_scope(return_type, None), provides)
+                .into_iter()
+                .map(|f| f.field_def.name);
             provided_fields.extend(fields);
         }
 
@@ -235,19 +229,6 @@ pub struct Field<'q> {
 
 pub type FieldSet<'q> = Vec<Field<'q>>;
 
-#[derive(Debug, Clone)]
-pub struct FetchGroup<'q> {
-    pub service_name: String,
-    pub fields: FieldSet<'q>,
-    // This is only for auto_fragmentization -- which is currently unimplemented
-    pub internal_fragments: LinkedHashMap<&'q str, &'q FragmentDefinition<'q>>,
-    pub required_fields: FieldSet<'q>,
-    pub provided_fields: Vec<&'q str>,
-    pub dependent_groups_by_service: HashMap<String, FetchGroup<'q>>,
-    pub other_dependent_groups: Vec<FetchGroup<'q>>,
-    pub merge_at: Vec<ResponsePathElement>,
-}
-
 pub trait OwnedValues<'q> {
     fn owned_values(self) -> Vec<&'q FragmentDefinition<'q>>;
 }
@@ -258,53 +239,7 @@ impl<'q> OwnedValues<'q> for LinkedHashMap<&'q str, &'q FragmentDefinition<'q>> 
     }
 }
 
-impl<'q> FetchGroup<'q> {
-    pub fn init(service_name: String) -> FetchGroup<'q> {
-        FetchGroup::new(service_name, vec![], vec![])
-    }
-
-    pub fn new(
-        service_name: String,
-        merge_at: Vec<ResponsePathElement>,
-        provided_fields: Vec<&'q str>,
-    ) -> FetchGroup<'q> {
-        FetchGroup {
-            service_name,
-            merge_at,
-            provided_fields,
-
-            fields: vec![],
-            internal_fragments: LinkedHashMap::new(),
-            required_fields: vec![],
-            dependent_groups_by_service: HashMap::new(),
-            other_dependent_groups: vec![],
-        }
-    }
-
-    pub fn dependent_group_for_service<'a>(
-        &'a mut self,
-        service: String,
-        required_fields: FieldSet<'q>,
-    ) -> &'a mut FetchGroup<'q> {
-        let group = self
-            .dependent_groups_by_service
-            .entry(service.clone())
-            .or_insert_with(|| FetchGroup::init(service));
-
-        if group.merge_at.is_empty() {
-            group.merge_at = self.merge_at.clone();
-        }
-
-        if !required_fields.is_empty() {
-            // TODO(ran) FIXME: this clones, ensure that's ok.
-            group.required_fields.extend_from_slice(&required_fields);
-
-            // TODO(ran) FIXME: consider using Rc for .fields and .required_fields
-            self.fields.extend(required_fields.into_iter());
-        }
-
-        group
-    }
-}
-
 // TODO(ran) FIXME: copy documentation comments from .ts
+// TODO(ran) FIXME: audit all .clone() calls.
+// TODO(ran) FIXME: add docstrings everywhere :)
+// TODO(ran) FIXME: we need an @provides example in the csdl we're using in cucumber.

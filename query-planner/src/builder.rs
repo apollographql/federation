@@ -1,7 +1,9 @@
 use crate::consts;
 use crate::context::*;
-use crate::federation::get_federation_metadata;
-use crate::groups::{GroupForField, GroupForSubField, ParallelGroupForField, SerialGroupForField};
+use crate::federation::fed_field_metadata;
+use crate::groups::{
+    FetchGroup, GroupForField, GroupForSubField, ParallelGroupForField, SerialGroupForField,
+};
 use crate::helpers::*;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
@@ -267,10 +269,17 @@ fn split_fields<'a, 'q: 'a>(
                 let has_no_extending_field_defs = scope
                     .possible_types
                     .iter()
-                    .map(|runtime_type| get_field_def_from_obj(runtime_type, field.field_node.name))
+                    .map(|runtime_type| {
+                        (
+                            runtime_type,
+                            get_field_def!(runtime_type, field.field_node.name),
+                        )
+                    })
                     .all(
-                        |field_def| // TODO(ran) FIXME: this is kind of janky. Change.  
-                        get_federation_metadata(field_def).is_none(),
+                        // TODO(ran) FIXME: this is kind of janky. Change.
+                        |(runtime_type, field_def)| {
+                            fed_field_metadata(field_def, Some(*runtime_type)).is_none()
+                        },
                     );
 
                 if has_no_extending_field_defs {
@@ -293,8 +302,7 @@ fn split_fields<'a, 'q: 'a>(
 
                 for runtime_parent_type in &scope.possible_types {
                     let runtime_parent_obj_type = *runtime_parent_type;
-                    let field_def =
-                        get_field_def_from_obj(runtime_parent_obj_type, field.field_node.name);
+                    let field_def = get_field_def!(runtime_parent_obj_type, field.field_node.name);
                     let parent_type_def = context.type_def_for_object(runtime_parent_obj_type);
                     let new_scope = context.new_scope(parent_type_def, Some(Rc::clone(scope)));
                     let group = grouper.group_for_field(new_scope.parent_type, field_def);
@@ -321,25 +329,9 @@ fn split_fields<'a, 'q: 'a>(
     }
 }
 
-macro_rules! get_field_def {
-    ($obj:ident, $name:ident) => {
-        $obj.fields
-            .iter()
-            .find(|f| f.name == $name)
-            .unwrap_or_else(|| panic!("Cannot query field {} on type {}", $name, $obj.name))
-    };
-}
-
-fn get_field_def_from_obj<'q>(
-    obj: &'q schema::ObjectType<'q>,
-    name: &'q str,
-) -> &'q schema::Field<'q> {
-    get_field_def!(obj, name)
-}
-
 fn get_field_def_from_type<'q>(td: &'q TypeDefinition<'q>, name: &'q str) -> &'q schema::Field<'q> {
     match td {
-        TypeDefinition::Object(obj) => get_field_def_from_obj(obj, name),
+        TypeDefinition::Object(obj) => get_field_def!(obj, name),
         TypeDefinition::Interface(iface) => get_field_def!(iface, name),
         _ => unreachable!(),
     }
@@ -673,7 +665,12 @@ fn operation_for_entities_fetch<'q>(
         .collect::<Vec<String>>()
         .join("");
 
-    format!("query({}){}{}", vars, selection_set.to_string(), frags)
+    format!(
+        "query({}){{_entities(representations:$representations){}}}{}",
+        vars,
+        selection_set.to_string(),
+        frags
+    )
 }
 
 fn operation_for_root_fetch<'q>(

@@ -1,8 +1,73 @@
-use crate::context::{FetchGroup, QueryPlanningContext};
-use crate::federation::get_federation_metadata;
+use crate::context::{FieldSet, QueryPlanningContext};
+use crate::federation::fed_obj_metadata;
+use crate::model::ResponsePathElement;
+use graphql_parser::query::FragmentDefinition;
 use graphql_parser::schema;
 use graphql_parser::schema::{Field, TypeDefinition};
+use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
+pub struct FetchGroup<'q> {
+    pub service_name: String,
+    pub fields: FieldSet<'q>,
+    // This is only for auto_fragmentization -- which is currently unimplemented
+    pub internal_fragments: LinkedHashMap<&'q str, &'q FragmentDefinition<'q>>,
+    pub required_fields: FieldSet<'q>,
+    pub provided_fields: Vec<&'q str>,
+    pub dependent_groups_by_service: HashMap<String, FetchGroup<'q>>,
+    pub other_dependent_groups: Vec<FetchGroup<'q>>,
+    pub merge_at: Vec<ResponsePathElement>,
+}
+
+impl<'q> FetchGroup<'q> {
+    pub fn init(service_name: String) -> FetchGroup<'q> {
+        FetchGroup::new(service_name, vec![], vec![])
+    }
+
+    pub fn new(
+        service_name: String,
+        merge_at: Vec<ResponsePathElement>,
+        provided_fields: Vec<&'q str>,
+    ) -> FetchGroup<'q> {
+        FetchGroup {
+            service_name,
+            merge_at,
+            provided_fields,
+
+            fields: vec![],
+            internal_fragments: LinkedHashMap::new(),
+            required_fields: vec![],
+            dependent_groups_by_service: HashMap::new(),
+            other_dependent_groups: vec![],
+        }
+    }
+
+    pub fn dependent_group_for_service<'a>(
+        &'a mut self,
+        service: String,
+        required_fields: FieldSet<'q>,
+    ) -> &'a mut FetchGroup<'q> {
+        let group = self
+            .dependent_groups_by_service
+            .entry(service.clone())
+            .or_insert_with(|| FetchGroup::init(service));
+
+        if group.merge_at.is_empty() {
+            group.merge_at = self.merge_at.clone();
+        }
+
+        if !required_fields.is_empty() {
+            // TODO(ran) FIXME: this clones, ensure that's ok.
+            group.required_fields.extend_from_slice(&required_fields);
+
+            // TODO(ran) FIXME: consider using Rc for .fields and .required_fields
+            self.fields.extend(required_fields.into_iter());
+        }
+
+        group
+    }
+}
 
 pub(crate) trait GroupForField<'q> {
     fn group_for_field<'a>(
@@ -128,7 +193,7 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
             ),
         };
 
-        let (base_service, owning_service) = match get_federation_metadata(obj_type) {
+        let (base_service, owning_service) = match fed_obj_metadata(obj_type) {
             Some(metadata) if metadata.is_value_type() => (
                 self.parent_group.service_name.clone(),
                 self.parent_group.service_name.clone(),

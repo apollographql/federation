@@ -1,67 +1,79 @@
 use graphql_parser::query::refs::SelectionSetRef;
-use graphql_parser::schema::{Field, ObjectType};
+use graphql_parser::schema::{Directive, Field, ObjectType, Value};
 
-pub struct FederationMetadata {}
+pub struct FedFieldMetadata {
+    service_name: String,
+}
 
-impl FederationMetadata {
-    pub fn is_value_type(&self) -> bool {
+impl FedFieldMetadata {
+    // from @owner on type, and @resolve on field.
+    // but if there are no directives, we need to check the parent. move this stuff to context.
+    pub fn service_name(&self) -> String {
+        // TODO(ran) FIXME: check if this can be a &str
+        self.service_name.clone()
+    }
+
+    // only on a field
+    pub fn requires<'q>(&self) -> Option<SelectionSetRef<'q>> {
         unimplemented!()
     }
 
-    pub fn service_name(&self) -> Option<String> {
+    // only on a field
+    pub fn provides<'q>(&self) -> Option<SelectionSetRef<'q>> {
         unimplemented!()
     }
 
+    // only on fields where the parent is a value type.
     pub fn belongs_to_value_type(&self) -> bool {
         unimplemented!()
     }
+}
 
-    pub fn key(&self, service_name: &str) -> Option<Vec<DirectiveSelection>> {
+pub struct FedObjectMetadata {
+    service_name: String,
+}
+
+impl FedObjectMetadata {
+    // from @owner on type, and @resolve on field.
+    // but if there are no directives, we need to check the parent. move this stuff to context.
+    pub fn service_name(&self) -> String {
+        // TODO(ran) FIXME: check if this can be a &str
+        self.service_name.clone()
+    }
+
+    pub fn key<'q>(&self, service_name: &str) -> Option<Vec<SelectionSetRef<'q>>> {
         unimplemented!()
     }
 
-    pub fn requires(&self) -> Option<DirectiveSelection> {
-        unimplemented!()
-    }
-
-    pub fn provides(&self) -> Option<DirectiveSelection> {
+    // every type that is not an entitiy (i.e. a type with an @owner)
+    // TODO(ran) FIXME: @trevor to verify this ^^
+    // false for fields
+    pub fn is_value_type(&self) -> bool {
         unimplemented!()
     }
 }
 
-pub struct DirectiveSelection {}
-
-impl DirectiveSelection {
-    pub fn selection_set<'q>(&self) -> SelectionSetRef<'q> {
-        unimplemented!()
+pub fn fed_field_metadata<'q>(
+    field_def: &'q Field<'q>,
+    parent_type: Option<&'q ObjectType<'q>>,
+) -> Option<FedFieldMetadata> {
+    match get_directive!(field_def.directives, "resolve").next() {
+        Some(d) => Some(FedFieldMetadata {
+            service_name: service_name_from_directive(d),
+        }),
+        None => parent_type
+            .and_then(|parent_type| fed_obj_metadata(parent_type).map(|md| md.service_name()))
+            .map(|service_name| FedFieldMetadata { service_name }),
     }
 }
 
-pub enum SchemaRef<'q> {
-    FieldDef(&'q Field<'q>),
-    ObjType(&'q ObjectType<'q>),
+pub fn fed_obj_metadata<'q>(object_type: &'q ObjectType<'q>) -> Option<FedObjectMetadata> {
+    let d = get_directive!(object_type.directives, "owner").next();
+    d.map(|d| FedObjectMetadata {
+        service_name: service_name_from_directive(d),
+    })
 }
 
-macro_rules! impl_from {
-    // This implements `From` for all inner types of SchemaRef,
-    // so that get_federation_metadata can be called directly with any of those types.
-    ($typ:ident < $lt:lifetime >, $enum_name:ident) => {
-        impl<$lt> From<&$lt$typ<$lt>> for SchemaRef<$lt> {
-            fn from(r: &$lt$typ<$lt>) -> Self {
-                SchemaRef::$enum_name(r)
-            }
-        }
-    }
-}
-
-impl_from!(Field<'q>, FieldDef);
-impl_from!(ObjectType<'q>, ObjType);
-
-pub fn get_federation_metadata<'q, T: Into<SchemaRef<'q>>>(
-    handle: T,
-) -> Option<FederationMetadata> {
-    match handle.into() {
-        SchemaRef::FieldDef(field_def) => unimplemented!(),
-        SchemaRef::ObjType(object_type) => unimplemented!(),
-    }
+fn service_name_from_directive(d: &Directive) -> String {
+    letp!(Value::String(str) = &d.arguments[0].1 => str.clone())
 }
