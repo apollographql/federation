@@ -696,7 +696,7 @@ fn operation_for_root_fetch<'q>(
                 .iter()
                 .map(|vd| vd.to_string())
                 .collect::<Vec<String>>()
-                .join(",")
+                .join("")
         )
     };
 
