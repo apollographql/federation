@@ -87,11 +87,11 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
         Ok(QueryPlan { node: None })
     } else if is_mutation {
         Ok(QueryPlan {
-            node: Some(PlanNode::Sequence { nodes }),
+            node: Some(flat_wrap(NodeCollectionKind::Sequence, nodes)),
         })
     } else {
         Ok(QueryPlan {
-            node: Some(PlanNode::Parallel { nodes }),
+            node: Some(flat_wrap(NodeCollectionKind::Parallel, nodes)),
         })
     }
 }
@@ -538,7 +538,7 @@ fn execution_node_for_group(
         fetch_node
     };
 
-    if !dependent_groups_by_service.is_empty() {
+    if !dependent_groups_by_service.is_empty() || !other_dependent_groups.is_empty() {
         let dependent_nodes = dependent_groups_by_service
             .into_iter()
             .map(|(_, v)| v)
