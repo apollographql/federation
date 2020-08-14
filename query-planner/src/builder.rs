@@ -706,13 +706,13 @@ fn operation_for_root_fetch<'q>(
         .collect::<Vec<String>>()
         .join("");
 
-    format!(
-        "{}{}{}{}",
-        op_kind.as_str(),
-        vars,
-        selection_set.to_string(),
-        frags
-    )
+    let op_kind = if let Operation::Query = op_kind {
+        ""
+    } else {
+        op_kind.as_str()
+    };
+
+    format!("{}{}{}{}", op_kind, vars, selection_set.to_string(), frags)
 }
 
 fn field_into_model_selection(field: &query::Field) -> ModelSelection {
@@ -805,101 +805,5 @@ fn flat_wrap(kind: NodeCollectionKind, mut nodes: Vec<PlanNode>) -> PlanNode {
             NodeCollectionKind::Sequence => PlanNode::Sequence { nodes },
             NodeCollectionKind::Parallel => PlanNode::Parallel { nodes },
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use graphql_parser::{parse_query, parse_schema};
-
-    use crate::builder::build_query_plan;
-    use crate::model::{FetchNode, PlanNode, QueryPlan};
-
-    fn schema() -> &'static str {
-        r#"
-schema
-  @graph(name: "accounts", endpointUrl: "https://accounts.api.com")
-  @graph(name: "bills", endpointUrl: "https://bills.api.com")
-  @composedGraph(version: 1)
-{
-  query: Query
-  mutation: Mutation
-}
-
-type Query {
-  user(id: ID!): User @resolve(graph: "accounts")
-  me: User @resolve(graph: "accounts")
-  bill: Bill @resolve(graph: "bills")
-}
-
-type Bill 
-@owner(graph: "bills")
-@key(fields: "{id}", graph: "bills") 
-@key(fields: "{id}", graph: "accounts")
-{
-  id: ID!
-  sum: Float
-  tip: Float
-} 
-
-type PasswordAccount @key(fields: "{email}", graph: "accounts") {
-  email: String!
-}
-
-type SMSAccount @key(fields: "{number}", graph: "accounts") {
-  number: String
-}
-
-union AccountType = PasswordAccount | SMSAccount
-
-type UserMetadata {
-  name: String
-  address: String
-  description: String
-}
-
-type User
-@owner(graph: "accounts")
-@key(fields: "{id}", graph: "accounts") {
-  id: ID!
-  name: String
-  bill: Bill @resolve(graph: "bills")
-  username: String
-  birthDate(locale: String): String
-  account: AccountType
-  metadata: [UserMetadata]
-}
-
-type Mutation {
-  login(username: String!, password: String!): User
-}"#
-    }
-
-    #[test]
-    // #[should_panic]
-    fn simple_case_attempt_1() {
-        let query = parse_query("query { me { name id } bill { sum } }").unwrap();
-        let schema = parse_schema(schema()).unwrap();
-
-        let result = build_query_plan(&schema, &query).unwrap();
-        let expected = QueryPlan {
-            node: Some(PlanNode::Parallel {
-                nodes: vec![
-                    PlanNode::Fetch(FetchNode {
-                        service_name: String::from("accounts"),
-                        variable_usages: vec![],
-                        operation: String::from("{me{name id}}"),
-                        requires: None,
-                    }),
-                    PlanNode::Fetch(FetchNode {
-                        service_name: String::from("bills"),
-                        variable_usages: vec![],
-                        operation: String::from("{bill{sum}}"),
-                        requires: None,
-                    }),
-                ],
-            }),
-        };
-        assert_eq!(result, expected);
     }
 }
