@@ -41,9 +41,9 @@ pub enum PlanNode {
 #[serde(rename_all = "camelCase")]
 pub struct FetchNode {
     pub service_name: String,
-    pub variable_usages: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requires: Option<SelectionSet>,
+    pub variable_usages: Vec<String>,
     pub operation: GraphQLDocument,
 }
 
