@@ -529,7 +529,7 @@ fn execution_node_for_group(
         operation,
     });
 
-    let plan_node = if merge_at.is_empty() {
+    let plan_node = if !merge_at.is_empty() {
         PlanNode::Flatten(FlattenNode {
             path: merge_at,
             node: Box::new(fetch_node),
