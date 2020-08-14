@@ -191,6 +191,7 @@ pub mod query;
 pub mod schema;
 mod tokenizer;
 
+pub use crate::format::DisplayMinified;
 pub use crate::format::Style;
 pub use crate::position::Pos;
 pub use crate::query::parse_query;

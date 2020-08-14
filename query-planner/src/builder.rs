@@ -12,7 +12,7 @@ use crate::{context, model, QueryPlanError, Result};
 use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
-use graphql_parser::{query, schema, Name};
+use graphql_parser::{query, schema, DisplayMinified, Name};
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -655,7 +655,6 @@ fn selection_set_from_field_set<'q>(
     }
 }
 
-// TODO(ran) FIXME: replace all relevant .to_string with .minified
 // TODO(ran) FIXME: consider replacing manual string creation with creating ast nodes and printing them .minified.
 fn operation_for_entities_fetch<'q>(
     selection_set: SelectionSetRef<'q>,
@@ -664,20 +663,20 @@ fn operation_for_entities_fetch<'q>(
 ) -> GraphQLDocument {
     let vars = vec![String::from("$representations:[_Any!]!")]
         .into_iter()
-        .chain(variable_definitions.iter().map(|vd| vd.to_string()))
+        .chain(variable_definitions.iter().map(|vd| vd.minified()))
         .collect::<Vec<String>>()
         .join(" ");
 
     let frags: String = internal_fragments
         .iter()
-        .map(|fd| fd.to_string())
+        .map(|fd| fd.minified())
         .collect::<Vec<String>>()
         .join("");
 
     format!(
         "query({}){{_entities(representations:$representations){}}}{}",
         vars,
-        selection_set.to_string(),
+        selection_set.minified(),
         frags
     )
 }
@@ -695,7 +694,7 @@ fn operation_for_root_fetch<'q>(
             "({})",
             variable_definitions
                 .iter()
-                .map(|vd| vd.to_string())
+                .map(|vd| vd.minified())
                 .collect::<Vec<String>>()
                 .join("")
         )
@@ -703,7 +702,7 @@ fn operation_for_root_fetch<'q>(
 
     let frags: String = internal_fragments
         .iter()
-        .map(|fd| fd.to_string())
+        .map(|fd| fd.minified())
         .collect::<Vec<String>>()
         .join("");
 
@@ -713,7 +712,7 @@ fn operation_for_root_fetch<'q>(
         op_kind.as_str()
     };
 
-    format!("{}{}{}{}", op_kind, vars, selection_set.to_string(), frags)
+    format!("{}{}{}{}", op_kind, vars, selection_set.minified(), frags)
 }
 
 fn field_into_model_selection(field: &query::Field) -> ModelSelection {

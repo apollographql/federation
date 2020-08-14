@@ -4,7 +4,7 @@ use std::default::Default;
 use crate::common::Directive;
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct Formatter<'a> {
+pub struct Formatter<'a> {
     buf: String,
     style: &'a Style,
     indent: u32,
@@ -44,11 +44,11 @@ impl Style {
     }
 }
 
-pub(crate) trait Displayable {
+pub trait Displayable {
     fn display(&self, f: &mut Formatter);
 }
 
-pub(crate) trait DisplayMinified {
+pub trait DisplayMinified {
     fn minified(&self) -> String;
 }
 
