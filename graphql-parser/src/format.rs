@@ -17,11 +17,15 @@ pub(crate) struct Formatter<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Style {
     indent: u32,
+    minified: bool,
 }
 
 impl Default for Style {
     fn default() -> Style {
-        Style { indent: 2 }
+        Style {
+            indent: 2,
+            minified: false,
+        }
     }
 }
 
@@ -31,11 +35,31 @@ impl Style {
         self.indent = indent;
         self
     }
+
+    pub fn minified() -> Self {
+        Style {
+            indent: 0,
+            minified: true,
+        }
+    }
 }
 
 pub(crate) trait Displayable {
     fn display(&self, f: &mut Formatter);
 }
+
+pub(crate) trait DisplayMinified {
+    fn minified(&self) -> String;
+}
+
+impl<T: Displayable> DisplayMinified for T {
+    fn minified(&self) -> String {
+        let style = Style::minified();
+        let mut formatter = Formatter::new(&style);
+        self.display(&mut formatter);
+        formatter.into_string()
+    }
+}/**/
 
 impl<'a> Formatter<'a> {
     pub fn new(style: &Style) -> Formatter {
@@ -46,13 +70,24 @@ impl<'a> Formatter<'a> {
         }
     }
 
+    pub fn is_minified(&self) -> bool {
+        self.style.minified
+    }
+
     pub fn indent(&mut self) {
+        if self.is_minified() {
+            return;
+        }
         for _ in 0..self.indent {
             self.buf.push(' ');
         }
     }
 
     pub fn endline(&mut self) {
+        if self.is_minified() {
+            return;
+        }
+
         self.buf.push('\n');
     }
 
@@ -73,6 +108,9 @@ impl<'a> Formatter<'a> {
     }
 
     pub fn margin(&mut self) {
+        if self.is_minified() {
+            return;
+        }
         if !self.buf.is_empty() {
             self.buf.push('\n');
         }
@@ -157,4 +195,57 @@ macro_rules! impl_display {
             }
         )+
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::format::{DisplayMinified, Displayable, Formatter, Style};
+    use crate::parse_query;
+
+    #[test]
+    fn minimize() {
+        let query = "query { testing }";
+        let parsed = parse_query(query).unwrap();
+
+        let style = Style::default();
+
+        let mut formatter = Formatter::new(&style);
+        parsed.display(&mut formatter);
+
+        println!("{}", formatter.into_string());
+    }
+
+    #[test]
+    fn minimize2() {
+        let query = "query { testing }";
+        let parsed = parse_query(query).unwrap();
+
+        let minified = parsed.minified();
+
+        println!("{}", minified);
+    }
+
+    #[test]
+    fn minimize3() {
+        let query =
+            "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold text}}}}";
+        let parsed = parse_query(query).unwrap();
+        let minified = parsed.minified();
+
+        // println!("{}", minified);
+
+        assert_eq!(query, minified,);
+    }
+
+    #[test]
+    fn minimize4() {
+        let query =
+            "{body{__typename nested{__typename}}test{__typename nested{__typename}}}";
+        let parsed = parse_query(query).unwrap();
+        let minified = parsed.minified();
+
+        // println!("{}", minified);
+
+        assert_eq!(query, minified,);
+    }
 }

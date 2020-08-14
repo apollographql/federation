@@ -39,6 +39,7 @@ impl<'a> Displayable for Definition<'a> {
     }
 }
 
+// TODO(trevor)
 impl<'a> Displayable for FragmentDefinition<'a> {
     fn display(&self, f: &mut Formatter) {
         f.margin();
@@ -63,8 +64,40 @@ impl<'a> Displayable for SelectionSet<'a> {
         f.margin();
         f.indent();
         f.start_block();
-        for item in &self.items {
+        // for item in &self.items {
+        //     item.display(f);
+        //     if f.is_minified() {
+        //         f.write(" ");
+        //     } else {
+        //         f.endline();
+        //     }
+        // }
+        for (idx, item) in self.items.iter().enumerate() {
             item.display(f);
+
+            match item {
+                Selection::Field(field) => {
+                    if !f.is_minified() {
+                        f.endline();
+                    } else if idx < self.items.len() - 1 {
+                        if !field.selection_set.items.len() > 0 {
+                            f.write(" ");
+                        }
+                    }
+                },
+                Selection::InlineFragment(_) => {
+                    if !f.is_minified() {
+                        f.endline();
+                    }
+                },
+                Selection::FragmentSpread(_) => {
+                    if !f.is_minified() {
+                        f.endline();
+                    } else if idx < self.items.len() - 1 {
+                        f.write(" ");
+                    }
+                }
+            }
         }
         f.end_block();
     }
@@ -76,8 +109,46 @@ impl<'a> Displayable for SelectionSetRef<'a> {
         f.margin();
         f.indent();
         f.start_block();
-        for item in &self.items {
+
+        for (idx, item) in self.items.iter().enumerate() {
             item.display(f);
+
+            match item {
+                SelectionRef::Ref(_) => {
+                    ()
+                },
+                SelectionRef::Field(field) => {
+                    if !f.is_minified() {
+                        f.endline();
+                    } else if idx < self.items.len() - 1 {
+                        if !field.selection_set.items.len() > 0 {
+                            f.write(" ");
+                        }
+                    }
+                },
+                SelectionRef::FieldRef(fr) => {
+                    if !f.is_minified() {
+                        f.endline();
+                    } else if idx < self.items.len() - 1 {
+                        if !fr.selection_set.items.len() > 0 {
+                            f.write(" ");
+                        }
+                    }
+                },
+                SelectionRef::InlineFragmentRef(_) => {
+                    if !f.is_minified() {
+                        f.endline();
+                    }
+                }
+                //,
+                // SelectionRef::FragmentSpreadRef(_) => {
+                //     if !f.is_minified() {
+                //         f.endline();
+                //     } else if idx < self.items.len() - 1 {
+                //         f.write(" ");
+                //     }
+                // }
+            }
         }
         f.end_block();
     }
@@ -175,15 +246,25 @@ impl<'a> Displayable for Field<'a> {
         format_arguments(&self.arguments, f);
         format_directives(&self.directives, f);
         if !self.selection_set.items.is_empty() {
-            f.write(" ");
-            f.start_block();
-            for item in &self.selection_set.items {
-                item.display(f);
+            // minification: don't include the space before opening a selection set on a field
+            if !f.is_minified() {
+                f.write(" ");
             }
-            f.end_block();
-        } else {
-            f.endline();
+
+            // TODO(trevor): Is there a reason it was implemented this way!??!
+            // f.start_block();
+            // for item in &self.selection_set.items {
+            //     item.display(f);
+            // }
+            // f.end_block();
+            self.selection_set.display(f);
+
         }
+        // else {
+        //     if !f.is_minified() {
+        //         f.endline();
+        //     }
+        // }
     }
 }
 
@@ -294,11 +375,17 @@ impl<'a> Displayable for InlineFragment<'a> {
         f.indent();
         f.write("...");
         if let Some(ref cond) = self.type_condition {
-            f.write(" on ");
+            if !f.is_minified() {
+                f.write(" on ");
+            } else {
+                f.write("on ");
+            }
             f.write(cond);
         }
         format_directives(&self.directives, f);
-        f.write(" ");
+        if !f.is_minified() {
+            f.write(" ");
+        }
         f.start_block();
         for item in &self.selection_set.items {
             item.display(f);
