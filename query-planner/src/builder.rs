@@ -271,15 +271,12 @@ fn split_fields<'a, 'q: 'a>(
                     .possible_types
                     .iter()
                     .map(|runtime_type| get_field_def!(runtime_type, field.field_node.name))
-                    .all(
-                        // TODO(ran) FIXME: this is kind of janky. Change.
-                        |field_def| {
-                            context
-                                .federation
-                                .service_name_for_field(field_def)
-                                .is_none()
-                        },
-                    );
+                    .all(|field_def| {
+                        context
+                            .federation
+                            .service_name_for_field(field_def)
+                            .is_none()
+                    });
 
                 if has_no_extending_field_defs {
                     let group = grouper.group_for_field(scope.parent_type, field_def);
@@ -294,16 +291,13 @@ fn split_fields<'a, 'q: 'a>(
                     continue;
                 }
 
-                // TODO(ran) FIXME: the .ts code creates a map and keys by group,
-                //  which implies some kind of group equality of some sort.
-                //  we need to ensure that our closure of `group_for_field` (in all calls) returns
-                //  the "same" group under the same conditions that the .ts code considers equal.
-
-                for runtime_parent_type in &scope.possible_types {
-                    let runtime_parent_obj_type = *runtime_parent_type;
+                // TODO(ran) FIXME: ordering here is different than in .ts
+                for runtime_parent_obj_type in scope.possible_types.iter() {
                     let field_def = get_field_def!(runtime_parent_obj_type, field.field_node.name);
-                    let parent_type_def = context.type_def_for_object(runtime_parent_obj_type);
-                    let new_scope = context.new_scope(parent_type_def, Some(Rc::clone(scope)));
+                    let new_scope = context.new_scope(
+                        context.type_def_for_object(runtime_parent_obj_type),
+                        Some(Rc::clone(scope)),
+                    );
                     let group = grouper.group_for_field(new_scope.parent_type, field_def);
 
                     let fields_with_runtime_parent_type = fields_for_parent_type

@@ -231,3 +231,10 @@ impl<'q> OwnedValues<'q> for LinkedHashMap<&'q str, &'q FragmentDefinition<'q>> 
 // TODO(ran) FIXME: audit all .clone() calls.
 // TODO(ran) FIXME: add docstrings everywhere :)
 // TODO(ran) FIXME: we need an @provides example in the csdl we're using in cucumber.
+// TODO(ran) FIXME: in .ts where we groupBy, the output format ends up depending on the ordering of keys in maps. In rust we are deterministic.
+
+/* TODO ACTUAL TASKS LEFT
+1. complete minification implementation
+2. make Parallel agnostic to ordering when implementing plan node equality
+3. in split_fields, fix ordering of completing fields to match .ts
+ */
