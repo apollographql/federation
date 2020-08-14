@@ -1,5 +1,6 @@
 use graphql_parser::query::refs::{SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
+use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 
 pub struct VariableUsagesMap<'q> {
@@ -15,7 +16,7 @@ impl<'q> VariableUsagesMap<'q> {
 }
 
 impl<'q> graphql_parser::Map for VariableUsagesMap<'q> {
-    type Output = HashMap<String, &'q VariableDefinition<'q>>;
+    type Output = LinkedHashMap<String, &'q VariableDefinition<'q>>;
 
     fn merge(&mut self, parent: Self::Output, child: Self::Output) -> Self::Output {
         parent.into_iter().chain(child.into_iter()).collect()
@@ -24,19 +25,19 @@ impl<'q> graphql_parser::Map for VariableUsagesMap<'q> {
 
 impl<'q> Map for VariableUsagesMap<'q> {
     fn query(&mut self, _doc: &Document, _stack: &[Self::Output]) -> Self::Output {
-        HashMap::new()
+        LinkedHashMap::new()
     }
 
     fn query_def(&mut self, _def: &Definition, _stack: &[Self::Output]) -> Self::Output {
-        HashMap::new()
+        LinkedHashMap::new()
     }
 
     fn sel_set(&mut self, _sel_set: &SelectionSet, _stack: &[Self::Output]) -> Self::Output {
-        HashMap::new()
+        LinkedHashMap::new()
     }
 
     fn sel_set_ref(&mut self, _sel_set: &SelectionSetRef, _stack: &[Self::Output]) -> Self::Output {
-        HashMap::new()
+        LinkedHashMap::new()
     }
 
     fn sel(&mut self, sel: &Selection, _stack: &[Self::Output]) -> Self::Output {

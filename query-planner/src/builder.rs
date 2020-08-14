@@ -656,6 +656,7 @@ fn selection_set_from_field_set<'q>(
 }
 
 // TODO(ran) FIXME: replace all relevant .to_string with .minified
+// TODO(ran) FIXME: consider replacing manual string creation with creating ast nodes and printing them .minified.
 fn operation_for_entities_fetch<'q>(
     selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
@@ -665,7 +666,7 @@ fn operation_for_entities_fetch<'q>(
         .into_iter()
         .chain(variable_definitions.iter().map(|vd| vd.to_string()))
         .collect::<Vec<String>>()
-        .join(",");
+        .join(" ");
 
     let frags: String = internal_fragments
         .iter()
