@@ -59,7 +59,7 @@ impl<T: Displayable> DisplayMinified for T {
         self.display(&mut formatter);
         formatter.into_string()
     }
-}/**/
+}
 
 impl<'a> Formatter<'a> {
     pub fn new(style: &Style) -> Formatter {
@@ -239,8 +239,7 @@ mod tests {
 
     #[test]
     fn minimize4() {
-        let query =
-            "{body{__typename nested{__typename}}test{__typename nested{__typename}}}";
+        let query = "{body{__typename nested{__typename}}test{__typename nested{__typename}}}";
         let parsed = parse_query(query).unwrap();
         let minified = parsed.minified();
 
