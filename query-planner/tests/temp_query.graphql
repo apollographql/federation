@@ -1,26 +1,5 @@
-mutation LoginAndReview(
-    $upc: String!
-    $body: String!
-    $updatedReview: UpdateReviewInput!
-    $username: String!
-    $password: String!
-    $reviewId: ID!
-) {
-    reviewProduct(upc: $upc, body: $body) {
-        ... on Furniture {
-            upc
-        }
+query {
+    topProducts {
+        name
     }
-    updateReview(review: $updatedReview) {
-        id
-        body
-    }
-    login(username: $username, password: $password) {
-        reviews {
-            product {
-                upc
-            }
-        }
-    }
-    deleteReview(id: $reviewId)
 }

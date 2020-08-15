@@ -43,27 +43,22 @@ impl<'s> QueryPlanner<'s> {
 
 #[cfg(test)]
 mod tests {
-    use graphql_parser::{parse_query, parse_schema};
-
     use crate::builder::build_query_plan;
     use crate::model::QueryPlan;
+    use graphql_parser::{parse_query, parse_schema};
 
     static SCHEMA: &str = include_str!("../tests/csdl.graphql");
 
-    fn schema() -> &'static str {
-        SCHEMA
-    }
-
     #[test]
-    #[should_panic]
     fn temp_test_case_copied_from_cucumber() {
         let query = include_str!("../tests/temp_query.graphql");
         let query = parse_query(query).unwrap();
-        let schema = parse_schema(schema()).unwrap();
+        let schema = parse_schema(SCHEMA).unwrap();
 
         let result = build_query_plan(&schema, &query).unwrap();
         let expected: QueryPlan =
             serde_json::from_str(include_str!("../tests/temp_query_result.json")).unwrap();
+
         assert_eq!(result, expected);
     }
 }
