@@ -62,6 +62,11 @@ impl<T: Displayable> DisplayMinified for T {
 }
 
 impl<'a> Formatter<'a> {
+    // TODO(ran) FIXME: implement minified better... this is awful.
+    pub fn is_minified(&self) -> bool {
+        self.style.minified
+    }
+
     pub fn new(style: &Style) -> Formatter {
         Formatter {
             buf: String::with_capacity(1024),
@@ -70,25 +75,24 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    pub fn is_minified(&self) -> bool {
-        self.style.minified
+    pub fn indent(&mut self) {
+        if !self.is_minified() {
+            for _ in 0..self.indent {
+                self.buf.push(' ');
+            }
+        }
     }
 
-    pub fn indent(&mut self) {
-        if self.is_minified() {
-            return;
-        }
-        for _ in 0..self.indent {
-            self.buf.push(' ');
+    pub fn space(&mut self) {
+        if !self.is_minified() {
+            self.buf.push(' ')
         }
     }
 
     pub fn endline(&mut self) {
-        if self.is_minified() {
-            return;
-        }
-
-        self.buf.push('\n');
+        if !self.is_minified() {
+            self.buf.push('\n')
+        };
     }
 
     pub fn start_block(&mut self) {
@@ -108,11 +112,12 @@ impl<'a> Formatter<'a> {
     }
 
     pub fn margin(&mut self) {
-        if self.is_minified() {
-            return;
-        }
         if !self.buf.is_empty() {
-            self.buf.push('\n');
+            if !self.is_minified() {
+                self.endline()
+            } else {
+                self.buf.push(' ');
+            }
         }
     }
 
@@ -199,52 +204,22 @@ macro_rules! impl_display {
 
 #[cfg(test)]
 mod tests {
-    use crate::format::{DisplayMinified, Displayable, Formatter, Style};
+    use crate::format::DisplayMinified;
     use crate::parse_query;
 
     #[test]
-    fn minimize() {
-        let query = "query { testing }";
-        let parsed = parse_query(query).unwrap();
-
-        let style = Style::default();
-
-        let mut formatter = Formatter::new(&style);
-        parsed.display(&mut formatter);
-
-        println!("{}", formatter.into_string());
-    }
-
-    #[test]
-    fn minimize2() {
-        let query = "query { testing }";
-        let parsed = parse_query(query).unwrap();
-
-        let minified = parsed.minified();
-
-        println!("{}", minified);
-    }
-
-    #[test]
-    fn minimize3() {
-        let query =
-            "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold text}}}}";
-        let parsed = parse_query(query).unwrap();
-        let minified = parsed.minified();
-
-        // println!("{}", minified);
-
-        assert_eq!(query, minified,);
-    }
-
-    #[test]
-    fn minimize4() {
-        let query = "{body{__typename nested{__typename}}test{__typename nested{__typename}}}";
-        let parsed = parse_query(query).unwrap();
-        let minified = parsed.minified();
-
-        // println!("{}", minified);
-
-        assert_eq!(query, minified,);
+    fn minified() {
+        let queries: Vec<&str> = vec![
+            "{a{b}c}",
+            "query{testing}",
+            "{body{__typename nested{__typename}}test{__typename nested{__typename}}}",
+            "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
+            "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold text}}}}",
+            "query($arg:String$arg2:Int){field(argValue:$arg){otherField field3(foo:$arg2)}}",
+        ];
+        for query in queries {
+            let parsed = parse_query(query).unwrap();
+            assert_eq!(query, parsed.minified())
+        }
     }
 }
