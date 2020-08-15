@@ -4,7 +4,6 @@ use graphql_parser::query::FragmentDefinition;
 use graphql_parser::schema;
 use graphql_parser::schema::{Field, TypeDefinition};
 use linked_hash_map::LinkedHashMap;
-use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct FetchGroup<'q> {
@@ -14,7 +13,7 @@ pub struct FetchGroup<'q> {
     pub internal_fragments: LinkedHashMap<&'q str, &'q FragmentDefinition<'q>>,
     pub required_fields: FieldSet<'q>,
     pub provided_fields: Vec<&'q str>,
-    pub dependent_groups_by_service: HashMap<String, FetchGroup<'q>>,
+    pub dependent_groups_by_service: LinkedHashMap<String, FetchGroup<'q>>,
     pub other_dependent_groups: Vec<FetchGroup<'q>>,
     pub merge_at: Vec<ResponsePathElement>,
 }
@@ -37,7 +36,7 @@ impl<'q> FetchGroup<'q> {
             fields: vec![],
             internal_fragments: LinkedHashMap::new(),
             required_fields: vec![],
-            dependent_groups_by_service: HashMap::new(),
+            dependent_groups_by_service: LinkedHashMap::new(),
             other_dependent_groups: vec![],
         }
     }
@@ -81,14 +80,14 @@ pub(crate) trait GroupForField<'q> {
 // Used by split_root_fields
 pub struct ParallelGroupForField<'q> {
     context: &'q QueryPlanningContext<'q>,
-    groups_map: HashMap<String, FetchGroup<'q>>,
+    groups_map: LinkedHashMap<String, FetchGroup<'q>>,
 }
 
 impl<'q> ParallelGroupForField<'q> {
     pub fn new(context: &'q QueryPlanningContext<'q>) -> Self {
         Self {
             context,
-            groups_map: HashMap::new(),
+            groups_map: LinkedHashMap::new(),
         }
     }
 }
