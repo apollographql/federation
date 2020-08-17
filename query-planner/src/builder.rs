@@ -365,14 +365,14 @@ fn complete_field<'a, 'q: 'a>(
 
             if return_type.is_abstract_type() {
                 sub_group.fields.push(context::Field {
-                    scope: context.new_scope(return_type, Some(scope)),
+                    scope: context.new_scope(return_type, Some(Rc::clone(&scope))),
                     field_node: (*consts::TYPENAME_QUERY_FIELD).clone(),
                     field_def: &*consts::TYPENAME_SCHEMA_FIELD,
                 })
             }
 
             let mut response_field = context::Field {
-                scope: Rc::clone(&head.scope),
+                scope,
                 field_def: head.field_def,
                 field_node: FieldRef {
                     position: pos(),
