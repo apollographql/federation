@@ -7,7 +7,6 @@ use graphql_parser::query::refs::{FieldRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{schema, Name};
-use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -216,16 +215,6 @@ pub struct Field<'q> {
 }
 
 pub type FieldSet<'q> = Vec<Field<'q>>;
-
-pub trait OwnedValues<'q> {
-    fn owned_values(self) -> Vec<&'q FragmentDefinition<'q>>;
-}
-
-impl<'q> OwnedValues<'q> for LinkedHashMap<&'q str, &'q FragmentDefinition<'q>> {
-    fn owned_values(self) -> Vec<&'q FragmentDefinition<'q>> {
-        self.into_iter().map(|(_, v)| v).collect()
-    }
-}
 
 // TODO(ran) FIXME: copy documentation comments from .ts
 // TODO(ran) FIXME: audit all .clone() calls.

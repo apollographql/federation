@@ -36,3 +36,12 @@ macro_rules! get_field_def {
             .unwrap_or_else(|| panic!("Cannot query field {} on type {}", $name, $obj.name))
     };
 }
+
+macro_rules! values {
+    ($can_iter_tuples:expr) => {
+        $can_iter_tuples.into_iter().map(|(_, v)| v).collect()
+    };
+    (iter $can_iter_tuples:expr) => {
+        $can_iter_tuples.into_iter().map(|(_, v)| v)
+    };
+}

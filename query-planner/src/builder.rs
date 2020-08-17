@@ -230,12 +230,8 @@ fn split_fields<'a, 'q: 'a>(
     fields: FieldSet<'q>,
     grouper: &'a mut dyn GroupForField<'q>,
 ) {
-    // TODO(ran) FIXME: dedupe this.
     let fields_for_response_names: Vec<FieldSet> =
-        group_by(fields, |f| f.field_node.response_name())
-            .into_iter()
-            .map(|(_, v)| v)
-            .collect();
+        values!(group_by(fields, |f| f.field_node.response_name()));
 
     for field_for_resposne_name in fields_for_response_names {
         let fields_by_parent_type: LinkedHashMap<&str, FieldSet> =
@@ -282,7 +278,6 @@ fn split_fields<'a, 'q: 'a>(
 
                 if has_no_extending_field_defs {
                     let group = grouper.group_for_field(scope.parent_type, field_def);
-                    // TODO(ran) FIXME: in .ts this is using fieldsForResponseName, seems wrong.
                     complete_field(
                         context,
                         Rc::clone(scope),
@@ -293,7 +288,6 @@ fn split_fields<'a, 'q: 'a>(
                     continue;
                 }
 
-                // TODO(ran) FIXME: ordering here is different than in .ts
                 for runtime_parent_obj_type in scope.possible_types.iter() {
                     let field_def = get_field_def!(runtime_parent_obj_type, field.field_node.name);
                     let new_scope = context.new_scope(
@@ -406,10 +400,7 @@ fn complete_field<'a, 'q: 'a>(
             }
 
             let mut sub_group_dependent_groups = {
-                sub_group
-                    .dependent_groups_by_service
-                    .into_iter()
-                    .map(|(_, v)| v)
+                values!(iter sub_group.dependent_groups_by_service)
                     .chain(sub_group.other_dependent_groups.into_iter())
                     .collect()
             };
@@ -502,7 +493,7 @@ fn execution_node_for_group(
         None
     };
 
-    let internal_fragments = internal_fragments.owned_values();
+    let internal_fragments: Vec<&FragmentDefinition> = values!(internal_fragments);
 
     let (variable_names, variable_defs) =
         context.get_variable_usages(&selection_set, &internal_fragments);
@@ -535,9 +526,7 @@ fn execution_node_for_group(
     };
 
     if !dependent_groups_by_service.is_empty() || !other_dependent_groups.is_empty() {
-        let dependent_nodes = dependent_groups_by_service
-            .into_iter()
-            .map(|(_, v)| v)
+        let dependent_nodes = values!(iter dependent_groups_by_service)
             .chain(other_dependent_groups.into_iter())
             .map(|group| execution_node_for_group(context, group, None))
             .collect();
@@ -651,7 +640,7 @@ fn selection_set_from_field_set<'q>(
     }
 }
 
-// TODO(ran) FIXME: consider replacing manual string creation with creating ast nodes and printing them .minified.
+// TODO(ran) consider replacing manual string creation with creating ast nodes and printing them .minified.
 fn operation_for_entities_fetch<'q>(
     selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,

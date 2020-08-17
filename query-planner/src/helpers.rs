@@ -167,45 +167,40 @@ pub fn merge_selection_sets<'q>(fields: Vec<FieldRef<'q>>) -> SelectionSetRef<'q
             _ => unreachable!(),
         });
 
-        let merged_field_nodes =
-            nodes_by_same_name
-                .into_iter()
-                .map(|(_, v)| v)
-                .map(|nodes_with_same_name| {
-                    let nothing_to_do = nodes_with_same_name.len() == 1
-                        || nodes_with_same_name[0].no_or_empty_selection_set();
+        let merged_field_nodes = values!(iter nodes_by_same_name).map(|nodes_with_same_name| {
+            let nothing_to_do = nodes_with_same_name.len() == 1
+                || nodes_with_same_name[0].no_or_empty_selection_set();
 
-                    if !nothing_to_do {
-                        let (head, tail) = nodes_with_same_name.head();
+            if !nothing_to_do {
+                let (head, tail) = nodes_with_same_name.head();
 
-                        let mut field_ref = match head {
-                            SelectionRef::FieldRef(f) => f,
-                            SelectionRef::Field(f) => field_ref_from_field_like!(f),
-                            SelectionRef::Ref(Selection::Field(f)) => field_ref_from_field_like!(f),
-                            _ => unreachable!(),
-                        };
+                let mut field_ref = match head {
+                    SelectionRef::FieldRef(f) => f,
+                    SelectionRef::Field(f) => field_ref_from_field_like!(f),
+                    SelectionRef::Ref(Selection::Field(f)) => field_ref_from_field_like!(f),
+                    _ => unreachable!(),
+                };
 
-                        let head_items =
-                            std::mem::replace(&mut field_ref.selection_set.items, vec![]);
+                let head_items = std::mem::replace(&mut field_ref.selection_set.items, vec![]);
 
-                        let items = merge_field_selection_sets(
-                            head_items
-                                .into_iter()
-                                .chain(
-                                    tail.into_iter()
-                                        .flat_map(|s| s.into_fields_selection_set())
-                                        .flat_map(|ss| ss.items),
-                                )
-                                .collect(),
-                        );
+                let items = merge_field_selection_sets(
+                    head_items
+                        .into_iter()
+                        .chain(
+                            tail.into_iter()
+                                .flat_map(|s| s.into_fields_selection_set())
+                                .flat_map(|ss| ss.items),
+                        )
+                        .collect(),
+                );
 
-                        field_ref.selection_set.items = items;
+                field_ref.selection_set.items = items;
 
-                        SelectionRef::FieldRef(field_ref)
-                    } else {
-                        nodes_with_same_name.head().0
-                    }
-                });
+                SelectionRef::FieldRef(field_ref)
+            } else {
+                nodes_with_same_name.head().0
+            }
+        });
 
         merged_field_nodes
             .chain(aliased_field_nodes)
@@ -276,20 +271,4 @@ pub struct Op<'q> {
 pub enum NodeCollectionKind {
     Sequence,
     Parallel,
-}
-
-// TODO(ran) FIXME: use or delete
-pub trait VecMap<K, T> {
-    fn map<F>(&self, f: F) -> Vec<T>
-    where
-        F: Fn(&K) -> T;
-}
-
-impl<K, T> VecMap<K, T> for Vec<K> {
-    fn map<F>(&self, f: F) -> Vec<T>
-    where
-        F: Fn(&K) -> T,
-    {
-        self.iter().map(f).collect()
-    }
 }

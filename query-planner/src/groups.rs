@@ -114,7 +114,7 @@ impl<'q> GroupForField<'q> for ParallelGroupForField<'q> {
     }
 
     fn into_groups(self) -> Vec<FetchGroup<'q>> {
-        self.groups_map.into_iter().map(|(_, v)| v).collect()
+        values!(self.groups_map)
     }
 }
 
