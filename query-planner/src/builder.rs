@@ -111,7 +111,7 @@ pub(crate) fn collect_fields<'q>(
                 .type_condition
                 .map(|tc| $context.names_to_types[tc])
                 .unwrap_or_else(|| $scope.parent_type);
-            let new_scope = $context.new_scope(fragment_condition, Some(Rc::clone(&$scope)));
+            let new_scope = $context.new_scope(fragment_condition, Some($scope.clone()));
             if !new_scope.possible_types.is_empty() {
                 collect_fields_rec(
                     $context,
@@ -136,14 +136,14 @@ pub(crate) fn collect_fields<'q>(
                 SelectionRef::FieldRef(field) => {
                     let name = field.name;
                     fields.push(context::Field {
-                        scope: Rc::clone(&scope),
+                        scope: scope.clone(),
                         field_node: field,
                         field_def: get_field_def_from_type(&scope.parent_type, name),
                     })
                 }
                 SelectionRef::Field(field) | SelectionRef::Ref(Selection::Field(field)) => fields
                     .push(context::Field {
-                        scope: Rc::clone(&scope),
+                        scope: scope.clone(),
                         field_node: FieldRef::from(field),
                         field_def: get_field_def_from_type(&scope.parent_type, field.name),
                     }),
@@ -171,7 +171,7 @@ pub(crate) fn collect_fields<'q>(
                     let fragment = context.fragments[spread.fragment_name];
                     let new_scope = context.new_scope(
                         context.names_to_types[fragment.type_condition],
-                        Some(Rc::clone(&scope)),
+                        Some(scope.clone()),
                     );
                     if !new_scope.possible_types.is_empty()
                         && !visited_fragment_names.contains(spread.fragment_name)
@@ -259,7 +259,7 @@ fn split_fields<'a, 'q: 'a>(
                 let group = grouper.group_for_field(scope.parent_type, field_def);
                 complete_field(
                     context,
-                    Rc::clone(scope),
+                    scope.clone(),
                     group,
                     path.clone(),
                     fields_for_parent_type,
@@ -280,7 +280,7 @@ fn split_fields<'a, 'q: 'a>(
                     let group = grouper.group_for_field(scope.parent_type, field_def);
                     complete_field(
                         context,
-                        Rc::clone(scope),
+                        scope.clone(),
                         group,
                         path.clone(),
                         fields_for_parent_type,
@@ -292,14 +292,14 @@ fn split_fields<'a, 'q: 'a>(
                     let field_def = get_field_def!(runtime_parent_obj_type, field.field_node.name);
                     let new_scope = context.new_scope(
                         context.type_def_for_object(runtime_parent_obj_type),
-                        Some(Rc::clone(scope)),
+                        Some(scope.clone()),
                     );
                     let group = grouper.group_for_field(new_scope.parent_type, field_def);
 
                     let fields_with_runtime_parent_type = fields_for_parent_type
                         .iter()
                         .map(|field| context::Field {
-                            scope: Rc::clone(&field.scope),
+                            scope: field.scope.clone(),
                             field_node: field.field_node.clone(),
                             field_def,
                         })
@@ -361,7 +361,7 @@ fn complete_field<'a, 'q: 'a>(
 
             if return_type.is_abstract_type() {
                 sub_group.fields.push(context::Field {
-                    scope: context.new_scope(return_type, Some(Rc::clone(&scope))),
+                    scope: context.new_scope(return_type, Some(scope.clone())),
                     field_node: (*consts::TYPENAME_QUERY_FIELD).clone(),
                     field_def: &*consts::TYPENAME_SCHEMA_FIELD,
                 })

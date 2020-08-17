@@ -124,7 +124,7 @@ impl<'q> QueryPlanningContext<'q> {
 
                     if fetch_all {
                         let collected_fields = keys.into_iter().flat_map(|key_selection_set| {
-                            collect_fields(self, Rc::clone(&new_scope), key_selection_set)
+                            collect_fields(self, new_scope.clone(), key_selection_set)
                         });
                         key_fields.extend(collected_fields);
                     } else {
@@ -135,7 +135,7 @@ impl<'q> QueryPlanningContext<'q> {
                             parent: {}, service_name: {}", parent_type.name().unwrap(), service_name);
                         }
                         let mut fields =
-                            collect_fields(self, Rc::clone(&new_scope), keys.pop().unwrap());
+                            collect_fields(self, new_scope.clone(), keys.pop().unwrap());
                         key_fields.append(&mut fields)
                     }
                 }
@@ -200,7 +200,7 @@ impl<'q> QueryPlanningContext<'q> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Scope<'q> {
     pub parent_type: &'q TypeDefinition<'q>,
     pub possible_types: Vec<&'q schema::ObjectType<'q>>,
@@ -220,7 +220,7 @@ pub type FieldSet<'q> = Vec<Field<'q>>;
 // TODO(ran) FIXME: audit all .clone() calls.
 // TODO(ran) FIXME: add docstrings everywhere :)
 // TODO(ran) FIXME: we need an @provides example in the csdl we're using in cucumber.
-// TODO(ran) FIXME: in .ts where we groupBy, the output format ends up depending on the ordering of keys in maps. In rust we are deterministic.
+// TODO(ran) FIXME: look over use caes of .extend* and .append
 
 /* TODO ACTUAL TASKS LEFT
 1. complete minification implementation
