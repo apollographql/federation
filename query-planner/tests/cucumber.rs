@@ -20,7 +20,7 @@ impl std::default::Default for QueryPlannerTestContext {
 mod query_planner_tests {
     use apollo_query_planner::model::QueryPlan;
     use apollo_query_planner::QueryPlanner;
-    use cucumber::steps;
+    use cucumber::{skip, steps};
 
     static SCHEMA: &str = include_str!("csdl.graphql");
 
@@ -41,7 +41,7 @@ mod query_planner_tests {
         };
 
         when "using autofragmentization" |_context, _step | {
-            unimplemented!()
+            skip!();
         };
 
         then "query plan" |context, step| {
