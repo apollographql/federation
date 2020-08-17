@@ -47,7 +47,7 @@ mod tests {
     use crate::model::QueryPlan;
     use graphql_parser::{parse_query, parse_schema};
 
-    static SCHEMA: &str = include_str!("../tests/csdl.graphql");
+    static SCHEMA: &str = include_str!("../tests/features/csdl.graphql");
 
     #[test]
     fn temp_test_case_copied_from_cucumber() {

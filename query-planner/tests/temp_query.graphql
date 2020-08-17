@@ -1,24 +1,12 @@
-query {
-    body {
-        ... on Image {
-            ... on Body {
-                ... on Image {
-                    attributes {
-                        url
-                    }
-                }
-                ... on Text {
-                    attributes {
-                        bold
-                        text
-                    }
-                }
-            }
-        }
-        ... on Text {
-            attributes {
-                bold
-            }
-        }
+query GetUser($format: Boolean) {
+    me {
+        ...userDetails
+    }
+}
+
+fragment userDetails on User {
+    username
+    reviews {
+        body(format: $format)
     }
 }

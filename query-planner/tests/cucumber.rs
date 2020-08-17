@@ -22,7 +22,7 @@ mod query_planner_tests {
     use apollo_query_planner::QueryPlanner;
     use cucumber::{skip, steps};
 
-    static SCHEMA: &str = include_str!("csdl.graphql");
+    static SCHEMA: &str = include_str!("features/csdl.graphql");
 
     lazy_static! {
         static ref PLANNER: QueryPlanner<'static> = QueryPlanner::new(SCHEMA);
@@ -64,9 +64,10 @@ mod query_planner_tests {
 
 // To ignore: comment out the [[test]] block in cargo.toml
 cucumber! {
-    features: "./", // Path to our feature files
-    world: crate::MyWorld, // The world needs to be the same for steps and the main cucumber call
-    steps: &[
-        query_planner_tests::steps // the `steps!` macro creates a `steps` function in a module
-        ]
+    // Path to our feature files
+    features: "./tests/features",
+    // The world needs to be the same for steps and the main cucumber call
+    world: crate::MyWorld,
+    // the `steps!` macro creates a `steps` function in a module
+    steps: &[query_planner_tests::steps]
 }

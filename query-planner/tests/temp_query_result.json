@@ -1,9 +1,34 @@
 {
   "kind": "QueryPlan",
   "node": {
-    "kind": "Fetch",
-    "serviceName": "documents",
-    "variableUsages": [],
-    "operation": "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold}}}}"
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "accounts",
+        "variableUsages": [],
+        "operation": "{me{username __typename id}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["me"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "reviews",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": ["format"],
+          "operation": "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
+        }
+      }
+    ]
   }
 }
