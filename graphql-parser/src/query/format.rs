@@ -113,8 +113,10 @@ fn format_arguments<'a>(arguments: &[(Txt<'a>, Value<'a>)], f: &mut Formatter) {
         f.space();
         arguments[0].1.display(f);
         for arg in &arguments[1..] {
-            f.write(",");
-            f.space();
+            if !f.is_minified() {
+                f.write(",");
+            }
+            f.write(" ");
             f.write(arg.0.as_ref());
             f.write(":");
             f.space();
