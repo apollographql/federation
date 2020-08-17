@@ -106,43 +106,31 @@ pub(crate) fn collect_fields<'q>(
     }
 
     macro_rules! collect_inline_fragment {
-        ($inline:ident, $selection_set:expr, $context:ident, $scope:ident, $stack:ident) => {
+        ($inline:ident, $selection_set:expr, $context:ident, $scope:ident, $visited_fragment_names:ident, $fields:ident) => {
             let fragment_condition = $inline
                 .type_condition
                 .map(|tc| $context.names_to_types[tc])
                 .unwrap_or_else(|| $scope.parent_type);
             let new_scope = $context.new_scope(fragment_condition, Some(Rc::clone(&$scope)));
             if !new_scope.possible_types.is_empty() {
-                $stack.push(Args {
-                    scope: new_scope,
-                    selection_set: $selection_set,
-                });
+                collect_fields_rec(
+                    $context,
+                    new_scope,
+                    $selection_set,
+                    $visited_fragment_names,
+                    $fields,
+                )
             }
         };
     }
 
-    // TODO(ran) FIXME: can we try this again with a recursion now that we've resolved some other lifetime stuff.
-    struct Args<'q> {
+    fn collect_fields_rec<'a, 'q>(
+        context: &'q QueryPlanningContext<'q>,
         scope: Rc<Scope<'q>>,
         selection_set: SelectionSetRef<'q>,
-    }
-
-    ///// implementation starts here //////
-
-    let mut stack: Vec<Args> = vec![Args {
-        scope,
-        selection_set,
-    }];
-
-    let mut visited_fragment_names = HashSet::new();
-    let mut fields = vec![];
-
-    while !stack.is_empty() {
-        let Args {
-            scope,
-            selection_set,
-        } = stack.pop().unwrap();
-
+        visited_fragment_names: &'a mut HashSet<&'q str>,
+        fields: &'a mut FieldSet<'q>,
+    ) {
         for selection in selection_set.items.into_iter() {
             match selection {
                 SelectionRef::FieldRef(field) => {
@@ -165,7 +153,8 @@ pub(crate) fn collect_fields<'q>(
                         SelectionSetRef::from(&inline.selection_set),
                         context,
                         scope,
-                        stack
+                        visited_fragment_names,
+                        fields
                     );
                 }
                 SelectionRef::InlineFragmentRef(inline_ref) => {
@@ -174,7 +163,8 @@ pub(crate) fn collect_fields<'q>(
                         inline_ref.selection_set,
                         context,
                         scope,
-                        stack
+                        visited_fragment_names,
+                        fields
                     );
                 }
                 SelectionRef::Ref(Selection::FragmentSpread(spread)) => {
@@ -187,16 +177,28 @@ pub(crate) fn collect_fields<'q>(
                         && !visited_fragment_names.contains(spread.fragment_name)
                     {
                         visited_fragment_names.insert(spread.fragment_name);
-                        stack.push(Args {
-                            scope: new_scope,
-                            selection_set: SelectionSetRef::from(&fragment.selection_set),
-                        });
+                        collect_fields_rec(
+                            context,
+                            new_scope,
+                            SelectionSetRef::from(&fragment.selection_set),
+                            visited_fragment_names,
+                            fields,
+                        );
                     }
                 }
             }
         }
     }
 
+    let mut visited_fragment_names: HashSet<&str> = HashSet::new();
+    let mut fields = vec![];
+    collect_fields_rec(
+        context,
+        scope,
+        selection_set,
+        &mut visited_fragment_names,
+        &mut fields,
+    );
     fields
 }
 

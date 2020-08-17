@@ -2,8 +2,8 @@
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
-    "serviceName": "product",
+    "serviceName": "documents",
     "variableUsages": [],
-    "operation": "{product(upc:\"\"){__typename ...on Book{details{country}}...on Furniture{details{country}}}}"
+    "operation": "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold}}}}"
   }
 }

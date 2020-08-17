@@ -1,7 +1,24 @@
 query {
-    product(upc: "") {
-        details {
-            country
+    body {
+        ... on Image {
+            ... on Body {
+                ... on Image {
+                    attributes {
+                        url
+                    }
+                }
+                ... on Text {
+                    attributes {
+                        bold
+                        text
+                    }
+                }
+            }
+        }
+        ... on Text {
+            attributes {
+                bold
+            }
         }
     }
 }
