@@ -68,7 +68,7 @@ impl<'a> Formatter<'a> {
     }
 
     pub fn is_minified_and_no_block_suffix(&self) -> bool {
-        self.style.minified && !self.buf.ends_with("}")
+        self.style.minified && !self.buf.ends_with('}')
     }
 
     pub fn new(style: &Style) -> Formatter {
