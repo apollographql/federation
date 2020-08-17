@@ -661,7 +661,7 @@ fn operation_for_entities_fetch<'q>(
         .into_iter()
         .chain(variable_definitions.iter().map(|vd| vd.minified()))
         .collect::<Vec<String>>()
-        .join(" ");
+        .join("");
 
     let frags: String = internal_fragments
         .iter()
