@@ -1,5 +1,7 @@
 query {
-    topProducts {
-        name
+    product(upc: "") {
+        details {
+            country
+        }
     }
 }
