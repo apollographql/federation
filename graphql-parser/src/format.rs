@@ -67,6 +67,10 @@ impl<'a> Formatter<'a> {
         self.style.minified
     }
 
+    pub fn is_minified_and_no_block_suffix(&self) -> bool {
+        self.style.minified && !self.buf.ends_with("}")
+    }
+
     pub fn new(style: &Style) -> Formatter {
         Formatter {
             buf: String::with_capacity(1024),
@@ -216,6 +220,7 @@ mod tests {
             "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
             "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold text}}}}",
             "query($arg:String$arg2:Int){field(argValue:$arg){otherField field3(foo:$arg2)}}",
+            "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body}numberOfReviews}}}"
         ];
         for query in queries {
             let parsed = parse_query(query).unwrap();

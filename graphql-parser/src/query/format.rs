@@ -292,7 +292,7 @@ macro_rules! inline_fragment_impl {
         $f.start_block();
         for (i, item) in $self.selection_set.items.iter().enumerate() {
             item.display($f);
-            if $f.is_minified() && i < $self.selection_set.items.len() - 1 {
+            if $f.is_minified_and_no_block_suffix() && i < $self.selection_set.items.len() - 1 {
                 $f.write(" ");
             }
         }
