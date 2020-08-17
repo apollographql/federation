@@ -52,7 +52,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
             })
             .collect(),
         auto_fragmentization: false,
-        possible_types: build_possible_types(&types),
+        possible_types: build_possible_types(schema, &types),
         variable_name_to_def: variable_name_to_def(query),
         federation: Federation::new(schema),
         names_to_types: types,

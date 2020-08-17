@@ -26,23 +26,29 @@ pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
 }
 
 pub fn build_possible_types<'a, 'q>(
+    schema: &'q schema::Document<'q>,
     types: &'a HashMap<&'q str, &'q schema::TypeDefinition<'q>>,
 ) -> HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> {
     let mut implementing_types: HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> = HashMap::new();
+
+    let ordered_types: Vec<&TypeDefinition> = schema
+        .definitions
+        .iter()
+        .flat_map(|d| match d {
+            schema::Definition::Type(td) => Some(td),
+            _ => None,
+        })
+        .collect();
 
     // TODO(ran) FIXME: when switching types to LinkedHashMap for consistent ordering,
     //  The rust compiler starts complaining about lifetimes and when adding notations,
     //  it says &context doesn't live long enough, even though it's not used after creating
     //  plan nodes. Seems like a compiler bug but not sure, ask @ag_dubs
     //  for now, for consistent ordering, we're sorting the types by name.
-    let mut all_types = types
-        .values()
-        .collect::<Vec<&&'q schema::TypeDefinition<'q>>>();
-    all_types.sort_by(|t1, t2| t1.name().unwrap().cmp(t2.name().unwrap()));
 
     // TODO(ran) FIXME: This will loop infinitely if the schema has implementation loops (A: B, B: A)
     //  we must validate that before query planning.
-    for &td in all_types {
+    for td in ordered_types {
         match td {
             TypeDefinition::Union(ref union) => {
                 let objects_for_union = union
