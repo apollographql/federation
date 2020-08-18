@@ -649,14 +649,12 @@ fn operation_for_entities_fetch<'q>(
     let vars = vec![String::from("$representations:[_Any!]!")]
         .into_iter()
         .chain(variable_definitions.iter().map(|vd| vd.minified()))
-        .collect::<Vec<String>>()
-        .join("");
+        .collect::<String>();
 
     let frags: String = internal_fragments
         .iter()
         .map(|fd| fd.minified())
-        .collect::<Vec<String>>()
-        .join("");
+        .collect::<String>();
 
     format!(
         "query({}){{_entities(representations:$representations){}}}{}",
@@ -680,21 +678,18 @@ fn operation_for_root_fetch<'q>(
             variable_definitions
                 .iter()
                 .map(|vd| vd.minified())
-                .collect::<Vec<String>>()
-                .join("")
+                .collect::<String>()
         )
     };
 
     let frags: String = internal_fragments
         .iter()
         .map(|fd| fd.minified())
-        .collect::<Vec<String>>()
-        .join("");
+        .collect::<String>();
 
-    let op_kind = if let Operation::Query = op_kind {
-        ""
-    } else {
-        op_kind.as_str()
+    let op_kind = match op_kind {
+        Operation::Query if vars.is_empty() => "",
+        _ => op_kind.as_str(),
     };
 
     format!("{}{}{}{}", op_kind, vars, selection_set.minified(), frags)
