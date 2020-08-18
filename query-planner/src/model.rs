@@ -108,6 +108,7 @@ enum QueryPlanSerde {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::consts::TYPENAME_FIELD_NAME;
     use serde_json::Value;
 
     fn qp_json_string() -> &'static str {
@@ -253,7 +254,7 @@ mod tests {
                                                     selections: vec![
                                                         Selection::Field(Field {
                                                             alias: None,
-                                                            name: "__typename".to_owned(),
+                                                            name: TYPENAME_FIELD_NAME.to_owned(),
                                                             selections: None,
                                                         }),
                                                         Selection::Field(Field {
@@ -278,7 +279,7 @@ mod tests {
                                                     selections: vec![
                                                         Selection::Field(Field {
                                                             alias: None,
-                                                            name: "__typename".to_owned(),
+                                                            name: TYPENAME_FIELD_NAME.to_owned(),
                                                             selections: None,
                                                         }),
                                                         Selection::Field(Field {
@@ -315,7 +316,7 @@ mod tests {
                                                     selections: vec![
                                                         Selection::Field(Field {
                                                             alias: None,
-                                                            name: "__typename".to_owned(),
+                                                            name: TYPENAME_FIELD_NAME.to_owned(),
                                                             selections: None,
                                                         }),
                                                         Selection::Field(Field {
@@ -339,7 +340,7 @@ mod tests {
                                                     selections: vec![
                                                         Selection::Field(Field {
                                                             alias: None,
-                                                            name: "__typename".to_owned(),
+                                                            name: TYPENAME_FIELD_NAME.to_owned(),
                                                             selections: None,
                                                         }),
                                                         Selection::Field(Field {

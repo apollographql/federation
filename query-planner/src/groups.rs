@@ -1,3 +1,4 @@
+use crate::consts::TYPENAME_FIELD_NAME;
 use crate::context::{FieldSet, QueryPlanningContext};
 use crate::model::ResponsePathElement;
 use graphql_parser::query::FragmentDefinition;
@@ -222,17 +223,17 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
                     &self.parent_group.service_name,
                     false,
                 );
-                // TODO(ran) FIXME: extern "__typename"
-                let key_fields =
-                    if key_fields.len() == 1 && key_fields[0].field_def.name == "__typename" {
-                        // Only __typename key found.
-                        // In some cases, the parent group does not have any @key directives.
-                        // Fall back to owning group's keys
-                        self.context
-                            .get_key_fields(parent_type, &owning_service, false)
-                    } else {
-                        key_fields
-                    };
+                let key_fields = if key_fields.len() == 1
+                    && key_fields[0].field_def.name == TYPENAME_FIELD_NAME
+                {
+                    // Only __typename key found.
+                    // In some cases, the parent group does not have any @key directives.
+                    // Fall back to owning group's keys
+                    self.context
+                        .get_key_fields(parent_type, &owning_service, false)
+                } else {
+                    key_fields
+                };
 
                 self.parent_group
                     .dependent_group_for_service(owning_service, key_fields)

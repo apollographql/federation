@@ -1,4 +1,5 @@
 use crate::consts;
+use crate::consts::TYPENAME_FIELD_NAME;
 use crate::context::*;
 use crate::federation::Federation;
 use crate::groups::{
@@ -244,7 +245,7 @@ fn split_fields<'a, 'q: 'a>(
             let field_def = field.field_def;
 
             if is_introspection_type(field_def.field_type.name().unwrap())
-                || (field_def.name == "__typename"
+                || (field_def.name == TYPENAME_FIELD_NAME
                     && (parent_type == "Query" || parent_type == "Mutation"))
             {
                 continue;
