@@ -1,5 +1,5 @@
 use crate::builder::collect_fields;
-use crate::consts;
+use crate::consts::{typename_field_def, typename_field_node};
 use crate::federation::Federation;
 use crate::helpers::Op;
 use crate::visitors::VariableUsagesMap;
@@ -106,8 +106,8 @@ impl<'q> QueryPlanningContext<'q> {
 
         key_fields.push(Field {
             scope: self.new_scope(parent_type, None),
-            field_node: (*consts::TYPENAME_QUERY_FIELD).clone(),
-            field_def: &*consts::TYPENAME_SCHEMA_FIELD,
+            field_node: typename_field_node(),
+            field_def: typename_field_def(),
         });
 
         for possible_type in self.get_possible_types(parent_type) {

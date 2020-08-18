@@ -30,10 +30,14 @@ macro_rules! letp {
 #[macro_export]
 macro_rules! get_field_def {
     ($obj:ident, $name:expr) => {
-        $obj.fields
-            .iter()
-            .find(|f| f.name == $name)
-            .unwrap_or_else(|| panic!("Cannot query field {} on type {}", $name, $obj.name))
+        if $name == crate::consts::TYPENAME_FIELD_NAME {
+            crate::consts::typename_field_def()
+        } else {
+            $obj.fields
+                .iter()
+                .find(|f| f.name == $name)
+                .unwrap_or_else(|| panic!("Cannot query field {} on type {}", $name, $obj.name))
+        }
     };
 }
 

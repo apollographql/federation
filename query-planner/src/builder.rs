@@ -1,5 +1,7 @@
-use crate::consts;
-use crate::consts::TYPENAME_FIELD_NAME;
+use crate::consts::{
+    typename_field_def, typename_field_node, MUTATION_TYPE_NAME, QUERY_TYPE_NAME,
+    TYPENAME_FIELD_NAME,
+};
 use crate::context::*;
 use crate::federation::Federation;
 use crate::groups::{
@@ -62,9 +64,9 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
     let is_mutation = context.operation.kind.as_str() == "mutation";
 
     let root_type = if is_mutation {
-        context.names_to_types["Mutation"]
+        context.names_to_types[MUTATION_TYPE_NAME]
     } else {
-        context.names_to_types["Query"]
+        context.names_to_types[QUERY_TYPE_NAME]
     };
 
     let fields = collect_fields(
@@ -246,7 +248,7 @@ fn split_fields<'a, 'q: 'a>(
 
             if is_introspection_type(field_def.field_type.name().unwrap())
                 || (field_def.name == TYPENAME_FIELD_NAME
-                    && (parent_type == "Query" || parent_type == "Mutation"))
+                    && (parent_type == QUERY_TYPE_NAME || parent_type == MUTATION_TYPE_NAME))
             {
                 continue;
             }
@@ -363,8 +365,8 @@ fn complete_field<'a, 'q: 'a>(
             if return_type.is_abstract_type() {
                 sub_group.fields.push(context::Field {
                     scope: context.new_scope(return_type, Some(scope.clone())),
-                    field_node: (*consts::TYPENAME_QUERY_FIELD).clone(),
-                    field_def: &*consts::TYPENAME_SCHEMA_FIELD,
+                    field_node: typename_field_node(),
+                    field_def: typename_field_def(),
                 })
             }
 
