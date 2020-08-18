@@ -178,7 +178,7 @@ impl<'a> Formatter<'a> {
 
 pub(crate) fn format_directives<'a>(dirs: &[Directive<'a>], f: &mut Formatter) {
     for dir in dirs {
-        f.write(" ");
+        f.space();
         dir.display(f);
     }
 }

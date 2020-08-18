@@ -230,8 +230,8 @@ fn split_fields<'a, 'q: 'a>(
     fields: FieldSet<'q>,
     grouper: &'a mut dyn GroupForField<'q>,
 ) {
-    let fields_for_response_names: Vec<FieldSet> =
-        values!(group_by(fields, |f| f.field_node.response_name()));
+    let grouped = group_by(fields, |f| f.field_node.response_name());
+    let fields_for_response_names: Vec<FieldSet> = values!(grouped);
 
     for field_for_resposne_name in fields_for_response_names {
         let fields_by_parent_type: LinkedHashMap<&str, FieldSet> =
