@@ -25,8 +25,8 @@ impl<'q> graphql_parser::Map for VariableUsagesMap<'q> {
     }
 }
 
-macro_rules! output_from_sel_args {
-    (=> $iter:expr, $self:ident) => {
+macro_rules! build_variables_map {
+    (as_map $iter:expr, $self:ident) => {
         $iter
             .map(|name| {
                 let td = $self.variable_definitions[name.as_str()];
@@ -34,23 +34,23 @@ macro_rules! output_from_sel_args {
             })
             .collect::<LinkedHashMap<String, &'q VariableDefinition<'q>>>()
     };
-    ($args:ident, $self:ident) => {
+    (args: $args:ident, $self:ident) => {
         $args
             .arguments
             .iter()
             .flat_map(|(_, v)| variable_usage_from_value(&v))
     };
-    (da $args:ident, $self:ident) => {
-        output_from_sel_args!(=> output_from_sel_args!($args, $self).chain(
-            $args
+    (field: $field:ident, $self:ident) => {
+        build_variables_map!(as_map build_variables_map!(args: $field, $self).chain(
+            $field
                 .directives
                 .iter()
                 .flat_map(|d| &d.arguments)
                 .flat_map(|(_, v)| variable_usage_from_value(&v)),
         ), $self)
     };
-    (d $args:ident, $self:ident) => {
-        output_from_sel_args!(=> $args
+    ($args:ident, $self:ident) => {
+        build_variables_map!(as_map $args
             .directives
             .iter()
             .flat_map(|d| &d.arguments)
@@ -77,18 +77,18 @@ impl<'q> Map for VariableUsagesMap<'q> {
 
     fn sel(&mut self, sel: &Selection, _stack: &[Self::Output]) -> Self::Output {
         match sel {
-            Selection::Field(field) => output_from_sel_args!(da field, self),
-            Selection::InlineFragment(inline) => output_from_sel_args!(d inline, self),
-            Selection::FragmentSpread(spread) => output_from_sel_args!(d spread, self),
+            Selection::Field(field) => build_variables_map!(field: field, self),
+            Selection::InlineFragment(inline) => build_variables_map!(inline, self),
+            Selection::FragmentSpread(spread) => build_variables_map!(spread, self),
         }
     }
 
     fn sel_ref(&mut self, sel: &SelectionRef, stack: &[Self::Output]) -> Self::Output {
         match sel {
             SelectionRef::Ref(sel) => return self.sel(sel, stack),
-            SelectionRef::Field(field) => output_from_sel_args!(da field, self),
-            SelectionRef::FieldRef(field) => output_from_sel_args!(da field, self),
-            SelectionRef::InlineFragmentRef(inline) => output_from_sel_args!(d inline, self),
+            SelectionRef::Field(field) => build_variables_map!(field: field, self),
+            SelectionRef::FieldRef(field) => build_variables_map!(field: field, self),
+            SelectionRef::InlineFragmentRef(inline) => build_variables_map!(inline, self),
         }
     }
 }

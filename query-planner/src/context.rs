@@ -78,7 +78,7 @@ impl<'q> QueryPlanningContext<'q> {
         self.names_to_types[obj.name]
     }
 
-    // TODO(ran) FIXME: we may be able to change this return type to &str
+    // TODO(ran)(p1) FIXME: we may be able to change this return type to &str
     pub fn get_base_service(&self, parent_type: &schema::ObjectType) -> String {
         self.federation
             .service_name_for_type(parent_type)
@@ -95,7 +95,7 @@ impl<'q> QueryPlanningContext<'q> {
             .unwrap_or_else(|| self.get_base_service(parent_type))
     }
 
-    // TODO(ran) FIXME: for get_X_fields, we can calculate it once from the schema and put it in some maps or something.
+    // TODO(ran)(p1) FIXME: for get_X_fields, we can calculate it once from the schema and put it in some maps or something.
     pub fn get_key_fields<'a>(
         &'q self,
         parent_type: &'q TypeDefinition<'q>,
@@ -161,10 +161,11 @@ impl<'q> QueryPlanningContext<'q> {
         required_fields
     }
 
-    // TODO(ran) FIXME: we've discovered that provided fields is only used with
+    // TODO(ran)(p1) FIXME: we've discovered that provided fields is only used with
     //  matchesField which only uses the .field_def.name, so we really just care about
     //  field names, all collecting here does is "de-selection-set"ing the .provides
     //  value to get fields, which are later just use for getting names.
+    //  redundant allocations are happening in collect_fields below.
     pub fn get_provided_fields<'a>(
         &'q self,
         field_def: &'q schema::Field<'q>,
@@ -187,7 +188,6 @@ impl<'q> QueryPlanningContext<'q> {
             .collect();
 
         if let Some(provides) = self.federation.provides(field_def) {
-            // TODO(ran) FIXME: redundant allocations happening here.
             let fields = collect_fields(self, self.new_scope(return_type, None), provides)
                 .into_iter()
                 .map(|f| f.field_def.name);
@@ -214,14 +214,7 @@ pub struct Field<'q> {
 
 pub type FieldSet<'q> = Vec<Field<'q>>;
 
-// TODO(ran) FIXME: copy documentation comments from .ts
-// TODO(ran) FIXME: audit all .clone() calls.
-// TODO(ran) FIXME: add docstrings everywhere :)
-// TODO(ran) FIXME: we need an @provides example in the csdl we're using in cucumber.
-// TODO(ran) FIXME: look over use caes of .extend* and .append
-
-/* TODO ACTUAL TASKS LEFT
-1. complete minification implementation
-2. make Parallel agnostic to ordering when implementing plan node equality
-3. in split_fields, fix ordering of completing fields to match .ts
- */
+// TODO(ran)(p1) FIXME: copy documentation comments from .ts
+// TODO(ran)(p1) FIXME: audit all .clone() calls, see if we can avoid.
+// TODO(ran)(p1) FIXME: add docstrings everywhere :)
+// TODO(ran)(p1) FIXME: look over use caes of .extend* and .append

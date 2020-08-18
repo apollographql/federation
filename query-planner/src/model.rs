@@ -82,6 +82,7 @@ pub struct InlineFragment {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ResponsePathElement {
+    // TODO(ran)(p1) FIXME: Looks like we don't actually ever use the Idx case. Simplify.
     Field(String),
     Idx(u32),
 }

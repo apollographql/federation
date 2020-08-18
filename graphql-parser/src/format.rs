@@ -62,7 +62,7 @@ impl<T: Displayable> DisplayMinified for T {
 }
 
 impl<'a> Formatter<'a> {
-    // TODO(ran) FIXME: implement minified better... this is awful.
+    // TODO(ran)(p2) FIXME: implement minified better... this is awful.
     pub fn is_minified(&self) -> bool {
         self.style.minified
     }

@@ -33,7 +33,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
         ));
     }
 
-    // TODO(ran) FIXME: we can validate this before calling `build_query_plan`
+    // TODO(ran)(p2) FIXME: we can validate this before calling `build_query_plan`
     if let Operation::Subscription = ops[0].kind {
         return Err(QueryPlanError::InvalidQuery(
             "subscriptions are not supported",
@@ -42,7 +42,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
 
     let types = names_to_types(schema);
 
-    // TODO(ran) FIXME: see if we can optimize and memoize the stuff we build only using the schema.
+    // TODO(ran)(p1) FIXME: see if we can optimize and memoize the stuff we build only using the schema.
     let context = QueryPlanningContext {
         schema,
         operation: ops.pop().unwrap(),
@@ -461,7 +461,7 @@ fn collect_sub_fields<'q>(
 
 fn split_sub_fields<'q>(
     context: &'q QueryPlanningContext<'q>,
-    field_path: Vec<ResponsePathElement>, // TODO(ran) FIXME: alias this type
+    field_path: Vec<ResponsePathElement>,
     sub_fields: FieldSet<'q>,
     parent_group: FetchGroup<'q>,
 ) -> FetchGroup<'q> {

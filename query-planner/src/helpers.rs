@@ -31,6 +31,11 @@ pub fn build_possible_types<'a, 'q>(
 ) -> HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> {
     let mut implementing_types: HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> = HashMap::new();
 
+    // N.B(ran) when switching `types` to LinkedHashMap for consistent ordering,
+    //  The rust compiler starts complaining about lifetimes and when adding lifetime notations,
+    //  it says &context doesn't live long enough in build_query_plan,
+    //  even though it's not used after creating plan nodes which do not contain borrwed values.
+    //  for now, for consistent ordering, we're using the schema.
     let ordered_types: Vec<&TypeDefinition> = schema
         .definitions
         .iter()
@@ -40,13 +45,7 @@ pub fn build_possible_types<'a, 'q>(
         })
         .collect();
 
-    // TODO(ran) FIXME: when switching types to LinkedHashMap for consistent ordering,
-    //  The rust compiler starts complaining about lifetimes and when adding notations,
-    //  it says &context doesn't live long enough, even though it's not used after creating
-    //  plan nodes. Seems like a compiler bug but not sure, ask @ag_dubs
-    //  for now, for consistent ordering, we're sorting the types by name.
-
-    // TODO(ran) FIXME: This will loop infinitely if the schema has implementation loops (A: B, B: A)
+    // TODO(ran)(p0) FIXME: This will loop infinitely if the schema has implementation loops (A: B, B: A)
     //  we must validate that before query planning.
     for td in ordered_types {
         match td {
@@ -160,7 +159,6 @@ pub fn merge_selection_sets<'q>(fields: Vec<FieldRef<'q>>) -> SelectionSetRef<'q
             field_nodes.into_iter().partition(|s| s.is_aliased_field());
 
         let nodes_by_same_name = group_by(non_aliased_field_nodes, |s| match s {
-            // TODO(ran) FIXME: macro this match -- repeated a lot.
             SelectionRef::Ref(Selection::Field(Field { name, .. })) => *name,
             SelectionRef::Field(Field { name, .. }) => *name,
             SelectionRef::FieldRef(FieldRef { name, .. }) => *name,

@@ -3,8 +3,6 @@ use crate::query::{Field, Node, SelectionSet, Visitor};
 use crate::visit_each;
 use crate::{query, Pos};
 
-// TODO(ran) FIXME: we clone all over the place,
-//  make sure that cloning references doesn't clone the underlying data in our case.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SelectionRef<'a> {
     Ref(&'a query::Selection<'a>),

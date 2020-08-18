@@ -2,7 +2,7 @@ use super::{Definition, Document, Selection, SelectionSet};
 use crate::query::refs::{SelectionRef, SelectionSetRef};
 use crate::{visit, visit_each};
 
-// TODO(ran) FIXME: consider separating the visitor to RefVisitor
+// TODO(ran)(p2) FIXME: consider separating the visitor to RefVisitor
 #[allow(unused_variables)]
 pub trait Visitor {
     fn enter_query(&mut self, doc: &Document) {}
