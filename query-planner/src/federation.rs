@@ -49,7 +49,7 @@ impl<'q> Federation<'q> {
         let mut types = FederationTypeMetadata::new();
         let mut fields = FederationFieldMetadata::new();
 
-        let obj_types = schema.definitions.iter().flat_map(|d| {
+        let obj_types = schema.definitions.iter().filter_map(|d| {
             if let Definition::Type(TypeDefinition::Object(obj)) = d {
                 Some(obj)
             } else {

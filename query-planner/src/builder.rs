@@ -49,7 +49,7 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
         fragments: query
             .definitions
             .iter()
-            .flat_map(|d| match d {
+            .filter_map(|d| match d {
                 Definition::Fragment(frag) => Some((frag.name, frag)),
                 _ => None,
             })

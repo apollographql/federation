@@ -11,7 +11,7 @@ pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
     query
         .definitions
         .iter()
-        .flat_map(|d| match d {
+        .filter_map(|d| match d {
             Definition::Operation(op) => Some(Op {
                 kind: op.kind,
                 selection_set: &op.selection_set,
@@ -39,7 +39,7 @@ pub fn build_possible_types<'a, 'q>(
     let ordered_types: Vec<&TypeDefinition> = schema
         .definitions
         .iter()
-        .flat_map(|d| match d {
+        .filter_map(|d| match d {
             schema::Definition::Type(td) => Some(td),
             _ => None,
         })
@@ -95,7 +95,7 @@ pub fn names_to_types<'q>(
     schema
         .definitions
         .iter()
-        .flat_map(|d| match d {
+        .filter_map(|d| match d {
             schema::Definition::Type(td) => Some(td),
             _ => None,
         })
