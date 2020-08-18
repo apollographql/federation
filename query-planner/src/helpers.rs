@@ -45,8 +45,6 @@ pub fn build_possible_types<'a, 'q>(
         })
         .collect();
 
-    // TODO(ran)(p0) FIXME: This will loop infinitely if the schema has implementation loops (A: B, B: A)
-    //  we must validate that before query planning.
     for td in ordered_types {
         match td {
             TypeDefinition::Union(ref union) => {
