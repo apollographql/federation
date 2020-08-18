@@ -102,7 +102,7 @@ pub fn names_to_types<'q>(
             schema::Definition::Type(td) => Some(td),
             _ => None,
         })
-        .map(|td| (td.name().unwrap(), td))
+        .map(|td| (td.as_name(), td))
         .collect()
 }
 

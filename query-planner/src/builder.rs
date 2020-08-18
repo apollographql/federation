@@ -238,15 +238,13 @@ fn split_fields<'a, 'q: 'a>(
 
     for field_for_resposne_name in fields_for_response_names {
         let fields_by_parent_type: LinkedHashMap<&str, FieldSet> =
-            group_by(field_for_resposne_name, |f| {
-                f.scope.parent_type.name().unwrap()
-            });
+            group_by(field_for_resposne_name, |f| f.scope.parent_type.as_name());
         for (parent_type, fields_for_parent_type) in fields_by_parent_type {
             let field = &fields_for_parent_type[0];
             let scope = &field.scope;
             let field_def = field.field_def;
 
-            if is_introspection_type(field_def.field_type.name().unwrap())
+            if is_introspection_type(field_def.field_type.as_name())
                 || (field_def.name == TYPENAME_FIELD_NAME
                     && (parent_type == QUERY_TYPE_NAME || parent_type == MUTATION_TYPE_NAME))
             {
@@ -322,10 +320,14 @@ fn split_fields<'a, 'q: 'a>(
 }
 
 fn get_field_def_from_type<'q>(td: &'q TypeDefinition<'q>, name: &'q str) -> &'q schema::Field<'q> {
-    match td {
-        TypeDefinition::Object(obj) => get_field_def!(obj, name),
-        TypeDefinition::Interface(iface) => get_field_def!(iface, name),
-        _ => unreachable!(),
+    if name == TYPENAME_FIELD_NAME {
+        typename_field_def()
+    } else {
+        match td {
+            TypeDefinition::Object(obj) => get_field_def!(obj, name),
+            TypeDefinition::Interface(iface) => get_field_def!(iface, name),
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -337,7 +339,7 @@ fn complete_field<'a, 'q: 'a>(
     fields: FieldSet<'q>,
 ) {
     let field: context::Field = {
-        let type_name = fields[0].field_def.field_type.name().unwrap();
+        let type_name = fields[0].field_def.field_type.as_name();
         // the type_name could be a primitive type which is not in our names_to_types map.
         let return_type = context.names_to_types.get(type_name);
 
@@ -617,7 +619,7 @@ fn selection_set_from_field_set<'q>(
 
     let mut items: Vec<SelectionRef<'q>> = vec![];
 
-    let fields_by_parent_type = group_by(fields, |f| f.scope.parent_type.name().unwrap());
+    let fields_by_parent_type = group_by(fields, |f| f.scope.parent_type.as_name());
 
     for (_, fields_by_parent_type) in fields_by_parent_type {
         let type_condition = fields_by_parent_type[0].scope.parent_type;

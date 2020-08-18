@@ -1,6 +1,9 @@
 use crate::common::Type;
 
 pub trait Name<'a> {
+    fn as_name(&self) -> &'a str {
+        self.name().unwrap()
+    }
     fn name(&self) -> Option<&'a str> {
         None
     }

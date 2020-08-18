@@ -184,11 +184,16 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
         parent_type: &'q TypeDefinition<'q>,
         field_def: &'q Field<'q>,
     ) -> &'a mut FetchGroup<'q> {
+        if field_def.name == TYPENAME_FIELD_NAME {
+            return &mut self.parent_group;
+        }
+
         let obj_type = match parent_type {
             TypeDefinition::Object(obj) => obj,
             _ => unreachable!(
                 "Based on the .ts implementation, it's impossible to call this \
-                function with a parent_type that is not an ObjectType"
+                function with a parent_type that is not an ObjectType, \
+                for fields other than __typename"
             ),
         };
 

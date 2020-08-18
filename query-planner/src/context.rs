@@ -48,7 +48,7 @@ impl<'q> QueryPlanningContext<'q> {
     }
 
     fn get_possible_types(&self, td: &'q TypeDefinition<'q>) -> &Vec<&'q schema::ObjectType<'q>> {
-        &self.possible_types[td.name().unwrap()]
+        &self.possible_types[td.as_name()]
     }
 
     pub fn get_variable_usages(
@@ -132,7 +132,7 @@ impl<'q> QueryPlanningContext<'q> {
                             panic!("We think this is not possible; get_key_fields should be \
                             called with fetch_all = false on cases where there's only one key for the service_name. \
                             Only for the extending service case. \
-                            parent: {}, service_name: {}", parent_type.name().unwrap(), service_name);
+                            parent: {}, service_name: {}", parent_type.as_name(), service_name);
                         }
                         let mut fields =
                             collect_fields(self, new_scope.clone(), keys.pop().unwrap());
@@ -170,9 +170,7 @@ impl<'q> QueryPlanningContext<'q> {
         field_def: &'q schema::Field<'q>,
         service_name: &'a str,
     ) -> Vec<&'q str> {
-        let return_type = self
-            .names_to_types
-            .get(field_def.field_type.name().unwrap());
+        let return_type = self.names_to_types.get(field_def.field_type.as_name());
         let field_type_is_not_composite =
             return_type.is_none() || !return_type.unwrap().is_composite_type();
 
