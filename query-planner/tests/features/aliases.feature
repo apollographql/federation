@@ -293,7 +293,7 @@ Scenario: supports aliases of nested fields on subservices
                   }
                 ],
                 "variableUsages": [],
-                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{body content:body}productReviews:reviews{body reviewer:author{name:username}}}...on Furniture{reviews{body content:body}productReviews:reviews{body reviewer:author{name:username}}}}}"
+                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{content:body body}productReviews:reviews{body reviewer:author{name:username}}}...on Furniture{reviews{content:body body}productReviews:reviews{body reviewer:author{name:username}}}}}"
               }
             }
           ]
