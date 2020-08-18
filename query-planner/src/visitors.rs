@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
+use linked_hash_map::LinkedHashMap;
+
 use graphql_parser::query::refs::{SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
-use linked_hash_map::LinkedHashMap;
-use std::collections::HashMap;
 
 pub struct VariableUsagesMap<'q> {
     variable_definitions: &'q HashMap<&'q str, &'q VariableDefinition<'q>>,
@@ -23,6 +25,39 @@ impl<'q> graphql_parser::Map for VariableUsagesMap<'q> {
     }
 }
 
+macro_rules! output_from_sel_args {
+    (=> $iter:expr, $self:ident) => {
+        $iter
+            .map(|name| {
+                let td = $self.variable_definitions[name.as_str()];
+                (name, td)
+            })
+            .collect::<LinkedHashMap<String, &'q VariableDefinition<'q>>>()
+    };
+    ($args:ident, $self:ident) => {
+        $args
+            .arguments
+            .iter()
+            .flat_map(|(_, v)| variable_usage_from_value(&v))
+    };
+    (da $args:ident, $self:ident) => {
+        output_from_sel_args!(=> output_from_sel_args!($args, $self).chain(
+            $args
+                .directives
+                .iter()
+                .flat_map(|d| &d.arguments)
+                .flat_map(|(_, v)| variable_usage_from_value(&v)),
+        ), $self)
+    };
+    (d $args:ident, $self:ident) => {
+        output_from_sel_args!(=> $args
+            .directives
+            .iter()
+            .flat_map(|d| &d.arguments)
+            .flat_map(|(_, v)| variable_usage_from_value(&v)), $self)
+    };
+}
+
 impl<'q> Map for VariableUsagesMap<'q> {
     fn query(&mut self, _doc: &Document, _stack: &[Self::Output]) -> Self::Output {
         LinkedHashMap::new()
@@ -41,43 +76,21 @@ impl<'q> Map for VariableUsagesMap<'q> {
     }
 
     fn sel(&mut self, sel: &Selection, _stack: &[Self::Output]) -> Self::Output {
-        let names = if let Selection::Field(field) = sel {
-            output_from_sel_args(&field.arguments)
-        } else {
-            vec![]
-        };
-
-        names
-            .into_iter()
-            .map(|name| {
-                let fd = self.variable_definitions[name.as_str()];
-                (name, fd)
-            })
-            .collect()
+        match sel {
+            Selection::Field(field) => output_from_sel_args!(da field, self),
+            Selection::InlineFragment(inline) => output_from_sel_args!(d inline, self),
+            Selection::FragmentSpread(spread) => output_from_sel_args!(d spread, self),
+        }
     }
 
-    fn sel_ref(&mut self, sel: &SelectionRef, _stack: &[Self::Output]) -> Self::Output {
-        let names = match sel {
-            SelectionRef::Field(field) => output_from_sel_args(&field.arguments),
-            SelectionRef::Ref(Selection::Field(field)) => output_from_sel_args(&field.arguments),
-            SelectionRef::FieldRef(field) => output_from_sel_args(&field.arguments),
-            _ => vec![],
-        };
-
-        names
-            .into_iter()
-            .map(|name| {
-                let fd = self.variable_definitions[name.as_str()];
-                (name, fd)
-            })
-            .collect()
+    fn sel_ref(&mut self, sel: &SelectionRef, stack: &[Self::Output]) -> Self::Output {
+        match sel {
+            SelectionRef::Ref(sel) => return self.sel(sel, stack),
+            SelectionRef::Field(field) => output_from_sel_args!(da field, self),
+            SelectionRef::FieldRef(field) => output_from_sel_args!(da field, self),
+            SelectionRef::InlineFragmentRef(inline) => output_from_sel_args!(d inline, self),
+        }
     }
-}
-
-fn output_from_sel_args(args: &[(&str, Value)]) -> Vec<String> {
-    args.iter()
-        .flat_map(|(_, v)| variable_usage_from_value(v))
-        .collect()
 }
 
 fn variable_usage_from_value(value: &Value) -> Vec<String> {
