@@ -86,17 +86,15 @@ pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> R
         .map(|group| execution_node_for_group(&context, group, Some(root_type)))
         .collect();
 
-    if nodes.is_empty() {
-        Ok(QueryPlan { node: None })
+    let node = if nodes.is_empty() {
+        None
     } else if is_mutation {
-        Ok(QueryPlan {
-            node: Some(flat_wrap(NodeCollectionKind::Sequence, nodes)),
-        })
+        Some(flat_wrap(NodeCollectionKind::Sequence, nodes))
     } else {
-        Ok(QueryPlan {
-            node: Some(flat_wrap(NodeCollectionKind::Parallel, nodes)),
-        })
-    }
+        Some(flat_wrap(NodeCollectionKind::Parallel, nodes))
+    };
+
+    Ok(QueryPlan { node })
 }
 
 pub(crate) fn collect_fields<'q>(
