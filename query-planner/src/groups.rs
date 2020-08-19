@@ -57,9 +57,8 @@ impl<'q> FetchGroup<'q> {
         }
 
         if !required_fields.is_empty() {
+            // TODO(ran)(p2) FIXME: not too happy about the cloning here.
             group.required_fields.extend_from_slice(&required_fields);
-
-            // TODO(ran)(p1) FIXME: consider using Rc for .fields and .required_fields
             self.fields.extend(required_fields.into_iter());
         }
 

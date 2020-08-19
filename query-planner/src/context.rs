@@ -3,11 +3,11 @@ use crate::consts::{typename_field_def, typename_field_node};
 use crate::federation::Federation;
 use crate::helpers::Op;
 use crate::visitors::VariableUsagesMap;
-use graphql_parser::query::refs::{FieldRef, SelectionSetRef};
+use graphql_parser::query::refs::{FieldRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{schema, Name};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 #[derive(Debug, PartialEq)]
@@ -161,16 +161,52 @@ impl<'q> QueryPlanningContext<'q> {
         required_fields
     }
 
-    // TODO(ran)(p1) FIXME: we've discovered that provided fields is only used with
-    //  matchesField which only uses the .field_def.name, so we really just care about
-    //  field names, all collecting here does is "de-selection-set"ing the .provides
-    //  value to get fields, which are later just use for getting names.
-    //  redundant allocations are happening in collect_fields below.
     pub fn get_provided_fields<'a>(
         &'q self,
         field_def: &'q schema::Field<'q>,
         service_name: &'a str,
     ) -> Vec<&'q str> {
+        // N.B. this is similar to collect_fields, except we don't care about creating
+        //  redundant field nodes and scopes and stuff, we just want field names.
+        fn collect_fields_names<'a, 'q>(
+            selection_set: SelectionSetRef<'q>,
+            fragments: &'a HashMap<&'q str, &'q FragmentDefinition<'q>>,
+            res: &'a mut Vec<&'q str>,
+            visited_fragment_names: &'a mut HashSet<&'q str>,
+        ) {
+            for selection in selection_set.items.into_iter() {
+                match selection {
+                    SelectionRef::FieldRef(field) => res.push(field.name),
+                    SelectionRef::Field(field) | SelectionRef::Ref(Selection::Field(field)) => {
+                        res.push(field.name)
+                    }
+                    SelectionRef::Ref(Selection::InlineFragment(inline)) => collect_fields_names(
+                        SelectionSetRef::from(&inline.selection_set),
+                        fragments,
+                        res,
+                        visited_fragment_names,
+                    ),
+                    SelectionRef::InlineFragmentRef(inline_ref) => collect_fields_names(
+                        inline_ref.selection_set,
+                        fragments,
+                        res,
+                        visited_fragment_names,
+                    ),
+                    SelectionRef::Ref(Selection::FragmentSpread(spread)) => {
+                        let fragment = fragments[spread.fragment_name];
+                        if !visited_fragment_names.contains(spread.fragment_name) {
+                            collect_fields_names(
+                                SelectionSetRef::from(&fragment.selection_set),
+                                fragments,
+                                res,
+                                visited_fragment_names,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         let return_type = self.names_to_types.get(field_def.field_type.as_name());
         let field_type_is_not_composite =
             return_type.is_none() || !return_type.unwrap().is_composite_type();
@@ -187,9 +223,17 @@ impl<'q> QueryPlanningContext<'q> {
             .map(|f| f.field_def.name);
 
         if let Some(provides) = self.federation.provides(field_def) {
-            let fields = collect_fields(self, self.new_scope(return_type, None), provides)
-                .into_iter()
-                .map(|f| f.field_def.name);
+            let fields = {
+                let mut visited_fragment_names: HashSet<&str> = HashSet::new();
+                let mut res = vec![];
+                collect_fields_names(
+                    provides,
+                    &self.fragments,
+                    &mut res,
+                    &mut visited_fragment_names,
+                );
+                res
+            };
             provided_fields.chain(fields).collect()
         } else {
             provided_fields.collect()

@@ -170,21 +170,21 @@ pub(crate) fn collect_fields<'q>(
                 }
                 SelectionRef::Ref(Selection::FragmentSpread(spread)) => {
                     let fragment = context.fragments[spread.fragment_name];
-                    let new_scope = context.new_scope(
-                        context.names_to_types[fragment.type_condition],
-                        Some(scope.clone()),
-                    );
-                    if !new_scope.possible_types.is_empty()
-                        && !visited_fragment_names.contains(spread.fragment_name)
-                    {
-                        visited_fragment_names.insert(spread.fragment_name);
-                        collect_fields_rec(
-                            context,
-                            new_scope,
-                            SelectionSetRef::from(&fragment.selection_set),
-                            visited_fragment_names,
-                            fields,
+                    if !visited_fragment_names.contains(spread.fragment_name) {
+                        let new_scope = context.new_scope(
+                            context.names_to_types[fragment.type_condition],
+                            Some(scope.clone()),
                         );
+                        if !new_scope.possible_types.is_empty() {
+                            visited_fragment_names.insert(spread.fragment_name);
+                            collect_fields_rec(
+                                context,
+                                new_scope,
+                                SelectionSetRef::from(&fragment.selection_set),
+                                visited_fragment_names,
+                                fields,
+                            );
+                        }
                     }
                 }
             }
