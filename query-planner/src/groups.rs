@@ -1,6 +1,6 @@
 use crate::consts::TYPENAME_FIELD_NAME;
 use crate::context::{FieldSet, QueryPlanningContext};
-use crate::model::ResponsePathElement;
+use crate::model::ResponsePath;
 use graphql_parser::query::FragmentDefinition;
 use graphql_parser::schema;
 use graphql_parser::schema::{Field, TypeDefinition};
@@ -16,7 +16,7 @@ pub struct FetchGroup<'q> {
     pub provided_fields: Vec<&'q str>,
     pub dependent_groups_by_service: LinkedHashMap<String, FetchGroup<'q>>,
     pub other_dependent_groups: Vec<FetchGroup<'q>>,
-    pub merge_at: Vec<ResponsePathElement>,
+    pub merge_at: ResponsePath,
 }
 
 impl<'q> FetchGroup<'q> {
@@ -26,7 +26,7 @@ impl<'q> FetchGroup<'q> {
 
     pub fn new(
         service_name: String,
-        merge_at: Vec<ResponsePathElement>,
+        merge_at: ResponsePath,
         provided_fields: Vec<&'q str>,
     ) -> FetchGroup<'q> {
         FetchGroup {

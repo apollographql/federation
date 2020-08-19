@@ -7,7 +7,6 @@
 //! names, aliases, type conditions, and recurively sub [SelectionSet]s.
 
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(from = "QueryPlanSerde", into = "QueryPlanSerde")]
@@ -50,7 +49,7 @@ pub struct FetchNode {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FlattenNode {
-    pub path: Vec<ResponsePathElement>,
+    pub path: ResponsePath,
     pub node: Box<PlanNode>,
 }
 
@@ -79,26 +78,9 @@ pub struct InlineFragment {
     pub selections: SelectionSet,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ResponsePathElement {
-    // TODO(ran)(p1) FIXME: Looks like we don't actually ever use the Idx case. Simplify.
-    Field(String),
-    Idx(u32),
-}
-
-impl fmt::Display for ResponsePathElement {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ResponsePathElement::Field(str) => str.fmt(f),
-            ResponsePathElement::Idx(i) => i.fmt(f),
-        }
-    }
-}
-
 pub type SelectionSet = Vec<Selection>;
 pub type GraphQLDocument = String;
-
+pub type ResponsePath = Vec<String>;
 /// Hacking Json Serde to match JS.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase", tag = "kind")]
@@ -245,7 +227,7 @@ mod tests {
                                 nodes: vec![
                                     PlanNode::Flatten(FlattenNode {
                                         path: vec![
-                                            ResponsePathElement::Field("topProducts".to_owned()), ResponsePathElement::Field("@".to_owned())],
+                                            "topProducts".to_owned(), "@".to_owned()],
                                         node: Box::new(PlanNode::Fetch(FetchNode {
                                             service_name: "books".to_owned(),
                                             variable_usages: vec![],
@@ -269,8 +251,8 @@ mod tests {
                                     }),
                                     PlanNode::Flatten(FlattenNode {
                                         path: vec![
-                                            ResponsePathElement::Field("topProducts".to_owned()),
-                                            ResponsePathElement::Field("@".to_owned())],
+                                            "topProducts".to_owned(),
+                                            "@".to_owned()],
                                         node: Box::new(PlanNode::Fetch(FetchNode {
                                             service_name: "product".to_owned(),
                                             variable_usages: vec![],
@@ -306,8 +288,7 @@ mod tests {
                             PlanNode::Sequence {
                                 nodes: vec![
                                     PlanNode::Flatten(FlattenNode {
-                                        path: vec![
-                                            ResponsePathElement::Field("product".to_owned())],
+                                        path: vec!["product".to_owned()],
                                         node: Box::new(PlanNode::Fetch(FetchNode {
                                             service_name: "books".to_owned(),
                                             variable_usages: vec![],
@@ -330,8 +311,7 @@ mod tests {
                                         })),
                                     }),
                                     PlanNode::Flatten(FlattenNode {
-                                        path: vec![
-                                            ResponsePathElement::Field("product".to_owned())],
+                                        path: vec!["product".to_owned()],
                                         node: Box::new(PlanNode::Fetch(FetchNode {
                                             service_name: "product".to_owned(),
                                             variable_usages: vec![],

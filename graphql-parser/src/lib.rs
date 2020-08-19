@@ -151,13 +151,13 @@
 //!     fn sel_set<'a>(&mut self, _: &SelectionSet<'a>, stack: &[Self::Output]) -> Self::Output {
 //!         format!("{}sel_set", "  ".repeat(stack.len()))
 //!     }
-//!     fn sel_set_ref(&mut self,sel_set: &SelectionSetRef<'a>,stack: &[Self::Output]) -> Self::Output {
+//!     fn sel_set_ref<'a>(&mut self,sel_set: &SelectionSetRef<'a>, stack: &[Self::Output]) -> Self::Output {
 //!         unreachable!()
 //!     }
 //!     fn sel<'a>(&mut self, _: &Selection<'a>, stack: &[Self::Output]) -> Self::Output {
 //!         format!("{}sel", "  ".repeat(stack.len()))
 //!     }
-//!     fn sel_ref(&mut self,sel: &SelectionRef<'a>,stack: &[Self::Output]) -> Self::Output {
+//!     fn sel_ref<'a>(&mut self,sel: &SelectionRef<'a>, stack: &[Self::Output]) -> Self::Output {
 //!         unreachable!()
 //!     }
 //! }

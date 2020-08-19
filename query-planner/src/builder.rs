@@ -8,9 +8,9 @@ use crate::groups::{
     FetchGroup, GroupForField, GroupForSubField, ParallelGroupForField, SerialGroupForField,
 };
 use crate::helpers::*;
+use crate::model::Selection as ModelSelection;
 use crate::model::SelectionSet as ModelSelectionSet;
-use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan};
-use crate::model::{ResponsePathElement, Selection as ModelSelection};
+use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan, ResponsePath};
 use crate::{context, model, QueryPlanError, Result};
 use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
@@ -227,7 +227,7 @@ fn split_root_fields_serially<'q>(
 
 fn split_fields<'a, 'q: 'a>(
     context: &'q QueryPlanningContext<'q>,
-    path: Vec<ResponsePathElement>,
+    path: ResponsePath,
     fields: FieldSet<'q>,
     grouper: &'a mut dyn GroupForField<'q>,
 ) {
@@ -333,7 +333,7 @@ fn complete_field<'a, 'q: 'a>(
     context: &'q QueryPlanningContext<'q>,
     scope: Rc<Scope<'q>>,
     parent_group: &'a mut FetchGroup<'q>,
-    path: Vec<ResponsePathElement>,
+    path: ResponsePath,
     fields: FieldSet<'q>,
 ) {
     let field: context::Field = {
@@ -419,19 +419,15 @@ fn complete_field<'a, 'q: 'a>(
     parent_group.fields.push(field);
 }
 
-fn add_path(
-    mut path: Vec<ResponsePathElement>,
-    response_name: &str,
-    typ: &Type,
-) -> Vec<ResponsePathElement> {
-    path.push(ResponsePathElement::Field(String::from(response_name)));
+fn add_path(mut path: ResponsePath, response_name: &str, typ: &Type) -> ResponsePath {
+    path.push(String::from(response_name));
     let mut typ = typ;
 
     loop {
         match typ {
             Type::NamedType(_) => break,
             Type::ListType(t) => {
-                path.push(ResponsePathElement::Field(String::from("@")));
+                path.push(String::from("@"));
                 typ = t.as_ref()
             }
             Type::NonNullType(t) => typ = t.as_ref(),
@@ -459,7 +455,7 @@ fn collect_sub_fields<'q>(
 
 fn split_sub_fields<'q>(
     context: &'q QueryPlanningContext<'q>,
-    field_path: Vec<ResponsePathElement>,
+    field_path: ResponsePath,
     sub_fields: FieldSet<'q>,
     parent_group: FetchGroup<'q>,
 ) -> FetchGroup<'q> {
