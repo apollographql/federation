@@ -191,64 +191,54 @@ Scenario: passes variables to nested services
   """
 
 # XXX I think this test relies on execution to use the default variable, not the query plan
-# Scenario: works with default variables in the schema
-#   Given query
-#   """
-#   query LibraryUser($libraryId: ID!, $userId: ID) {
-#     library(id: $libraryId) {
-#       userAccount(id: $userId) {
-#         id
-#         name
-#       }
-#     }
-#   }
-#   """
-#   Then query plan
-#   """
-#   {
-#     "kind": "QueryPlan",
-#     "node": {
-#       "kind": "Sequence",
-#       "nodes": [
-#         {
-#           "kind": "Fetch",
-#           "serviceName": "books",
-#           "variableUsages": ["libraryId"],
-#           "operation": "query($libraryId:ID!){library(id:$libraryId){__typename id name}}"
-#         },
-#         {
-#           "kind": "Flatten",
-#           "path": ["library"],
-#           "node": {
-#             "kind": "Fetch",
-#             "serviceName": "accounts",
-#             "requires": [
-#               {
-#                 "kind": "InlineFragment",
-#                 "typeCondition": "Library",
-#                 "selections": [
-#                   { "kind": "Field", "name": "__typename" },
-#                   { "kind": "Field", "name": "id" },
-#                   { "kind": "Field", "name": "name" }
-#                 ]
-#               }
-#             ],
-#             "variableUsages": ["userId"],
-#             "operation": "query($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name}}}}"
-#           }
-#         }
-#       ]
-#     }
-#   }
-#   """
-
-# Scenario:
-#   Given query
-#   """
-
-#   """
-#   Then query plan
-#   """
-#     {}
-#   """
+Scenario: works with default variables in the schema
+  Given query
+  """
+  query LibraryUser($libraryId: ID!, $userId: ID) {
+    library(id: $libraryId) {
+      userAccount(id: $userId) {
+        id
+        name
+      }
+    }
+  }
+  """
+  Then query plan
+  """
+  {
+    "kind": "QueryPlan",
+    "node": {
+      "kind": "Sequence",
+      "nodes": [
+        {
+          "kind": "Fetch",
+          "serviceName": "books",
+          "variableUsages": ["libraryId"],
+          "operation": "query($libraryId:ID!){library(id:$libraryId){__typename id name}}"
+        },
+        {
+          "kind": "Flatten",
+          "path": ["library"],
+          "node": {
+            "kind": "Fetch",
+            "serviceName": "accounts",
+            "requires": [
+              {
+                "kind": "InlineFragment",
+                "typeCondition": "Library",
+                "selections": [
+                  { "kind": "Field", "name": "__typename" },
+                  { "kind": "Field", "name": "id" },
+                  { "kind": "Field", "name": "name" }
+                ]
+              }
+            ],
+            "variableUsages": ["userId"],
+            "operation": "query($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name}}}}"
+          }
+        }
+      ]
+    }
+  }
+  """
 
