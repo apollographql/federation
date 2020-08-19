@@ -2,8 +2,6 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/cdn.iml" filepath="$PROJECT_DIR$/.idea/modules/cdn.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/cli.iml" filepath="$PROJECT_DIR$/.idea/modules/cli.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/graphql-parser.iml" filepath="$PROJECT_DIR$/.idea/modules/graphql-parser.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-planner.iml" filepath="$PROJECT_DIR$/.idea/modules/query-planner.iml" />
     </modules>

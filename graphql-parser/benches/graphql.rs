@@ -37,6 +37,6 @@ fn bench_kitchen_sink(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_github(b: &mut test::Bencher) {
-    let src = include_str!("../../samples/github.graphql");
+    let src = include_str!("samples/github.graphql");
     b.iter(|| parse_schema(src));
 }

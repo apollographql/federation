@@ -1,145 +1,156 @@
-name: Tests
+name: Lint, Build and Test Rust
 
-on: [pull_request]
+# TODO(ran) FIXME: remove matrix, add composite commands, update CONTRIBUTING
+
+on:
+  pull_request
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    name: Test Rust Packages
+  check_format_and_lint:
+    continue-on-error: true # we want to show this check failure in GH but to not prevent building.
+    name: Check formatting (rustfmt) and lint with Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          toolchain: nightly
+          profile: minimal
+          components: rustfmt, clippy
+
+      ### BUILD CACHE ###
+      - name: Cache Cargo registry, target, index
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
+
+      ### FORMATTING AND STYLE ###
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Check Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+
+  test-no-run:
+    name: Compile tests
 
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build:
-          [
-            linux-stable,
-            # linux-nightly,
-            macos-stable,
-            # macos-nightly,
-            windows-stable,
-            # windows-nightly,
-          ]
+        build: [linux, macos, windows]
         include:
-          - build: linux-stable
+          - build: linux
             os: ubuntu-latest
-            rust: stable
-          - build: macos-stable
+            target: x86_64-unknown-linux-musl
+          - build: macos
             os: macos-latest
-            rust: stable
-          - build: windows-stable
+            target: x86_64-apple-darwin
+          - build: windows
             os: windows-latest
-            rust: stable
-          # - build: linux-nightly
-          #   os: ubuntu-latest
-          #   rust: nightly
-          # - build: macos-nightly
-          #   os: macos-latest
-          #   rust: nightly
-          # - build: windows-nightly
-          #   os: windows-latest
-          #   rust: nightly
+            target: x86_64-pc-windows-msvc
 
     steps:
       - uses: actions/checkout@v2
 
-      - name: Cache Cargo registry
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/registry
-          key: ${{ matrix.build }}-${{ matrix.rust }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ matrix.rust }}-cargo-registry-
-
-      - name: Cache Cargo index
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/git
-          key: ${{ matrix.build }}-${{ matrix.rust }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ matrix.rust }}-cargo-index-
-
-      - name: Cache Cargo build
-        uses: actions/cache@v1
-        with:
-          path: target/debug
-          key: ${{ matrix.build }}-${{ matrix.rust }}-debug-target-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ matrix.rust }}-debug-target-
-
+      ### INSTALL RUST ###
       - name: Install Rust
-        run: |
-          rustup update ${{ matrix.rust }} --no-self-update
-          rustup default ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          profile: minimal
+          override: true
 
-      - name: Run Tests
-#        if: matrix.build != 'linux-stable'
-        run: cargo test
-        env:
-          RUST_LOG: warn,apollo-cli=info
-          RUST_BACKTRACE: 1
+      ### BUILD CACHE ###
+      - name: Cache Cargo registry, target, index
+        uses: actions/cache@v2
+        id: cache-cargo
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
 
-# Restore this when we get coverage working well -- integration tests on binary packages don't report coverage correctly.
-#      - name: Run cargo-tarpaulin
-#        if: matrix.build == 'linux-stable'
-#        uses: actions-rs/tarpaulin@v0.1
-#        with:
-#          version: '0.9.0'
-#          timeout: 600 # 10 mins for test coverage
-#          args: '--ignore-tests'
-  
-#      - name: Upload to codecov.io
-#        if: matrix.build == 'linux-stable'
-#        uses: codecov/codecov-action@v1.0.2
-#        with:
-#          token: ${{secrets.CODECOV_TOKEN}}
+      ### COMPILE INCLUDING TESTS ###
+      # Note: we do this so that we'll cache the compile results/registry even if test might fail
+      # We don't need to do it if there was a cache hit.
+      - name: Compile tests on cache miss
+        if: steps.cache-cargo.outputs.cache-hit != 'true'
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: "--no-run"
 
-  test_worker:
-    name: Test CDN and installer
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: cdn
+  test:
+    name: Test
+    needs: test-no-run
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [linux, macos, windows]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - build: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Use Node.js
-      uses: actions/setup-node@v1
-      with:
-        node-version: '12.x'
-    
-    - name: Cache Node.js modules
-      uses: actions/cache@v1
-      with:
-        path: ~/.npm # npm cache files are stored in `~/.npm` on Linux/macOS
-        key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-            ${{ runner.OS }}-node-
-            ${{ runner.OS }}-
+      ### INSTALL RUST ###
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          profile: minimal
+          override: true
 
-    - name: Install dependencies
-      run: npm ci
+      ### BUILD CACHE ###
+      - name: Cache Cargo registry, target, index
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
 
-    - run: npm test -- --coverage
-      env:
-        CI: true
-
-    - name: Upload worker results to codecov.io
-      uses: codecov/codecov-action@v1.0.2
-      with:
-        token: ${{secrets.CODECOV_TOKEN}}
-        name: cdn
-
-    - name: Use Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: 2.6
-    
-    - name: Install bashcov for installer coverage
-      run: |
-        gem install bashcov
-        gem install codecov
-    
-    - name: Run coverage for installer
-      env:
-        CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}
-      run: bashcov --skip-uncovered -- ./node_modules/.bin/bats ./test/*.bats
+      ### RUN TESTS ###
+      - name: Test (cargo test)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: "-- --nocapture"
+        env:
+          RUST_LOG: debug
+          RUST_BACKTRACE: 1
