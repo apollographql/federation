@@ -145,7 +145,7 @@ pub(crate) fn collect_fields<'q>(
                 SelectionRef::Field(field) | SelectionRef::Ref(Selection::Field(field)) => fields
                     .push(context::Field {
                         scope: scope.clone(),
-                        field_node: FieldRef::from(field),
+                        field_node: field_ref!(field),
                         field_def: get_field_def_from_type(&scope.parent_type, field.name),
                     }),
                 SelectionRef::Ref(Selection::InlineFragment(inline)) => {
@@ -373,14 +373,7 @@ fn complete_field<'a, 'q: 'a>(
             let mut response_field = context::Field {
                 scope,
                 field_def: head.field_def,
-                field_node: FieldRef {
-                    position: pos(),
-                    alias: head.field_node.alias,
-                    name: head.field_node.name,
-                    arguments: head.field_node.arguments.clone(),
-                    directives: head.field_node.directives.clone(),
-                    selection_set: SelectionSetRef::default(),
-                },
+                field_node: field_ref!(head.field_node, SelectionSetRef::default()),
             };
 
             let fields: FieldSet = vec![head].into_iter().chain(tail).collect();
@@ -600,12 +593,7 @@ fn selection_set_from_field_set<'q>(
                 .map(|f| f.field_node)
                 .collect();
 
-            let fr = nodes[0].clone();
-
-            let field_ref = FieldRef {
-                selection_set: merge_selection_sets(nodes),
-                ..fr
-            };
+            let field_ref = field_ref!(nodes[0], merge_selection_sets(nodes));
 
             SelectionRef::FieldRef(field_ref)
         }

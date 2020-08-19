@@ -84,27 +84,14 @@ pub struct FieldRef<'a> {
     pub position: Pos,
     pub alias: Option<Txt<'a>>,
     pub name: Txt<'a>,
-    pub arguments: Vec<(Txt<'a>, Value<'a>)>,
-    pub directives: Vec<Directive<'a>>,
+    pub arguments: &'a Vec<(Txt<'a>, Value<'a>)>,
+    pub directives: &'a Vec<Directive<'a>>,
     pub selection_set: SelectionSetRef<'a>,
 }
 
 impl<'a> FieldRef<'a> {
     pub fn response_name(&self) -> Txt<'a> {
         self.alias.unwrap_or(self.name)
-    }
-}
-
-impl<'a> From<&'a Field<'a>> for FieldRef<'a> {
-    fn from(f: &'a Field<'a>) -> Self {
-        FieldRef {
-            position: Pos { line: 0, column: 0 },
-            alias: f.alias,
-            name: f.name,
-            arguments: f.arguments.clone(),
-            directives: f.directives.clone(),
-            selection_set: SelectionSetRef::from(&f.selection_set),
-        }
     }
 }
 

@@ -128,27 +128,6 @@ pub fn span() -> (Pos, Pos) {
 }
 
 pub fn merge_selection_sets<'q>(fields: Vec<FieldRef<'q>>) -> SelectionSetRef<'q> {
-    macro_rules! field_ref_from_field_like {
-        ($f:ident) => {
-            FieldRef {
-                position: pos(),
-                alias: $f.alias,
-                name: $f.name,
-                arguments: $f.arguments.clone(),
-                directives: $f.directives.clone(),
-                selection_set: SelectionSetRef {
-                    span: span(),
-                    items: $f
-                        .selection_set
-                        .items
-                        .iter()
-                        .map(|s| SelectionRef::Ref(s))
-                        .collect(),
-                },
-            }
-        };
-    }
-
     fn merge_field_selection_sets(fields: Vec<SelectionRef>) -> Vec<SelectionRef> {
         let (field_nodes, fragment_nodes): (Vec<SelectionRef>, Vec<SelectionRef>) =
             fields.into_iter().partition(|s| s.is_field());
@@ -172,8 +151,8 @@ pub fn merge_selection_sets<'q>(fields: Vec<FieldRef<'q>>) -> SelectionSetRef<'q
 
                 let mut field_ref = match head {
                     SelectionRef::FieldRef(f) => f,
-                    SelectionRef::Field(f) => field_ref_from_field_like!(f),
-                    SelectionRef::Ref(Selection::Field(f)) => field_ref_from_field_like!(f),
+                    SelectionRef::Field(f) => field_ref!(f),
+                    SelectionRef::Ref(Selection::Field(f)) => field_ref!(f),
                     _ => unreachable!(),
                 };
 

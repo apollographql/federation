@@ -214,7 +214,6 @@ pub struct Field<'q> {
 
 pub type FieldSet<'q> = Vec<Field<'q>>;
 
-// TODO(ran)(p1) FIXME: copy documentation comments from .ts
-// TODO(ran)(p1) FIXME: audit all .clone() calls, see if we can avoid.
-// TODO(ran)(p1) FIXME: add docstrings everywhere :)
+// TODO(ran)(p2) FIXME: copy documentation comments from .ts
+// TODO(ran)(p2) FIXME: add docstrings everywhere :)
 // TODO(ran)(p1) FIXME: look over use caes of .extend* and .append

@@ -1,5 +1,6 @@
 use crate::helpers::{pos, span};
 use graphql_parser::query::refs::{FieldRef, SelectionSetRef};
+use graphql_parser::query::{Directive, Txt, Value};
 use graphql_parser::{schema, schema::Type};
 
 lazy_static! {
@@ -7,8 +8,8 @@ lazy_static! {
         position: pos(),
         alias: None,
         name: TYPENAME_FIELD_NAME,
-        arguments: vec![],
-        directives: vec![],
+        arguments: &EMPTY_ARGS,
+        directives: &EMPTY_DIRECTIVES,
         selection_set: SelectionSetRef {
             span: span(),
             items: vec![],
@@ -27,6 +28,8 @@ lazy_static! {
 pub static TYPENAME_FIELD_NAME: &str = "__typename";
 pub static QUERY_TYPE_NAME: &str = "Query";
 pub static MUTATION_TYPE_NAME: &str = "Mutation";
+pub static EMPTY_ARGS: Vec<(Txt<'static>, Value<'static>)> = vec![];
+pub static EMPTY_DIRECTIVES: Vec<Directive<'static>> = vec![];
 
 pub fn typename_field_def<'a>() -> &'a schema::Field<'a> {
     &*TYPENAME_SCHEMA_FIELD

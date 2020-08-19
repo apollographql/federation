@@ -49,3 +49,22 @@ macro_rules! values {
         $can_iter_tuples.into_iter().map(|(_, v)| v)
     };
 }
+
+macro_rules! field_ref {
+    ($f:expr, $ss:expr) => {
+        graphql_parser::query::refs::FieldRef {
+            position: $f.position,
+            alias: $f.alias,
+            name: $f.name,
+            arguments: &$f.arguments,
+            directives: &$f.directives,
+            selection_set: $ss,
+        }
+    };
+    ($f:expr) => {
+        field_ref!(
+            $f,
+            graphql_parser::query::refs::SelectionSetRef::from(&$f.selection_set)
+        )
+    };
+}
