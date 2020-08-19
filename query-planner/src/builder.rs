@@ -42,7 +42,7 @@ pub fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<Q
 
     let types = names_to_types(schema);
 
-    // TODO(ran)(p1) FIXME: see if we can optimize and memoize the stuff we build only using the schema.
+    // TODO(ran)(p2) FIXME: see if we can optimize and memoize the stuff we build only using the schema.
     let context = QueryPlanningContext {
         schema,
         operation: ops.pop().unwrap(),

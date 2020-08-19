@@ -215,4 +215,3 @@ pub type FieldSet<'q> = Vec<Field<'q>>;
 
 // TODO(ran)(p2) FIXME: copy documentation comments from .ts
 // TODO(ran)(p2) FIXME: add docstrings everywhere :)
-// TODO(ran)(p1) FIXME: look over use caes of .extend* and .append
