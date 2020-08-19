@@ -6,7 +6,7 @@ use graphql_parser::schema;
 use graphql_parser::schema::{Field, TypeDefinition};
 use linked_hash_map::LinkedHashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct FetchGroup<'q> {
     pub service_name: String,
     pub fields: FieldSet<'q>,
