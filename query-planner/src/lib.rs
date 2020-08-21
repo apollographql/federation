@@ -44,7 +44,6 @@ impl<'s> QueryPlanner<'s> {
 #[cfg(test)]
 mod tests {
     use std::fs::{read_dir, read_to_string};
-    use std::path::PathBuf;
 
     use gherkin_rust::Feature;
     use gherkin_rust::StepType;
@@ -71,7 +70,6 @@ mod tests {
     fn test_all_feature_files() {
         let planner = QueryPlanner::new(SCHEMA);
 
-        let current_dir = std::env::current_dir().unwrap();
         // If debugging with IJ, use `read_dir("query-planner/tests/features")`
         let feature_paths = read_dir("tests/features")
             .unwrap()
