@@ -167,8 +167,12 @@ impl<'q> Federation<'q> {
             })
     }
 
-    pub fn is_value_type<'a>(&'a self, object_type: &'q ObjectType<'q>) -> bool {
-        self.types.is_value_type[&object_type.position]
+    pub fn is_value_type<'a>(&'a self, parent_type: &'q TypeDefinition<'q>) -> bool {
+        if let TypeDefinition::Object(object_type) = parent_type {
+            self.types.is_value_type[&object_type.position]
+        } else {
+            true
+        }
     }
 }
 

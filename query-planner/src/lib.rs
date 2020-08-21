@@ -23,6 +23,7 @@ pub enum QueryPlanError {
     InvalidQuery(&'static str),
 }
 
+// TODO(ran) FIXME: we don't need this one.
 pub type Result<T> = std::result::Result<T, QueryPlanError>;
 
 pub struct QueryPlanner<'s> {

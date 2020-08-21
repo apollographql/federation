@@ -188,21 +188,22 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
             return &mut self.parent_group;
         }
 
-        let obj_type = match parent_type {
-            TypeDefinition::Object(obj) => obj,
-            _ => unreachable!(
-                "Based on the .ts implementation, it's impossible to call this \
-                function with a parent_type that is not an ObjectType, \
-                for fields other than __typename"
-            ),
-        };
-
-        let (base_service, owning_service) = if self.context.federation.is_value_type(obj_type) {
+        let (base_service, owning_service) = if self.context.federation.is_value_type(parent_type) {
             (
                 self.parent_group.service_name.clone(),
                 self.parent_group.service_name.clone(),
             )
         } else {
+            let obj_type = match parent_type {
+                TypeDefinition::Object(obj) => obj,
+                _ => unreachable!(format!(
+                    "Based on the .ts implementation, it's impossible to call this \
+                    function with a parent_type that is not an ObjectType, \
+                    for fields other than __typename, parent_type: {:?}; field: {}",
+                    parent_type, field_def.name
+                )),
+            };
+
             (
                 self.context.get_base_service(obj_type),
                 self.context.get_owning_service(obj_type, field_def),
