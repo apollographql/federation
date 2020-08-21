@@ -20,7 +20,7 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-pub(crate) fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
+pub fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
     let mut ops = get_operations(query);
 
     if ops.is_empty() {

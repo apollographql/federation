@@ -181,20 +181,19 @@ impl<'q> QueryPlanningContext<'q> {
 
         let return_type = return_type.unwrap();
 
-        let mut provided_fields: Vec<&'q str> = self
+        let provided_fields = self
             .get_key_fields(return_type, service_name, true)
             .into_iter()
-            .map(|f| f.field_def.name)
-            .collect();
+            .map(|f| f.field_def.name);
 
         if let Some(provides) = self.federation.provides(field_def) {
             let fields = collect_fields(self, self.new_scope(return_type, None), provides)
                 .into_iter()
                 .map(|f| f.field_def.name);
-            provided_fields.extend(fields);
+            provided_fields.chain(fields).collect()
+        } else {
+            provided_fields.collect()
         }
-
-        provided_fields
     }
 }
 
