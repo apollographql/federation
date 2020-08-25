@@ -32,8 +32,6 @@ jobs:
             ~/.cargo/git
             target
           key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-
 
       ### FORMATTING AND STYLE ###
       - name: Check formatting
@@ -86,8 +84,6 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-
 
       ### COMPILE INCLUDING TESTS ###
       # Note: we do this so that we'll cache the compile results/registry even if test might fail
@@ -140,8 +136,6 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-
 
       ### RUN TESTS ###
       - name: Test (cargo test)
