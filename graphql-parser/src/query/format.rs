@@ -3,6 +3,7 @@ use std::fmt;
 use crate::format::{format_directives, Displayable, Formatter, Style};
 
 use crate::query::ast::*;
+use crate::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 
 impl<'a> Document<'a> {
     /// Format a document according to style
@@ -56,16 +57,29 @@ impl<'a> Displayable for FragmentDefinition<'a> {
     }
 }
 
+macro_rules! selection_set_impl {
+    ($self:ident, $f:ident) => {
+        $f.margin();
+        $f.indent();
+        $f.start_block();
+        for item in &$self.items {
+            item.display($f);
+        }
+        $f.end_block();
+    };
+}
+
 impl<'a> Displayable for SelectionSet<'a> {
     #[inline]
     fn display(&self, f: &mut Formatter) {
-        f.margin();
-        f.indent();
-        f.start_block();
-        for item in &self.items {
-            item.display(f);
-        }
-        f.end_block();
+        selection_set_impl!(self, f);
+    }
+}
+
+impl<'a> Displayable for SelectionSetRef<'a> {
+    #[inline]
+    fn display(&self, f: &mut Formatter) {
+        selection_set_impl!(self, f);
     }
 }
 
@@ -79,42 +93,78 @@ impl<'a> Displayable for Selection<'a> {
     }
 }
 
+impl<'a> Displayable for SelectionRef<'a> {
+    fn display(&self, f: &mut Formatter) {
+        use SelectionRef::*;
+        match self {
+            Ref(sel) => sel.display(f),
+            Field(field) => field.display(f),
+            FieldRef(field_ref) => field_ref.display(f),
+            InlineFragmentRef(ifr) => ifr.display(f),
+        }
+    }
+}
+
 fn format_arguments<'a>(arguments: &[(Txt<'a>, Value<'a>)], f: &mut Formatter) {
     if !arguments.is_empty() {
         f.write("(");
         f.write(arguments[0].0.as_ref());
-        f.write(": ");
+        f.write(":");
+        f.space();
         arguments[0].1.display(f);
         for arg in &arguments[1..] {
-            f.write(", ");
+            if !f.is_minified() {
+                f.write(",");
+            }
+            f.write(" ");
             f.write(arg.0.as_ref());
-            f.write(": ");
+            f.write(":");
+            f.space();
             arg.1.display(f);
         }
         f.write(")");
     }
 }
 
+macro_rules! field_impl {
+    ($self:ident, $f:ident, $inline_pat:pat) => {
+        $f.indent();
+        if let Some(ref alias) = $self.alias {
+            $f.write(alias.as_ref());
+            $f.write(":");
+            $f.space();
+        }
+        $f.write($self.name.as_ref());
+        format_arguments(&$self.arguments, $f);
+        format_directives(&$self.directives, $f);
+        if !$self.selection_set.items.is_empty() {
+            $f.space();
+            $f.start_block();
+            for (i, item) in $self.selection_set.items.iter().enumerate() {
+                item.display($f);
+                if $f.is_minified()
+                    && i < $self.selection_set.items.len() - 1
+                    && !matches!(item, $inline_pat)
+                {
+                    $f.write(" ");
+                }
+            }
+            $f.end_block();
+        } else {
+            $f.endline();
+        }
+    };
+}
+
 impl<'a> Displayable for Field<'a> {
     fn display(&self, f: &mut Formatter) {
-        f.indent();
-        if let Some(ref alias) = self.alias {
-            f.write(alias.as_ref());
-            f.write(": ");
-        }
-        f.write(self.name.as_ref());
-        format_arguments(&self.arguments, f);
-        format_directives(&self.directives, f);
-        if !self.selection_set.items.is_empty() {
-            f.write(" ");
-            f.start_block();
-            for item in &self.selection_set.items {
-                item.display(f);
-            }
-            f.end_block();
-        } else {
-            f.endline();
-        }
+        field_impl!(self, f, Selection::InlineFragment(_));
+    }
+}
+
+impl<'a> Displayable for FieldRef<'a> {
+    fn display(&self, f: &mut Formatter) {
+        field_impl!(self, f, SelectionRef::InlineFragmentRef(_));
     }
 }
 
@@ -126,18 +176,20 @@ impl<'a> Displayable for OperationDefinition<'a> {
         if let Some(ref name) = self.name {
             f.write(" ");
             f.write(name.as_ref());
-            if !self.variable_definitions.is_empty() {
-                f.write("(");
-                self.variable_definitions[0].display(f);
-                for var in &self.variable_definitions[1..] {
+        }
+        if !self.variable_definitions.is_empty() {
+            f.write("(");
+            self.variable_definitions[0].display(f);
+            for var in &self.variable_definitions[1..] {
+                if !f.is_minified() {
                     f.write(", ");
-                    var.display(f);
                 }
-                f.write(")");
+                var.display(f);
             }
+            f.write(")");
         }
         format_directives(&self.directives, f);
-        f.write(" ");
+        f.space();
         f.start_block();
         for item in &self.selection_set.items {
             item.display(f);
@@ -150,10 +202,13 @@ impl<'a> Displayable for VariableDefinition<'a> {
     fn display(&self, f: &mut Formatter) {
         f.write("$");
         f.write(self.name.as_ref());
-        f.write(": ");
+        f.write(":");
+        f.space();
         self.var_type.display(f);
         if let Some(ref default) = self.default_value {
-            f.write(" = ");
+            f.space();
+            f.write("=");
+            f.space();
             default.display(f);
         }
     }
@@ -195,7 +250,8 @@ impl<'a> Displayable for Value<'a> {
                 if !items.is_empty() {
                     items[0].display(f);
                     for item in &items[1..] {
-                        f.write(", ");
+                        f.write(",");
+                        f.space();
                         item.display(f);
                     }
                 }
@@ -208,10 +264,12 @@ impl<'a> Displayable for Value<'a> {
                     if first {
                         first = false;
                     } else {
-                        f.write(", ");
+                        f.write(",");
+                        f.space();
                     }
                     f.write(name.as_ref());
-                    f.write(": ");
+                    f.write(":");
+                    f.space();
                     value.display(f);
                 }
                 f.write("}");
@@ -220,21 +278,37 @@ impl<'a> Displayable for Value<'a> {
     }
 }
 
+macro_rules! inline_fragment_impl {
+    ($self:ident, $f:ident) => {
+        $f.indent();
+        $f.write("...");
+        if let Some(ref cond) = $self.type_condition {
+            $f.space();
+            $f.write("on ");
+            $f.write(cond);
+        }
+        format_directives(&$self.directives, $f);
+        $f.space();
+        $f.start_block();
+        for (i, item) in $self.selection_set.items.iter().enumerate() {
+            item.display($f);
+            if $f.is_minified_and_no_block_suffix() && i < $self.selection_set.items.len() - 1 {
+                $f.write(" ");
+            }
+        }
+        $f.end_block();
+    };
+}
+
 impl<'a> Displayable for InlineFragment<'a> {
     fn display(&self, f: &mut Formatter) {
-        f.indent();
-        f.write("...");
-        if let Some(ref cond) = self.type_condition {
-            f.write(" on ");
-            f.write(cond);
-        }
-        format_directives(&self.directives, f);
-        f.write(" ");
-        f.start_block();
-        for item in &self.selection_set.items {
-            item.display(f);
-        }
-        f.end_block();
+        inline_fragment_impl!(self, f);
+    }
+}
+
+impl<'a> Displayable for InlineFragmentRef<'a> {
+    fn display(&self, f: &mut Formatter) {
+        inline_fragment_impl!(self, f);
     }
 }
 
@@ -270,4 +344,8 @@ impl_display!(
     InlineFragment,
     FragmentSpread,
     Directive,
+    SelectionSetRef,
+    SelectionRef,
+    FieldRef,
+    InlineFragmentRef,
 );

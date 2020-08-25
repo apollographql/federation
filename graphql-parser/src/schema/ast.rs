@@ -41,6 +41,16 @@ pub enum TypeDefinition<'a> {
     InputObject(InputObjectType<'a>),
 }
 
+impl<'a> TypeDefinition<'a> {
+    pub fn is_composite_type(&self) -> bool {
+        matches!(self, TypeDefinition::Object(_) | TypeDefinition::Interface(_) | TypeDefinition::Union(_))
+    }
+
+    pub fn is_abstract_type(&self) -> bool {
+        matches!(self, TypeDefinition::Interface(_) | TypeDefinition::Union(_))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeExtension<'a> {
     Scalar(ScalarTypeExtension<'a>),

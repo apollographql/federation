@@ -1,5 +1,5 @@
 use super::{Definition, Document, Selection, SelectionSet};
-use crate::{visit, visit_each};
+use crate::{node_trait, visit, visit_each};
 
 #[allow(unused_variables)]
 pub trait Visitor {
@@ -47,18 +47,7 @@ impl<M: Map> Visitor for visit::Fold<M> {
     }
 }
 
-pub trait Node {
-    fn accept<V: Visitor>(&self, visitor: &mut V);
-    fn map<M: Map>(&self, map: M) -> visit::Fold<M> {
-        let mut mapping = visit::Fold {
-            stack: vec![],
-            map,
-            output: None,
-        };
-        self.accept(&mut mapping);
-        mapping
-    }
-}
+node_trait!(Visitor, Map);
 
 impl<'a> Node for Document<'a> {
     fn accept<V: Visitor>(&self, visitor: &mut V) {

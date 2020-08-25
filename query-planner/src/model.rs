@@ -7,7 +7,6 @@
 //! names, aliases, type conditions, and recurively sub [SelectionSet]s.
 
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(from = "QueryPlanSerde", into = "QueryPlanSerde")]
@@ -41,16 +40,16 @@ pub enum PlanNode {
 #[serde(rename_all = "camelCase")]
 pub struct FetchNode {
     pub service_name: String,
-    pub variable_usages: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requires: Option<SelectionSet>,
+    pub variable_usages: Vec<String>,
     pub operation: GraphQLDocument,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FlattenNode {
-    pub path: Vec<ResponsePathElement>,
+    pub path: ResponsePath,
     pub node: Box<PlanNode>,
 }
 
@@ -79,25 +78,9 @@ pub struct InlineFragment {
     pub selections: SelectionSet,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ResponsePathElement {
-    Field(String),
-    Idx(u32),
-}
-
-impl fmt::Display for ResponsePathElement {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ResponsePathElement::Field(str) => str.fmt(f),
-            ResponsePathElement::Idx(i) => i.fmt(f),
-        }
-    }
-}
-
 pub type SelectionSet = Vec<Selection>;
 pub type GraphQLDocument = String;
-
+pub type ResponsePath = Vec<String>;
 /// Hacking Json Serde to match JS.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase", tag = "kind")]
@@ -108,6 +91,7 @@ enum QueryPlanSerde {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::consts::TYPENAME_FIELD_NAME;
     use serde_json::Value;
 
     fn qp_json_string() -> &'static str {
@@ -243,7 +227,7 @@ mod tests {
                                 nodes: vec![
                                     PlanNode::Flatten(FlattenNode {
                                         path: vec![
-                                            ResponsePathElement::Field("topProducts".to_owned()), ResponsePathElement::Field("@".to_owned())],
+                                            "topProducts".to_owned(), "@".to_owned()],
                                         node: Box::new(PlanNode::Fetch(FetchNode {
                                             service_name: "books".to_owned(),
                                             variable_usages: vec![],
@@ -253,7 +237,7 @@ mod tests {
                                                     selections: vec![
                                                         Selection::Field(Field {
                                                             alias: None,
-                                                            name: "__typename".to_owned(),
+                                                            name: TYPENAME_FIELD_NAME.to_owned(),
                                                             selections: None,
                                                         }),
                                                         Selection::Field(Field {
@@ -267,8 +251,8 @@ mod tests {
                                     }),
                                     PlanNode::Flatten(FlattenNode {
                                         path: vec![
-                                            ResponsePathElement::Field("topProducts".to_owned()),
-                                            ResponsePathElement::Field("@".to_owned())],
+                                            "topProducts".to_owned(),
+                                            "@".to_owned()],
                                         node: Box::new(PlanNode::Fetch(FetchNode {
                                             service_name: "product".to_owned(),
                                             variable_usages: vec![],
@@ -278,7 +262,7 @@ mod tests {
                                                     selections: vec![
                                                         Selection::Field(Field {
                                                             alias: None,
-                                                            name: "__typename".to_owned(),
+                                                            name: TYPENAME_FIELD_NAME.to_owned(),
                                                             selections: None,
                                                         }),
                                                         Selection::Field(Field {
@@ -304,8 +288,7 @@ mod tests {
                             PlanNode::Sequence {
                                 nodes: vec![
                                     PlanNode::Flatten(FlattenNode {
-                                        path: vec![
-                                            ResponsePathElement::Field("product".to_owned())],
+                                        path: vec!["product".to_owned()],
                                         node: Box::new(PlanNode::Fetch(FetchNode {
                                             service_name: "books".to_owned(),
                                             variable_usages: vec![],
@@ -315,7 +298,7 @@ mod tests {
                                                     selections: vec![
                                                         Selection::Field(Field {
                                                             alias: None,
-                                                            name: "__typename".to_owned(),
+                                                            name: TYPENAME_FIELD_NAME.to_owned(),
                                                             selections: None,
                                                         }),
                                                         Selection::Field(Field {
@@ -328,8 +311,7 @@ mod tests {
                                         })),
                                     }),
                                     PlanNode::Flatten(FlattenNode {
-                                        path: vec![
-                                            ResponsePathElement::Field("product".to_owned())],
+                                        path: vec!["product".to_owned()],
                                         node: Box::new(PlanNode::Fetch(FetchNode {
                                             service_name: "product".to_owned(),
                                             variable_usages: vec![],
@@ -339,7 +321,7 @@ mod tests {
                                                     selections: vec![
                                                         Selection::Field(Field {
                                                             alias: None,
-                                                            name: "__typename".to_owned(),
+                                                            name: TYPENAME_FIELD_NAME.to_owned(),
                                                             selections: None,
                                                         }),
                                                         Selection::Field(Field {

@@ -1,4 +1,4 @@
-Feature: Build Query Plan
+Feature: Query Planning > General
 
 Scenario: should not confuse union types with overlapping field names
   Given query
