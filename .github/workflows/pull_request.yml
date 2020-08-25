@@ -31,9 +31,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            linux-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
+            linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-
 
       ### FORMATTING AND STYLE ###
       - name: Check formatting
@@ -85,9 +85,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-
 
       ### COMPILE INCLUDING TESTS ###
       # Note: we do this so that we'll cache the compile results/registry even if test might fail
@@ -97,7 +97,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: "--no-run"
+          args: "--no-run --workspace --locked"
 
   test:
     name: Test
@@ -139,16 +139,16 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-
+            ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-
 
       ### RUN TESTS ###
       - name: Test (cargo test)
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: "-- --nocapture"
+          args: "--workspace --locked -- --nocapture"
         env:
           RUST_LOG: debug
           RUST_BACKTRACE: 1
