@@ -85,7 +85,7 @@ impl<'q> Map for VariableUsagesMap<'q> {
 
     fn sel_ref(&mut self, sel: &SelectionRef, stack: &[Self::Output]) -> Self::Output {
         match sel {
-            SelectionRef::Ref(sel) => return self.sel(sel, stack),
+            SelectionRef::Ref(sel) => self.sel(sel, stack),
             SelectionRef::Field(field) => build_variables_map!(field: field, self),
             SelectionRef::FieldRef(field) => build_variables_map!(field: field, self),
             SelectionRef::InlineFragmentRef(inline) => build_variables_map!(inline, self),

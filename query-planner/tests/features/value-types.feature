@@ -106,13 +106,3 @@ Scenario: resolves value types within their respective services
   }
   """
 
-# can't test as-is without modifying resolvers
-# Scenario: resolves @provides fields on value types correctly via contrived example
-#   Given query
-#   """
-
-#   """
-#   Then query plan
-#   """
-#   {}
-#   """
