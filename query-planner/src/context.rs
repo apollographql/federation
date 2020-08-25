@@ -79,7 +79,7 @@ impl<'q> QueryPlanningContext<'q> {
         self.names_to_types[obj.name]
     }
 
-    // TODO(ran)(p2) FIXME: we may be able to change this return type to &str
+    // TODO(ran)(p2)(#114) we may be able to change this return type to &str
     pub fn get_base_service(&self, parent_type: &schema::ObjectType) -> String {
         self.federation
             .service_name_for_type(parent_type)
@@ -96,7 +96,7 @@ impl<'q> QueryPlanningContext<'q> {
             .unwrap_or_else(|| self.get_base_service(parent_type))
     }
 
-    // TODO(ran)(p2) FIXME: for get_X_fields, we can calculate it once from the schema and put it in some maps or something.
+    // TODO(ran)(p2)(#114) for get_X_fields, we can calculate it once from the schema and put it in some maps or something.
     pub fn get_key_fields<'a>(
         &'q self,
         parent_type: &'q TypeDefinition<'q>,
@@ -257,6 +257,3 @@ pub struct Field<'q> {
 }
 
 pub type FieldSet<'q> = Vec<Field<'q>>;
-
-// TODO(ran)(p2) FIXME: copy documentation comments from .ts
-// TODO(ran)(p2) FIXME: add docstrings everywhere :)

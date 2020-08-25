@@ -33,7 +33,6 @@ pub fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<Q
         ));
     }
 
-    // TODO(ran)(p2) FIXME: we can validate this before calling `build_query_plan`
     if let Operation::Subscription = ops[0].kind {
         return Err(QueryPlanError::InvalidQuery(
             "subscriptions are not supported",
@@ -42,7 +41,7 @@ pub fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<Q
 
     let types = names_to_types(schema);
 
-    // TODO(ran)(p2) FIXME: see if we can optimize and memoize the stuff we build only using the schema.
+    // TODO(ran)(p2)(#114) see if we can optimize and memoize the stuff we build only using the schema.
     let context = QueryPlanningContext {
         schema,
         operation: ops.pop().unwrap(),
@@ -627,7 +626,6 @@ fn selection_set_from_field_set<'q>(
     }
 }
 
-// TODO(ran) consider replacing manual string creation with creating ast nodes and printing them .minified.
 fn operation_for_entities_fetch<'q>(
     selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
