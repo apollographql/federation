@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use linked_hash_map::LinkedHashMap;
 
+use graphql_parser::query;
 use graphql_parser::query::refs::{SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 
@@ -58,7 +59,7 @@ macro_rules! build_variables_map {
     };
 }
 
-impl<'q> Map for VariableUsagesMap<'q> {
+impl<'q> query::Map for VariableUsagesMap<'q> {
     fn query(&mut self, _doc: &Document, _stack: &[Self::Output]) -> Self::Output {
         LinkedHashMap::new()
     }
@@ -71,16 +72,18 @@ impl<'q> Map for VariableUsagesMap<'q> {
         LinkedHashMap::new()
     }
 
-    fn sel_set_ref(&mut self, _sel_set: &SelectionSetRef, _stack: &[Self::Output]) -> Self::Output {
-        LinkedHashMap::new()
-    }
-
     fn sel(&mut self, sel: &Selection, _stack: &[Self::Output]) -> Self::Output {
         match sel {
             Selection::Field(field) => build_variables_map!(field: field, self),
             Selection::InlineFragment(inline) => build_variables_map!(inline, self),
             Selection::FragmentSpread(spread) => build_variables_map!(spread, self),
         }
+    }
+}
+
+impl<'q> refs::Map for VariableUsagesMap<'q> {
+    fn sel_set_ref(&mut self, _sel_set: &SelectionSetRef, _stack: &[Self::Output]) -> Self::Output {
+        LinkedHashMap::new()
     }
 
     fn sel_ref(&mut self, sel: &SelectionRef, stack: &[Self::Output]) -> Self::Output {

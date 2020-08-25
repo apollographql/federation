@@ -50,3 +50,22 @@ macro_rules! visit_each {
         }
     };
 }
+
+#[macro_export]
+macro_rules! node_trait {
+    ($visitor:path, $map:path) => {
+        pub trait Node {
+            fn accept<V: $visitor>(&self, visitor: &mut V);
+
+            fn map<M: $map>(&self, map: M) -> crate::visit::Fold<M> {
+                let mut mapping = crate::visit::Fold {
+                    stack: vec![],
+                    map,
+                    output: None,
+                };
+                self.accept(&mut mapping);
+                mapping
+            }
+        }
+    };
+}

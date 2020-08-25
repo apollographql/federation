@@ -1,6 +1,7 @@
 use crate::common::{Directive, Txt, Value};
-use crate::query::{Field, Node, SelectionSet, Visitor};
-use crate::visit_each;
+use crate::query::Node as QueryNode;
+use crate::query::{Field, SelectionSet};
+use crate::{node_trait, visit, visit_each};
 use crate::{query, Pos};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -103,6 +104,8 @@ pub struct InlineFragmentRef<'a> {
     pub selection_set: SelectionSetRef<'a>,
 }
 
+node_trait!(Visitor, Map);
+
 impl<'a> Node for SelectionSetRef<'a> {
     fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.enter_sel_set_ref(self);
@@ -128,5 +131,36 @@ impl<'a> Node for SelectionRef<'a> {
             }
             visitor.leave_sel_ref(self);
         }
+    }
+}
+
+#[allow(unused_variables)]
+pub trait Visitor: query::Visitor {
+    fn enter_sel_set_ref(&mut self, sel_set: &SelectionSetRef) {}
+    fn enter_sel_ref(&mut self, sel: &SelectionRef) {}
+    fn leave_sel_ref(&mut self, sel: &SelectionRef) {}
+    fn leave_sel_set_ref(&mut self, sel_set: &SelectionSetRef) {}
+}
+
+pub trait Map: query::Map {
+    fn sel_set_ref(&mut self, sel_set: &SelectionSetRef, stack: &[Self::Output]) -> Self::Output;
+    fn sel_ref(&mut self, sel: &SelectionRef, stack: &[Self::Output]) -> Self::Output;
+}
+
+impl<M: Map> Visitor for visit::Fold<M> {
+    fn enter_sel_set_ref(&mut self, sel_set: &SelectionSetRef) {
+        self.stack.push(self.map.sel_set_ref(sel_set, &self.stack));
+    }
+
+    fn enter_sel_ref(&mut self, sel: &SelectionRef) {
+        self.stack.push(self.map.sel_ref(&sel, &self.stack));
+    }
+
+    fn leave_sel_ref(&mut self, _sel: &SelectionRef) {
+        self.pop();
+    }
+
+    fn leave_sel_set_ref(&mut self, _sel_set: &SelectionSetRef) {
+        self.pop();
     }
 }

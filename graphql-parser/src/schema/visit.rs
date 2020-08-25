@@ -1,7 +1,7 @@
 use super::*;
 use crate::query;
 use crate::query::Node as QueryNode;
-use crate::{visit, visit_each};
+use crate::{node_trait, visit, visit_each};
 
 #[allow(unused_variables)]
 pub trait Visitor: query::Visitor {
@@ -36,12 +36,12 @@ impl<M: Map> Visitor for visit::Fold<M> {
     fn enter_field<'a>(&mut self, field: &Field<'a>) {
         self.stack.push(self.map.field(field, &self.stack));
     }
+    fn leave_field<'a>(&mut self, _: &Field<'a>) {
+        self.pop();
+    }
     fn enter_input_value<'a>(&mut self, input_value: &InputValue<'a>) {
         self.stack
             .push(self.map.input_value(input_value, &self.stack));
-    }
-    fn leave_field<'a>(&mut self, _: &Field<'a>) {
-        self.pop();
     }
     fn leave_input_value<'a>(&mut self, _: &InputValue<'a>) {
         self.pop();
@@ -54,18 +54,7 @@ impl<M: Map> Visitor for visit::Fold<M> {
     }
 }
 
-pub trait Node {
-    fn accept<V: Visitor>(&self, visitor: &mut V);
-    fn map<M: Map>(&self, map: M) -> visit::Fold<M> {
-        let mut mapping = visit::Fold {
-            stack: vec![],
-            map,
-            output: None,
-        };
-        self.accept(&mut mapping);
-        mapping
-    }
-}
+node_trait!(Visitor, Map);
 
 impl<'a> Node for Document<'a> {
     fn accept<V: Visitor>(&self, visitor: &mut V) {
