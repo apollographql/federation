@@ -347,6 +347,7 @@ fn complete_field<'a, 'q: 'a>(
                 ..fields.pop().unwrap()
             }
         } else {
+            #[warn(clippy::unnecessary_unwrap)]
             let return_type = return_type.unwrap();
             let (head, tail) = fields.head();
 
