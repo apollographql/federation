@@ -1,7 +1,5 @@
 name: Lint, Build and Test Rust
 
-# TODO(ran) FIXME: remove matrix, add composite commands, update CONTRIBUTING
-
 on:
   pull_request
 

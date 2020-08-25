@@ -13,10 +13,10 @@ If this project seems like something you want to which you want to contribute, f
 
 If you ever have any problems, questions, or ideas; the maintainers of this project are
 
-- [@queerviolet](https://github.com/queerviolet)
-- [@jbaxleyiii](https://github.com/jbaxleyiii)
-- [@jakedawkins](https://github.com/jakedawkins)
 - [@enrico2](https://github.com/enrico2)
+- [@jakedawkins](https://github.com/jakedawkins)
+- [@jbaxleyiii](https://github.com/jbaxleyiii)
+- [@queerviolet](https://github.com/queerviolet)
 - [@trevor-scheer](https://github.com/trevor-scheer)
 
 <img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/telescope.svg" width="100%" height="144">

@@ -28,7 +28,7 @@ If you encounter a bug, please file an issue on this GitHub repository. If an is
 While we will try to be as helpful as we can on any issue reported, please include the following to maximize the chances of a quick fix:
 
 1. **Intended outcome:** What you were trying to accomplish when the bug occurred, and as much code as possible related to the source of the problem.
-2. **Actual outcome:** A description of what actually happened, including a screenshot or copy-paste of any related error messages, logs, or other output that might be related. Please avoid non-specific phrases like “didn’t work” or “broke”. Including the version of the CLI and what platform you are using is really helpful.
+2. **Actual outcome:** A description of what actually happened, including a screenshot or copy-paste of any related error messages, logs, or other output that might be related. Please avoid non-specific phrases like “didn’t work” or “broke”.
 3. **How to reproduce the issue:** Instructions for how the issue can be reproduced by a maintainer or contributor. Be as specific as possible, and only mention what is necessary to reproduce the bug.
 
 Creating a good reproduction really helps contributors investigate and resolve your issue quickly. In many cases, the act of creating a minimal reproduction illuminates that the source of the bug was somewhere outside the library in question, saving time and effort for everyone.
@@ -43,7 +43,7 @@ In addition to reporting issues, a great way to contribute to Apollo is to respo
 
 ### Small bug fixes
 
-For a small bug fix change (less than ~20 lines of code changed), feel free to open a pull request. We’ll try to merge it as fast as possible and ideally publish a new release on the same day. The only requirement is, make sure you also add a test that verifies the bug you are trying to fix.
+For a small bug fix change (less than ~20 lines of code changed), feel free to open a pull request. We’ll try to merge it as fast as possible. The only requirement is, make sure you also add a test that verifies the bug you are trying to fix, and that the coverage report covers as much of your code as possible.
 
 ### Suggesting features
 
@@ -73,12 +73,11 @@ It’s important that every piece of code in Apollo packages is reviewed by at l
 
 ## Pipelines
 
-This project uses GitHub Actions to run a continuous integration and delivery pipeline. Every code change will be run against a few steps to help keep the project running at its peak ability
+This project uses GitHub Actions to run a continuous integration and delivery pipeline. Every code change will be run against a few steps to help keep the project running at its peak ability.
 
 - **CLA Check**: If you haven’t signed the Apollo CLA, a bot will comment on your PR asking you to do this
-- **Tests**: The CI will run the `cargo test` command across there different architectures (Mac OS, Linux, and Windows). If your build fails on a platform that can’t test on don’t worry! The team will be able to help you out as we run all three platforms to make sure everyone has a great experience.
+- **Tests**: The CI will run the `cargo test` command.
 - **Coverage**: This project runs a job to collect information on how much of the library has been tested using code coverage tools. This is a WIP but you may see a status check related to how you have improved (or lowered 😢) the amount covered. Don’t worry, it happens to all of us and we are here to help out!
-- **Build**: Each PR will build a set of binaries that can be installed and used like the full release. In fact, it uses most of the same process as our release setup! Currently this is limited to only people with write access to the repo but we are working on a way to make this easy for anyone to use.
 
 After you have opened your PR and all of the status checks are passing, please assign it to one of the maintainers (found in the bottom of [the README](./README.md#contributing) who will review it and give feedback.
 
