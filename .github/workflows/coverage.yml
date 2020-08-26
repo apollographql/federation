@@ -1,0 +1,56 @@
+name: Code Coverage
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: '0'
+      RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+      RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+    steps:
+      - uses: actions/checkout@v2
+
+      ### INSTALL RUST ###
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          toolchain: nightly
+          override: true
+
+      ### BUILD CACHE SPECIFIC FOR COVERAGE ###
+      - name: Cache Cargo registry, index
+        uses: actions/cache@v2
+        id: cache-cargo
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-cov-${{ hashFiles('**/Cargo.lock') }}
+
+      ### RUN TESTS & COVERAGE ###
+      - name: Test (cargo test)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: "--workspace --locked"
+      - uses: actions-rs/grcov@v0.1
+        id: coverage
+
+      ### UPLOAD RESULTS ###
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ${{ steps.coverage.outputs.report }}
+
