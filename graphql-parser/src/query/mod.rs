@@ -3,7 +3,7 @@
 mod ast;
 mod format;
 mod grammar;
-mod minified;
+pub(crate) mod minified;
 pub mod refs;
 
 pub use self::ast::*;

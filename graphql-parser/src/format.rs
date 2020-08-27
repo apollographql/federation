@@ -4,7 +4,7 @@ use std::default::Default;
 use crate::common::Directive;
 
 #[derive(Debug, PartialEq)]
-pub struct Formatter<'a> {
+pub(crate) struct Formatter<'a> {
     buf: String,
     style: &'a Style,
     indent: u32,
@@ -17,15 +17,11 @@ pub struct Formatter<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Style {
     indent: u32,
-    minified: bool,
 }
 
 impl Default for Style {
     fn default() -> Style {
-        Style {
-            indent: 2,
-            minified: false,
-        }
+        Style { indent: 2 }
     }
 }
 
@@ -35,42 +31,13 @@ impl Style {
         self.indent = indent;
         self
     }
-
-    pub fn minified() -> Self {
-        Style {
-            indent: 0,
-            minified: true,
-        }
-    }
 }
 
-pub trait Displayable {
+pub(crate) trait Displayable {
     fn display(&self, f: &mut Formatter);
 }
 
-pub trait DisplayMinified {
-    fn minified(&self) -> String;
-}
-
-impl<T: Displayable> DisplayMinified for T {
-    fn minified(&self) -> String {
-        let style = Style::minified();
-        let mut formatter = Formatter::new(&style);
-        self.display(&mut formatter);
-        formatter.into_string()
-    }
-}
-
 impl<'a> Formatter<'a> {
-    // TODO(ran)(p2)(#112) implement minified better... this is awful.
-    pub fn is_minified(&self) -> bool {
-        self.style.minified
-    }
-
-    pub fn is_minified_and_no_block_suffix(&self) -> bool {
-        self.style.minified && !self.buf.ends_with('}')
-    }
-
     pub fn new(style: &Style) -> Formatter {
         Formatter {
             buf: String::with_capacity(1024),
@@ -80,23 +47,13 @@ impl<'a> Formatter<'a> {
     }
 
     pub fn indent(&mut self) {
-        if !self.is_minified() {
-            for _ in 0..self.indent {
-                self.buf.push(' ');
-            }
-        }
-    }
-
-    pub fn space(&mut self) {
-        if !self.is_minified() {
-            self.buf.push(' ')
+        for _ in 0..self.indent {
+            self.buf.push(' ');
         }
     }
 
     pub fn endline(&mut self) {
-        if !self.is_minified() {
-            self.buf.push('\n')
-        };
+        self.buf.push('\n');
     }
 
     pub fn start_block(&mut self) {
@@ -117,11 +74,7 @@ impl<'a> Formatter<'a> {
 
     pub fn margin(&mut self) {
         if !self.buf.is_empty() {
-            if !self.is_minified() {
-                self.endline()
-            } else {
-                self.buf.push(' ');
-            }
+            self.buf.push('\n');
         }
     }
 
@@ -178,7 +131,7 @@ impl<'a> Formatter<'a> {
 
 pub(crate) fn format_directives<'a>(dirs: &[Directive<'a>], f: &mut Formatter) {
     for dir in dirs {
-        f.space();
+        f.write(" ");
         dir.display(f);
     }
 }
@@ -204,28 +157,4 @@ macro_rules! impl_display {
             }
         )+
     };
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::format::DisplayMinified;
-    use crate::parse_query;
-
-    #[test]
-    fn minified() {
-        let queries: Vec<&str> = vec![
-            "{a{b}c}",
-            "query{testing}",
-            "{body{__typename nested{__typename}}test{__typename nested{__typename}}}",
-            "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}",
-            "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold text}}}}",
-            "query($arg:String$arg2:Int){field(argValue:$arg){otherField field3(foo:$arg2)}}",
-            "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body}numberOfReviews}}}",
-            "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
-        ];
-        for query in queries {
-            let parsed = parse_query(query).unwrap();
-            assert_eq!(query, parsed.minified())
-        }
-    }
 }

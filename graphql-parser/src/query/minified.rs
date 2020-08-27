@@ -1,14 +1,9 @@
 use crate::query::refs::*;
 use crate::query::*;
 
+#[derive(Debug)]
 pub struct MinifiedFormatter {
     buf: String,
-}
-
-impl MinifiedFormatter {
-    pub fn write(&mut self, str: &str) {
-        self.buf.push_str(str)
-    }
 }
 
 impl Default for MinifiedFormatter {
@@ -19,9 +14,21 @@ impl Default for MinifiedFormatter {
     }
 }
 
-trait MinifiedString {
+pub trait MinifiedString {
     /// writes the minified string representation of this type, returns true if whitespace is needed after it.
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool;
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool;
+}
+
+pub trait DisplayMinified {
+    fn minified(&self) -> String;
+}
+
+impl<T: MinifiedString> DisplayMinified for T {
+    fn minified(&self) -> String {
+        let mut formatter = MinifiedFormatter::default();
+        self.minify(&mut formatter);
+        formatter.buf
+    }
 }
 
 macro_rules! minify_each {
@@ -36,7 +43,7 @@ macro_rules! minify_each {
         if !$v.is_empty() {
             write!($f, "(");
             for t in $v.iter() {
-                t.minified($f);
+                t.minify($f);
             }
             write!($f, ")");
         }
@@ -52,9 +59,9 @@ macro_rules! minify_each {
         let mut space = false;
         for t in $v.iter() {
             if space {
-                $f.buf.push(' ');
+                write!($f, " ");
             }
-            space = t.minified($f);
+            space = t.minify($f);
         }
     };
 }
@@ -62,9 +69,9 @@ macro_rules! minify_each {
 macro_rules! minify_enum {
     ($t:path, $($p:path),+) => {
         impl MinifiedString for $t {
-            fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+            fn minify(&self, f: &mut MinifiedFormatter) -> bool {
                 match self {
-                    $( $p(v) => v.minified(f) ),*
+                    $( $p(v) => v.minify(f) ),*
                 }
             }
         }
@@ -73,15 +80,15 @@ macro_rules! minify_enum {
 
 macro_rules! write {
     ($f:ident, $($e:expr,)*) => {
-        $( if $e.len() == 1 { $f.buf.push($e.chars().next().unwrap()) } else { $f.write($e) } );*
+        $( if $e.len() == 1 { $f.buf.push($e.chars().next().unwrap()) } else { $f.buf.push_str($e) } )*
     };
     ($f:ident, $($e:expr),*) => {
-        write!($f, $($e,)*)
-    }
+        write!($f, $($e,)*);
+    };
 }
 
 impl<'a> MinifiedString for Document<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         minify_each!(f, self.definitions);
         false
     }
@@ -95,50 +102,50 @@ minify_enum!(
 );
 
 impl<'a> MinifiedString for FragmentDefinition<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         write!(f, "fragment ", self.name, " on ", self.type_condition);
         minify_each!(f, self.directives);
-        self.selection_set.minified(f);
+        self.selection_set.minify(f);
 
         self.selection_set.items.is_empty()
     }
 }
 
 impl<'a> MinifiedString for OperationDefinition<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         write!(f, self.kind.as_str());
         if let Some(name) = self.name {
             write!(f, " ", name);
         }
         minify_each!((f, self.variable_definitions) no_space);
         minify_each!(f, self.directives);
-        self.selection_set.minified(f);
+        self.selection_set.minify(f);
 
         self.selection_set.items.is_empty()
     }
 }
 
 impl<'a> MinifiedString for SelectionSet<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         minify_each!({f, self.items});
         false
     }
 }
 
 impl<'a> MinifiedString for SelectionSetRef<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         minify_each!({f, self.items});
         false
     }
 }
 
 impl<'a> MinifiedString for VariableDefinition<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         write!(f, "$", self.name, ":",);
-        self.var_type.minified(f);
+        self.var_type.minify(f);
         if let Some(ref default) = self.default_value {
             write!(f, "=");
-            default.minified(f);
+            default.minify(f);
         };
         true
     }
@@ -160,35 +167,35 @@ minify_enum!(
 );
 
 impl<'a> MinifiedString for Field<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         if let Some(alias) = self.alias {
             write!(f, alias, ":");
         }
         write!(f, self.name);
         minify_each!((f, self.arguments));
         minify_each!(f, self.directives);
-        self.selection_set.minified(f);
+        self.selection_set.minify(f);
 
         self.selection_set.items.is_empty()
     }
 }
 
 impl<'a> MinifiedString for FieldRef<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         if let Some(alias) = self.alias {
             write!(f, alias, ":");
         }
         write!(f, self.name);
         minify_each!((f, self.arguments));
         minify_each!(f, self.directives);
-        self.selection_set.minified(f);
+        self.selection_set.minify(f);
 
         self.selection_set.items.is_empty()
     }
 }
 
 impl<'a> MinifiedString for FragmentSpread<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         write!(f, "...", self.fragment_name);
         minify_each!(f, self.directives);
         true
@@ -196,33 +203,33 @@ impl<'a> MinifiedString for FragmentSpread<'a> {
 }
 
 impl<'a> MinifiedString for InlineFragment<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         write!(f, "...");
         if let Some(cond) = self.type_condition {
             write!(f, "on ", cond);
         }
         minify_each!(f, self.directives);
-        self.selection_set.minified(f);
+        self.selection_set.minify(f);
 
         self.selection_set.items.is_empty()
     }
 }
 
 impl<'a> MinifiedString for InlineFragmentRef<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         write!(f, "...");
         if let Some(cond) = self.type_condition {
             write!(f, "on ", cond);
         }
         minify_each!(f, self.directives);
-        self.selection_set.minified(f);
+        self.selection_set.minify(f);
 
         self.selection_set.items.is_empty()
     }
 }
 
 impl<'a> MinifiedString for Directive<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         write!(f, "@", self.name);
         minify_each!((f, self.arguments));
         true
@@ -230,7 +237,7 @@ impl<'a> MinifiedString for Directive<'a> {
 }
 
 impl<'a> MinifiedString for Value<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         match self {
             Value::Variable(name) => {
                 write!(f, "$", name);
@@ -281,25 +288,25 @@ impl<'a> MinifiedString for Value<'a> {
 }
 
 impl<'a> MinifiedString for (Txt<'a>, Value<'a>) {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         let (a, b) = self;
         write!(f, a, ":");
-        b.minified(f);
+        b.minify(f);
         true
     }
 }
 
 impl<'a> MinifiedString for (&Txt<'a>, &Value<'a>) {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         let (a, b) = self;
         write!(f, a, ":");
-        b.minified(f);
+        b.minify(f);
         true
     }
 }
 
 impl<'a> MinifiedString for Type<'a> {
-    fn minified(&self, f: &mut MinifiedFormatter) -> bool {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
         match self {
             Type::NamedType(name) => {
                 write!(f, name);
@@ -307,12 +314,12 @@ impl<'a> MinifiedString for Type<'a> {
             }
             Type::ListType(typ) => {
                 write!(f, "[");
-                typ.minified(f);
+                typ.minify(f);
                 write!(f, "]");
                 false
             }
             Type::NonNullType(typ) => {
-                typ.minified(f);
+                typ.minify(f);
                 write!(f, "!");
                 false
             }
@@ -326,7 +333,7 @@ mod tests {
     use crate::query::minified::{MinifiedFormatter, MinifiedString};
 
     #[test]
-    fn minified() {
+    fn minify() {
         let queries: Vec<&str> = vec![
             "{a{b}c}",
             "query{testing}",
@@ -340,7 +347,7 @@ mod tests {
         for query in queries {
             let parsed = parse_query(query).unwrap();
             let mut f = MinifiedFormatter::default();
-            parsed.minified(&mut f);
+            parsed.minify(&mut f);
             assert_eq!(query, f.buf);
         }
     }
