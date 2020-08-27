@@ -1,0 +1,65 @@
+name: Lint and Tests (all platforms)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [linux, macos, windows]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - build: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@v2
+
+      ### INSTALL RUST ###
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          profile: minimal
+          override: true
+
+      ### BUILD CACHE ###
+      - name: Cache Cargo registry, target, index
+        # we skip caching on macos because of the flaky `thiserror_impl` problem.
+        # see https://github.com/apollographql/rust/issues/123
+        if: matrix.build != 'macos'
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/bin
+            ~/.cargo/git
+            target
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+
+      ### RUN TESTS ###
+      - name: Test (cargo test)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: "--workspace --locked -- --nocapture"
+        env:
+          RUST_LOG: debug
+          RUST_BACKTRACE: 1
