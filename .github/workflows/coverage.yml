@@ -35,6 +35,7 @@ jobs:
         with:
           path: |
             ~/.cargo/registry
+            ~/.cargo/bin
             ~/.cargo/git
           key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-cov-${{ hashFiles('**/Cargo.lock') }}
 
