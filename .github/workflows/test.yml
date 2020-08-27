@@ -1,7 +1,10 @@
-name: Lint, Build and Test Rust
+name: Lint and Tests
 
 on:
-  pull_request
+  push:
+    branches:
+      - main
+  pull_request:
 
 env:
   CARGO_TERM_COLOR: always
