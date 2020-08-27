@@ -1,9 +1,6 @@
 name: Lint and Tests
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
 
 env:
