@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/rocket1.svg" width="100%" height="144">
 
-![Lint and Tests](https://github.com/apollographql/rust/workflows/Lint%20and%20Tests/badge.svg)
+[![Lint and Tests](https://github.com/apollographql/rust/workflows/Lint%20and%20Tests/badge.svg)](https://github.com/apollographql/rust/actions?query=workflow%3A%22Lint+and+Tests%22+branch%3Amain)
 [![Security audit](https://github.com/apollographql/rust/workflows/Security%20audit/badge.svg)](https://github.com/apollographql/rust/actions?query=workflow%3A%22Security+audit%22)
 [![codecov](https://codecov.io/gh/apollographql/rust/branch/main/graph/badge.svg)](https://codecov.io/gh/apollographql/rust)
 
