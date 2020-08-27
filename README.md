@@ -2,6 +2,7 @@
 
 [![Tests](https://github.com/apollographql/rust/workflows/Tests/badge.svg)](https://github.com/apollographql/rust/actions?query=workflow%3ATests)
 [![Security audit](https://github.com/apollographql/rust/workflows/Security%20audit/badge.svg)](https://github.com/apollographql/rust/actions?query=workflow%3A%22Security+audit%22)
+[![codecov](https://codecov.io/gh/apollographql/rust/branch/main/graph/badge.svg)](https://codecov.io/gh/apollographql/rust)
 
 # Project Constellation
 
