@@ -1,6 +1,5 @@
 [workspace]
 members = [
-  "cli",
   "graphql-parser",
   "query-planner"
 ]

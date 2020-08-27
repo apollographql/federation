@@ -347,7 +347,7 @@ fn complete_field<'a, 'q: 'a>(
                 ..fields.pop().unwrap()
             }
         } else {
-            let return_type = return_type.unwrap();
+            let return_type = return_type.expect("Already checked this is not None");
             let (head, tail) = fields.head();
 
             let field_path = add_path(

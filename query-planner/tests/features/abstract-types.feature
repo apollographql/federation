@@ -631,18 +631,3 @@ Scenario: handles unions from the same service
     }
   }
   """
-
-# can't test this yet -- original test overwrites schema def, which we don't support yet
-# Scenario: doesn't expand interfaces with inline type conditions if all possibilities are fufilled by one service
-#   Given query
-#   """
-#   query GetProducts {
-#         topProducts {
-#           name
-#         }
-#       }
-#   """
-#   Then query plan
-#   """
-#   {}
-#   """

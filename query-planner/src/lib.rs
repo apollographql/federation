@@ -50,6 +50,7 @@ mod tests {
 
     use crate::model::QueryPlan;
     use crate::QueryPlanner;
+    use std::path::PathBuf;
 
     macro_rules! get_step {
         ($scenario:ident, $typ:pat) => {
@@ -71,7 +72,7 @@ mod tests {
         let planner = QueryPlanner::new(SCHEMA);
 
         // If debugging with IJ, use `read_dir("query-planner/tests/features")`
-        let feature_paths = read_dir("tests/features")
+        let feature_paths = read_dir(PathBuf::from("tests").join("features"))
             .unwrap()
             .map(|res| res.map(|e| e.path()).unwrap())
             .filter(|e| {
@@ -84,9 +85,16 @@ mod tests {
 
         for path in feature_paths {
             let feature = read_to_string(&path).unwrap();
+
+            let feature = if cfg!(windows) {
+                feature.replace("\r\n", "\n")
+            } else {
+                feature
+            };
+
             let feature = match Feature::parse(feature) {
                 Result::Ok(feature) => feature,
-                _ => panic!("Unparseable .feature file {:?}", &path),
+                Result::Err(e) => panic!("Unparseable .feature file {:?} -- {}", &path, e),
             };
             let scenarios = feature
                 .scenarios
