@@ -15,7 +15,7 @@ authors = ["Paul Colomiets <paul@colomiets.name>"]
 edition = "2018"
 
 [dependencies]
-combine = "3.8.1"
+combine = "4.3.1"
 thiserror = "1.0.20"
 bytecount = "0.6.0"
 
