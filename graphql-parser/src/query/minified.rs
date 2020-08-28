@@ -329,8 +329,8 @@ impl<'a> MinifiedString for Type<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parse_query;
     use crate::query::minified::{MinifiedFormatter, MinifiedString};
+    use crate::{parse_query, DisplayMinified};
 
     #[test]
     fn minify() {
@@ -346,9 +346,7 @@ mod tests {
         ];
         for query in queries {
             let parsed = parse_query(query).unwrap();
-            let mut f = MinifiedFormatter::default();
-            parsed.minify(&mut f);
-            assert_eq!(query, f.buf);
+            assert_eq!(query, parsed.minified())
         }
     }
 }
