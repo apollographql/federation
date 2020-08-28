@@ -65,6 +65,10 @@ mod tests {
         };
     }
 
+    /// This test looks over all directorys under tests/features and finds "csdl.graphql" in
+    /// each of those directories. It runs all of the .feature cases in that directory against that schema.
+    /// To add test cases against new schemas, create a sub directory under "features" with the new schema
+    /// and new .feature files.
     #[test]
     fn test_all_feature_files() {
         // If debugging with IJ, use `read_dir("query-planner/tests/features")`
