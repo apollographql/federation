@@ -1672,3 +1672,72 @@ Scenario: multiple root mutations with correct service order
     }
   }
   """
+
+Scenario: supports arrays
+  Given query
+  """
+  query MergeArrays {
+    me {
+      # goodAddress
+      goodDescription
+      metadata {
+        address
+      }
+    }
+  }
+  """
+  Then query plan
+  """
+  {
+    "kind": "QueryPlan",
+    "node": {
+      "kind": "Sequence",
+      "nodes": [
+        {
+          "kind": "Fetch",
+          "serviceName": "accounts",
+          "variableUsages": [],
+          "operation": "{me{__typename id metadata{description address}}}"
+        },
+        {
+          "kind": "Flatten",
+          "path": [
+            "me"
+          ],
+          "node": {
+            "kind": "Fetch",
+            "serviceName": "inventory",
+            "requires": [
+              {
+                "kind": "InlineFragment",
+                "typeCondition": "User",
+                "selections": [
+                  {
+                    "kind": "Field",
+                    "name": "__typename"
+                  },
+                  {
+                    "kind": "Field",
+                    "name": "id"
+                  },
+                  {
+                    "kind": "Field",
+                    "name": "metadata",
+                    "selections": [
+                      {
+                        "kind": "Field",
+                        "name": "description"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "variableUsages": [],
+            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{goodDescription}}}"
+          }
+        }
+      ]
+    }
+  }
+  """

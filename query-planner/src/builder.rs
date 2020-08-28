@@ -131,7 +131,12 @@ pub(crate) fn collect_fields<'q>(
         visited_fragment_names: &'a mut HashSet<&'q str>,
         fields: &'a mut FieldSet<'q>,
     ) {
-        for selection in selection_set.items.into_iter() {
+        let selections_without_introspection = selection_set
+            .items
+            .into_iter()
+            .filter(|s| is_not_introspection_field(s));
+
+        for selection in selections_without_introspection {
             match selection {
                 SelectionRef::FieldRef(field) => {
                     let name = field.name;
