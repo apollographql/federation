@@ -65,50 +65,56 @@ mod tests {
         };
     }
 
-    static SCHEMA: &str = include_str!("../tests/features/csdl.graphql");
-
     #[test]
     fn test_all_feature_files() {
-        let planner = QueryPlanner::new(SCHEMA);
-
         // If debugging with IJ, use `read_dir("query-planner/tests/features")`
-        let feature_paths = read_dir(PathBuf::from("tests").join("features"))
+        // let dirs = read_dir("query-planner/tests/features")
+        let dirs = read_dir(PathBuf::from("tests").join("features"))
             .unwrap()
             .map(|res| res.map(|e| e.path()).unwrap())
-            .filter(|e| {
-                if let Some(d) = e.extension() {
-                    d == "feature"
+            .filter(|d| d.is_dir());
+
+        for dir in dirs {
+            let schema = read_to_string(dir.join("csdl.graphql")).unwrap();
+            let planner = QueryPlanner::new(&schema);
+            let feature_paths = read_dir(dir)
+                .unwrap()
+                .map(|res| res.map(|e| e.path()).unwrap())
+                .filter(|e| {
+                    if let Some(d) = e.extension() {
+                        d == "feature"
+                    } else {
+                        false
+                    }
+                });
+
+            for path in feature_paths {
+                let feature = read_to_string(&path).unwrap();
+
+                let feature = if cfg!(windows) {
+                    feature.replace("\r\n", "\n")
                 } else {
-                    false
+                    feature
+                };
+
+                let feature = match Feature::parse(feature) {
+                    Result::Ok(feature) => feature,
+                    Result::Err(e) => panic!("Unparseable .feature file {:?} -- {}", &path, e),
+                };
+                let scenarios = feature
+                    .scenarios
+                    .iter()
+                    .filter(|s| !s.steps.iter().any(|s| matches!(s.ty, StepType::When)));
+
+                for scenario in scenarios {
+                    let query: &str = get_step!(scenario, StepType::Given);
+                    let expected_str: &str = get_step!(scenario, StepType::Then);
+                    let expected: QueryPlan = serde_json::from_str(&expected_str).unwrap();
+
+                    let result = planner.plan(query).unwrap();
+
+                    assert_eq!(result, expected);
                 }
-            });
-
-        for path in feature_paths {
-            let feature = read_to_string(&path).unwrap();
-
-            let feature = if cfg!(windows) {
-                feature.replace("\r\n", "\n")
-            } else {
-                feature
-            };
-
-            let feature = match Feature::parse(feature) {
-                Result::Ok(feature) => feature,
-                Result::Err(e) => panic!("Unparseable .feature file {:?} -- {}", &path, e),
-            };
-            let scenarios = feature
-                .scenarios
-                .iter()
-                .filter(|s| !s.steps.iter().any(|s| matches!(s.ty, StepType::When)));
-
-            for scenario in scenarios {
-                let query: &str = get_step!(scenario, StepType::Given);
-                let expected_str: &str = get_step!(scenario, StepType::Then);
-                let expected: QueryPlan = serde_json::from_str(&expected_str).unwrap();
-
-                let result = planner.plan(query).unwrap();
-
-                assert_eq!(result, expected);
             }
         }
     }
