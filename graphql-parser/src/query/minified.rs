@@ -329,7 +329,6 @@ impl<'a> MinifiedString for Type<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::minified::{MinifiedFormatter, MinifiedString};
     use crate::{parse_query, DisplayMinified};
 
     #[test]
@@ -342,7 +341,8 @@ mod tests {
             "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold text}}}}",
             "query($arg:String$arg2:Int){field(argValue:$arg){otherField field3(foo:$arg2)}}",
             "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body}numberOfReviews}}}",
-            "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
+            "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}",
+            "query($arg1:String$representations:[_Any!]!){_entities(arg:$arg1 representations:$representations){...on User{reviews{body}numberOfReviews}}}",
         ];
         for query in queries {
             let parsed = parse_query(query).unwrap();
