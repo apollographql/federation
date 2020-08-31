@@ -42,7 +42,7 @@ jobs:
 
       ### BUILD CACHE ###
       # NB: We install gnu-tar because BSD tar is buggy on Github's macos machines. https://github.com/actions/cache/issues/403
-      - name: Install GNU tar
+      - name: Install GNU tar (Macos)
         if: matrix.build == 'macos'
         run: |
           brew install gnu-tar
