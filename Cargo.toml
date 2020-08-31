@@ -1,5 +1,6 @@
 [workspace]
 members = [
   "graphql-parser",
-  "query-planner"
+  "query-planner",
+  "wasm-query-planner"
 ]
