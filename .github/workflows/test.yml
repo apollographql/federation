@@ -97,9 +97,6 @@ jobs:
           profile: minimal
           override: true
 
-      - name: Install wasm-pack
-        run: cargo install wasm-pack
-
       ### BUILD CACHE ###
       - name: Cache Cargo registry, target, index
         uses: actions/cache@v2
@@ -110,6 +107,10 @@ jobs:
             ~/.cargo/git
             target
           key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+
+      # Install wasm-pack
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
 
       ### RUN TESTS ###
       - name: Test (cargo test)

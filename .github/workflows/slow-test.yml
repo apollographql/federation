@@ -40,14 +40,6 @@ jobs:
           profile: minimal
           override: true
 
-      - name: Install wasm-pack (unix)
-        if: matrix.build != 'windows'
-        run: cargo install wasm-pack
-
-      - name: Install wasm-pack (windows)
-        if: matrix.build == 'windows'
-        run: npm install -g wasm-pack
-
       ### BUILD CACHE ###
       - name: Cache Cargo registry, target, index
         # we skip caching on macos because of the flaky `thiserror_impl` problem.
@@ -61,6 +53,14 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install wasm-pack (unix)
+        if: matrix.build != 'windows'
+        run: cargo install wasm-pack
+
+      - name: Install wasm-pack (windows)
+        if: matrix.build == 'windows'
+        run: npm install -g wasm-pack
 
       ### RUN TESTS ###
       - name: Test (cargo test)
