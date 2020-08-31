@@ -41,10 +41,13 @@ jobs:
           override: true
 
       ### BUILD CACHE ###
+      # NB: We install gnu-tar because BSD tar is buggy on Github's macos machines. https://github.com/actions/cache/issues/403
+      - name: Install GNU tar (Macos)
+        if: matrix.build == 'macos'
+        run: |
+          brew install gnu-tar
+          echo "::add-path::/usr/local/opt/gnu-tar/libexec/gnubin"
       - name: Cache Cargo registry, target, index
-        # we skip caching on macos because of the flaky `thiserror_impl` problem.
-        # see https://github.com/apollographql/rust/issues/123
-        if: matrix.build != 'macos'
         uses: actions/cache@v2
         with:
           path: |
