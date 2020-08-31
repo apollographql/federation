@@ -264,11 +264,9 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
                 }
             } else {
                 // We need to go through the base group first.
-                let key_fields = self.context.get_key_fields(
-                    parent_type,
-                    &self.parent_group.service_name,
-                    false,
-                );
+                let key_fields = self
+                    .context
+                    .get_key_fields(parent_type, &owning_service, false);
 
                 if base_service == self.parent_group.service_name {
                     self.parent_group
