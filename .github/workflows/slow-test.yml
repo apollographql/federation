@@ -40,6 +40,14 @@ jobs:
           profile: minimal
           override: true
 
+      - name: Install wasm-pack (unix)
+        if: matrix.build != 'windows'
+        run: cargo install wasm-pack
+
+      - name: Install wasm-pack (windows)
+        if: matrix.build == 'windows'
+        run: npm install -g wasm-pack
+
       ### BUILD CACHE ###
       - name: Cache Cargo registry, target, index
         # we skip caching on macos because of the flaky `thiserror_impl` problem.
@@ -63,3 +71,6 @@ jobs:
         env:
           RUST_LOG: debug
           RUST_BACKTRACE: 1
+      - name: Test (wasm-pack test --node)
+        working-directory: query-planner-wasm
+        run: wasm-pack test --node
