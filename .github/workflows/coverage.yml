@@ -10,6 +10,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # N.B. We don't run coverage tests on `wasm-pack test` tests, that seems to require a complex rustc wrapper script
+  # to selectively apply the flags only on our crates.
+  # Error: https://github.com/apollographql/rust/runs/1052878281?check_suite_focus=true
+  # See: https://stackoverflow.com/questions/61989746/how-do-i-use-zprofile-to-generate-code-coverage-for-a-nostd-kernel
   coverage:
     name: Code Coverage
     runs-on: ubuntu-latest
