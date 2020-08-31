@@ -108,6 +108,10 @@ jobs:
             target
           key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
+      # Install wasm-pack
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
       ### RUN TESTS ###
       - name: Test (cargo test)
         uses: actions-rs/cargo@v1
@@ -117,3 +121,6 @@ jobs:
         env:
           RUST_LOG: debug
           RUST_BACKTRACE: 1
+      - name: Test (wasm-pack test --node)
+        working-directory: query-planner-wasm
+        run: wasm-pack test --node

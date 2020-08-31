@@ -1,4 +1,4 @@
-name: Lint and Tests (all platforms)
+name: Tests (all platforms)
 
 on:
   push:
@@ -54,6 +54,14 @@ jobs:
             target
           key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Install wasm-pack (unix)
+        if: matrix.build != 'windows'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Install wasm-pack (windows)
+        if: matrix.build == 'windows'
+        run: npm install -g wasm-pack
+
       ### RUN TESTS ###
       - name: Test (cargo test)
         uses: actions-rs/cargo@v1
@@ -63,3 +71,6 @@ jobs:
         env:
           RUST_LOG: debug
           RUST_BACKTRACE: 1
+      - name: Test (wasm-pack test --node)
+        working-directory: query-planner-wasm
+        run: wasm-pack test --node
