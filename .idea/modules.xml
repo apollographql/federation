@@ -4,7 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/graphql-parser.iml" filepath="$PROJECT_DIR$/.idea/modules/graphql-parser.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-planner.iml" filepath="$PROJECT_DIR$/.idea/modules/query-planner.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/wasm-query-planner.iml" filepath="$PROJECT_DIR$/.idea/modules/wasm-query-planner.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-planner-wasm.iml" filepath="$PROJECT_DIR$/.idea/modules/query-planner-wasm.iml" />
     </modules>
   </component>
 </project>

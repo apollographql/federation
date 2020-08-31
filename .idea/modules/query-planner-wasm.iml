@@ -2,8 +2,8 @@
 <module type="RUST_MODULE" version="4">
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
-    <content url="file://$MODULE_DIR$/../../wasm-query-planner">
-      <sourceFolder url="file://$MODULE_DIR$/../../wasm-query-planner/src" isTestSource="false" />
+    <content url="file://$MODULE_DIR$/../../query-planner-wasm">
+      <sourceFolder url="file://$MODULE_DIR$/../../query-planner-wasm/src" isTestSource="false" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />
   </component>

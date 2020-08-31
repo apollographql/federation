@@ -2,5 +2,5 @@
 members = [
   "graphql-parser",
   "query-planner",
-  "wasm-query-planner"
+  "query-planner-wasm"
 ]

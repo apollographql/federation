@@ -1,5 +1,5 @@
 [package]
-name = "wasm-query-planner"
+name = "query-planner-wasm"
 version = "0.0.1" # keep in sync with package.json
 authors = ["Apollo <opensource@apollographql.com>"]
 homepage = "https://github.com/apollographql/rust"
@@ -18,5 +18,7 @@ apollo-query-planner = { path = "../query-planner" }
 wasm-bindgen = { version = "0.2.67", features = ["serde-serialize"] }
 js-sys = "0.3.44"
 
-#[dev-dependencies]
-#wasm-bindgen-test = "0.3.17"
+[dev-dependencies]
+wasm-bindgen-test = "0.3.17"
+serde = { version = "1.0.115", features = ["derive"] }
+serde_json = "1.0.57"
