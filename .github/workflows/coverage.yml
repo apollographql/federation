@@ -49,8 +49,8 @@ jobs:
         with:
           command: test
           args: "--workspace --locked"
-      - uses: actions-rs/grcov@v0.1
-        id: coverage
+      - name: manual grcov
+        run: grcov target/debug -s . --llvm --branch --ignore-not-existing -o ./lcov.info --excl-line "#\[derive\(" --excl-br-line "#\[derive\(" --excl-start "mod tests \{" --excl-br-start "mod tests \{"
 
       ### UPLOAD RESULTS ###
       - name: Upload to codecov.io
