@@ -1,4 +1,4 @@
-use crate::consts::INTROSPECTION_SCHEMA_FIELD_NAME;
+use crate::consts::{INTROSPECTION_SCHEMA_FIELD_NAME, INTROSPECTION_TYPE_FIELD_NAME};
 use graphql_parser::query::refs::{FieldRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
@@ -224,9 +224,13 @@ pub fn is_introspection_type(name: &str) -> bool {
 
 pub fn is_not_introspection_field(selection: &SelectionRef) -> bool {
     match *selection {
-        SelectionRef::FieldRef(ref field) => field.name != INTROSPECTION_SCHEMA_FIELD_NAME,
+        SelectionRef::FieldRef(ref field) => {
+            field.name != INTROSPECTION_SCHEMA_FIELD_NAME
+                && field.name != INTROSPECTION_TYPE_FIELD_NAME
+        }
         SelectionRef::Field(field) | SelectionRef::Ref(Selection::Field(field)) => {
             field.name != INTROSPECTION_SCHEMA_FIELD_NAME
+                && field.name != INTROSPECTION_TYPE_FIELD_NAME
         }
         _ => true,
     }

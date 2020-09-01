@@ -1,5 +1,6 @@
 Feature: Introspection queries
-  Scenario: Can execute introspection query
+
+  Scenario: Can execute schema introspection query
     Given query
     """
     query IntrospectionQuery {
@@ -96,6 +97,20 @@ Feature: Introspection queries
             }
           }
         }
+      }
+    }
+    """
+    Then query plan
+    """
+    { "kind": "QueryPlan" }
+    """
+
+  Scenario: Can execute type introspection query
+    Given query
+    """
+    query($foo:String!) {
+      __type(name:$foo) {
+        enumValues{ __typename name }
       }
     }
     """
