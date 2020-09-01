@@ -43,14 +43,21 @@ jobs:
             ~/.cargo/git
           key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-cov-${{ hashFiles('**/Cargo.lock') }}
 
-      ### RUN TESTS & COVERAGE ###
+      ### RUN TESTS ###
       - name: Test (cargo test)
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: "--workspace --locked"
+
+      ### Run GRCOV
       - name: manual grcov
-        run: grcov target/debug -s . --llvm --branch --ignore-not-existing -o ./lcov.info --excl-line "#\[derive\(" --excl-br-line "#\[derive\(" --excl-start "mod tests \{" --excl-br-start "mod tests \{"
+        run: |
+          grcov target/debug -s . --llvm --branch --ignore-not-existing -o ./lcov.info \
+            --excl-line "#\[derive\(" \
+            --excl-br-line "#\[derive\(" \
+            --excl-start "mod tests \{" \
+            --excl-br-start "mod tests \{"
 
       ### UPLOAD RESULTS ###
       - name: Upload to codecov.io
