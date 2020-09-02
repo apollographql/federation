@@ -84,6 +84,7 @@ jobs:
           echo "::add-path::/usr/local/opt/gnu-tar/libexec/gnubin"
       - name: Cache Cargo registry, target, index
         uses: actions/cache@v2
+        id: cache-cargo
         with:
           path: |
             ~/.cargo/registry
@@ -149,6 +150,7 @@ jobs:
             target
           key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
+      ### INSTALL WASM-PACK ###
       - name: Install wasm-pack (unix)
         if: matrix.build != 'windows'
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
