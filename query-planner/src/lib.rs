@@ -43,13 +43,11 @@ impl<'s> QueryPlanner<'s> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{read_dir, read_to_string};
-
-    use gherkin_rust::Feature;
-    use gherkin_rust::StepType;
-
     use crate::model::QueryPlan;
     use crate::QueryPlanner;
+    use gherkin_rust::Feature;
+    use gherkin_rust::StepType;
+    use std::fs::{read_dir, read_to_string};
     use std::path::PathBuf;
 
     macro_rules! get_step {

@@ -36,7 +36,7 @@ macro_rules! get_field_def {
             $obj.fields
                 .iter()
                 .find(|f| f.name == $name)
-                .unwrap_or_else(|| panic!("Cannot query field {} on type {}", $name, $obj.name))
+                .unwrap_or_else(|| panic!("Cannot query field `{}` on type `{}`", $name, $obj.name))
         }
     };
 }
