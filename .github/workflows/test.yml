@@ -1,6 +1,9 @@
-name: Lint and Tests
+name: Tests (all platforms)
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
 
 env:
@@ -44,8 +47,22 @@ jobs:
           args: --all-features
 
   test-no-run:
-    name: Compile tests
-    runs-on: ubuntu-latest
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [linux, macos, windows]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - build: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+
     steps:
       - uses: actions/checkout@v2
 
@@ -55,21 +72,25 @@ jobs:
         id: toolchain
         with:
           toolchain: stable
+          target: ${{ matrix.target }}
           profile: minimal
-          override: true
 
       ### BUILD CACHE ###
+      # NB: We install gnu-tar because BSD tar is buggy on Github's macos machines. https://github.com/actions/cache/issues/403
+      - name: Install GNU tar (Macos)
+        if: matrix.build == 'macos'
+        run: |
+          brew install gnu-tar
+          echo "::add-path::/usr/local/opt/gnu-tar/libexec/gnubin"
       - name: Cache Cargo registry, target, index
-        if: matrix.build != 'macos'
         uses: actions/cache@v2
-        id: cache-cargo
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/bin
             ~/.cargo/git
             target
-          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
       ### COMPILE INCLUDING TESTS ###
       # Note: we do this so that we'll cache the compile results/registry even if test might fail
@@ -83,8 +104,22 @@ jobs:
 
   test:
     name: Test
+    runs-on: ${{ matrix.os }}
     needs: test-no-run
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build: [linux, macos, windows]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - build: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+
     steps:
       - uses: actions/checkout@v2
 
@@ -94,10 +129,16 @@ jobs:
         id: toolchain
         with:
           toolchain: stable
+          target: ${{ matrix.target }}
           profile: minimal
-          override: true
 
       ### BUILD CACHE ###
+      # NB: We install gnu-tar because BSD tar is buggy on Github's macos machines. https://github.com/actions/cache/issues/403
+      - name: Install GNU tar (Macos)
+        if: matrix.build == 'macos'
+        run: |
+          brew install gnu-tar
+          echo "::add-path::/usr/local/opt/gnu-tar/libexec/gnubin"
       - name: Cache Cargo registry, target, index
         uses: actions/cache@v2
         with:
@@ -106,11 +147,15 @@ jobs:
             ~/.cargo/bin
             ~/.cargo/git
             target
-          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
-      # Install wasm-pack
-      - name: Install wasm-pack
+      - name: Install wasm-pack (unix)
+        if: matrix.build != 'windows'
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Install wasm-pack (windows)
+        if: matrix.build == 'windows'
+        run: npm install -g wasm-pack
 
       ### RUN TESTS ###
       - name: Test (cargo test)
