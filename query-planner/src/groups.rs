@@ -2,8 +2,8 @@ use crate::consts::TYPENAME_FIELD_NAME;
 use crate::context::{FieldSet, QueryPlanningContext};
 use crate::model::ResponsePath;
 use graphql_parser::query::FragmentDefinition;
-use graphql_parser::schema;
 use graphql_parser::schema::{Field, TypeDefinition};
+use graphql_parser::{schema, Name};
 use linked_hash_map::LinkedHashMap;
 
 #[derive(Debug)]
@@ -263,15 +263,16 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
                         .dependent_group_for_service(owning_service, required_fields)
                 }
             } else {
-                // We need to go through the base group first.
-                let key_fields = self
-                    .context
-                    .get_key_fields(parent_type, &owning_service, false);
-
                 if base_service == self.parent_group.service_name {
                     self.parent_group
                         .dependent_group_for_service(owning_service, required_fields)
                 } else {
+                    let key_fields = self.context.get_key_fields(
+                        parent_type,
+                        &self.parent_group.service_name,
+                        false,
+                    );
+
                     self.parent_group
                         .dependent_group_for_service(base_service, key_fields)
                         .dependent_group_for_service(owning_service, required_fields)
