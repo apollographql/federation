@@ -292,7 +292,7 @@ dependencies = [
 
 [[package]]
 name = "query-planner-wasm"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "apollo-query-planner",
  "js-sys",
