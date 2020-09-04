@@ -12,25 +12,25 @@
     "Javascript"
   ],
   "engines": {
-    "node": ">=12.13.0"
+    "node": ">=12.13.0 <15.0"
   },
   "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@apollo/federation": "file:../apollo-federation",
+    "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner-wasm": "0.0.2",
     "@types/node-fetch": "2.5.4",
-    "apollo-engine-reporting-protobuf": "file:../apollo-engine-reporting-protobuf",
+    "apollo-engine-reporting-protobuf": "^0.5.2",
     "apollo-env": "^0.6.1",
     "apollo-graphql": "^0.6.0",
-    "apollo-server-caching": "file:../apollo-server-caching",
-    "apollo-server-core": "file:../apollo-server-core",
-    "apollo-server-env": "file:../apollo-server-env",
-    "apollo-server-errors": "file:../apollo-server-errors",
-    "apollo-server-types": "file:../apollo-server-types",
-    "graphql-extensions": "file:../graphql-extensions",
+    "apollo-server-caching": "^0.5.2",
+    "apollo-server-core": "^2.17.0",
+    "apollo-server-env": "^2.4.5",
+    "apollo-server-errors": "^2.4.2",
+    "apollo-server-types": "^0.5.1",
+    "graphql-extensions": "^0.12.4",
     "loglevel": "^1.6.1",
     "make-fetch-happen": "^8.0.0",
     "pretty-format": "^26.0.0"

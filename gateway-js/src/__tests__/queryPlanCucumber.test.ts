@@ -8,7 +8,7 @@ import { buildQueryPlan, buildOperationContext, BuildQueryPlanOptions } from '..
 import { getFederatedTestingSchema } from './execution-utils';
 
 const buildQueryPlanFeature = loadFeature(
-  './packages/apollo-gateway/src/__tests__/build-query-plan.feature'
+  './gateway-js/src/__tests__/build-query-plan.feature'
 );
 
 

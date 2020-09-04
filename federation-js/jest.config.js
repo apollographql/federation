@@ -1,4 +1,4 @@
-const config = require('../../jest.config.base');
+const config = require('../jest.config.base');
 
 const NODE_MAJOR_VERSION = parseInt(
   process.versions.node.split('.', 1)[0],
