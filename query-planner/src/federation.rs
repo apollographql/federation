@@ -4,6 +4,8 @@ use graphql_parser::schema::*;
 use graphql_parser::{parse_query, Pos};
 use std::collections::HashMap;
 
+use crate::helpers::directive_args_as_map;
+
 #[derive(Debug, PartialEq)]
 struct FederationTypeMetadata<'q> {
     is_value_type: HashMap<Pos, bool>,
@@ -185,14 +187,7 @@ fn as_selection_set_ref(value: &str) -> query::SelectionSet {
     letp!(query::Definition::SelectionSet(ss) = ss => ss)
 }
 
-fn directive_args_as_map<'q>(args: &'q [(Txt<'q>, Value<'q>)]) -> HashMap<Txt<'q>, Txt<'q>> {
-    args.iter()
-        .map(|(k, v)| {
-            let str = letp!(Value::String(str) = v => str);
-            (*k, str.as_str())
-        })
-        .collect()
-}
+
 
 // lazy_static! {
 //     static ref STRINGS: Mutex<Vec<String>> = Mutex::new(vec![]);
