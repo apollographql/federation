@@ -1,0 +1,22 @@
+[package]
+name = "stargate"
+version = "0.1.0"
+authors = ["jbaxleyiii <james@apollographql.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tide = "0.13.0"
+async-trait = "0.1.40"
+async-std = { version = "1.6.0", features = ["attributes"] }
+graphql-parser = { path = "../graphql-parser" }
+apollo-query-planner = { path = "../query-planner" }
+async-graphql = "1.17.21"
+serde = { version = "1.0.115", features = ["derive"] }
+serde_json = "1.0.57"
+futures = "0.3.5"
+surf = "1.0.3"
+http-types = "2.4.0"
+structopt = "0.3.15"
+tide-compress = "0.5.0"

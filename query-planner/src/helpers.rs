@@ -236,6 +236,15 @@ pub fn is_not_introspection_field(selection: &SelectionRef) -> bool {
     }
 }
 
+pub fn directive_args_as_map<'q>(args: &'q [(Txt<'q>, Value<'q>)]) -> HashMap<Txt<'q>, Txt<'q>> {
+    args.iter()
+        .map(|(k, v)| {
+            let str = letp!(Value::String(str) = v => str);
+            (*k, str.as_str())
+        })
+        .collect()
+}
+
 pub trait Head<T> {
     /// gets the head and tail of a vector
     fn head(self) -> (T, Vec<T>);

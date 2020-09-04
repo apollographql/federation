@@ -1,0 +1,232 @@
+schema
+  @graph(name: "accounts", url: "https://acephei-accounts.herokuapp.com")
+  @graph(name: "books", url: "https://acephei-books.herokuapp.com")
+  @graph(name: "products", url: "https://acephei-products.herokuapp.com")
+  @graph(name: "reviews", url: "https://acephei-reviews.herokuapp.com")
+  @composedGraph(version: 1)
+{
+  query: Query
+}
+
+directive @composedGraph(version: Int!) on SCHEMA
+
+directive @graph(name: String!, url: String!) on SCHEMA
+
+directive @owner(graph: String!) on OBJECT
+
+directive @key(fields: String!, graph: String!) on OBJECT
+
+directive @resolve(graph: String!) on FIELD_DEFINITION
+
+directive @provides(fields: String!) on FIELD_DEFINITION
+
+directive @requires(fields: String!) on FIELD_DEFINITION
+
+"""Information about the brand Amazon"""
+type Amazon {
+  """The url of a referrer for a product"""
+  referrer: String
+}
+
+"""The basic book in the graph"""
+type Book implements Product
+  @owner(graph: "books")
+  @key(fields: "{ isbn }", graph: "books")
+  @key(fields: "{ isbn }", graph: "products")
+  @key(fields: "{ isbn }", graph: "reviews")
+{
+  """All books can be found by an isbn"""
+  isbn: String!
+
+  """The title of the book"""
+  title: String
+
+  """The year the book was published"""
+  year: Int
+
+  """A simple list of similar books"""
+  similarBooks: [Book]
+
+  """
+  Since books are now products, we can also use their upc as a primary id
+  """
+  upc: String! @resolve(graph: "products")
+
+  """The name of a book is the book's title + year published"""
+  name(delimeter: String = " "): String @resolve(graph: "products") @requires(fields: "{ title year }")
+  price: Int @resolve(graph: "products")
+  weight: Int @resolve(graph: "products")
+  reviews: [Review] @resolve(graph: "reviews")
+  reviewList(first: Int = 5, after: Int = 0): ReviewConnection @resolve(graph: "reviews")
+
+  """
+  relatedReviews for a book use the knowledge of `similarBooks` from the books
+  service to return related reviews that may be of interest to the user
+  """
+  relatedReviews(first: Int = 5, after: Int = 0): ReviewConnection @resolve(graph: "reviews") @requires(fields: "{ similarBooks { isbn } }")
+}
+
+"""A union of all brands represented within the store"""
+union Brand = Ikea | Amazon
+
+"""
+The Furniture type represents all products which are items
+of furniture.
+"""
+type Furniture implements Product
+  @owner(graph: "products")
+  @key(fields: "{ upc }", graph: "products")
+  @key(fields: "{ sku }", graph: "products")
+  @key(fields: "{ upc }", graph: "reviews")
+{
+  """The modern primary identifier for furniture"""
+  upc: String!
+
+  """
+  The SKU field is how furniture was previously stored, and still exists in some legacy systems
+  """
+  sku: String!
+  name: String
+  price: Int
+
+  """The brand of furniture"""
+  brand: Brand
+  weight: Int
+  reviews: [Review] @resolve(graph: "reviews")
+  reviewList(first: Int = 5, after: Int = 0): ReviewConnection @resolve(graph: "reviews")
+}
+
+"""Information about the brand Ikea"""
+type Ikea {
+  """Which asile to find an item"""
+  asile: Int
+}
+
+type PageInfo {
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+}
+
+"""The Product type represents all products within the system"""
+interface Product {
+  """The primary identifier of products in the graph"""
+  upc: String!
+
+  """The display name of the product"""
+  name: String
+
+  """A simple integer price of the product in US dollars"""
+  price: Int
+
+  """How much the product weighs in kg"""
+  weight: Int @deprecated(reason: "Not all product's have a weight")
+
+  """A simple list of all reviews for a product"""
+  reviews: [Review] @deprecated(reason: "The `reviews` field on product is deprecated to roll over the return\ntype from a simple list to a paginated list. The easiest way to fix your\noperations is to alias the new field `reviewList` to `review`:\n  \n  {\n    ... on Product {\n      reviews: reviewList {\n        edges {\n          review {\n            body\n          }\n        }\n      }\n    }\n  }\n\nOnce all clients have updated, we will roll over this field and deprecate\n`reviewList` in favor of the field name `reviews` again")
+
+  """
+  A paginated list of reviews. This field naming is temporary while all clients
+  migrate off of the un-paginated version of this field call reviews. To ease this migration,
+  alias your usage of `reviewList` to `reviews` so that after the roll over is finished, you
+  can remove the alias and use the final field name:
+  
+    {
+      ... on Product {
+        reviews: reviewList {
+          edges {
+            review {
+              body
+            }
+          }
+        }
+      }
+    }
+  """
+  reviewList(first: Int = 5, after: Int = 0): ReviewConnection
+}
+
+"""A connection wrapper for lists of products"""
+type ProductConnection {
+  """Helpful metadata about the connection"""
+  pageInfo: PageInfo
+
+  """List of products returned by the search"""
+  edges: [ProductEdge]
+}
+
+"""A connection edge for the Product type"""
+type ProductEdge {
+  product: Product
+}
+
+enum ProductType {
+  LATEST
+  TRENDING
+}
+
+type Query {
+  """
+  The currently authenticated user root. All nodes off of this
+  root will be authenticated as the current user
+  """
+  me: User @resolve(graph: "accounts")
+
+  """Fetch a simple list of products with an offset"""
+  topProducts(first: Int = 5): [Product] @deprecated(reason: "Use `products` instead") @resolve(graph: "products")
+
+  """Fetch a paginated list of products based on a filter type."""
+  products(first: Int = 5, after: Int = 0, type: ProductType): ProductConnection @resolve(graph: "products")
+}
+
+"""A review is any feedback about products across the graph"""
+type Review
+  @owner(graph: "reviews")
+  @key(fields: "{ id }", graph: "reviews")
+{
+  id: ID!
+
+  """The plain text version of the review"""
+  body: String
+
+  """The user who authored the review"""
+  author: User @provides(fields: "{ username }")
+
+  """The product which this review is about"""
+  product: Product
+}
+
+"""A connection wrapper for lists of reviews"""
+type ReviewConnection {
+  """Helpful metadata about the connection"""
+  pageInfo: PageInfo
+
+  """List of reviews returned by the search"""
+  edges: [ReviewEdge]
+}
+
+"""A connection edge for the Review type"""
+type ReviewEdge {
+  review: Review
+}
+
+"""The base User in Acephei"""
+type User
+  @owner(graph: "accounts")
+  @key(fields: "{ id }", graph: "accounts")
+  @key(fields: "{ id }", graph: "reviews")
+{
+  """A globally unique id for the user"""
+  id: ID!
+
+  """The formatted date a user was created in our system"""
+  created: String
+
+  """The users full name as provided"""
+  name: String
+
+  """The account username of the user"""
+  username: String
+
+  """A list of all reviews by the user"""
+  reviews: [Review] @resolve(graph: "reviews")
+}
