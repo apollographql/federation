@@ -124,9 +124,9 @@ checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "gherkin_rust"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "796f748e34e209bc7abf09008608f3f8b51dff9777f87b93da47a7009d3d1e8d"
+checksum = "f80699e24afe5188930ae74427575088633e80455b073fa101892aa1571b66f1"
 dependencies = [
  "peg",
  "textwrap",
@@ -398,9 +398,9 @@ dependencies = [
 
 [[package]]
 name = "textwrap"
-version = "0.11.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
+checksum = "203008d98caf094106cfaba70acfed15e18ed3ddb7d94e49baec153a2b462789"
 dependencies = [
  "unicode-width",
 ]
@@ -427,9 +427,9 @@ dependencies = [
 
 [[package]]
 name = "typed-builder"
-version = "0.5.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78cea224ddd4282dfc40d1edabbd0c020a12e946e3a48e2c2b8f6ff167ad29fe"
+checksum = "d942c3f63d40f62b3fece2ab34a5bfc0d427ef148010fa732f5d56da0ac6d6ec"
 dependencies = [
  "proc-macro2",
  "quote",
