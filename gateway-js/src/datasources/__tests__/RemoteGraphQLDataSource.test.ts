@@ -9,7 +9,6 @@ import {
 import { RemoteGraphQLDataSource } from '../RemoteGraphQLDataSource';
 import { Headers } from 'apollo-server-env';
 import { GraphQLRequestContext } from 'apollo-server-types';
-import { Response } from '../../../../../../apollo-tooling/packages/apollo-env/lib';
 
 beforeEach(() => {
   fetch.mockReset();

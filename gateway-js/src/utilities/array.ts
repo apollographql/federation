@@ -1,4 +1,8 @@
-import { isNotNullOrUndefined } from 'apollo-env';
+function isNotNullOrUndefined<T>(
+  value: T | null | undefined,
+): value is T {
+  return value !== null && typeof value !== 'undefined';
+}
 
 export function compactMap<T, U>(
   array: T[],
