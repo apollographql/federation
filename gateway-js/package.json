@@ -5,12 +5,12 @@
   "author": "Apollo <opensource@apollographql.com>",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "keywords": [
-    "GraphQL",
-    "Apollo",
-    "Server",
-    "Javascript"
-  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollographql/federation.git",
+    "directory": "gateway-js/"
+  },
+  "keywords": ["graphql", "federation", "gateway", "server", "apollo"],
   "engines": {
     "node": ">=12.13.0 <15.0"
   },
