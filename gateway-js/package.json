@@ -29,7 +29,6 @@
     "apollo-server-env": "^2.4.5",
     "apollo-server-errors": "^2.4.2",
     "apollo-server-types": "^0.5.1",
-    "graphql-extensions": "^0.12.4",
     "loglevel": "^1.6.1",
     "make-fetch-happen": "^8.0.0",
     "pretty-format": "^26.0.0"
