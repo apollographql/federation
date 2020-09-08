@@ -120,5 +120,5 @@ jobs:
           RUST_LOG: debug
           RUST_BACKTRACE: 1
       - name: Test (wasm-pack test --node)
-        working-directory: query-planner-wasm
+        working-directory: rs/query-planner-wasm
         run: wasm-pack test --node
