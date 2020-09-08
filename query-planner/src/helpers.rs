@@ -1,6 +1,4 @@
 use crate::consts::{INTROSPECTION_SCHEMA_FIELD_NAME, INTROSPECTION_TYPE_FIELD_NAME};
-use crate::QueryPlanError;
-use crate::Result;
 use graphql_parser::query::refs::{FieldRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
@@ -10,8 +8,8 @@ use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-pub fn get_operation<'q>(query: &'q Document<'q>) -> Result<Option<Op<'q>>> {
-    let mut ops: Vec<Op<'q>> = query
+pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
+    query
         .definitions
         .iter()
         .filter_map(|d| match d {
@@ -25,21 +23,7 @@ pub fn get_operation<'q>(query: &'q Document<'q>) -> Result<Option<Op<'q>>> {
             }),
             _ => None,
         })
-        .collect();
-
-    if ops.is_empty() {
-        Ok(None)
-    } else if ops.len() > 1 {
-        return Err(QueryPlanError::InvalidQuery(
-            "multiple operations are not supported",
-        ));
-    } else if let Operation::Subscription = ops[0].kind {
-        return Err(QueryPlanError::InvalidQuery(
-            "subscriptions are not supported",
-        ));
-    } else {
-        Ok(Some(ops.pop().expect("Validated ops.len() == 1")))
-    }
+        .collect()
 }
 
 pub fn build_possible_types<'a, 'q>(

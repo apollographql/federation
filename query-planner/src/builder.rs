@@ -11,7 +11,7 @@ use crate::helpers::*;
 use crate::model::Selection as ModelSelection;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan, ResponsePath};
-use crate::{context, model, Result};
+use crate::{context, model, QueryPlanError, Result};
 use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
@@ -21,18 +21,30 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 pub fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
-    let op = if let Some(op) = get_operation(query)? {
-        op
-    } else {
+    let mut ops = get_operations(query);
+
+    if ops.is_empty() {
         return Ok(QueryPlan { node: None });
-    };
+    }
+
+    if ops.len() > 1 {
+        return Err(QueryPlanError::InvalidQuery(
+            "multiple operations are not supported",
+        ));
+    }
+
+    if let Operation::Subscription = ops[0].kind {
+        return Err(QueryPlanError::InvalidQuery(
+            "subscriptions are not supported",
+        ));
+    }
 
     let types = names_to_types(schema);
 
     // TODO(ran)(p2)(#114) see if we can optimize and memoize the stuff we build only using the schema.
     let context = QueryPlanningContext {
         schema,
-        operation: op,
+        operation: ops.pop().unwrap(),
         fragments: query
             .definitions
             .iter()
@@ -560,7 +572,8 @@ fn selection_set_from_field_set<'q>(
             let name = fields_with_same_reponse_name[0]
                 .field_def
                 .field_type
-                .as_name();
+                .name()
+                .unwrap();
 
             // NB: we don't have specified types (i.e. primitives) in our map.
             // They are not composite types.
