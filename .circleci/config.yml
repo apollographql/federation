@@ -20,10 +20,13 @@ commands:
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
+          working_directory: js
           command: npm run test:ci
           environment:
             JEST_JUNIT_OUTPUT_DIR: "reports/junit/"
-      - run: npm run coverage:upload
+      - run: 
+          working_directory: js  
+          command: npm run coverage:upload
       - store_test_results:
           path: reports/junit
       - store_artifacts:
@@ -37,7 +40,6 @@ jobs:
   # at https://hub.docker.com/r/circleci/node/.
 
   NodeJS 12:
-    working_directory: js
     executor: { name: oss/node, tag: '12' }
     steps:
       - common_test_steps
@@ -52,7 +54,6 @@ jobs:
             - ./**
 
   NodeJS 14:
-    working_directory: js
     executor: { name: oss/node, tag: '14' }
     steps:
       - common_test_steps
@@ -61,7 +62,6 @@ jobs:
 #     Now we use it to disable all jobs. It's unclear if there's a simpler way
 #     to do this!
 common_non_publish_filters: &common_non_publish_filters
-  working_directory: js
   filters:
     branches:
       # If 'docs' is found, with word boundaries on either side, skip.
@@ -72,7 +72,6 @@ common_non_publish_filters: &common_non_publish_filters
       only: /.*/
 
 common_publish_filters: &common_publish_filters
-  working_directory: js
   filters:
     # Only run pre-publish and publish steps on specific tags.
     tags:
