@@ -60,7 +60,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/bin
             ~/.cargo/git
-            target
+            rs/target
           key: ${{ matrix.build }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install wasm-pack (unix)
