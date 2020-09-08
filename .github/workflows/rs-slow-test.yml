@@ -5,6 +5,8 @@ on:
     branches:
       - main
   pull_request:
+    paths:
+      - 'rs/**'
 
 env:
   CARGO_TERM_COLOR: always
