@@ -11,6 +11,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+defaults:
+  run:
+    working-directory: rs
+
 jobs:
   test:
     name: Test
@@ -69,10 +73,7 @@ jobs:
 
       ### RUN TESTS ###
       - name: Test (cargo test)
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: "--workspace --locked -- --nocapture"
+        run: cargo test --workspace --locked -- --nocapture 
         env:
           RUST_LOG: debug
           RUST_BACKTRACE: 1

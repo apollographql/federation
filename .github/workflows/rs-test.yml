@@ -8,6 +8,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+defaults:
+  run:
+    working-directory: rs
+  
 jobs:
   check_format_and_lint:
     continue-on-error: true # we want to show this check failure in GH but to not prevent building.
@@ -40,10 +44,7 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Check Clippy
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+        run: cargo clippy --workspace --all-features -- -Dwarnings
 
   test-no-run:
     name: Compile tests
@@ -78,10 +79,7 @@ jobs:
       # We don't need to do it if there was a cache hit.
       - name: Compile tests on cache miss
         if: steps.cache-cargo.outputs.cache-hit != 'true'
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: "--no-run --workspace --locked"
+        run: cargo test --no-run --workspace --locked
 
   test:
     name: Test
@@ -116,10 +114,7 @@ jobs:
 
       ### RUN TESTS ###
       - name: Test (cargo test)
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: "--workspace --locked -- --nocapture"
+        run: cargo test --workspace --locked -- --nocapture
         env:
           RUST_LOG: debug
           RUST_BACKTRACE: 1
