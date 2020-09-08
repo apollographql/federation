@@ -124,9 +124,9 @@ checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "gherkin_rust"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f80699e24afe5188930ae74427575088633e80455b073fa101892aa1571b66f1"
+checksum = "53418b6c9c3c05928f426ac13a7ea3f77f03ffb03d62fa42b076eb71665965f5"
 dependencies = [
  "peg",
  "textwrap",

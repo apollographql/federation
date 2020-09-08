@@ -93,12 +93,6 @@ mod tests {
             for path in feature_paths {
                 let feature = read_to_string(&path).unwrap();
 
-                let feature = if cfg!(windows) {
-                    feature.replace("\r\n", "\n")
-                } else {
-                    feature
-                };
-
                 let feature = match Feature::parse(feature) {
                     Result::Ok(feature) => feature,
                     Result::Err(e) => panic!("Unparseable .feature file {:?} -- {}", &path, e),
