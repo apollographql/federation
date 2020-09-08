@@ -37,6 +37,8 @@ jobs:
         with:
           toolchain: nightly
           override: true
+      - name: Install grcov
+        run: cargo install grcov
 
       ### BUILD CACHE SPECIFIC FOR COVERAGE ###
       - name: Cache Cargo registry, index
@@ -52,13 +54,19 @@ jobs:
       ### RUN TESTS & COVERAGE ###
       - name: Test (cargo test)
         run: cargo test --workspace --locked 
-      - uses: actions-rs/grcov@v0.1
-        id: coverage
+      - name: Run grcov
+        run: |
+          grcov target/debug -s . -t lcov -o target/debug/lcov.info \
+          --llvm --branch --ignore-not-existing \
+          --excl-line "#\[derive\(" \
+          --excl-br-line "#\[derive\(" \
+          --excl-start "mod tests \{" \
+          --excl-br-start "mod tests \{"
 
       ### UPLOAD RESULTS ###
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ${{ steps.coverage.outputs.report }}
+          file: target/debug/lcov.info
 
