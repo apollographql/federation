@@ -253,10 +253,10 @@ fn split_fields<'a, 'q: 'a>(
                 continue;
             }
 
-            let can_find_group = match context.names_to_types[parent_type] {
-                schema::TypeDefinition::Object(obj) if scope.possible_types.contains(&obj) => true,
-                _ => false,
-            };
+            let can_find_group = matches!(
+                context.names_to_types[parent_type],
+                schema::TypeDefinition::Object(obj) if scope.possible_types.contains(&obj)
+            );
 
             if can_find_group {
                 let group = grouper.group_for_field(scope.parent_type, field_def);
