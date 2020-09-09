@@ -2,8 +2,8 @@ use crate::consts::TYPENAME_FIELD_NAME;
 use crate::context::{FieldSet, QueryPlanningContext};
 use crate::model::ResponsePath;
 use graphql_parser::query::FragmentDefinition;
-use graphql_parser::schema::{Field, TypeDefinition};
-use graphql_parser::{schema, Name};
+use graphql_parser::schema;
+use graphql_parser::schema::TypeDefinition;
 use linked_hash_map::LinkedHashMap;
 
 #[derive(Debug)]
@@ -70,7 +70,7 @@ pub(crate) trait GroupForField<'q> {
     fn group_for_field<'a>(
         &'a mut self,
         parent_type: &'q TypeDefinition<'q>,
-        field_def: &'q Field<'q>,
+        field_def: &'q schema::Field<'q>,
     ) -> &'a mut FetchGroup<'q>;
 
     fn into_groups(self) -> Vec<FetchGroup<'q>>;
@@ -136,7 +136,7 @@ impl<'q> GroupForField<'q> for SerialGroupForField<'q> {
     fn group_for_field<'a>(
         &'a mut self,
         parent_type: &'q TypeDefinition<'q>,
-        field_def: &'q Field<'q>,
+        field_def: &'q schema::Field<'q>,
     ) -> &'a mut FetchGroup<'q> {
         let parent_type = match parent_type {
             TypeDefinition::Object(obj) => obj,
@@ -180,7 +180,7 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
     fn group_for_field<'a>(
         &'a mut self,
         parent_type: &'q TypeDefinition<'q>,
-        field_def: &'q Field<'q>,
+        field_def: &'q schema::Field<'q>,
     ) -> &'a mut FetchGroup<'q> {
         if field_def.name == TYPENAME_FIELD_NAME {
             return &mut self.parent_group;
@@ -262,21 +262,19 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
                     self.parent_group
                         .dependent_group_for_service(owning_service, required_fields)
                 }
+            } else if base_service == self.parent_group.service_name {
+                self.parent_group
+                    .dependent_group_for_service(owning_service, required_fields)
             } else {
-                if base_service == self.parent_group.service_name {
-                    self.parent_group
-                        .dependent_group_for_service(owning_service, required_fields)
-                } else {
-                    let key_fields = self.context.get_key_fields(
-                        parent_type,
-                        &self.parent_group.service_name,
-                        false,
-                    );
+                let key_fields = self.context.get_key_fields(
+                    parent_type,
+                    &self.parent_group.service_name,
+                    false,
+                );
 
-                    self.parent_group
-                        .dependent_group_for_service(base_service, key_fields)
-                        .dependent_group_for_service(owning_service, required_fields)
-                }
+                self.parent_group
+                    .dependent_group_for_service(base_service, key_fields)
+                    .dependent_group_for_service(owning_service, required_fields)
             }
         }
     }
