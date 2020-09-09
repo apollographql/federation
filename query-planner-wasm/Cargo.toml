@@ -2,11 +2,11 @@
 name = "query-planner-wasm"
 version = "0.0.2" # keep in sync with package.json
 authors = ["Apollo <opensource@apollographql.com>"]
-homepage = "https://github.com/apollographql/rust"
+homepage = "https://github.com/apollographql/federation"
 description = "Bridge code written in Rust to Javascript/Typescript, to be internally used by Apollo Gateway. This package is not meant to be independently consumed."
 edition = "2018"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/apollographql/rust"
+repository = "https://github.com/apollographql/federation"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

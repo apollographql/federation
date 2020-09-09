@@ -18,7 +18,7 @@
   "author": "opensource@apollographql.com",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/apollographql/rust/issues"
+    "url": "https://github.com/apollographql/federation/issues"
   },
-  "homepage": "https://github.com/apollographql/rust#readme"
+  "homepage": "https://github.com/apollographql/federation#readme"
 }
