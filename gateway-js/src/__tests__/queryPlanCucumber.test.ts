@@ -1,20 +1,29 @@
 import gql from 'graphql-tag';
 import { GraphQLSchemaValidationError } from 'apollo-graphql';
 import { defineFeature, loadFeature } from 'jest-cucumber';
-import { DocumentNode } from 'graphql';
+import { DocumentNode, Kind } from 'graphql';
 
 import { QueryPlan } from '../..';
 import { buildQueryPlan, buildOperationContext, BuildQueryPlanOptions } from '../buildQueryPlan';
 import { getFederatedTestingSchema } from './execution-utils';
 
-const buildQueryPlanFeature = loadFeature(
-  './gateway-js/src/__tests__/build-query-plan.feature'
-);
-
+const testDir = './gateway-js/src/__tests__/';
 
 const features = [
-  buildQueryPlanFeature
-];
+  testDir + 'build-query-plan.feature',
+  testDir + 'integration/fragments.feature',
+  testDir + 'integration/requires.feature',
+  testDir + 'integration/variables.feature',
+  testDir + 'integration/mutations.feature',
+  testDir + 'integration/boolean.feature',
+  testDir + 'integration/provides.feature',
+  testDir + 'integration/value-types.feature',
+  testDir + 'integration/abstract-types.feature',
+  testDir + 'integration/aliases.feature',
+  testDir + 'integration/custom-directives.feature',
+  testDir + 'integration/execution-style.feature',
+  testDir + 'integration/single-service.feature',
+].map(path => loadFeature(path));
 
 features.forEach((feature) => {
   defineFeature(feature, (test) => {
