@@ -1,0 +1,11 @@
+{
+  "packages": ["federation-js", "federation-integration-testsuite-js", "gateway-js"],
+  "version": "independent",
+  "command": {
+    "version": {
+      "message": "Release",
+      "ignoreChanges": ["**/*.md"],
+      "includeMergedTags": true
+    }
+  }
+}

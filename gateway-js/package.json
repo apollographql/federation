@@ -1,0 +1,39 @@
+{
+  "name": "@apollo/gateway",
+  "version": "0.20.1-alpha.0",
+  "description": "Apollo Gateway",
+  "author": "Apollo <opensource@apollographql.com>",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollographql/federation.git",
+    "directory": "gateway-js/"
+  },
+  "keywords": ["graphql", "federation", "gateway", "server", "apollo"],
+  "engines": {
+    "node": ">=12.13.0 <15.0"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@apollo/federation": "file:../federation-js",
+    "@apollo/query-planner-wasm": "0.0.2",
+    "@types/node-fetch": "2.5.4",
+    "apollo-engine-reporting-protobuf": "^0.5.2",
+    "apollo-graphql": "^0.6.0",
+    "apollo-server-caching": "^0.5.2",
+    "apollo-server-core": "^2.17.0",
+    "apollo-server-env": "^2.4.5",
+    "apollo-server-errors": "^2.4.2",
+    "apollo-server-types": "^0.5.1",
+    "loglevel": "^1.6.1",
+    "make-fetch-happen": "^8.0.0",
+    "pretty-format": "^26.0.0"
+  },
+  "peerDependencies": {
+    "graphql": "^14.5.0 || ^15.0.0"
+  }
+}

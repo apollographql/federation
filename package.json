@@ -1,0 +1,71 @@
+{
+  "name": "apollo-federation-monorepo",
+  "private": true,
+  "license": "MIT",
+  "repository": "github:apollographql/federation",
+  "scripts": {
+    "clean": "git clean -dfqX -- ./node_modules **/{dist,node_modules}/ ./*/tsconfig*tsbuildinfo",
+    "compile": "tsc --build tsconfig.build.json",
+    "compile:clean": "tsc --build tsconfig.build.json --clean",
+    "watch": "tsc --build tsconfig.build.json --watch",
+    "release:version-bump": "lerna version",
+    "release:start-ci-publish": "node -p '`Publish (dist-tag:${process.env.APOLLO_DIST_TAG || \"latest\"})`' | git tag -F - \"publish/$(date -u '+%Y%m%d%H%M%S')\" && git push origin \"$(git describe --match='publish/*' --tags --exact-match HEAD)\"",
+    "postinstall": "lerna run prepare && npm run compile",
+    "test": "jest --verbose",
+    "test:clean": "jest --clearCache",
+    "test:watch": "jest --verbose --watchAll",
+    "testonly": "npm test",
+    "test:ci": "npm run coverage -- --ci --maxWorkers=2  --reporters=default --reporters=jest-junit",
+    "coverage": "npm test -- --coverage",
+    "coverage:upload": "codecov"
+  },
+  "engines": {
+    "node": ">=6"
+  },
+  "dependencies": {
+    "@apollographql/apollo-tools": "0.4.8",
+    "@apollo/federation": "file:federation-js",
+    "@apollo/gateway": "file:gateway-js",
+    "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
+  },
+  "devDependencies": {
+    "@types/jest": "25.2.3",
+    "@types/lodash.xorby": "4.7.6",
+    "@types/loglevel": "1.5.4",
+    "@types/nock": "10.0.3",
+    "@types/node": "8.10.62",
+    "@types/node-fetch": "2.3.2",
+    "apollo-link": "1.2.14",
+    "apollo-link-http": "1.5.17",
+    "apollo-server": "2.17.0",
+    "apollo-server-core": "2.17.0",
+    "apollo-server-env": "2.4.5",
+    "apollo-server-testing": "2.17.0",
+    "apollo-server-types": "0.5.1",
+    "bunyan": "1.8.14",
+    "codecov": "3.7.2",
+    "deep-freeze": "0.0.1",
+    "graphql": "14.7.0",
+    "graphql-tag": "2.11.0",
+    "jest": "25.5.4",
+    "jest-config": "25.5.4",
+    "jest-cucumber": "2.0.13",
+    "jest-junit": "10.0.0",
+    "log4js": "6.3.0",
+    "lerna": "3.22.1",
+    "nock": "13.0.4",
+    "node-fetch": "2.3.0",
+    "prettier": "2.1.1",
+    "ts-jest": "26.3.0",
+    "typescript": "3.9.7",
+    "winston": "3.3.3",
+    "winston-transport": "4.4.0"
+  },
+  "jest": {
+    "projects": [
+      "<rootDir>/federation-js",
+      "<rootDir>/federation-integration-testsuite-js",
+      "<rootDir>/gateway-js"
+    ]
+  }
+}

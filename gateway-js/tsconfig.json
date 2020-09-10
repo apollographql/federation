@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base",
+  "compilerOptions": {
+    "target": "es2019",
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["**/__tests__", "**/__mocks__"],
+  "references": [
+    { "path": "../federation-js" },
+    { "path": "../federation-integration-testsuite-js" },
+  ]
+}

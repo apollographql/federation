@@ -6,7 +6,8 @@
   "scripts": {},
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/apollographql/rust.git"
+    "url": "git+https://github.com/apollographql/federation.git",
+    "directory": "query-planner-wasm/"
   },
   "keywords": [
     "GraphQL",
@@ -17,7 +18,7 @@
   "author": "opensource@apollographql.com",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/apollographql/rust/issues"
+    "url": "https://github.com/apollographql/federation/issues"
   },
-  "homepage": "https://github.com/apollographql/rust#readme"
+  "homepage": "https://github.com/apollographql/federation#readme"
 }
