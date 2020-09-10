@@ -6,7 +6,7 @@
 
 # Apollo Federation
 
-We'll be improving this `README` as soon as possible, but to learn about Apollo Federation today, check our our [Apollo Federation documentation](https://www.apollographql.com/docs/apollo-server/federation/introduction/).
+We'll be improving this `README` as soon as possible, but to learn about Apollo Federation today, check out the [Apollo Federation documentation](https://www.apollographql.com/docs/apollo-server/federation/introduction/).
 
 ## Contributing
 
