@@ -20,5 +20,5 @@ js-sys = "0.3.44"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.17"
-serde = { version = "1.0.115", features = ["derive"] }
+serde = { version = "1.0.116", features = ["derive"] }
 serde_json = "1.0.57"
