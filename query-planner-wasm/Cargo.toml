@@ -16,7 +16,7 @@ crate-type=["cdylib"]
 [dependencies]
 apollo-query-planner = { path = "../query-planner" }
 wasm-bindgen = { version = "0.2.67", features = ["serde-serialize"] }
-js-sys = "0.3.44"
+js-sys = "0.3.45"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.17"
