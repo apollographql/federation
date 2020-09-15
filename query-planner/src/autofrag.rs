@@ -11,7 +11,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
-pub(crate) fn auto_fragmentation<'q>(
+pub(crate) fn auto_fragmentization<'q>(
     context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
 ) -> (Vec<FragmentDefinitionRef<'q>>, SelectionSetRef<'q>) {
@@ -215,7 +215,7 @@ impl Counter {
 
 #[cfg(test)]
 mod tests {
-    use crate::autofrag::auto_fragmentation;
+    use crate::autofrag::auto_fragmentization;
     use crate::context::QueryPlanningContext;
     use crate::federation::Federation;
     use crate::helpers::{build_possible_types, names_to_types, variable_name_to_def, Op};
@@ -225,7 +225,7 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn test_auto_fragmentation() {
+    fn test_auto_fragmentization() {
         let schema = "schema {
             query: Query
         }
@@ -311,7 +311,7 @@ mod tests {
             federation: Federation::new(&schema),
             names_to_types: types,
         };
-        let (frags, ssr) = auto_fragmentation(
+        let (frags, ssr) = auto_fragmentization(
             &context,
             SelectionSetRef::from(context.operation.selection_set),
         );

@@ -1,4 +1,4 @@
-use crate::autofrag::auto_fragmentation;
+use crate::autofrag::auto_fragmentization;
 use crate::consts::{
     typename_field_def, typename_field_node, EMPTY_DIRECTIVES, MUTATION_TYPE_NAME, QUERY_TYPE_NAME,
     TYPENAME_FIELD_NAME,
@@ -21,7 +21,11 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-pub fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
+pub fn build_query_plan(
+    schema: &schema::Document,
+    query: &Document,
+    auto_fragmentization: bool,
+) -> Result<QueryPlan> {
     let mut ops = get_operations(query);
 
     if ops.is_empty() {
@@ -54,7 +58,7 @@ pub fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<Q
                 _ => None,
             })
             .collect(),
-        auto_fragmentization: false,
+        auto_fragmentization,
         possible_types: build_possible_types(schema, &types),
         variable_name_to_def: variable_name_to_def(query),
         federation: Federation::new(schema),
@@ -632,7 +636,7 @@ fn operation_for_entities_fetch<'q>(
         .chain(variable_definitions.iter().map(|vd| vd.minified()))
         .collect::<String>();
 
-    let (frags, selection_set) = maybe_auto_fragmentation(context, selection_set);
+    let (frags, selection_set) = maybe_auto_fragmentization(context, selection_set);
 
     format!(
         "query({}){{_entities(representations:$representations){}}}{}",
@@ -660,7 +664,7 @@ fn operation_for_root_fetch<'q>(
         )
     };
 
-    let (frags, selection_set) = maybe_auto_fragmentation(context, selection_set);
+    let (frags, selection_set) = maybe_auto_fragmentization(context, selection_set);
 
     let op_kind = match op_kind {
         Operation::Query if vars.is_empty() => "",
@@ -766,12 +770,12 @@ fn flat_wrap(kind: NodeCollectionKind, mut nodes: Vec<PlanNode>) -> PlanNode {
     }
 }
 
-fn maybe_auto_fragmentation<'a, 'q: 'a>(
+fn maybe_auto_fragmentization<'a, 'q: 'a>(
     context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
 ) -> (String, SelectionSetRef<'a>) {
     if context.auto_fragmentization {
-        let (frags, selection_set) = auto_fragmentation(context, selection_set);
+        let (frags, selection_set) = auto_fragmentization(context, selection_set);
         let frags = frags
             .into_iter()
             .map(|fd| fd.minified())

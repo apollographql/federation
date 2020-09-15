@@ -27,7 +27,7 @@ pub fn get_query_plan(planner_ptr: usize, query: &str) -> JsValue {
     unsafe {
         let planner = planner_ptr as *const QueryPlanner;
         let planner: &QueryPlanner = &*planner;
-        let plan = planner.plan(query).unwrap();
+        let plan = planner.plan(query, false).unwrap();
         JsValue::from_serde(&plan).unwrap()
     }
 }

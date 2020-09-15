@@ -36,9 +36,9 @@ impl<'s> QueryPlanner<'s> {
         QueryPlanner { schema }
     }
 
-    pub fn plan(&self, query: &str) -> Result<QueryPlan> {
+    pub fn plan(&self, query: &str, auto_fragmentization: bool) -> Result<QueryPlan> {
         let query = parse_query(query).expect("failed parsing query");
-        build_query_plan(&self.schema, &query)
+        build_query_plan(&self.schema, &query, auto_fragmentization)
     }
 }
 
@@ -98,18 +98,17 @@ mod tests {
                     Result::Ok(feature) => feature,
                     Result::Err(e) => panic!("Unparseable .feature file {:?} -- {}", &path, e),
                 };
-                let scenarios = feature
-                    .scenarios
-                    .iter()
-                    .filter(|s| !s.steps.iter().any(|s| matches!(s.ty, StepType::When)));
 
-                for scenario in scenarios {
+                for scenario in feature.scenarios {
                     let query: &str = get_step!(scenario, StepType::Given);
                     let expected_str: &str = get_step!(scenario, StepType::Then);
                     let expected: QueryPlan = serde_json::from_str(&expected_str).unwrap();
 
-                    let result = planner.plan(query).unwrap();
-
+                    let auto_fragmentization = scenario
+                        .steps
+                        .iter()
+                        .any(|s| matches!(s.ty, StepType::When));
+                    let result = planner.plan(query, auto_fragmentization).unwrap();
                     assert_eq!(result, expected);
                 }
             }
