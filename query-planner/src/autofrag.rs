@@ -1,11 +1,143 @@
+use crate::builder::get_field_def_from_type;
+use crate::consts::{MUTATION_TYPE_NAME, QUERY_TYPE_NAME};
 use crate::context::QueryPlanningContext;
-use graphql_parser::query::refs::{FragmentDefinitionRef, SelectionSetRef};
+use graphql_parser::query::refs::{FragmentDefinitionRef, SelectionRef, SelectionSetRef};
+use graphql_parser::query::{Operation, Selection};
+use graphql_parser::schema::TypeDefinition;
+use graphql_parser::Name;
+use std::collections::HashMap;
 
-pub(crate) fn auto_fragmentation<'a, 'q: 'a>(
+pub(crate) fn auto_fragmentation<'q>(
     context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
-) -> (Vec<FragmentDefinitionRef<'a>>, SelectionSetRef<'a>) {
-    unimplemented!()
+) -> (Vec<FragmentDefinitionRef<'q>>, SelectionSetRef<'q>) {
+    let root_parent = if let Operation::Query = &context.operation.kind {
+        context.names_to_types[QUERY_TYPE_NAME]
+    } else {
+        context.names_to_types[MUTATION_TYPE_NAME]
+    };
+
+    fn auto_frag_selection_set<'a, 'q>(
+        context: &'q QueryPlanningContext<'q>,
+        frags: &'a mut HashMap<&'q SelectionSetRef<'q>, FragmentDefinitionRef<'q>>,
+        parent: &'q TypeDefinition<'q>,
+        selection_set: SelectionSetRef<'q>,
+    ) -> SelectionSetRef<'q> {
+        unimplemented!()
+    }
+
+    fn auto_frag_selection<'a, 'q>(
+        context: &'q QueryPlanningContext<'q>,
+        frags: &'a mut HashMap<&'q SelectionSetRef<'q>, FragmentDefinitionRef<'q>>,
+        parent: &'q TypeDefinition<'q>,
+        selection: SelectionRef<'q>,
+    ) -> SelectionRef<'q> {
+        match selection {
+            SelectionRef::Ref(sel) => match sel {
+                Selection::Field(field) => {
+                    let field_return_type = get_field_def_from_type(parent, field.name)
+                        .field_type
+                        .as_name();
+
+                    if let Some(new_parent) = context.names_to_types.get(field_return_type) {
+                        let new_field = field_ref!(
+                            field,
+                            auto_frag_selection_set(
+                                context,
+                                frags,
+                                *new_parent,
+                                SelectionSetRef::from(&field.selection_set)
+                            )
+                        );
+                        SelectionRef::FieldRef(new_field)
+                    } else {
+                        SelectionRef::FieldRef(field_ref!(field))
+                    }
+                }
+                Selection::InlineFragment(inline) => {
+                    if let Some(tc) = inline.type_condition {
+                        let new_parent = context.names_to_types[tc];
+                        SelectionRef::InlineFragmentRef(inline_fragment_ref!(
+                            inline,
+                            auto_frag_selection_set(
+                                context,
+                                frags,
+                                new_parent,
+                                SelectionSetRef::from(&inline.selection_set)
+                            )
+                        ))
+                    } else {
+                        SelectionRef::InlineFragmentRef(inline_fragment_ref!(inline))
+                    }
+                }
+                Selection::FragmentSpread(_) => {
+                    unreachable!("Fragment spreads is only used at the end of query planning")
+                }
+            },
+            SelectionRef::Field(field) => {
+                let field_return_type = get_field_def_from_type(parent, field.name)
+                    .field_type
+                    .as_name();
+
+                if let Some(new_parent) = context.names_to_types.get(field_return_type) {
+                    let new_field = field_ref!(
+                        field,
+                        auto_frag_selection_set(
+                            context,
+                            frags,
+                            *new_parent,
+                            SelectionSetRef::from(&field.selection_set)
+                        )
+                    );
+                    SelectionRef::FieldRef(new_field)
+                } else {
+                    SelectionRef::FieldRef(field_ref!(field))
+                }
+            }
+            SelectionRef::FieldRef(field) => {
+                let field_return_type = get_field_def_from_type(parent, field.name)
+                    .field_type
+                    .as_name();
+
+                if let Some(new_parent) = context.names_to_types.get(field_return_type) {
+                    let new_field = field_ref!(
+                        field,
+                        auto_frag_selection_set(context, frags, *new_parent, field.selection_set)
+                    );
+                    SelectionRef::FieldRef(new_field)
+                } else {
+                    SelectionRef::FieldRef(field)
+                }
+            }
+            SelectionRef::InlineFragmentRef(inline) => {
+                if let Some(tc) = inline.type_condition {
+                    let new_parent = context.names_to_types[tc];
+                    SelectionRef::InlineFragmentRef(inline_fragment_ref!(
+                        inline,
+                        auto_frag_selection_set(context, frags, new_parent, inline.selection_set)
+                    ))
+                } else {
+                    SelectionRef::InlineFragmentRef(inline)
+                }
+            }
+            SelectionRef::FragmentSpreadRef(_) => {
+                unreachable!("Fragment spreads is only used at the end of query planning")
+            }
+        }
+    }
+
+    let mut frags: HashMap<&'q SelectionSetRef<'q>, FragmentDefinitionRef<'q>> = HashMap::new();
+    let mut new_ss = SelectionSetRef {
+        span: selection_set.span,
+        items: vec![],
+    };
+
+    for sel in selection_set.items.into_iter() {
+        let new_sel = auto_frag_selection(context, &mut frags, root_parent, sel);
+        new_ss.items.push(new_sel)
+    }
+
+    (values!(frags), new_ss)
 }
 
 #[cfg(test)]

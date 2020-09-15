@@ -50,6 +50,7 @@ macro_rules! values {
     };
 }
 
+#[macro_export]
 macro_rules! field_ref {
     ($f:expr, $ss:expr) => {
         graphql_parser::query::refs::FieldRef {
@@ -63,6 +64,24 @@ macro_rules! field_ref {
     };
     ($f:expr) => {
         field_ref!(
+            $f,
+            graphql_parser::query::refs::SelectionSetRef::from(&$f.selection_set)
+        )
+    };
+}
+
+#[macro_export]
+macro_rules! inline_fragment_ref {
+    ($f:expr, $ss:expr) => {
+        graphql_parser::query::refs::InlineFragmentRef {
+            position: $f.position,
+            type_condition: $f.type_condition,
+            directives: &$f.directives,
+            selection_set: $ss,
+        }
+    };
+    ($f:expr) => {
+        inline_fragment_ref!(
             $f,
             graphql_parser::query::refs::SelectionSetRef::from(&$f.selection_set)
         )

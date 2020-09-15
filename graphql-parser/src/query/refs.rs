@@ -107,7 +107,7 @@ impl<'a> FieldRef<'a> {
 pub struct InlineFragmentRef<'a> {
     pub position: Pos,
     pub type_condition: Option<Txt<'a>>,
-    pub directives: Vec<Directive<'a>>,
+    pub directives: &'a Vec<Directive<'a>>,
     pub selection_set: SelectionSetRef<'a>,
 }
 

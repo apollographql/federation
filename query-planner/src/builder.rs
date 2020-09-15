@@ -1,6 +1,6 @@
 use crate::autofrag::auto_fragmentation;
 use crate::consts::{
-    typename_field_def, typename_field_node, MUTATION_TYPE_NAME, QUERY_TYPE_NAME,
+    typename_field_def, typename_field_node, EMPTY_DIRECTIVES, MUTATION_TYPE_NAME, QUERY_TYPE_NAME,
     TYPENAME_FIELD_NAME,
 };
 use crate::context::*;
@@ -325,7 +325,10 @@ fn split_fields<'a, 'q: 'a>(
     }
 }
 
-fn get_field_def_from_type<'q>(td: &'q TypeDefinition<'q>, name: &'q str) -> &'q schema::Field<'q> {
+pub(crate) fn get_field_def_from_type<'q>(
+    td: &'q TypeDefinition<'q>,
+    name: &'q str,
+) -> &'q schema::Field<'q> {
     if name == TYPENAME_FIELD_NAME {
         typename_field_def()
     } else {
@@ -543,7 +546,7 @@ fn selection_set_from_field_set<'q>(
             vec![SelectionRef::InlineFragmentRef(InlineFragmentRef {
                 position: pos(),
                 type_condition: type_condition.name(),
-                directives: vec![],
+                directives: &EMPTY_DIRECTIVES,
                 selection_set: SelectionSetRef {
                     span: span(),
                     items: selections,
