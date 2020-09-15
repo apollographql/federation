@@ -191,6 +191,9 @@ pub(crate) fn collect_fields<'q>(
                         }
                     }
                 }
+                SelectionRef::FragmentSpreadRef(_) => {
+                    unreachable!("FragmentSpreadRef is only used at the end of query planning")
+                }
             }
         }
     }
@@ -731,6 +734,9 @@ fn ref_into_model_selection_set(selection_set_ref: SelectionSetRef) -> ModelSele
                     type_condition: inline.type_condition.map(String::from),
                     selections: ref_into_model_selection_set(inline.selection_set),
                 })
+            }
+            SelectionRef::FragmentSpreadRef(_) => {
+                unreachable!("FragmentSpreadRef is only used at the end of query planning")
             }
         }
     }

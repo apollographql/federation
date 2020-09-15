@@ -204,6 +204,9 @@ impl<'q> QueryPlanningContext<'q> {
                             )
                         }
                     }
+                    SelectionRef::FragmentSpreadRef(_) => {
+                        unreachable!("FragmentSpreadRef is only used at the end of query planning")
+                    }
                 }
             }
         }
