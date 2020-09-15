@@ -12,8 +12,10 @@ use crate::position::Pos;
 use crate::tokenizer::{Kind as T, Token, TokenStream};
 use ordered_float::NotNan;
 
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Derivative)]
+#[derivative(Hash)]
 pub struct Directive<'a> {
+    #[derivative(Hash = "ignore")]
     pub position: Pos,
     pub name: &'a str,
     pub arguments: Vec<(Txt<'a>, Value<'a>)>,

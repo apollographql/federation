@@ -72,8 +72,10 @@ pub struct FragmentSpreadRef {
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Hash)]
+#[derive(Debug, Clone, PartialEq, Default, Derivative)]
+#[derivative(Hash)]
 pub struct SelectionSetRef<'a> {
+    #[derivative(Hash = "ignore")]
     pub span: (Pos, Pos),
     pub items: Vec<SelectionRef<'a>>,
 }
@@ -87,8 +89,10 @@ impl<'a> From<&'a SelectionSet<'a>> for SelectionSetRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Derivative)]
+#[derivative(Hash)]
 pub struct FieldRef<'a> {
+    #[derivative(Hash = "ignore")]
     pub position: Pos,
     pub alias: Option<Txt<'a>>,
     pub name: Txt<'a>,
@@ -103,8 +107,10 @@ impl<'a> FieldRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Derivative)]
+#[derivative(Hash)]
 pub struct InlineFragmentRef<'a> {
+    #[derivative(Hash = "ignore")]
     pub position: Pos,
     pub type_condition: Option<Txt<'a>>,
     pub directives: &'a Vec<Directive<'a>>,

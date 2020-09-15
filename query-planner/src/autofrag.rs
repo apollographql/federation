@@ -225,7 +225,6 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    #[should_panic]
     fn test_auto_fragmentation() {
         let schema = "schema {
             query: Query
@@ -277,18 +276,16 @@ mod tests {
             "
             fragment __QueryPlanFragment_0__ on B { f1 f2 f4 }
             fragment __QueryPlanFragment_1__ on SomeField {
-                field {
-                  a { b { ...__QueryPlanFragment_0__ } }
-                  b { ...__QueryPlanFragment_0__ }
-                  iface {
-                    ...on IFaceImpl1 { x }
-                    ...on IFaceImpl2 { x }
-                  }
-                }
+              a { b { ...__QueryPlanFragment_0__ } }
+              b { ...__QueryPlanFragment_0__ }
+              iface {
+                ...on IFaceImpl1 { x }
+                ...on IFaceImpl2 { x }
+              }
             }
             
             {
-              ...__QueryPlanFragment_1__
+              field { ...__QueryPlanFragment_1__ }
             }
         ",
         )
@@ -318,8 +315,12 @@ mod tests {
             &context,
             SelectionSetRef::from(context.operation.selection_set),
         );
-        assert_eq!(1, frags.len());
-        let got = format!("{} {}", frags[0].minified(), ssr.minified());
+        assert_eq!(2, frags.len());
+        let frags = frags
+            .into_iter()
+            .map(|fd| fd.minified())
+            .collect::<String>();
+        let got = format!("{}{}", frags, ssr.minified());
         let new_query = parse_query(&got).unwrap().minified();
         assert_eq!(expected, new_query);
     }
