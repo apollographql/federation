@@ -1,11 +1,15 @@
 use crate::builder::get_field_def_from_type;
 use crate::consts::{MUTATION_TYPE_NAME, QUERY_TYPE_NAME};
 use crate::context::QueryPlanningContext;
-use graphql_parser::query::refs::{FragmentDefinitionRef, SelectionRef, SelectionSetRef};
+use graphql_parser::query::refs::{
+    FragmentDefinitionRef, FragmentSpreadRef, SelectionRef, SelectionSetRef,
+};
 use graphql_parser::query::{Operation, Selection};
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::Name;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 pub(crate) fn auto_fragmentation<'q>(
     context: &'q QueryPlanningContext<'q>,
@@ -19,16 +23,45 @@ pub(crate) fn auto_fragmentation<'q>(
 
     fn auto_frag_selection_set<'a, 'q>(
         context: &'q QueryPlanningContext<'q>,
-        frags: &'a mut HashMap<&'q SelectionSetRef<'q>, FragmentDefinitionRef<'q>>,
+        frags: &'a mut HashMap<u64, FragmentDefinitionRef<'q>>,
+        counter: &'a mut Counter,
         parent: &'q TypeDefinition<'q>,
         selection_set: SelectionSetRef<'q>,
     ) -> SelectionSetRef<'q> {
-        unimplemented!()
+        let mut new_ss = SelectionSetRef {
+            span: selection_set.span,
+            items: vec![],
+        };
+
+        for sel in selection_set.items.into_iter() {
+            let new_sel = auto_frag_selection(context, frags, counter, parent, sel);
+            new_ss.items.push(new_sel)
+        }
+
+        if new_ss.items.len() > 2 {
+            let name = frags
+                .entry(calculate_hash(&new_ss))
+                .or_insert_with(|| FragmentDefinitionRef {
+                    name: format!("__QueryPlanFragment_{}__", counter.get_and_incr()),
+                    type_condition: String::from(parent.as_name()),
+                    selection_set: new_ss,
+                })
+                .name
+                .clone();
+
+            SelectionSetRef {
+                span: selection_set.span,
+                items: vec![SelectionRef::FragmentSpreadRef(FragmentSpreadRef { name })],
+            }
+        } else {
+            new_ss
+        }
     }
 
     fn auto_frag_selection<'a, 'q>(
         context: &'q QueryPlanningContext<'q>,
-        frags: &'a mut HashMap<&'q SelectionSetRef<'q>, FragmentDefinitionRef<'q>>,
+        frags: &'a mut HashMap<u64, FragmentDefinitionRef<'q>>,
+        counter: &'a mut Counter,
         parent: &'q TypeDefinition<'q>,
         selection: SelectionRef<'q>,
     ) -> SelectionRef<'q> {
@@ -45,6 +78,7 @@ pub(crate) fn auto_fragmentation<'q>(
                             auto_frag_selection_set(
                                 context,
                                 frags,
+                                counter,
                                 *new_parent,
                                 SelectionSetRef::from(&field.selection_set)
                             )
@@ -62,6 +96,7 @@ pub(crate) fn auto_fragmentation<'q>(
                             auto_frag_selection_set(
                                 context,
                                 frags,
+                                counter,
                                 new_parent,
                                 SelectionSetRef::from(&inline.selection_set)
                             )
@@ -85,6 +120,7 @@ pub(crate) fn auto_fragmentation<'q>(
                         auto_frag_selection_set(
                             context,
                             frags,
+                            counter,
                             *new_parent,
                             SelectionSetRef::from(&field.selection_set)
                         )
@@ -102,7 +138,13 @@ pub(crate) fn auto_fragmentation<'q>(
                 if let Some(new_parent) = context.names_to_types.get(field_return_type) {
                     let new_field = field_ref!(
                         field,
-                        auto_frag_selection_set(context, frags, *new_parent, field.selection_set)
+                        auto_frag_selection_set(
+                            context,
+                            frags,
+                            counter,
+                            *new_parent,
+                            field.selection_set
+                        )
                     );
                     SelectionRef::FieldRef(new_field)
                 } else {
@@ -114,7 +156,13 @@ pub(crate) fn auto_fragmentation<'q>(
                     let new_parent = context.names_to_types[tc];
                     SelectionRef::InlineFragmentRef(inline_fragment_ref!(
                         inline,
-                        auto_frag_selection_set(context, frags, new_parent, inline.selection_set)
+                        auto_frag_selection_set(
+                            context,
+                            frags,
+                            counter,
+                            new_parent,
+                            inline.selection_set
+                        )
                     ))
                 } else {
                     SelectionRef::InlineFragmentRef(inline)
@@ -126,18 +174,43 @@ pub(crate) fn auto_fragmentation<'q>(
         }
     }
 
-    let mut frags: HashMap<&'q SelectionSetRef<'q>, FragmentDefinitionRef<'q>> = HashMap::new();
+    let mut frags: HashMap<u64, FragmentDefinitionRef<'q>> = HashMap::new();
+    let mut counter = Counter::new();
     let mut new_ss = SelectionSetRef {
         span: selection_set.span,
         items: vec![],
     };
 
     for sel in selection_set.items.into_iter() {
-        let new_sel = auto_frag_selection(context, &mut frags, root_parent, sel);
+        let new_sel = auto_frag_selection(context, &mut frags, &mut counter, root_parent, sel);
         new_ss.items.push(new_sel)
     }
 
-    (values!(frags), new_ss)
+    let mut values: Vec<FragmentDefinitionRef<'q>> = values!(frags);
+    values.sort_by(|a, b| a.name.cmp(&b.name));
+
+    (values, new_ss)
+}
+
+fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
+}
+
+struct Counter {
+    i: i32,
+}
+
+impl Counter {
+    pub fn new() -> Self {
+        Self { i: 0 }
+    }
+    pub fn get_and_incr(&mut self) -> i32 {
+        let r = self.i;
+        self.i += 1;
+        r
+    }
 }
 
 #[cfg(test)]
@@ -202,12 +275,20 @@ mod tests {
 
         let expected = parse_query(
             "
-            fragment __QueryPlanFragment_1__ on B { f1 f2 f4 }
-            {
+            fragment __QueryPlanFragment_0__ on B { f1 f2 f4 }
+            fragment __QueryPlanFragment_1__ on SomeField {
                 field {
-                  a { b { ...__QueryPlanFragment_1__ } }
-                  b { ...__QueryPlanFragment_1__ }
+                  a { b { ...__QueryPlanFragment_0__ } }
+                  b { ...__QueryPlanFragment_0__ }
+                  iface {
+                    ...on IFaceImpl1 { x }
+                    ...on IFaceImpl2 { x }
+                  }
                 }
+            }
+            
+            {
+              ...__QueryPlanFragment_1__
             }
         ",
         )
