@@ -7,6 +7,7 @@ use graphql_parser::{parse_query, parse_schema, schema, ParseError};
 
 #[macro_use]
 mod macros;
+mod autofrag;
 mod builder;
 mod consts;
 mod context;

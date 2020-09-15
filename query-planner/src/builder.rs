@@ -1,3 +1,4 @@
+use crate::autofrag::auto_fragmentation;
 use crate::consts::{
     typename_field_def, typename_field_node, MUTATION_TYPE_NAME, QUERY_TYPE_NAME,
     TYPENAME_FIELD_NAME,
@@ -387,20 +388,8 @@ fn complete_field<'a, 'q: 'a>(
             let sub_fields = collect_sub_fields(context, return_type, fields);
             let sub_group = split_sub_fields(context, field_path, sub_fields, sub_group);
 
-            let sub_group_fields_length = sub_group.fields.len();
-            let sub_group_fields = sub_group.fields;
             let selection_set_ref =
-                selection_set_from_field_set(sub_group_fields, Some(return_type), context);
-
-            if context.auto_fragmentization && sub_group_fields_length > 2 {
-                unimplemented!()
-            }
-
-            for (name, sg_internal_fragment) in sub_group.internal_fragments {
-                parent_group
-                    .internal_fragments
-                    .insert(name, sg_internal_fragment);
-            }
+                selection_set_from_field_set(sub_group.fields, Some(return_type), context);
 
             let mut sub_group_dependent_groups = {
                 values!(iter sub_group.dependent_groups_by_service)
@@ -472,7 +461,6 @@ fn execution_node_for_group(
     let FetchGroup {
         service_name,
         fields,
-        internal_fragments,
         required_fields,
         dependent_groups_by_service,
         other_dependent_groups,
@@ -492,18 +480,15 @@ fn execution_node_for_group(
         None
     };
 
-    let internal_fragments: Vec<&FragmentDefinition> = values!(internal_fragments);
-
-    let (variable_names, variable_defs) =
-        context.get_variable_usages(&selection_set, &internal_fragments);
+    let (variable_names, variable_defs) = context.get_variable_usages(&selection_set);
 
     let operation = if requires.is_some() {
-        operation_for_entities_fetch(selection_set, variable_defs, internal_fragments)
+        operation_for_entities_fetch(context, selection_set, variable_defs)
     } else {
         operation_for_root_fetch(
+            context,
             selection_set,
             variable_defs,
-            internal_fragments,
             context.operation.kind,
         )
     };
@@ -635,19 +620,16 @@ fn selection_set_from_field_set<'q>(
 }
 
 fn operation_for_entities_fetch<'q>(
+    context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
-    internal_fragments: Vec<&'q FragmentDefinition<'q>>,
 ) -> GraphQLDocument {
     let vars = vec![String::from("$representations:[_Any!]!")]
         .into_iter()
         .chain(variable_definitions.iter().map(|vd| vd.minified()))
         .collect::<String>();
 
-    let frags: String = internal_fragments
-        .iter()
-        .map(|fd| fd.minified())
-        .collect::<String>();
+    let (frags, selection_set) = maybe_auto_fragmentation(context, selection_set);
 
     format!(
         "query({}){{_entities(representations:$representations){}}}{}",
@@ -658,9 +640,9 @@ fn operation_for_entities_fetch<'q>(
 }
 
 fn operation_for_root_fetch<'q>(
+    context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
-    internal_fragments: Vec<&'q FragmentDefinition<'q>>,
     op_kind: Operation,
 ) -> GraphQLDocument {
     let vars = if variable_definitions.is_empty() {
@@ -675,10 +657,7 @@ fn operation_for_root_fetch<'q>(
         )
     };
 
-    let frags: String = internal_fragments
-        .iter()
-        .map(|fd| fd.minified())
-        .collect::<String>();
+    let (frags, selection_set) = maybe_auto_fragmentation(context, selection_set);
 
     let op_kind = match op_kind {
         Operation::Query if vars.is_empty() => "",
@@ -781,5 +760,21 @@ fn flat_wrap(kind: NodeCollectionKind, mut nodes: Vec<PlanNode>) -> PlanNode {
             NodeCollectionKind::Sequence => PlanNode::Sequence { nodes },
             NodeCollectionKind::Parallel => PlanNode::Parallel { nodes },
         }
+    }
+}
+
+fn maybe_auto_fragmentation<'a, 'q: 'a>(
+    context: &'q QueryPlanningContext<'q>,
+    selection_set: SelectionSetRef<'q>,
+) -> (String, SelectionSetRef<'a>) {
+    if context.auto_fragmentization {
+        let (frags, selection_set) = auto_fragmentation(context, selection_set);
+        let frags = frags
+            .into_iter()
+            .map(|fd| fd.minified())
+            .collect::<String>();
+        (frags, selection_set)
+    } else {
+        (String::from(""), selection_set)
     }
 }

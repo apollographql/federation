@@ -4,7 +4,6 @@ use crate::federation::Federation;
 use crate::helpers::Op;
 use crate::visitors::VariableUsagesMap;
 use graphql_parser::query::refs::{FieldRef, Node, SelectionRef, SelectionSetRef};
-use graphql_parser::query::Node as QueryNode;
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{schema, Name};
@@ -55,21 +54,13 @@ impl<'q> QueryPlanningContext<'q> {
     pub fn get_variable_usages(
         &self,
         selection_set: &SelectionSetRef,
-        fragments: &[&'q FragmentDefinition<'q>],
     ) -> (Vec<String>, Vec<&VariableDefinition>) {
-        let mut v = selection_set
+        selection_set
             .map(VariableUsagesMap::new(&self.variable_name_to_def))
             .output
-            .unwrap();
-
-        v.extend(fragments.iter().flat_map(|fd| {
-            fd.selection_set
-                .map(VariableUsagesMap::new(&self.variable_name_to_def))
-                .output
-                .unwrap()
-        }));
-
-        v.into_iter().unzip()
+            .unwrap()
+            .into_iter()
+            .unzip()
     }
 
     pub fn type_def_for_object(
