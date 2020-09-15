@@ -4,7 +4,7 @@ use crate::query::{Field, SelectionSet};
 use crate::{node_trait, visit, visit_each};
 use crate::{query, Pos};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum SelectionRef<'a> {
     Ref(&'a query::Selection<'a>),
     Field(&'a Field<'a>),
@@ -65,7 +65,7 @@ impl<'a> SelectionRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Hash)]
 pub struct SelectionSetRef<'a> {
     pub span: (Pos, Pos),
     pub items: Vec<SelectionRef<'a>>,
@@ -80,7 +80,7 @@ impl<'a> From<&'a SelectionSet<'a>> for SelectionSetRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FieldRef<'a> {
     pub position: Pos,
     pub alias: Option<Txt<'a>>,
@@ -96,7 +96,7 @@ impl<'a> FieldRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct InlineFragmentRef<'a> {
     pub position: Pos,
     pub type_condition: Option<Txt<'a>>,

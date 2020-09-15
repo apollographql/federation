@@ -18,6 +18,7 @@ edition = "2018"
 combine = "3.8.1"
 thiserror = "1.0.20"
 bytecount = "0.6.0"
+ordered-float = "2.0.0"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"

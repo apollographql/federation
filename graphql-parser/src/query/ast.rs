@@ -9,19 +9,19 @@ pub use crate::common::{Directive, Txt, Type, Value};
 use crate::position::Pos;
 
 /// Root of query data
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Document<'a> {
     pub definitions: Vec<Definition<'a>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Definition<'a> {
     SelectionSet(SelectionSet<'a>),
     Operation(OperationDefinition<'a>),
     Fragment(FragmentDefinition<'a>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FragmentDefinition<'a> {
     pub position: Pos,
     pub description: Option<String>,
@@ -31,7 +31,7 @@ pub struct FragmentDefinition<'a> {
     pub selection_set: SelectionSet<'a>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct OperationDefinition<'a> {
     pub position: Pos,
     pub kind: Operation,
@@ -42,7 +42,7 @@ pub struct OperationDefinition<'a> {
     pub selection_set: SelectionSet<'a>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub enum Operation {
     Query,
     Mutation,
@@ -60,13 +60,13 @@ impl Operation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct SelectionSet<'a> {
     pub span: (Pos, Pos),
     pub items: Vec<Selection<'a>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct VariableDefinition<'a> {
     pub position: Pos,
     pub name: Txt<'a>,
@@ -74,14 +74,14 @@ pub struct VariableDefinition<'a> {
     pub default_value: Option<Value<'a>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Selection<'a> {
     Field(Field<'a>),
     FragmentSpread(FragmentSpread<'a>),
     InlineFragment(InlineFragment<'a>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Field<'a> {
     pub position: Pos,
     pub alias: Option<Txt<'a>>,
@@ -91,14 +91,14 @@ pub struct Field<'a> {
     pub selection_set: SelectionSet<'a>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FragmentSpread<'a> {
     pub position: Pos,
     pub fragment_name: Txt<'a>,
     pub directives: Vec<Directive<'a>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct InlineFragment<'a> {
     pub position: Pos,
     pub type_condition: Option<Txt<'a>>,

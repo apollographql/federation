@@ -10,8 +10,9 @@ use combine::{parser, ParseResult, Parser};
 use crate::helpers::{ident, kind, name, punct};
 use crate::position::Pos;
 use crate::tokenizer::{Kind as T, Token, TokenStream};
+use ordered_float::NotNan;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Directive<'a> {
     pub position: Pos,
     pub name: &'a str,
@@ -20,11 +21,11 @@ pub struct Directive<'a> {
 
 pub type Txt<'a> = &'a str;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Value<'a> {
     Variable(Txt<'a>),
     Int(i64),
-    Float(f64),
+    Float(NotNan<f64>),
     String(String),
     Boolean(bool),
     Null,
@@ -33,7 +34,7 @@ pub enum Value<'a> {
     Object(BTreeMap<Txt<'a>, Value<'a>>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Type<'a> {
     NamedType(Txt<'a>),
     ListType(Box<Type<'a>>),
@@ -78,7 +79,7 @@ pub fn int_value<'a>(input: &mut TokenStream<'a>) -> ParseResult<Value<'a>, Toke
 
 pub fn float_value<'a>(input: &mut TokenStream<'a>) -> ParseResult<Value<'a>, TokenStream<'a>> {
     kind(T::FloatValue)
-        .and_then(|tok| tok.value.parse())
+        .and_then(|tok| tok.value.parse::<NotNan<f64>>())
         .map(Value::Float)
         .parse_stream(input)
 }
