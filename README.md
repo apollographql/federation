@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/rocket1.svg" width="100%" height="144">
 
-[![Tests (all platforms)](https://github.com/apollographql/federation/workflows/Tests%20(all%20platforms)/badge.svg)](https://github.com/apollographql/federation/actions?query=branch%3Amain+workflow%3A%22Tests+%28all+platforms%29%22)
+[![Rust Tests (all platforms)](https://github.com/apollographql/federation/workflows/Rust%20Tests%20(all%20platforms)/badge.svg)](https://github.com/apollographql/federation/actions?query=branch%3Amain+workflow%3A%22Rust+Tests+%28all+platforms%29%22)
 [![Security audit](https://github.com/apollographql/federation/workflows/Security%20audit/badge.svg)](https://github.com/apollographql/federation/actions?query=workflow%3A%22Security+audit%22)
 [![codecov](https://codecov.io/gh/apollographql/federation/branch/main/graph/badge.svg)](https://codecov.io/gh/apollographql/federation)
 
