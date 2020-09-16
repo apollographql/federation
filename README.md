@@ -1,8 +1,22 @@
 <img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/rocket1.svg" width="100%" height="144">
 
-[![Rust Tests (all platforms)](https://github.com/apollographql/federation/workflows/Rust%20Tests%20(all%20platforms)/badge.svg)](https://github.com/apollographql/federation/actions?query=branch%3Amain+workflow%3A%22Rust+Tests+%28all+platforms%29%22)
-[![Security audit](https://github.com/apollographql/federation/workflows/Security%20audit/badge.svg)](https://github.com/apollographql/federation/actions?query=workflow%3A%22Security+audit%22)
-[![codecov](https://codecov.io/gh/apollographql/federation/branch/main/graph/badge.svg)](https://codecov.io/gh/apollographql/federation)
+<table>
+    <tbody>
+        <tr>
+            <td></td>
+            <td><img src="https://codecov.io/gh/apollographql/federation/branch/main/graph/badge.svg"><img src="https://api.netlify.com/api/v1/badges/3a012f93-2d02-41f7-bb2b-848cf005b831/deploy-status"></td>
+        </tr>
+        <tr>
+            <td>Rust</td>
+            <td><img src="https://github.com/apollographql/federation/workflows/Rust%20Tests%20(all%20platforms)/badge.svg?branch=main"><img src="https://github.com/apollographql/federation/workflows/Security%20audit/badge.svg"/> </td>
+        </tr>
+        <tr>
+            <td>Typescript</td>
+            <td><img src="https://circleci.com/gh/apollographql/federation/tree/main.svg?style=shield"/></td>
+        </tr>
+    </tbody>
+</table>
+
 
 # Apollo Federation
 
