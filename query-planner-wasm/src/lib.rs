@@ -1,6 +1,6 @@
 extern crate wasm_bindgen;
 
-use apollo_query_planner::QueryPlanner;
+use apollo_query_planner::{QueryPlanner, QueryPlanningOptionsBuilder};
 use js_sys::JsString;
 use wasm_bindgen::prelude::*;
 
@@ -27,7 +27,8 @@ pub fn get_query_plan(planner_ptr: usize, query: &str) -> JsValue {
     unsafe {
         let planner = planner_ptr as *const QueryPlanner;
         let planner: &QueryPlanner = &*planner;
-        let plan = planner.plan(query, false).unwrap();
+        let options = QueryPlanningOptionsBuilder::default().build().unwrap();
+        let plan = planner.plan(query, options).unwrap();
         JsValue::from_serde(&plan).unwrap()
     }
 }

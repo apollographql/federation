@@ -3,6 +3,7 @@ use crate::consts::{typename_field_def, typename_field_node};
 use crate::federation::Federation;
 use crate::helpers::Op;
 use crate::visitors::VariableUsagesMap;
+use crate::QueryPlanningOptions;
 use graphql_parser::query::refs::{FieldRef, Node, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
@@ -10,7 +11,7 @@ use graphql_parser::{schema, Name};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct QueryPlanningContext<'q> {
     pub schema: &'q schema::Document<'q>,
     pub operation: Op<'q>,
@@ -19,7 +20,7 @@ pub struct QueryPlanningContext<'q> {
     pub names_to_types: HashMap<&'q str, &'q TypeDefinition<'q>>,
     pub variable_name_to_def: HashMap<&'q str, &'q VariableDefinition<'q>>,
     pub federation: Federation<'q>,
-    pub auto_fragmentization: bool,
+    pub options: QueryPlanningOptions,
 }
 
 impl<'q> QueryPlanningContext<'q> {

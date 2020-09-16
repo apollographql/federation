@@ -197,6 +197,7 @@ mod tests {
     use crate::context::QueryPlanningContext;
     use crate::federation::Federation;
     use crate::helpers::{build_possible_types, names_to_types, variable_name_to_def, Op};
+    use crate::QueryPlanningOptionsBuilder;
     use graphql_parser::query::refs::SelectionSetRef;
     use graphql_parser::query::{Definition, Operation};
     use graphql_parser::{parse_query, parse_schema, DisplayMinified};
@@ -279,15 +280,19 @@ mod tests {
         };
 
         let types = names_to_types(&schema);
+        let options = QueryPlanningOptionsBuilder::default()
+            .auto_fragmentization(true)
+            .build()
+            .unwrap();
         let context = QueryPlanningContext {
             schema: &schema,
             operation,
             fragments: HashMap::new(),
-            auto_fragmentization: true,
             possible_types: build_possible_types(&schema, &types),
             variable_name_to_def: variable_name_to_def(&query),
             federation: Federation::new(&schema),
             names_to_types: types,
+            options,
         };
         let (frags, ssr) = auto_fragmentization(
             &context,

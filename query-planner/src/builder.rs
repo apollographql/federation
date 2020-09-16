@@ -12,7 +12,7 @@ use crate::helpers::*;
 use crate::model::Selection as ModelSelection;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan, ResponsePath};
-use crate::{context, model, QueryPlanError, Result};
+use crate::{context, model, QueryPlanError, QueryPlanningOptions, Result};
 use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
@@ -24,7 +24,7 @@ use std::rc::Rc;
 pub fn build_query_plan(
     schema: &schema::Document,
     query: &Document,
-    auto_fragmentization: bool,
+    options: QueryPlanningOptions,
 ) -> Result<QueryPlan> {
     let mut ops = get_operations(query);
 
@@ -58,11 +58,11 @@ pub fn build_query_plan(
                 _ => None,
             })
             .collect(),
-        auto_fragmentization,
         possible_types: build_possible_types(schema, &types),
         variable_name_to_def: variable_name_to_def(query),
         federation: Federation::new(schema),
         names_to_types: types,
+        options,
     };
 
     let is_mutation = context.operation.kind.as_str() == "mutation";
@@ -770,7 +770,7 @@ fn maybe_auto_fragmentization<'a, 'q: 'a>(
     context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
 ) -> (String, String) {
-    if context.auto_fragmentization {
+    if context.options.auto_fragmentization {
         let (frags, selection_set) = auto_fragmentization(context, selection_set);
         let frags = frags
             .into_iter()

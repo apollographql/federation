@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_use]
+extern crate derive_builder;
+
 pub use crate::builder::build_query_plan;
 use crate::model::QueryPlan;
 use graphql_parser::{parse_query, parse_schema, schema, ParseError};
@@ -36,16 +39,24 @@ impl<'s> QueryPlanner<'s> {
         QueryPlanner { schema }
     }
 
-    pub fn plan(&self, query: &str, auto_fragmentization: bool) -> Result<QueryPlan> {
+    pub fn plan(&self, query: &str, options: QueryPlanningOptions) -> Result<QueryPlan> {
         let query = parse_query(query).expect("failed parsing query");
-        build_query_plan(&self.schema, &query, auto_fragmentization)
+        build_query_plan(&self.schema, &query, options)
     }
+}
+
+// NB: By deriving Builder (using the derive_builder crate) we automatically implement
+// the builder pattern for arbitrary structs.
+// simple #[derive(Builder)] will generate a FooBuilder for your struct Foo with all setter-methods and a build method.
+#[derive(Default, Builder, Debug)]
+pub struct QueryPlanningOptions {
+    auto_fragmentization: bool,
 }
 
 #[cfg(test)]
 mod tests {
     use crate::model::QueryPlan;
-    use crate::QueryPlanner;
+    use crate::{QueryPlanner, QueryPlanningOptionsBuilder};
     use gherkin_rust::Feature;
     use gherkin_rust::StepType;
     use std::fs::{read_dir, read_to_string};
@@ -108,7 +119,11 @@ mod tests {
                         .steps
                         .iter()
                         .any(|s| matches!(s.ty, StepType::When));
-                    let result = planner.plan(query, auto_fragmentization).unwrap();
+                    let options = QueryPlanningOptionsBuilder::default()
+                        .auto_fragmentization(auto_fragmentization)
+                        .build()
+                        .unwrap();
+                    let result = planner.plan(query, options).unwrap();
                     assert_eq!(result, expected);
                 }
             }
