@@ -50,6 +50,7 @@ impl<'s> QueryPlanner<'s> {
 // simple #[derive(Builder)] will generate a FooBuilder for your struct Foo with all setter-methods and a build method.
 #[derive(Default, Builder, Debug)]
 pub struct QueryPlanningOptions {
+    #[builder(default)]
     auto_fragmentization: bool,
 }
 
@@ -128,5 +129,11 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn query_planning_options_initialization() {
+        let options = QueryPlanningOptionsBuilder::default().build().unwrap();
+        assert_eq!(false, options.auto_fragmentization);
     }
 }

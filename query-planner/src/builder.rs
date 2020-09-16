@@ -766,7 +766,7 @@ fn flat_wrap(kind: NodeCollectionKind, mut nodes: Vec<PlanNode>) -> PlanNode {
     }
 }
 
-fn maybe_auto_fragmentization<'a, 'q: 'a>(
+fn maybe_auto_fragmentization<'q>(
     context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
 ) -> (String, String) {
