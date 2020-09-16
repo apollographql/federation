@@ -29,6 +29,20 @@ macro_rules! autofrag_field {
     }};
 }
 
+macro_rules! autofrag_inline {
+    ($inline:ident, $context:ident, $frags:ident, $counter:ident, $ss:expr, $else:expr) => {{
+        if let Some(tc) = $inline.type_condition {
+            let new_parent = $context.names_to_types[tc];
+            SelectionRef::InlineFragmentRef(inline_fragment_ref!(
+                $inline,
+                auto_frag_selection_set($context, $frags, $counter, new_parent, $ss)
+            ))
+        } else {
+            SelectionRef::InlineFragmentRef($else)
+        }
+    }};
+}
+
 pub(crate) fn auto_fragmentization<'q>(
     context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
@@ -94,23 +108,14 @@ pub(crate) fn auto_fragmentization<'q>(
                     SelectionSetRef::from(&field.selection_set),
                     field_ref!(field)
                 ),
-                Selection::InlineFragment(inline) => {
-                    if let Some(tc) = inline.type_condition {
-                        let new_parent = context.names_to_types[tc];
-                        SelectionRef::InlineFragmentRef(inline_fragment_ref!(
-                            inline,
-                            auto_frag_selection_set(
-                                context,
-                                frags,
-                                counter,
-                                new_parent,
-                                SelectionSetRef::from(&inline.selection_set)
-                            )
-                        ))
-                    } else {
-                        SelectionRef::InlineFragmentRef(inline_fragment_ref!(inline))
-                    }
-                }
+                Selection::InlineFragment(inline) => autofrag_inline!(
+                    inline,
+                    context,
+                    frags,
+                    counter,
+                    SelectionSetRef::from(&inline.selection_set),
+                    inline_fragment_ref!(inline)
+                ),
                 Selection::FragmentSpread(_) => {
                     unreachable!("Fragment spreads is only used at the end of query planning")
                 }
@@ -133,23 +138,14 @@ pub(crate) fn auto_fragmentization<'q>(
                 field.selection_set,
                 field
             ),
-            SelectionRef::InlineFragmentRef(inline) => {
-                if let Some(tc) = inline.type_condition {
-                    let new_parent = context.names_to_types[tc];
-                    SelectionRef::InlineFragmentRef(inline_fragment_ref!(
-                        inline,
-                        auto_frag_selection_set(
-                            context,
-                            frags,
-                            counter,
-                            new_parent,
-                            inline.selection_set
-                        )
-                    ))
-                } else {
-                    SelectionRef::InlineFragmentRef(inline)
-                }
-            }
+            SelectionRef::InlineFragmentRef(inline) => autofrag_inline!(
+                inline,
+                context,
+                frags,
+                counter,
+                inline.selection_set,
+                inline
+            ),
             SelectionRef::FragmentSpreadRef(_) => {
                 unreachable!("Fragment spreads is only used at the end of query planning")
             }
