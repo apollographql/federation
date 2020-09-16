@@ -853,7 +853,7 @@ Scenario: experimental compression to downstream services should generate fragme
             "kind": "Fetch",
             "serviceName": "reviews",
             "variableUsages": [],
-            "operation": "{topReviews{...__QueryPlanFragment_1__}}fragment __QueryPlanFragment_1__ on Review{body author product{...__QueryPlanFragment_0__}}fragment __QueryPlanFragment_0__ on Product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}"
+            "operation": "{topReviews{...__QueryPlanFragment_1__}}fragment __QueryPlanFragment_0__ on Product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}fragment __QueryPlanFragment_1__ on Review{body author product{...__QueryPlanFragment_0__}}"
           },
           {
             "kind": "Parallel",
@@ -1018,7 +1018,7 @@ Scenario: experimental compression to downstream services should generate fragme
             "kind": "Fetch",
             "serviceName": "reviews",
             "variableUsages": [],
-            "operation": "{reviews:topReviews{...__QueryPlanFragment_1__}}fragment __QueryPlanFragment_1__ on Review{content:body author product{...__QueryPlanFragment_0__}}fragment __QueryPlanFragment_0__ on Product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}"
+            "operation": "{reviews:topReviews{...__QueryPlanFragment_1__}}fragment __QueryPlanFragment_0__ on Product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}fragment __QueryPlanFragment_1__ on Review{content:body author product{...__QueryPlanFragment_0__}}"
           },
           {
             "kind": "Parallel",

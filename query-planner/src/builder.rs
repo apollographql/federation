@@ -490,7 +490,7 @@ fn execution_node_for_group(
     let (variable_names, variable_defs) = context.get_variable_usages(&selection_set);
 
     let operation = if requires.is_some() {
-        operation_for_entities_fetch(context, selection_set, variable_defs)
+        operation_for_entities_fetch(selection_set, variable_defs)
     } else {
         operation_for_root_fetch(
             context,
@@ -627,7 +627,6 @@ fn selection_set_from_field_set<'q>(
 }
 
 fn operation_for_entities_fetch<'q>(
-    context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
 ) -> GraphQLDocument {
@@ -636,13 +635,10 @@ fn operation_for_entities_fetch<'q>(
         .chain(variable_definitions.iter().map(|vd| vd.minified()))
         .collect::<String>();
 
-    let (frags, selection_set) = maybe_auto_fragmentization(context, selection_set);
-
     format!(
-        "query({}){{_entities(representations:$representations){}}}{}",
+        "query({}){{_entities(representations:$representations){}}}",
         vars,
         selection_set.minified(),
-        frags
     )
 }
 
