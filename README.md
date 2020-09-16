@@ -4,11 +4,11 @@
     <tbody>
         <tr>
             <td></td>
-            <td><img src="https://codecov.io/gh/apollographql/federation/branch/main/graph/badge.svg"><img src="https://api.netlify.com/api/v1/badges/3a012f93-2d02-41f7-bb2b-848cf005b831/deploy-status"></td>
+            <td><img src="https://codecov.io/gh/apollographql/federation/branch/main/graph/badge.svg"> <img src="https://api.netlify.com/api/v1/badges/3a012f93-2d02-41f7-bb2b-848cf005b831/deploy-status"></td>
         </tr>
         <tr>
             <td>Rust</td>
-            <td><img src="https://github.com/apollographql/federation/workflows/Rust%20Tests%20(all%20platforms)/badge.svg?branch=main"><img src="https://github.com/apollographql/federation/workflows/Security%20audit/badge.svg"/> </td>
+            <td><img src="https://github.com/apollographql/federation/workflows/Rust%20Tests%20(all%20platforms)/badge.svg?branch=main"> <img src="https://github.com/apollographql/federation/workflows/Security%20audit/badge.svg"/></td>
         </tr>
         <tr>
             <td>Typescript</td>
