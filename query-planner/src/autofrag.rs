@@ -11,6 +11,24 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
+macro_rules! autofrag_field {
+    ($field:ident, $parent:ident, $context:ident, $frags:ident, $counter:ident, $ss:expr, $else:expr) => {{
+        let field_return_type = get_field_def_from_type($parent, $field.name)
+            .field_type
+            .as_name();
+
+        if let Some(new_parent) = $context.names_to_types.get(field_return_type) {
+            let new_field = field_ref!(
+                $field,
+                auto_frag_selection_set($context, $frags, $counter, *new_parent, $ss)
+            );
+            SelectionRef::FieldRef(new_field)
+        } else {
+            SelectionRef::FieldRef($else)
+        }
+    }};
+}
+
 pub(crate) fn auto_fragmentization<'q>(
     context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
@@ -67,27 +85,15 @@ pub(crate) fn auto_fragmentization<'q>(
     ) -> SelectionRef<'q> {
         match selection {
             SelectionRef::Ref(sel) => match sel {
-                Selection::Field(field) => {
-                    let field_return_type = get_field_def_from_type(parent, field.name)
-                        .field_type
-                        .as_name();
-
-                    if let Some(new_parent) = context.names_to_types.get(field_return_type) {
-                        let new_field = field_ref!(
-                            field,
-                            auto_frag_selection_set(
-                                context,
-                                frags,
-                                counter,
-                                *new_parent,
-                                SelectionSetRef::from(&field.selection_set)
-                            )
-                        );
-                        SelectionRef::FieldRef(new_field)
-                    } else {
-                        SelectionRef::FieldRef(field_ref!(field))
-                    }
-                }
+                Selection::Field(field) => autofrag_field!(
+                    field,
+                    parent,
+                    context,
+                    frags,
+                    counter,
+                    SelectionSetRef::from(&field.selection_set),
+                    field_ref!(field)
+                ),
                 Selection::InlineFragment(inline) => {
                     if let Some(tc) = inline.type_condition {
                         let new_parent = context.names_to_types[tc];
@@ -109,48 +115,24 @@ pub(crate) fn auto_fragmentization<'q>(
                     unreachable!("Fragment spreads is only used at the end of query planning")
                 }
             },
-            SelectionRef::Field(field) => {
-                let field_return_type = get_field_def_from_type(parent, field.name)
-                    .field_type
-                    .as_name();
-
-                if let Some(new_parent) = context.names_to_types.get(field_return_type) {
-                    let new_field = field_ref!(
-                        field,
-                        auto_frag_selection_set(
-                            context,
-                            frags,
-                            counter,
-                            *new_parent,
-                            SelectionSetRef::from(&field.selection_set)
-                        )
-                    );
-                    SelectionRef::FieldRef(new_field)
-                } else {
-                    SelectionRef::FieldRef(field_ref!(field))
-                }
-            }
-            SelectionRef::FieldRef(field) => {
-                let field_return_type = get_field_def_from_type(parent, field.name)
-                    .field_type
-                    .as_name();
-
-                if let Some(new_parent) = context.names_to_types.get(field_return_type) {
-                    let new_field = field_ref!(
-                        field,
-                        auto_frag_selection_set(
-                            context,
-                            frags,
-                            counter,
-                            *new_parent,
-                            field.selection_set
-                        )
-                    );
-                    SelectionRef::FieldRef(new_field)
-                } else {
-                    SelectionRef::FieldRef(field)
-                }
-            }
+            SelectionRef::Field(field) => autofrag_field!(
+                field,
+                parent,
+                context,
+                frags,
+                counter,
+                SelectionSetRef::from(&field.selection_set),
+                field_ref!(field)
+            ),
+            SelectionRef::FieldRef(field) => autofrag_field!(
+                field,
+                parent,
+                context,
+                frags,
+                counter,
+                field.selection_set,
+                field
+            ),
             SelectionRef::InlineFragmentRef(inline) => {
                 if let Some(tc) = inline.type_condition {
                     let new_parent = context.names_to_types[tc];
