@@ -667,7 +667,7 @@ fn operation_for_root_fetch<'q>(
         _ => op_kind.as_str(),
     };
 
-    format!("{}{}{}{}", op_kind, vars, selection_set.minified(), frags)
+    format!("{}{}{}{}", op_kind, vars, selection_set, frags)
 }
 
 fn field_into_model_selection(field: &query::Field) -> ModelSelection {
@@ -769,15 +769,15 @@ fn flat_wrap(kind: NodeCollectionKind, mut nodes: Vec<PlanNode>) -> PlanNode {
 fn maybe_auto_fragmentization<'a, 'q: 'a>(
     context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
-) -> (String, SelectionSetRef<'a>) {
+) -> (String, String) {
     if context.auto_fragmentization {
         let (frags, selection_set) = auto_fragmentization(context, selection_set);
         let frags = frags
             .into_iter()
             .map(|fd| fd.minified())
             .collect::<String>();
-        (frags, selection_set)
+        (frags, selection_set.minified())
     } else {
-        (String::from(""), selection_set)
+        (String::from(""), selection_set.minified())
     }
 }
