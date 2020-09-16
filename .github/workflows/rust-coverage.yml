@@ -1,4 +1,4 @@
-name: Code Coverage
+name: Rust Code Coverage
 
 on:
   push:
