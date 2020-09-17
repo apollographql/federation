@@ -4,7 +4,7 @@
   "license": "MIT",
   "repository": "github:apollographql/federation",
   "scripts": {
-    "clean": "git clean -dfqX -- ./node_modules **/{dist,node_modules}/ ./*/tsconfig*tsbuildinfo",
+    "clean": "git clean -dfqX -- ./target ./node_modules **/{dist,node_modules}/ ./*/tsconfig*tsbuildinfo",
     "compile": "tsc --build tsconfig.build.json",
     "compile:clean": "tsc --build tsconfig.build.json --clean",
     "watch": "tsc --build tsconfig.build.json --watch",
@@ -26,6 +26,7 @@
     "@apollographql/apollo-tools": "0.4.8",
     "@apollo/federation": "file:federation-js",
     "@apollo/gateway": "file:gateway-js",
+    "@apollo/query-planner-wasm": "file:query-planner-wasm",
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
