@@ -1,4 +1,4 @@
-name: Tests (all platforms)
+name: Rust Tests (all platforms)
 
 on:
   push:
