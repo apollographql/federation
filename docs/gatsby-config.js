@@ -23,6 +23,7 @@ module.exports = {
             'migrating-from-stitching',
             'other-servers',
             'federation-spec',
+            'customizing-execution',
           ],
           'API Reference': [
             'api/apollo-federation',
