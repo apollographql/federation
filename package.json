@@ -54,7 +54,7 @@
     "log4js": "6.3.0",
     "lerna": "3.22.1",
     "nock": "13.0.4",
-    "node-fetch": "2.3.0",
+    "node-fetch": "2.6.1",
     "prettier": "2.1.1",
     "ts-jest": "26.3.0",
     "typescript": "3.9.7",
