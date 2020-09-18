@@ -72,7 +72,7 @@ pub(crate) fn auto_fragmentization<'q>(
 
         if new_ss.items.len() > 2 {
             let name = frags
-                .entry(calculate_hash(&new_ss))
+                .entry(calculate_hash(&new_ss, parent.as_name()))
                 .or_insert_with(|| FragmentDefinitionRef {
                     name: format!("__QueryPlanFragment_{}__", counter.get_and_incr()),
                     type_condition: String::from(parent.as_name()),
@@ -170,9 +170,10 @@ pub(crate) fn auto_fragmentization<'q>(
     (values, new_ss)
 }
 
-fn calculate_hash<T: Hash>(t: &T) -> u64 {
+fn calculate_hash<T: Hash, R: Hash>(t: &T, parent_type: R) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
+    parent_type.hash(&mut s);
     s.finish()
 }
 
@@ -188,123 +189,5 @@ impl Counter {
         let r = self.i;
         self.i += 1;
         r
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::autofrag::auto_fragmentization;
-    use crate::context::QueryPlanningContext;
-    use crate::federation::Federation;
-    use crate::helpers::{build_possible_types, names_to_types, variable_name_to_def, Op};
-    use crate::QueryPlanningOptionsBuilder;
-    use graphql_parser::query::refs::SelectionSetRef;
-    use graphql_parser::query::{Definition, Operation};
-    use graphql_parser::{parse_query, parse_schema, DisplayMinified};
-    use std::collections::HashMap;
-
-    #[test]
-    fn test_auto_fragmentization() {
-        let schema = "schema {
-            query: Query
-        }
-
-        type Query {
-            field: SomeField
-        }
-
-        interface IFace {
-            x: Int
-        }
-
-        type IFaceImpl1 implements IFace { x: Int }
-        type IFaceImpl2 implements IFace { x: Int }
-
-        type SomeField {
-          a: A
-          b: B
-          iface: IFace
-        }
-
-        type A {
-          b: B
-        }
-
-        type B {
-          f1: String
-          f2: String
-          f3: String
-          f4: String
-          f5: String
-          f6: String
-        }
-        ";
-
-        let query = "{
-          field {
-            a { b { f1 f2 f4 } }
-            b { f1 f2 f4 }
-            iface {
-                ...on IFaceImpl1 { x }
-                ...on IFaceImpl2 { x }
-            }
-          }
-        }";
-
-        let expected = parse_query(
-            "
-            fragment __QueryPlanFragment_0__ on B { f1 f2 f4 }
-            fragment __QueryPlanFragment_1__ on SomeField {
-              a { b { ...__QueryPlanFragment_0__ } }
-              b { ...__QueryPlanFragment_0__ }
-              iface {
-                ...on IFaceImpl1 { x }
-                ...on IFaceImpl2 { x }
-              }
-            }
-            
-            {
-              field { ...__QueryPlanFragment_1__ }
-            }
-        ",
-        )
-        .unwrap()
-        .minified();
-
-        let schema = parse_schema(schema).unwrap();
-        let query = parse_query(query).unwrap();
-        let ss = letp!(Definition::SelectionSet(ref ss) = query.definitions[0] => ss);
-        let operation = Op {
-            selection_set: ss,
-            kind: Operation::Query,
-        };
-
-        let types = names_to_types(&schema);
-        let options = QueryPlanningOptionsBuilder::default()
-            .auto_fragmentization(true)
-            .build()
-            .unwrap();
-        let context = QueryPlanningContext {
-            schema: &schema,
-            operation,
-            fragments: HashMap::new(),
-            possible_types: build_possible_types(&schema, &types),
-            variable_name_to_def: variable_name_to_def(&query),
-            federation: Federation::new(&schema),
-            names_to_types: types,
-            options,
-        };
-        let (frags, ssr) = auto_fragmentization(
-            &context,
-            SelectionSetRef::from(context.operation.selection_set),
-        );
-        assert_eq!(2, frags.len());
-        let frags = frags
-            .into_iter()
-            .map(|fd| fd.minified())
-            .collect::<String>();
-        let got = format!("{}{}", frags, ssr.minified());
-        let new_query = parse_query(&got).unwrap().minified();
-        assert_eq!(expected, new_query);
     }
 }
