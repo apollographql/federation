@@ -20,12 +20,13 @@ export interface BuildQueryPlanOptions {
 
 export function buildQueryPlan(
   operationContext: OperationContext,
-  _options: BuildQueryPlanOptions = { autoFragmentization: false },
+  options: BuildQueryPlanOptions = { autoFragmentization: false },
 ): QueryPlan {
 
   return getQueryPlan(
     operationContext.queryPlannerPointer,
     operationContext.operationString,
+    options
   );
 }
 
