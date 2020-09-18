@@ -23,18 +23,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "apollo-query-planner-wasm"
-version = "0.0.2"
-dependencies = [
- "apollo-query-planner",
- "js-sys",
- "serde",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-test",
-]
-
-[[package]]
 name = "ascii"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -410,6 +398,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f5f085b5d71e2188cb8271e5da0161ad52c3f227a661a3c135fdf28e258b12"
 dependencies = [
  "unicode-xid",
+]
+
+[[package]]
+name = "query-planner-wasm"
+version = "0.0.3"
+dependencies = [
+ "apollo-query-planner",
+ "js-sys",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
 ]
 
 [[package]]
