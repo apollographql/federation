@@ -1041,7 +1041,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  describe.skip(`experimental compression to downstream services`, () => {
+  describe(`experimental compression to downstream services`, () => {
     it(`should generate fragments internally to downstream requests`, () => {
       const operationString = `#graphql
         query {
@@ -1080,13 +1080,6 @@ describe('buildQueryPlan', () => {
                   ...__QueryPlanFragment_1__
                 }
               }
-              fragment __QueryPlanFragment_1__ on Review {
-                body
-                author
-                product {
-                  ...__QueryPlanFragment_0__
-                }
-              }
               fragment __QueryPlanFragment_0__ on Product {
                 __typename
                 ... on Book {
@@ -1096,6 +1089,13 @@ describe('buildQueryPlan', () => {
                 ... on Furniture {
                   __typename
                   upc
+                }
+              }
+              fragment __QueryPlanFragment_1__ on Review {
+                body
+                author
+                product {
+                  ...__QueryPlanFragment_0__
                 }
               }
             },
@@ -1287,13 +1287,6 @@ describe('buildQueryPlan', () => {
                   ...__QueryPlanFragment_1__
                 }
               }
-              fragment __QueryPlanFragment_1__ on Review {
-                content: body
-                author
-                product {
-                  ...__QueryPlanFragment_0__
-                }
-              }
               fragment __QueryPlanFragment_0__ on Product {
                 __typename
                 ... on Book {
@@ -1303,6 +1296,13 @@ describe('buildQueryPlan', () => {
                 ... on Furniture {
                   __typename
                   upc
+                }
+              }
+              fragment __QueryPlanFragment_1__ on Review {
+                content: body
+                author
+                product {
+                  ...__QueryPlanFragment_0__
                 }
               }
             },
