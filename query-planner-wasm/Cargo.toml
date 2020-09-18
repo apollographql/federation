@@ -1,5 +1,5 @@
 [package]
-name = "query-planner-wasm"
+name = "apollo-query-planner-wasm"
 version = "0.0.2" # keep in sync with package.json
 authors = ["Apollo <opensource@apollographql.com>"]
 homepage = "https://github.com/apollographql/federation"
@@ -8,13 +8,14 @@ edition = "2018"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/apollographql/federation"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
 crate-type=["cdylib"]
 
 [dependencies]
+# workspace
 apollo-query-planner = { path = "../query-planner" }
+
+# 3rd party
 wasm-bindgen = { version = "0.2.67", features = ["serde-serialize"] }
 js-sys = "0.3.45"
 

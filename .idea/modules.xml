@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/gateway-js.iml" filepath="$PROJECT_DIR$/.idea/modules/gateway-js.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/graphql-parser.iml" filepath="$PROJECT_DIR$/.idea/modules/graphql-parser.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-planner.iml" filepath="$PROJECT_DIR$/.idea/modules/query-planner.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-planner-wasm.iml" filepath="$PROJECT_DIR$/.idea/modules/query-planner-wasm.iml" />

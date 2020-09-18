@@ -7,6 +7,7 @@ extern crate derive_builder;
 pub use crate::builder::build_query_plan;
 use crate::model::QueryPlan;
 use graphql_parser::{parse_query, parse_schema, schema, ParseError};
+use serde::{Deserialize, Serialize};
 
 #[macro_use]
 mod macros;
@@ -48,7 +49,8 @@ impl<'s> QueryPlanner<'s> {
 // NB: By deriving Builder (using the derive_builder crate) we automatically implement
 // the builder pattern for arbitrary structs.
 // simple #[derive(Builder)] will generate a FooBuilder for your struct Foo with all setter-methods and a build method.
-#[derive(Default, Builder, Debug)]
+#[derive(Default, Builder, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryPlanningOptions {
     #[builder(default)]
     auto_fragmentization: bool,
