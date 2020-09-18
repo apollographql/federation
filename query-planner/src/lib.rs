@@ -1,12 +1,16 @@
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_use]
+extern crate derive_builder;
+
 pub use crate::builder::build_query_plan;
 use crate::model::QueryPlan;
 use graphql_parser::{parse_query, parse_schema, schema, ParseError};
 
 #[macro_use]
 mod macros;
+mod autofrag;
 mod builder;
 mod consts;
 mod context;
@@ -35,16 +39,25 @@ impl<'s> QueryPlanner<'s> {
         QueryPlanner { schema }
     }
 
-    pub fn plan(&self, query: &str) -> Result<QueryPlan> {
+    pub fn plan(&self, query: &str, options: QueryPlanningOptions) -> Result<QueryPlan> {
         let query = parse_query(query).expect("failed parsing query");
-        build_query_plan(&self.schema, &query)
+        build_query_plan(&self.schema, &query, options)
     }
+}
+
+// NB: By deriving Builder (using the derive_builder crate) we automatically implement
+// the builder pattern for arbitrary structs.
+// simple #[derive(Builder)] will generate a FooBuilder for your struct Foo with all setter-methods and a build method.
+#[derive(Default, Builder, Debug)]
+pub struct QueryPlanningOptions {
+    #[builder(default)]
+    auto_fragmentization: bool,
 }
 
 #[cfg(test)]
 mod tests {
     use crate::model::QueryPlan;
-    use crate::QueryPlanner;
+    use crate::{QueryPlanner, QueryPlanningOptionsBuilder};
     use gherkin_rust::Feature;
     use gherkin_rust::StepType;
     use std::fs::{read_dir, read_to_string};
@@ -97,21 +110,30 @@ mod tests {
                     Result::Ok(feature) => feature,
                     Result::Err(e) => panic!("Unparseable .feature file {:?} -- {}", &path, e),
                 };
-                let scenarios = feature
-                    .scenarios
-                    .iter()
-                    .filter(|s| !s.steps.iter().any(|s| matches!(s.ty, StepType::When)));
 
-                for scenario in scenarios {
+                for scenario in feature.scenarios {
                     let query: &str = get_step!(scenario, StepType::Given);
                     let expected_str: &str = get_step!(scenario, StepType::Then);
                     let expected: QueryPlan = serde_json::from_str(&expected_str).unwrap();
 
-                    let result = planner.plan(query).unwrap();
-
+                    let auto_fragmentization = scenario
+                        .steps
+                        .iter()
+                        .any(|s| matches!(s.ty, StepType::When));
+                    let options = QueryPlanningOptionsBuilder::default()
+                        .auto_fragmentization(auto_fragmentization)
+                        .build()
+                        .unwrap();
+                    let result = planner.plan(query, options).unwrap();
                     assert_eq!(result, expected);
                 }
             }
         }
+    }
+
+    #[test]
+    fn query_planning_options_initialization() {
+        let options = QueryPlanningOptionsBuilder::default().build().unwrap();
+        assert_eq!(false, options.auto_fragmentization);
     }
 }

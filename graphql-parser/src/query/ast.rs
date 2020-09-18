@@ -60,29 +60,35 @@ impl Operation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Derivative)]
+#[derivative(Hash)]
 pub struct SelectionSet<'a> {
+    #[derivative(Hash = "ignore")]
     pub span: (Pos, Pos),
     pub items: Vec<Selection<'a>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Derivative)]
+#[derivative(Hash)]
 pub struct VariableDefinition<'a> {
+    #[derivative(Hash = "ignore")]
     pub position: Pos,
     pub name: Txt<'a>,
     pub var_type: Type<'a>,
     pub default_value: Option<Value<'a>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Selection<'a> {
     Field(Field<'a>),
     FragmentSpread(FragmentSpread<'a>),
     InlineFragment(InlineFragment<'a>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Derivative)]
+#[derivative(Hash)]
 pub struct Field<'a> {
+    #[derivative(Hash = "ignore")]
     pub position: Pos,
     pub alias: Option<Txt<'a>>,
     pub name: Txt<'a>,
@@ -91,15 +97,19 @@ pub struct Field<'a> {
     pub selection_set: SelectionSet<'a>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Derivative)]
+#[derivative(Hash)]
 pub struct FragmentSpread<'a> {
+    #[derivative(Hash = "ignore")]
     pub position: Pos,
     pub fragment_name: Txt<'a>,
     pub directives: Vec<Directive<'a>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Derivative)]
+#[derivative(Hash)]
 pub struct InlineFragment<'a> {
+    #[derivative(Hash = "ignore")]
     pub position: Pos,
     pub type_condition: Option<Txt<'a>>,
     pub directives: Vec<Directive<'a>>,

@@ -106,7 +106,14 @@ impl<'a> MinifiedString for FragmentDefinition<'a> {
         write!(f, "fragment ", self.name, " on ", self.type_condition);
         minify_each!(f, self.directives);
         self.selection_set.minify(f);
+        self.selection_set.items.is_empty()
+    }
+}
 
+impl<'a> MinifiedString for FragmentDefinitionRef<'a> {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
+        write!(f, "fragment ", &self.name, " on ", &self.type_condition);
+        self.selection_set.minify(f);
         self.selection_set.items.is_empty()
     }
 }
@@ -163,8 +170,16 @@ minify_enum!(
     SelectionRef::Ref,
     SelectionRef::Field,
     SelectionRef::FieldRef,
-    SelectionRef::InlineFragmentRef
+    SelectionRef::InlineFragmentRef,
+    SelectionRef::FragmentSpreadRef
 );
+
+impl<'a> MinifiedString for FragmentSpreadRef {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
+        write!(f, "...", &self.name);
+        true
+    }
+}
 
 impl<'a> MinifiedString for Field<'a> {
     fn minify(&self, f: &mut MinifiedFormatter) -> bool {

@@ -4,12 +4,14 @@ use crate::query::{Field, SelectionSet};
 use crate::{node_trait, visit, visit_each};
 use crate::{query, Pos};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum SelectionRef<'a> {
     Ref(&'a query::Selection<'a>),
     Field(&'a Field<'a>),
     FieldRef(FieldRef<'a>),
     InlineFragmentRef(InlineFragmentRef<'a>),
+    // only used with auto fragmentation at before writing the "operation" field into a FetchNode.
+    FragmentSpreadRef(FragmentSpreadRef),
 }
 
 impl<'a> SelectionRef<'a> {
@@ -65,8 +67,15 @@ impl<'a> SelectionRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct FragmentSpreadRef {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Derivative)]
+#[derivative(Hash)]
 pub struct SelectionSetRef<'a> {
+    #[derivative(Hash = "ignore")]
     pub span: (Pos, Pos),
     pub items: Vec<SelectionRef<'a>>,
 }
@@ -80,8 +89,10 @@ impl<'a> From<&'a SelectionSet<'a>> for SelectionSetRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Derivative)]
+#[derivative(Hash)]
 pub struct FieldRef<'a> {
+    #[derivative(Hash = "ignore")]
     pub position: Pos,
     pub alias: Option<Txt<'a>>,
     pub name: Txt<'a>,
@@ -96,11 +107,21 @@ impl<'a> FieldRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Derivative)]
+#[derivative(Hash)]
 pub struct InlineFragmentRef<'a> {
+    #[derivative(Hash = "ignore")]
     pub position: Pos,
     pub type_condition: Option<Txt<'a>>,
-    pub directives: Vec<Directive<'a>>,
+    pub directives: &'a Vec<Directive<'a>>,
+    pub selection_set: SelectionSetRef<'a>,
+}
+
+// only used with auto fragmentation at before writing the "operation" field into a FetchNode.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FragmentDefinitionRef<'a> {
+    pub name: String,
+    pub type_condition: String,
     pub selection_set: SelectionSetRef<'a>,
 }
 

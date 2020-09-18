@@ -27,7 +27,9 @@ Ok(
                             ),
                             default_value: Some(
                                 Float(
-                                    0.5,
+                                    NotNan(
+                                        0.5,
+                                    ),
                                 ),
                             ),
                         },

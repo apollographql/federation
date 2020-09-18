@@ -1,4 +1,3 @@
-#[macro_export]
 macro_rules! get_directive {
     ($directives:expr , $name:expr) => {
         $directives.iter().filter(|d| d.name == $name)
@@ -16,7 +15,6 @@ macro_rules! get_directive {
     };
 }
 
-#[macro_export]
 macro_rules! letp {
     ($pat:pat = $expr:expr => $stmt:stmt ) => {
         if let $pat = $expr {
@@ -27,7 +25,6 @@ macro_rules! letp {
     };
 }
 
-#[macro_export]
 macro_rules! get_field_def {
     ($obj:ident, $name:expr) => {
         if $name == crate::consts::TYPENAME_FIELD_NAME {
@@ -63,6 +60,23 @@ macro_rules! field_ref {
     };
     ($f:expr) => {
         field_ref!(
+            $f,
+            graphql_parser::query::refs::SelectionSetRef::from(&$f.selection_set)
+        )
+    };
+}
+
+macro_rules! inline_fragment_ref {
+    ($f:expr, $ss:expr) => {
+        graphql_parser::query::refs::InlineFragmentRef {
+            position: $f.position,
+            type_condition: $f.type_condition,
+            directives: &$f.directives,
+            selection_set: $ss,
+        }
+    };
+    ($f:expr) => {
+        inline_fragment_ref!(
             $f,
             graphql_parser::query::refs::SelectionSetRef::from(&$f.selection_set)
         )

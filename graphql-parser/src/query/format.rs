@@ -3,7 +3,9 @@ use std::fmt;
 use crate::format::{format_directives, Displayable, Formatter, Style};
 
 use crate::query::ast::*;
-use crate::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
+use crate::query::refs::{
+    FieldRef, FragmentSpreadRef, InlineFragmentRef, SelectionRef, SelectionSetRef,
+};
 
 impl<'a> Document<'a> {
     /// Format a document according to style
@@ -100,6 +102,7 @@ impl<'a> Displayable for SelectionRef<'a> {
             SelectionRef::Field(field) => field.display(f),
             SelectionRef::FieldRef(fr) => fr.display(f),
             SelectionRef::InlineFragmentRef(inline) => inline.display(f),
+            SelectionRef::FragmentSpreadRef(fsr) => fsr.display(f),
         }
     }
 }
@@ -293,6 +296,15 @@ impl<'a> Displayable for FragmentSpread<'a> {
         f.write("...");
         f.write(self.fragment_name.as_ref());
         format_directives(&self.directives, f);
+        f.endline();
+    }
+}
+
+impl Displayable for FragmentSpreadRef {
+    fn display(&self, f: &mut Formatter) {
+        f.indent();
+        f.write("...");
+        f.write(self.name.as_ref());
         f.endline();
     }
 }
