@@ -6,6 +6,14 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v0.20.2
+
+- Only changes in the similarly versioned `@apollo/gateway` package.
+
+## v0.20.1
+
+- Only changes in the similarly versioned `@apollo/gateway` package.
+
 ## v0.20.0
 
 - __FIX__: CSDL complex `@key`s shouldn't result in an unparseable document [PR #4490](https://github.com/apollographql/apollo-server/pull/4490)
