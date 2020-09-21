@@ -4,7 +4,12 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- _Nothing yet! Stay tuned!_
+- __FIX__: Minifying a String argument should escape quotes and slashes [PR #174](https://github.com/apollographql/federation/pull/174)
+
+## v0.20.1
+
+- Replace the query planner implementation with a new implementation written in rust and integrated into the gateway
+  via wasm. [PR #4534](https://github.com/apollographql/apollo-server/pull/4534)
 
 ## v0.20.0
 
