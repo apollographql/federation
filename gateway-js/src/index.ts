@@ -772,7 +772,7 @@ export class ApolloGateway implements GraphQLService {
     const { errors } = getVariableValues(
       operationContext.schema,
       variableDefinitions,
-      requestContext.request.variables!,
+      requestContext.request.variables || {},
     );
 
     return errors || [];
