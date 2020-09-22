@@ -111,12 +111,16 @@ pub(crate) fn collect_fields<'q>(
     }
 
     macro_rules! collect_inline_fragment {
-        ($inline:ident, $selection_set:expr, $context:ident, $scope:ident, $visited_fragment_names:ident, $fields:ident) => {
+        ($inline:ident, $selection_set:expr, $context:ident, $scope:ident, $visited_fragment_names:ident, $fields:ident, $directives:expr) => {
             let fragment_condition = $inline
                 .type_condition
                 .map(|tc| $context.names_to_types[tc])
                 .unwrap_or_else(|| $scope.parent_type);
-            let new_scope = $context.new_scope(fragment_condition, Some($scope.clone()));
+            let new_scope = $context.new_scope_with_directives(
+                fragment_condition,
+                Some($scope.clone()),
+                Some($directives),
+            );
             if !new_scope.possible_types.is_empty() {
                 collect_fields_rec(
                     $context,
@@ -164,7 +168,8 @@ pub(crate) fn collect_fields<'q>(
                         context,
                         scope,
                         visited_fragment_names,
-                        fields
+                        fields,
+                        &inline.directives
                     );
                 }
                 SelectionRef::InlineFragmentRef(inline_ref) => {
@@ -174,7 +179,8 @@ pub(crate) fn collect_fields<'q>(
                         context,
                         scope,
                         visited_fragment_names,
-                        fields
+                        fields,
+                        &inline_ref.directives
                     );
                 }
                 SelectionRef::Ref(Selection::FragmentSpread(spread)) => {
@@ -543,6 +549,7 @@ fn selection_set_from_field_set<'q>(
         selections: Vec<SelectionRef<'q>>,
         type_condition: &'q TypeDefinition<'q>,
         parent_type: Option<&'q TypeDefinition<'q>>,
+        directives: Option<&'q Vec<Directive<'q>>>,
     ) -> Vec<SelectionRef<'q>> {
         if parent_type.map(|pt| pt == type_condition).unwrap_or(false) {
             selections
@@ -550,7 +557,7 @@ fn selection_set_from_field_set<'q>(
             vec![SelectionRef::InlineFragmentRef(InlineFragmentRef {
                 position: pos(),
                 type_condition: type_condition.name(),
-                directives: &EMPTY_DIRECTIVES,
+                directives: directives.unwrap_or(&EMPTY_DIRECTIVES),
                 selection_set: SelectionSetRef {
                     span: span(),
                     items: selections,
@@ -604,18 +611,21 @@ fn selection_set_from_field_set<'q>(
 
     for (_, fields_by_parent_type) in fields_by_parent_type {
         let type_condition = fields_by_parent_type[0].scope.parent_type;
+        let directives = fields_by_parent_type[0].scope.scope_directives;
 
         let fields_by_response_name: LinkedHashMap<&str, FieldSet> =
             group_by(fields_by_parent_type, |f| f.field_node.response_name());
 
-        for sel in wrap_in_inline_fragment_if_needed(
+        let selections = wrap_in_inline_fragment_if_needed(
             fields_by_response_name
                 .into_iter()
                 .map(|(_, fs)| combine_fields(fs, context))
                 .collect(),
             type_condition,
             parent_type,
-        ) {
+            directives,
+        );
+        for sel in selections {
             items.push(sel);
         }
     }
