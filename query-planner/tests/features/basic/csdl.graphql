@@ -53,6 +53,7 @@ type Car implements Vehicle
     description: String
     price: String
     retailPrice: String @resolve(graph: "reviews") @requires(fields: "{price}")
+    thing: Thing
 }
 
 type Error {
@@ -238,6 +239,7 @@ type Van implements Vehicle
     description: String
     price: String
     retailPrice: String @resolve(graph: "reviews") @requires(fields: "{price}")
+    thing: Thing
 }
 
 interface Vehicle {
@@ -245,6 +247,7 @@ interface Vehicle {
     description: String
     price: String
     retailPrice: String
+    thing: Thing
 }
 
 directive @composedGraph(version: Int!) on SCHEMA

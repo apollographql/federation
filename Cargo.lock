@@ -11,7 +11,7 @@ dependencies = [
 
 [[package]]
 name = "apollo-query-planner"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "derive_builder",
  "gherkin_rust",
