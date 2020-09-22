@@ -560,7 +560,7 @@ fn selection_set_from_field_set<'q>(
     }
 
     fn combine_fields<'q>(
-        fields_with_same_reponse_name: Vec<context::Field<'q>>,
+        fields_with_same_reponse_name: FieldSet<'q>,
         context: &'q QueryPlanningContext,
     ) -> SelectionRef<'q> {
         let is_composite_type = {
