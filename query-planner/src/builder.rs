@@ -625,9 +625,7 @@ fn selection_set_from_field_set<'q>(
             parent_type,
             directives,
         );
-        for sel in selections {
-            items.push(sel);
-        }
+        items.extend(selections);
     }
 
     SelectionSetRef {
