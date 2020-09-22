@@ -73,7 +73,7 @@ Solving this problem involves changing the way the query planner optimizes for w
 
 ![Federated trace after using the detach directive](./images/post-detach-trace.png)
 
-> Unlike the previous trace, the `serice:ads` work begins as soon as the initial search work is done and finishes well in advance of the costly `items` field being executed.
+> Unlike the previous trace, the `service:ads` work begins as soon as the initial search work is done and finishes well in advance of the costly `items` field being executed.
 
 
 Since this change is less efficient for most operations, as it requires additional fetches, network time, and GraphQL parsing, we’d like to be selective about when this split happens.
