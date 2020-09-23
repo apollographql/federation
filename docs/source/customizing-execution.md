@@ -92,7 +92,7 @@ type SearchResults @key(fields: "query") {
 This is done through a new federation directive:
 
 ```graphql
-directive @deferrable on FIELD_DEFINITION
+directive @detach on FIELD_DEFINITION
 ```
 
 In order to reduce the potential side effects of adding this directive, it is restricted to fields on entities instead of being applied on any field within the graph. This has two nice properties. First, it lets us reduce the impact of changing the current execution model to the smallest possible scope. For example:
