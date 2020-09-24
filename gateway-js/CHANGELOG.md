@@ -4,9 +4,11 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- __FIX__: Directives which are located on inline fragments should not be skipped and should be sent to the service [PR #178](https://github.com/apollographql/federation/pull/178)
-
 - Read managed federation configuration from the `apollo` option to `ApolloGateway.load` rather than the deprecated `engine` option, when available (ie, when running Apollo Server v2.18+), and update error messages referring to the old Engine and Graph Manager product names. [PR #148](https://github.com/apollographql/federation/pull/148)
+
+## v0.20.3
+
+- __FIX__: Directives which are located on inline fragments should not be skipped and should be sent to the service [PR #178](https://github.com/apollographql/federation/pull/178)
 
 ## v0.20.2
 
