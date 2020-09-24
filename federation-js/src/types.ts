@@ -93,7 +93,7 @@ export const entitiesField: GraphQLFieldConfig<any, any> = {
             return reference;
           };
 
-      // FIXME somehow get this to show up special in Engine traces?
+      // FIXME somehow get this to show up special in Studio traces?
       const result = resolveReference(reference, context, info);
 
       if (isPromise(result)) {

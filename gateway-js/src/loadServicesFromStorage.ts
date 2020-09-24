@@ -62,7 +62,7 @@ function fetchApolloGcs(
   return fetcher(input, init)
     .catch(fetchError => {
       throw new Error(
-      "Cannot access Apollo Graph Manager storage: " + fetchError)
+      "Cannot access Apollo storage: " + fetchError)
     })
     .then(async (response) => {
       // If the fetcher has a cache and has implemented ETag validation, then
@@ -87,7 +87,7 @@ function fetchApolloGcs(
         body.includes("Anonymous caller does not have storage.objects.get")
       ) {
           throw new Error(
-            "Unable to authenticate with Apollo Graph Manager storage " +
+            "Unable to authenticate with Apollo storage " +
             "while fetching " + url + ".  Ensure that the API key is " +
             "configured properly and that a federated service has been " +
             "pushed.  For details, see " +
@@ -97,7 +97,7 @@ function fetchApolloGcs(
       // Normally, we'll try to keep the logs clean with errors we expect.
       // If it's not a known error, reveal the full body for debugging.
       throw new Error(
-        "Could not communicate with Apollo Graph Manager storage: " + body);
+        "Could not communicate with Apollo storage: " + body);
     });
 };
 
@@ -110,7 +110,7 @@ export async function getServiceDefinitionsFromStorage({
 }: {
   graphId: string;
   apiKeyHash: string;
-  graphVariant?: string;
+  graphVariant: string;
   federationVersion: number;
   fetcher: typeof fetch;
 }): ReturnType<Experimental_UpdateServiceDefinitions> {
@@ -120,10 +120,6 @@ export async function getServiceDefinitionsFromStorage({
   // The storage secret is a JSON string (e.g. `"secret"`).
   const secret: string =
     await fetchApolloGcs(fetcher, storageSecretUrl).then(res => res.json());
-
-  if (!graphVariant) {
-    graphVariant = 'current';
-  }
 
   const baseUrl = `${urlPartialSchemaBase}/${secret}/${graphVariant}/v${federationVersion}`;
 

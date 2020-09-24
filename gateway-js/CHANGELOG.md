@@ -6,6 +6,8 @@
 
 - __FIX__: Directives which are located on inline fragments should not be skipped and should be sent to the service [PR #178](https://github.com/apollographql/federation/pull/178)
 
+- Read managed federation configuration from the `apollo` option to `ApolloGateway.load` rather than the deprecated `engine` option, when available (ie, when running Apollo Server v2.18+), and update error messages referring to the old Engine and Graph Manager product names. [PR #148](https://github.com/apollographql/federation/pull/148)
+
 ## v0.20.2
 
 - __FIX__: Minifying a String argument should escape quotes and slashes [PR #174](https://github.com/apollographql/federation/pull/174)

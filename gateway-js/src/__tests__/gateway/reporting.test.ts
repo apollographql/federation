@@ -4,12 +4,13 @@ import { GraphQLSchemaModule } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { buildFederatedSchema } from '@apollo/federation';
 import { ApolloServer } from 'apollo-server';
+import { ApolloServerPluginUsageReporting } from 'apollo-server-core';
 import { execute, toPromise } from 'apollo-link';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
 import { ApolloGateway } from '../..';
 import { Plugin, Config, Refs } from 'pretty-format';
-import { Report } from 'apollo-engine-reporting-protobuf';
+import { Report } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 
 // Normalize specific fields that change often (eg timestamps) to static values,
@@ -96,7 +97,7 @@ describe('reporting', () => {
       reportResolver = resolve;
     });
 
-    nockScope = nock('https://engine-report.apollodata.com')
+    nockScope = nock('https://usage-reporting.api.apollographql.com')
       .post('/api/ingress/traces')
       .reply(200, (_: any, requestBody: string) => {
         reportResolver(requestBody);
@@ -116,10 +117,13 @@ describe('reporting', () => {
     gatewayServer = new ApolloServer({
       schema,
       executor,
-      engine: {
-        apiKey: 'service:foo:bar',
-        sendReportsImmediately: true,
+      apollo: {
+        key: 'service:foo:bar',
+        graphVariant: 'current',
       },
+      plugins: [ApolloServerPluginUsageReporting({
+        sendReportsImmediately: true,
+      })],
     });
     ({ url: gatewayUrl } = await gatewayServer.listen({ port: 0 }));
   });
