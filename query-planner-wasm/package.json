@@ -1,0 +1,34 @@
+{
+  "name": "@apollo/query-planner-wasm",
+  "version": "0.0.4",
+  "description": "Bridge code written in Rust to Javascript/Typescript, to be internally used by Apollo Gateway. This package is not meant to be independently consumed.",
+  "scripts": {
+    "wasm-pack": "wasm-pack build --target nodejs --out-dir dist --out-name index --scope apollo",
+    "preinstall": "npm run wasm-pack"
+  },
+  "author": "opensource@apollographql.com",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollographql/federation.git",
+    "directory": "query-planner-wasm/"
+  },
+  "bugs": {
+    "url": "https://github.com/apollographql/federation/issues"
+  },
+  "homepage": "https://github.com/apollographql/federation#readme",
+  "keywords": [
+    "GraphQL",
+    "rust",
+    "wasm",
+    "apollo"
+  ],
+  "files": [
+    "dist/index_bg.wasm",
+    "dist/index.js",
+    "dist/index_bg.js",
+    "dist/index.d.ts"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts"
+}
