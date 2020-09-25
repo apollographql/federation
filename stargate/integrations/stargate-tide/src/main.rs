@@ -3,11 +3,7 @@ use apollo_stargate::Stargate;
 use apollo_stargate_tide::{get_studio_middleware, RequestExt, ResponseExt};
 use std::fs;
 use tide::{Request, Response, StatusCode};
-
-#[derive(Clone)]
-struct ServerState<'app> {
-    stargate: Stargate<'app>,
-}
+use apollo_stargate::transports::http::ServerState;
 
 static mut MANIFEST: String = String::new();
 
