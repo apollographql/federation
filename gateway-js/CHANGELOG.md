@@ -4,10 +4,15 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- Read managed federation configuration from the `apollo` option to `ApolloGateway.load` rather than the deprecated `engine` option, when available (ie, when running Apollo Server v2.18+), and update error messages referring to the old Engine and Graph Manager product names. [PR #148](https://github.com/apollographql/federation/pull/148)
+- _Nothing yet! Stay tuned!_
+
+## v0.20.4
+
+- Adjust a `preinstall` script which was only intended to be executed by the monorepo tool-chain, not merely by installing the `@apollo/gateway` package as a dependency in another project. [PR #185](https://github.com/apollographql/federation/pull/185) [Issue #184](https://github.com/apollographql/federation/issues/184)
 
 ## v0.20.3
 
+- Read managed federation configuration from the `apollo` option to `ApolloGateway.load` rather than the deprecated `engine` option, when available (ie, when running Apollo Server v2.18+), and update error messages referring to the old Engine and Graph Manager product names. [PR #148](https://github.com/apollographql/federation/pull/148)
 - __FIX__: Directives which are located on inline fragments should not be skipped and should be sent to the service [PR #178](https://github.com/apollographql/federation/pull/178)
 
 ## v0.20.2
