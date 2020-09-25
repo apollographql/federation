@@ -9,6 +9,7 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/graphql-parser.iml" filepath="$PROJECT_DIR$/.idea/modules/graphql-parser.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-planner.iml" filepath="$PROJECT_DIR$/.idea/modules/query-planner.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/query-planner-wasm.iml" filepath="$PROJECT_DIR$/.idea/modules/query-planner-wasm.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/stargate.iml" filepath="$PROJECT_DIR$/.idea/modules/stargate.iml" />
     </modules>
   </component>
 </project>

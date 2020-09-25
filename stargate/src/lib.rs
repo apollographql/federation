@@ -1,30 +1,29 @@
 use std::collections::HashMap;
 
-use apollo_query_planner::{build_query_plan, QueryPlanningOptions};
+use apollo_query_planner::build_query_plan;
 use apollo_query_planner::helpers::directive_args_as_map;
-use graphql_parser::{parse_query, parse_schema, schema};
+use apollo_query_planner::{QueryPlanner, QueryPlanningOptionsBuilder};
+use graphql_parser::schema;
+use std::collections::HashMap;
 
+pub mod common;
 mod request_pipeline;
 pub mod transports;
 mod utilities;
 
-use crate::request_pipeline::executor::execute_query_plan;
-use crate::request_pipeline::service_definition::ServiceDefinition;
-use crate::transports::http::{GraphQLResponse, RequestContext};
-
 #[derive(Clone)]
 pub struct Stargate<'app> {
     service_list: HashMap<String, ServiceDefinition>,
-    pub schema: schema::Document<'app>,
+    pub planner: QueryPlanner<'app>,
 }
 
 impl<'app> Stargate<'app> {
     pub fn new(schema: &'app str) -> Stargate<'app> {
-        let schema = parse_schema(schema).expect("failed parsing schema");
-        let service_list =
-            get_service_list(&schema).expect("failed to load service list from schema");
+        // TODO(ran) FIXME: gql validation on schema
+        let planner = QueryPlanner::new(schema);
+        let service_list = get_service_list(&planner.schema);
         Stargate {
-            schema,
+            planner,
             service_list,
         }
     }
@@ -33,26 +32,23 @@ impl<'app> Stargate<'app> {
         &self,
         request_context: &RequestContext,
     ) -> std::result::Result<GraphQLResponse, Box<dyn std::error::Error + Send + Sync>> {
-        // XXX actual request pipeline here
-        if let Ok(query) = parse_query(&request_context.graphql_request.query) {
-            if let Ok(query_plan) = build_query_plan(&self.schema, &query, QueryPlanningOptions { auto_fragmentization: true }) {
-                execute_query_plan(&query_plan, &self.service_list, &request_context).await
-            } else {
-                unimplemented!("Failed creating query plan")
-            }
+        // TODO(ran) FIXME: gql validation on query
+        // TODO(james) actual request pipeline here
+        let options = QueryPlanningOptionsBuilder::default().build().unwrap();
+        let plan = self
+            .planner
+            .plan(&request_context.graphql_request.query, options);
+
+        let plan = if let Ok(plan) = plan {
+            plan
         } else {
-            // handle parse errors
-            unimplemented!("Failed to parse query")
-        }
+            todo!("convert QueryPlanError to generic error")
+        };
+        execute_query_plan(&plan, &self.service_list, &request_context).await
     }
 }
 
-fn get_service_list<'app>(
-    schema: &schema::Document<'app>,
-) -> std::result::Result<HashMap<String, ServiceDefinition>, Box<dyn std::error::Error + Send + Sync>>
-{
-    let mut service_list: HashMap<String, ServiceDefinition> = HashMap::new();
-
+fn get_service_list(schema: &schema::Document) -> HashMap<String, ServiceDefinition> {
     let schema_defintion: Option<&schema::SchemaDefinition> = schema
         .definitions
         .iter()
@@ -63,17 +59,18 @@ fn get_service_list<'app>(
         .last();
 
     if schema_defintion.is_none() {
-        unimplemented!()
+        todo!("handle error case")
     }
 
-    let service_map_tuples =
-        apollo_query_planner::get_directive!(schema_defintion.unwrap().directives, "graph")
-            .map(|owner_dir| directive_args_as_map(&owner_dir.arguments))
-            .map(|args| (String::from(args["name"]), String::from(args["url"])));
-
-    for (graph, url) in service_map_tuples {
-        service_list.insert(graph, ServiceDefinition { url });
-    }
-
-    Ok(service_list)
+    apollo_query_planner::get_directive!(schema_defintion.unwrap().directives, "graph")
+        .map(|owner_dir| directive_args_as_map(&owner_dir.arguments))
+        .map(|args| {
+            (
+                String::from(args["name"]),
+                ServiceDefinition {
+                    url: String::from(args["url"]),
+                },
+            )
+        })
+        .collect()
 }

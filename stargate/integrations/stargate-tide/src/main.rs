@@ -1,26 +1,8 @@
+use apollo_stargate::common::Opt;
+use apollo_stargate::Stargate;
+use apollo_stargate_tide::{get_studio_middleware, RequestExt, ResponseExt};
 use std::fs;
-use std::path::PathBuf;
-
-use structopt::StructOpt;
 use tide::{Request, Response, StatusCode};
-
-use stargate::transports::http::*;
-use stargate::Stargate;
-
-#[derive(Debug, StructOpt)]
-#[structopt(
-    name = "stargate",
-    about = "A production ready federation server from Apollo"
-)]
-struct Opt {
-    /// Manifest CSDL
-    #[structopt(long, parse(from_os_str))]
-    manifest: PathBuf,
-
-    /// Where to write the output: to `stdout` or `file`
-    #[structopt(default_value = "http://localhost:8080", long)]
-    address: String,
-}
 
 #[derive(Clone)]
 struct ServerState<'app> {
@@ -33,7 +15,7 @@ static mut MANIFEST: String = String::new();
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tide::log::start();
 
-    let opt = Opt::from_args();
+    let opt = Opt::default();
     /*
 
         The current problem as I understand it is tide requires state to implement
@@ -62,11 +44,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sy
         .at("/")
         .post(|mut req: Request<ServerState<'static>>| async move {
             let request_context = req.build_request_context().await?;
-
             let state = req.state();
-
             let resp = state.stargate.execute_query(&request_context).await;
-
             Response::new(StatusCode::Ok).format_graphql_response(resp)
         });
 

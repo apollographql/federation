@@ -1,5 +1,5 @@
 [package]
-name = "apollo-stargate"
+name = "apollo-stargate-tide"
 version = "0.1.0"
 authors = ["Apollo <opensource@apollographql.com>"]
 homepage = "https://github.com/apollographql/federation"
@@ -10,14 +10,12 @@ repository = "https://github.com/apollographql/federation"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# Workspace
-apollo-query-planner = { path = "../query-planner" }
-graphql-parser = { path = "../graphql-parser" }
+# workspace
+apollo-stargate = { path = "../.." }
 
 # 3rd party
+async-std = { version = "1.6.0", features = ["attributes"] }
 async-trait = "0.1.40"
-futures = "0.3.5"
-serde = { version = "1.0.115", features = ["derive"] }
-serde_json = "1.0.57"
-structopt = "0.3.15"
-surf = "1.0.3"
+http-types = "2.4.0"
+tide = "0.13.0"
+tide-compress = "0.5.0"

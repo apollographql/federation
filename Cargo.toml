@@ -1,7 +1,8 @@
 [workspace]
 members = [
-  "stargate",
   "graphql-parser",
   "query-planner",
-  "query-planner-wasm"
+  "query-planner-wasm",
+  "stargate",
+  "stargate/integrations/stargate-tide"
 ]
