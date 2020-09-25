@@ -41,6 +41,7 @@ impl<'s> QueryPlanner<'s> {
         QueryPlanner { schema }
     }
 
+    // TODO(ran) FIXME: make options a field on the planner.
     pub fn plan(&self, query: &str, options: QueryPlanningOptions) -> Result<QueryPlan> {
         let query = parse_query(query).expect("failed parsing query");
         build_query_plan(&self.schema, &query, options)

@@ -14,3 +14,5 @@ repository = "https://github.com/apollographql/federation"
 apollo-stargate = { path = "../.." }
 
 # 3rd party
+actix-web = "3.0.2"
+futures = "0.3.5"
