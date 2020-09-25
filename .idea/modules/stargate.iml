@@ -5,6 +5,7 @@
     <content url="file://$MODULE_DIR$/../../stargate">
       <sourceFolder url="file://$MODULE_DIR$/../../stargate/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../../stargate/integrations/stargate-tide/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../stargate/integrations/stargate-actix-web/src" isTestSource="false" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

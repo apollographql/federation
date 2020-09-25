@@ -1,0 +1,16 @@
+[package]
+name = "apollo-stargate-actix-web"
+version = "0.1.0"
+authors = ["Apollo <opensource@apollographql.com>"]
+homepage = "https://github.com/apollographql/federation"
+edition = "2018"
+license = "MIT"
+repository = "https://github.com/apollographql/federation"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# workspace
+apollo-stargate = { path = "../.." }
+
+# 3rd party

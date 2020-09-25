@@ -136,6 +136,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "apollo-stargate-actix-web"
+version = "0.1.0"
+dependencies = [
+ "apollo-stargate",
+]
+
+[[package]]
 name = "apollo-stargate-tide"
 version = "0.1.0"
 dependencies = [

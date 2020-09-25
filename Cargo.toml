@@ -4,5 +4,6 @@ members = [
   "query-planner",
   "query-planner-wasm",
   "stargate",
-  "stargate/integrations/stargate-tide"
+  "stargate/integrations/stargate-tide",
+  "stargate/integrations/stargate-actix-web",
 ]
