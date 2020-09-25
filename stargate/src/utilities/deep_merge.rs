@@ -42,11 +42,12 @@ pub fn merge(target: &mut Value, source: &Value) {
 #[cfg(test)]
 mod deep_merge_test {
     use super::*;
+    use serde_json::json;
+
     #[test]
     fn it_should_merge_objects() {
-        let mut first: Value = serde_json::from_str(r#"{"value1":"a","value2":"b"}"#).unwrap();
-        let second: Value =
-            serde_json::from_str(r#"{"value1":"a","value2":"c","value3":"d"}"#).unwrap();
+        let mut first: Value = json!({"value1":"a","value2":"b"});
+        let second: Value = json!({"value1":"a","value2":"c","value3":"d"});
 
         merge(&mut first, &second);
 
@@ -57,9 +58,8 @@ mod deep_merge_test {
     }
     #[test]
     fn it_should_merge_objects_in_arrays() {
-        let mut first: Value =
-            serde_json::from_str(r#"[{"value":"a","value2":"a+"},{"value":"b"}]"#).unwrap();
-        let second: Value = serde_json::from_str(r#"[{"value":"b"},{"value":"c"}]"#).unwrap();
+        let mut first: Value = json!([{"value":"a","value2":"a+"},{"value":"b"}]);
+        let second: Value = json!([{"value":"b"},{"value":"c"}]);
 
         merge(&mut first, &second);
         assert_eq!(
@@ -69,27 +69,21 @@ mod deep_merge_test {
     }
     #[test]
     fn it_should_merge_nested_objects() {
-        let mut first: Value =
-            serde_json::from_str(r#"{"a":1,"b":{"someProperty":1,"overwrittenProperty":"clean"}}"#)
-                .unwrap();
-
-        let second: Value = serde_json::from_str(
-            r#"{"b":{"overwrittenProperty":"dirty","newProperty":"new"},"c":4}"#,
-        )
-        .unwrap();
+        let mut first: Value = json!({"a":1,"b":{"someProperty":1,"overwrittenProperty":"clean"}});
+        let second: Value = json!({"b":{"overwrittenProperty":"dirty","newProperty":"new"},"c":4});
 
         merge(&mut first, &second);
 
         assert_eq!(
-            r#"{"a":1,"b":{"someProperty":1,"overwrittenProperty":"dirty","newProperty":"new"},"c":4}"#,
-            first.to_string()
+            json!({"a":1,"b":{"someProperty":1,"overwrittenProperty":"dirty","newProperty":"new"},"c":4}),
+            first
         );
     }
     #[test]
     fn it_should_merge_nested_objects_in_arrays() {
-        let mut first: Value = serde_json::from_str(r#"{"a":1,"b":[{"c":1,"d":2}]}"#).unwrap();
+        let mut first: Value = json!({"a":1,"b":[{"c":1,"d":2}]});
 
-        let second: Value = serde_json::from_str(r#"{"e":2,"b":[{"f":3}]}"#).unwrap();
+        let second: Value = json!({"e":2,"b":[{"f":3}]});
 
         merge(&mut first, &second);
 
