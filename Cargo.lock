@@ -36,6 +36,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-cors"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48de0a29c99c8a5068c1c5492f6e477ef1843cc5e3c53daa0191562b71950632"
+dependencies = [
+ "actix-service",
+ "actix-web",
+ "derive_more",
+ "futures-util",
+]
+
+[[package]]
 name = "actix-http"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -400,6 +412,7 @@ dependencies = [
 name = "apollo-stargate-actix-web"
 version = "0.1.0"
 dependencies = [
+ "actix-cors",
  "actix-web",
  "apollo-stargate",
  "futures 0.3.5",
