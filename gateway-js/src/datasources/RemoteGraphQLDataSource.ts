@@ -149,7 +149,12 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
 
     try {
       // Use our local `fetcher` to allow for fetch injection
-      fetchResponse = await this.fetcher(fetchRequest);
+      // Adding support for custom fetcher such as 'make-fetch-happen' other than default (node fetch);
+      // for it, we need the Request to be constructed by the fetcher's own Request class
+      fetchResponse = await this.fetcher(http.url, {
+        ...http,
+        body: JSON.stringify(requestWithoutHttp)
+      });
 
       if (!fetchResponse.ok) {
         throw await this.errorFromResponse(fetchResponse);
