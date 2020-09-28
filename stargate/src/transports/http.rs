@@ -19,7 +19,6 @@ pub struct RequestContext {
     pub graphql_request: GraphQLRequest,
 }
 
-#[derive(Clone)] // XXX: Clone is required by tide, see if we can remove when removing tide.
 pub struct ServerState<'app> {
     pub stargate: Stargate<'app>,
 }
