@@ -1,6 +1,6 @@
 {
   "name": "@apollo/federation",
-  "version": "0.20.1-alpha.0",
+  "version": "0.20.4",
   "description": "Apollo Federation Utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,7 +9,11 @@
     "url": "git+https://github.com/apollographql/federation.git",
     "directory": "federation-js/"
   },
-  "keywords": ["graphql", "federation", "apollo"],
+  "keywords": [
+    "graphql",
+    "federation",
+    "apollo"
+  ],
   "author": "Apollo <opensource@apollographql.com>",
   "license": "MIT",
   "engines": {

@@ -971,7 +971,9 @@ Ok(
                                 ),
                                 default_value: Some(
                                     Float(
-                                        12300.0,
+                                        NotNan(
+                                            12300.0,
+                                        ),
                                     ),
                                 ),
                                 directives: [],

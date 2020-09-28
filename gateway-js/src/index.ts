@@ -8,6 +8,7 @@ import {
   GraphQLExecutionResult,
   Logger,
   GraphQLRequestContextExecutionDidStart,
+  ApolloConfig,
 } from 'apollo-server-types';
 import { InMemoryLRUCache } from 'apollo-server-caching';
 import {
@@ -193,7 +194,7 @@ export class ApolloGateway implements GraphQLService {
   protected config: GatewayConfig;
   private logger: Logger;
   protected queryPlanStore?: InMemoryLRUCache<QueryPlan>;
-  private engineConfig: GraphQLServiceEngineConfig | undefined;
+  private apolloConfig?: ApolloConfig;
   private pollingTimer?: NodeJS.Timer;
   private onSchemaChangeListeners = new Set<SchemaChangeCallback>();
   private serviceDefinitions: ServiceDefinition[] = [];
@@ -308,11 +309,16 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  public async load(options?: { engine?: GraphQLServiceEngineConfig }) {
-    if (options && options.engine) {
-      if (!options.engine.graphVariant)
-        this.logger.warn('No graph variant provided. Defaulting to `current`.');
-      this.engineConfig = options.engine;
+  public async load(options?: { apollo?: ApolloConfig; engine?: GraphQLServiceEngineConfig }) {
+    if (options?.apollo) {
+      this.apolloConfig = options.apollo;
+    } else if (options?.engine) {
+      // Older version of apollo-server-core that isn't passing 'apollo' yet.
+      this.apolloConfig = {
+        keyHash: options.engine.apiKeyHash,
+        graphId: options.engine.graphId,
+        graphVariant: options.engine.graphVariant || 'current',
+      }
     }
 
     await this.updateComposition();
@@ -323,12 +329,13 @@ export class ApolloGateway implements GraphQLService {
       this.pollServices();
     }
 
-    const { graphId, graphVariant } = (options && options.engine) || {};
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
 
     this.logger.info(
       `Gateway successfully loaded schema.\n\t* Mode: ${mode}${
-        graphId ? `\n\t* Service: ${graphId}@${graphVariant || 'current'}` : ''
+        (this.apolloConfig && this.apolloConfig.graphId)
+          ? `\n\t* Service: ${this.apolloConfig.graphId}@${this.apolloConfig.graphVariant}`
+          : ''
       }`,
     );
 
@@ -578,15 +585,16 @@ export class ApolloGateway implements GraphQLService {
   protected async loadServiceDefinitions(
     config: GatewayConfig,
   ): ReturnType<Experimental_UpdateServiceDefinitions> {
+    const canUseManagedConfig =
+      this.apolloConfig?.graphId && this.apolloConfig?.keyHash;
     // This helper avoids the repetition of options in the two cases this method
-    // is invoked below. It is a helper, rather than an options object, since it
-    // depends on the presence of `this.engineConfig`, which is guarded against
-    // further down in this method in two separate places.
-    const getManagedConfig = (engineConfig: GraphQLServiceEngineConfig) => {
+    // is invoked below. Only call it if canUseManagedConfig is true
+    // (which makes its uses of ! safe)
+    const getManagedConfig = () => {
       return getServiceDefinitionsFromStorage({
-        graphId: engineConfig.graphId,
-        apiKeyHash: engineConfig.apiKeyHash,
-        graphVariant: engineConfig.graphVariant,
+        graphId: this.apolloConfig!.graphId!,
+        apiKeyHash: this.apolloConfig!.keyHash!,
+        graphVariant: this.apolloConfig!.graphVariant,
         federationVersion:
           (config as ManagedGatewayConfig).federationVersion || 1,
         fetcher: this.fetcher,
@@ -594,16 +602,16 @@ export class ApolloGateway implements GraphQLService {
     };
 
     if (isLocalConfig(config) || isRemoteConfig(config)) {
-      if (this.engineConfig && !this.warnedStates.remoteWithLocalConfig) {
+      if (canUseManagedConfig && !this.warnedStates.remoteWithLocalConfig) {
         // Only display this warning once per start-up.
         this.warnedStates.remoteWithLocalConfig = true;
         // This error helps avoid common misconfiguration.
         // We don't await this because a local configuration should assume
         // remote is unavailable for one reason or another.
-        getManagedConfig(this.engineConfig).then(() => {
+        getManagedConfig().then(() => {
           this.logger.warn(
-            "A local gateway service list is overriding an Apollo Graph " +
-            "Manager managed configuration.  To use the managed " +
+            "A local gateway service list is overriding a managed federation " +
+            "configuration.  To use the managed " +
             "configuration, do not specify a service list locally.",
           );
         }).catch(() => {}); // Don't mind errors if managed config is missing.
@@ -629,18 +637,18 @@ export class ApolloGateway implements GraphQLService {
       });
     }
 
-    if (!this.engineConfig) {
+    if (!canUseManagedConfig) {
       throw new Error(
-        'When `serviceList` is not set, an Apollo Engine configuration must be provided. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ for more information.',
+        'When `serviceList` is not set, an Apollo configuration must be provided. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ for more information.',
       );
     }
 
-    return getManagedConfig(this.engineConfig);
+    return getManagedConfig();
   }
 
   // XXX Nothing guarantees that the only errors thrown or returned in
   // result.errors are GraphQLErrors, even though other code (eg
-  // apollo-engine-reporting) assumes that. In fact, errors talking to backends
+  // ApolloServerPluginUsageReporting) assumes that. In fact, errors talking to backends
   // are unlikely to show up as GraphQLErrors. Do we need to use
   // formatApolloErrors or something?
   public executor = async <TContext>(

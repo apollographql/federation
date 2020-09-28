@@ -78,7 +78,22 @@ macro_rules! minify_enum {
     };
 }
 
+macro_rules! write_escaped {
+    ($f:ident, $e:expr) => { write!(escaped $f, $e); };
+}
+
 macro_rules! write {
+    (escaped $f:ident, $e:expr) => {
+        if $e.contains('\\') || $e.contains('"') {
+            for c in $e.chars() {
+                if c == '"' { $f.buf.push_str("\\\""); }
+                else if c == '\\' { $f.buf.push_str(r"\\"); }
+                else { $f.buf.push(c); }
+            }
+        } else {
+            write!($f, $e);
+        }
+    };
     ($f:ident, $($e:expr,)*) => {
         $( if $e.len() == 1 { $f.buf.push($e.chars().next().unwrap()) } else { $f.buf.push_str($e) } )*
     };
@@ -106,7 +121,14 @@ impl<'a> MinifiedString for FragmentDefinition<'a> {
         write!(f, "fragment ", self.name, " on ", self.type_condition);
         minify_each!(f, self.directives);
         self.selection_set.minify(f);
+        self.selection_set.items.is_empty()
+    }
+}
 
+impl<'a> MinifiedString for FragmentDefinitionRef<'a> {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
+        write!(f, "fragment ", &self.name, " on ", &self.type_condition);
+        self.selection_set.minify(f);
         self.selection_set.items.is_empty()
     }
 }
@@ -163,8 +185,16 @@ minify_enum!(
     SelectionRef::Ref,
     SelectionRef::Field,
     SelectionRef::FieldRef,
-    SelectionRef::InlineFragmentRef
+    SelectionRef::InlineFragmentRef,
+    SelectionRef::FragmentSpreadRef
 );
+
+impl<'a> MinifiedString for FragmentSpreadRef {
+    fn minify(&self, f: &mut MinifiedFormatter) -> bool {
+        write!(f, "...", &self.name);
+        true
+    }
+}
 
 impl<'a> MinifiedString for Field<'a> {
     fn minify(&self, f: &mut MinifiedFormatter) -> bool {
@@ -252,7 +282,9 @@ impl<'a> MinifiedString for Value<'a> {
                 true
             }
             Value::String(ref val) => {
-                write!(f, "\"", val, "\"");
+                write!(f, "\"");
+                write_escaped!(f, val);
+                write!(f, "\"");
                 true
             }
             Value::Boolean(true) => {
@@ -343,6 +375,8 @@ mod tests {
             "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{body}numberOfReviews}}}",
             "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}",
             "query($arg1:String$representations:[_Any!]!){_entities(arg:$arg1 representations:$representations){...on User{reviews{body}numberOfReviews}}}",
+            "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\")}",
+            "{vehicle(id:\"this is a \\\\ string with a slash \\\\ \")}",
         ];
         for query in queries {
             let parsed = parse_query(query).unwrap();

@@ -3,15 +3,15 @@ use crate::consts::{typename_field_def, typename_field_node};
 use crate::federation::Federation;
 use crate::helpers::Op;
 use crate::visitors::VariableUsagesMap;
+use crate::QueryPlanningOptions;
 use graphql_parser::query::refs::{FieldRef, Node, SelectionRef, SelectionSetRef};
-use graphql_parser::query::Node as QueryNode;
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
 use graphql_parser::{schema, Name};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct QueryPlanningContext<'q> {
     pub schema: &'q schema::Document<'q>,
     pub operation: Op<'q>,
@@ -20,14 +20,15 @@ pub struct QueryPlanningContext<'q> {
     pub names_to_types: HashMap<&'q str, &'q TypeDefinition<'q>>,
     pub variable_name_to_def: HashMap<&'q str, &'q VariableDefinition<'q>>,
     pub federation: Federation<'q>,
-    pub auto_fragmentization: bool,
+    pub options: QueryPlanningOptions,
 }
 
 impl<'q> QueryPlanningContext<'q> {
-    pub fn new_scope(
+    pub fn new_scope_with_directives(
         &self,
         parent_type: &'q TypeDefinition<'q>,
         enclosing_scope: Option<Rc<Scope<'q>>>,
+        scope_directives: Option<&'q Vec<Directive<'q>>>,
     ) -> Rc<Scope<'q>> {
         let possible_types: Vec<&'q schema::ObjectType<'q>> = self
             .get_possible_types(parent_type)
@@ -45,7 +46,16 @@ impl<'q> QueryPlanningContext<'q> {
             parent_type,
             possible_types,
             enclosing_scope,
+            scope_directives,
         })
+    }
+
+    pub fn new_scope(
+        &self,
+        parent_type: &'q TypeDefinition<'q>,
+        enclosing_scope: Option<Rc<Scope<'q>>>,
+    ) -> Rc<Scope<'q>> {
+        self.new_scope_with_directives(parent_type, enclosing_scope, None)
     }
 
     fn get_possible_types(&self, td: &'q TypeDefinition<'q>) -> &Vec<&'q schema::ObjectType<'q>> {
@@ -55,21 +65,13 @@ impl<'q> QueryPlanningContext<'q> {
     pub fn get_variable_usages(
         &self,
         selection_set: &SelectionSetRef,
-        fragments: &[&'q FragmentDefinition<'q>],
     ) -> (Vec<String>, Vec<&VariableDefinition>) {
-        let mut v = selection_set
+        selection_set
             .map(VariableUsagesMap::new(&self.variable_name_to_def))
             .output
-            .unwrap();
-
-        v.extend(fragments.iter().flat_map(|fd| {
-            fd.selection_set
-                .map(VariableUsagesMap::new(&self.variable_name_to_def))
-                .output
-                .unwrap()
-        }));
-
-        v.into_iter().unzip()
+            .unwrap()
+            .into_iter()
+            .unzip()
     }
 
     pub fn type_def_for_object(
@@ -204,6 +206,9 @@ impl<'q> QueryPlanningContext<'q> {
                             )
                         }
                     }
+                    SelectionRef::FragmentSpreadRef(_) => {
+                        unreachable!("FragmentSpreadRef is only used at the end of query planning")
+                    }
                 }
             }
         }
@@ -247,6 +252,7 @@ pub struct Scope<'q> {
     pub parent_type: &'q TypeDefinition<'q>,
     pub possible_types: Vec<&'q schema::ObjectType<'q>>,
     pub enclosing_scope: Option<Rc<Scope<'q>>>,
+    pub scope_directives: Option<&'q Vec<Directive<'q>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -6,6 +6,24 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v0.20.4
+
+- Adjust a `preinstall` script which was only intended to be executed by the monorepo tool-chain, not merely by installing the `@apollo/gateway` package as a dependency in another project. [PR #185](https://github.com/apollographql/federation/pull/185) [Issue #184](https://github.com/apollographql/federation/issues/184)
+
+## v0.20.3
+
+- Read managed federation configuration from the `apollo` option to `ApolloGateway.load` rather than the deprecated `engine` option, when available (ie, when running Apollo Server v2.18+), and update error messages referring to the old Engine and Graph Manager product names. [PR #148](https://github.com/apollographql/federation/pull/148)
+- __FIX__: Directives which are located on inline fragments should not be skipped and should be sent to the service [PR #178](https://github.com/apollographql/federation/pull/178)
+
+## v0.20.2
+
+- __FIX__: Minifying a String argument should escape quotes and slashes [PR #174](https://github.com/apollographql/federation/pull/174)
+
+## v0.20.1
+
+- Replace the query planner implementation with a new implementation written in rust and integrated into the gateway
+  via wasm. [PR #4534](https://github.com/apollographql/apollo-server/pull/4534)
+
 ## v0.20.0
 
 - Only changes in the similarly versioned `@apollo/federation` package.

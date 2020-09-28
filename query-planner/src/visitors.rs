@@ -92,6 +92,9 @@ impl<'q> refs::Map for VariableUsagesMap<'q> {
             SelectionRef::Field(field) => build_variables_map!(field: field, self),
             SelectionRef::FieldRef(field) => build_variables_map!(field: field, self),
             SelectionRef::InlineFragmentRef(inline) => build_variables_map!(inline, self),
+            SelectionRef::FragmentSpreadRef(_) => {
+                unreachable!("FragmentSpreadRef is only used at the end of query planning")
+            }
         }
     }
 }

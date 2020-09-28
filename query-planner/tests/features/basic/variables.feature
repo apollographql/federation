@@ -242,3 +242,22 @@ Scenario: works with default variables in the schema
   }
   """
 
+Scenario: String arguments with quotes that need to be escaped.
+  Given query
+  """
+  query {
+   vehicle(id: "{\"make\":\"Toyota\",\"model\":\"Rav4\",\"trim\":\"Limited\"}")
+  }
+  """
+  Then query plan
+  """
+  {
+    "kind": "QueryPlan",
+    "node": {
+      "kind": "Fetch",
+      "serviceName": "product",
+      "variableUsages": [],
+      "operation": "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\"){__typename}}"
+    }
+  }
+  """

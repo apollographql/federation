@@ -124,7 +124,7 @@ it('Extracts service definitions from remote storage', async () => {
 
   const gateway = new ApolloGateway({ logger });
 
-  await gateway.load({ engine: { apiKeyHash, graphId } });
+  await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 });
 
@@ -167,14 +167,14 @@ it.each([
     logger
   });
 
-  await gateway.load({ engine: { apiKeyHash, graphId } });
+  await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
   await blocker; // Wait for the definitions to be "fetched".
 
   (isConflict
     ? expect(logger.warn)
     : expect(logger.warn).not
   ).toHaveBeenCalledWith(expect.stringMatching(
-    /A local gateway service list is overriding an Apollo Graph Manager managed configuration/));
+    /A local gateway service list is overriding a managed federation configuration/));
   spyGetServiceDefinitionsFromStorage.mockRestore();
 });
 
@@ -222,7 +222,7 @@ it.skip('Rollsback to a previous schema when triggered', async () => {
   gateway.experimental_pollInterval = 100;
 
   gateway.onSchemaChange(onChange);
-  await gateway.load({ engine: { apiKeyHash, graphId } });
+  await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
 
   await firstSchemaChangeBlocker;
   expect(onChange).toHaveBeenCalledTimes(1);
@@ -258,7 +258,7 @@ it(`Retries GCS (up to ${GCS_RETRY_COUNT} times) on failure for each request and
 
   const gateway = new ApolloGateway({ fetcher, logger });
 
-  await gateway.load({ engine: { apiKeyHash, graphId } });
+  await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 });
 
@@ -271,9 +271,9 @@ it.skip(`Fails after the ${GCS_RETRY_COUNT + 1}th attempt to reach GCS`, async (
 
   const gateway = new ApolloGateway({ fetcher, logger });
   await expect(
-    gateway.load({ engine: { apiKeyHash, graphId } }),
+    gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } }),
   ).rejects.toThrowErrorMatchingInlineSnapshot(
-    `"Could not communicate with Apollo Graph Manager storage: "`,
+    `"Could not communicate with Apollo storage: "`,
   );
 });
 
@@ -287,9 +287,9 @@ it(`Errors when the secret isn't hosted on GCS`, async () => {
 
   const gateway = new ApolloGateway({ fetcher, logger });
   await expect(
-    gateway.load({ engine: { apiKeyHash, graphId } }),
+    gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } }),
   ).rejects.toThrowErrorMatchingInlineSnapshot(
-    `"Unable to authenticate with Apollo Graph Manager storage while fetching https://storage-secrets.api.apollographql.com/federated-service/storage-secret/dd55a79d467976346d229a7b12b673ce.json.  Ensure that the API key is configured properly and that a federated service has been pushed.  For details, see https://go.apollo.dev/g/resolve-access-denied."`,
+    `"Unable to authenticate with Apollo storage while fetching https://storage-secrets.api.apollographql.com/federated-service/storage-secret/dd55a79d467976346d229a7b12b673ce.json.  Ensure that the API key is configured properly and that a federated service has been pushed.  For details, see https://go.apollo.dev/g/resolve-access-denied."`,
   );
 });
 
@@ -337,7 +337,7 @@ describe('Downstream service health checks', () => {
 
       const gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
 
-      await gateway.load({ engine: { apiKeyHash, graphId } });
+      await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
       expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
     });
 
@@ -353,7 +353,7 @@ describe('Downstream service health checks', () => {
       const gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
 
       await expect(
-        gateway.load({ engine: { apiKeyHash, graphId } }),
+        gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"500: Internal Server Error"`);
     });
 
@@ -394,7 +394,7 @@ describe('Downstream service health checks', () => {
       gateway.experimental_pollInterval = 100;
 
       gateway.onSchemaChange(onChange);
-      await gateway.load({ engine: { apiKeyHash, graphId } });
+      await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
 
       await schemaChangeBlocker1;
       expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
@@ -457,7 +457,7 @@ describe('Downstream service health checks', () => {
       gateway.updateComposition = mockUpdateComposition;
 
       // load the gateway as usual
-      await gateway.load({ engine: { apiKeyHash, graphId } });
+      await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
 
       expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 

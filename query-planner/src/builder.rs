@@ -1,5 +1,6 @@
+use crate::autofrag::auto_fragmentization;
 use crate::consts::{
-    typename_field_def, typename_field_node, MUTATION_TYPE_NAME, QUERY_TYPE_NAME,
+    typename_field_def, typename_field_node, EMPTY_DIRECTIVES, MUTATION_TYPE_NAME, QUERY_TYPE_NAME,
     TYPENAME_FIELD_NAME,
 };
 use crate::context::*;
@@ -11,7 +12,7 @@ use crate::helpers::*;
 use crate::model::Selection as ModelSelection;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan, ResponsePath};
-use crate::{context, model, QueryPlanError, Result};
+use crate::{context, model, QueryPlanError, QueryPlanningOptions, Result};
 use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
@@ -20,7 +21,11 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-pub fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<QueryPlan> {
+pub fn build_query_plan(
+    schema: &schema::Document,
+    query: &Document,
+    options: QueryPlanningOptions,
+) -> Result<QueryPlan> {
     let mut ops = get_operations(query);
 
     if ops.is_empty() {
@@ -53,11 +58,11 @@ pub fn build_query_plan(schema: &schema::Document, query: &Document) -> Result<Q
                 _ => None,
             })
             .collect(),
-        auto_fragmentization: false,
         possible_types: build_possible_types(schema, &types),
         variable_name_to_def: variable_name_to_def(query),
         federation: Federation::new(schema),
         names_to_types: types,
+        options,
     };
 
     let is_mutation = context.operation.kind.as_str() == "mutation";
@@ -106,12 +111,16 @@ pub(crate) fn collect_fields<'q>(
     }
 
     macro_rules! collect_inline_fragment {
-        ($inline:ident, $selection_set:expr, $context:ident, $scope:ident, $visited_fragment_names:ident, $fields:ident) => {
+        ($inline:ident, $selection_set:expr, $context:ident, $scope:ident, $visited_fragment_names:ident, $fields:ident, $directives:expr) => {
             let fragment_condition = $inline
                 .type_condition
                 .map(|tc| $context.names_to_types[tc])
                 .unwrap_or_else(|| $scope.parent_type);
-            let new_scope = $context.new_scope(fragment_condition, Some($scope.clone()));
+            let new_scope = $context.new_scope_with_directives(
+                fragment_condition,
+                Some($scope.clone()),
+                Some($directives),
+            );
             if !new_scope.possible_types.is_empty() {
                 collect_fields_rec(
                     $context,
@@ -159,7 +168,8 @@ pub(crate) fn collect_fields<'q>(
                         context,
                         scope,
                         visited_fragment_names,
-                        fields
+                        fields,
+                        &inline.directives
                     );
                 }
                 SelectionRef::InlineFragmentRef(inline_ref) => {
@@ -169,7 +179,8 @@ pub(crate) fn collect_fields<'q>(
                         context,
                         scope,
                         visited_fragment_names,
-                        fields
+                        fields,
+                        &inline_ref.directives
                     );
                 }
                 SelectionRef::Ref(Selection::FragmentSpread(spread)) => {
@@ -190,6 +201,9 @@ pub(crate) fn collect_fields<'q>(
                             );
                         }
                     }
+                }
+                SelectionRef::FragmentSpreadRef(_) => {
+                    unreachable!("FragmentSpreadRef is only used at the end of query planning")
                 }
             }
         }
@@ -321,7 +335,10 @@ fn split_fields<'a, 'q: 'a>(
     }
 }
 
-fn get_field_def_from_type<'q>(td: &'q TypeDefinition<'q>, name: &'q str) -> &'q schema::Field<'q> {
+pub(crate) fn get_field_def_from_type<'q>(
+    td: &'q TypeDefinition<'q>,
+    name: &'q str,
+) -> &'q schema::Field<'q> {
     if name == TYPENAME_FIELD_NAME {
         typename_field_def()
     } else {
@@ -384,20 +401,8 @@ fn complete_field<'a, 'q: 'a>(
             let sub_fields = collect_sub_fields(context, return_type, fields);
             let sub_group = split_sub_fields(context, field_path, sub_fields, sub_group);
 
-            let sub_group_fields_length = sub_group.fields.len();
-            let sub_group_fields = sub_group.fields;
             let selection_set_ref =
-                selection_set_from_field_set(sub_group_fields, Some(return_type), context);
-
-            if context.auto_fragmentization && sub_group_fields_length > 2 {
-                unimplemented!()
-            }
-
-            for (name, sg_internal_fragment) in sub_group.internal_fragments {
-                parent_group
-                    .internal_fragments
-                    .insert(name, sg_internal_fragment);
-            }
+                selection_set_from_field_set(sub_group.fields, Some(return_type), context);
 
             let mut sub_group_dependent_groups = {
                 values!(iter sub_group.dependent_groups_by_service)
@@ -469,7 +474,6 @@ fn execution_node_for_group(
     let FetchGroup {
         service_name,
         fields,
-        internal_fragments,
         required_fields,
         dependent_groups_by_service,
         other_dependent_groups,
@@ -489,18 +493,15 @@ fn execution_node_for_group(
         None
     };
 
-    let internal_fragments: Vec<&FragmentDefinition> = values!(internal_fragments);
-
-    let (variable_names, variable_defs) =
-        context.get_variable_usages(&selection_set, &internal_fragments);
+    let (variable_names, variable_defs) = context.get_variable_usages(&selection_set);
 
     let operation = if requires.is_some() {
-        operation_for_entities_fetch(selection_set, variable_defs, internal_fragments)
+        operation_for_entities_fetch(selection_set, variable_defs)
     } else {
         operation_for_root_fetch(
+            context,
             selection_set,
             variable_defs,
-            internal_fragments,
             context.operation.kind,
         )
     };
@@ -548,6 +549,7 @@ fn selection_set_from_field_set<'q>(
         selections: Vec<SelectionRef<'q>>,
         type_condition: &'q TypeDefinition<'q>,
         parent_type: Option<&'q TypeDefinition<'q>>,
+        directives: Option<&'q Vec<Directive<'q>>>,
     ) -> Vec<SelectionRef<'q>> {
         if parent_type.map(|pt| pt == type_condition).unwrap_or(false) {
             selections
@@ -555,7 +557,7 @@ fn selection_set_from_field_set<'q>(
             vec![SelectionRef::InlineFragmentRef(InlineFragmentRef {
                 position: pos(),
                 type_condition: type_condition.name(),
-                directives: vec![],
+                directives: directives.unwrap_or(&EMPTY_DIRECTIVES),
                 selection_set: SelectionSetRef {
                     span: span(),
                     items: selections,
@@ -565,7 +567,7 @@ fn selection_set_from_field_set<'q>(
     }
 
     fn combine_fields<'q>(
-        fields_with_same_reponse_name: Vec<context::Field<'q>>,
+        fields_with_same_reponse_name: FieldSet<'q>,
         context: &'q QueryPlanningContext,
     ) -> SelectionRef<'q> {
         let is_composite_type = {
@@ -609,20 +611,21 @@ fn selection_set_from_field_set<'q>(
 
     for (_, fields_by_parent_type) in fields_by_parent_type {
         let type_condition = fields_by_parent_type[0].scope.parent_type;
+        let directives = fields_by_parent_type[0].scope.scope_directives;
 
         let fields_by_response_name: LinkedHashMap<&str, FieldSet> =
             group_by(fields_by_parent_type, |f| f.field_node.response_name());
 
-        for sel in wrap_in_inline_fragment_if_needed(
+        let selections = wrap_in_inline_fragment_if_needed(
             fields_by_response_name
                 .into_iter()
                 .map(|(_, fs)| combine_fields(fs, context))
                 .collect(),
             type_condition,
             parent_type,
-        ) {
-            items.push(sel);
-        }
+            directives,
+        );
+        items.extend(selections);
     }
 
     SelectionSetRef {
@@ -634,30 +637,23 @@ fn selection_set_from_field_set<'q>(
 fn operation_for_entities_fetch<'q>(
     selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
-    internal_fragments: Vec<&'q FragmentDefinition<'q>>,
 ) -> GraphQLDocument {
     let vars = vec![String::from("$representations:[_Any!]!")]
         .into_iter()
         .chain(variable_definitions.iter().map(|vd| vd.minified()))
         .collect::<String>();
 
-    let frags: String = internal_fragments
-        .iter()
-        .map(|fd| fd.minified())
-        .collect::<String>();
-
     format!(
-        "query({}){{_entities(representations:$representations){}}}{}",
+        "query({}){{_entities(representations:$representations){}}}",
         vars,
         selection_set.minified(),
-        frags
     )
 }
 
 fn operation_for_root_fetch<'q>(
+    context: &'q QueryPlanningContext<'q>,
     selection_set: SelectionSetRef<'q>,
     variable_definitions: Vec<&'q VariableDefinition<'q>>,
-    internal_fragments: Vec<&'q FragmentDefinition<'q>>,
     op_kind: Operation,
 ) -> GraphQLDocument {
     let vars = if variable_definitions.is_empty() {
@@ -672,17 +668,14 @@ fn operation_for_root_fetch<'q>(
         )
     };
 
-    let frags: String = internal_fragments
-        .iter()
-        .map(|fd| fd.minified())
-        .collect::<String>();
+    let (frags, selection_set) = maybe_auto_fragmentization(context, selection_set);
 
     let op_kind = match op_kind {
         Operation::Query if vars.is_empty() => "",
         _ => op_kind.as_str(),
     };
 
-    format!("{}{}{}{}", op_kind, vars, selection_set.minified(), frags)
+    format!("{}{}{}{}", op_kind, vars, selection_set, frags)
 }
 
 fn field_into_model_selection(field: &query::Field) -> ModelSelection {
@@ -732,6 +725,9 @@ fn ref_into_model_selection_set(selection_set_ref: SelectionSetRef) -> ModelSele
                     selections: ref_into_model_selection_set(inline.selection_set),
                 })
             }
+            SelectionRef::FragmentSpreadRef(_) => {
+                unreachable!("FragmentSpreadRef is only used at the end of query planning")
+            }
         }
     }
 
@@ -775,5 +771,21 @@ fn flat_wrap(kind: NodeCollectionKind, mut nodes: Vec<PlanNode>) -> PlanNode {
             NodeCollectionKind::Sequence => PlanNode::Sequence { nodes },
             NodeCollectionKind::Parallel => PlanNode::Parallel { nodes },
         }
+    }
+}
+
+fn maybe_auto_fragmentization<'q>(
+    context: &'q QueryPlanningContext<'q>,
+    selection_set: SelectionSetRef<'q>,
+) -> (String, String) {
+    if context.options.auto_fragmentization {
+        let (frags, selection_set) = auto_fragmentization(context, selection_set);
+        let frags = frags
+            .into_iter()
+            .map(|fd| fd.minified())
+            .collect::<String>();
+        (frags, selection_set.minified())
+    } else {
+        (String::from(""), selection_set.minified())
     }
 }

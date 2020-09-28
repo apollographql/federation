@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use apollo_query_planner::build_query_plan;
+use apollo_query_planner::{build_query_plan, QueryPlanningOptions};
 use apollo_query_planner::helpers::directive_args_as_map;
 use graphql_parser::{parse_query, parse_schema, schema};
 
@@ -35,7 +35,7 @@ impl<'app> Stargate<'app> {
     ) -> std::result::Result<GraphQLResponse, Box<dyn std::error::Error + Send + Sync>> {
         // XXX actual request pipeline here
         if let Ok(query) = parse_query(&request_context.graphql_request.query) {
-            if let Ok(query_plan) = build_query_plan(&self.schema, &query) {
+            if let Ok(query_plan) = build_query_plan(&self.schema, &query, QueryPlanningOptions { auto_fragmentization: true }) {
                 execute_query_plan(&query_plan, &self.service_list, &request_context).await
             } else {
                 unimplemented!("Failed creating query plan")
