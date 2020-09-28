@@ -1,10 +1,9 @@
 use actix_cors::Cors;
-use actix_web::{get, middleware, post, web, App, HttpResponse, HttpServer, Result};
+use actix_web::{middleware, post, web, App, HttpResponse, HttpServer, Result};
 use apollo_stargate::common::Opt;
 use apollo_stargate::transports::http::{GraphQLRequest, RequestContext, ServerState};
 use apollo_stargate::Stargate;
 use env_logger::Env;
-use serde_json::json;
 use std::fs;
 
 #[post("/")]

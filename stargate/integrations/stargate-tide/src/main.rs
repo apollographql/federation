@@ -1,9 +1,9 @@
 use apollo_stargate::common::Opt;
+use apollo_stargate::transports::http::ServerState;
 use apollo_stargate::Stargate;
 use apollo_stargate_tide::{get_studio_middleware, RequestExt, ResponseExt};
 use std::fs;
 use tide::{Request, Response, StatusCode};
-use apollo_stargate::transports::http::ServerState;
 
 static mut MANIFEST: String = String::new();
 
@@ -45,6 +45,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sy
             Response::new(StatusCode::Ok).format_graphql_response(resp)
         });
 
-    server.listen(format!("http://localhost:{}", opt.port)).await?;
+    server
+        .listen(format!("http://localhost:{}", opt.port))
+        .await?;
     Ok(())
 }
