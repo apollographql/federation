@@ -9,16 +9,16 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-pub struct ExecutionContext<'s, 'r> {
-    service_map: &'s HashMap<String, ServiceDefinition>,
+pub struct ExecutionContext<'schema, 'request> {
+    service_map: &'schema HashMap<String, ServiceDefinition>,
     // errors: Vec<async_graphql::Error>,
-    request_context: &'r RequestContext,
+    request_context: &'request RequestContext,
 }
 
-pub async fn execute_query_plan<'s, 'r>(
+pub async fn execute_query_plan<'schema, 'request>(
     query_plan: &QueryPlan,
-    service_map: &'s HashMap<String, ServiceDefinition>,
-    request_context: &'r RequestContext,
+    service_map: &'schema HashMap<String, ServiceDefinition>,
+    request_context: &'request RequestContext,
 ) -> std::result::Result<GraphQLResponse, Box<dyn std::error::Error + Send + Sync>> {
     // let errors: Vec<async_graphql::Error> = vec![;
 
@@ -40,12 +40,12 @@ pub async fn execute_query_plan<'s, 'r>(
     Ok(GraphQLResponse { data: Some(data) })
 }
 
-fn execute_node<'s, 'r>(
-    context: &'r ExecutionContext<'s, 'r>,
-    node: &'r PlanNode,
-    results: &'r RwLock<Value>,
-    path: &'r ResponsePath,
-) -> BoxFuture<'r, ()> {
+fn execute_node<'schema, 'request>(
+    context: &'request ExecutionContext<'schema, 'request>,
+    node: &'request PlanNode,
+    results: &'request RwLock<Value>,
+    path: &'request ResponsePath,
+) -> BoxFuture<'request, ()> {
     async move {
         match node {
             PlanNode::Sequence { nodes } => {
@@ -154,10 +154,10 @@ fn merge_flattend_results(parent_data: &mut Value, child_data: &Value, path: &Re
     }
 }
 
-async fn execute_fetch<'s, 'r>(
-    context: &ExecutionContext<'s, 'r>,
+async fn execute_fetch<'schema, 'request>(
+    context: &ExecutionContext<'schema, 'request>,
     fetch: &FetchNode,
-    results_lock: &'r RwLock<Value>,
+    results_lock: &'request RwLock<Value>,
 ) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     let service = &context.service_map[&fetch.service_name];
 
@@ -245,7 +245,10 @@ async fn execute_fetch<'s, 'r>(
     Ok(())
 }
 
-fn flatten_results_at_path<'r>(value: &'r mut Value, path: &ResponsePath) -> &'r Value {
+fn flatten_results_at_path<'request>(
+    value: &'request mut Value,
+    path: &ResponsePath,
+) -> &'request Value {
     if path.is_empty() || value.is_null() {
         return value;
     }
