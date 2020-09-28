@@ -1,6 +1,7 @@
 use crate::request_pipeline::service_definition::{Service, ServiceDefinition};
 use crate::transports::http::{GraphQLResponse, RequestContext};
 use crate::utilities::deep_merge::merge;
+use crate::Result;
 use apollo_query_planner::model::Selection::Field;
 use apollo_query_planner::model::Selection::InlineFragment;
 use apollo_query_planner::model::*;
@@ -15,11 +16,11 @@ pub struct ExecutionContext<'schema, 'request> {
     request_context: &'request RequestContext,
 }
 
-pub async fn execute_query_plan<'schema, 'request>(
+pub async fn execute_query_plan(
     query_plan: &QueryPlan,
-    service_map: &'schema HashMap<String, ServiceDefinition>,
-    request_context: &'request RequestContext,
-) -> std::result::Result<GraphQLResponse, Box<dyn std::error::Error + Send + Sync>> {
+    service_map: &HashMap<String, ServiceDefinition>,
+    request_context: &RequestContext,
+) -> Result<GraphQLResponse> {
     // let errors: Vec<async_graphql::Error> = vec![;
 
     let context = ExecutionContext {
@@ -68,14 +69,12 @@ fn execute_node<'schema, 'request>(
                 //   }
             }
             PlanNode::Flatten(flatten_node) => {
-                let mut flattend_path: Vec<String> = vec![];
-                flattend_path.extend(path.to_owned());
-                flattend_path.extend(flatten_node.path.to_owned());
+                let mut flattend_path = Vec::from(path.as_slice());
+                flattend_path.extend_from_slice(flatten_node.path.as_slice());
 
                 let inner_lock: RwLock<Value> = RwLock::new(json!({}));
 
                 /*
-
                     Flatten works by selecting a zip of the result tree from the
                     path on the node (i.e [topProducts, @]) and creating a temporary
                     RwLock JSON object for the data currently stored there. Then we proceed
@@ -92,7 +91,6 @@ fn execute_node<'schema, 'request>(
                     inner_to_merge = {
                         { __typename: "Book", isbn: "1234" }
                     }
-
                 */
                 {
                     let results_to_flatten = results.read().unwrap();
@@ -158,7 +156,7 @@ async fn execute_fetch<'schema, 'request>(
     context: &ExecutionContext<'schema, 'request>,
     fetch: &FetchNode,
     results_lock: &'request RwLock<Value>,
-) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+) -> Result<()> {
     let service = &context.service_map[&fetch.service_name];
 
     let mut variables: HashMap<String, Value> = HashMap::new();
@@ -172,10 +170,10 @@ async fn execute_fetch<'schema, 'request>(
         }
     }
 
-    let mut representations: Vec<Value> = vec![];
     let mut representations_to_entity: Vec<usize> = vec![];
 
     if let Some(requires) = &fetch.requires {
+        let mut representations: Vec<Value> = vec![];
         if variables.contains_key("representations") {
             unimplemented!(
                 "Need to throw here because `Variables cannot contain key 'represenations'"
@@ -184,10 +182,12 @@ async fn execute_fetch<'schema, 'request>(
 
         let results = results_lock.read().unwrap();
 
+        // TODO(ran) FIXME: QQQ: What's the process here? how could results be an array?
+        //  What is the existence of __typename tell us?
         let representation_variables = match &*results {
             Value::Array(entities) => {
                 for (index, entity) in entities.iter().enumerate() {
-                    let representation = execute_selection_set(&entity, &requires);
+                    let representation = execute_selection_set(entity, requires);
                     if representation.is_object() && representation.get("__typename").is_some() {
                         representations.push(representation);
                         representations_to_entity.push(index);
@@ -195,8 +195,8 @@ async fn execute_fetch<'schema, 'request>(
                 }
                 Value::Array(representations)
             }
-            Value::Object(_entity) => {
-                let representation = execute_selection_set(&results, &requires);
+            Value::Object(_) => {
+                let representation = execute_selection_set(&results, requires);
                 if representation.is_object() && representation.get("__typename").is_some() {
                     representations.push(representation);
                     representations_to_entity.push(0);
@@ -213,7 +213,7 @@ async fn execute_fetch<'schema, 'request>(
     }
 
     let data_received = service
-        .send_operation(context, fetch.operation.clone(), &variables)
+        .send_operation(context, fetch.operation.clone(), variables)
         .await?;
 
     if let Some(_requires) = &fetch.requires {
@@ -291,19 +291,16 @@ pub fn execute_selection_set(source: &Value, selections: &SelectionSet) -> Value
     for selection in selections {
         match selection {
             Field(field) => {
-                let response_name = match &field.alias {
-                    Some(alias) => alias,
-                    None => &field.name,
-                };
+                let response_name = field.alias.as_ref().unwrap_or_else(|| &field.name);
 
                 if let Some(response_value) = source.get(response_name) {
-                    if response_value.is_array() {
-                        let inner = response_value.as_array().unwrap();
+                    if let Value::Array(inner) = response_value {
                         result[response_name] = Value::Array(
                             inner
                                 .iter()
                                 .map(|element| {
                                     if field.selections.is_some() {
+                                        // TODO(ran) FIXME: QQQ Should this be `field.selections` ?
                                         execute_selection_set(element, selections)
                                     } else {
                                         element.clone()
@@ -321,6 +318,7 @@ pub fn execute_selection_set(source: &Value, selections: &SelectionSet) -> Value
                 }
             }
             InlineFragment(fragment) => {
+                // TODO(ran) FIXME: QQQ if there's no type_condition, we don't recurse?
                 if let Some(ref type_condition) = fragment.type_condition {
                     if let Some(typename) = source.get("__typename") {
                         if typename.as_str().unwrap() == type_condition {

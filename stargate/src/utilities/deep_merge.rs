@@ -8,9 +8,7 @@ pub fn merge(target: &mut Value, source: &Value) {
     match (target, source) {
         (&mut Value::Object(ref mut map), &Value::Object(ref source)) => {
             for (key, source_value) in source {
-                let target_value = map
-                    .entry(key.as_str())
-                    .or_insert_with(|| serde_json::Value::Null);
+                let target_value = map.entry(key.as_str()).or_insert_with(|| Value::Null);
 
                 if !target_value.is_null() && (source_value.is_object() || source_value.is_array())
                 {
@@ -40,9 +38,11 @@ pub fn merge(target: &mut Value, source: &Value) {
 }
 
 #[cfg(test)]
-mod deep_merge_test {
+mod tests {
     use super::*;
     use serde_json::json;
+
+    // TODO(ran) FIXME: add test cases to address missing coverage lines (run grcov.sh)
 
     #[test]
     fn it_should_merge_objects() {

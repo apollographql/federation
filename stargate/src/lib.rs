@@ -28,10 +28,7 @@ impl<'app> Stargate<'app> {
         }
     }
 
-    pub async fn execute_query(
-        &self,
-        request_context: &RequestContext,
-    ) -> std::result::Result<GraphQLResponse, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn execute_query(&self, request_context: &RequestContext) -> Result<GraphQLResponse> {
         // TODO(ran) FIXME: gql validation on query
         // TODO(james) actual request pipeline here
         let options = QueryPlanningOptionsBuilder::default().build().unwrap();
@@ -70,3 +67,5 @@ fn get_service_list(schema: &schema::Document) -> HashMap<String, ServiceDefinit
         })
         .collect()
 }
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;

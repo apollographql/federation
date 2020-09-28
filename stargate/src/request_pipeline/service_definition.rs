@@ -1,9 +1,11 @@
-use async_trait::async_trait;
-
-use std::collections::HashMap;
-
 use crate::request_pipeline::executor::ExecutionContext;
 use crate::transports::http::{GraphQLRequest, GraphQLResponse};
+use crate::Result;
+use async_trait::async_trait;
+use serde_json::{Map, Value};
+use std::collections::HashMap;
+use std::iter::FromIterator;
+
 #[derive(Clone)]
 pub struct ServiceDefinition {
     pub url: String,
@@ -15,8 +17,8 @@ pub trait Service {
         &self,
         context: &ExecutionContext<'schema, 'request>,
         operation: String,
-        variables: &HashMap<String, serde_json::Value>,
-    ) -> std::result::Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync + 'static>>;
+        variables: HashMap<String, Value>,
+    ) -> Result<Value>;
 }
 
 #[async_trait]
@@ -25,24 +27,21 @@ impl Service for ServiceDefinition {
         &self,
         _context: &ExecutionContext<'schema, 'request>,
         operation: String,
-        variables: &HashMap<String, serde_json::Value>,
-    ) -> std::result::Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync + 'static>>
-    {
+        variables: HashMap<String, Value>,
+    ) -> Result<Value> {
         let request = GraphQLRequest {
             query: operation,
             operation_name: None,
-            variables: Some(serde_json::to_value(&variables).unwrap()),
+            variables: Some(Map::from_iter(variables.into_iter()).into()),
         };
 
+        // TODO(ran) FIXME: use a single client, reuse connections.
         let mut res = surf::post(&self.url)
             .set_header("userId", "1")
             .body_json(&request)?
             .await?;
         let GraphQLResponse { data } = res.body_json().await?;
-        if data.is_some() {
-            Ok(data.unwrap())
-        } else {
-            unimplemented!("Handle error cases in send_operation")
-        }
+
+        data.ok_or_else(|| unimplemented!("Handle error cases in send_operation"))
     }
 }
