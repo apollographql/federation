@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-
-use apollo_query_planner::build_query_plan;
+use crate::request_pipeline::executor::execute_query_plan;
+use crate::request_pipeline::service_definition::ServiceDefinition;
+use crate::transports::http::{GraphQLResponse, RequestContext};
 use apollo_query_planner::helpers::directive_args_as_map;
 use apollo_query_planner::{QueryPlanner, QueryPlanningOptionsBuilder};
 use graphql_parser::schema;
@@ -37,13 +37,9 @@ impl<'app> Stargate<'app> {
         let options = QueryPlanningOptionsBuilder::default().build().unwrap();
         let plan = self
             .planner
-            .plan(&request_context.graphql_request.query, options);
+            .plan(&request_context.graphql_request.query, options)
+            .unwrap_or_else(|_| todo!("convert QueryPlanError to generic error"));
 
-        let plan = if let Ok(plan) = plan {
-            plan
-        } else {
-            todo!("convert QueryPlanError to generic error")
-        };
         execute_query_plan(&plan, &self.service_list, &request_context).await
     }
 }
