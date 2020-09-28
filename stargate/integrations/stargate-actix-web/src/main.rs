@@ -1,19 +1,22 @@
 use actix_cors::Cors;
-use actix_web::{middleware, post, web, App, HttpResponse, HttpServer, Result};
+use actix_web::{get, middleware, post, web, App, HttpResponse, HttpServer, Result};
 use apollo_stargate::common::Opt;
 use apollo_stargate::transports::http::{GraphQLRequest, RequestContext, ServerState};
 use apollo_stargate::Stargate;
+use env_logger::Env;
+use serde_json::json;
 use std::fs;
 
 #[post("/")]
 async fn index(
     request: web::Json<GraphQLRequest>,
-    stargate: web::Data<&Stargate<'static>>,
+    data: web::Data<ServerState<'static>>,
 ) -> Result<HttpResponse> {
+    let ql_request = request.into_inner();
     let context = RequestContext {
-        graphql_request: request.into_inner(),
+        graphql_request: ql_request,
     };
-    let result = match stargate.execute_query(&context).await {
+    let result = match data.stargate.execute_query(&context).await {
         Ok(result) => result,
         Err(_) => todo!("handle error cases when executing query"),
     };
@@ -24,6 +27,7 @@ static mut MANIFEST: String = String::new();
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    env_logger::from_env(Env::default().default_filter_or("info")).init();
     let opt = Opt::default();
     let stargate = unsafe {
         MANIFEST = fs::read_to_string(&opt.manifest)?;
@@ -39,12 +43,13 @@ async fn main() -> std::io::Result<()> {
             .finish();
 
         App::new()
+            .app_data(stargate.clone())
+            .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
             .wrap(cors)
-            .data(stargate.clone())
             .service(index)
     })
-    .bind(format!("127.0.0.1:{}", opt.address))?
+    .bind(format!("127.0.0.1:{}", opt.port))?
     .run()
     .await
 }

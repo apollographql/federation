@@ -12,8 +12,8 @@ pub struct Opt {
     pub manifest: PathBuf,
 
     /// Where to write the output: to `stdout` or `file`
-    #[structopt(default_value = "http://localhost:8080", long)]
-    pub address: String,
+    #[structopt(default_value = "8080", long)]
+    pub port: u32,
 }
 
 impl Default for Opt {

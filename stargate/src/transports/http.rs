@@ -1,7 +1,7 @@
 use crate::Stargate;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GraphQLRequest {
     pub query: String,
     #[serde(rename = "operationName")]

@@ -45,6 +45,6 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sy
             Response::new(StatusCode::Ok).format_graphql_response(resp)
         });
 
-    server.listen(opt.address).await?;
+    server.listen(format!("http://localhost:{}", opt.port)).await?;
     Ok(())
 }
