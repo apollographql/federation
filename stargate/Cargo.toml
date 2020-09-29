@@ -10,14 +10,11 @@ repository = "https://github.com/apollographql/federation"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# Workspace
-apollo-query-planner = { path = "../query-planner" }
-graphql-parser = { path = "../graphql-parser" }
+# workspace
+apollo-stargate-lib = { path = "crates/stargate-lib" }
 
 # 3rd party
-async-trait = "0.1.40"
+actix-cors = "0.3.0"
+actix-web = "3.0.2"
 futures = "0.3.5"
-serde = { version = "1.0.115", features = ["derive"] }
-serde_json = "1.0.57"
-structopt = "0.3.15"
-surf = "1.0.3"
+env_logger = "0.7.1"

@@ -1,0 +1,12 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+---
+onion Feed = Story | Article | Advert
+
+---
+Err(
+    ParseError(
+        "Parse error at 1:1\nUnexpected `onion[Name]`\nExpected `{`, `query`, `mutation`, `subscription` or `fragment`\n",
+    ),
+)

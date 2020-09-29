@@ -14,7 +14,7 @@ crate-type=["cdylib"]
 
 [dependencies]
 # workspace
-apollo-query-planner = { path = "../query-planner" }
+apollo-query-planner = { path = "../stargate/crates/query-planner" }
 
 # 3rd party
 wasm-bindgen = { version = "0.2.67", features = ["serde-serialize"] }

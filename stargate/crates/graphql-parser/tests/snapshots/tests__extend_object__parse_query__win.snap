@@ -1,0 +1,14 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+---
+extend type Foo {
+  seven(argument: [String]): Type
+}
+
+---
+Err(
+    ParseError(
+        "Parse error at 1:1\nUnexpected `extend[Name]`\nExpected `{`, `query`, `mutation`, `subscription` or `fragment`\n",
+    ),
+)

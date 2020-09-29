@@ -323,6 +323,17 @@ dependencies = [
 name = "apollo-stargate"
 version = "0.1.0"
 dependencies = [
+ "actix-cors",
+ "actix-web",
+ "apollo-stargate-lib",
+ "env_logger",
+ "futures 0.3.5",
+]
+
+[[package]]
+name = "apollo-stargate-lib"
+version = "0.1.0"
+dependencies = [
  "apollo-query-planner",
  "async-trait",
  "futures 0.3.5",
@@ -331,19 +342,6 @@ dependencies = [
  "serde_json",
  "structopt",
  "surf",
-]
-
-[[package]]
-name = "apollo-stargate-actix-web"
-version = "0.1.0"
-dependencies = [
- "actix-cors",
- "actix-web",
- "apollo-stargate",
- "env_logger",
- "futures 0.3.5",
- "log",
- "serde_json",
 ]
 
 [[package]]
