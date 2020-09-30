@@ -4,6 +4,11 @@
     <exclude-output />
     <content url="file://$MODULE_DIR$/../../query-planner-wasm">
       <sourceFolder url="file://$MODULE_DIR$/../../query-planner-wasm/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../query-planner/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../query-planner/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../../graphql-parser/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../graphql-parser/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../../graphql-parser/benches" isTestSource="true" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />
   </component>

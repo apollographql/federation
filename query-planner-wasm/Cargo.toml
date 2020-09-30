@@ -1,12 +1,14 @@
 [package]
 name = "query-planner-wasm" # this ends up being the name in the published npm package.
-version = "0.0.3" # keep in sync with package.json
+version = "0.0.0-DO.NOT.CHANGE" # The version is managed in the package.json, by Lerna.
+private = true
 authors = ["Apollo <opensource@apollographql.com>"]
 homepage = "https://github.com/apollographql/federation"
 description = "Bridge code written in Rust to Javascript/Typescript, to be internally used by Apollo Gateway. This package is not meant to be independently consumed."
 edition = "2018"
-license = "MIT/Apache-2.0"
+license = "MIT"
 repository = "https://github.com/apollographql/federation"
+keywords = ["GraphQL", "rust", "wasm", "apollo"]
 
 [lib]
 crate-type=["cdylib"]
@@ -20,6 +22,6 @@ wasm-bindgen = { version = "0.2.67", features = ["serde-serialize"] }
 js-sys = "0.3.45"
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.17"
+wasm-bindgen-test = "0.3.18"
 serde = { version = "1.0.116", features = ["derive"] }
 serde_json = "1.0.57"

@@ -1,4 +1,4 @@
-import { Request, RequestInit, Headers } from 'apollo-server-env';
+import { RequestInit, Headers } from 'apollo-server-env';
 
 // Make this file a module
 // See: https://github.com/microsoft/TypeScript/issues/17736
@@ -11,36 +11,39 @@ declare global {
   }
 }
 
-type ExtendedRequest = RequestInit & { url: string };
-
-function prepareHttpRequest(request: ExtendedRequest): Request {
+function prepareHttpOptions(requestUrl: string, requestOpts: RequestInit): RequestInit {
   const headers = new Headers();
   headers.set('Content-Type', 'application/json');
-  if (request.headers) {
-    for (let name in request.headers) {
-      headers.set(name, request.headers[name]);
+  if (requestOpts.headers) {
+    for (let name in requestOpts.headers) {
+      headers.set(name, requestOpts.headers[name]);
     }
   }
 
-  const options: RequestInit = {
+  const requestHttp = {
     method: 'POST',
     headers,
-    body: JSON.stringify(request.body),
+    url: requestUrl
   };
 
-  return new Request(request.url, options);
+  return {
+    ...requestHttp,
+    body: JSON.stringify(requestOpts.body)
+  };
+
 }
 
 function toHaveFetched(
   this: jest.MatcherUtils,
   fetch: jest.SpyInstance,
-  request: ExtendedRequest,
+  requestUrl: string,
+  requestOpts: RequestInit
 ): { message(): string; pass: boolean } {
-  const httpRequest = prepareHttpRequest(request);
+  const httpOptions = prepareHttpOptions(requestUrl, requestOpts);
   let pass = false;
   let message = () => '';
   try {
-    expect(fetch).toBeCalledWith(httpRequest);
+    expect(fetch).toBeCalledWith(requestUrl, httpOptions);
     pass = true;
   } catch (e) {
     message = () => e.message;
@@ -56,13 +59,14 @@ function toHaveFetchedNth(
   this: jest.MatcherUtils,
   fetch: jest.SpyInstance,
   nthCall: number,
-  request: ExtendedRequest,
+  requestUrl: string,
+  requestOpts: RequestInit
 ): { message(): string; pass: boolean } {
-  const httpRequest = prepareHttpRequest(request);
+  const httpOptions = prepareHttpOptions(requestUrl, requestOpts);
   let pass = false;
   let message = () => '';
   try {
-    expect(fetch).toHaveBeenNthCalledWith(nthCall, httpRequest);
+    expect(fetch).toHaveBeenNthCalledWith(nthCall, requestUrl, httpOptions);
     pass = true;
   } catch (e) {
     message = () => e.message;

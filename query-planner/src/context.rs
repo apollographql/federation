@@ -24,10 +24,11 @@ pub struct QueryPlanningContext<'q> {
 }
 
 impl<'q> QueryPlanningContext<'q> {
-    pub fn new_scope(
+    pub fn new_scope_with_directives(
         &self,
         parent_type: &'q TypeDefinition<'q>,
         enclosing_scope: Option<Rc<Scope<'q>>>,
+        scope_directives: Option<&'q Vec<Directive<'q>>>,
     ) -> Rc<Scope<'q>> {
         let possible_types: Vec<&'q schema::ObjectType<'q>> = self
             .get_possible_types(parent_type)
@@ -45,7 +46,16 @@ impl<'q> QueryPlanningContext<'q> {
             parent_type,
             possible_types,
             enclosing_scope,
+            scope_directives,
         })
+    }
+
+    pub fn new_scope(
+        &self,
+        parent_type: &'q TypeDefinition<'q>,
+        enclosing_scope: Option<Rc<Scope<'q>>>,
+    ) -> Rc<Scope<'q>> {
+        self.new_scope_with_directives(parent_type, enclosing_scope, None)
     }
 
     fn get_possible_types(&self, td: &'q TypeDefinition<'q>) -> &Vec<&'q schema::ObjectType<'q>> {
@@ -242,6 +252,7 @@ pub struct Scope<'q> {
     pub parent_type: &'q TypeDefinition<'q>,
     pub possible_types: Vec<&'q schema::ObjectType<'q>>,
     pub enclosing_scope: Option<Rc<Scope<'q>>>,
+    pub scope_directives: Option<&'q Vec<Directive<'q>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

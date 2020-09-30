@@ -1,4 +1,5 @@
 import { fetch } from '__mocks__/apollo-server-env';
+import { makeFetchHappenFetcher} from '__mocks__/make-fetch-happen-fetcher';
 
 import {
   ApolloError,
@@ -31,9 +32,8 @@ describe('constructing requests', () => {
 
       expect(data).toEqual({ me: 'james' });
       expect(fetch).toBeCalledTimes(1);
-      expect(fetch).toHaveFetched({
-        url: 'https://api.example.com/foo',
-        body: { query: '{ me { name } }' },
+      expect(fetch).toHaveFetched('https://api.example.com/foo', {
+        body: { query: '{ me { name } }' }
       });
     });
 
@@ -55,8 +55,7 @@ describe('constructing requests', () => {
 
       expect(data).toEqual({ me: 'james' });
       expect(fetch).toBeCalledTimes(1);
-      expect(fetch).toHaveFetched({
-        url: 'https://api.example.com/foo',
+      expect(fetch).toHaveFetched('https://api.example.com/foo', {
         body: { query: '{ me { name } }', variables: { id: '1' } },
       });
     });
@@ -101,8 +100,7 @@ describe('constructing requests', () => {
 
         expect(data).toEqual({ me: 'james' });
         expect(fetch).toBeCalledTimes(2);
-        expect(fetch).toHaveFetchedNth(1, {
-          url: 'https://api.example.com/foo',
+        expect(fetch).toHaveFetchedNth(1, 'https://api.example.com/foo', {
           body: {
             extensions: {
               persistedQuery: {
@@ -112,8 +110,7 @@ describe('constructing requests', () => {
             }
           },
         });
-        expect(fetch).toHaveFetchedNth(2, {
-          url: 'https://api.example.com/foo',
+        expect(fetch).toHaveFetchedNth(2, 'https://api.example.com/foo', {
           body: {
             query,
             extensions: {
@@ -145,8 +142,7 @@ describe('constructing requests', () => {
 
         expect(data).toEqual({ me: 'james' });
         expect(fetch).toBeCalledTimes(2);
-        expect(fetch).toHaveFetchedNth(1, {
-          url: 'https://api.example.com/foo',
+        expect(fetch).toHaveFetchedNth(1, 'https://api.example.com/foo', {
           body: {
             variables: { id: '1' },
             extensions: {
@@ -157,9 +153,7 @@ describe('constructing requests', () => {
             }
           },
         });
-
-        expect(fetch).toHaveFetchedNth(2, {
-          url: 'https://api.example.com/foo',
+        expect(fetch).toHaveFetchedNth(2, 'https://api.example.com/foo', {
           body: {
             query,
             variables: { id: '1' },
@@ -190,9 +184,8 @@ describe('constructing requests', () => {
 
         expect(data).toEqual({ me: 'james' });
         expect(fetch).toBeCalledTimes(1);
-        expect(fetch).toHaveFetched({
-          url: 'https://api.example.com/foo',
-          body: {
+        expect(fetch).toHaveFetched('https://api.example.com/foo', {
+            body: {
             extensions: {
               persistedQuery: {
                 version: 1,
@@ -221,8 +214,7 @@ describe('constructing requests', () => {
 
         expect(data).toEqual({ me: 'james' });
         expect(fetch).toBeCalledTimes(1);
-        expect(fetch).toHaveFetched({
-          url: 'https://api.example.com/foo',
+        expect(fetch).toHaveFetched('https://api.example.com/foo', {
           body: {
             variables: { id: '1' },
             extensions: {
@@ -259,6 +251,25 @@ describe('fetcher', () => {
 
   });
 
+  it('supports a custom fetcher, like `make-fetch-happen`', async () => {
+    const injectedFetch =
+      makeFetchHappenFetcher.mockJSONResponseOnce({ data: { me: 'james' } });
+    const DataSource = new RemoteGraphQLDataSource({
+      url: 'https://api.example.com/foo',
+      fetcher: injectedFetch,
+    });
+
+    const { data } = await DataSource.process({
+      request: {
+        query: '{ me { name } }',
+        variables: { id: '1' },
+      },
+      context: {},
+    });
+
+    expect(injectedFetch).toHaveBeenCalled();
+    expect(data).toEqual({ me: 'james' });
+  })
 });
 
 describe('willSendRequest', () => {
@@ -281,8 +292,7 @@ describe('willSendRequest', () => {
     });
 
     expect(data).toEqual({ me: 'james' });
-    expect(fetch).toHaveFetched({
-      url: 'https://api.example.com/foo',
+    expect(fetch).toHaveFetched('https://api.example.com/foo', {
       body: {
         query: '{ me { name } }',
         variables: JSON.stringify({ id: '1' }),
@@ -309,8 +319,7 @@ describe('willSendRequest', () => {
     });
 
     expect(data).toEqual({ me: 'james' });
-    expect(fetch).toHaveFetched({
-      url: 'https://api.example.com/foo',
+    expect(fetch).toHaveFetched('https://api.example.com/foo', {
       body: {
         query: '{ me { name } }',
         variables: { id: '1' },
