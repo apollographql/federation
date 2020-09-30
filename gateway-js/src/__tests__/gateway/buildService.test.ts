@@ -77,8 +77,7 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
   });
 
   expect(fetch).toBeCalledTimes(1);
-  expect(fetch).toHaveFetched({
-    url: 'https://api.example.com/foo',
+  expect(fetch).toHaveFetched('https://api.example.com/foo', {
     body: {
       query: `{me{username}}`,
       variables: {},
@@ -125,8 +124,7 @@ it('makes enhanced introspection request using datasource', async () => {
 
   expect(fetch).toBeCalledTimes(1);
 
-  expect(fetch).toHaveFetched({
-    url: 'https://api.example.com/override',
+  expect(fetch).toHaveFetched('https://api.example.com/override', {
     body: {
       query: SERVICE_DEFINITION_QUERY,
     },
@@ -171,8 +169,7 @@ it('customizes request on a per-service basis', async () => {
 
   expect(fetch).toBeCalledTimes(3);
 
-  expect(fetch).toHaveFetched({
-    url: 'https://api.example.com/one',
+  expect(fetch).toHaveFetched('https://api.example.com/one', {
     body: {
       query: `query __ApolloGetServiceDefinition__ { _service { sdl } }`,
     },
@@ -181,8 +178,7 @@ it('customizes request on a per-service basis', async () => {
     },
   });
 
-  expect(fetch).toHaveFetched({
-    url: 'https://api.example.com/two',
+  expect(fetch).toHaveFetched('https://api.example.com/two', {
     body: {
       query: `query __ApolloGetServiceDefinition__ { _service { sdl } }`,
     },
@@ -191,8 +187,7 @@ it('customizes request on a per-service basis', async () => {
     },
   });
 
-  expect(fetch).toHaveFetched({
-    url: 'https://api.example.com/three',
+  expect(fetch).toHaveFetched('https://api.example.com/three', {
     body: {
       query: `query __ApolloGetServiceDefinition__ { _service { sdl } }`,
     },
