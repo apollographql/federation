@@ -4,8 +4,8 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- Fix `Cannot convert undefined or null to object` error which occurred when nullable variables were declared/used within an operation (i.e. `query`) document but `variables` was undefined on the request. [PR #167](https://github.com/apollographql/federation/pull/167)
-- When using a custom `fetcher` on a `RemoteGraphQLDataSource`, use that fetcher's `Request` initialization in order to satisfy and of its own implementation details.  This is necessary, for example, when using `make-fetch-happen`. [PR #188](https://github.com/apollographql/federation/pull/188) [Issue #191](https://github.com/apollographql/federation/issues/191) [Issue #196](https://github.com/apollographql/federation/issues/196)
+- Fix `Cannot convert undefined or null to object` error which occurred when nullable variables were declared/used within an operation (i.e. `query`) document but `variables` was undefined on the request. [PR #167](https://github.com/apollographql/federation/pull/167) [Issue #196](https://github.com/apollographql/federation/issues/196)
+- When using a custom `fetcher` on a `RemoteGraphQLDataSource`, use that fetcher's `Request` initialization in order to satisfy and of its own implementation details.  This is necessary, for example, when using `make-fetch-happen`. [PR #188](https://github.com/apollographql/federation/pull/188) [Issue #191](https://github.com/apollographql/federation/issues/191)
 
 ## v0.20.4
 
