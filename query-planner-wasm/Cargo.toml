@@ -8,6 +8,7 @@ edition = "2018"
 license = "MIT"
 repository = "https://github.com/apollographql/federation"
 keywords = ["GraphQL", "rust", "wasm", "apollo"]
+publish = false
 
 [lib]
 crate-type=["cdylib"]

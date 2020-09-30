@@ -11,7 +11,7 @@ pub struct Opt {
     #[structopt(long, parse(from_os_str))]
     pub manifest: PathBuf,
 
-    /// Where to write the output: to `stdout` or `file`
+    /// The port to bind on
     #[structopt(default_value = "8080", long)]
     pub port: u32,
 }
