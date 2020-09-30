@@ -1,22 +1,20 @@
 [package]
-name = "stargate"
+name = "apollo-stargate"
 version = "0.1.0"
-authors = ["jbaxleyiii <james@apollographql.com>"]
+authors = ["Apollo <opensource@apollographql.com>"]
+homepage = "https://github.com/apollographql/federation"
 edition = "2018"
+license = "MIT"
+repository = "https://github.com/apollographql/federation"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tide = "0.13.0"
-async-trait = "0.1.40"
-async-std = { version = "1.6.0", features = ["attributes"] }
-graphql-parser = { path = "../graphql-parser" }
-apollo-query-planner = { path = "../query-planner" }
-async-graphql = "1.17.21"
-serde = { version = "1.0.115", features = ["derive"] }
-serde_json = "1.0.57"
+# workspace
+apollo-stargate-lib = { path = "crates/stargate-lib" }
+
+# 3rd party
+actix-cors = "0.3.0"
+actix-web = "3.0.2"
 futures = "0.3.5"
-surf = "1.0.3"
-http-types = "2.4.0"
-structopt = "0.3.15"
-tide-compress = "0.5.0"
+env_logger = "0.7.1"

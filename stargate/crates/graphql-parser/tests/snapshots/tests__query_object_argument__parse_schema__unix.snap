@@ -1,0 +1,69 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+---
+query {
+  node(id: 1, obj: {key1: 123, key2: 456})
+}
+
+---
+Ok(
+    Document {
+        definitions: [
+            Operation(
+                OperationDefinition {
+                    position: Pos(1:1),
+                    kind: Query,
+                    description: None,
+                    name: None,
+                    variable_definitions: [],
+                    directives: [],
+                    selection_set: SelectionSet {
+                        span: (
+                            Pos(1:7),
+                            Pos(3:1),
+                        ),
+                        items: [
+                            Field(
+                                Field {
+                                    position: Pos(2:3),
+                                    alias: None,
+                                    name: "node",
+                                    arguments: [
+                                        (
+                                            "id",
+                                            Int(
+                                                1,
+                                            ),
+                                        ),
+                                        (
+                                            "obj",
+                                            Object(
+                                                {
+                                                    "key1": Int(
+                                                        123,
+                                                    ),
+                                                    "key2": Int(
+                                                        456,
+                                                    ),
+                                                },
+                                            ),
+                                        ),
+                                    ],
+                                    directives: [],
+                                    selection_set: SelectionSet {
+                                        span: (
+                                            Pos(2:3),
+                                            Pos(2:3),
+                                        ),
+                                        items: [],
+                                    },
+                                },
+                            ),
+                        ],
+                    },
+                },
+            ),
+        ],
+    },
+)
