@@ -251,8 +251,9 @@ describe('fetcher', () => {
 
   });
 
-  it('supports a custom fetcher such `make-fetch-happen` other than default node fetch', async () => {
-    const injectedFetch = makeFetchHappenFetcher.mockJSONResponseOnce({ data: { me: 'james' } });
+  it('supports a custom fetcher, like `make-fetch-happen`', async () => {
+    const injectedFetch =
+      makeFetchHappenFetcher.mockJSONResponseOnce({ data: { me: 'james' } });
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
       fetcher: injectedFetch,
