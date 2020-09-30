@@ -25,3 +25,4 @@ jobs:
           password: ${{ secrets.PUBLISH_DEBUG_TSCHEER }}
           workdir: /github/workspace/stargate
           registry: ghcr.io
+          tag_semver: true
