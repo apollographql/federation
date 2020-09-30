@@ -6,9 +6,6 @@
 
 - When using a custom `fetcher` on a `RemoteGraphQLDataSource`, use that fetcher's `Request` initialization in order to satisfy and of its own implementation details.  This is necessary, for example, when using `make-fetch-happen`. [PR #188](https://github.com/apollographql/federation/pull/188) [Issue #191](https://github.com/apollographql/federation/issues/191)
 
-## v0.21.0
-- Add support for custom fetcher such as `make-fetch-happen` other than default (node-fetch) used for communicating with downstream services
-
 ## v0.20.4
 
 - Adjust a `preinstall` script which was only intended to be executed by the monorepo tool-chain, not merely by installing the `@apollo/gateway` package as a dependency in another project. [PR #185](https://github.com/apollographql/federation/pull/185) [Issue #184](https://github.com/apollographql/federation/issues/184)
