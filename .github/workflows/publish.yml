@@ -18,7 +18,7 @@ jobs:
         id: get_version
         run: echo ::set-env name=RELEASE_VERSIONS::$(echo "${GITHUB_REF}" | sed -e "s/refs\/tags\///g" | sed -E "s/v?([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z]+(\.[0-9]+)?)?/\1.\2.\3\4,\1.\2\4,\1\4/g")
       - name: Publish
-        uses: elgohr/Publish-Docker-Github-Action@master
+        uses: Enrico2/Publish-Docker-Github-Action@master
         with:
           name: apollographql/federation/stargate
           username: ${{ github.actor }}
@@ -27,4 +27,5 @@ jobs:
           password: ${{ secrets.PUBLISH_DEBUG_TSCHEER }}
           workdir: /github/workspace/stargate
           registry: ghcr.io
-          tags: "latest,${{ env.RELEASE_VERSIONS }}"
+          tag_semver: true
+          include_latest: true
