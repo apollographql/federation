@@ -5,8 +5,7 @@
 ARG BASE_IMAGE=ekidd/rust-musl-builder:latest
 FROM alpine/git:latest AS cloner
 
-RUN git clone https://github.com/apollographql/federation.git /src && \
-  git -C /src checkout jbaxleyiii/gateway-spike
+RUN git clone https://github.com/apollographql/federation.git /src
 
 # Our first FROM statement declares the build environment.
 FROM ${BASE_IMAGE} AS builder
@@ -28,4 +27,4 @@ COPY --from=builder \
 
 # User can provide an alternate port via "-e 'PORT=<your port>'" when running the container.
 # PORT defaults to 8080 otherwise.
-CMD /usr/local/bin/stargate --address=http://0.0.0.0:${PORT:-8080} --manifest=/graph
+CMD /usr/local/bin/stargate --port=${PORT:-8080} --manifest=/graph

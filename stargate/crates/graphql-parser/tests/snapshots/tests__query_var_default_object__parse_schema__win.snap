@@ -1,0 +1,66 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+---
+query Foo($site: Site = {url: null}) {
+  field
+}
+
+---
+Ok(
+    Document {
+        definitions: [
+            Operation(
+                OperationDefinition {
+                    position: Pos(1:1),
+                    kind: Query,
+                    description: None,
+                    name: Some(
+                        "Foo",
+                    ),
+                    variable_definitions: [
+                        VariableDefinition {
+                            position: Pos(1:11),
+                            name: "site",
+                            var_type: NamedType(
+                                "Site",
+                            ),
+                            default_value: Some(
+                                Object(
+                                    {
+                                        "url": Null,
+                                    },
+                                ),
+                            ),
+                        },
+                    ],
+                    directives: [],
+                    selection_set: SelectionSet {
+                        span: (
+                            Pos(1:38),
+                            Pos(3:1),
+                        ),
+                        items: [
+                            Field(
+                                Field {
+                                    position: Pos(2:3),
+                                    alias: None,
+                                    name: "field",
+                                    arguments: [],
+                                    directives: [],
+                                    selection_set: SelectionSet {
+                                        span: (
+                                            Pos(2:3),
+                                            Pos(2:3),
+                                        ),
+                                        items: [],
+                                    },
+                                },
+                            ),
+                        ],
+                    },
+                },
+            ),
+        ],
+    },
+)
