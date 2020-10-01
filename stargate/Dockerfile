@@ -23,9 +23,9 @@ FROM alpine:latest
 # TODO: Unsure if needed
 RUN apk --no-cache add ca-certificates
 COPY --from=builder \
-  /home/rust/src/target/x86_64-unknown-linux-musl/release/stargate \
+  /home/rust/src/target/x86_64-unknown-linux-musl/release/apollo-stargate \
   /usr/local/bin/
 
 # User can provide an alternate port via "-e 'PORT=<your port>'" when running the container.
 # PORT defaults to 8080 otherwise.
-CMD /usr/local/bin/stargate --address=http://0.0.0.0:${PORT:-8080} --manifest=/graph
+CMD /usr/local/bin/apollo-stargate --address=http://0.0.0.0:${PORT:-8080} --manifest=/graph
