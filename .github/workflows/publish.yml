@@ -14,7 +14,9 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
-
+      - name: Get release version
+        id: get_version
+        run: echo ::set-env name=RELEASE_VERSIONS::$(echo "${GITHUB_REF}" | sed -e "s/refs\/tags\///g" | sed -E "s/v?([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z]+(\.[0-9]+)?)?/\1.\2.\3\4,\1.\2\4,\1\4/g")
       - name: Publish
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
@@ -25,4 +27,4 @@ jobs:
           password: ${{ secrets.PUBLISH_DEBUG_TSCHEER }}
           workdir: /github/workspace/stargate
           registry: ghcr.io
-          tag_semver: true
+          tags: "latest,${{ env.RELEASE_VERSIONS }}"
