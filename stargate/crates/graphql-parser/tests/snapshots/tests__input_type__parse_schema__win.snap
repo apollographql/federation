@@ -1,0 +1,54 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+---
+input InputType {
+  key: String!
+  answer: Int = 42
+}
+
+---
+Ok(
+    Document {
+        definitions: [
+            Type(
+                InputObject(
+                    InputObjectType {
+                        position: Pos(1:1),
+                        description: None,
+                        name: "InputType",
+                        directives: [],
+                        fields: [
+                            InputValue {
+                                position: Pos(2:3),
+                                description: None,
+                                name: "key",
+                                value_type: NonNullType(
+                                    NamedType(
+                                        "String",
+                                    ),
+                                ),
+                                default_value: None,
+                                directives: [],
+                            },
+                            InputValue {
+                                position: Pos(3:3),
+                                description: None,
+                                name: "answer",
+                                value_type: NamedType(
+                                    "Int",
+                                ),
+                                default_value: Some(
+                                    Int(
+                                        42,
+                                    ),
+                                ),
+                                directives: [],
+                            },
+                        ],
+                    },
+                ),
+            ),
+        ],
+    },
+)

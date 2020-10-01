@@ -1,0 +1,30 @@
+---
+source: graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+---
+"""
+Directs the executor to include this field or fragment only when the `if` argument is true.
+"""
+directive @include(
+  """
+  Included when true.
+  """
+  if: Boolean!
+) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"""
+Directs the executor to skip this field or fragment when the `if` argument is true.
+"""
+directive @skip(
+  """
+  Skipped when true.
+  """
+  if: Boolean!
+) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+---
+Err(
+    ParseError(
+        "Parse error at 1:1\nUnexpected `\"\"\"\r\nDirects the executor to include this field or fragment only when the `if` argument is true.\r\n\"\"\"[BlockString]`\nExpected `{`, `query`, `mutation`, `subscription` or `fragment`\n",
+    ),
+)
