@@ -2,7 +2,7 @@ name: Publish on Release
 
 on:
   release:
-    types: created
+    types: published
 
 env:
   CARGO_TERM_COLOR: always
