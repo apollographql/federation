@@ -320,17 +320,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "apollo-stargate"
-version = "0.1.0"
-dependencies = [
- "actix-cors",
- "actix-web",
- "apollo-stargate-lib",
- "env_logger",
- "futures 0.3.5",
-]
-
-[[package]]
 name = "apollo-stargate-lib"
 version = "0.1.0"
 dependencies = [
@@ -2007,6 +1996,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33a71ea1ea5f8747d1af1979bfb7e65c3a025a70609f04ceb78425bc5adad8e6"
 dependencies = [
  "version_check",
+]
+
+[[package]]
+name = "stargate"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-web",
+ "apollo-stargate-lib",
+ "env_logger",
+ "futures 0.3.5",
 ]
 
 [[package]]

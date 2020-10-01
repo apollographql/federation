@@ -1,5 +1,5 @@
 [package]
-name = "apollo-stargate"
+name = "stargate"
 version = "0.1.0"
 authors = ["Apollo <opensource@apollographql.com>"]
 homepage = "https://github.com/apollographql/federation"
