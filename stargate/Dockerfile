@@ -22,7 +22,7 @@ FROM alpine:latest
 # TODO: Unsure if needed
 RUN apk --no-cache add ca-certificates
 COPY --from=builder \
-  /home/rust/src/target/x86_64-unknown-linux-musl/release/apollo-stargate \
+  /home/rust/src/target/x86_64-unknown-linux-musl/release/stargate \
   /usr/local/bin/
 
 # User can provide an alternate port via "-e 'PORT=<your port>'" when running the container.
