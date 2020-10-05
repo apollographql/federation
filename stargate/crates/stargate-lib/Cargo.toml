@@ -15,7 +15,7 @@ apollo-query-planner = { path = "../query-planner" }
 graphql-parser = { path = "../graphql-parser" }
 
 # 3rd party
-async-trait = "0.1.40"
+async-trait = "0.1.41"
 futures = "0.3.5"
 serde = { version = "1.0.115", features = ["derive"] }
 serde_json = "1.0.57"
