@@ -21,7 +21,7 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-pub fn build_query_plan(
+pub(crate) fn build_query_plan(
     schema: &schema::Document,
     query: &Document,
     options: QueryPlanningOptions,

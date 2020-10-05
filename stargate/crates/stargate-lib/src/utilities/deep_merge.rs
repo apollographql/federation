@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-pub fn merge(target: &mut Value, source: &Value) {
+pub(crate) fn merge(target: &mut Value, source: &Value) {
     if source.is_null() {
         return;
     }
