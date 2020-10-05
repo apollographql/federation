@@ -15,6 +15,6 @@ apollo-stargate-lib = { path = "crates/stargate-lib" }
 
 # 3rd party
 actix-cors = "0.3.0"
-actix-web = "3.0.2"
+actix-web = "3.1.0"
 futures = "0.3.5"
 env_logger = "0.7.1"
