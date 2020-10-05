@@ -51,7 +51,7 @@ Apollo Federation encourages a design principle called [separation of concerns](
 
 When considering how to split a single GraphQL schema across multiple services, it seems straightforward to divide schemas up by type. For example, a `users` service would define the entirety of a `User` type, the `products` service would define a `Product` type, and so on:
 
-<img class="screenshot" src="../images/composition_schema-1.png" alt="3 separate types divided into 3 services"></img>
+<img class="screenshot" src="./images/composition_schema-1.png" alt="3 separate types divided into 3 services"></img>
 
 Although this separation looks clean, it quickly causes issues. Specifically, a particular feature (or concern) usually spans multiple types.
 
@@ -66,7 +66,7 @@ By defining the `recentPurchases` field in the `products` service instead:
 
 The following schema uses Apollo Federation to divide the same set of types and fields across the same three services:
 
-<img class="screenshot" src="../images/composition_schema-2.png" alt="Splitting those 3 types by data source rather than by type. Includes type extensions across services"></img>
+<img class="screenshot" src="./images/composition_schema-2.png" alt="Splitting those 3 types by data source rather than by type. Includes type extensions across services"></img>
 
 The difference is that now, each service defines the types and fields that it is capable of (and _should_ be responsible for) populating from its back-end data store.
 
