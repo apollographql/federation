@@ -4,7 +4,7 @@ extern crate lazy_static;
 #[macro_use]
 extern crate derive_builder;
 
-pub use crate::builder::build_query_plan;
+use crate::builder::build_query_plan;
 use crate::model::QueryPlan;
 use graphql_parser::{parse_query, parse_schema, schema, ParseError};
 use serde::{Deserialize, Serialize};

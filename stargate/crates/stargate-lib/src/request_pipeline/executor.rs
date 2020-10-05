@@ -281,7 +281,7 @@ fn flatten_results_at_path<'request>(
     }
 }
 
-pub fn execute_selection_set(source: &Value, selections: &SelectionSet) -> Value {
+fn execute_selection_set(source: &Value, selections: &SelectionSet) -> Value {
     if source.is_null() {
         return Value::default();
     }

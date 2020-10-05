@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct QueryPlanningContext<'q> {
+pub(crate) struct QueryPlanningContext<'q> {
     pub schema: &'q schema::Document<'q>,
     pub operation: Op<'q>,
     pub fragments: HashMap<&'q str, &'q FragmentDefinition<'q>>,
@@ -24,7 +24,7 @@ pub struct QueryPlanningContext<'q> {
 }
 
 impl<'q> QueryPlanningContext<'q> {
-    pub fn new_scope_with_directives(
+    pub(crate) fn new_scope_with_directives(
         &self,
         parent_type: &'q TypeDefinition<'q>,
         enclosing_scope: Option<Rc<Scope<'q>>>,
@@ -50,7 +50,7 @@ impl<'q> QueryPlanningContext<'q> {
         })
     }
 
-    pub fn new_scope(
+    pub(crate) fn new_scope(
         &self,
         parent_type: &'q TypeDefinition<'q>,
         enclosing_scope: Option<Rc<Scope<'q>>>,
@@ -62,7 +62,7 @@ impl<'q> QueryPlanningContext<'q> {
         &self.possible_types[td.as_name()]
     }
 
-    pub fn get_variable_usages(
+    pub(crate) fn get_variable_usages(
         &self,
         selection_set: &SelectionSetRef,
     ) -> (Vec<String>, Vec<&VariableDefinition>) {
@@ -74,7 +74,7 @@ impl<'q> QueryPlanningContext<'q> {
             .unzip()
     }
 
-    pub fn type_def_for_object(
+    pub(crate) fn type_def_for_object(
         &self,
         obj: &'q schema::ObjectType<'q>,
     ) -> &'q schema::TypeDefinition<'q> {
@@ -82,13 +82,13 @@ impl<'q> QueryPlanningContext<'q> {
     }
 
     // TODO(ran)(p2)(#114) we may be able to change this return type to &str
-    pub fn get_base_service(&self, parent_type: &schema::ObjectType) -> String {
+    pub(crate) fn get_base_service(&self, parent_type: &schema::ObjectType) -> String {
         self.federation
             .service_name_for_type(parent_type)
             .expect("Cannot find federation metadata")
     }
 
-    pub fn get_owning_service(
+    pub(crate) fn get_owning_service(
         &self,
         parent_type: &schema::ObjectType,
         field_def: &schema::Field,
@@ -99,7 +99,7 @@ impl<'q> QueryPlanningContext<'q> {
     }
 
     // TODO(ran)(p2)(#114) for get_X_fields, we can calculate it once from the schema and put it in some maps or something.
-    pub fn get_key_fields<'a>(
+    pub(crate) fn get_key_fields<'a>(
         &'q self,
         parent_type: &'q TypeDefinition<'q>,
         service_name: &'a str,
@@ -148,7 +148,7 @@ impl<'q> QueryPlanningContext<'q> {
         key_fields
     }
 
-    pub fn get_required_fields<'a>(
+    pub(crate) fn get_required_fields<'a>(
         &'q self,
         parent_type: &'q TypeDefinition<'q>,
         field_def: &'q schema::Field<'q>,
@@ -164,7 +164,7 @@ impl<'q> QueryPlanningContext<'q> {
         required_fields
     }
 
-    pub fn get_provided_fields<'a>(
+    pub(crate) fn get_provided_fields<'a>(
         &'q self,
         field_def: &'q schema::Field<'q>,
         service_name: &'a str,
@@ -248,7 +248,7 @@ impl<'q> QueryPlanningContext<'q> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Scope<'q> {
+pub(crate) struct Scope<'q> {
     pub parent_type: &'q TypeDefinition<'q>,
     pub possible_types: Vec<&'q schema::ObjectType<'q>>,
     pub enclosing_scope: Option<Rc<Scope<'q>>>,
@@ -256,10 +256,10 @@ pub struct Scope<'q> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Field<'q> {
+pub(crate) struct Field<'q> {
     pub scope: Rc<Scope<'q>>,
     pub field_node: FieldRef<'q>,
     pub field_def: &'q schema::Field<'q>,
 }
 
-pub type FieldSet<'q> = Vec<Field<'q>>;
+pub(crate) type FieldSet<'q> = Vec<Field<'q>>;

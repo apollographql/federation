@@ -182,10 +182,10 @@ struct Counter {
 }
 
 impl Counter {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { i: 0 }
     }
-    pub fn get_and_incr(&mut self) -> i32 {
+    pub(crate) fn get_and_incr(&mut self) -> i32 {
         let r = self.i;
         self.i += 1;
         r

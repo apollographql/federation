@@ -8,7 +8,7 @@ use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
+pub(crate) fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
     query
         .definitions
         .iter()
@@ -26,7 +26,7 @@ pub fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
         .collect()
 }
 
-pub fn build_possible_types<'a, 'q>(
+pub(crate) fn build_possible_types<'a, 'q>(
     schema: &'q schema::Document<'q>,
     types: &'a HashMap<&'q str, &'q schema::TypeDefinition<'q>>,
 ) -> HashMap<&'q str, Vec<&'q schema::ObjectType<'q>>> {
@@ -90,7 +90,7 @@ pub fn build_possible_types<'a, 'q>(
     implementing_types
 }
 
-pub fn names_to_types<'q>(
+pub(crate) fn names_to_types<'q>(
     schema: &'q schema::Document<'q>,
 ) -> HashMap<&'q str, &'q TypeDefinition<'q>> {
     schema
@@ -104,7 +104,7 @@ pub fn names_to_types<'q>(
         .collect()
 }
 
-pub fn variable_name_to_def<'q>(
+pub(crate) fn variable_name_to_def<'q>(
     query: &'q query::Document<'q>,
 ) -> HashMap<&'q str, &'q VariableDefinition<'q>> {
     match query
@@ -124,11 +124,11 @@ pub(crate) fn pos() -> Pos {
     Pos { line: 0, column: 0 }
 }
 
-pub fn span() -> (Pos, Pos) {
+pub(crate) fn span() -> (Pos, Pos) {
     (pos(), pos())
 }
 
-pub fn merge_selection_sets<'q>(fields: Vec<FieldRef<'q>>) -> SelectionSetRef<'q> {
+pub(crate) fn merge_selection_sets<'q>(fields: Vec<FieldRef<'q>>) -> SelectionSetRef<'q> {
     fn merge_field_selection_sets(fields: Vec<SelectionRef>) -> Vec<SelectionRef> {
         let (field_nodes, fragment_nodes): (Vec<SelectionRef>, Vec<SelectionRef>) =
             fields.into_iter().partition(|s| s.is_field());
@@ -198,7 +198,7 @@ pub fn merge_selection_sets<'q>(fields: Vec<FieldRef<'q>>) -> SelectionSetRef<'q
     }
 }
 
-pub fn group_by<T, K, F>(v: Vec<T>, f: F) -> LinkedHashMap<K, Vec<T>>
+pub(crate) fn group_by<T, K, F>(v: Vec<T>, f: F) -> LinkedHashMap<K, Vec<T>>
 where
     F: Fn(&T) -> K,
     K: Hash + PartialEq + Eq,
@@ -211,7 +211,7 @@ where
 }
 
 // https://github.com/graphql/graphql-js/blob/7b3241329e1ff49fb647b043b80568f0cf9e1a7c/src/type/introspection.js#L500-L509
-pub fn is_introspection_type(name: &str) -> bool {
+pub(crate) fn is_introspection_type(name: &str) -> bool {
     name == "__Schema"
         || name == "__Directive"
         || name == "__DirectiveLocation"
@@ -222,7 +222,7 @@ pub fn is_introspection_type(name: &str) -> bool {
         || name == "__TypeKind"
 }
 
-pub fn is_not_introspection_field(selection: &SelectionRef) -> bool {
+pub(crate) fn is_not_introspection_field(selection: &SelectionRef) -> bool {
     match *selection {
         SelectionRef::FieldRef(ref field) => {
             field.name != INTROSPECTION_SCHEMA_FIELD_NAME
@@ -262,7 +262,7 @@ impl<T> Head<T> for Vec<T> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Op<'q> {
+pub(crate) struct Op<'q> {
     pub selection_set: &'q SelectionSet<'q>,
     pub kind: query::Operation,
 }

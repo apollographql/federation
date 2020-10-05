@@ -7,7 +7,7 @@ use graphql_parser::schema::TypeDefinition;
 use linked_hash_map::LinkedHashMap;
 
 #[derive(Debug)]
-pub struct FetchGroup<'q> {
+pub(crate) struct FetchGroup<'q> {
     pub service_name: String,
     pub fields: FieldSet<'q>,
     // This is only for auto_fragmentization -- which is currently unimplemented
@@ -20,11 +20,11 @@ pub struct FetchGroup<'q> {
 }
 
 impl<'q> FetchGroup<'q> {
-    pub fn init(service_name: String) -> FetchGroup<'q> {
+    pub(crate) fn init(service_name: String) -> FetchGroup<'q> {
         FetchGroup::new(service_name, vec![], vec![])
     }
 
-    pub fn new(
+    pub(crate) fn new(
         service_name: String,
         merge_at: ResponsePath,
         provided_fields: Vec<&'q str>,
@@ -42,7 +42,7 @@ impl<'q> FetchGroup<'q> {
         }
     }
 
-    pub fn dependent_group_for_service<'a>(
+    pub(crate) fn dependent_group_for_service<'a>(
         &'a mut self,
         service: String,
         required_fields: FieldSet<'q>,
@@ -77,13 +77,13 @@ pub(crate) trait GroupForField<'q> {
 }
 
 // Used by split_root_fields
-pub struct ParallelGroupForField<'q> {
+pub(crate) struct ParallelGroupForField<'q> {
     context: &'q QueryPlanningContext<'q>,
     groups_map: LinkedHashMap<String, FetchGroup<'q>>,
 }
 
 impl<'q> ParallelGroupForField<'q> {
-    pub fn new(context: &'q QueryPlanningContext<'q>) -> Self {
+    pub(crate) fn new(context: &'q QueryPlanningContext<'q>) -> Self {
         Self {
             context,
             groups_map: LinkedHashMap::new(),
@@ -118,13 +118,13 @@ impl<'q> GroupForField<'q> for ParallelGroupForField<'q> {
 }
 
 // Used by split_root_fields_serially
-pub struct SerialGroupForField<'q> {
+pub(crate) struct SerialGroupForField<'q> {
     context: &'q QueryPlanningContext<'q>,
     groups: Vec<FetchGroup<'q>>,
 }
 
 impl<'q> SerialGroupForField<'q> {
-    pub fn new(context: &'q QueryPlanningContext<'q>) -> Self {
+    pub(crate) fn new(context: &'q QueryPlanningContext<'q>) -> Self {
         Self {
             context,
             groups: vec![],
@@ -162,13 +162,13 @@ impl<'q> GroupForField<'q> for SerialGroupForField<'q> {
 }
 
 // Used by split_sub_fields
-pub struct GroupForSubField<'q> {
+pub(crate) struct GroupForSubField<'q> {
     context: &'q QueryPlanningContext<'q>,
     parent_group: FetchGroup<'q>,
 }
 
 impl<'q> GroupForSubField<'q> {
-    pub fn new(context: &'q QueryPlanningContext<'q>, parent_group: FetchGroup<'q>) -> Self {
+    pub(crate) fn new(context: &'q QueryPlanningContext<'q>, parent_group: FetchGroup<'q>) -> Self {
         Self {
             context,
             parent_group,

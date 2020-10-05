@@ -14,7 +14,7 @@ struct FederationTypeMetadata<'q> {
 }
 
 impl<'q> FederationTypeMetadata<'q> {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             is_value_type: HashMap::new(),
             keys: HashMap::new(),
@@ -31,7 +31,7 @@ struct FederationFieldMetadata<'q> {
 }
 
 impl<'q> FederationFieldMetadata<'q> {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             service_name: HashMap::new(),
             requires: HashMap::new(),
@@ -41,13 +41,13 @@ impl<'q> FederationFieldMetadata<'q> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Federation<'q> {
+pub(crate) struct Federation<'q> {
     types: FederationTypeMetadata<'q>,
     fields: FederationFieldMetadata<'q>,
 }
 
 impl<'q> Federation<'q> {
-    pub fn new(schema: &'q Document<'q>) -> Federation<'q> {
+    pub(crate) fn new(schema: &'q Document<'q>) -> Federation<'q> {
         let mut types = FederationTypeMetadata::new();
         let mut fields = FederationFieldMetadata::new();
 
@@ -132,29 +132,32 @@ impl<'q> Federation<'q> {
         Federation { types, fields }
     }
 
-    pub fn service_name_for_field<'a>(&'a self, field_def: &'q Field<'q>) -> Option<String> {
+    pub(crate) fn service_name_for_field<'a>(&'a self, field_def: &'q Field<'q>) -> Option<String> {
         self.fields.service_name.get(&field_def.position).cloned()
     }
 
-    pub fn requires<'a>(&'a self, field_def: &'q Field<'q>) -> Option<SelectionSetRef<'a>> {
+    pub(crate) fn requires<'a>(&'a self, field_def: &'q Field<'q>) -> Option<SelectionSetRef<'a>> {
         self.fields
             .requires
             .get(&field_def.position)
             .map(SelectionSetRef::from)
     }
 
-    pub fn provides<'a>(&'a self, field_def: &'q Field<'q>) -> Option<SelectionSetRef<'a>> {
+    pub(crate) fn provides<'a>(&'a self, field_def: &'q Field<'q>) -> Option<SelectionSetRef<'a>> {
         self.fields
             .provides
             .get(&field_def.position)
             .map(SelectionSetRef::from)
     }
 
-    pub fn service_name_for_type<'a>(&'a self, object_type: &'q ObjectType<'q>) -> Option<String> {
+    pub(crate) fn service_name_for_type<'a>(
+        &'a self,
+        object_type: &'q ObjectType<'q>,
+    ) -> Option<String> {
         self.types.owner.get(&object_type.position).cloned()
     }
 
-    pub fn key<'a>(
+    pub(crate) fn key<'a>(
         &'a self,
         object_type: &'q ObjectType<'q>,
         service_name: &str,
@@ -169,7 +172,7 @@ impl<'q> Federation<'q> {
             })
     }
 
-    pub fn is_value_type<'a>(&'a self, parent_type: &'q TypeDefinition<'q>) -> bool {
+    pub(crate) fn is_value_type<'a>(&'a self, parent_type: &'q TypeDefinition<'q>) -> bool {
         if let TypeDefinition::Object(object_type) = parent_type {
             self.types.is_value_type[&object_type.position]
         } else {

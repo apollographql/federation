@@ -6,12 +6,14 @@ use graphql_parser::query;
 use graphql_parser::query::refs::{SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 
-pub struct VariableUsagesMap<'q> {
+pub(crate) struct VariableUsagesMap<'q> {
     variable_definitions: &'q HashMap<&'q str, &'q VariableDefinition<'q>>,
 }
 
 impl<'q> VariableUsagesMap<'q> {
-    pub fn new(variable_definitions: &'q HashMap<&'q str, &'q VariableDefinition<'q>>) -> Self {
+    pub(crate) fn new(
+        variable_definitions: &'q HashMap<&'q str, &'q VariableDefinition<'q>>,
+    ) -> Self {
         Self {
             variable_definitions,
         }

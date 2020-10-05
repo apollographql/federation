@@ -33,10 +33,10 @@ pub static MUTATION_TYPE_NAME: &str = "Mutation";
 pub static EMPTY_ARGS: Vec<(Txt<'static>, Value<'static>)> = vec![];
 pub static EMPTY_DIRECTIVES: Vec<Directive<'static>> = vec![];
 
-pub fn typename_field_def<'a>() -> &'a schema::Field<'a> {
+pub(crate) fn typename_field_def<'a>() -> &'a schema::Field<'a> {
     &*TYPENAME_SCHEMA_FIELD
 }
 
-pub fn typename_field_node<'a>() -> FieldRef<'a> {
+pub(crate) fn typename_field_node<'a>() -> FieldRef<'a> {
     (*TYPENAME_QUERY_FIELD).clone()
 }
