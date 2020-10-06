@@ -5,13 +5,14 @@ use apollo_query_planner::helpers::directive_args_as_map;
 use apollo_query_planner::{QueryPlanner, QueryPlanningOptionsBuilder};
 use graphql_parser::schema;
 use std::collections::HashMap;
+use tracing::instrument;
 
 pub mod common;
 mod request_pipeline;
 pub mod transports;
 mod utilities;
 
-#[derive(Clone)]
+#[derive(Debug)]
 pub struct Stargate<'app> {
     service_list: HashMap<String, ServiceDefinition>,
     pub planner: QueryPlanner<'app>,
@@ -28,6 +29,7 @@ impl<'app> Stargate<'app> {
         }
     }
 
+    #[instrument(skip(self, request_context))]
     pub async fn execute_query(&self, request_context: &RequestContext) -> Result<GraphQLResponse> {
         // TODO(ran) FIXME: gql validation on query
         // TODO(james) actual request pipeline here

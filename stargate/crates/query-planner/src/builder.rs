@@ -20,7 +20,9 @@ use graphql_parser::{query, schema, DisplayMinified, Name};
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
+use tracing::instrument;
 
+#[instrument(skip(schema, query, options))]
 pub(crate) fn build_query_plan(
     schema: &schema::Document,
     query: &Document,
