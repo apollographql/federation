@@ -9,6 +9,7 @@ use futures::future::{BoxFuture, FutureExt};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::RwLock;
+use tracing::instrument;
 
 pub struct ExecutionContext<'schema, 'request> {
     service_map: &'schema HashMap<String, ServiceDefinition>,
@@ -16,6 +17,7 @@ pub struct ExecutionContext<'schema, 'request> {
     request_context: &'request RequestContext,
 }
 
+#[instrument(skip(query_plan, service_map, request_context))]
 pub async fn execute_query_plan(
     query_plan: &QueryPlan,
     service_map: &HashMap<String, ServiceDefinition>,
@@ -291,7 +293,7 @@ fn execute_selection_set(source: &Value, selections: &SelectionSet) -> Value {
     for selection in selections {
         match selection {
             Field(field) => {
-                let response_name = field.alias.as_ref().unwrap_or_else(|| &field.name);
+                let response_name = field.alias.as_ref().unwrap_or(&field.name);
 
                 if let Some(response_value) = source.get(response_name) {
                     if let Value::Array(inner) = response_value {

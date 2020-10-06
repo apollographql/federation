@@ -20,6 +20,7 @@ pub struct RequestContext {
     pub graphql_request: GraphQLRequest,
 }
 
+#[derive(Debug)]
 pub struct ServerState<'app> {
     pub stargate: Stargate<'app>,
 }

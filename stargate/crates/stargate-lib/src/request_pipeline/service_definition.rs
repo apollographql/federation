@@ -6,7 +6,7 @@ use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::iter::FromIterator;
 
-#[derive(Clone)]
+#[derive(Debug)]
 pub struct ServiceDefinition {
     pub url: String,
 }
