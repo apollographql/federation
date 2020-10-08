@@ -16,7 +16,7 @@ The model of federated metrics is that implementing services report timing and e
 
 ## Turning it on
 
-Ensure that all dependencies on `apollo-server` are at version `2.7.0` or higher. Provide an API key to your gateway via the `APOLLO_KEY` environment variable for the gateway to report metrics to the default ingress. To ensure that implementing services do not report metrics as well, do not provide them with an `APOLLO_KEY` or install the [`ApolloServerPluginUsageReportingDisabled` plugin](../api/plugin/usage-reporting/) in your `ApolloServer`.
+Ensure that all dependencies on `apollo-server` are at version `2.7.0` or higher. Provide an API key to your gateway via the `APOLLO_KEY` environment variable for the gateway to report metrics to the default ingress. To ensure that implementing services do not report metrics as well, do not provide them with an `APOLLO_KEY` or install the [`ApolloServerPluginUsageReportingDisabled` plugin](https://www.apollographql.com/docs/apollo-server/api/plugin/usage-reporting/) in your `ApolloServer`.
 
 These options will cause the Apollo gateway to collect tracing information from the underlying federated services and pass them on, along with the query plan, to the Apollo metrics ingress. Currently, only Apollo Server supports detailed metrics insights as an implementing service, but we would love to work with you to implement the protocol in other languages!
 
@@ -34,7 +34,7 @@ The Apollo gateway constructs traces in the shape of the [query plan](https://ww
 
 ## How errors work
 
-The Apollo Platform provides functionality to modify error details for the client, via the [`formatError`](https://www.apollographql.com/docs/apollo-server/features/errors/#for-the-client-response) option. Additionally, there is functionality to support modifying error details for the metrics ingress, via the [`rewriteError`](../data/errors/#for-apollo-studio-reporting) option to the [inline trace plugin](../api/plugin/inline-trace/).
+The Apollo Platform provides functionality to modify error details for the client, via the [`formatError`](https://www.apollographql.com/docs/apollo-server/features/errors/#for-the-client-response) option. Additionally, there is functionality to support modifying error details for the metrics ingress, via the [`rewriteError`](https://www.apollographql.com/docs/apollo-server/data/errors/#for-apollo-studio-reporting) option to the [inline trace plugin](https://www.apollographql.com/docs/apollo-server/api/plugin/inline-trace/).
 
 When modifying errors for the client, you might want to use this option to hide implementation details, like database errors, from your users. When modifying errors for reporting, you might want to obfuscate or redact personal information, like user IDs or emails.
 
