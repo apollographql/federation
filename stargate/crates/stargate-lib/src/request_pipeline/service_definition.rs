@@ -39,7 +39,8 @@ impl Service for ServiceDefinition {
         let GraphQLResponse { data } = surf::post(&self.url)
             .header("userId", "1")
             .body(surf::Body::from_json(&request)?)
-            .recv_json().await?;
+            .recv_json()
+            .await?;
 
         data.ok_or_else(|| unimplemented!("Handle error cases in send_operation"))
     }
