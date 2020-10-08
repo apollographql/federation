@@ -36,11 +36,10 @@ impl Service for ServiceDefinition {
         };
 
         // TODO(ran) FIXME: use a single client, reuse connections.
-        let mut res = surf::post(&self.url)
-            .set_header("userId", "1")
-            .body_json(&request)?
-            .await?;
-        let GraphQLResponse { data } = res.body_json().await?;
+        let GraphQLResponse { data } = surf::post(&self.url)
+            .header("userId", "1")
+            .body(surf::Body::from_json(&request)?)
+            .recv_json().await?;
 
         data.ok_or_else(|| unimplemented!("Handle error cases in send_operation"))
     }
