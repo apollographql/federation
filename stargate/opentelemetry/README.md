@@ -7,7 +7,7 @@
 2. Run stargate:
    ```shell script
    cd stargate
-   cargo run -- --manifest fixtures/acephei.graphql
+   cargo run -- --manifest fixtures/acephei.graphql --tracing-endpoint udp://localhost:6831
    ```
 3. curl locahost:
    ```shell script
