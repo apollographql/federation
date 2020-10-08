@@ -48,7 +48,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .service(index)
     })
-    .bind(format!("127.0.0.1:{}", opt.port))?
+    .bind(format!("0.0.0.0:{}", opt.port))?
     .run()
     .await
 }
