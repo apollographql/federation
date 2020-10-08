@@ -85,11 +85,10 @@ impl FromStr for TracingConfig {
         match Url::parse(s) {
             Err(e) => Err(e.to_string()),
             Ok(url) => {
-                if url.scheme() != "http" && url.scheme() != "udp" {
-                    Err(err())
-                } else if url.port().is_none() {
-                    Err(err())
-                } else if url.host_str().is_none() {
+                if (url.scheme() != "http" && url.scheme() != "udp")
+                    || url.port().is_none()
+                    || url.host_str().is_none()
+                {
                     Err(err())
                 } else {
                     let protocol = if url.scheme() == "udp" {
