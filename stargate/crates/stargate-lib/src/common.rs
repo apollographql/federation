@@ -14,6 +14,10 @@ pub struct Opt {
     /// The port to bind on
     #[structopt(default_value = "8080", long)]
     pub port: u32,
+
+    /// If enabled, logs will be outputed as JSON in the Bunyan Format. Defaults to false.
+    #[structopt(short, long)]
+    pub structured_logging: bool,
 }
 
 impl Default for Opt {
