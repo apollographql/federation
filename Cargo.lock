@@ -274,19 +274,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "actix-web-opentelemetry"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efeefd6473a1a03037e42afd8483146ce0f5c58ba8076c4c11fd20c5a4ed6bc7"
-dependencies = [
- "actix-http",
- "actix-web",
- "futures 0.3.6",
- "opentelemetry",
- "serde",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1853,9 +1840,9 @@ dependencies = [
 
 [[package]]
 name = "protobuf"
-version = "2.17.0"
+version = "2.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb14183cc7f213ee2410067e1ceeadba2a7478a59432ff0747a335202798b1e2"
+checksum = "6d147edb77bcccbfc81fabffdc7bd50c13e103b15ca1e27515fe40de69a5776b"
 
 [[package]]
 name = "qstring"
@@ -2224,7 +2211,6 @@ dependencies = [
  "actix-cors",
  "actix-service",
  "actix-web",
- "actix-web-opentelemetry",
  "apollo-stargate-lib",
  "chrono",
  "env_logger 0.7.1",

@@ -1,6 +1,5 @@
 use actix_cors::Cors;
 use actix_web::{middleware, post, web, App, HttpResponse, HttpServer, Result};
-use actix_web_opentelemetry::RequestTracing;
 use apollo_stargate_lib::common::Opt;
 use apollo_stargate_lib::transports::http::{GraphQLRequest, RequestContext, ServerState};
 use apollo_stargate_lib::Stargate;
@@ -33,12 +32,11 @@ async fn index(
 
 static mut MANIFEST: String = String::new();
 
-fn init_observability() -> Result<(), Box<dyn std::error::Error>> {
-    // env_logger::from_env(Env::default().default_filter_or("info")).init();
+fn init_observability(structured_logging: bool) -> Result<(), Box<dyn std::error::Error>> {
     LogTracer::init().expect("Failed to set logger");
 
     debug!("initializing jaeger trace exporter");
-    let exporter = opentelemetry_jaeger::Exporter::builder()
+    let jaeger_exporter = opentelemetry_jaeger::Exporter::builder()
         .with_collector_endpoint("http://localhost:14268/api/traces")
         .with_process(opentelemetry_jaeger::Process {
             service_name: String::from("stargate"),
@@ -46,9 +44,9 @@ fn init_observability() -> Result<(), Box<dyn std::error::Error>> {
         })
         .init()?;
 
-    debug!("initializing jaeger trace provider");
+    debug!("initializing trace provider");
     let provider = sdk::Provider::builder()
-        .with_simple_exporter(exporter)
+        .with_simple_exporter(jaeger_exporter)
         .with_config(sdk::Config {
             default_sampler: Box::new(sdk::Sampler::AlwaysOn),
             ..Default::default()
@@ -57,15 +55,21 @@ fn init_observability() -> Result<(), Box<dyn std::error::Error>> {
 
     let subscriber = Registry::default()
         .with(tracing_opentelemetry::layer().with_tracer(provider.get_tracer("stargate")))
-        .with(EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("info")))
-        // .with(tracing_subscriber::fmt::layer())
-        .with(JsonStorageLayer)
-        .with(BunyanFormattingLayer::new(
-            String::from("stargate"),
-            std::io::stdout,
-        ));
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")));
 
-    tracing::subscriber::set_global_default(subscriber).expect("Failed to set subscriber");
+    if structured_logging {
+        let subscriber = subscriber
+            .with(JsonStorageLayer)
+            .with(BunyanFormattingLayer::new(
+                String::from("stargate"),
+                std::io::stdout,
+            ));
+        // XXX: We call this in both branches of the if condition because the compiler complains :(
+        tracing::subscriber::set_global_default(subscriber).expect("Failed to set subscriber");
+    } else {
+        let subscriber = subscriber.with(tracing_subscriber::fmt::layer());
+        tracing::subscriber::set_global_default(subscriber).expect("Failed to set subscriber");
+    };
 
     debug!("setting global trace provider");
     opentelemetry::global::set_provider(provider);
@@ -75,8 +79,8 @@ fn init_observability() -> Result<(), Box<dyn std::error::Error>> {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    init_observability().expect("failed to initialize tracer.");
     let opt = Opt::default();
+    init_observability(opt.structured_logging).expect("failed to initialize tracer.");
 
     debug!("Initializing stargate instance");
     let stargate = unsafe {
@@ -94,10 +98,8 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .app_data(stargate.clone())
-            // XXX: Gives us access log looking messages, but should be redundant bc of `TracingLogger` ??
             .wrap(middleware::Logger::default())
             .wrap(TracingLogger)
-            .wrap(RequestTracing::new())
             .wrap(middleware::Compress::default())
             .wrap(cors)
             .service(index)
