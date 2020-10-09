@@ -2,56 +2,203 @@
 title: "API Reference: @apollo/gateway"
 sidebar_title: "@apollo/gateway"
 description: Apollo Gateway API reference
+api_reference: true
 ---
 
-## `ApolloGateway`
+This API reference documents the exports from the `@apollo/gateway` package.
+
+## `class ApolloGateway`
 
 The core class of Apollo Server's federated gateway implementation. For an
 example of using `ApolloGateway`, see [The gateway](/gateway/).
 
-### `constructor(options)`: `ApolloGateway`
+### Methods
 
-#### Parameters
+#### `constructor`
 
-* `options`: `Object`
+Returns an initialized `ApolloGateway` instance, which you can then pass as the `gateway` configuration option to the `ApolloServer` constructor, like so:
 
-  An object that contains configuration options for the gateway.
+```javascript{2-6}
+const server = new ApolloServer({
+  gateway: new ApolloGateway({
+    serviceList: [
+      // ...
+    ]
+  }),
+});
+```
 
-  Supported options include:
+Takes an `options` object as a parameter. Supported fields of this object are described below.
 
-  * `serviceList`: `ServiceDefinition[]`
+##### Examples
 
-    > **Do not provide this option if you are using [managed configuration](https://www.apollographql.com/docs/graph-manager/federation/#managed-configuration).** If you
-    > are _not_ using managed configuration, this option is **required**.
+###### Providing a `serviceList` and headers to authorize introspection
 
-    An array representing the implementing services that the gateway will use
-    to resolve incoming GraphQL operations. Each object in the array specifies
-    the `name` and `url` of an implementing service in your federated graph.
-    You can specify any string value for the `name` field, which is used for
-    identifying the service in log output and error messages, and for reporting
-    metrics to Apollo Studio.
+```js
+const gateway = new ApolloGateway({
+  serviceList: [
+    { name: 'products', url: 'https://products-service.dev/graphql' },
+    { name: 'reviews', url: 'https://reviews-service.dev/graphql' }
+  ],
+  introspectionHeaders: {
+    Authorization: 'Bearer abc123'
+  }
+});
+```
 
-    ```js{3-6}
-    const gateway = new ApolloGateway({
-      ...
-      serviceList: [
-        { name: 'products', url: 'https://products-service.dev/graphql' },
-        { name: 'reviews', url: 'https://reviews-service.dev/graphql' }
-      ]
-    });
-    ```
+###### Configuring the fetcher
 
-  * `apq`: `Boolean`
+```js
+const gateway = new ApolloGateway({
+  fetcher: require('make-fetch-happen').defaults({
+    onRetry() {
+      console.log('we will retry!')
+    },
+  }),
+});
+```
 
-    When enabled the gateway will attempt to use [automated persisted queries (APQ)](https://www.apollographql.com/docs/apollo-server/performance/apq/)
-    when sending queries to downstream services.  Depending on the complexity
-    of queries sent to downstream services, this technique can greatly reduce
-    the size of the payloads being transmitted over the network.  Downstream
-    implementing services must also support APQ functionality to participate
-    in this feature (Apollo Server does by default unless it has been
-    explicitly disabled).  As with typical APQ behavior, a downstream server
-    must have received and registered a query once before it will be able to
-    serve an APQ request.
+##### Options
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr class="required">
+<td>
+
+###### `serviceList`
+
+`Array<ServiceDefinition>`
+</td>
+<td>
+
+An array of objects that each specify the `name` and `url` of one implementing service in your federated graph.
+
+You can specify any string value for the `name` field, which is used for identifying the service in log output and error messages, and for reporting metrics to Apollo Studio.
+
+**If you are using managed federation,** do not provide this field.
+
+**If you _aren't_ using managed federation,** this field is required.
+
+
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `apq`
+
+`Boolean`
+</td>
+<td>
+
+If `true`, the gateway attempts to use [automated persisted queries (APQ)](https://www.apollographql.com/docs/apollo-server/performance/apq/) when sending queries to implementing services. APQ can dramatically reduce the size of most requests sent over the network, especially for more complex queries.
+
+Your implementing services must also enable support for APQ for the gateway to use this feature (Apollo Server enables APQ by default).
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `introspectionHeaders`
+
+`Object`
+</td>
+<td>
+
+An object containing the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your implementing services.
+
+**If you are using managed federation,** do not provide this field.
+
+**If you define a `buildService` function,** specify these headers in that function instead of providing this option. This ensures that your `buildService` function doesn't inadvertently overwrite the values of any headers you provide here.
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `debug`
+
+`Boolean`
+</td>
+<td>
+
+If `true`, enables development mode helpers and logs messages of all severity levels (`debug` through `error`). If `false`, only `warn`- and `error`-level messages are logged.
+
+The default value is `false`.
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `logger`
+
+[`Logger`](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L166-L172)
+</td>
+<td>
+
+An object to use for logging in place of `console`. If provided, this object must implement all methods of [the `Logger` interface](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L166-L172).
+
+If you provide this value, the gateway automatically logs all messages of _all_ severity levels (`debug` through `error`), regardless of whether the `debug` option is set to `true`. It is the responsibility of the logger to determine how to handle logged messages of each level.
+
+This logger is automatically added to the `GraphQLRequestContext` object that's passed to all Apollo Server [plugin functions](../integrations/plugins/).
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `fetcher`
+
+`typeof fetch`
+</td>
+<td>
+
+Specifies which [Fetch API](https://fetch.spec.whatwg.org/#fetch-api) implementation to use when communicating with implementing services.
+
+By default, the gateway uses the default configuration of [`make-fetch-happen`](https://npm.im/make-fetch-happen). You can specify another valid implementation (such as [`node-fetch`](https://npm.im/node-fetch)) by setting this field's value to `require('node-fetch')`.
+
+As shown in the example above, you can also provide [`make-fetch-happen`](https://www.npmjs.com/package/make-fetch-happen#extra-options) to this option if you want to override the library's default configuration.
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `serviceHealthCheck`
+
+`Boolean`
+</td>
+<td>
+
+If `true`, the gateway sends a small query (`{ __typename }`) to all implementing services on gateway startup. It also does the same on each live schema update if you're using managed federation.
+
+**On startup,** the gateway throws an error if any of these requests fail.
+
+**On schema update,** the gateway does not roll over to the new schema or service configuration if any of these requests fail. The gateway retries the requests at each polling interval until they succeed.
+
+The default value is `false`.
+</td>
+</tr>
+
+
+</tbody>
+</table>
 
   * `buildService`: `(service: ServiceDefinition) => GraphQLDataSource`
 
@@ -81,104 +228,68 @@ example of using `ApolloGateway`, see [The gateway](/gateway/).
     });
     ```
 
-  * `introspectionHeaders`: `{ [key: string]: string }`
+##### Experimental options
 
-    An object containing HTTP headers that the gateway will include _only_ when
-    obtaining schema definitions from each of your implementing services.
+**These options are experimental.**  They might be removed or change at any time, even within a patch release.
 
-    > **Note:** If you define a `buildService` function, you should specify these headers
-    > in that function instead of including this option. This ensures that your `buildService` function doesn't inadvertently overwrite the values of any headers
-    > you provide via this option.
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+<tr>
+<td>
 
-    ```js{3-5}
-    const gateway = new ApolloGateway({
-      ...
-      introspectionHeaders: {
-        Authorization: 'my-header'
-      }
-    });
-    ```
+###### `experimental_approximateQueryPlanStoreMiB`
 
-  * `logger`: `Logger`
+`number`
+</td>
+<td>
 
-    A logging implementation to be used in place of `console`.  The implementation must provide the methods which satisfy the requirements of [the `Logger` interface](https://github.com/apollographql/apollo-server/blob/80a12d89ea1ae9a0892f4a81d9213eddf95ca965/packages/apollo-server-types/src/index.ts#L114-L121) (i.e. it must provide `debug`, `info`, `warn` and `error` methods).  When a custom logger is provided, it will receive all levels of logging and it is up to the logger itself to determine how it wishes to handle each level.  When a custom logger is _not_ provided, Gateway will default to outputting `warn` and `error` levels unless `debug: true` is specified,  in which case it will output all log levels (i.e. `debug` through `error`).
+Sets the approximate size (in MiB) of the gateway's query plan store. This cache is used to save query plans for reuse on subsequent queries that resolve to a previously observed `queryHash` (the SHA-256 of the incoming operation).
 
-    Additionally, this `logger` will be made available on the `GraphQLRequestContext` and available to plugins.  This allows a plugin to, e.g., augment the logger on a per-request basis within the `requestDidStart` life-cycle hook.
+The default value is `30`, which is usually sufficient unless the server processes a large number of unique operations.
+</td>
+</tr>
+</tbody>
+</table>
 
-  * `debug`: `Boolean`
+#### `serviceHealthCheck`
 
-    If `true`, the gateway logs startup messages, along with the query plan for
-    each incoming request. The default value is `false`.
+When called, the gateway sends a small query (`{ __typename }`) to each implementing service to verify that they're all responsive. This function `throw`s on failure and returns a `Promise` to be `await`ed.
 
-  * `fetcher`: `typeof fetch`
+##### Parameters
 
-    When specified, overrides the default
-    [Fetch API](https://fetch.spec.whatwg.org/#fetch-api) implementation
-    which is used when communicating with downstream services.  By default,
-    [`make-fetch-happen`](https://npm.im/make-fetch-happen) is used with its
-    own defaults.  Another compliant implementation can be provided
-    (e.g. [`node-fetch`](https://npm.im/node-fetch) by setting
-    `fetcher: require('node-fetch')`) or different [default options for
-    `make-fetch-happen`](https://www.npmjs.com/package/make-fetch-happen#extra-options)
-    can be defined entirely. E.g.:
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+<tr>
+<td>
 
-    ```javascript
-    const gateway = new ApolloGateway({
-      /* ... */
-      fetcher: require('make-fetch-happen').defaults({
-        onRetry() {
-          console.log('we will retry!')
-        },
-      }),
-      /* ... */
-    });
-    ```
+###### `serviceMap`
 
-  * `serviceHealthCheck`: `boolean`
+`Object` (`DataSourceMap`)
+</td>
+<td>
 
-    When set to true, the gateway will issue a small query (`{ __typename }`) to
-    its downstream services on load and on schema update. On load, the gateway
-    will throw an error if any of the requests fail. On schema update, the
-    gateway will not roll over to the new schema or service configuration if any
-    of the requests fail, but it will try again at the next poll interval.
+If provided, the gateway sends health check requests to only the data sources included in the map.
 
-  * `experimental_approximateQueryPlanStoreMiB`: `number`
+By default, the gateway uses `this.serviceMap` (i.e., it sends health check requests to all known implementing services).
+</td>
+</tr>
+</tbody>
+</table>
 
-    > **This property is experimental.**  It may be removed or change at any time, even within a patch release.
 
-    When set, this sets the approximate size of the query plan store (in MiB).
-    This cache is used to save query plans for re-use on subsequent queries
-    which resolve to the same `queryHash` (a SHA-256 of incoming operation).
-
-    When this property is omitted, the cache is still enabled with a default
-    size of 30MiB, which is generally sufficient unless the server is
-    processing a high number of unique operations.
-
-#### Returns
-
-An `ApolloGateway` instance, which you then pass as the `gateway` configuration option to the `ApolloServer` constructor, like so:
-
-```javascript
-const server = new ApolloServer({
-  gateway: new ApolloGateway({ serviceList: [...] }),
-});
-```
-
-### `serviceHealthCheck`
-
-Calling this function on the gateway will issue a small query (`{ __typename }`)
-to each downstream service to ensure they are all responsive. This function
-`throw`s on failure and returns a `Promise` to be `await`ed.
-
-#### Parameters
-
-* `serviceMap`: `DataSourceMap`
-
-  A map of data sources can optionally be provided to this function in order to
-  modify where the health checks will be issued. By default, the gateway will
-  use the existing `this.serviceMap` for issuing the health check requests.
-
-## `RemoteGraphQLDataSource`
+## `class RemoteGraphQLDataSource`
 
 A `RemoteGraphQLDataSource` object represents a connection between your
 federated gateway and _one_ of your implementing services.
@@ -191,9 +302,11 @@ overriding its `willSendRequest` and/or `didReceiveResponse` methods:
 
 These methods are described in detail below.
 
-### `constructor(options)`: `RemoteGraphQLDataSource`
+### Methods
 
-#### Parameters
+#### `constructor(options)`: `RemoteGraphQLDataSource`
+
+##### Parameters
 
 * `options`: `Object`
 
@@ -205,7 +318,7 @@ These methods are described in detail below.
 
     The implementing service's URL for sending fetch requests via HTTP.
 
-  ### `willSendRequest`: `(requestContext: {request: GraphQLRequest, context: Record<string, any>}) => Promise<void>`
+  #### `willSendRequest`: `(requestContext: {request: GraphQLRequest, context: Record<string, any>}) => Promise<void>`
 
     Override this method to customize the structure of each fetch that's sent
     to the implementing service. The method accepts an object that contains
@@ -222,7 +335,7 @@ These methods are described in detail below.
     });
     ```
 
-  ### `didReceiveResponse`: `(requestContext: {request: GraphQLRequest, response: GraphQLResponse, context: Record<string, any>}) => Promise<GraphQLResponse>`
+  #### `didReceiveResponse`: `(requestContext: {request: GraphQLRequest, response: GraphQLResponse, context: Record<string, any>}) => Promise<GraphQLResponse>`
 
     Override this method to customize the gateway's behavior after completing
     a fetch to the implementing service. The method receives an object (a
