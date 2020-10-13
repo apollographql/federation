@@ -49,7 +49,7 @@ server.listen(4001).then(({ url }) => {
 });
 ```
 
-This should look familiar if you've [set up Apollo Server](/getting-started/) before. If it doesn't, we recommend you familiarize yourself with the basics before jumping into federation.
+This should look familiar if you've [set up Apollo Server](https://www.apollographql.com/docs/apollo-server/getting-started/) before. If it doesn't, we recommend you familiarize yourself with the basics before jumping into federation.
 
 Now, let's convert this to an implementing service. The first step is to install the `@apollo/federation` package in our project:
 
@@ -161,7 +161,7 @@ server.listen(4001).then(({ url }) => {
 
 ## Defining custom directives
 
-The method for defining [custom directives](/schema/creating-directives/) differs slightly in Apollo Federation.
+The method for defining [custom directives](https://www.apollographql.com/docs/apollo-server/schema/creating-directives/) differs slightly in Apollo Federation.
 
 **Without Apollo Federation**, you provide your directive definitions to the constructor of `ApolloServer` in the `schemaDirectives` argument, like so:
 
