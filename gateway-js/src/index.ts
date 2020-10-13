@@ -43,7 +43,7 @@ import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
-import { getQueryPlanner } from '@apollo/query-planner-wasm';
+import { getQueryPlanner, dropQueryPlanner } from '@apollo/query-planner-wasm';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -309,6 +309,13 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
+  // Call this to release memory in rust
+  cleanup() {
+    if (this.queryPlannerPointer != null) {
+      dropQueryPlanner(this.queryPlannerPointer)
+    }
+  }
+
   public async load(options?: { apollo?: ApolloConfig; engine?: GraphQLServiceEngineConfig }) {
     if (options?.apollo) {
       this.apolloConfig = options.apollo;
@@ -417,6 +424,10 @@ export class ApolloGateway implements GraphQLService {
       )
     } else {
       this.schema = schema;
+      if (this.queryPlannerPointer != null) {
+        // Allow rust to release the memory for this QueryPlanner
+        dropQueryPlanner(this.queryPlannerPointer)
+      }
       this.queryPlannerPointer = getQueryPlanner(composedSdl);
 
       // Notify the schema listeners of the updated schema

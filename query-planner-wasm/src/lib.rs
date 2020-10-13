@@ -13,7 +13,7 @@ static mut DATA: Vec<Option<QueryPlanner>> = vec![];
 /// getQueryPlanner creates a QueryPlanner if needed, and returns an "id"
 /// for later use with `getQueryPlan`. Calling this multiple times with
 /// the same schema will only result in the schema being parsed once, and the
-/// QueryPlanner is reused.
+/// QueryPlanner is cloned.
 #[wasm_bindgen(js_name = getQueryPlanner)]
 pub fn get_query_planner(schema: JsString) -> usize {
     let schema = String::from(schema);
@@ -21,7 +21,11 @@ pub fn get_query_planner(schema: JsString) -> usize {
         for i in 0..SCHEMA.len() {
             match &SCHEMA[i] {
                 Some(x) if x == &schema => {
-                    return i;
+                    let id = SCHEMA.len();
+                    SCHEMA.push(Some(schema));
+                    // No need to re-parse, we can just clone!
+                    DATA.push(DATA[i].clone());
+                    return id;
                 }
                 _ => (),
             }
