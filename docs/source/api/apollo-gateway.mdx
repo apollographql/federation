@@ -94,22 +94,6 @@ You can specify any string value for the `name` field, which is used for identif
 <tr>
 <td>
 
-###### `apq`
-
-`Boolean`
-</td>
-<td>
-
-If `true`, the gateway attempts to use [automated persisted queries (APQ)](https://www.apollographql.com/docs/apollo-server/performance/apq/) when sending queries to implementing services. APQ can dramatically reduce the size of most requests sent over the network, especially for more complex queries.
-
-Your implementing services must also enable support for APQ for the gateway to use this feature (Apollo Server enables APQ by default).
-</td>
-</tr>
-
-
-<tr>
-<td>
-
 ###### `introspectionHeaders`
 
 `Object`
@@ -342,6 +326,21 @@ Takes an `options` object as a parameter. Supported fields of this object are de
 <td>
 
 **Required.** The implementing service's URL for sending fetch requests via HTTP.
+</td>
+</tr>
+
+<tr>
+<td>
+
+###### `apq`
+
+`Boolean`
+</td>
+<td>
+
+If `true`, the gateway attempts to use [automated persisted queries (APQ)](https://www.apollographql.com/docs/apollo-server/performance/apq/) when sending queries to this implementing service. APQ can dramatically reduce the size of most requests sent over the network, especially for more complex queries.
+
+The implementing service must also enable support for APQ for the gateway to use this feature (Apollo Server enables APQ by default).
 </td>
 </tr>
 </tbody>
