@@ -274,6 +274,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-web-opentelemetry"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efeefd6473a1a03037e42afd8483146ce0f5c58ba8076c4c11fd20c5a4ed6bc7"
+dependencies = [
+ "actix-http",
+ "actix-web",
+ "futures",
+ "opentelemetry",
+ "serde",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2564,6 +2577,7 @@ dependencies = [
  "actix-cors",
  "actix-service",
  "actix-web",
+ "actix-web-opentelemetry",
  "apollo-stargate-lib",
  "env_logger 0.7.1",
  "futures",

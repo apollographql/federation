@@ -1,8 +1,10 @@
 use actix_cors::Cors;
-use actix_web::{middleware, post, web, App, HttpResponse, HttpServer, Result};
+use actix_web::{dev, http, middleware, post, web, App, HttpResponse, HttpServer, Result};
+use actix_web_opentelemetry::RequestMetrics;
 use apollo_stargate_lib::common::Opt;
 use apollo_stargate_lib::transports::http::{GraphQLRequest, RequestContext, ServerState};
 use apollo_stargate_lib::Stargate;
+use opentelemetry::sdk;
 use std::fs;
 use tracing::{debug, info, instrument};
 use tracing_actix_web::TracingLogger;
@@ -26,12 +28,23 @@ async fn index(
     Ok(HttpResponse::Ok().json(result))
 }
 
+fn health() -> HttpResponse {
+    HttpResponse::Ok().finish()
+}
+
 static mut MANIFEST: String = String::new();
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let opt = Opt::default();
     telemetry::init(&opt).expect("failed to initialize tracer.");
+    let meter = sdk::Meter::new("stargate");
+    let request_metrics = RequestMetrics::new(
+        meter,
+        Some(|req: &dev::ServiceRequest| {
+            req.path() == "/metrics" && req.method() == http::Method::GET
+        }),
+    );
 
     info!("{}", opt.pretty_print());
 
@@ -51,11 +64,13 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .app_data(stargate.clone())
+            .wrap(request_metrics.clone())
             .wrap(middleware::Logger::default())
             .wrap(TracingLogger)
             .wrap(middleware::Compress::default())
             .wrap(cors)
             .service(index)
+            .service(web::resource("/health").to(health))
     })
     .bind(format!("0.0.0.0:{}", opt.port))?
     .run()
