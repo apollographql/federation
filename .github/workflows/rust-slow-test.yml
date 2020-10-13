@@ -60,7 +60,7 @@ jobs:
       - name: Install wasm-pack (unix)
         if: matrix.build != 'windows'
         shell: bash
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | bash -s -- -f
+        run: which wasm-pack || curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Install wasm-pack (windows)
         if: matrix.build == 'windows'
