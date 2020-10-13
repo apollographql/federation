@@ -27,4 +27,4 @@ COPY --from=builder \
 
 # User can provide an alternate port via "-e 'PORT=<your port>'" when running the container.
 # PORT defaults to 8080 otherwise.
-CMD /usr/local/bin/stargate --port=${PORT:-8080} --manifest=/graph
+CMD /usr/local/bin/stargate --port=${PORT:-8080} --manifest=/graph --tracing-endpoint http://localhost:14268/api/traces --structured-logging

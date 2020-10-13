@@ -189,7 +189,3 @@ fn as_selection_set_ref(value: &str) -> query::SelectionSet {
         .unwrap();
     letp!(query::Definition::SelectionSet(ss) = ss => ss)
 }
-
-// lazy_static! {
-//     static ref STRINGS: Mutex<Vec<String>> = Mutex::new(vec![]);
-// }
