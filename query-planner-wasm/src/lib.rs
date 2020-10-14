@@ -38,10 +38,8 @@ pub fn get_query_planner(schema: JsString) -> usize {
 }
 
 /// Drop a query planner (and associated Schema string) to free up memory.
-/// Most applications will have a single query planner that they use
-/// for the duration of the app's lifetime, but if you are working
-/// with multiple QueryPlanners, you'll want to call this when you
-/// are done with one.
+/// This can happen when an ApolloGateway updates & replaces its QueryPlanner,
+/// or when an ApolloGateway is no longer needed.
 #[wasm_bindgen(js_name = dropQueryPlanner)]
 pub fn drop_query_planner(planner_idx: usize) {
     unsafe {
