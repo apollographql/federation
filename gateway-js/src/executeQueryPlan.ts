@@ -89,6 +89,7 @@ export async function executeQueryPlan<TContext>(
         ],
       },
       rootValue: data,
+      contextValue:requestContext.context,
       variableValues: requestContext.request.variables,
       // See also `wrapSchemaWithAliasResolver` in `gateway-js/src/index.ts`.
       fieldResolver: defaultFieldResolverWithAliasSupport,
