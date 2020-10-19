@@ -1,0 +1,48 @@
+schema
+@graph(name: "nodes", url: "https://node.api.com")
+@graph(nameL: "accounts", url: "https://accounts.com")
+@composedGraph(version: 1)
+{
+    query: Query
+
+}
+
+# Nodes
+
+type Query {
+    node(id: ID!): Node @resolve(graph: "nodes")
+}
+
+interface Node 
+@owner(graph: "nodes")
+{
+    id: ID! @external
+    createdAt: String! @external
+}
+
+
+extend type User implements Node 
+@owner(graph: "nodes")    
+@key(fields: "{id}", graph: "nodes")
+{
+    id: ID! @external
+    createdAt: String! @external
+}
+
+## Accounts
+interface Node
+@owner(graph: "accounts")
+{
+  id: ID!
+  createdAt: String!
+}
+
+type User implements Node
+@owner(graph: "accounts")
+@key(fields: "{id}", graph: "accounts")
+{
+    id: ID!
+    createdAt: String!
+    name: String
+    username: String
+}
