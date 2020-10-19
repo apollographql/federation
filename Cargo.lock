@@ -282,7 +282,7 @@ dependencies = [
  "actix-http",
  "actix-web",
  "futures",
- "opentelemetry",
+ "opentelemetry 0.8.0",
  "serde",
 ]
 
@@ -736,12 +736,6 @@ dependencies = [
  "time 0.1.44",
  "winapi 0.3.9",
 ]
-
-[[package]]
-name = "chunked_transfer"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d29eb15132782371f71da8f947dba48b3717bdb6fa771b9b434d645e40a7193"
 
 [[package]]
 name = "clap"
@@ -1920,14 +1914,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "opentelemetry-jaeger"
-version = "0.7.0"
+name = "opentelemetry"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02a885963fd184822847d08527f3d53164a9fb6f770ceae61ea9388dc208690b"
+checksum = "4281f4b4b62fd9f6aa99abdaac38b15fdaf129f8b51b5c26bb6e05c3b74576c3"
 dependencies = [
- "opentelemetry",
+ "async-trait",
+ "futures",
+ "lazy_static",
+ "percent-encoding",
+ "pin-project",
+ "rand",
+ "regex",
+]
+
+[[package]]
+name = "opentelemetry-jaeger"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69ad2f25082f03dcd84dcae292de250ec83c77c0156efb0fdeedcea79de16a11"
+dependencies = [
+ "async-trait",
+ "http",
+ "isahc",
+ "opentelemetry 0.9.1",
  "thrift",
- "ureq",
 ]
 
 [[package]]
@@ -2173,15 +2184,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d147edb77bcccbfc81fabffdc7bd50c13e103b15ca1e27515fe40de69a5776b"
 
 [[package]]
-name = "qstring"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d464fae65fff2680baf48019211ce37aaec0c78e9264c84a3e484717f965104e"
-dependencies = [
- "percent-encoding",
-]
-
-[[package]]
 name = "query-planner-wasm"
 version = "0.0.0-DO.NOT.CHANGE"
 dependencies = [
@@ -2294,21 +2296,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ring"
-version = "0.16.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "952cd6b98c85bbc30efa1ba5783b8abf12fec8b3287ffa52605b9432313e34e4"
-dependencies = [
- "cc",
- "libc",
- "once_cell",
- "spin",
- "untrusted",
- "web-sys",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "rustc-demangle"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2321,19 +2308,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
  "semver",
-]
-
-[[package]]
-name = "rustls"
-version = "0.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d1126dcf58e93cee7d098dbda643b5f92ed724f1f6a63007c1116eed6700c81"
-dependencies = [
- "base64",
- "log",
- "ring",
- "sct",
- "webpki",
 ]
 
 [[package]]
@@ -2363,16 +2337,6 @@ name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
-
-[[package]]
-name = "sct"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3042af939fca8c3453b7af0f1c66e533a15a86169e39de2657310ade8f98d3c"
-dependencies = [
- "ring",
- "untrusted",
-]
 
 [[package]]
 name = "semver"
@@ -2581,7 +2545,7 @@ dependencies = [
  "apollo-stargate-lib",
  "env_logger 0.7.1",
  "futures",
- "opentelemetry",
+ "opentelemetry 0.8.0",
  "opentelemetry-jaeger",
  "thrift",
  "tracing",
@@ -3009,7 +2973,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c776834eab0d599523cc58accac54f32e1f8d2cea1dbcae157f28e279de7004"
 dependencies = [
- "opentelemetry",
+ "opentelemetry 0.8.0",
  "rand",
  "tracing",
  "tracing-core",
@@ -3168,30 +3132,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "382810877fe448991dfc7f0dd6e3ae5d58088fd0ea5e35189655f84e6814fa56"
 dependencies = [
  "void",
-]
-
-[[package]]
-name = "untrusted"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a156c684c91ea7d62626509bce3cb4e1d9ed5c4d978f7b4352658f96a4c26b4a"
-
-[[package]]
-name = "ureq"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bbc0597304482f1aa82e296abe382e868c934f0e45ebfe720735990a10e8f5d"
-dependencies = [
- "base64",
- "chunked_transfer",
- "cookie",
- "lazy_static",
- "log",
- "qstring",
- "rustls",
- "url",
- "webpki",
- "webpki-roots",
 ]
 
 [[package]]
@@ -3363,25 +3303,6 @@ checksum = "4bf6ef87ad7ae8008e15a355ce696bed26012b7caa21605188cfd8214ab51e2d"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "webpki"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab146130f5f790d45f82aeeb09e55a256573373ec64409fc19a6fb82fb1032ae"
-dependencies = [
- "ring",
- "untrusted",
-]
-
-[[package]]
-name = "webpki-roots"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f20dea7535251981a9670857150d571846545088359b28e4951d350bdaf179f"
-dependencies = [
- "webpki",
 ]
 
 [[package]]

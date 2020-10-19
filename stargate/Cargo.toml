@@ -21,7 +21,7 @@ actix-web-opentelemetry = "0.6.0"
 env_logger = "0.7.1"
 futures = "0.3.6"
 opentelemetry = "0.8.0"
-opentelemetry-jaeger = { version = "0.7.0", features = ["collector_client"] }
+opentelemetry-jaeger = { version = "0.8.0", features = ["collector_client"] }
 thrift = "0.13.0"
 tracing = "0.1.21"
 tracing-actix-web = "0.2.1"
