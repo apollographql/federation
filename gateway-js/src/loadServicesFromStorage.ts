@@ -81,8 +81,7 @@ function fetchApolloGcs(
       // conditions.  We'll special-case our known errors, and resort to
       // printing the body for others.
       if (
-        response.headers.get('content-type') === 'application/xml' &&
-        response.status === 403 && body.includes("AccessDenied")
+          response.status === 403 && body.includes("AccessDenied")
       ) {
           throw new Error(
             "Unable to authenticate with Apollo storage " +
