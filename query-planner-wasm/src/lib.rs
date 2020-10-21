@@ -2,119 +2,78 @@ extern crate wasm_bindgen;
 
 use apollo_query_planner::{QueryPlanner, QueryPlanningOptions};
 use js_sys::JsString;
-use owning_ref::OwningRef;
-use std::cell::RefCell;
-use std::marker::PhantomPinned;
-use std::pin::Pin;
-use std::ptr::NonNull;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
-/// These vectors serve as repositories for the Schema string and QueryPlanner
-/// so that they don't get garbage collected. The JavaScript side gets the index
-/// into the vector, which it can use in `getQueryPlan`.
-static mut SCHEMA: Vec<Option<String>> = vec![];
-static mut DATA: Vec<Option<QueryPlanner>> = vec![];
-
-struct Planner<'s> {
-    schema: String,
-    // schema: Pin<Box<String>>,
-    data: QueryPlanner<'s>,
-    _pin: PhantomPinned,
-}
-
-// struct Planners<'s> {
-//     planners: Vec<Option<Rc<Planner<'s>>>>,
-// }
-
-// impl<'s> Planner<'s> {
-// fn from(schema: String) -> Pin<Box<Planner<'static>>> {
-// fn from(schema: Box<String>) -> OwningRef<Box<String>, QueryPlanner<'static>> {
-//     // Attempe 3
-//     // let mut pin = Box::pin(Planner {
-//     //     schema,
-//     //     data: QueryPlanner::empty(),
-//     //     _pin: PhantomPinned,
-//     // });
-
-//     // let slice = NonNull::from(&pin.schema);
-//     // // we know this is safe because modifying a field doesn't move the whole struct
-//     // unsafe {
-//     //     let mut_ref: Pin<_> = Pin::as_mut(&mut pin);
-//     //     Pin::get_unchecked_mut(mut_ref).data = QueryPlanner::new(&pin.schema);
-//     // }
-
-//     // return pin
-
-//     // Attempt 2
-// let p = NonNull::from(&pin);
-// unsafe {
-//     // let q =
-//     let mut planner = Planner {
-//         schema: p,
-//         data: QueryPlanner::empty(),
-//     };
-//     planner.data = QueryPlanner::new(planner.schema.as_ref());
-//     return planner;
-// }
-
-mod two {
+/// This module encapsulates the "unsafety" of storing & retreiving planners
+mod inner {
     use super::*;
 
-    struct Planner<'s> {
+    pub struct Planner<'s> {
         schema: String,
-        data: QueryPlanner<'s>,
+        pub data: QueryPlanner<'s>,
     }
 
-    static mut PLANNERS: Vec<Planner> = vec![];
+    /// This "static mut" is what we use to deal with the fact the basic problem
+    /// of interacting with javascript -- that lifetimes are hard to coordinate.
+    /// So what we do is stick things that we want to persist into this 'static mut',
+    /// which gives them a 'static lifetime, meaning they're ok to be referenced from
+    /// wasm_bindgen functions.
+    /// What we're doing isn't really unsafe because js/wasm is single-threaded -- there's
+    /// no danger of concurrent memory access.
+    static mut PLANNERS: Vec<Option<Rc<Planner>>> = vec![];
 
-    fn make(schema: String) {
+    pub fn setup(schema: String) -> usize {
+        // If a planner already exists with the same schema, reuse it.
+        unsafe {
+            for i in 0..PLANNERS.len() {
+                match &PLANNERS[i] {
+                    Some(planner) if planner.schema == schema => {
+                        let id = PLANNERS.len();
+                        // This `.clone()` is cheap, because we're only cloning the `Rc`
+                        PLANNERS.push(Some(planner.clone()));
+                        return id;
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        // Otherwise, create a new planner
+        let planner = Planner {
+            schema,
+            data: QueryPlanner::empty(),
+        };
         unsafe {
             let id = PLANNERS.len();
-            PLANNERS.push(Planner {
-                schema,
-                data: QueryPlanner::empty(),
-            });
-            PLANNERS[id].data = QueryPlanner::new(&PLANNERS[id].schema)
+            PLANNERS.push(Some(Rc::new(planner)));
+            Rc::get_mut(PLANNERS[id].as_mut().unwrap()).unwrap().data =
+                QueryPlanner::new(&PLANNERS[id].as_ref().unwrap().schema);
+            return id;
+        }
+    }
+
+    pub fn borrow(planner_idx: usize) -> &'static Option<Rc<Planner<'static>>> {
+        unsafe {
+            if planner_idx > PLANNERS.len() {
+                // This must mean the planner_idx wasn't created here.
+                unreachable!("A planner_idx was provided that's larger than the array!")
+            }
+            return &PLANNERS[planner_idx];
+        }
+    }
+
+    pub fn drop(planner_idx: usize) {
+        unsafe {
+            if planner_idx < PLANNERS.len() {
+                // Setting the index to None will allow what was there to
+                // be freed. We keep a 'None' there so that all indices will be
+                // preserved.
+                PLANNERS[planner_idx] = None;
+            }
         }
     }
 }
-
-/* --------------------- one -------------------- */
-// mod one {
-//     use super::*;
-//     static mut PLANNERS: Vec<OwningRef<Box<String>, QueryPlanner>> = vec![];
-//     fn from(schema: String) {
-//         let schema = OwningRef::new(Box::new(schema));
-//         let m = schema.map(|owner: &String| &QueryPlanner::new(owner));
-//         // unsafe {
-//         //     PLANNERS.push(m);
-//         // }
-//     }
-// }
-/* ------------------------ /one ------------------- */
-
-// impl<'s> Planners<'s> {
-//     fn get_query_planner(&mut self, schema: String) -> usize {
-//         for i in 0..self.planners.len() {
-//             match &self.planners[i] {
-//                 Some(x) if *x.schema.borrow() == schema => {
-//                     let id = self.planners.len();
-//                     self.planners.push(self.planners[i].clone());
-//                     return id;
-//                 }
-//                 _ => (),
-//             }
-//         }
-//         let id = self.planners.len();
-//         self.planners.push(Some(Rc::new(Planner::from(schema))));
-//         // self.schemas.push(Some(schema));
-//         // // oops, lifetime's broked.
-//         // self.datas
-//         //     .push(Some(QueryPlanner::new(&self.schemas[id].as_ref().unwrap())));
-//         return id;
-//     }
-// }
 
 /// getQueryPlanner creates a QueryPlanner if needed, and returns an "id"
 /// for later use with `getQueryPlan`. Calling this multiple times with
@@ -123,24 +82,7 @@ mod two {
 #[wasm_bindgen(js_name = getQueryPlanner)]
 pub fn get_query_planner(schema: JsString) -> usize {
     let schema = String::from(schema);
-    unsafe {
-        for i in 0..SCHEMA.len() {
-            match &SCHEMA[i] {
-                Some(x) if x == &schema => {
-                    let id = SCHEMA.len();
-                    SCHEMA.push(Some(schema));
-                    // No need to re-parse, we can just clone!
-                    DATA.push(DATA[i].clone());
-                    return id;
-                }
-                _ => (),
-            }
-        }
-        let id = SCHEMA.len();
-        SCHEMA.push(Some(schema));
-        DATA.push(Some(QueryPlanner::new(&SCHEMA[id].as_ref().unwrap())));
-        return id;
-    }
+    return inner::setup(schema);
 }
 
 /// Drop a query planner (and associated Schema string) to free up memory.
@@ -148,27 +90,20 @@ pub fn get_query_planner(schema: JsString) -> usize {
 /// or when an ApolloGateway is no longer needed.
 #[wasm_bindgen(js_name = dropQueryPlanner)]
 pub fn drop_query_planner(planner_idx: usize) {
-    unsafe {
-        if planner_idx < DATA.len() {
-            // Setting the index to None will allow what was there to
-            // be freed. We keep them there so that all indices will be
-            // preserved.
-            SCHEMA[planner_idx] = None;
-            DATA[planner_idx] = None;
-        }
-    }
+    inner::drop(planner_idx)
 }
 
 #[wasm_bindgen(js_name = getQueryPlan)]
 pub fn get_query_plan(planner_idx: usize, query: &str, options: &JsValue) -> JsValue {
     let options: QueryPlanningOptions = options.into_serde().expect("Invalid format for options");
-    unsafe {
-        let planner = DATA[planner_idx]
-            .as_ref()
-            .expect("Query Planner has been dropped");
-        let plan = planner.plan(query, options).expect("Failed to create plan");
-        JsValue::from_serde(&plan).unwrap()
-    }
+    let planner = inner::borrow(planner_idx)
+        .as_ref()
+        .expect("Query planner has been dropped");
+    let plan = planner
+        .data
+        .plan(query, options)
+        .expect("Failed to create plan");
+    JsValue::from_serde(&plan).unwrap()
 }
 
 #[cfg(test)]
