@@ -43,11 +43,15 @@ mod inner {
         // Otherwise, create a new planner_container
         let planner_container = PlannerContainer {
             schema,
+            // This is a placeholder, which we immediately replace with a reference to the `schema`.
             data: QueryPlanner::empty(),
         };
         unsafe {
             let id = PLANNER_CONTAINERS.len();
             PLANNER_CONTAINERS.push(Some(Rc::new(planner_container)));
+            // Here's the magic -- the QueryPlanner that we put into the PlannerContainer
+            // now references the schema from the PlannerContainer -- so when that PlannerContainer
+            // is dropped, it will free both the schema and the QueryPlanner at once.
             Rc::get_mut(PLANNER_CONTAINERS[id].as_mut().unwrap())
                 .unwrap()
                 .data = QueryPlanner::new(&PLANNER_CONTAINERS[id].as_ref().unwrap().schema);
