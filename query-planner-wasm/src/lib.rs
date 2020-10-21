@@ -9,7 +9,8 @@ use wasm_bindgen::prelude::*;
 mod inner {
     use super::*;
 
-    pub struct Planner<'s> {
+    /// This contains a schema, and the QueryPlanner that references it.
+    pub struct PlannerContainer<'s> {
         schema: String,
         pub data: QueryPlanner<'s>,
     }
@@ -21,17 +22,17 @@ mod inner {
     /// wasm_bindgen functions.
     /// What we're doing isn't really unsafe because js/wasm is single-threaded -- there's
     /// no danger of concurrent memory access.
-    static mut PLANNERS: Vec<Option<Rc<Planner>>> = vec![];
+    static mut PLANNER_CONTAINERS: Vec<Option<Rc<PlannerContainer>>> = vec![];
 
     pub fn setup(schema: String) -> usize {
-        // If a planner already exists with the same schema, reuse it.
+        // If a planner_container already exists with the same schema, reuse it.
         unsafe {
-            for i in 0..PLANNERS.len() {
-                match &PLANNERS[i] {
-                    Some(planner) if planner.schema == schema => {
-                        let id = PLANNERS.len();
+            for i in 0..PLANNER_CONTAINERS.len() {
+                match &PLANNER_CONTAINERS[i] {
+                    Some(planner_container) if planner_container.schema == schema => {
+                        let id = PLANNER_CONTAINERS.len();
                         // This `.clone()` is cheap, because we're only cloning the `Rc`
-                        PLANNERS.push(Some(planner.clone()));
+                        PLANNER_CONTAINERS.push(Some(planner_container.clone()));
                         return id;
                     }
                     _ => (),
@@ -39,37 +40,38 @@ mod inner {
             }
         }
 
-        // Otherwise, create a new planner
-        let planner = Planner {
+        // Otherwise, create a new planner_container
+        let planner_container = PlannerContainer {
             schema,
             data: QueryPlanner::empty(),
         };
         unsafe {
-            let id = PLANNERS.len();
-            PLANNERS.push(Some(Rc::new(planner)));
-            Rc::get_mut(PLANNERS[id].as_mut().unwrap()).unwrap().data =
-                QueryPlanner::new(&PLANNERS[id].as_ref().unwrap().schema);
+            let id = PLANNER_CONTAINERS.len();
+            PLANNER_CONTAINERS.push(Some(Rc::new(planner_container)));
+            Rc::get_mut(PLANNER_CONTAINERS[id].as_mut().unwrap())
+                .unwrap()
+                .data = QueryPlanner::new(&PLANNER_CONTAINERS[id].as_ref().unwrap().schema);
             return id;
         }
     }
 
-    pub fn borrow(planner_idx: usize) -> &'static Option<Rc<Planner<'static>>> {
+    pub fn borrow(planner_idx: usize) -> &'static Option<Rc<PlannerContainer<'static>>> {
         unsafe {
-            if planner_idx > PLANNERS.len() {
+            if planner_idx > PLANNER_CONTAINERS.len() {
                 // This must mean the planner_idx wasn't created here.
                 unreachable!("A planner_idx was provided that's larger than the array!")
             }
-            return &PLANNERS[planner_idx];
+            return &PLANNER_CONTAINERS[planner_idx];
         }
     }
 
     pub fn drop(planner_idx: usize) {
         unsafe {
-            if planner_idx < PLANNERS.len() {
+            if planner_idx < PLANNER_CONTAINERS.len() {
                 // Setting the index to None will allow what was there to
                 // be freed. We keep a 'None' there so that all indices will be
                 // preserved.
-                PLANNERS[planner_idx] = None;
+                PLANNER_CONTAINERS[planner_idx] = None;
             }
         }
     }
