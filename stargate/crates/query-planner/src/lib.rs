@@ -36,6 +36,14 @@ pub struct QueryPlanner<'s> {
 }
 
 impl<'s> QueryPlanner<'s> {
+    pub fn empty() -> Self {
+        QueryPlanner {
+            schema: schema::Document {
+                definitions: vec![],
+            },
+        }
+    }
+
     pub fn new(schema: &'s str) -> QueryPlanner<'s> {
         let schema = parse_schema(schema).expect("failed parsing schema");
         QueryPlanner { schema }

@@ -2,6 +2,12 @@ extern crate wasm_bindgen;
 
 use apollo_query_planner::{QueryPlanner, QueryPlanningOptions};
 use js_sys::JsString;
+use owning_ref::OwningRef;
+use std::cell::RefCell;
+use std::marker::PhantomPinned;
+use std::pin::Pin;
+use std::ptr::NonNull;
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 /// These vectors serve as repositories for the Schema string and QueryPlanner
@@ -9,6 +15,106 @@ use wasm_bindgen::prelude::*;
 /// into the vector, which it can use in `getQueryPlan`.
 static mut SCHEMA: Vec<Option<String>> = vec![];
 static mut DATA: Vec<Option<QueryPlanner>> = vec![];
+
+struct Planner<'s> {
+    schema: String,
+    // schema: Pin<Box<String>>,
+    data: QueryPlanner<'s>,
+    _pin: PhantomPinned,
+}
+
+// struct Planners<'s> {
+//     planners: Vec<Option<Rc<Planner<'s>>>>,
+// }
+
+// impl<'s> Planner<'s> {
+// fn from(schema: String) -> Pin<Box<Planner<'static>>> {
+// fn from(schema: Box<String>) -> OwningRef<Box<String>, QueryPlanner<'static>> {
+//     // Attempe 3
+//     // let mut pin = Box::pin(Planner {
+//     //     schema,
+//     //     data: QueryPlanner::empty(),
+//     //     _pin: PhantomPinned,
+//     // });
+
+//     // let slice = NonNull::from(&pin.schema);
+//     // // we know this is safe because modifying a field doesn't move the whole struct
+//     // unsafe {
+//     //     let mut_ref: Pin<_> = Pin::as_mut(&mut pin);
+//     //     Pin::get_unchecked_mut(mut_ref).data = QueryPlanner::new(&pin.schema);
+//     // }
+
+//     // return pin
+
+//     // Attempt 2
+// let p = NonNull::from(&pin);
+// unsafe {
+//     // let q =
+//     let mut planner = Planner {
+//         schema: p,
+//         data: QueryPlanner::empty(),
+//     };
+//     planner.data = QueryPlanner::new(planner.schema.as_ref());
+//     return planner;
+// }
+
+mod two {
+    use super::*;
+
+    struct Planner<'s> {
+        schema: String,
+        data: QueryPlanner<'s>,
+    }
+
+    static mut PLANNERS: Vec<Planner> = vec![];
+
+    fn make(schema: String) {
+        unsafe {
+            let id = PLANNERS.len();
+            PLANNERS.push(Planner {
+                schema,
+                data: QueryPlanner::empty(),
+            });
+            PLANNERS[id].data = QueryPlanner::new(&PLANNERS[id].schema)
+        }
+    }
+}
+
+/* --------------------- one -------------------- */
+// mod one {
+//     use super::*;
+//     static mut PLANNERS: Vec<OwningRef<Box<String>, QueryPlanner>> = vec![];
+//     fn from(schema: String) {
+//         let schema = OwningRef::new(Box::new(schema));
+//         let m = schema.map(|owner: &String| &QueryPlanner::new(owner));
+//         // unsafe {
+//         //     PLANNERS.push(m);
+//         // }
+//     }
+// }
+/* ------------------------ /one ------------------- */
+
+// impl<'s> Planners<'s> {
+//     fn get_query_planner(&mut self, schema: String) -> usize {
+//         for i in 0..self.planners.len() {
+//             match &self.planners[i] {
+//                 Some(x) if *x.schema.borrow() == schema => {
+//                     let id = self.planners.len();
+//                     self.planners.push(self.planners[i].clone());
+//                     return id;
+//                 }
+//                 _ => (),
+//             }
+//         }
+//         let id = self.planners.len();
+//         self.planners.push(Some(Rc::new(Planner::from(schema))));
+//         // self.schemas.push(Some(schema));
+//         // // oops, lifetime's broked.
+//         // self.datas
+//         //     .push(Some(QueryPlanner::new(&self.schemas[id].as_ref().unwrap())));
+//         return id;
+//     }
+// }
 
 /// getQueryPlanner creates a QueryPlanner if needed, and returns an "id"
 /// for later use with `getQueryPlan`. Calling this multiple times with
