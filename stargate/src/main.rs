@@ -1,26 +1,44 @@
+use std::collections::HashMap;
+use std::fs;
+
 use actix_cors::Cors;
-use actix_web::{dev, http, middleware, post, web, App, HttpResponse, HttpServer, Result};
+use actix_web::{
+    dev, http, middleware, post, web, App, HttpRequest, HttpResponse, HttpServer, Result,
+};
 use actix_web_opentelemetry::RequestMetrics;
+use opentelemetry::sdk;
+use tracing::{debug, info, instrument};
+use tracing_actix_web::TracingLogger;
+
 use apollo_stargate_lib::common::Opt;
 use apollo_stargate_lib::transports::http::{GraphQLRequest, RequestContext, ServerState};
 use apollo_stargate_lib::Stargate;
-use opentelemetry::sdk;
-use std::fs;
-use tracing::{debug, info, instrument};
-use tracing_actix_web::TracingLogger;
 
 mod telemetry;
 
 #[post("/")]
-#[instrument(skip(request, data))]
+#[instrument(skip(request, http_req, data))]
 async fn index(
     request: web::Json<GraphQLRequest>,
+    http_req: HttpRequest,
     data: web::Data<ServerState<'static>>,
 ) -> Result<HttpResponse> {
     let ql_request = request.into_inner();
+
+    // Build a map of headers so we can later propogate them to downstream services
+    let header_map: HashMap<&str, &str> = http_req
+        .headers()
+        .iter()
+        // `value.to_str()` will only return a string slice for visible ASCII characters, else it
+        // will error. Instead, we can take it `as_bytes()` and convert it back to a string later.
+        .map(|(name, value)| (name.as_str(), value.to_str().unwrap()))
+        .collect();
+
     let context = RequestContext {
         graphql_request: ql_request,
+        header_map,
     };
+
     let result = match data.stargate.execute_query(&context).await {
         Ok(result) => result,
         Err(_) => todo!("handle error cases when executing query"),

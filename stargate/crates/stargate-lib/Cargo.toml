@@ -24,3 +24,7 @@ surf = "2.0.0"
 tracing = "0.1.21"
 tracing-futures = "0.2.4"
 url = "2.1.1"
+
+[dev-dependencies]
+wiremock = "0.3"
+async-std = { version = "1.6.5", features = ["attributes"] }

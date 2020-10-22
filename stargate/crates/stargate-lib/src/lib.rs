@@ -30,7 +30,10 @@ impl<'app> Stargate<'app> {
     }
 
     #[instrument(skip(self, request_context))]
-    pub async fn execute_query(&self, request_context: &RequestContext) -> Result<GraphQLResponse> {
+    pub async fn execute_query(
+        &self,
+        request_context: &RequestContext<'_>,
+    ) -> Result<GraphQLResponse> {
         // TODO(ran) FIXME: gql validation on query
         // TODO(james) actual request pipeline here
         let options = QueryPlanningOptionsBuilder::default().build().unwrap();

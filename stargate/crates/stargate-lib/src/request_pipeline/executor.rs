@@ -14,14 +14,30 @@ use tracing::instrument;
 pub struct ExecutionContext<'schema, 'request> {
     service_map: &'schema HashMap<String, ServiceDefinition>,
     // errors: Vec<async_graphql::Error>,
-    request_context: &'request RequestContext,
+    request_context: &'request RequestContext<'request>,
 }
+
+// impl<'schema, 'request> ExecutionContext<'schema, 'request> {
+//     pub fn new(
+//         service_map: &'schema HashMap<String, ServiceDefinition>,
+//         request_context: &'request RequestContext,
+//     ) -> ExecutionContext<'schema, 'request> {
+//         ExecutionContext {
+//             service_map,
+//             request_context,
+//         }
+//     }
+//
+//     pub fn get_request_context(self) -> &'request RequestContext<'request> {
+//         self.request_context
+//     }
+// }
 
 #[instrument(skip(query_plan, service_map, request_context))]
 pub async fn execute_query_plan(
     query_plan: &QueryPlan,
     service_map: &HashMap<String, ServiceDefinition>,
-    request_context: &RequestContext,
+    request_context: &RequestContext<'_>,
 ) -> Result<GraphQLResponse> {
     // let errors: Vec<async_graphql::Error> = vec![;
 
@@ -215,7 +231,7 @@ async fn execute_fetch<'schema, 'request>(
     }
 
     let data_received = service
-        .send_operation(context, fetch.operation.clone(), variables)
+        .send_operation(context.request_context, fetch.operation.clone(), variables)
         .await?;
 
     if let Some(_requires) = &fetch.requires {
