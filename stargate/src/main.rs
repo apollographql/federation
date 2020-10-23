@@ -10,6 +10,7 @@ use opentelemetry::sdk;
 use tracing::{debug, info, instrument};
 use tracing_actix_web::TracingLogger;
 
+use actix_web::http::{HeaderMap, HeaderName, HeaderValue};
 use apollo_stargate_lib::common::Opt;
 use apollo_stargate_lib::transports::http::{GraphQLRequest, RequestContext, ServerState};
 use apollo_stargate_lib::Stargate;
@@ -29,10 +30,22 @@ async fn index(
     let header_map: HashMap<&str, &str> = http_req
         .headers()
         .iter()
-        // `value.to_str()` will only return a string slice for visible ASCII characters, else it
-        // will error. Instead, we can take it `as_bytes()` and convert it back to a string later.
+        .filter(|(_, value)| value.to_str().is_ok())
         .map(|(name, value)| (name.as_str(), value.to_str().unwrap()))
         .collect();
+
+    let invalid_headers: Vec<&str> = http_req
+        .headers()
+        .iter()
+        // `value.to_str()` will only return a string slice for visible ASCII characters, else it
+        // will error. Instead, we can take it `as_bytes()` and convert it back to a string later.
+        .filter(|(_, value)| !value.to_str().is_ok())
+        .map(|(name, _)| name.as_str())
+        .collect();
+
+    if !invalid_headers.is_empty() {
+        todo!("handle invalid header values")
+    }
 
     let context = RequestContext {
         graphql_request: ql_request,

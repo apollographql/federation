@@ -17,22 +17,6 @@ pub struct ExecutionContext<'schema, 'request> {
     request_context: &'request RequestContext<'request>,
 }
 
-// impl<'schema, 'request> ExecutionContext<'schema, 'request> {
-//     pub fn new(
-//         service_map: &'schema HashMap<String, ServiceDefinition>,
-//         request_context: &'request RequestContext,
-//     ) -> ExecutionContext<'schema, 'request> {
-//         ExecutionContext {
-//             service_map,
-//             request_context,
-//         }
-//     }
-//
-//     pub fn get_request_context(self) -> &'request RequestContext<'request> {
-//         self.request_context
-//     }
-// }
-
 #[instrument(skip(query_plan, service_map, request_context))]
 pub async fn execute_query_plan(
     query_plan: &QueryPlan,
