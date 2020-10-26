@@ -24,6 +24,11 @@ module.exports = {
             'other-servers',
             'federation-spec',
           ],
+          'Managed Federation': [
+            'managed-federation/overview',
+            'managed-federation/setup',
+            'managed-federation/advanced-topics',
+          ],
           'API Reference': [
             'api/apollo-federation',
             'api/apollo-gateway',
