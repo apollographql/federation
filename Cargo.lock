@@ -1484,9 +1484,9 @@ dependencies = [
 
 [[package]]
 name = "http-client"
-version = "6.0.0"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a519fb1e28c8aa09b1291c17f814cd0efb239c509f76d5acf75089e606b93e8"
+checksum = "9cc054d9c24096dde2dc73c0d37fa3f9269443dbf4a7ba47598ec9cffe71220e"
 dependencies = [
  "async-std",
  "async-trait",
@@ -2750,9 +2750,9 @@ checksum = "343f3f510c2915908f155e94f17220b19ccfacf2a64a2a5d8004f2c3e311e7fd"
 
 [[package]]
 name = "surf"
-version = "2.0.0"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d38339c05d2bc84595d56e27aa07566e7b59767ea5cb5c78991b499cd188060"
+checksum = "7189c787d96fe18fef704950de76d590022d9d70858a4a201e1f07a0666882ea"
 dependencies = [
  "async-std",
  "async-trait",
