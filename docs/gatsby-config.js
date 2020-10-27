@@ -14,20 +14,26 @@ module.exports = {
         sidebarCategories: {
           null: [
             'index',
+          ],
+          'Core Concepts': [
             'implementing-services',
             'gateway',
             'entities',
             'value-types',
-            'errors',
-            'metrics',
             'migrating-from-stitching',
-            'other-servers',
-            'federation-spec',
           ],
           'Managed Federation': [
             'managed-federation/overview',
             'managed-federation/setup',
             'managed-federation/advanced-topics',
+          ],
+          'Debugging': [
+            'errors',
+            'metrics',
+          ],
+          'Third-Party Support': [
+            'other-servers',
+            'federation-spec',
           ],
           'API Reference': [
             'api/apollo-federation',
