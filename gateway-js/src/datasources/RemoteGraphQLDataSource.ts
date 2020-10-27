@@ -99,6 +99,12 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
         ? this.didReceiveResponse({ response, request, context })
         : response;
 
+    const httpRequest = request.http;
+
+    if (!httpRequest) {
+        throw new Error("Missing http on GraphQL request");
+    }
+
     if (this.apq) {
       // Take the original extensions and extend them with
       // the necessary "extensions" for APQ handshaking.
@@ -126,17 +132,17 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
           );
         }
 
-        requestWithoutQuery.http = {
-          method: "GET",
-          url: optimisticPersistedQueryUrl,
-          headers,
-        };
+        const optimisticApqHttpGet = { ...httpRequest };
+        optimisticApqHttpGet.method = "GET";
+        optimisticApqHttpGet.url = optimisticPersistedQueryUrl;
+
+        requestWithoutQuery.http = optimisticApqHttpGet;
       } else {
-        requestWithoutQuery.http = {
-          method: "POST",
-          url: this.url,
-          headers,
-        };
+        const optimisticApqHttpPost = { ...httpRequest };
+        optimisticApqHttpPost.method = "GET";
+        optimisticApqHttpPost.url = this.url;
+
+        requestWithoutQuery.http = optimisticApqHttpPost;
       }
 
       const apqOptimisticResponse = await this.sendRequest(
@@ -177,17 +183,17 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
           );
         }
 
-        requestWithQuery.http = {
-          method: "GET",
-            url: persistedQueryUrlWithQuery,
-            headers,
-        };
+        const apqWithQueryHttpGet = { ...httpRequest };
+        apqWithQueryHttpGet.method = "GET";
+        apqWithQueryHttpGet.url = persistedQueryUrlWithQuery;
+
+        requestWithQuery.http = apqWithQueryHttpGet;
       } else {
-        requestWithQuery.http = {
-          method: "POST",
-            url: this.url,
-            headers,
-        };
+        const queryHttpPost = { ...httpRequest };
+        queryHttpPost.method = "POST";
+        queryHttpPost.url = this.url;
+
+        requestWithQuery.http = queryHttpPost;
       }
 
       const response = await this.sendRequest(requestWithQuery, context);
