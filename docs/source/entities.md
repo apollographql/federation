@@ -221,7 +221,7 @@ Apollo Gateway helps you perform this migration much like you perform a database
 
     * _If you **are** using managed federation, Apollo Studio does **not** push an updated schema to your gateway, and the gateway continues to resolve the `inStock` field in the `products` service._
 
-    * _If you are **not** using managed federation, your gateway starts resolving the `inStock` field in whichever service is listed **last** in your gateway's [`serviceList`](/api/apollo-gateway/#apollogateway)._
+    * _If you are **not** using managed federation, your gateway starts resolving the `inStock` field in whichever service is listed **last** in your gateway's [`serviceList`](/api/apollo-gateway/#constructor)._
 
 4. In the `products` service's schema, remove the `inStock` field and push the updated service to your environment.
 
