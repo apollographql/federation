@@ -43,7 +43,7 @@ import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
-import { getQueryPlanner } from '@apollo/query-planner-wasm';
+import { getQueryPlanner, updatePlannerSchema } from '@apollo/query-planner-wasm';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -417,7 +417,11 @@ export class ApolloGateway implements GraphQLService {
       )
     } else {
       this.schema = schema;
-      this.queryPlannerPointer = getQueryPlanner(composedSdl);
+      if (this.queryPlannerPointer != null) {
+        updatePlannerSchema(this.queryPlannerPointer, composedSdl)
+      } else {
+        this.queryPlannerPointer = getQueryPlanner(composedSdl);
+      }
 
       // Notify the schema listeners of the updated schema
       try {

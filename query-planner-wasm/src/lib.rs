@@ -10,24 +10,30 @@ static mut DATA: Vec<QueryPlanner> = vec![];
 #[wasm_bindgen(js_name = getQueryPlanner)]
 pub fn get_query_planner(schema: JsString) -> usize {
     unsafe {
-        if SCHEMA.is_empty() {
-            SCHEMA.push(String::from(schema));
-            DATA.push(QueryPlanner::new(&SCHEMA[0]));
-        } else {
-            SCHEMA[0] = String::from(schema);
-            DATA[0] = QueryPlanner::new(&SCHEMA[0]);
+        let idx = SCHEMA.len();
+        SCHEMA.push(String::from(schema));
+        DATA.push(QueryPlanner::new(&SCHEMA[idx]));
+        idx
+    }
+}
+
+#[wasm_bindgen(js_name = updatePlannerSchema)]
+pub fn update_planner_schema(idx: usize, schema: JsString) {
+    unsafe {
+        if SCHEMA.get(idx).is_none() {
+            panic!("Index {} not found", idx)
         }
-        let data = &DATA[0];
-        data as *const QueryPlanner as usize
+
+        SCHEMA[idx] = String::from(schema);
+        DATA[idx] = QueryPlanner::new(&SCHEMA[idx]);
     }
 }
 
 #[wasm_bindgen(js_name = getQueryPlan)]
-pub fn get_query_plan(planner_ptr: usize, query: &str, options: &JsValue) -> JsValue {
+pub fn get_query_plan(idx: usize, query: &str, options: &JsValue) -> JsValue {
     let options: QueryPlanningOptions = options.into_serde().unwrap();
     unsafe {
-        let planner = planner_ptr as *const QueryPlanner;
-        let planner: &QueryPlanner = &*planner;
+        let planner = &DATA[idx];
         let plan = planner.plan(query, options).unwrap();
         JsValue::from_serde(&plan).unwrap()
     }
@@ -63,5 +69,31 @@ mod tests {
         let result = get_query_plan(planner, query, &options);
         let plan = result.into_serde::<QueryPlan>().unwrap();
         assert_eq!(plan, expected);
+    }
+
+    #[wasm_bindgen_test]
+    fn multiple_query_planners() {
+        let schema_multiple_keys = include_str!(
+            "../../stargate/crates/query-planner/tests/features/multiple-keys/csdl.graphql"
+        );
+        let planner_multiple_keys = get_query_planner(JsString::from(schema_multiple_keys));
+        let query_multiple_keys = "query { reviews { body } }";
+
+        let schema_basic =
+            include_str!("../../stargate/crates/query-planner/tests/features/basic/csdl.graphql");
+        let planner_basic = get_query_planner(JsString::from(schema_basic));
+        let query_basic = "query { me { name } }";
+
+        let options = QueryPlanningOptionsBuilder::default().build().unwrap();
+        let options = JsValue::from_serde(&options).unwrap();
+
+        let result_basic = get_query_plan(planner_basic, query_basic, &options);
+        let plan_basic = result_basic.into_serde::<QueryPlan>().unwrap();
+
+        let result_multiple_keys =
+            get_query_plan(planner_multiple_keys, query_multiple_keys, &options);
+        let plan_multiple_keys = result_multiple_keys.into_serde::<QueryPlan>().unwrap();
+
+        assert_ne!(plan_multiple_keys, plan_basic);
     }
 }
