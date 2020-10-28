@@ -14,14 +14,14 @@ use tracing::instrument;
 pub struct ExecutionContext<'schema, 'request> {
     service_map: &'schema HashMap<String, ServiceDefinition>,
     // errors: Vec<async_graphql::Error>,
-    request_context: &'request RequestContext<'request>,
+    request_context: &'request RequestContext,
 }
 
 #[instrument(skip(query_plan, service_map, request_context))]
 pub async fn execute_query_plan(
     query_plan: &QueryPlan,
     service_map: &HashMap<String, ServiceDefinition>,
-    request_context: &RequestContext<'_>,
+    request_context: &RequestContext,
 ) -> Result<GraphQLResponse> {
     // let errors: Vec<async_graphql::Error> = vec![;
 
@@ -157,7 +157,7 @@ fn merge_flattend_results(parent_data: &mut Value, child_data: &Value, path: &Re
 async fn execute_fetch<'schema, 'request>(
     context: &ExecutionContext<'schema, 'request>,
     fetch: &FetchNode,
-    results_lock: &'request RwLock<Value>,
+    results_lock: &RwLock<Value>,
 ) -> Result<()> {
     let service = &context.service_map[&fetch.service_name];
 

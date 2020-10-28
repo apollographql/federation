@@ -27,6 +27,10 @@ pub struct Opt {
     /// Accepts [http|udp]://host:port/path (path is optional)
     #[structopt(short, long)]
     pub tracing_endpoint: Option<TracingConfig>,
+
+    /// A space separated list of header names which Stargate should propagate to downstream services.
+    #[structopt(short, long)]
+    pub propagate_headers: Option<Vec<String>>,
 }
 
 impl Opt {
@@ -50,6 +54,21 @@ impl Opt {
         } else {
             buf.push_str("tracing: disabled");
         }
+        buf.push('\n');
+
+        if let Some(propagate_headers) = &self.propagate_headers {
+            buf.push_str("headers:\n");
+            for header in propagate_headers.iter() {
+                buf.push_str(format!("  * {}\n", header).as_str());
+            }
+        } else {
+            buf.push_str("header propagation: disabled");
+        }
+        buf.push('\n');
+
+        buf.push_str("structured_logging: ");
+        buf.push_str(self.structured_logging.to_string().as_str());
+        buf.push('\n');
 
         buf
     }
@@ -121,9 +140,11 @@ impl Default for Opt {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::{Opt, TracingConfig, TracingProtocol};
     use std::path::PathBuf;
+
     use structopt::StructOpt;
+
+    use crate::common::{Opt, TracingConfig, TracingProtocol};
 
     #[test]
     fn test_good_opt() {

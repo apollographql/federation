@@ -1,20 +1,17 @@
-use std::collections::HashMap;
-use std::fs;
-
 use actix_cors::Cors;
-use actix_web::{
-    dev, http, middleware, post, web, App, HttpRequest, HttpResponse, HttpServer, Result,
-};
+use actix_web::{dev, middleware, post, web, App, HttpRequest, HttpResponse, HttpServer, Result};
 use actix_web_opentelemetry::RequestMetrics;
-use opentelemetry::sdk;
-use tracing::{debug, info, instrument};
-use tracing_actix_web::TracingLogger;
-
-use actix_web::http::{HeaderMap, HeaderName, HeaderValue};
 use apollo_stargate_lib::common::Opt;
 use apollo_stargate_lib::transports::http::{GraphQLRequest, RequestContext, ServerState};
-use apollo_stargate_lib::Stargate;
-
+use apollo_stargate_lib::{Stargate, StargateOpts};
+use http::header::HeaderName;
+use http::{header, HeaderMap, HeaderValue};
+use opentelemetry::sdk;
+use std::collections::HashSet;
+use std::fs;
+use std::iter::FromIterator;
+use tracing::{debug, info, instrument};
+use tracing_actix_web::TracingLogger;
 mod telemetry;
 
 #[post("/")]
@@ -27,24 +24,16 @@ async fn index(
     let ql_request = request.into_inner();
 
     // Build a map of headers so we can later propogate them to downstream services
-    let header_map: HashMap<&str, &str> = http_req
-        .headers()
-        .iter()
-        .filter(|(_, value)| value.to_str().is_ok())
-        .map(|(name, value)| (name.as_str(), value.to_str().unwrap()))
-        .collect();
+    let mut header_map = HeaderMap::new();
 
-    let invalid_headers: Vec<&str> = http_req
-        .headers()
-        .iter()
-        // `value.to_str()` will only return a string slice for visible ASCII characters, else it
-        // will error. Instead, we can take it `as_bytes()` and convert it back to a string later.
-        .filter(|(_, value)| !value.to_str().is_ok())
-        .map(|(name, _)| name.as_str())
-        .collect();
+    let propagate_headers = &data.stargate.propagate_headers;
 
-    if !invalid_headers.is_empty() {
-        todo!("handle invalid header values")
+    if let Some(headers) = propagate_headers {
+        for (header_name, header_value) in http_req.headers().iter() {
+            if headers.contains(&header_name.to_string()) {
+                header_map.append(header_name, header_value.clone());
+            }
+        }
     }
 
     let context = RequestContext {
@@ -68,6 +57,9 @@ static mut MANIFEST: String = String::new();
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let opt = Opt::default();
+
+    let propagate_headers = opt.propagate_headers.clone();
+
     telemetry::init(&opt).expect("failed to initialize tracer.");
     let meter = sdk::Meter::new("stargate");
     let request_metrics = RequestMetrics::new(
@@ -82,8 +74,12 @@ async fn main() -> std::io::Result<()> {
     debug!("Initializing stargate instance");
     let stargate = unsafe {
         MANIFEST = fs::read_to_string(&opt.manifest)?;
-        Stargate::new(&MANIFEST)
+        Stargate::new(StargateOpts {
+            schema: &MANIFEST,
+            propagate_headers,
+        })
     };
+
     let stargate = web::Data::new(ServerState { stargate });
 
     HttpServer::new(move || {
@@ -106,4 +102,17 @@ async fn main() -> std::io::Result<()> {
     .bind(format!("0.0.0.0:{}", opt.port))?
     .run()
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
+
+    #[test]
+    fn test_something() {
+        let set: HashSet<&str> = HashSet::from_iter(vec!["abc"]);
+
+        assert!(set.contains("abc"))
+    }
 }

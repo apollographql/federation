@@ -1,7 +1,7 @@
 use crate::Stargate;
+use http::HeaderMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GraphQLRequest {
@@ -17,9 +17,9 @@ pub struct GraphQLResponse {
     // errors: 'a Option<async_graphql::http::GQLError>,
 }
 
-pub struct RequestContext<'request> {
+pub struct RequestContext {
     pub graphql_request: GraphQLRequest,
-    pub header_map: HashMap<&'request str, &'request str>,
+    pub header_map: HeaderMap,
 }
 
 #[derive(Debug)]
