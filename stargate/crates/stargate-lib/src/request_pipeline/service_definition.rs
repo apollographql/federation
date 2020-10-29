@@ -2,7 +2,7 @@ use crate::transports::http::{GraphQLRequest, GraphQLResponse, RequestContext};
 use crate::Result;
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::iter::FromIterator;
 
@@ -57,7 +57,7 @@ mod tests {
     use super::ServiceDefinition;
     use crate::request_pipeline::service_definition::Service;
     use crate::transports::http::{GraphQLRequest, GraphQLResponse, RequestContext};
-    use reqwest::header::{HeaderMap, HeaderValue};
+    use http::{HeaderMap, HeaderValue};
     use reqwest::Client;
     use serde_json::json;
     use std::collections::HashMap;
@@ -74,7 +74,12 @@ mod tests {
 
         let mut mock_builder = Mock::given(method("POST"));
         for (key, value) in header_map.into_iter() {
-            mock_builder = mock_builder.and(header(key, value));
+            if let Some(header_name) = key {
+                if let Ok(header_value) = value {
+                    mock_builder =
+                        mock_builder.and(header(header_name.as_str(), heaader_value.to_str()));
+                }
+            }
         }
 
         mock_builder
@@ -99,7 +104,7 @@ mod tests {
         }
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn basic_header_threading() {
         let header_name = "name";
         let header_value: HeaderValue = match HeaderValue::from_str("value") {
@@ -108,13 +113,11 @@ mod tests {
         };
 
         let mut header_map: HeaderMap = HeaderMap::new();
-        header_map.insert(header_name, header_value);
+        header_map.append(header_name, header_value);
 
         let mock_server = get_mock_server(header_map.clone()).await;
-
         let query = "{ __typename }";
         let request_context = get_request_context(query, header_map.clone());
-
         let service = ServiceDefinition {
             url: String::from(&mock_server.uri()),
             client: Client::new(),
