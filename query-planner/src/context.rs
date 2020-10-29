@@ -69,7 +69,7 @@ impl<'q> QueryPlanningContext<'q> {
         selection_set
             .map(VariableUsagesMap::new(&self.variable_name_to_def))
             .output
-            .unwrap()
+            .expect("output must be Some")
             .into_iter()
             .unzip()
     }
@@ -137,8 +137,11 @@ impl<'q> QueryPlanningContext<'q> {
                             Only for the extending service case. \
                             parent: {}, service_name: {}", parent_type.as_name(), service_name);
                         }
-                        let mut fields =
-                            collect_fields(self, new_scope.clone(), keys.pop().unwrap());
+                        let mut fields = collect_fields(
+                            self,
+                            new_scope.clone(),
+                            keys.pop().expect("keys is not empty"),
+                        );
                         key_fields.append(&mut fields)
                     }
                 }
@@ -214,35 +217,39 @@ impl<'q> QueryPlanningContext<'q> {
         }
 
         let return_type = self.names_to_types.get(field_def.field_type.as_name());
-        let field_type_is_not_composite =
-            return_type.is_none() || !return_type.unwrap().is_composite_type();
 
-        if field_type_is_not_composite {
+        if return_type.is_none() {
             return vec![];
         }
 
-        let return_type = return_type.unwrap();
+        if let Some(return_type) = return_type {
+            if !return_type.is_composite_type() {
+                return vec![];
+            }
 
-        let provided_fields = self
-            .get_key_fields(return_type, service_name, true)
-            .into_iter()
-            .map(|f| f.field_def.name);
+            let provided_fields = self
+                .get_key_fields(return_type, service_name, true)
+                .into_iter()
+                .map(|f| f.field_def.name);
 
-        if let Some(provides) = self.federation.provides(field_def) {
-            let fields = {
-                let mut visited_fragment_names: HashSet<&str> = HashSet::new();
-                let mut res = vec![];
-                collect_fields_names(
-                    provides,
-                    &self.fragments,
-                    &mut res,
-                    &mut visited_fragment_names,
-                );
-                res
-            };
-            provided_fields.chain(fields).collect()
+            if let Some(provides) = self.federation.provides(field_def) {
+                let fields = {
+                    let mut visited_fragment_names: HashSet<&str> = HashSet::new();
+                    let mut res = vec![];
+                    collect_fields_names(
+                        provides,
+                        &self.fragments,
+                        &mut res,
+                        &mut visited_fragment_names,
+                    );
+                    res
+                };
+                provided_fields.chain(fields).collect()
+            } else {
+                provided_fields.collect()
+            }
         } else {
-            provided_fields.collect()
+            vec![]
         }
     }
 }
