@@ -218,10 +218,6 @@ impl<'q> QueryPlanningContext<'q> {
 
         let return_type = self.names_to_types.get(field_def.field_type.as_name());
 
-        if return_type.is_none() {
-            return vec![];
-        }
-
         if let Some(return_type) = return_type {
             if !return_type.is_composite_type() {
                 return vec![];
