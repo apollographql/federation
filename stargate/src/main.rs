@@ -100,16 +100,3 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
-
-#[cfg(test)]
-mod tests {
-    use std::collections::HashSet;
-    use std::iter::FromIterator;
-
-    #[test]
-    fn test_something() {
-        let set: HashSet<&str> = HashSet::from_iter(vec!["abc"]);
-
-        assert!(set.contains("abc"))
-    }
-}
