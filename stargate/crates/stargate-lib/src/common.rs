@@ -140,11 +140,9 @@ impl Default for Opt {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
-    use structopt::StructOpt;
-
     use crate::common::{Opt, TracingConfig, TracingProtocol};
+    use std::path::PathBuf;
+    use structopt::StructOpt;
 
     #[test]
     fn test_good_opt() {
