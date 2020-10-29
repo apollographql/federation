@@ -28,7 +28,7 @@ pub struct Opt {
     #[structopt(short, long)]
     pub tracing_endpoint: Option<TracingConfig>,
 
-    /// A space separated list of header names which Stargate should propagate to downstream services.
+    /// A space separated list of header names which Stargate should propagate to implementing services.
     #[structopt(short, long)]
     pub propagate_headers: Option<Vec<String>>,
 }
