@@ -3,7 +3,7 @@ use actix_web::{dev, middleware, post, web, App, HttpRequest, HttpResponse, Http
 use actix_web_opentelemetry::RequestMetrics;
 use apollo_stargate_lib::common::Opt;
 use apollo_stargate_lib::transports::http::{GraphQLRequest, RequestContext, ServerState};
-use apollo_stargate_lib::{Stargate, StargateOpts};
+use apollo_stargate_lib::{Stargate, StargateOptions};
 use http::HeaderMap;
 use opentelemetry::sdk;
 use std::fs;
@@ -23,11 +23,11 @@ async fn index(
     // Build a map of headers so we can later propogate them to downstream services
     let mut header_map = HeaderMap::new();
 
-    let propagate_headers = &data.stargate.propagate_headers;
+    let propagate_request_headers = &data.stargate.options.propagate_request_headers;
 
-    if let Some(headers) = propagate_headers {
+    if propagate_request_headers.len() > 0 {
         for (header_name, header_value) in http_req.headers().iter() {
-            if headers.contains(&header_name.to_string()) {
+            if propagate_request_headers.contains(&header_name.to_string()) {
                 header_map.append(header_name, header_value.clone());
             }
         }
@@ -55,7 +55,7 @@ static mut MANIFEST: String = String::new();
 async fn main() -> std::io::Result<()> {
     let opt = Opt::default();
 
-    let propagate_headers = opt.propagate_headers.clone();
+    let propagate_request_headers = opt.propagate_request_headers.clone();
 
     telemetry::init(&opt).expect("failed to initialize tracer.");
     let meter = sdk::Meter::new("stargate");
@@ -71,10 +71,12 @@ async fn main() -> std::io::Result<()> {
     debug!("Initializing stargate instance");
     let stargate = unsafe {
         MANIFEST = fs::read_to_string(&opt.manifest)?;
-        Stargate::new(StargateOpts {
-            schema: &MANIFEST,
-            propagate_headers,
-        })
+        Stargate::new(
+            &MANIFEST,
+            StargateOptions {
+                propagate_request_headers,
+            },
+        )
     };
 
     let stargate = web::Data::new(ServerState { stargate });

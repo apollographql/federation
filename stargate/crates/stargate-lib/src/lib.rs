@@ -17,23 +17,31 @@ mod utilities;
 pub struct Stargate<'app> {
     service_list: HashMap<String, ServiceDefinition>,
     pub planner: QueryPlanner<'app>,
-    pub propagate_headers: Option<Vec<String>>,
+    pub options: StargateOptions,
 }
 
-pub struct StargateOpts<'app> {
-    pub schema: &'app str,
-    pub propagate_headers: Option<Vec<String>>,
+#[derive(Debug)]
+pub struct StargateOptions {
+    pub propagate_request_headers: Vec<String>,
+}
+
+impl Default for StargateOptions {
+    fn default() -> Self {
+        Self {
+            propagate_request_headers: vec![],
+        }
+    }
 }
 
 impl<'app> Stargate<'app> {
-    pub fn new(opts: StargateOpts<'app>) -> Stargate<'app> {
+    pub fn new(schema: &'app str, options: StargateOptions) -> Stargate<'app> {
         // TODO(ran) FIXME: gql validation on schema
-        let planner = QueryPlanner::new(opts.schema);
+        let planner = QueryPlanner::new(schema);
         let service_list = get_service_list(&planner.schema);
         Stargate {
             planner,
             service_list,
-            propagate_headers: opts.propagate_headers,
+            options,
         }
     }
 

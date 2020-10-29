@@ -30,7 +30,7 @@ pub struct Opt {
 
     /// A space separated list of header names which Stargate should propagate to implementing services.
     #[structopt(short, long)]
-    pub propagate_headers: Option<Vec<String>>,
+    pub propagate_request_headers: Vec<String>,
 }
 
 impl Opt {
@@ -56,9 +56,9 @@ impl Opt {
         }
         buf.push('\n');
 
-        if let Some(propagate_headers) = &self.propagate_headers {
+        if self.propagate_request_headers.len() > 0 {
             buf.push_str("headers:\n");
-            for header in propagate_headers.iter() {
+            for header in self.propagate_request_headers.iter() {
                 buf.push_str(format!("  * {}\n", header).as_str());
             }
         } else {
@@ -153,7 +153,7 @@ mod tests {
                 structured_logging: false,
                 port: 8080,
                 tracing_endpoint: None,
-                propagate_headers: None
+                propagate_request_headers: vec![]
             }
         );
 
@@ -166,7 +166,7 @@ mod tests {
                 structured_logging: true,
                 port: 8181,
                 tracing_endpoint: None,
-                propagate_headers: None
+                propagate_request_headers: vec![]
             }
         );
 
@@ -182,7 +182,7 @@ mod tests {
                     protocol: TracingProtocol::UDP,
                     host_port_path: String::from("localhost:6831")
                 }),
-                propagate_headers: None
+                propagate_request_headers: vec![]
             }
         );
 
@@ -198,7 +198,7 @@ mod tests {
                     protocol: TracingProtocol::HTTP,
                     host_port_path: String::from("localhost:6831")
                 }),
-                propagate_headers: None
+                propagate_request_headers: vec![]
             }
         );
 
@@ -215,7 +215,7 @@ mod tests {
                     protocol: TracingProtocol::HTTP,
                     host_port_path: String::from("localhost:14268/api/traces")
                 }),
-                propagate_headers: None
+                propagate_request_headers: vec![]
             }
         );
     }
