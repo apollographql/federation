@@ -154,7 +154,8 @@ mod tests {
                 manifest: PathBuf::from("foo.graphql"),
                 structured_logging: false,
                 port: 8080,
-                tracing_endpoint: None
+                tracing_endpoint: None,
+                propagate_headers: None
             }
         );
 
@@ -166,7 +167,8 @@ mod tests {
                 manifest: PathBuf::from("foo.graphql"),
                 structured_logging: true,
                 port: 8181,
-                tracing_endpoint: None
+                tracing_endpoint: None,
+                propagate_headers: None
             }
         );
 
@@ -181,7 +183,8 @@ mod tests {
                 tracing_endpoint: Some(TracingConfig {
                     protocol: TracingProtocol::UDP,
                     host_port_path: String::from("localhost:6831")
-                })
+                }),
+                propagate_headers: None
             }
         );
 
@@ -196,7 +199,8 @@ mod tests {
                 tracing_endpoint: Some(TracingConfig {
                     protocol: TracingProtocol::HTTP,
                     host_port_path: String::from("localhost:6831")
-                })
+                }),
+                propagate_headers: None
             }
         );
 
@@ -212,7 +216,8 @@ mod tests {
                 tracing_endpoint: Some(TracingConfig {
                     protocol: TracingProtocol::HTTP,
                     host_port_path: String::from("localhost:14268/api/traces")
-                })
+                }),
+                propagate_headers: None
             }
         );
     }
