@@ -35,7 +35,7 @@ pub struct Opt {
 
 impl Opt {
     pub fn pretty_print(&self) -> String {
-        let mut buf = String::with_capacity(150);
+        let mut buf = String::new();
         buf.push_str("manifest: ");
         buf.push_str(self.manifest.to_str().unwrap());
         buf.push('\n');
