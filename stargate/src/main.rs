@@ -25,7 +25,7 @@ async fn index(
 
     let propagate_request_headers = &data.stargate.options.propagate_request_headers;
 
-    if propagate_request_headers.len() > 0 {
+    if !propagate_request_headers.is_empty() {
         for (header_name, header_value) in http_req.headers().iter() {
             if propagate_request_headers.contains(&header_name.to_string()) {
                 header_map.append(header_name, header_value.clone());

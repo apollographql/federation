@@ -56,7 +56,7 @@ impl Opt {
         }
         buf.push('\n');
 
-        if self.propagate_request_headers.len() > 0 {
+        if !self.propagate_request_headers.is_empty() {
             buf.push_str("headers:\n");
             for header in self.propagate_request_headers.iter() {
                 buf.push_str(format!("  * {}\n", header).as_str());
