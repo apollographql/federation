@@ -73,11 +73,10 @@ mod tests {
         });
 
         let mut mock_builder = Mock::given(method("POST"));
-        for (key, value) in header_map.into_iter() {
-            if let Some(header_name) = key {
-                if let Ok(header_value) = value {
-                    mock_builder =
-                        mock_builder.and(header(header_name.as_str(), heaader_value.to_str()));
+        for (header_name, header_value) in header_map.into_iter() {
+            if let Some(header_name) = header_name {
+                if let Ok(header_value) = header_value.to_str() {
+                    mock_builder = mock_builder.and(header(header_name.as_str(), header_value));
                 }
             }
         }
