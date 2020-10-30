@@ -29,8 +29,13 @@ pub struct Opt {
     pub tracing_endpoint: Option<TracingConfig>,
 
     /// A space separated list of header names which Stargate should propagate to implementing services.
-    #[structopt(long)]
+    /// Headers are automatically lowercased.
+    #[structopt(long, parse(from_str = parse_header))]
     pub propagate_request_headers: Vec<String>,
+}
+
+fn parse_header(header: &str) -> String {
+    header.to_lowercase()
 }
 
 impl Opt {
