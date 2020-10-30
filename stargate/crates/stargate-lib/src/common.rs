@@ -15,7 +15,7 @@ pub struct Opt {
     pub manifest: PathBuf,
 
     /// The port to bind on
-    #[structopt(default_value = "8080", long)]
+    #[structopt(default_value = "8080", short = "p", long)]
     pub port: u32,
 
     /// If enabled, logs will be outputed as JSON in the Bunyan Format. Defaults to false.
@@ -29,7 +29,7 @@ pub struct Opt {
     pub tracing_endpoint: Option<TracingConfig>,
 
     /// A space separated list of header names which Stargate should propagate to implementing services.
-    #[structopt(short, long)]
+    #[structopt(long)]
     pub propagate_request_headers: Vec<String>,
 }
 
