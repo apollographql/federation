@@ -27,7 +27,10 @@ async fn index(
 
     if !propagate_request_headers.is_empty() {
         for (header_name, header_value) in http_req.headers().iter() {
-            if propagate_request_headers.iter().any(|h| h == header_name.as_str()) {
+            if propagate_request_headers
+                .iter()
+                .any(|h| h == header_name.as_str())
+            {
                 header_map.append(header_name, header_value);
             }
         }
@@ -55,8 +58,6 @@ static mut MANIFEST: String = String::new();
 async fn main() -> std::io::Result<()> {
     let opt = Opt::default();
 
-    let propagate_request_headers = opt.propagate_request_headers.clone();
-
     telemetry::init(&opt).expect("failed to initialize tracer.");
     let meter = sdk::Meter::new("stargate");
     let request_metrics = RequestMetrics::new(
@@ -74,7 +75,7 @@ async fn main() -> std::io::Result<()> {
         Stargate::new(
             &MANIFEST,
             StargateOptions {
-                propagate_request_headers,
+                propagate_request_headers: opt.propagate_request_headers,
             },
         )
     };
