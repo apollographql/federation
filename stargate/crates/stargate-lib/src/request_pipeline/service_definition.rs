@@ -128,4 +128,33 @@ mod tests {
 
         assert!(result.is_ok());
     }
+
+    // XXX: Can't test this yet, see https://github.com/http-rs/async-h1/issues/148
+    //  when it is resolved and wiremock is updated, uncomment.
+    // #[tokio::test]
+    // async fn multi_header_threading() {
+    //     let header_name = "name";
+    //     let header_values = vec![
+    //         HeaderValue::from_str("value1").unwrap(),
+    //         HeaderValue::from_str("value2").unwrap(),
+    //     ];
+    //
+    //     let mut header_map = HeaderMap::with_capacity(0);
+    //     header_map.append(header_name, &header_values[0]);
+    //     header_map.append(header_name, &header_values[1]);
+    //
+    //     let mock_server = get_mock_server(&header_map).await;
+    //     let query = "{ __typename }";
+    //     let request_context = get_request_context(query, header_map);
+    //     let service = ServiceDefinition {
+    //         url: String::from(&mock_server.uri()),
+    //         client: Client::new(),
+    //     };
+    //
+    //     let result = service
+    //         .send_operation(&request_context, String::from(query), HashMap::new())
+    //         .await;
+    //
+    //     assert!(result.is_ok());
+    // }
 }
