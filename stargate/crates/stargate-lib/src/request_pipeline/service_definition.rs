@@ -106,10 +106,8 @@ mod tests {
     #[tokio::test]
     async fn basic_header_threading() {
         let header_name = "name";
-        let header_value: HeaderValue = match HeaderValue::from_str("value") {
-            Ok(res) => res,
-            Err(e) => unimplemented!("unhandled invalid header values"),
-        };
+        let header_value: HeaderValue =
+            HeaderValue::from_str("value").expect("unhandled invalid header values");
 
         let mut header_map: HeaderMap = HeaderMap::new();
         header_map.append(header_name, header_value);
