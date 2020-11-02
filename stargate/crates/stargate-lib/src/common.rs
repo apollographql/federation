@@ -223,6 +223,25 @@ mod tests {
                 propagate_request_headers: vec![]
             }
         );
+
+        assert_eq!(
+            Opt::from_iter(
+                "test --manifest foo.graphql --propagate-request-headers CHECK loweRcAsE and-names with_symBolS -p 1234"
+                    .split(' ')
+            ),
+            Opt {
+                manifest: PathBuf::from("foo.graphql"),
+                structured_logging: false,
+                port: 1234,
+                tracing_endpoint: None,
+                propagate_request_headers: vec![
+                    String::from("check"),
+                    String::from("lowercase"),
+                    String::from("and-names"),
+                    String::from("with_symbols"),
+                ]
+            }
+        );
     }
 
     #[test]
