@@ -14,9 +14,9 @@ pub struct ServiceDefinition {
 
 #[async_trait]
 pub trait Service {
-    async fn send_operation(
+    async fn send_operation<'req>(
         &self,
-        request_context: &RequestContext,
+        request_context: &'req RequestContext<'req>,
         operation: String,
         variables: HashMap<String, Value>,
     ) -> Result<Value>;
@@ -24,9 +24,9 @@ pub trait Service {
 
 #[async_trait]
 impl Service for ServiceDefinition {
-    async fn send_operation(
+    async fn send_operation<'req>(
         &self,
-        request_context: &RequestContext,
+        request_context: &'req RequestContext<'req>,
         operation: String,
         variables: HashMap<String, Value>,
     ) -> Result<Value> {
@@ -36,14 +36,15 @@ impl Service for ServiceDefinition {
             variables: Some(Map::from_iter(variables.into_iter()).into()),
         };
 
-        let headers = request_context.header_map.clone();
-
-        let request = self
+        let mut request = self
             .client
             .post(&self.url)
-            .headers(headers)
             .header("userId", "1")
             .json(&graphql_request);
+
+        for (header_name, header_value) in request_context.header_map.iter() {
+            request = request.header(header_name, *header_value);
+        }
 
         let response = request.send().await?;
         let GraphQLResponse { data } = response.json().await?;
@@ -64,7 +65,7 @@ mod tests {
     use wiremock::matchers::{header, method};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
-    async fn get_mock_server(header_map: HeaderMap) -> MockServer {
+    async fn get_mock_server(header_map: &HeaderMap<&HeaderValue>) -> MockServer {
         // Start a background HTTP server on a random local port
         let mock_server = MockServer::start().await;
 
@@ -73,11 +74,9 @@ mod tests {
         });
 
         let mut mock_builder = Mock::given(method("POST"));
-        for (header_name, header_value) in header_map.into_iter() {
-            if let Some(header_name) = header_name {
-                if let Ok(header_value) = header_value.to_str() {
-                    mock_builder = mock_builder.and(header(header_name.as_str(), header_value));
-                }
+        for (header_name, header_value) in header_map.iter() {
+            if let Ok(header_value) = header_value.to_str() {
+                mock_builder = mock_builder.and(header(header_name.as_str(), header_value));
             }
         }
 
@@ -90,7 +89,10 @@ mod tests {
         mock_server
     }
 
-    fn get_request_context(query: &str, header_map: HeaderMap) -> RequestContext {
+    fn get_request_context<'a>(
+        query: &str,
+        header_map: HeaderMap<&'a HeaderValue>,
+    ) -> RequestContext<'a> {
         let graphql_request = GraphQLRequest {
             operation_name: None,
             query: String::from(query),
@@ -98,7 +100,7 @@ mod tests {
         };
 
         RequestContext {
-            header_map: header_map.clone(),
+            header_map,
             graphql_request,
         }
     }
@@ -109,12 +111,12 @@ mod tests {
         let header_value: HeaderValue =
             HeaderValue::from_str("value").expect("unhandled invalid header values");
 
-        let mut header_map: HeaderMap = HeaderMap::new();
-        header_map.append(header_name, header_value);
+        let mut header_map = HeaderMap::with_capacity(0);
+        header_map.append(header_name, &header_value);
 
-        let mock_server = get_mock_server(header_map.clone()).await;
+        let mock_server = get_mock_server(&header_map).await;
         let query = "{ __typename }";
-        let request_context = get_request_context(query, header_map.clone());
+        let request_context = get_request_context(query, header_map);
         let service = ServiceDefinition {
             url: String::from(&mock_server.uri()),
             client: Client::new(),

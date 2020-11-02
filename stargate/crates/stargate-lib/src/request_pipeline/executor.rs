@@ -11,17 +11,17 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 use tracing::instrument;
 
-pub struct ExecutionContext<'schema, 'request> {
+pub struct ExecutionContext<'schema, 'req> {
     service_map: &'schema HashMap<String, ServiceDefinition>,
     // errors: Vec<async_graphql::Error>,
-    request_context: &'request RequestContext,
+    request_context: &'req RequestContext<'req>,
 }
 
 #[instrument(skip(query_plan, service_map, request_context))]
-pub async fn execute_query_plan(
+pub async fn execute_query_plan<'req>(
     query_plan: &QueryPlan,
     service_map: &HashMap<String, ServiceDefinition>,
-    request_context: &RequestContext,
+    request_context: &'req RequestContext<'req>,
 ) -> Result<GraphQLResponse> {
     // let errors: Vec<async_graphql::Error> = vec![;
 

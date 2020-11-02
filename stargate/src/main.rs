@@ -4,7 +4,7 @@ use actix_web_opentelemetry::RequestMetrics;
 use apollo_stargate_lib::common::Opt;
 use apollo_stargate_lib::transports::http::{GraphQLRequest, RequestContext, ServerState};
 use apollo_stargate_lib::{Stargate, StargateOptions};
-use http::HeaderMap;
+use http::{HeaderMap, HeaderValue};
 use opentelemetry::sdk;
 use std::fs;
 use tracing::{debug, info, instrument};
@@ -21,14 +21,14 @@ async fn index(
     let ql_request = request.into_inner();
 
     // Build a map of headers so we can later propogate them to downstream services
-    let mut header_map = HeaderMap::new();
+    let mut header_map: HeaderMap<&HeaderValue> = HeaderMap::with_capacity(0);
 
     let propagate_request_headers = &data.stargate.options.propagate_request_headers;
 
     if !propagate_request_headers.is_empty() {
         for (header_name, header_value) in http_req.headers().iter() {
-            if propagate_request_headers.contains(&header_name.to_string()) {
-                header_map.append(header_name, header_value.clone());
+            if propagate_request_headers.iter().any(|h| h == header_name.as_str()) {
+                header_map.append(header_name, header_value);
             }
         }
     }
