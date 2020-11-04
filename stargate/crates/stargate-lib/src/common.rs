@@ -15,7 +15,7 @@ pub struct Opt {
     pub manifest: PathBuf,
 
     /// The port to bind on
-    #[structopt(default_value = "8080", long)]
+    #[structopt(default_value = "8080", short = "p", long)]
     pub port: u32,
 
     /// If enabled, logs will be outputed as JSON in the Bunyan Format. Defaults to false.
@@ -27,11 +27,20 @@ pub struct Opt {
     /// Accepts [http|udp]://host:port/path (path is optional)
     #[structopt(short, long)]
     pub tracing_endpoint: Option<TracingConfig>,
+
+    /// A space separated list of header names which Stargate should propagate to implementing services.
+    /// Headers are automatically lowercased.
+    #[structopt(long, parse(from_str = parse_header))]
+    pub propagate_request_headers: Vec<String>,
+}
+
+fn parse_header(header: &str) -> String {
+    header.to_lowercase()
 }
 
 impl Opt {
     pub fn pretty_print(&self) -> String {
-        let mut buf = String::with_capacity(150);
+        let mut buf = String::new();
         buf.push_str("manifest: ");
         buf.push_str(self.manifest.to_str().unwrap());
         buf.push('\n');
@@ -50,6 +59,21 @@ impl Opt {
         } else {
             buf.push_str("tracing: disabled");
         }
+        buf.push('\n');
+
+        if !self.propagate_request_headers.is_empty() {
+            buf.push_str("headers:\n");
+            for header in self.propagate_request_headers.iter() {
+                buf.push_str(format!("  * {}\n", header).as_str());
+            }
+        } else {
+            buf.push_str("header propagation: disabled");
+        }
+        buf.push('\n');
+
+        buf.push_str("structured_logging: ");
+        buf.push_str(self.structured_logging.to_string().as_str());
+        buf.push('\n');
 
         buf
     }
@@ -133,7 +157,8 @@ mod tests {
                 manifest: PathBuf::from("foo.graphql"),
                 structured_logging: false,
                 port: 8080,
-                tracing_endpoint: None
+                tracing_endpoint: None,
+                propagate_request_headers: vec![]
             }
         );
 
@@ -145,7 +170,8 @@ mod tests {
                 manifest: PathBuf::from("foo.graphql"),
                 structured_logging: true,
                 port: 8181,
-                tracing_endpoint: None
+                tracing_endpoint: None,
+                propagate_request_headers: vec![]
             }
         );
 
@@ -160,7 +186,8 @@ mod tests {
                 tracing_endpoint: Some(TracingConfig {
                     protocol: TracingProtocol::UDP,
                     host_port_path: String::from("localhost:6831")
-                })
+                }),
+                propagate_request_headers: vec![]
             }
         );
 
@@ -175,7 +202,8 @@ mod tests {
                 tracing_endpoint: Some(TracingConfig {
                     protocol: TracingProtocol::HTTP,
                     host_port_path: String::from("localhost:6831")
-                })
+                }),
+                propagate_request_headers: vec![]
             }
         );
 
@@ -191,7 +219,27 @@ mod tests {
                 tracing_endpoint: Some(TracingConfig {
                     protocol: TracingProtocol::HTTP,
                     host_port_path: String::from("localhost:14268/api/traces")
-                })
+                }),
+                propagate_request_headers: vec![]
+            }
+        );
+
+        assert_eq!(
+            Opt::from_iter(
+                "test --manifest foo.graphql --propagate-request-headers CHECK loweRcAsE and-names with_symBolS -p 1234"
+                    .split(' ')
+            ),
+            Opt {
+                manifest: PathBuf::from("foo.graphql"),
+                structured_logging: false,
+                port: 1234,
+                tracing_endpoint: None,
+                propagate_request_headers: vec![
+                    String::from("check"),
+                    String::from("lowercase"),
+                    String::from("and-names"),
+                    String::from("with_symbols"),
+                ]
             }
         );
     }
