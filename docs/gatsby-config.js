@@ -34,6 +34,7 @@ module.exports = {
           'Third-Party Support': [
             'other-servers',
             'federation-spec',
+            'csdl-spec',
           ],
           'API Reference': [
             'api/apollo-federation',
