@@ -31,10 +31,10 @@
     "apollo-graphql": "^0.6.0",
     "apollo-reporting-protobuf": "^0.6.0",
     "apollo-server-caching": "^0.5.2",
-    "apollo-server-core": "^2.18.0",
+    "apollo-server-core": "^2.19.0",
     "apollo-server-env": "^2.4.5",
     "apollo-server-errors": "^2.4.2",
-    "apollo-server-types": "^0.6.0",
+    "apollo-server-types": "^0.6.1",
     "loglevel": "^1.6.1",
     "make-fetch-happen": "^8.0.0",
     "pretty-format": "^26.0.0"
