@@ -25,11 +25,8 @@ features.forEach((feature) => {
         let queryPlan: QueryPlan;
         let options: BuildQueryPlanOptions = { autoFragmentization: false };
 
-        const { schema, errors, queryPlannerPointer } = getFederatedTestingSchema();
-
-        if (errors && errors.length > 0) {
-          throw new GraphQLSchemaValidationError(errors);
-        }
+        // throws on composition errors
+        const { schema, queryPlannerPointer } = getFederatedTestingSchema();
 
         const givenQuery = () => {
           given(/^query$/im, (operation: string) => {

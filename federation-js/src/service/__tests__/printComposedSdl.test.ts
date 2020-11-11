@@ -1,17 +1,22 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { composeAndValidate } from '../../composition';
+import { composeAndValidate, compositionHasErrors } from '../../composition';
 import { parse, GraphQLError, visit, StringValueNode } from 'graphql';
 
 describe('printComposedSdl', () => {
-  let composedSdl: string | undefined, errors: GraphQLError[];
+  let composedSdl: string, errors: GraphQLError[];
 
   beforeAll(() => {
     // composeAndValidate calls `printComposedSdl` to return `composedSdl`
-    ({ composedSdl, errors } = composeAndValidate(fixtures));
+    const compositionResult = composeAndValidate(fixtures);
+    if (compositionHasErrors(compositionResult)) {
+      errors = compositionResult.errors;
+    } else {
+      composedSdl = compositionResult.composedSdl;
+    }
   });
 
   it('composes without errors', () => {
-    expect(errors).toHaveLength(0);
+    expect(errors).toBeUndefined();
   });
 
   it('produces a parseable output', () => {

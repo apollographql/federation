@@ -19,7 +19,7 @@ import {
   VariableDefinitionNode,
 } from 'graphql';
 import { GraphQLSchemaValidationError } from 'apollo-graphql';
-import { composeAndValidate, ServiceDefinition, ComposedGraphQLSchema } from '@apollo/federation';
+import { composeAndValidate, compositionHasErrors, ServiceDefinition } from '@apollo/federation';
 import loglevel from 'loglevel';
 
 import { buildQueryPlan, buildOperationContext } from './buildQueryPlan';
@@ -44,6 +44,7 @@ import fetcher from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
 import { getQueryPlanner } from '@apollo/query-planner-wasm';
+import { csdlToSchema } from './csdlToSchema';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -189,7 +190,7 @@ export const SERVICE_DEFINITION_QUERY =
   'query __ApolloGetServiceDefinition__ { _service { sdl } }';
 
 export class ApolloGateway implements GraphQLService {
-  public schema?: ComposedGraphQLSchema;
+  public schema?: GraphQLSchema;
   protected serviceMap: DataSourceMap = Object.create(null);
   protected config: GatewayConfig;
   private logger: Logger;
@@ -482,9 +483,10 @@ export class ApolloGateway implements GraphQLService {
         .join('\n')}`,
     );
 
-    const { schema, errors, composedSdl } = composeAndValidate(serviceList);
+    const compositionResult = composeAndValidate(serviceList);
 
-    if (errors && errors.length > 0) {
+    if (compositionHasErrors(compositionResult)) {
+      const { errors } = compositionResult;
       if (this.experimental_didFailComposition) {
         this.experimental_didFailComposition({
           errors,
@@ -495,19 +497,23 @@ export class ApolloGateway implements GraphQLService {
         });
       }
       throw new GraphQLSchemaValidationError(errors);
+    } else {
+      const { composedSdl } = compositionResult;
+      this.createServices(serviceList);
+
+      this.logger.debug('Schema loaded and ready for execution');
+
+      // This is a workaround for automatic wrapping of all fields, which Apollo
+      // Server does in the case of implementing resolver wrapping for plugins.
+      // Here we wrap all fields with support for resolving aliases as part of the
+      // root value which happens because aliases are resolved by sub services and
+      // the shape of the root value already contains the aliased fields as
+      // responseNames
+      return {
+        schema: wrapSchemaWithAliasResolver(csdlToSchema(composedSdl)),
+        composedSdl,
+      };
     }
-
-    this.createServices(serviceList);
-
-    this.logger.debug('Schema loaded and ready for execution');
-
-    // This is a workaround for automatic wrapping of all fields, which Apollo
-    // Server does in the case of implementing resolver wrapping for plugins.
-    // Here we wrap all fields with support for resolving aliases as part of the
-    // root value which happens because aliases are resolved by sub services and
-    // the shape of the root value already contains the aliased fields as
-    // responseNames
-    return { schema: wrapSchemaWithAliasResolver(schema), composedSdl };
   }
 
   public onSchemaChange(callback: SchemaChangeCallback): Unsubscriber {
@@ -817,8 +823,8 @@ function approximateObjectSize<T>(obj: T): number {
 // in order to counteract GraphQLExtensions preventing a defaultFieldResolver
 // from doing the same job
 function wrapSchemaWithAliasResolver(
-  schema: ComposedGraphQLSchema,
-): ComposedGraphQLSchema {
+  schema: GraphQLSchema,
+): GraphQLSchema {
   const typeMap = schema.getTypeMap();
   Object.keys(typeMap).forEach(typeName => {
     const type = typeMap[typeName];
