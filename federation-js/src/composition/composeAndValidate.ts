@@ -7,12 +7,38 @@ import {
 import { ServiceDefinition } from './types';
 import { normalizeTypeDefs } from './normalize';
 import { printComposedSdl } from '../service/printComposedSdl';
+import { GraphQLError, GraphQLSchema } from 'graphql';
 
-export function composeAndValidate(serviceList: ServiceDefinition[]) {
+export type CompositionResult = CompositionFailure | CompositionSuccess;
+
+// Yes, it's a bit awkward that we still return a schema when errors occur.
+// This is old behavior that I'm choosing not to modify for now.
+export interface CompositionFailure {
+  /** @deprecated Use composedSdl instead */
+  schema: GraphQLSchema;
+  errors: GraphQLError[];
+}
+
+export interface CompositionSuccess {
+  /** @deprecated Use composedSdl instead */
+  schema: GraphQLSchema;
+  composedSdl: string;
+}
+
+export function compositionHasErrors(
+  compositionResult: CompositionResult,
+): compositionResult is CompositionFailure {
+  return 'errors' in compositionResult;
+}
+
+export function composeAndValidate(
+  serviceList: ServiceDefinition[],
+): CompositionResult {
   const errors = validateServicesBeforeNormalization(serviceList);
 
-  const normalizedServiceList = serviceList.map(({ name, typeDefs }) => ({
+  const normalizedServiceList = serviceList.map(({ name, url, typeDefs }) => ({
     name,
+    url,
     typeDefs: normalizeTypeDefs(typeDefs),
   }));
 
@@ -31,17 +57,15 @@ export function composeAndValidate(serviceList: ServiceDefinition[]) {
     }),
   );
 
-  // We shouldn't try to print the SDL if there were errors during composition
-  const composedSdl =
-    errors.length === 0
-      ? printComposedSdl(compositionResult.schema, serviceList)
-      : undefined;
+  if (errors.length > 0) {
+    return {
+      schema: compositionResult.schema,
+      errors,
+    };
+  }
 
-  // TODO remove the warnings array once no longer used by clients
   return {
     schema: compositionResult.schema,
-    warnings: [],
-    errors,
-    composedSdl,
+    composedSdl: printComposedSdl(compositionResult.schema, serviceList),
   };
 }
