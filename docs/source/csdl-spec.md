@@ -10,7 +10,7 @@ authors:
   - Ashi Krishnan <ashi@apollographql.com>
 ---
 
-<style>{`
+<style>
   .not-csdl {
     border-left: 4px solid rgb(244, 208, 63);
     border-radius: 9px 0 0 0;
@@ -20,7 +20,7 @@ authors:
   .not-csdl::before {
     display: block;
     content: "Note: Code is GraphQL SDL, not CSDL.";
-    font-variant: italic;
+    font-style: italic;
     font-weight: bold;
     background: rgb(244, 208, 63);
     border-radius: 9px 9px 0 0;
@@ -41,14 +41,14 @@ authors:
 
   .listing {
     display: block;
-    font-variant: italic;
+    font-style: italic;
   }
 
   .listing::before {
     counter-increment: listing;
     content: "Listing " counter(section) "." counter(listing) " — ";
   }
-`}</style>
+</style>
 
 ## Introduction: What is CSDL?
 
@@ -135,35 +135,33 @@ schema @csdl(version: "^1") {
 }
 
 enum csdl_Graph {
-  ROCKETS @csdl_endpoint(url: "https://rockets.api.com"),
+  ROCKETS    @csdl_endpoint(url: "https://rockets.api.com"),
   ASTRONAUTS @csdl_endpoint(url: "https://astronauts.api.com"),
 }
 
 type Query {
-  rockets: [Rocket]! @csdl_resolve(graph: ROCKETS)
+  rockets: [Rocket]!       @csdl_resolve(graph: ROCKETS)
   astronauts: [Astronaut]! @csdl_resolve(graph: ASTRONAUTS)
 }
 
 type Astronaut
-  @csdl_key(graph: ASTRONAUTS, fields: "{ id }")
-  @csdl_key(graph: ROCKETS, fields: "{ id }")
-  @csdl_owner(graph: ASTRONAUTS)
+  @csdl_key(graph: ASTRONAUTS, repr: "{ id }")
+  @csdl_key(graph: ROCKETS, repr: "{ id }")
 {
-  id: String!
-  name: String!
-  tripId: String!
-  rocket: Rocket! @csdl_resolve(graph: ROCKETS)
+  id: String!     @csdl_resolve(graph: ASTRONAUTS)
+  name: String!   @csdl_resolve(graph: ASTRONAUTS)
+  tripId: String! @csdl_resolve(graph: ASTRONAUTS)
+  rocket: Rocket! @csdl_resolve(graph: ASTRONAUTS)
 }
 
 type Rocket 
-  @csdl_key(graph: ROCKETS, fields: "{ id }")
-  @csdl_key(graph: ASTRONAUTS, fields: "{ id }")
-  @csdl_owner(graph: ROCKETS)
+  @csdl_key(graph: ASTRONAUTS, repr: "{ id }")
+  @csdl_key(graph: ROCKETS, repr: "{ id }")
 {
-  id: String!
-  name: String!
+  id: String!           @csdl_resolve(graph: ROCKETS)
+  name: String!         @csdl_resolve(graph: ROCKETS)
   astronaut: Astronaut! @csdl_resolve(graph: ASTRONAUTS)
-  captain: Astronaut @csdl_resolve(requires: "{ tripId }")
+  captain: Astronaut    @csdl_resolve(graph: ASTRONAUTS, provides: "{ tripId }")
 }
 ```
 
@@ -224,8 +222,32 @@ A [URL](https://www.w3.org/Addressing/URL/url-spec.html).
 
 A [Semantic versioning 2.0.0](https://semver.org/spec/v2.0.0.html) verison or range.
 
+## Data Model
+TK, draws heavily from federation, a little more general.
+
+### Portability
+A type is *portable to* a subgraph if it has a `@csdl_key` for that subgraph.
+
+### Free / Bound fields
+
+Free fields can be resolved by any subgraph, bound fields can only be resolved by the subgraph they're bound to.
 
 ## Directives
+### `@csdl`
+
+`directive @csdl(version: csdl_Version!) on SCHEMA`
+
+Specify the version of CSDL needed by this document.
+
+```graphql
+schema
+  @graph(name: "rockets", url: "https://rockets.api.com")
+  @graph(name: "astronauts", url: "https://astronauts.api.com")
+  @csdl(version: "^1") {
+  query: Query
+}
+```
+
 ### `@csdl_key`
 
 `directive @csdl_key(graph: csdl_Graph!, repr: csdl_SelectionSet!) repeatable on OBJECT`
@@ -233,6 +255,8 @@ A [Semantic versioning 2.0.0](https://semver.org/spec/v2.0.0.html) verison or ra
 Define an entity key for this object type within a subgraph.
 
 The `@csdl_key` directive tells consumers what subset of fields are necessary to identify this type of entity to a particular subgraph. It provides a way for csdl consumers to "switch graphs" when planning a query. For example:
+
+<label class="listing">A query which requires porting the Astronaut type between services</label>
 
 ```graphql
 query {
@@ -251,6 +275,7 @@ The fields specified in `repr` will be passed to the subgraph's `Query._entities
 Multiple `@csdl_key`s can be provided for different graphs, or for the same graph.
 
 <label class="listing">Using `@csdl_key` to specify subgraph keys</label>
+
 ```graphql
 type Astronaut
   @csdl_key(graph: ASTRONAUTS, repr: "{ id }")
@@ -259,9 +284,10 @@ type Astronaut
 ```
 
 ### `@csdl_endpoint`
-`directive @csdl_endpoint(url: csdl_Url) on ENUM_VALUE`
 
-Bind a URL to en endpoint. This directive is only valid on enum values within the required `csdl_Graph` enum type.
+directive @csdl_endpoint(url: csdl_Url) on ENUM_VALUE`
+
+Bind an endpoint URL to a subgraph. This directive is only valid on enum values within the required `csdl_Graph` enum type.
 
 <label class="listing">Using <code>@csdl_endpoint</code> to specify subgraph endpoints</label>
 
@@ -272,70 +298,50 @@ enum csdl_Graph {
 }
 ```
 
-### `@csdl_owner`
-`directive @csdl_owner(graph: csdl_Graph!) on OBJECT`
-
-Declare that an object type is *owned* by a particular subgraph.
-
-By default, all types are *free*. This means that 
-
-is the graph which will be used to resolve fields which do not have a `@csdl_resolve` annotation, or whose `@csdl_resolve` annotation does not specify a `graph:`.
-
-`@csdl_owner` is optional. Not all types need a default graph. In particular:
-- Federation value types are shared amongst all services and don't need a default graph.
-- Types which are defined and used only in one service don't receive an owner.
-- Root types (`Query` and `Mutation`) must not have default graphs.
-
 ### `@csdl_resolve`
-`directive @csdl_resolve(graph: csdl_Graph!, requires: csdl_SelectionSet, provides: csdl_SelectionSet) on FIELD_DEFINITION`
+```graphql
+directive @csdl_resolve(
+  graph: csdl_Graph!,
+  requires: csdl_SelectionSet,
+  provides: csdl_SelectionSet) on FIELD_DEFINITION
+```
 
-Once we know about owning services for types, we have to represent what service is responsible for resolving fields that are extended by other services. We do this with the `resolve` directive. For the `rocket` field on our `Astronaut` type and the `astronaut` field on our `Rocket` type, that would look like this:
+Bind a subgraph resolver to this field.
+
+Any field definitions without a `@csdl_resolve` directive are *free*. That is, the CSDL asserts they can be resolved by any subgraph in which the parent type can be found. Specifying `@csdl_resolve` binds a field to resolve in exactly one subgraph. Unless it is a root type, the enclosing type **must** be [portable](#portability) to the specified subgraph (it must have `@csdl_key`s specified for that graph).
+
+<label class="listing">Using <code>@csdl_resolve</code> to specify subgraph resolvers</label>
 
 ```graphql
-type Astronaut 
+type Astronaut
   @csdl_key(graph: ASTRONAUTS, fields: "{ id }")
   @csdl_key(graph: ROCKETS, fields: "{ id }")
-  @csdl_owner(graph: ASTRONAUTS)
 {
-  id: String!
-  name: String!
-  tripId: String!
-  rocket: Rocket! @csdl_resolve(graph: ROCKETS)
+  id: String!     @csdl_resolve(graph: ASTRONAUTS)
+  name: String!   @csdl_resolve(graph: ASTRONAUTS)
+  tripId: String! @csdl_resolve(graph: ASTRONAUTS)
+  rocket: Rocket! @csdl_resolve(graph: ASTRONAUTS)
 }
 
 type Rocket 
-  @csdl_key(fields: "{ id }", graph: ROCKETS)
   @csdl_key(fields: "{ id }", graph: ASTRONAUTS)
-  @csdl_owner(graph: ROCKETS)
+  @csdl_key(fields: "{ id }", graph: ROCKETS)
 {
-  id: String!
-  name: String!
+  id: String!           @csdl_resolve(graph: ROCKETS)
+  name: String!         @csdl_resolve(graph: ROCKETS)
   astronaut: Astronaut! @csdl_resolve(graph: ASTRONAUTS)
-  captain: Astronaut @csdl_resolve(graph: ASTRONAUTS, provides: "{ tripId }")
+  captain: Astronaut    @csdl_resolve(graph: ASTRONAUTS, provides: "{ tripId }")
 }
 ```
 
-In addition to these fields, all fields on the root `Query` or `Mutation` types also need a `@csdl_resolve` directive, since those types aren't owned by any service
+Fields on root types must always be bound to a subgraph:
+
+<label class="listing"><code>@csdl_resolve</code> on root type fields</label>
 
 ```graphql
 type Query {
-  rockets: [Rocket]! @csdl_resolve(graph: ROCKETS)
+  rockets: [Rocket]!       @csdl_resolve(graph: ROCKETS)
   astronauts: [Astronaut]! @csdl_resolve(graph: ASTRONAUTS)
-}
-```
-
-### `@csdl`
-
-`directive @csdl(version: csdl_Version!) on SCHEMA`
-
-Specify the version of CSDL needed by this document.
-
-```graphql
-schema
-  @graph(name: "rockets", url: "https://rockets.api.com")
-  @graph(name: "astronauts", url: "https://astronauts.api.com")
-  @csdl(version: "^1") {
-  query: Query
 }
 ```
 
