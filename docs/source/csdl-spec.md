@@ -161,7 +161,8 @@ type Rocket
   id: String!           @csdl_resolve(graph: ROCKETS)
   name: String!         @csdl_resolve(graph: ROCKETS)
   astronaut: Astronaut! @csdl_resolve(graph: ASTRONAUTS)
-  captain: Astronaut    @csdl_resolve(graph: ASTRONAUTS, provides: "{ tripId }")
+  captain: Astronaut    @csdl_resolve(graph: ASTRONAUTS,
+                                      provides: "{ tripId }")
 }
 ```
 
@@ -225,6 +226,32 @@ A [Semantic versioning 2.0.0](https://semver.org/spec/v2.0.0.html) verison or ra
 ## Data Model
 TK, draws heavily from federation, a little more general.
 
+### Realized types
+
+A type is *realized* wherever a resolver from a particular *subgraph* returns that type. We use the notation `subgraph::Type` to represent `Type` realized by `subgraph` and `subgraph::Type.field` to represent the resolver for `Type.field` within `subgraph`.
+
+<label class="listing">Query with resolvers and realized types</label>
+```graphql
+query {          # resolver                    | realizes
+                 # ----------------------------|--------------
+  rockets {      # rockets::Query.rockets     -> rockets::Rocket
+    captain {    # rockets::Rocket.astronaut  -> rockets::Astronaut
+      name       # astronauts::Astronaut.name -> String
+      rocket {   # rockets::Astronaut.rocket  -> rockets::Rocket
+        id       # rockets::Rocket.id         -> ID
+      }
+    }
+  }
+}
+```
+
+These distinctions are immaterial to the client. As far as clients are concerned, all selections on `Rocket` are the same.
+
+This illusion is maintained by the router, which must break incoming queries into subqueries. In the example above, the path `rockets.captain` is resolved by the `rockets::Rocket.astronaut` resolver, so its selection set is realized as a `rockets::Astronaut`. However, there is no `name` field for `rockets::Astronaut`—instead, the only resolver for `Astronaut.name` is `astronauts::Astronaut.name`. To process this query, the router must "convert" a `rockets::Astronaut` to an `astronauts::Astronaut` via an `_entities` query.
+
+`*User`
+
+
 ### Portability
 A type is *portable to* a subgraph if it has a `@csdl_key` for that subgraph.
 
@@ -239,11 +266,10 @@ Free fields can be resolved by any subgraph, bound fields can only be resolved b
 
 Specify the version of CSDL needed by this document.
 
+<label class="listing">Using `@csdl` to specify the CSDL version for the document</label>
+
 ```graphql
-schema
-  @graph(name: "rockets", url: "https://rockets.api.com")
-  @graph(name: "astronauts", url: "https://astronauts.api.com")
-  @csdl(version: "^1") {
+schema @csdl(version: "^1") {
   query: Query
 }
 ```
@@ -252,7 +278,7 @@ schema
 
 `directive @csdl_key(graph: csdl_Graph!, repr: csdl_SelectionSet!) repeatable on OBJECT`
 
-Define an entity key for this object type within a subgraph.
+Define an entity key for this type within a subgraph.
 
 The `@csdl_key` directive tells consumers what subset of fields are necessary to identify this type of entity to a particular subgraph. It provides a way for csdl consumers to "switch graphs" when planning a query. For example:
 
@@ -263,12 +289,15 @@ query {
   rockets {      # rockets::Rocket
     captain {    # rockets::Astronaut
       name       # astronauts::Name
+      rocket {   # rockets::Rocket
+        id
+      }
     }
   }
 }
 ```
 
-`Astronaut.name` is provided by the `astronauts` subgraph. But the `captain` field is provided by the `rockets` subgraph. 
+`Astronaut.name` is provided by the `astronauts` subgraph. But the `captain` field is provided by the `rockets` subgraph.
 
 The fields specified in `repr` will be passed to the subgraph's `Query._entities(representations:)` as an item within the `representations` list.
 
@@ -330,7 +359,8 @@ type Rocket
   id: String!           @csdl_resolve(graph: ROCKETS)
   name: String!         @csdl_resolve(graph: ROCKETS)
   astronaut: Astronaut! @csdl_resolve(graph: ASTRONAUTS)
-  captain: Astronaut    @csdl_resolve(graph: ASTRONAUTS, provides: "{ tripId }")
+  captain: Astronaut    @csdl_resolve(graph: ASTRONAUTS,
+                                      provides: "{ tripId }")
 }
 ```
 
@@ -347,6 +377,7 @@ type Query {
 
 ## Validations
 
+### validate all fields resolvable
 ### validate no extensions
 ### validate csdl version
 ### validate all fields resolvable
