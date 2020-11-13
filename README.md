@@ -17,7 +17,6 @@ If this project seems like something you want to which you want to contribute, f
 
 If you ever have any problems, questions, or ideas, the maintainers of this project are:
 
-- [@enrico2](https://github.com/enrico2)
 - [@jakedawkins](https://github.com/jakedawkins)
 - [@jbaxleyiii](https://github.com/jbaxleyiii)
 - [@queerviolet](https://github.com/queerviolet)
