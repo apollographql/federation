@@ -148,13 +148,23 @@ export function UniqueFieldDefinitionNames(
       valueTypeFromSchema || possibleValueTypes[node.name.value];
 
     if (duplicateTypeNode) {
-      const { fields } = diffTypeNodes(node, duplicateTypeNode);
+      const { fields, inputValues } = diffTypeNodes(node, duplicateTypeNode);
 
       // This is the condition required for a *near* value type. At this point, we know the
       // parent type names are the same. We know the field names are the same if either:
       // 1) the field has no entry in the fields diff (they're identical), or
       // 2) the field's diff entry is an array of length 2 (both nodes have the field, but the field types are different)
       if (Object.values(fields).every(diffEntry => diffEntry.length === 2)) {
+        return false;
+      }
+
+      // not all types might have input values, we only want to check the diff if there's any
+      const inputValuesTypes = Object.values(inputValues);
+
+      if (
+        inputValuesTypes.length > 0 &&
+        inputValuesTypes.every((diffEntry) => diffEntry.length === 2)
+      ) {
         return false;
       }
     } else {
