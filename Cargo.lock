@@ -282,7 +282,7 @@ dependencies = [
  "actix-http",
  "actix-web",
  "futures",
- "opentelemetry",
+ "opentelemetry 0.8.0",
  "serde",
 ]
 
@@ -2225,12 +2225,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "opentelemetry"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e260f0ef133e1043b95143f83cfc8f6be023cf4b46a526da0212039b45392679"
+dependencies = [
+ "async-trait",
+ "futures",
+ "lazy_static",
+ "percent-encoding",
+ "pin-project 0.4.27",
+ "rand",
+ "regex",
+]
+
+[[package]]
 name = "opentelemetry-jaeger"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02a885963fd184822847d08527f3d53164a9fb6f770ceae61ea9388dc208690b"
 dependencies = [
- "opentelemetry",
+ "opentelemetry 0.8.0",
  "thrift",
  "ureq",
 ]
@@ -2982,7 +2997,7 @@ dependencies = [
  "env_logger 0.8.1",
  "futures",
  "http",
- "opentelemetry",
+ "opentelemetry 0.10.0",
  "opentelemetry-jaeger",
  "thrift",
  "tracing",
@@ -3431,7 +3446,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c776834eab0d599523cc58accac54f32e1f8d2cea1dbcae157f28e279de7004"
 dependencies = [
- "opentelemetry",
+ "opentelemetry 0.8.0",
  "rand",
  "tracing",
  "tracing-core",
