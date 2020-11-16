@@ -477,6 +477,12 @@ pub fn input_object_type_extension<'a>(
         .parse_stream(input)
 }
 
+pub fn repeatable<'a>(input: &mut TokenStream<'a>) -> ParseResult<bool, TokenStream<'a>> {
+    optional(ident("repeatable"))
+        .map(|opt| matches!(opt, Some(_)))
+        .parse_stream(input)
+}
+
 pub fn directive_locations<'a>(
     input: &mut TokenStream<'a>,
 ) -> ParseResult<Vec<DirectiveLocation>, TokenStream<'a>> {
@@ -495,15 +501,17 @@ pub fn directive_definition<'a>(
         position(),
         ident("directive").and(punct("@")).with(name::<'a>()),
         parser(arguments_definition),
+        parser(repeatable),
         ident("on").with(parser(directive_locations)),
     )
-        .map(|(position, name, arguments, locations)| {
+        .map(|(position, name, arguments, is_repeatable, locations)| {
             DirectiveDefinition {
                 position,
                 name,
                 arguments,
                 locations,
                 description: None, // is filled in described_definition
+                is_repeatable,
             }
         })
         .parse_stream(input)

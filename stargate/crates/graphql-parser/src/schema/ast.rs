@@ -374,6 +374,7 @@ pub struct DirectiveDefinition<'a> {
     pub name: Txt<'a>,
     pub arguments: Vec<InputValue<'a>>,
     pub locations: Vec<DirectiveLocation>,
+    pub is_repeatable: bool,
 }
 
 impl<'a> DirectiveDefinition<'a> {
@@ -384,6 +385,7 @@ impl<'a> DirectiveDefinition<'a> {
             name,
             arguments: vec![],
             locations: vec![],
+            is_repeatable: false,
         }
     }
 }

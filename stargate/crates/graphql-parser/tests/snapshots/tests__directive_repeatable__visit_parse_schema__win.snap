@@ -1,0 +1,31 @@
+---
+source: stargate/crates/graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & include_str ! (\"directive_repeatable.graphql\") .\n        replace(\"\\r\\n\", \"\\n\"), & visit_parse_schema(& ast))"
+---
+directive @key(fields: String!, graph: String!) repeatable on OBJECT
+
+---
+Print {
+    output: [
+        Visit {
+            event: "enter_schema",
+            name: None,
+        },
+        Visit {
+            event: "enter_schema_def",
+            name: Some(
+                "key",
+            ),
+        },
+        Visit {
+            event: "leave_schema_def",
+            name: Some(
+                "key",
+            ),
+        },
+        Visit {
+            event: "leave_schema",
+            name: None,
+        },
+    ],
+}

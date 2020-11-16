@@ -381,6 +381,9 @@ impl<'a> Displayable for DirectiveDefinition<'a> {
         f.write("directive @");
         f.write(self.name.as_ref());
         format_arguments(&self.arguments, f);
+        if self.is_repeatable {
+            f.write(" repeatable");
+        }
         if !self.locations.is_empty() {
             f.write(" on ");
             let mut first = true;
@@ -420,3 +423,23 @@ impl_display!(
     InputObjectTypeExtension,
     DirectiveDefinition,
 );
+
+#[cfg(test)]
+mod test {
+    use super::Document;
+    use crate::format::Style;
+    use crate::schema::grammar::parse_schema;
+
+    fn ast(s: &str) -> Document {
+        parse_schema(&s).unwrap()
+    }
+
+    #[test]
+    fn directive() {
+        assert_eq!(
+            ast("directive @key(fields: String!, graph: String!) repeatable on OBJECT")
+                .format(&Style::default()),
+            "directive @key(fields: String!, graph: String!) repeatable on OBJECT\n"
+        );
+    }
+}
