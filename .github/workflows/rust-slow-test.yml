@@ -46,7 +46,7 @@ jobs:
         if: matrix.build == 'macos'
         run: |
           brew install gnu-tar
-          echo "::add-path::/usr/local/opt/gnu-tar/libexec/gnubin"
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
       - name: Cache Cargo registry, target, index
         uses: actions/cache@v2
         with:
