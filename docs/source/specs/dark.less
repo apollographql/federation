@@ -1,0 +1,254 @@
+:global {
+html {
+    /* SpaceKit colors from https://space-kit.netlify.app/ */
+    
+    /** Brand colors **/    
+    --pink-darkest: rgb(102, 31, 78);
+    --pink-darker: rgb(131, 35, 99);
+    --pink-dark: rgb(196, 57, 151);
+    --pink-base: rgb(242, 92, 193);
+    --pink-light: rgb(255, 163, 224);
+    --pink-lighter: rgb(255, 212, 241);
+    --pink-lightest: rgb(255, 230, 247);
+    --teal-darkest: rgb(31, 102, 100);
+    --teal-darker: rgb(29, 123, 120);
+    --teal-dark: rgb(38, 162, 157);
+    --teal-base: rgb(65, 217, 211);
+    --teal-light: rgb(139, 246, 242);
+    --teal-lighter: rgb(198, 255, 253);
+    --teal-lightest: rgb(230, 255, 254);
+    --indigo-darkest: rgb(45, 31, 102);
+    --indigo-darker: rgb(49, 28, 135);
+    --indigo-dark: rgb(63, 32, 186);
+    --indigo-base: rgb(113, 86, 217);
+    --indigo-light: rgb(173, 155, 246);
+    --indigo-lighter: rgb(217, 207, 255);
+    --indigo-lightest: rgb(235, 230, 255);
+
+    /** Neutrals **/
+    --black-darker: rgb(18, 21, 26);
+    --black-dark: rgb(20, 23, 28);
+    --black-base: rgb(25, 28, 35);
+    --black-light: rgb(34, 38, 46);
+    --black-lighter: rgb(47, 53, 63);
+    --grey-darker: rgb(66, 72, 85);
+    --grey-dark: rgb(90, 98, 112);
+    --grey-base: rgb(119, 127, 142);
+    --grey-light: rgb(149, 157, 170);
+    --grey-lighter: rgb(178, 185, 195);
+    --silver-darker: rgb(202, 208, 216);
+    --silver-dark: rgb(222, 226, 231);
+    --silver-base: rgb(235, 238, 240);
+    --silver-light: rgb(244, 246, 248);
+    --silver-lighter: rgb(252, 253, 255);
+
+    /** Interface Colors **/
+    --red-darkest: rgb(102, 31, 31);
+    --red-darker: rgb(120, 28, 28);
+    --red-dark: rgb(156, 35, 35);
+    --red-base: rgb(209, 59, 59);
+    --red-light: rgb(241, 134, 134);
+    --red-lighter: rgb(255, 195, 195);
+    --red-lightest: rgb(255, 230, 230);
+    --green-darkest: rgb(20, 94, 51);
+    --green-darker: rgb(19, 108, 56);
+    --green-dark: rgb(28, 132, 72);
+    --green-base: rgb(54, 173, 104);
+    --green-light: rgb(126, 217, 164);
+    --green-lighter: rgb(190, 244, 213);
+    --green-lightest: rgb(230, 255, 240);
+    --blue-darkest: rgb(22, 60, 102);
+    --blue-darker: rgb(15, 65, 122);
+    --blue-dark: rgb(16, 83, 160);
+    --blue-base: rgb(32, 117, 214);
+    --blue-light: rgb(116, 176, 244);
+    --blue-lighter: rgb(187, 219, 255);
+    --blue-lightest: rgb(240, 247, 255);
+
+    /** Alternate Colors **/
+    --orange-darkest: rgb(102, 63, 31);
+    --orange-darker: rgb(136, 76, 30);
+    --orange-dark: rgb(180, 102, 38);
+    --orange-base: rgb(245, 145, 64);
+    --orange-light: rgb(255, 193, 143);
+    --orange-lighter: rgb(255, 226, 202);
+    --orange-lightest: rgb(255, 241, 230);
+    --yellow-darkest: rgb(102, 80, 31);
+    --yellow-darker: rgb(132, 103, 29);
+    --yellow-dark: rgb(180, 143, 37);
+    --yellow-base: rgb(244, 208, 63);
+    --yellow-light: rgb(255, 232, 142);
+    --yellow-lighter: rgb(255, 244, 202);
+    --yellow-lightest: rgb(255, 250, 230);
+    --purple-darkest: rgb(66, 22, 102);
+    --purple-darker: rgb(82, 21, 132);
+    --purple-dark: rgb(113, 30, 180);
+    --purple-base: rgb(162, 61, 245);
+    --purple-light: rgb(205, 143, 255);
+    --purple-lighter: rgb(232, 204, 255);
+    --purple-lightest: rgb(244, 230, 255);
+    --blilet-darkest: rgb(27, 34, 64);
+    --blilet-darker: rgb(37, 46, 80);
+    --blilet-dark: rgb(60, 74, 133);
+    --blilet-base: rgb(81, 104, 194);
+    --blilet-light: rgb(122, 146, 240);
+    --blilet-lighter: rgb(176, 190, 247);
+    --blilet-lightest: rgb(230, 235, 255);
+    --midnight-darkest: rgb(6, 15, 47);
+    --midnight-darker: rgb(27, 34, 64);
+    --midnight-dark: rgb(56, 61, 91);
+    --midnight-base: rgb(61, 75, 106);
+    --midnight-light: rgb(86, 105, 146);
+    --midnight-lighter: rgb(121, 143, 187);
+    --midnight-lightest: rgb(180, 195, 219);    
+  }
+
+  /** Dark "theme" **/
+
+  body {
+    transition: background 1s, color 1s;
+    background: var(--midnight-darkest);
+    color: var(--grey-lighter) !important;
+  }
+
+  hr {
+    background-color: var(--grey-darker) !important;
+  }
+
+  main > header > div {
+    background: none !important;
+    backdrop-filter: blur(20px);
+  }
+
+  aside {
+    border: none !important;
+  }
+
+  h1 { color: var(--silver-dark) !important; }
+
+  h2 { color: var(--grey-lighter) !important; }
+
+  h3, h4 {
+    color: var(--grey-light) !important;
+  }
+
+  .algolia-autocomplete, button, a[href="https://www.apollographql.com/docs/"] {
+    filter: invert(100%) hue-rotate(180deg);    
+  }
+
+  .algolia-autocomplete {
+    background: rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 5px 5px 10px rgba(255, 255, 255, 0.5);
+  }
+
+  input { 
+    background: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  .gatsby-highlight {
+    filter: invert(100%) hue-rotate(180deg);
+  }
+
+  .gatsby-highlight > div:first-of-type {
+    border: none;
+  }
+
+  :not(pre) > code[class*="language-"] {
+    background: none !important;
+    /* border: 1px solid var(--blue-light); */
+    color: var(--silver-base) !important;
+    padding: 0;
+  }
+
+  a[href]:not([class]) {
+    color: var(--blue-base) !important;
+  }
+
+  .not-csdl::after {
+    content: "Note: Code is GraphQL SDL, not CSDL.";
+    font-size: 80%;
+    line-height: 125%;
+    color: var(--yellow-base);
+    padding: 4px;
+    /* border: 1px solid var(--yellow-base); */
+    border-radius: 9px;
+    margin-left: 3em;
+  }
+
+  .mermaid {
+    filter: invert(100%) hue-rotate(180deg);
+    display: table;
+    min-width: 60%;
+    margin: auto;
+  }
+
+  .mermaid foreignObject {
+    filter: invert(100%) hue-rotate(180deg);
+
+    > div {
+      color: var(--grey-lighter);      
+    }
+  }
+
+  /** Section numbering **/
+
+  body {
+    counter-reset: section subsection listing;
+  }
+
+  h2 {
+    counter-increment: section;
+    counter-reset: subsection listing;
+  }
+
+  h3 {
+    counter-increment: subsection;
+  }
+
+  .headerLink {
+    position: relative;
+  }
+
+  .headingLink::before {
+    position: absolute;
+    bottom: 0;
+    transform: translateX(-100%);
+    margin-left: -20px;
+
+    content: counter(section);
+    color: var(--grey-darker);
+    text-align: right;
+    line-height: inherit;
+  }
+
+  h3 > .headingLink::before {
+    content: counter(section) "." counter(subsection)
+  }
+
+  a.listing {
+    display: block;
+    position: relative;
+    margin-bottom: -3em;
+    font-size: 90%;
+    color: var(--grey-base);
+    text-decoration: none;
+  }
+
+  a.listing::before {
+    position: absolute;
+    bottom: 0;
+    transform: translateX(-100%);
+    margin-left: -20px;
+    
+    counter-increment: listing;
+    content: "Code " counter(section) "." counter(subsection) "." counter(listing);
+    color: var(--grey-dark);
+  }
+
+  code.grammar {
+    white-space: pre;
+    margin: 0;
+    margin-bottom: 1em;
+    display: block;
+  }
+}
