@@ -423,23 +423,3 @@ impl_display!(
     InputObjectTypeExtension,
     DirectiveDefinition,
 );
-
-#[cfg(test)]
-mod test {
-    use super::Document;
-    use crate::format::Style;
-    use crate::schema::grammar::parse_schema;
-
-    fn ast(s: &str) -> Document {
-        parse_schema(&s).unwrap()
-    }
-
-    #[test]
-    fn directive() {
-        assert_eq!(
-            ast("directive @key(fields: String!, graph: String!) repeatable on OBJECT")
-                .format(&Style::default()),
-            "directive @key(fields: String!, graph: String!) repeatable on OBJECT\n"
-        );
-    }
-}
