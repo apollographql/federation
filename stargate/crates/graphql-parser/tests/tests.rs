@@ -31,6 +31,11 @@ test!(
     include_str!("directive_descriptions.canonical.graphql")
 );
 test!(
+    directive_repeatable,
+    include_str!("directive_repeatable.graphql"),
+    include_str!("directive_repeatable.graphql")
+);
+test!(
     empty_union,
     include_str!("empty_union.graphql"),
     include_str!("empty_union.graphql")

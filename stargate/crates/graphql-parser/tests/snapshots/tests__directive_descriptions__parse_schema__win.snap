@@ -1,6 +1,6 @@
 ---
-source: graphql-parser/tests/tests.rs
-expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+source: stargate/crates/graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & include_str!(\"directive_descriptions.graphql\") .\n        replace(\"\\r\\n\", \"\\n\"), & result)"
 ---
 """
 Directs the executor to include this field or fragment only when the `if` argument is true.
@@ -54,6 +54,7 @@ Ok(
                         FragmentSpread,
                         InlineFragment,
                     ],
+                    is_repeatable: false,
                 },
             ),
             Directive(
@@ -84,6 +85,7 @@ Ok(
                         FragmentSpread,
                         InlineFragment,
                     ],
+                    is_repeatable: false,
                 },
             ),
         ],

@@ -381,6 +381,9 @@ impl<'a> Displayable for DirectiveDefinition<'a> {
         f.write("directive @");
         f.write(self.name.as_ref());
         format_arguments(&self.arguments, f);
+        if self.is_repeatable {
+            f.write(" repeatable");
+        }
         if !self.locations.is_empty() {
             f.write(" on ");
             let mut first = true;

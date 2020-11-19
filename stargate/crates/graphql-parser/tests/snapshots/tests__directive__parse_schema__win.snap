@@ -1,6 +1,6 @@
 ---
-source: graphql-parser/tests/tests.rs
-expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+source: stargate/crates/graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & include_str!(\"directive.graphql\") .\n        replace(\"\\r\\n\", \"\\n\"), & result)"
 ---
 directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
@@ -32,6 +32,7 @@ Ok(
                         FragmentSpread,
                         InlineFragment,
                     ],
+                    is_repeatable: false,
                 },
             ),
         ],

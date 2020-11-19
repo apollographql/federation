@@ -2,7 +2,7 @@
 source: stargate/crates/graphql-parser/tests/tests.rs
 expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
 ---
-directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+directive @key(fields: String!, graph: String!) repeatable on OBJECT
 
 ---
 Ok(
@@ -12,15 +12,27 @@ Ok(
                 DirectiveDefinition {
                     position: Pos(1:1),
                     description: None,
-                    name: "skip",
+                    name: "key",
                     arguments: [
                         InputValue {
-                            position: Pos(1:17),
+                            position: Pos(1:16),
                             description: None,
-                            name: "if",
+                            name: "fields",
                             value_type: NonNullType(
                                 NamedType(
-                                    "Boolean",
+                                    "String",
+                                ),
+                            ),
+                            default_value: None,
+                            directives: [],
+                        },
+                        InputValue {
+                            position: Pos(1:33),
+                            description: None,
+                            name: "graph",
+                            value_type: NonNullType(
+                                NamedType(
+                                    "String",
                                 ),
                             ),
                             default_value: None,
@@ -28,11 +40,9 @@ Ok(
                         },
                     ],
                     locations: [
-                        Field,
-                        FragmentSpread,
-                        InlineFragment,
+                        Object,
                     ],
-                    is_repeatable: false,
+                    is_repeatable: true,
                 },
             ),
         ],

@@ -27,6 +27,7 @@ export const GraphDirective = new GraphQLDirective({
       type: GraphQLNonNull(GraphQLString),
     },
   },
+  isRepeatable: true,
 });
 
 export const OwnerDirective = new GraphQLDirective({
@@ -50,6 +51,7 @@ export const KeyDirective = new GraphQLDirective({
       type: GraphQLNonNull(GraphQLString),
     },
   },
+  isRepeatable: true,
 });
 
 export const ResolveDirective = new GraphQLDirective({

@@ -16,7 +16,7 @@ describe('printComposedSdl', () => {
 
   it('produces a parseable output', () => {
     expect(() => parse(composedSdl!)).not.toThrow();
-  })
+  });
 
   it('prints a fully composed schema correctly', () => {
     expect(composedSdl).toMatchInlineSnapshot(`
@@ -35,11 +35,11 @@ describe('printComposedSdl', () => {
 
       directive @composedGraph(version: Int!) on SCHEMA
 
-      directive @graph(name: String!, url: String!) on SCHEMA
+      directive @graph(name: String!, url: String!) repeatable on SCHEMA
 
       directive @owner(graph: String!) on OBJECT
 
-      directive @key(fields: String!, graph: String!) on OBJECT
+      directive @key(fields: String!, graph: String!) repeatable on OBJECT
 
       directive @resolve(graph: String!) on FIELD_DEFINITION
 
