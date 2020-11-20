@@ -6,7 +6,7 @@
 
 ## v0.20.6
 
-- No changes, but please note that `v0.20.5` was a botched release, with no update to the `@apollo/query-planner-wasm` package that was needed.
+- No changes, but please note that `v0.20.5` was a botched release, with no update to the `@apollo/query-planner-wasm` package that was needed. If you're seeing an error similar to `This data graph is missing a valid configuration. unreachable`, please upgrade to at least this patch release.
 
 ## v0.20.5
 
