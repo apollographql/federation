@@ -4,6 +4,8 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- Export `GraphQLSchemaModule` type.
+
 ## v0.20.6
 
 - No changes, but please note that `v0.20.5` was a botched release, with no update to the `@apollo/query-planner-wasm` package that was needed. If you're seeing an error similar to `This data graph is missing a valid configuration. unreachable`, please upgrade to at least this patch release.
