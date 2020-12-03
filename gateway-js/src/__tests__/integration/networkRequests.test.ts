@@ -19,8 +19,8 @@ import {
   apiKeyHash,
   graphId,
 } from './nockMocks';
-
-import loadServicesFromStorage = require("../../loadServicesFromStorage");
+import loadServicesFromStorage = require('../../loadServicesFromStorage');
+import { getTestingCsdl } from '../execution-utils';
 
 // This is a nice DX hack for GraphQL code highlighting and formatting within the file.
 // Anything wrapped within the gql tag within this file is just a string, not an AST.
@@ -109,7 +109,7 @@ it('Queries remote endpoints for their SDLs', async () => {
 
   const gateway = new ApolloGateway({
     serviceList: [{ name: 'accounts', url: service.url }],
-    logger
+    logger,
   });
   await gateway.load();
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
@@ -124,7 +124,9 @@ it('Extracts service definitions from remote storage', async () => {
 
   const gateway = new ApolloGateway({ logger });
 
-  await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
+  await gateway.load({
+    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+  });
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 });
 
@@ -134,7 +136,7 @@ it.each([
 ])('conflicting configurations are %s about when %s', async (_word, mode) => {
   const isConflict = mode === 'present';
   let blockerResolve: () => void;
-  const blocker = new Promise(resolve => (blockerResolve = resolve));
+  const blocker = new Promise((resolve) => (blockerResolve = resolve));
   const original = loadServicesFromStorage.getServiceDefinitionsFromStorage;
   const spyGetServiceDefinitionsFromStorage = jest
     .spyOn(loadServicesFromStorage, 'getServiceDefinitionsFromStorage')
@@ -161,20 +163,64 @@ it.each([
   mockSDLQuerySuccess(service);
 
   const gateway = new ApolloGateway({
-    serviceList: [
-      { name: 'accounts', url: service.url },
-    ],
-    logger
+    serviceList: [{ name: 'accounts', url: service.url }],
+    logger,
   });
 
-  await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
+  await gateway.load({
+    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+  });
   await blocker; // Wait for the definitions to be "fetched".
 
   (isConflict
     ? expect(logger.warn)
     : expect(logger.warn).not
-  ).toHaveBeenCalledWith(expect.stringMatching(
-    /A local gateway service list is overriding a managed federation configuration/));
+  ).toHaveBeenCalledWith(
+    expect.stringMatching(
+      /A local gateway service list is overriding a managed federation configuration/,
+    ),
+  );
+  spyGetServiceDefinitionsFromStorage.mockRestore();
+});
+
+it('warns when both csdl and studio configuration are provided', async () => {
+  mockStorageSecretSuccess();
+  mockCompositionConfigLinkSuccess();
+  mockCompositionConfigsSuccess([service]);
+  mockImplementingServicesSuccess(service);
+  mockRawPartialSchemaSuccess(service);
+
+  let blockerResolve: () => void;
+  const blocker = new Promise((resolve) => (blockerResolve = resolve));
+  const original = loadServicesFromStorage.getServiceDefinitionsFromStorage;
+  const spyGetServiceDefinitionsFromStorage = jest
+    .spyOn(loadServicesFromStorage, 'getServiceDefinitionsFromStorage')
+    .mockImplementationOnce(async (...args) => {
+      try {
+        return await original(...args);
+      } catch (e) {
+        throw e;
+      } finally {
+        setImmediate(blockerResolve);
+      }
+    });
+
+  const gateway = new ApolloGateway({
+    csdl: getTestingCsdl(),
+    logger,
+  });
+
+  await gateway.load({
+    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+  });
+
+  await blocker;
+
+  expect(logger.warn).toHaveBeenCalledWith(
+    'A local gateway configuration is overriding a managed federation configuration.' +
+      '  To use the managed configuration, do not specify a service list or csdl locally.',
+  );
+
   spyGetServiceDefinitionsFromStorage.mockRestore();
 });
 
@@ -206,10 +252,10 @@ it.skip('Rollsback to a previous schema when triggered', async () => {
 
   let firstResolve: () => void;
   let secondResolve: () => void;
-  let thirdResolve: () => void
-  const firstSchemaChangeBlocker = new Promise(res => (firstResolve = res));
-  const secondSchemaChangeBlocker = new Promise(res => (secondResolve = res));
-  const thirdSchemaChangeBlocker = new Promise(res => (thirdResolve = res));
+  let thirdResolve: () => void;
+  const firstSchemaChangeBlocker = new Promise((res) => (firstResolve = res));
+  const secondSchemaChangeBlocker = new Promise((res) => (secondResolve = res));
+  const thirdSchemaChangeBlocker = new Promise((res) => (thirdResolve = res));
 
   const onChange = jest
     .fn()
@@ -222,7 +268,9 @@ it.skip('Rollsback to a previous schema when triggered', async () => {
   gateway.experimental_pollInterval = 100;
 
   gateway.onSchemaChange(onChange);
-  await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
+  await gateway.load({
+    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+  });
 
   await firstSchemaChangeBlocker;
   expect(onChange).toHaveBeenCalledTimes(1);
@@ -258,7 +306,9 @@ it(`Retries GCS (up to ${GCS_RETRY_COUNT} times) on failure for each request and
 
   const gateway = new ApolloGateway({ fetcher, logger });
 
-  await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
+  await gateway.load({
+    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+  });
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 });
 
@@ -266,12 +316,16 @@ it(`Retries GCS (up to ${GCS_RETRY_COUNT} times) on failure for each request and
 // `make-fetch-happen` is doing its retries properly and we have proof that,
 // generally speaking, retries are working, so we'll disable this until we can
 // re-visit it.
-it.skip(`Fails after the ${GCS_RETRY_COUNT + 1}th attempt to reach GCS`, async () => {
+it.skip(`Fails after the ${
+  GCS_RETRY_COUNT + 1
+}th attempt to reach GCS`, async () => {
   failNTimes(GCS_RETRY_COUNT + 1, mockStorageSecret);
 
   const gateway = new ApolloGateway({ fetcher, logger });
   await expect(
-    gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } }),
+    gateway.load({
+      apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+    }),
   ).rejects.toThrowErrorMatchingInlineSnapshot(
     `"Could not communicate with Apollo storage: "`,
   );
@@ -287,7 +341,9 @@ it(`Errors when the secret isn't hosted on GCS`, async () => {
 
   const gateway = new ApolloGateway({ fetcher, logger });
   await expect(
-    gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } }),
+    gateway.load({
+      apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+    }),
   ).rejects.toThrowErrorMatchingInlineSnapshot(
     `"Unable to authenticate with Apollo storage while fetching https://storage-secrets.api.apollographql.com/federated-service/storage-secret/dd55a79d467976346d229a7b12b673ce.json.  Ensure that the API key is configured properly and that a federated service has been pushed.  For details, see https://go.apollo.dev/g/resolve-access-denied."`,
   );
@@ -306,7 +362,9 @@ describe('Downstream service health checks', () => {
       });
 
       await gateway.load();
-      expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
+      expect(gateway.schema!.getType('User')!.description).toBe(
+        'This is my User',
+      );
     });
 
     it(`Rejects on initial load when health check fails`, async () => {
@@ -337,8 +395,12 @@ describe('Downstream service health checks', () => {
 
       const gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
 
-      await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
-      expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
+      await gateway.load({
+        apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+      });
+      expect(gateway.schema!.getType('User')!.description).toBe(
+        'This is my User',
+      );
     });
 
     it('Rejects on initial load when health check fails', async () => {
@@ -353,8 +415,12 @@ describe('Downstream service health checks', () => {
       const gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
 
       await expect(
-        gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"500: Internal Server Error"`);
+        gateway.load({
+          apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"500: Internal Server Error"`,
+      );
     });
 
     // This test has been flaky for a long time, and fails consistently after changes
@@ -379,8 +445,8 @@ describe('Downstream service health checks', () => {
 
       let resolve1: () => void;
       let resolve2: () => void;
-      const schemaChangeBlocker1 = new Promise(res => (resolve1 = res));
-      const schemaChangeBlocker2 = new Promise(res => (resolve2 = res));
+      const schemaChangeBlocker1 = new Promise((res) => (resolve1 = res));
+      const schemaChangeBlocker2 = new Promise((res) => (resolve2 = res));
       const onChange = jest
         .fn()
         .mockImplementationOnce(() => resolve1())
@@ -394,14 +460,20 @@ describe('Downstream service health checks', () => {
       gateway.experimental_pollInterval = 100;
 
       gateway.onSchemaChange(onChange);
-      await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
+      await gateway.load({
+        apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+      });
 
       await schemaChangeBlocker1;
-      expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
+      expect(gateway.schema!.getType('User')!.description).toBe(
+        'This is my User',
+      );
       expect(onChange).toHaveBeenCalledTimes(1);
 
       await schemaChangeBlocker2;
-      expect(gateway.schema!.getType('User')!.description).toBe('This is my updated User');
+      expect(gateway.schema!.getType('User')!.description).toBe(
+        'This is my updated User',
+      );
       expect(onChange).toHaveBeenCalledTimes(2);
     });
 
@@ -422,7 +494,7 @@ describe('Downstream service health checks', () => {
       mockServiceHealthCheck(updatedService).reply(500);
 
       let resolve: () => void;
-      const schemaChangeBlocker = new Promise(res => (resolve = res));
+      const schemaChangeBlocker = new Promise((res) => (resolve = res));
 
       const gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
@@ -443,11 +515,11 @@ describe('Downstream service health checks', () => {
         .mockImplementationOnce(async () => {
           // mock the first poll and handle the error which would otherwise be caught
           // and logged from within the `pollServices` class method
-          await expect(original.apply(gateway))
-            .rejects
-            .toThrowErrorMatchingInlineSnapshot(
-              `"500: Internal Server Error"`,
-            );
+          await expect(
+            original.apply(gateway),
+          ).rejects.toThrowErrorMatchingInlineSnapshot(
+            `"500: Internal Server Error"`,
+          );
           // finally resolve the promise which drives this test
           resolve();
         });
@@ -457,16 +529,22 @@ describe('Downstream service health checks', () => {
       gateway.updateComposition = mockUpdateComposition;
 
       // load the gateway as usual
-      await gateway.load({ apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' } });
+      await gateway.load({
+        apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+      });
 
-      expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
+      expect(gateway.schema!.getType('User')!.description).toBe(
+        'This is my User',
+      );
 
       await schemaChangeBlocker;
 
       // At this point, the mock update should have been called but the schema
       // should not have updated to the new one.
       expect(mockUpdateComposition.mock.calls.length).toBe(2);
-      expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
+      expect(gateway.schema!.getType('User')!.description).toBe(
+        'This is my User',
+      );
     });
   });
 });

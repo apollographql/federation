@@ -137,11 +137,7 @@ it('composes and validates all (24) permutations without error', () => {
     productsService,
   ]).map((config) => {
     const compositionResult = composeAndValidate(config);
-
-    assertCompositionSuccess(
-      compositionResult,
-      `Errors found with composition [${config.map((item) => item.name)}]`,
-    );
+    expect(!compositionHasErrors(compositionResult));
   });
 });
 
