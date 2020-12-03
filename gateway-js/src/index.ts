@@ -17,6 +17,9 @@ import {
   GraphQLSchema,
   GraphQLError,
   VariableDefinitionNode,
+  parse,
+  visit,
+  DocumentNode,
 } from 'graphql';
 import { GraphQLSchemaValidationError } from 'apollo-graphql';
 import { composeAndValidate, compositionHasErrors, ServiceDefinition } from '@apollo/federation';
@@ -45,6 +48,7 @@ import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
 import { getQueryPlanner } from '@apollo/query-planner-wasm';
 import { csdlToSchema } from './csdlToSchema';
+import { findDirectivesOnTypeOrField, isStringValueNode } from '@apollo/federation/dist/composition/utils';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -81,10 +85,15 @@ interface LocalGatewayConfig extends GatewayConfigBase {
   localServiceList: ServiceDefinition[];
 }
 
+interface CsdlGatewayConfig extends GatewayConfigBase {
+  csdl: string;
+}
+
 export type GatewayConfig =
   | RemoteGatewayConfig
   | LocalGatewayConfig
-  | ManagedGatewayConfig;
+  | ManagedGatewayConfig
+  | CsdlGatewayConfig;
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -98,10 +107,16 @@ function isRemoteConfig(config: GatewayConfig): config is RemoteGatewayConfig {
   return 'serviceList' in config;
 }
 
+function isCsdlConfig(config: GatewayConfig): config is CsdlGatewayConfig {
+  return 'csdl' in config;
+}
+
 function isManagedConfig(
   config: GatewayConfig,
 ): config is ManagedGatewayConfig {
-  return !isRemoteConfig(config) && !isLocalConfig(config);
+  return (
+    !isRemoteConfig(config) && !isLocalConfig(config) && !isCsdlConfig(config)
+  );
 }
 
 export type Experimental_DidResolveQueryPlanCallback = ({
@@ -203,6 +218,7 @@ export class ApolloGateway implements GraphQLService {
   private serviceSdlCache = new Map<string, string>();
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlannerPointer?: WasmPointer;
+  private parsedCsdl?: DocumentNode;
 
   private fetcher: typeof fetch = getDefaultGcsFetcher();
 
@@ -252,7 +268,9 @@ export class ApolloGateway implements GraphQLService {
     }
 
     if (isLocalConfig(this.config)) {
-      const { schema, composedSdl } = this.createSchema(this.config.localServiceList);
+      const { schema, composedSdl } = this.createSchema({
+        serviceList: this.config.localServiceList,
+      });
       this.schema = schema;
 
       if (!composedSdl) {
@@ -260,6 +278,12 @@ export class ApolloGateway implements GraphQLService {
       } else {
        this.queryPlannerPointer = getQueryPlanner(composedSdl);
       }
+    }
+
+    if (isCsdlConfig(this.config)) {
+      const { schema } = this.createSchema({ csdl: this.config.csdl });
+      this.schema = schema;
+      this.queryPlannerPointer = getQueryPlanner(this.config.csdl);
     }
 
     this.initializeQueryPlanStore();
@@ -410,7 +434,9 @@ export class ApolloGateway implements GraphQLService {
 
     if (this.queryPlanStore) this.queryPlanStore.flush();
 
-    const { schema, composedSdl } = this.createSchema(result.serviceDefinitions);
+    const { schema, composedSdl } = this.createSchema({
+      serviceList: result.serviceDefinitions,
+    });
 
     if (!composedSdl) {
       this.logger.error(
@@ -476,7 +502,17 @@ export class ApolloGateway implements GraphQLService {
     );
   }
 
-  protected createSchema(serviceList: ServiceDefinition[]) {
+  protected createSchema(
+    input: { serviceList: ServiceDefinition[] } | { csdl: string },
+  ) {
+    if ('serviceList' in input) {
+      return this.createSchemaFromServiceList(input.serviceList)
+    } else {
+      return this.createSchemaFromCsdl(input.csdl);
+    }
+  }
+
+  protected createSchemaFromServiceList(serviceList: ServiceDefinition[]) {
     this.logger.debug(
       `Composing schema from service list: \n${serviceList
         .map(({ name, url }) => `  ${url || 'local'}: ${name}`)
@@ -514,6 +550,49 @@ export class ApolloGateway implements GraphQLService {
         composedSdl,
       };
     }
+  }
+
+  protected serviceListFromCsdl() {
+    const serviceList: Omit<ServiceDefinition, 'typeDefs'>[] = [];
+
+    visit(this.parsedCsdl!, {
+      SchemaDefinition(node) {
+        findDirectivesOnTypeOrField(node, 'graph').forEach((directive) => {
+          const name = directive.arguments?.find(
+            (arg) => arg.name.value === 'name',
+          );
+          const url = directive.arguments?.find(
+            (arg) => arg.name.value === 'url',
+          );
+
+          if (
+            name &&
+            isStringValueNode(name.value) &&
+            url &&
+            isStringValueNode(url.value)
+          ) {
+            serviceList.push({
+              name: name.value.value,
+              url: url.value.value,
+            });
+          }
+        });
+      },
+    });
+
+    return serviceList;
+  }
+
+  protected createSchemaFromCsdl(csdl: string) {
+    this.parsedCsdl = parse(csdl);
+    const serviceList = this.serviceListFromCsdl();
+
+    this.createServices(serviceList);
+
+    return {
+      schema: wrapSchemaWithAliasResolver(csdlToSchema(csdl)),
+      composedSdl: csdl,
+    };
   }
 
   public onSchemaChange(callback: SchemaChangeCallback): Unsubscriber {
@@ -607,7 +686,7 @@ export class ApolloGateway implements GraphQLService {
       });
     };
 
-    if (isLocalConfig(config) || isRemoteConfig(config)) {
+    if (isLocalConfig(config) || isRemoteConfig(config) || isCsdlConfig(config)) {
       if (canUseManagedConfig && !this.warnedStates.remoteWithLocalConfig) {
         // Only display this warning once per start-up.
         this.warnedStates.remoteWithLocalConfig = true;
@@ -616,15 +695,15 @@ export class ApolloGateway implements GraphQLService {
         // remote is unavailable for one reason or another.
         getManagedConfig().then(() => {
           this.logger.warn(
-            "A local gateway service list is overriding a managed federation " +
+            "A local gateway configuration is overriding a managed federation " +
             "configuration.  To use the managed " +
-            "configuration, do not specify a service list locally.",
+            "configuration, do not specify a service list or csdl locally.",
           );
         }).catch(() => {}); // Don't mind errors if managed config is missing.
       }
     }
 
-    if (isLocalConfig(config)) {
+    if (isLocalConfig(config) || isCsdlConfig(config)) {
       return { isNewSchema: false };
     }
 

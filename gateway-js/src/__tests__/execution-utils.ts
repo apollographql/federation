@@ -112,6 +112,14 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
   return { serviceMap, schema: compositionResult.schema, queryPlannerPointer };
 }
 
+export function getTestingCsdl() {
+  const compositionResult = composeAndValidate(fixtures);
+  if (!compositionHasErrors(compositionResult)) {
+    return compositionResult.composedSdl;
+  }
+  throw new Error("Testing fixtures don't compose properly!");
+}
+
 export function wait(ms: number) {
   return new Promise(r => setTimeout(r, ms));
 }
