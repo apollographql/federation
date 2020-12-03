@@ -177,7 +177,7 @@ it.each([
     : expect(logger.warn).not
   ).toHaveBeenCalledWith(
     expect.stringMatching(
-      /A local gateway service list is overriding a managed federation configuration/,
+      /A local gateway configuration is overriding a managed federation configuration/,
     ),
   );
   spyGetServiceDefinitionsFromStorage.mockRestore();
