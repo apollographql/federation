@@ -384,6 +384,10 @@ export function diffTypeNodes(
     [fieldName: string]: string[];
   } = Object.create(null);
 
+  const inputValuesDiff: {
+    [inputName: string]: string[];
+  } = Object.create(null);
+
   const unionTypesDiff: {
     [typeName: string]: boolean;
   } = Object.create(null);
@@ -399,7 +403,7 @@ export function diffTypeNodes(
     definitions: [firstNode, secondNode],
   };
 
-  function fieldVisitor(node: FieldDefinitionNode | InputValueDefinitionNode) {
+  function fieldVisitor(node: FieldDefinitionNode) {
     const fieldName = node.name.value;
 
     const type = print(node.type);
@@ -419,9 +423,33 @@ export function diffTypeNodes(
     }
   }
 
+  /** Similar to fieldVisitor but specific for input values, so we don't store
+   * fields and arguments in the same place.
+   */
+
+  function inputValueVisitor(node: InputValueDefinitionNode) {
+    const fieldName = node.name.value;
+
+    const type = print(node.type);
+
+    if (!inputValuesDiff[fieldName]) {
+      inputValuesDiff[fieldName] = [type];
+      return;
+    }
+
+    // If we've seen this input value twice and the types are the same,
+    // remove it from the diff result
+    const inputValueTypes = inputValuesDiff[fieldName];
+    if (inputValueTypes[0] === type) {
+      delete inputValuesDiff[fieldName];
+    } else {
+      inputValueTypes.push(type);
+    }
+  }
+
   visit(document, {
     FieldDefinition: fieldVisitor,
-    InputValueDefinition: fieldVisitor,
+    InputValueDefinition: inputValueVisitor,
     UnionTypeDefinition(node) {
       if (!node.types) return BREAK;
       for (const namedTypeNode of node.types) {
@@ -481,6 +509,7 @@ export function diffTypeNodes(
     name: typeNameDiff,
     kind: kindDiff,
     fields: fieldsDiff,
+    inputValues: inputValuesDiff,
     unionTypes: unionTypesDiff,
     locations: Array.from(locationsDiff),
     args: argumentsDiff,
@@ -497,7 +526,7 @@ export function typeNodesAreEquivalent(
   firstNode: TypeDefinitionNode | TypeExtensionNode | DirectiveDefinitionNode,
   secondNode: TypeDefinitionNode | TypeExtensionNode | DirectiveDefinitionNode,
 ) {
-  const { name, kind, fields, unionTypes, locations, args } = diffTypeNodes(
+  const { name, kind, fields, inputValues, unionTypes, locations, args } = diffTypeNodes(
     firstNode,
     secondNode,
   );
@@ -506,6 +535,7 @@ export function typeNodesAreEquivalent(
     name.length === 0 &&
     kind.length === 0 &&
     Object.keys(fields).length === 0 &&
+    Object.keys(inputValues).length === 0 &&
     Object.keys(unionTypes).length === 0 &&
     locations.length === 0 &&
     Object.keys(args).length === 0
