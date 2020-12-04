@@ -201,17 +201,17 @@ type Query {
 }
 ```
 
-## Migrating entities and fields (advanced)
+## Migrating types and fields (advanced)
 
-As your federated graph grows, you might decide that you want an entity (or a particular field of an entity) to originate in a different service. Apollo Gateway helps you perform these migrations safely.
+As your federated graph grows, you might decide that you want a type (or a particular field of a type) to originate in a different service. Apollo Gateway helps you perform these migrations safely.
 
-### Entity migration
+### Type migration
 
-Let's say our `payments` service defines a `Bill` entity. Then, we add a dedicated `billing` service to our federated graph. It now makes sense for the `Bill` entity to originate in the `billing` service instead.
+Let's say our `payments` service defines a `Bill` type. Then, we add a dedicated `billing` service to our federated graph. It now makes sense for the `Bill` type to originate in the `billing` service instead.
 
 We can perform this migration safely with the following steps:
 
-1. In the `billing` service's schema, define the `Bill` entity (do _not_ extend it). If you're using managed federation, register this schema change with Studio.
+1. In the `billing` service's schema, define the `Bill` type (do _not_ extend it). If you're using managed federation, register this schema change with Studio.
 
     _Note that this is technically a composition error, because `Bill` is already defined in the `payments` service. However, this error is handled gracefully, as described below._
 
