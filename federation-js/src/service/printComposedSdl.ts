@@ -145,7 +145,7 @@ function printSchemaDefinition(
 
   return (
     'schema' +
-    // Federation change: print @graph and @composedGraph schema directives
+    // Federation change: print @graph and @using schema directives
     printFederationSchemaDirectives(serviceList) +
     `\n{\n${operationTypes.join('\n')}\n}`
   );
@@ -154,7 +154,8 @@ function printSchemaDefinition(
 function printFederationSchemaDirectives(serviceList: ServiceDefinition[]) {
   return (
     serviceList.map(service => `\n  @graph(name: "${service.name}", url: "${service.url}")`).join('') +
-    `\n  @composedGraph(version: 1)`
+    `\n  @composedGraph(version: 1)` +
+    `\n  @using(spec: "http://specs.apollo.dev/cs/v0.1")`
   );
 }
 

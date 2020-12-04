@@ -6,6 +6,7 @@ schema
 @graph(name: "product", url: "https://product.api.com")
 @graph(name: "reviews", url: "https://reviews.api.com")
 @composedGraph(version: 1)
+@using(spec: "http://specs.apollo.dev/cs/v0.1")
 {
     query: Query
     mutation: Mutation
@@ -259,3 +260,4 @@ directive @provides(fields: String!) on FIELD_DEFINITION
 directive @requires(fields: String!) on FIELD_DEFINITION
 directive @stream on FIELD
 directive @transform(from: String!) on FIELD
+directive @using(spec: String!) on SCHEMA

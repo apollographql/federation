@@ -1,6 +1,7 @@
 schema
   @graph(name: "users", url: "undefined")
   @composedGraph(version: 1)
+  @using(spec: "http://specs.apollo.dev/cs/v0.1")
 {
   query: Query
 }
@@ -66,3 +67,4 @@ directive @key(fields: String!, graph: String!) repeatable on OBJECT
 directive @resolve(graph: String!) on FIELD_DEFINITION
 directive @provides(fields: String!) on FIELD_DEFINITION
 directive @requires(fields: String!) on FIELD_DEFINITION
+directive @using(spec: String!) on SCHEMA

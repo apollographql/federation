@@ -28,6 +28,7 @@ describe('printComposedSdl', () => {
         @graph(name: \\"product\\", url: \\"https://product.api.com\\")
         @graph(name: \\"reviews\\", url: \\"https://reviews.api.com\\")
         @composedGraph(version: 1)
+        @using(spec: \\"http://specs.apollo.dev/cs/v0.1\\")
       {
         query: Query
         mutation: Mutation
@@ -46,6 +47,8 @@ describe('printComposedSdl', () => {
       directive @provides(fields: String!) on FIELD_DEFINITION
 
       directive @requires(fields: String!) on FIELD_DEFINITION
+
+      directive @using(spec: String!) on SCHEMA
 
       directive @stream on FIELD
 

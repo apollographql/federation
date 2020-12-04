@@ -84,6 +84,16 @@ export const RequiresDirective = new GraphQLDirective({
   },
 });
 
+export const UsingDirective = new GraphQLDirective({
+  name: 'using',
+  locations: [DirectiveLocation.SCHEMA],
+  args: {
+    spec: {
+      type: GraphQLNonNull(GraphQLString),
+    }
+  },
+});
+
 export const csdlDirectives = [
   ComposedGraphDirective,
   GraphDirective,
@@ -92,6 +102,7 @@ export const csdlDirectives = [
   ResolveDirective,
   ProvidesDirective,
   RequiresDirective,
+  UsingDirective,
 ];
 
 export default csdlDirectives;

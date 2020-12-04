@@ -3,6 +3,7 @@ schema
   @graph(name: "reviews", url: "undefined")
   @graph(name: "actuary", url: "undefined")
   @composedGraph(version: 1)
+  @using(spec: "http://specs.apollo.dev/cs/v0.1")
 {
   query: Query
 }
@@ -20,6 +21,8 @@ directive @resolve(graph: String!) on FIELD_DEFINITION
 directive @provides(fields: String!) on FIELD_DEFINITION
 
 directive @requires(fields: String!) on FIELD_DEFINITION
+
+directive @using(spec: String!) on SCHEMA
 
 type Group {
   id: ID
