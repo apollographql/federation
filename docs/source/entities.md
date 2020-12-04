@@ -201,35 +201,55 @@ type Query {
 }
 ```
 
-## Migrating a field to another service (advanced)
+## Migrating types and fields (advanced)
 
-As your federated graph grows, you might decide that you want a particular field of an entity to originate in a different service.
+As your federated graph grows, you might decide that you want a type (or a particular field of a type) to originate in a different service. Apollo Gateway helps you perform these migrations safely.
 
-For example, let's say your `products` service defines a `Product` entity that includes an `inStock` boolean field. Then, you add an `inventory` service to your federated graph. It now makes sense for the `inStock` field to originate in the `inventory` service instead.
+### Type migration
 
-Apollo Gateway helps you perform this migration much like you perform a database migration, with the following steps:
+Let's say our `payments` service defines a `Bill` type. Then, we add a dedicated `billing` service to our federated graph. It now makes sense for the `Bill` type to originate in the `billing` service instead.
 
-1. In the `inventory` service's schema, [extend](#extending) the `Product` entity to add the `inStock` field.
+We can perform this migration safely with the following steps:
 
-    _Note that this is technically a composition error, because `inStock` is already defined in the `products` service. However, this error is handled gracefully, as described below._
+1. In the `billing` service's schema, define the `Bill` type (do _not_ extend it). If you're using managed federation, register this schema change with Studio.
+
+    _Note that this is technically a composition error, because `Bill` is already defined in the `payments` service. However, this error is handled gracefully, as described below._
+
+2. In the `billing` service, define resolvers for every field of `Bill` that currently originates in the `payments` service. This service should resolve those fields with the exact same outcome as the resolvers in the `payments` service.
+
+3. Deploy the updated `billing` service to your environment.
+
+    _Again, this technically deploys a composition error. **However**, this error is handled gracefully in one of two ways, depending on whether you are using [managed federation](./managed-federation/overview/):_
+
+    * _If you **are** using managed federation, Apollo Studio does **not** publish an updated configuration, and the gateway continues to resolve the `Bill` entity in the `payments` service._
+
+    * _If you are **not** using managed federation, your gateway starts resolving the `Bill` entity in whichever service is listed **last** in your gateway's [`serviceList`](/api/apollo-gateway/#constructor)._
+
+4. In the `payments` service's schema, remove the `Bill` entity. If you're using managed federation, register this schema change with Studio.
+
+    _This takes care of the composition error, regardless of whether you are using managed federation. The gateway will begin resolving the `Bill` entity in the `billing` service._
+
+5. Remove the resolvers for `Bill` fields from the `payments` service and deploy the updated service to your environment.
+
+    _By removing the `Bill` entity from the `payments` schema **before** removing its associated resolvers, you guarantee that the gateway never attempts to resolve the entity in a service that lacks resolvers for it._
+
+### Field migration
+
+The steps for migrating an individual field are nearly identical in form to the steps for [migrating an entire entity](#entity-migration).
+
+Let's say our `products` service defines a `Product` entity, which includes the boolean field `inStock`. Then, we add an `inventory` service to our federated graph. It now makes sense for the `inStock` field to originate in the `inventory` service instead.
+
+We can perform this migration safely with the following steps (_additional commentary on each step is provided in [Entity migration](#entity-migration)_):
+
+1. In the `inventory` service's schema, [extend](#extending) the `Product` entity to add the `inStock` field. If you're using managed federation, register this schema change with Studio.
 
 2. In the `inventory` service, add a resolver for the `inStock` field. This service should resolve the field with the exact same outcome as the resolver in the `products` service.
 
-3. Push the updated `inventory` service to your environment.
+3. Deploy the updated `inventory` service to your environment.
 
-    _Again, this technically deploys a composition error. **However**, this error is handled gracefully in one of two ways, depending on whether you are using [managed federation](https://www.apollographql.com/docs/studio/managed-federation/overview/):_
+4. In the `products` service's schema, remove the `inStock` field. If you're using managed federation, register this schema change with Studio.
 
-    * _If you **are** using managed federation, Apollo Studio does **not** push an updated schema to your gateway, and the gateway continues to resolve the `inStock` field in the `products` service._
-
-    * _If you are **not** using managed federation, your gateway starts resolving the `inStock` field in whichever service is listed **last** in your gateway's [`serviceList`](/api/apollo-gateway/#constructor)._
-
-4. In the `products` service's schema, remove the `inStock` field and push the updated service to your environment.
-
-    _This takes care of the composition error, regardless of whether you are using managed federation. The gateway will begin resolving the `inStock` field in the `inventory` service._
-
-5. Remove the resolver for `inStock` from the `products` service and push the updated service to your environment.
-
-    _By removing the `inStock` field from `products` **before** removing its associated resolver, you guarantee that the gateway never attempts to resolve the field in a service that lacks a resolver for it._
+5. Remove the resolver for `inStock` from the `products` service and deploy the updated service to your environment.
 
 ## Extending an entity with computed fields (advanced)
 
