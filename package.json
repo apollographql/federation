@@ -8,7 +8,7 @@
     "compile": "tsc --build tsconfig.build.json",
     "compile:clean": "tsc --build tsconfig.build.json --clean",
     "watch": "tsc --build tsconfig.build.json --watch",
-    "release:version-bump": "lerna version",
+    "release:version-bump": "lerna version --force-publish=@apollo/query-planner-wasm",
     "release:start-ci-publish": "node -p '`Publish (dist-tag:${process.env.APOLLO_DIST_TAG || \"latest\"})`' | git tag -F - \"publish/$(date -u '+%Y%m%d%H%M%S')\" && git push origin \"$(git describe --match='publish/*' --tags --exact-match HEAD)\"",
     "postinstall": "lerna run monorepo-prepare && npm run compile",
     "test": "jest --verbose",
