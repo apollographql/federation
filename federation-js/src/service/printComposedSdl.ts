@@ -154,7 +154,6 @@ function printSchemaDefinition(
 function printFederationSchemaDirectives(serviceList: ServiceDefinition[]) {
   return (
     serviceList.map(service => `\n  @graph(name: "${service.name}", url: "${service.url}")`).join('') +
-    `\n  @composedGraph(version: 1)` +
     `\n  @using(spec: "http://specs.apollo.dev/cs/v0.1")`
   );
 }

@@ -27,14 +27,11 @@ describe('printComposedSdl', () => {
         @graph(name: \\"inventory\\", url: \\"https://inventory.api.com\\")
         @graph(name: \\"product\\", url: \\"https://product.api.com\\")
         @graph(name: \\"reviews\\", url: \\"https://reviews.api.com\\")
-        @composedGraph(version: 1)
         @using(spec: \\"http://specs.apollo.dev/cs/v0.1\\")
       {
         query: Query
         mutation: Mutation
       }
-
-      directive @composedGraph(version: Int!) on SCHEMA
 
       directive @graph(name: String!, url: String!) repeatable on SCHEMA
 

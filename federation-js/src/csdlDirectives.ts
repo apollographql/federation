@@ -3,18 +3,7 @@ import {
   DirectiveLocation,
   GraphQLNonNull,
   GraphQLString,
-  GraphQLInt,
 } from 'graphql';
-
-export const ComposedGraphDirective = new GraphQLDirective({
-  name: 'composedGraph',
-  locations: [DirectiveLocation.SCHEMA],
-  args: {
-    version: {
-      type: GraphQLNonNull(GraphQLInt),
-    },
-  },
-});
 
 export const GraphDirective = new GraphQLDirective({
   name: 'graph',
@@ -95,7 +84,6 @@ export const UsingDirective = new GraphQLDirective({
 });
 
 export const csdlDirectives = [
-  ComposedGraphDirective,
   GraphDirective,
   OwnerDirective,
   KeyDirective,

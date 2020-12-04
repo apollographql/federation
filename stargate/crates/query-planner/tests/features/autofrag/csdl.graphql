@@ -1,6 +1,5 @@
 schema
   @graph(name: "users", url: "undefined")
-  @composedGraph(version: 1)
   @using(spec: "http://specs.apollo.dev/cs/v0.1")
 {
   query: Query
@@ -60,7 +59,6 @@ type B {
   f6: String
 }
 
-directive @composedGraph(version: Int!) on SCHEMA
 directive @graph(name: String!, url: String!) repeatable on SCHEMA
 directive @owner(graph: String!) on OBJECT
 directive @key(fields: String!, graph: String!) repeatable on OBJECT

@@ -2,13 +2,10 @@ schema
   @graph(name: "users", url: "undefined")
   @graph(name: "reviews", url: "undefined")
   @graph(name: "actuary", url: "undefined")
-  @composedGraph(version: 1)
   @using(spec: "http://specs.apollo.dev/cs/v0.1")
 {
   query: Query
 }
-
-directive @composedGraph(version: Int!) on SCHEMA
 
 directive @graph(name: String!, url: String!) repeatable on SCHEMA
 
