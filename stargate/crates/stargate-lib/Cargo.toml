@@ -27,5 +27,5 @@ tracing-futures = "0.2.4"
 url = "2.1.1"
 
 [dev-dependencies]
-tokio = { version = "0.2.2", features = ["macros"]}
+tokio = { version = "0.3.5", features = ["macros"]}
 wiremock = "0.3"
