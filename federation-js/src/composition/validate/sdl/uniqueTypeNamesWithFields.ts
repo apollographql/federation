@@ -65,10 +65,9 @@ export function UniqueTypeNamesWithFields(
       // By inspecting the diff, we can warn when field types mismatch.
       // A diff entry will exist when a field exists on one type and not the other, or if there is a type mismatch on the field
       // i.e. { sku: [Int, String!], color: [String] }
-      const { kind, fields } = diffTypeNodes(node, duplicateTypeNode);
+      const { kind, fields, inputValues } = diffTypeNodes(node, duplicateTypeNode);
 
       const fieldsDiff = Object.entries(fields);
-
       // Error if the kinds don't match
       if (kind.length > 0) {
         context.reportError(
@@ -92,7 +91,8 @@ export function UniqueTypeNamesWithFields(
         return;
       }
 
-      const typesHaveSameShape =
+
+      const typesHaveSameFieldShape =
         fieldsDiff.length === 0 ||
         fieldsDiff.every(([fieldName, types]) => {
           // If a diff entry has two types, then the field name matches but the types do not.
@@ -121,9 +121,37 @@ export function UniqueTypeNamesWithFields(
           return false;
         });
 
+      const inputValuesDiff = Object.entries(inputValues);
+
+      const typesHaveSameInputValuesShape =
+        inputValuesDiff.length === 0 ||
+        inputValuesDiff.every(([name, types]) => {
+          if (types.length === 2) {
+            possibleErrors.push(
+              errorWithCode(
+                'VALUE_TYPE_INPUT_VALUE_MISMATCH',
+                `${logServiceAndType(
+                  duplicateTypeNode.serviceName!,
+                  typeName,
+                )}A field's input type (\`${name}\`) was defined differently in different services. \`${
+                  duplicateTypeNode.serviceName
+                }\` and \`${
+                  node.serviceName
+                }\` define \`${name}\` as a ${types[1]} and ${
+                  types[0]
+                } respectively. In order to define \`${typeName}\` in multiple places, the input values and their types must be identical.`,
+                [node, duplicateTypeNode],
+              ),
+            );
+            return true;
+          }
+          return false;
+        });
+
+
       // Once we determined that types have the same shape (name, kind, and field
       // names), we can provide useful errors
-      if (typesHaveSameShape) {
+      if (typesHaveSameFieldShape && typesHaveSameInputValuesShape) {
         // Report errors that were collected while determining the matching shape of the types
         possibleErrors.forEach(error => context.reportError(error));
 

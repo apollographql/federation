@@ -476,11 +476,11 @@ describe('composeServices', () => {
         const { schema, errors } = composeServices([serviceA, serviceB]);
         expect(schema).toBeDefined();
         expect(errors).toMatchInlineSnapshot(`
-                    Array [
-                      [GraphQLError: Field "Product.name" can only be defined once.],
-                      [GraphQLError: There can be only one type named "Product".],
-                    ]
-                `);
+          Array [
+            [GraphQLError: Field "Product.name" can only be defined once.],
+            [GraphQLError: There can be only one type named "Product".],
+          ]
+        `);
 
         const product = schema.getType('Product') as GraphQLObjectType;
 
