@@ -28,6 +28,8 @@ type LegacySchemaModule = {
   resolvers?: GraphQLResolverMap<any>;
 };
 
+export { GraphQLSchemaModule };
+
 export function buildFederatedSchema(
   modulesOrSDL:
     | (GraphQLSchemaModule | DocumentNode)[]
