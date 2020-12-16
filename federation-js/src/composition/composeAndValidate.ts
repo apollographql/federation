@@ -36,10 +36,9 @@ export function composeAndValidate(
 ): CompositionResult {
   const errors = validateServicesBeforeNormalization(serviceList);
 
-  const normalizedServiceList = serviceList.map(({ name, url, typeDefs }) => ({
-    name,
-    url,
+  const normalizedServiceList = serviceList.map(({ typeDefs, ...rest }) => ({
     typeDefs: normalizeTypeDefs(typeDefs),
+    ...rest
   }));
 
   // generate errors or warnings of the individual services
