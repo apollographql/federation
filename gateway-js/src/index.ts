@@ -48,7 +48,7 @@ import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
 import { getQueryPlanner } from '@apollo/query-planner-wasm';
 import { csdlToSchema } from './csdlToSchema';
-import { findDirectivesOnTypeOrField, isStringValueNode } from '@apollo/federation/dist/composition/utils';
+import { findDirectivesOnNode, isStringValueNode } from '@apollo/federation/dist/composition/utils';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -557,7 +557,7 @@ export class ApolloGateway implements GraphQLService {
 
     visit(this.parsedCsdl!, {
       SchemaDefinition(node) {
-        findDirectivesOnTypeOrField(node, 'graph').forEach((directive) => {
+        findDirectivesOnNode(node, 'graph').forEach((directive) => {
           const name = directive.arguments?.find(
             (arg) => arg.name.value === 'name',
           );

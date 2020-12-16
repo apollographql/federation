@@ -59,7 +59,7 @@ export function mapFieldNamesToServiceName<Node extends { name: NameNode }>(
   }, Object.create(null));
 }
 
-export function findDirectivesOnTypeOrField(
+export function findDirectivesOnNode(
   node: Maybe<
     | TypeDefinitionNode
     | TypeExtensionNode
@@ -128,10 +128,7 @@ function removeExternalFieldsFromExtensionVisitor<
     let fields = node.fields;
     if (fields) {
       fields = fields.filter(field => {
-        const externalDirectives = findDirectivesOnTypeOrField(
-          field,
-          'external',
-        );
+        const externalDirectives = findDirectivesOnNode(field, 'external');
 
         if (externalDirectives.length > 0) {
           collector.push({

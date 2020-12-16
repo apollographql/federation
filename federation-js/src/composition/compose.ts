@@ -22,7 +22,7 @@ import {
 import { transformSchema } from 'apollo-graphql';
 import federationDirectives from '../directives';
 import {
-  findDirectivesOnTypeOrField,
+  findDirectivesOnNode,
   isStringValueNode,
   parseSelections,
   mapFieldNamesToServiceName,
@@ -158,10 +158,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
       ) {
         const typeName = definition.name.value;
 
-        for (const keyDirective of findDirectivesOnTypeOrField(
-          definition,
-          'key',
-        )) {
+        for (const keyDirective of findDirectivesOnNode(definition, 'key')) {
           if (
             keyDirective.arguments &&
             isStringValueNode(keyDirective.arguments[0].value)
@@ -478,7 +475,7 @@ export function addFederationMetadataToSchemaNodes({
     // For object types, add metadata for all the @provides directives from its fields
     if (isObjectType(namedType)) {
       for (const field of Object.values(namedType.getFields())) {
-        const [providesDirective] = findDirectivesOnTypeOrField(
+        const [providesDirective] = findDirectivesOnNode(
           field.astNode,
           'provides',
         );
@@ -527,7 +524,7 @@ export function addFederationMetadataToSchemaNodes({
           federation: fieldFederationMetadata,
         };
 
-        const [requiresDirective] = findDirectivesOnTypeOrField(
+        const [requiresDirective] = findDirectivesOnNode(
           field.astNode,
           'requires',
         );
