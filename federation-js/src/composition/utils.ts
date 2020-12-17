@@ -1,4 +1,3 @@
-import 'apollo-server-env';
 import {
   InterfaceTypeExtensionNode,
   FieldDefinitionNode,
