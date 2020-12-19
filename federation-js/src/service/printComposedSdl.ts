@@ -112,8 +112,9 @@ function printFilteredSchema(
     .filter(typeFilter);
 
   return (
-    [printSchemaDefinition(schema, serviceList)]
+    [printSchemaDefinition(schema)]
       .concat(
+        printGraphs(serviceList),
         directives.map(directive => printDirective(directive, options)),
         types.map(type => printType(type, options)),
       )
@@ -124,7 +125,6 @@ function printFilteredSchema(
 
 function printSchemaDefinition(
   schema: GraphQLSchema,
-  serviceList: ServiceDefinition[],
 ): string | undefined {
   const operationTypes = [];
 
@@ -146,16 +146,23 @@ function printSchemaDefinition(
   return (
     'schema' +
     // Federation change: print @graph and @using schema directives
-    printFederationSchemaDirectives(serviceList) +
+    printFederationSchemaDirectives() +
     `\n{\n${operationTypes.join('\n')}\n}`
   );
 }
 
-function printFederationSchemaDirectives(serviceList: ServiceDefinition[]) {
+function printFederationSchemaDirectives() {
   return (
-    serviceList.map(service => `\n  @graph(name: "${service.name}", url: "${service.url}")`).join('') +
-    `\n  @using(spec: "http://specs.apollo.dev/cs/v0.1")`
+    `\n  @using(spec: "https://specs.apollo.dev/cs/v0.1")`
   );
+}
+
+function printGraphs(serviceList: ServiceDefinition[]) {
+  return `enum cs_Graph {${
+    serviceList.map(service =>
+      `\n  ${service.name} @cs_link(to: { http: { url: ${JSON.stringify(service.url)} } })`
+    )
+  }\n}`
 }
 
 export function printType(type: GraphQLNamedType, options?: Options): string {
@@ -202,33 +209,26 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
     (isExtension ? 'extend ' : '') +
     `type ${type.name}` +
     implementedInterfaces +
-    // Federation addition for printing @owner and @key usages
-    printFederationTypeDirectives(type) +
-    printFields(options, type)
+    printFields(options, type) +
+    printKeys(type)
   );
 }
 
 // Federation change: print usages of the @owner and @key directives.
-function printFederationTypeDirectives(type: GraphQLObjectType): string {
+let nextKeyId = 0
+function printKeys(type: GraphQLObjectType): string {
   const metadata: FederationType = type.extensions?.federation;
   if (!metadata) return '';
 
   const { serviceName: ownerService, keys } = metadata;
   if (!ownerService || !keys) return '';
 
-  // Separate owner @keys from the rest of the @keys so we can print them
-  // adjacent to the @owner directive.
-  const { [ownerService]: ownerKeys, ...restKeys } = keys
-  const ownerEntry: [string, (readonly SelectionNode[])[]] = [ownerService, ownerKeys];
-  const restEntries = Object.entries(restKeys);
-
   return (
-    `\n  @owner(graph: "${ownerService}")` +
-    [ownerEntry, ...restEntries].map(([service, keys]) =>
+    Object.entries(keys).map(([service, keys]) =>
       keys
         .map(
           (selections) =>
-            `\n  @key(fields: "${printFieldSet(selections)}", graph: "${service}")`,
+            `\nfragment cs__keyFor_${type.name}_${nextKeyId++} on ${type.name} @cs__key(graph: ${service}) ${printFieldSet(selections)}`
         )
         .join(''),
     )
@@ -344,25 +344,15 @@ function printFederationFieldDirectives(
     provides = [],
   }: FederationField = field.extensions.federation;
 
-  let printed = '';
-  // If a `serviceName` exists, we only want to print a `@resolve` directive
-  // if the `serviceName` differs from the `parentType`'s `serviceName`
-  if (
-    serviceName &&
-    serviceName !== parentType.extensions?.federation?.serviceName
-  ) {
-    printed += ` @resolve(graph: "${serviceName}")`;
-  }
-
-  if (requires.length > 0) {
-    printed += ` @requires(fields: "${printFieldSet(requires)}")`;
-  }
-
-  if (provides.length > 0) {
-    printed += ` @provides(fields: "${printFieldSet(provides)}")`;
-  }
-
-  return printed;
+  return ` @cs__resolve(graph: ${serviceName}${
+    requires.length ?
+      `, requires: "${printFieldSet(requires)}"`
+      : ''
+  }${
+    provides.length ?
+      `, provides: "${printFieldSet(provides)}"`
+      : ''
+  })`
 }
 
 // Federation change: `onNewLine` is a formatting nice-to-have for printing
