@@ -31,7 +31,7 @@ import {
 import { Maybe, ServiceDefinition, FederationType, FederationField } from '../composition';
 import { isFederationType } from '../types';
 import { isFederationDirective } from '../composition/utils';
-import csdlDirectives from '../csdlDirectives';
+import csdlDefinitions from '../csdlDefinitions';
 
 type Options = {
   /**
@@ -103,10 +103,8 @@ function printFilteredSchema(
   options?: Options,
 ): string {
   // Federation change: include directive definitions for CSDL
-  const directives = [
-    ...csdlDirectives,
-    ...schema.getDirectives().filter(directiveFilter),
-  ];
+  const directives = schema.getDirectives().filter(directiveFilter),
+
   const types = Object.values(schema.getTypeMap())
     .sort((type1, type2) => type1.name.localeCompare(type2.name))
     .filter(typeFilter);
@@ -114,6 +112,7 @@ function printFilteredSchema(
   return (
     [printSchemaDefinition(schema)]
       .concat(
+        csdlDefinitions,
         printGraphs(serviceList),
         directives.map(directive => printDirective(directive, options)),
         types.map(type => printType(type, options)),
@@ -158,9 +157,9 @@ function printFederationSchemaDirectives() {
 }
 
 function printGraphs(serviceList: ServiceDefinition[]) {
-  return `enum cs_Graph {${
+  return `enum cs__Graph {${
     serviceList.map(service =>
-      `\n  ${service.name} @cs_link(to: { http: { url: ${JSON.stringify(service.url)} } })`
+      `\n  ${service.name} @cs__link(to: { http: { url: ${JSON.stringify(service.url)} } })`
     )
   }\n}`
 }

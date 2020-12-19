@@ -27,28 +27,47 @@ describe('printComposedSdl', () => {
         mutation: Mutation
       }
 
-      enum cs_Graph {
-        accounts @cs_link(to: { http: { url: \\"https://accounts.api.com\\" } }),
-        books @cs_link(to: { http: { url: \\"https://books.api.com\\" } }),
-        documents @cs_link(to: { http: { url: \\"https://documents.api.com\\" } }),
-        inventory @cs_link(to: { http: { url: \\"https://inventory.api.com\\" } }),
-        product @cs_link(to: { http: { url: \\"https://product.api.com\\" } }),
-        reviews @cs_link(to: { http: { url: \\"https://reviews.api.com\\" } })
+
+      directive @cs__key(graph: cs__Graph!)
+        repeatable on FRAGMENT_DEFINITION
+
+      directive @cs__resolve(
+        graph: cs__Graph!,
+        requires: cs__SelectionSet,
+        provides: cs__SelectionSet)
+        on FIELD_DEFINITION
+
+      directive @cs__error(
+        graphs: [cs__Graph!],
+        message: String)
+          on OBJECT
+           | INTERFACE
+           | UNION
+           | FIELD_DEFINITION
+
+      directive @cs__link(to: cs__OutboundLink!)
+        on ENUM_VALUE
+
+      input cs__OutboundLink {
+        http: cs__OutboundLinkHTTP
       }
 
-      directive @graph(name: String!, url: String!) repeatable on SCHEMA
+      input cs__OutboundLinkHTTP {
+        url: cs__URL
+      }
 
-      directive @owner(graph: String!) on OBJECT
+      scalar cs__URL @specifiedBy(url: \\"https://specs.apollo.dev/v0.1#cs__url\\")
+      scalar cs__SelectionSet @specifiedBy(url: \\"https://specs.apollo.dev/v0.1#cs__selectionset\\")
 
-      directive @key(fields: String!, graph: String!) repeatable on OBJECT
 
-      directive @resolve(graph: String!) on FIELD_DEFINITION
-
-      directive @provides(fields: String!) on FIELD_DEFINITION
-
-      directive @requires(fields: String!) on FIELD_DEFINITION
-
-      directive @using(spec: String!) on SCHEMA
+      enum cs__Graph {
+        accounts @cs__link(to: { http: { url: \\"https://accounts.api.com\\" } }),
+        books @cs__link(to: { http: { url: \\"https://books.api.com\\" } }),
+        documents @cs__link(to: { http: { url: \\"https://documents.api.com\\" } }),
+        inventory @cs__link(to: { http: { url: \\"https://inventory.api.com\\" } }),
+        product @cs__link(to: { http: { url: \\"https://product.api.com\\" } }),
+        reviews @cs__link(to: { http: { url: \\"https://reviews.api.com\\" } })
+      }
 
       directive @stream on FIELD
 
