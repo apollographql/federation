@@ -1,6 +1,8 @@
 [workspace]
 members = [
   "query-planner-wasm",
+  "harmonizer",
+  "compose",
   "stargate",
   "stargate/crates/graphql-parser",
   "stargate/crates/query-planner",

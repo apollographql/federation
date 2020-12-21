@@ -27,9 +27,12 @@
     "@apollo/federation": "file:federation-js",
     "@apollo/gateway": "file:gateway-js",
     "@apollo/query-planner-wasm": "file:query-planner-wasm",
+    "@apollo/harmonizer-js": "file:harmonizer-js",
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^17.0.0",
+    "@rollup/plugin-node-resolve": "^11.0.1",
     "@types/jest": "25.2.3",
     "@types/lodash.xorby": "4.7.6",
     "@types/loglevel": "1.5.4",
@@ -57,6 +60,8 @@
     "nock": "13.0.4",
     "node-fetch": "2.6.1",
     "prettier": "2.1.1",
+    "rollup": "^2.35.1",
+    "rollup-plugin-node-polyfills": "^0.2.1",
     "ts-jest": "26.3.0",
     "typescript": "3.9.7",
     "winston": "3.3.3",
