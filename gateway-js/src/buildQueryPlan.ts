@@ -2,6 +2,7 @@ import {
   DocumentNode,
   FragmentDefinitionNode,
   GraphQLError,
+  GraphQLSchema,
   Kind,
   OperationDefinitionNode,
   print,
@@ -11,7 +12,6 @@ import {
   OperationContext,
   WasmPointer,
 } from './QueryPlan';
-import { ComposedGraphQLSchema } from '@apollo/federation';
 import { getQueryPlan } from '@apollo/query-planner-wasm';
 
 export interface BuildQueryPlanOptions {
@@ -32,7 +32,7 @@ export function buildQueryPlan(
 
 // Adapted from buildExecutionContext in graphql-js
 interface BuildOperationContextOptions {
-  schema: ComposedGraphQLSchema;
+  schema: GraphQLSchema;
   operationDocument: DocumentNode;
   operationString: string;
   queryPlannerPointer: WasmPointer;

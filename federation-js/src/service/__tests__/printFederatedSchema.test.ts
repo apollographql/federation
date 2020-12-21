@@ -1,12 +1,13 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { composeAndValidate } from '../../composition';
+import { composeAndValidate, compositionHasErrors } from '../../composition';
 import { printSchema } from '../printFederatedSchema';
 
 describe('printFederatedSchema', () => {
-  const { schema, errors } = composeAndValidate(fixtures);
+  const compositionResult = composeAndValidate(fixtures);
+  const { schema } = compositionResult;
 
   it('composes without errors', () => {
-    expect(errors).toHaveLength(0);
+    expect(!compositionHasErrors(compositionResult));
   });
 
   it('prints a fully composed schema correctly', () => {
