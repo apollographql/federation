@@ -102,8 +102,7 @@ function printFilteredSchema(
   typeFilter: (type: GraphQLNamedType) => boolean,
   options?: Options,
 ): string {
-  // Federation change: include directive definitions for CSDL
-  const directives = schema.getDirectives().filter(directiveFilter),
+  const directives = schema.getDirectives().filter(directiveFilter)
 
   const types = Object.values(schema.getTypeMap())
     .sort((type1, type2) => type1.name.localeCompare(type2.name))
@@ -143,16 +142,8 @@ function printSchemaDefinition(
   }
 
   return (
-    'schema' +
-    // Federation change: print @graph and @using schema directives
-    printFederationSchemaDirectives() +
+    'schema @using(spec: "https://specs.apollo.dev/cs/v0.1")' +
     `\n{\n${operationTypes.join('\n')}\n}`
-  );
-}
-
-function printFederationSchemaDirectives() {
-  return (
-    `\n  @using(spec: "https://specs.apollo.dev/cs/v0.1")`
   );
 }
 
