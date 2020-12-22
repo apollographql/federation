@@ -1,4 +1,3 @@
-import 'apollo-server-env';
 import {
   InterfaceTypeExtensionNode,
   FieldDefinitionNode,
@@ -32,6 +31,7 @@ import {
   OperationTypeNode,
   isDirective,
   isNamedType,
+  SchemaDefinitionNode,
 } from 'graphql';
 import {
   ExternalFieldDefinition,
@@ -59,7 +59,12 @@ export function mapFieldNamesToServiceName<Node extends { name: NameNode }>(
 }
 
 export function findDirectivesOnTypeOrField(
-  node: Maybe<TypeDefinitionNode | TypeExtensionNode | FieldDefinitionNode>,
+  node: Maybe<
+    | TypeDefinitionNode
+    | TypeExtensionNode
+    | FieldDefinitionNode
+    | SchemaDefinitionNode
+  >,
   directiveName: string,
 ) {
   return node && node.directives

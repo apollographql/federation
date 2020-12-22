@@ -1,9 +1,8 @@
-import { GraphQLError, getIntrospectionQuery } from 'graphql';
+import { GraphQLError, getIntrospectionQuery, GraphQLSchema } from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { GraphQLRequestContext } from 'apollo-server-types';
 import { AuthenticationError } from 'apollo-server-core';
-import { ComposedGraphQLSchema } from '@apollo/federation';
 import { buildQueryPlan, buildOperationContext } from '../buildQueryPlan';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
@@ -26,13 +25,18 @@ describe('executeQueryPlan', () => {
     addResolversToSchema(serviceMap[serviceName].schema, resolvers);
   }
 
-  let schema: ComposedGraphQLSchema;
-  let errors: GraphQLError[];
+  let schema: GraphQLSchema;
   let queryPlannerPointer: WasmPointer;
 
   beforeEach(() => {
-    ({ serviceMap, schema, errors, queryPlannerPointer } = getFederatedTestingSchema());
-    expect(errors).toHaveLength(0);
+    expect(
+      () =>
+        ({
+          serviceMap,
+          schema,
+          queryPlannerPointer,
+        } = getFederatedTestingSchema()),
+    ).not.toThrow();
   });
 
   function buildRequestContext(): GraphQLRequestContext {
