@@ -12,9 +12,9 @@ directive @cs__error(
   graphs: [cs__Graph!],
   message: String)
     on OBJECT
-     | INTERFACE
-     | UNION
-     | FIELD_DEFINITION
+    | INTERFACE
+    | UNION
+    | FIELD_DEFINITION
 
 directive @cs__link(to: cs__OutboundLink!)
   on ENUM_VALUE
