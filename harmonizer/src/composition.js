@@ -29271,93 +29271,43 @@ var composition = (function (node_fetch_1) {
 
 	});
 
-	var csdlDirectives = createCommonjsModule(function (module, exports) {
-	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.csdlDirectives = exports.RequiresDirective = exports.ProvidesDirective = exports.ResolveDirective = exports.KeyDirective = exports.OwnerDirective = exports.GraphDirective = exports.ComposedGraphDirective = void 0;
+	var _default = `
+directive @cs__key(graph: cs__Graph!)
+  repeatable on FRAGMENT_DEFINITION
 
-	exports.ComposedGraphDirective = new graphql_1.GraphQLDirective({
-	    name: 'composedGraph',
-	    locations: [graphql_1.DirectiveLocation.SCHEMA],
-	    args: {
-	        version: {
-	            type: graphql_1.GraphQLNonNull(graphql_1.GraphQLInt),
-	        },
-	    },
-	});
-	exports.GraphDirective = new graphql_1.GraphQLDirective({
-	    name: 'graph',
-	    locations: [graphql_1.DirectiveLocation.SCHEMA],
-	    args: {
-	        name: {
-	            type: graphql_1.GraphQLNonNull(graphql_1.GraphQLString),
-	        },
-	        url: {
-	            type: graphql_1.GraphQLNonNull(graphql_1.GraphQLString),
-	        },
-	    },
-	    isRepeatable: true,
-	});
-	exports.OwnerDirective = new graphql_1.GraphQLDirective({
-	    name: 'owner',
-	    locations: [graphql_1.DirectiveLocation.OBJECT],
-	    args: {
-	        graph: {
-	            type: graphql_1.GraphQLNonNull(graphql_1.GraphQLString),
-	        },
-	    },
-	});
-	exports.KeyDirective = new graphql_1.GraphQLDirective({
-	    name: 'key',
-	    locations: [graphql_1.DirectiveLocation.OBJECT],
-	    args: {
-	        fields: {
-	            type: graphql_1.GraphQLNonNull(graphql_1.GraphQLString),
-	        },
-	        graph: {
-	            type: graphql_1.GraphQLNonNull(graphql_1.GraphQLString),
-	        },
-	    },
-	    isRepeatable: true,
-	});
-	exports.ResolveDirective = new graphql_1.GraphQLDirective({
-	    name: 'resolve',
-	    locations: [graphql_1.DirectiveLocation.FIELD_DEFINITION],
-	    args: {
-	        graph: {
-	            type: graphql_1.GraphQLNonNull(graphql_1.GraphQLString),
-	        },
-	    },
-	});
-	exports.ProvidesDirective = new graphql_1.GraphQLDirective({
-	    name: 'provides',
-	    locations: [graphql_1.DirectiveLocation.FIELD_DEFINITION],
-	    args: {
-	        fields: {
-	            type: graphql_1.GraphQLNonNull(graphql_1.GraphQLString),
-	        },
-	    },
-	});
-	exports.RequiresDirective = new graphql_1.GraphQLDirective({
-	    name: 'requires',
-	    locations: [graphql_1.DirectiveLocation.FIELD_DEFINITION],
-	    args: {
-	        fields: {
-	            type: graphql_1.GraphQLNonNull(graphql_1.GraphQLString),
-	        },
-	    },
-	});
-	exports.csdlDirectives = [
-	    exports.ComposedGraphDirective,
-	    exports.GraphDirective,
-	    exports.OwnerDirective,
-	    exports.KeyDirective,
-	    exports.ResolveDirective,
-	    exports.ProvidesDirective,
-	    exports.RequiresDirective,
-	];
-	exports.default = exports.csdlDirectives;
+directive @cs__resolve(
+  graph: cs__Graph!,
+  requires: cs__SelectionSet,
+  provides: cs__SelectionSet)
+  on FIELD_DEFINITION
 
-	});
+directive @cs__error(
+  graphs: [cs__Graph!],
+  message: String)
+    on OBJECT
+    | INTERFACE
+    | UNION
+    | FIELD_DEFINITION
+
+directive @cs__link(to: cs__OutboundLink!)
+  on ENUM_VALUE
+
+input cs__OutboundLink {
+  http: cs__OutboundLinkHTTP
+}
+
+input cs__OutboundLinkHTTP {
+  url: cs__URL
+}
+
+scalar cs__URL @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__url")
+scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__selectionset")
+`;
+
+
+	var csdlDefinitions = /*#__PURE__*/Object.defineProperty({
+		default: _default
+	}, '__esModule', {value: true});
 
 	var printComposedSdl_1 = createCommonjsModule(function (module, exports) {
 	var __importDefault = (commonjsGlobal && commonjsGlobal.__importDefault) || function (mod) {
@@ -29368,7 +29318,7 @@ var composition = (function (node_fetch_1) {
 
 
 
-	const csdlDirectives_1 = __importDefault(csdlDirectives);
+	const csdlDefinitions_1 = __importDefault(csdlDefinitions);
 	function printComposedSdl(schema, serviceList, options) {
 	    return printFilteredSchema(schema, serviceList, (n) => !graphql_1.isSpecifiedDirective(n) && !utils$1.isFederationDirective(n), isDefinedType, options);
 	}
@@ -29383,19 +29333,16 @@ var composition = (function (node_fetch_1) {
 	        !types.isFederationType(type));
 	}
 	function printFilteredSchema(schema, serviceList, directiveFilter, typeFilter, options) {
-	    const directives = [
-	        ...csdlDirectives_1.default,
-	        ...schema.getDirectives().filter(directiveFilter),
-	    ];
+	    const directives = schema.getDirectives().filter(directiveFilter);
 	    const types = Object.values(schema.getTypeMap())
 	        .sort((type1, type2) => type1.name.localeCompare(type2.name))
 	        .filter(typeFilter);
-	    return ([printSchemaDefinition(schema, serviceList)]
-	        .concat(directives.map(directive => printDirective(directive, options)), types.map(type => printType(type, options)))
+	    return ([printSchemaDefinition(schema)]
+	        .concat(csdlDefinitions_1.default, printGraphs(serviceList), directives.map(directive => printDirective(directive, options)), types.map(type => printType(type, options)))
 	        .filter(Boolean)
 	        .join('\n\n') + '\n');
 	}
-	function printSchemaDefinition(schema, serviceList) {
+	function printSchemaDefinition(schema) {
 	    const operationTypes = [];
 	    const queryType = schema.getQueryType();
 	    if (queryType) {
@@ -29409,13 +29356,11 @@ var composition = (function (node_fetch_1) {
 	    if (subscriptionType) {
 	        operationTypes.push(`  subscription: ${subscriptionType.name}`);
 	    }
-	    return ('schema' +
-	        printFederationSchemaDirectives(serviceList) +
+	    return ('schema @using(spec: "https://specs.apollo.dev/cs/v0.1")' +
 	        `\n{\n${operationTypes.join('\n')}\n}`);
 	}
-	function printFederationSchemaDirectives(serviceList) {
-	    return (serviceList.map(service => `\n  @graph(name: "${service.name}", url: "${service.url}")`).join('') +
-	        `\n  @composedGraph(version: 1)`);
+	function printGraphs(serviceList) {
+	    return `enum cs__Graph {${serviceList.map(service => `\n  ${service.name} @cs__link(to: { http: { url: ${JSON.stringify(service.url)} } })`)}\n}`;
 	}
 	function printType(type, options) {
 	    if (graphql_1.isScalarType(type)) {
@@ -29452,10 +29397,11 @@ var composition = (function (node_fetch_1) {
 	        (isExtension ? 'extend ' : '') +
 	        `type ${type.name}` +
 	        implementedInterfaces +
-	        printFederationTypeDirectives(type) +
-	        printFields(options, type));
+	        printFields(options, type) +
+	        printKeys(type));
 	}
-	function printFederationTypeDirectives(type) {
+	let nextKeyId = 0;
+	function printKeys(type) {
 	    var _a;
 	    const metadata = (_a = type.extensions) === null || _a === void 0 ? void 0 : _a.federation;
 	    if (!metadata)
@@ -29463,14 +29409,10 @@ var composition = (function (node_fetch_1) {
 	    const { serviceName: ownerService, keys } = metadata;
 	    if (!ownerService || !keys)
 	        return '';
-	    const { [ownerService]: ownerKeys, ...restKeys } = keys;
-	    const ownerEntry = [ownerService, ownerKeys];
-	    const restEntries = Object.entries(restKeys);
-	    return (`\n  @owner(graph: "${ownerService}")` +
-	        [ownerEntry, ...restEntries].map(([service, keys]) => keys
-	            .map((selections) => `\n  @key(fields: "${printFieldSet(selections)}", graph: "${service}")`)
-	            .join(''))
-	            .join(''));
+	    return (Object.entries(keys).map(([service, keys]) => keys
+	        .map((selections) => `\nfragment cs__keyFor_${type.name}_${nextKeyId++} on ${type.name} @cs__key(graph: ${service}) ${printFieldSet(selections)}`)
+	        .join(''))
+	        .join(''));
 	}
 	function printInterface(type, options) {
 	    const isExtension = type.extensionASTNodes && type.astNode && !type.astNode.fields;
@@ -29506,7 +29448,7 @@ var composition = (function (node_fetch_1) {
 	        ': ' +
 	        String(f.type) +
 	        printDeprecated(f) +
-	        printFederationFieldDirectives(f, type));
+	        printFederationFieldDirectives(f));
 	    const isEntity = Boolean((_b = (_a = type.extensions) === null || _a === void 0 ? void 0 : _a.federation) === null || _b === void 0 ? void 0 : _b.keys);
 	    return printBlock(fields, isEntity);
 	}
@@ -29519,23 +29461,16 @@ var composition = (function (node_fetch_1) {
 	function printFieldSet(selections) {
 	    return `{ ${selections.map(printWithReducedWhitespace).join(' ')} }`;
 	}
-	function printFederationFieldDirectives(field, parentType) {
-	    var _a, _b, _c;
+	function printFederationFieldDirectives(field) {
+	    var _a;
 	    if (!((_a = field.extensions) === null || _a === void 0 ? void 0 : _a.federation))
 	        return '';
 	    const { serviceName, requires = [], provides = [], } = field.extensions.federation;
-	    let printed = '';
-	    if (serviceName &&
-	        serviceName !== ((_c = (_b = parentType.extensions) === null || _b === void 0 ? void 0 : _b.federation) === null || _c === void 0 ? void 0 : _c.serviceName)) {
-	        printed += ` @resolve(graph: "${serviceName}")`;
-	    }
-	    if (requires.length > 0) {
-	        printed += ` @requires(fields: "${printFieldSet(requires)}")`;
-	    }
-	    if (provides.length > 0) {
-	        printed += ` @provides(fields: "${printFieldSet(provides)}")`;
-	    }
-	    return printed;
+	    return ` @cs__resolve(graph: ${serviceName}${requires.length ?
+        `, requires: "${printFieldSet(requires)}"`
+        : ''}${provides.length ?
+        `, provides: "${printFieldSet(provides)}"`
+        : ''})`;
 	}
 	function printBlock(items, onNewLine) {
 	    return items.length !== 0

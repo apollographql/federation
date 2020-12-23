@@ -37,5 +37,6 @@ if (typeof composed.errors !== "undefined") {
 } else if (composed.composedSdl) {
   print("We have composed SDL");
   print(composed.composedSdl);
+  done(composed.composedSdl);
 }
 
