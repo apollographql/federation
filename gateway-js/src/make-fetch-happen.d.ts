@@ -33,6 +33,10 @@ declare module 'make-fetch-happen' {
           randomize?: boolean;
         };
     onRetry?(): void;
+    cert?: string;
+    key?: string;
+    proxy?: string;
+    noProxy?: string;
   }
 
   export interface CacheManager {
