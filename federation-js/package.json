@@ -17,14 +17,13 @@
   "author": "Apollo <opensource@apollographql.com>",
   "license": "MIT",
   "engines": {
-    "node": ">=8"
+    "node": ">=12.13.0 <15.0"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
     "apollo-graphql": "^0.6.0",
-    "core-js": "^3.4.0",
     "lodash.xorby": "^4.7.0"
   },
   "peerDependencies": {
