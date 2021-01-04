@@ -406,6 +406,7 @@ dependencies = [
  "derive_builder",
  "gherkin_rust",
  "graphql-parser",
+ "harmonizer",
  "lazy_static",
  "linked-hash-map",
  "serde",
@@ -912,13 +913,6 @@ dependencies = [
  "either",
  "memchr",
  "unreachable",
-]
-
-[[package]]
-name = "compose"
-version = "0.1.0"
-dependencies = [
- "harmonizer",
 ]
 
 [[package]]
@@ -1625,6 +1619,13 @@ dependencies = [
  "deno_core",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "harmonizer-cli"
+version = "0.1.0"
+dependencies = [
+ "harmonizer",
 ]
 
 [[package]]

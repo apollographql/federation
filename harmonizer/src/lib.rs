@@ -1,6 +1,6 @@
-use deno_core::JsRuntime;
+use deno_core::{JsRuntime, json_op_sync};
 use deno_core::Op;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::io::Write;
 use std::sync::mpsc::channel;
 
@@ -8,14 +8,36 @@ use std::sync::mpsc::channel;
 // When serialized, we'll be putting this into JavaScript expecting camelCase.
 #[serde(rename_all = "camelCase")]
 pub struct ServiceDefinition {
-  pub name: &'static str,
-  pub url: &'static str,
-  pub type_defs: &'static str,
+  pub name: String,
+  pub url: String,
+  pub type_defs: String,
+}
+
+impl ServiceDefinition {
+  pub fn new<N: Into<String>, U: Into<String>, D: Into<String>>(
+    name: N, url: U, type_defs: D
+  ) -> ServiceDefinition {
+    ServiceDefinition {
+      name: name.into(),
+      url: url.into(),
+      type_defs: type_defs.into(),
+    }
+  }
 }
 
 pub type ServiceList = Vec<ServiceDefinition>;
 
-pub fn harmonize(service_list: ServiceList) -> String {
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub enum Result<T> {
+  Ok(T),
+  Err(Vec<CompositionError>),
+}
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct CompositionError {
+  pub message: String
+}
+
+pub fn harmonize(service_list: ServiceList) -> Result<String> {
   // Initialize a runtime instance
   let mut runtime = JsRuntime::new(Default::default());
 
@@ -48,7 +70,7 @@ pub fn harmonize(service_list: ServiceList) -> String {
 
   runtime.register_op(
     "op_composition_result",
-    move |_state, zero_copy| {      
+    json_op_sync(move |_state, value, zero_copy| {      
       let mut result = String::new();
 
       // Write the contents of every buffer to stdout
@@ -56,10 +78,15 @@ pub fn harmonize(service_list: ServiceList) -> String {
         result.push_str(std::str::from_utf8(&buf).expect("utf8 conversion"));
       }
 
-      tx.send(result).expect("channel must be open");
+      tx.send(
+        serde_json::from_value(value)
+          .expect("deserializing composition result")
+      ).expect("channel must be open");
 
-      Op::Sync(Box::new([])) // Don't return anything to JS
-    },
+      Ok(serde_json::json!(null))
+
+      // Op::Sync(Box::new([])) // Don't return anything to JS
+    }),
   );
 
   // The runtime automatically contains a Deno.core object with several
@@ -79,8 +106,8 @@ function print(value) {
   Deno.core.dispatchByName('op_print', Deno.core.encode(value.toString()), _newline);
 }
 
-function done(string) {
-  Deno.core.dispatchByName('op_composition_result', Deno.core.encode(string));
+function done(result) {
+  Deno.core.jsonOpSync('op_composition_result', result);
 }
 
 // Finally we register the error class used during do_compose.js.
@@ -124,14 +151,14 @@ exports = {};
 mod tests {
   #[test]
   fn it_works() {
-    use crate::{harmonize, ServiceDefinition};
+    use crate::{harmonize, ServiceDefinition, Result};
 
     assert_eq!(
       harmonize(vec![
-        ServiceDefinition {
-          name: "users",
-          url: "undefined",
-          type_defs: "
+        ServiceDefinition::new(
+          "users",
+          "undefined",
+          "
             type User {
               id: ID
               name: String
@@ -140,12 +167,11 @@ mod tests {
             type Query {
               users: [User!]
             }
+          "),
+        ServiceDefinition::new(
+          "movies",
+          "undefined",
           "
-        },
-        ServiceDefinition {
-          name: "movies",
-          url: "undefined",
-          type_defs: "
             type Movie {
               title: String
               name: String
@@ -158,10 +184,9 @@ mod tests {
             type Query {
               movies: [Movie!]
             }
-          "
-        }
+          ")
       ]),
-      r#"schema @using(spec: "https://specs.apollo.dev/cs/v0.1")
+      Result::Ok(String::from(r#"schema @using(spec: "https://specs.apollo.dev/cs/v0.1")
 {
   query: Query
 }
@@ -219,6 +244,6 @@ type User {
   name: String
   favorites: [Movie!] @cs__resolve(graph: movies)
 }
-"#);
+"#)));
   }
 }

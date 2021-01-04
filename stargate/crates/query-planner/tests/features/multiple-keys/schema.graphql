@@ -1,0 +1,74 @@
+schema @using(spec: "https://specs.apollo.dev/cs/v0.1")
+{
+  query: Query
+}
+
+
+directive @cs__key(graph: cs__Graph!)
+  repeatable on FRAGMENT_DEFINITION
+
+directive @cs__resolve(
+  graph: cs__Graph!,
+  requires: cs__SelectionSet,
+  provides: cs__SelectionSet)
+  on FIELD_DEFINITION
+
+directive @cs__error(
+  graphs: [cs__Graph!],
+  message: String)
+    on OBJECT
+    | INTERFACE
+    | UNION
+    | FIELD_DEFINITION
+
+directive @cs__link(to: cs__OutboundLink!)
+  on ENUM_VALUE
+
+input cs__OutboundLink {
+  http: cs__OutboundLinkHTTP
+}
+
+input cs__OutboundLinkHTTP {
+  url: cs__URL
+}
+
+scalar cs__URL @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__url")
+scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__selectionset")
+
+
+enum cs__Graph {
+  users @cs__link(to: { http: { url: "undefined" } }),
+  reviews @cs__link(to: { http: { url: "undefined" } }),
+  actuary @cs__link(to: { http: { url: "undefined" } })
+}
+
+type Group {
+  id: ID
+  name: String
+}
+
+type Query {
+  users: [User!]! @cs__resolve(graph: users)
+  reviews: [Review!]! @cs__resolve(graph: reviews)
+}
+
+type Review {
+  id: ID!
+  author: User!
+  body: String!
+}
+
+type User
+{
+  id: ID!
+  ssn: ID!
+  name: String!
+  group: Group
+  reviews: [Review!]! @cs__resolve(graph: reviews)
+  risk: Float @cs__resolve(graph: actuary)
+}
+fragment cs__keyFor_User_0 on User @cs__key(graph: users) { ssn }
+fragment cs__keyFor_User_1 on User @cs__key(graph: users) { id }
+fragment cs__keyFor_User_2 on User @cs__key(graph: users) { group { id } }
+fragment cs__keyFor_User_3 on User @cs__key(graph: reviews) { id }
+fragment cs__keyFor_User_4 on User @cs__key(graph: actuary) { ssn }
