@@ -11,7 +11,11 @@ import {
   selectionSetSerializer,
 } from '../../snapshotSerializers';
 import { normalizeTypeDefs } from '../normalize';
-import { getFederationMetadata } from '../utils';
+import {
+  assertCompositionFailure,
+  assertCompositionSuccess,
+  getFederationMetadata,
+} from '../utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(typeSerializer);
@@ -39,8 +43,10 @@ describe('composeServices', () => {
       name: 'serviceB',
     };
 
-    const { schema, errors } = composeServices([serviceA, serviceB]);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices([serviceA, serviceB]);
+
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
     expect(schema).toBeDefined();
 
     expect(schema.getType('User')).toMatchInlineSnapshot(`
@@ -102,8 +108,9 @@ describe('composeServices', () => {
         name: 'serviceB',
       };
 
-      const { schema, errors } = composeServices([serviceA, serviceB]);
-      expect(errors).toHaveLength(0);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
       expect(schema).toBeDefined();
 
       expect(schema.getType('Product')).toMatchInlineSnapshot(`
@@ -141,8 +148,9 @@ describe('composeServices', () => {
         `,
         name: 'serviceB',
       };
-      const { schema, errors } = composeServices([serviceA, serviceB]);
-      expect(errors).toHaveLength(0);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
       expect(schema).toBeDefined();
 
       expect(schema.getType('Product')).toMatchInlineSnapshot(`
@@ -190,12 +198,9 @@ describe('composeServices', () => {
         name: 'serviceC',
       };
 
-      const { schema, errors } = composeServices([
-        serviceA,
-        serviceB,
-        serviceC,
-      ]);
-      expect(errors).toHaveLength(0);
+      const compositionResult = composeServices([serviceA, serviceB, serviceC]);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
       expect(schema).toBeDefined();
 
       expect(schema.getType('Product')).toMatchInlineSnapshot(`
@@ -248,11 +253,9 @@ describe('composeServices', () => {
         name: 'serviceC',
       };
 
-      const { schema, errors } = composeServices([
-        serviceA,
-        serviceB,
-        serviceC,
-      ]);
+      const compositionResult = composeServices([serviceA, serviceB, serviceC]);
+      assertCompositionFailure(compositionResult);
+      const { errors, schema } = compositionResult;
       expect(errors).toMatchInlineSnapshot(`
                         Array [
                           [GraphQLError: Field "Product.price" can only be defined once.],
@@ -300,8 +303,9 @@ describe('composeServices', () => {
         `,
         name: 'serviceB',
       };
-      const { schema, errors } = composeServices([serviceA, serviceB]);
-      expect(errors).toHaveLength(0);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
       expect(schema).toBeDefined();
 
       expect(schema.getType('Product')).toMatchInlineSnapshot(`
@@ -337,7 +341,9 @@ describe('composeServices', () => {
         name: 'serviceB',
       };
 
-      const { schema, errors } = composeServices([serviceA, serviceB]);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionFailure(compositionResult);
+      const { errors, schema } = compositionResult;
       expect(schema).toBeDefined();
       expect(errors).toMatchInlineSnapshot(`
                         Array [
@@ -383,7 +389,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionFailure(compositionResult);
+        const { errors, schema } = compositionResult;
         expect(schema).toBeDefined();
         expect(errors).toMatchInlineSnapshot(`
           Array [
@@ -429,7 +437,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionFailure(compositionResult);
+        const { errors, schema } = compositionResult;
         expect(schema).toBeDefined();
         expect(errors).toMatchInlineSnapshot(`
           Array [
@@ -473,7 +483,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionFailure(compositionResult);
+        const { errors, schema } = compositionResult;
         expect(schema).toBeDefined();
         expect(errors).toMatchInlineSnapshot(`
           Array [
@@ -520,9 +532,9 @@ describe('composeServices', () => {
         name: 'serviceB',
       };
 
-      const { schema, errors } = composeServices([serviceA, serviceB]);
-      expect(schema).toBeDefined();
-      expect(errors).toMatchInlineSnapshot(`Array []`);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionSuccess(compositionResult);
+      expect(compositionResult.schema).toBeDefined();
     });
 
     it('extends enum types', () => {
@@ -545,9 +557,9 @@ describe('composeServices', () => {
         name: 'serviceB',
       };
 
-      const { schema, errors } = composeServices([serviceA, serviceB]);
-      expect(schema).toBeDefined();
-      expect(errors).toMatchInlineSnapshot(`Array []`);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionSuccess(compositionResult);
+      expect(compositionResult.schema).toBeDefined();
     });
   });
 
@@ -578,7 +590,9 @@ describe('composeServices', () => {
         name: 'serviceB',
       };
 
-      const { schema, errors } = composeServices([serviceA, serviceB]);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionFailure(compositionResult);
+      const { errors, schema } = compositionResult;
       expect(errors).toMatchInlineSnapshot(`
         Array [
           [GraphQLError: [serviceA] Product.id -> Field "Product.id" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.],
@@ -623,8 +637,9 @@ describe('composeServices', () => {
         name: 'serviceB',
       };
 
-      const { schema, errors } = composeServices([serviceA, serviceB]);
-      expect(errors).toHaveLength(0);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
       expect(schema).toBeDefined();
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
@@ -664,8 +679,9 @@ describe('composeServices', () => {
           typeDefs: normalizeTypeDefs(typeDefs),
         }),
       );
-      const { schema, errors } = composeServices(normalizedServices);
-      expect(errors).toHaveLength(0);
+      const compositionResult = composeServices(normalizedServices);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
       expect(schema).toBeDefined();
 
       expect(schema.getType('Query')).toMatchInlineSnapshot(`
@@ -704,8 +720,9 @@ describe('composeServices', () => {
         name: 'serviceB',
       };
 
-      const { schema, errors } = composeServices([serviceA, serviceB]);
-      expect(errors).toHaveLength(0);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
       expect(schema).toBeDefined();
 
       expect(schema.getType('Mutation')).toMatchInlineSnapshot(`
@@ -740,8 +757,9 @@ describe('composeServices', () => {
         name: 'serviceB',
       };
 
-      const { schema, errors } = composeServices([serviceA, serviceB]);
-      expect(errors).toHaveLength(0);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
       expect(schema).toBeDefined();
 
       expect(schema.getType('Mutation')).toMatchInlineSnapshot(`
@@ -797,13 +815,14 @@ describe('composeServices', () => {
           name: 'serviceC--found',
         };
 
-        const { schema, errors } = composeServices([
+        const compositionResult = composeServices([
           serviceA,
           serviceC,
           serviceB,
         ]);
 
-        expect(errors).toHaveLength(0);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const product = schema.getType('Product');
 
@@ -852,9 +871,10 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
         expect(schema).toBeDefined();
-        expect(errors).toHaveLength(0);
 
         const product = schema.getType('Product') as GraphQLObjectType;
 
@@ -893,8 +913,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
-        expect(errors).toHaveLength(0);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(
@@ -927,8 +948,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
-        expect(errors).toHaveLength(0);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(getFederationMetadata(product.getFields()['price']).requires)
@@ -967,8 +989,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
-        expect(errors).toHaveLength(0);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const review = schema.getType('Review') as GraphQLObjectType;
         expect(getFederationMetadata(review.getFields()['product'])).toMatchInlineSnapshot(`
@@ -1010,8 +1033,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
-        expect(errors).toHaveLength(0);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const review = schema.getType('Review') as GraphQLObjectType;
         expect(getFederationMetadata(review.getFields()['product']).provides)
@@ -1047,8 +1071,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
-        expect(errors).toHaveLength(0);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const review = schema.getType('Review') as GraphQLObjectType;
         expect(getFederationMetadata(review.getFields()['products']))
@@ -1096,8 +1121,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
-        expect(errors).toHaveLength(0);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const valueType = schema.getType('ValueType') as GraphQLObjectType;
         const userFieldFederationMetadata = getFederationMetadata(valueType.getFields()['user']);
@@ -1128,8 +1154,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
-        expect(errors).toHaveLength(0);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(getFederationMetadata(product).keys).toMatchInlineSnapshot(`
@@ -1169,8 +1196,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
-        expect(errors).toHaveLength(0);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(getFederationMetadata(product).keys).toMatchInlineSnapshot(`
@@ -1212,8 +1240,9 @@ describe('composeServices', () => {
           name: 'serviceB',
         };
 
-        const { schema, errors } = composeServices([serviceA, serviceB]);
-        expect(errors).toHaveLength(0);
+        const compositionResult = composeServices([serviceA, serviceB]);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(getFederationMetadata(product).keys).toMatchInlineSnapshot(`
@@ -1260,9 +1289,10 @@ describe('composeServices', () => {
             typeDefs: normalizeTypeDefs(typeDefs),
           }),
         );
-        const { schema, errors } = composeServices(normalizedServices);
+        const compositionResult = composeServices(normalizedServices);
 
-        expect(errors).toHaveLength(0);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(product).toMatchInlineSnapshot(`
@@ -1301,9 +1331,10 @@ describe('composeServices', () => {
             typeDefs: normalizeTypeDefs(typeDefs),
           }),
         );
-        const { schema, errors } = composeServices(normalizedServices);
+        const compositionResult = composeServices(normalizedServices);
 
-        expect(errors).toHaveLength(0);
+        assertCompositionSuccess(compositionResult);
+        const { schema } = compositionResult;
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(product).toMatchInlineSnapshot(`
@@ -1325,9 +1356,10 @@ describe('composeServices', () => {
         name: 'serviceA',
       };
 
-      const { schema, errors } = composeServices([serviceA]);
+      const compositionResult = composeServices([serviceA]);
 
-      expect(errors).toHaveLength(0);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
 
       const defer = schema.getDirective('defer') as GraphQLDirective;
       expect(defer).toMatchInlineSnapshot(`"@defer"`);
@@ -1346,9 +1378,10 @@ describe('composeServices', () => {
         name: 'serviceB',
       };
 
-      const { schema, errors } = composeServices([serviceA, serviceB]);
+      const compositionResult = composeServices([serviceA, serviceB]);
 
-      expect(errors).toHaveLength(0);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
 
       const defer = schema.getDirective('defer') as GraphQLDirective;
       expect(defer).toMatchInlineSnapshot(`"@defer"`);
@@ -1379,8 +1412,9 @@ describe('composeServices', () => {
       name: 'serviceB',
     };
 
-    const { schema, errors } = composeServices([serviceA, serviceB]);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices([serviceA, serviceB]);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
     expect(schema).toBeDefined();
     expect(schema.extensions.serviceList).toBeDefined();
     expect(schema.extensions.serviceList).toHaveLength(2);

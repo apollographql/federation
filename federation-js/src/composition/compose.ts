@@ -45,6 +45,7 @@ import {
 } from './types';
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
+import { printComposedSdl } from '../service/printComposedSdl';
 
 const EmptyQueryDefinition = {
   kind: Kind.OBJECT_TYPE_DEFINITION,
@@ -119,6 +120,28 @@ export interface KeyDirectivesMap {
  * shared across at least 2 services.
  */
 type ValueTypes = Set<string>;
+
+export type CompositionResult = CompositionFailure | CompositionSuccess;
+
+// Yes, it's a bit awkward that we still return a schema when errors occur.
+// This is old behavior that I'm choosing not to modify for now.
+export interface CompositionFailure {
+  /** @deprecated Use composedSdl instead */
+  schema: GraphQLSchema;
+  errors: GraphQLError[];
+}
+
+export interface CompositionSuccess {
+  /** @deprecated Use composedSdl instead */
+  schema: GraphQLSchema;
+  composedSdl: string;
+}
+
+export function compositionHasErrors(
+  compositionResult: CompositionResult,
+): compositionResult is CompositionFailure {
+  return 'errors' in compositionResult;
+}
 
 /**
  * Loop over each service and process its typeDefs (`definitions`)
@@ -589,7 +612,7 @@ export function addFederationMetadataToSchemaNodes({
   }
 }
 
-export function composeServices(services: ServiceDefinition[]) {
+export function composeServices(services: ServiceDefinition[]): CompositionResult {
   const {
     typeToServiceMap,
     typeDefinitionsMap,
@@ -644,10 +667,12 @@ export function composeServices(services: ServiceDefinition[]) {
     directiveDefinitionsMap,
   });
 
-  /**
-   * At the end, we're left with a full GraphQLSchema that _also_ has `serviceName` fields for every type,
-   * and every field that was extended. Fields that were _not_ extended (added on the base type by the owner),
-   * there is no `serviceName`, and we should refer to the type's `serviceName`
-   */
-  return { schema, errors };
+  if (errors.length > 0) {
+    return { schema, errors };
+  } else {
+    return {
+      schema,
+      composedSdl: printComposedSdl(schema, services),
+    };
+  }
 }

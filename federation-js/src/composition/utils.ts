@@ -43,6 +43,12 @@ import {
   FederationField,
 } from './types';
 import federationDirectives from '../directives';
+import {
+  CompositionFailure,
+  compositionHasErrors,
+  CompositionResult,
+  CompositionSuccess,
+} from './compose';
 
 export function isStringValueNode(node: any): node is StringValueNode {
   return node.kind === Kind.STRING;
@@ -613,4 +619,28 @@ export function getFederationMetadata(obj: any) {
   else if (isNamedType(obj)) return obj.extensions?.federation as FederationType | undefined;
   else if (isDirective(obj)) return obj.extensions?.federation as FederationDirective | undefined;
   else return obj.extensions?.federation as FederationField | undefined;
+}
+
+// This assertion function should be used for the sake of convenient type refinement.
+// It should not be depended on for causing a test to fail. If an error is thrown
+// from here, its use should be reconsidered.
+export function assertCompositionSuccess(
+  compositionResult: CompositionResult,
+  message?: string,
+): asserts compositionResult is CompositionSuccess {
+  if (compositionHasErrors(compositionResult)) {
+    throw new Error(message || 'Unexpected test failure');
+  }
+}
+
+// This assertion function should be used for the sake of convenient type refinement.
+// It should not be depended on for causing a test to fail. If an error is thrown
+// from here, its use should be reconsidered.
+export function assertCompositionFailure(
+  compositionResult: CompositionResult,
+  message?: string,
+): asserts compositionResult is CompositionFailure {
+  if (!compositionHasErrors(compositionResult)) {
+    throw new Error(message || 'Unexpected test failure');
+  }
 }

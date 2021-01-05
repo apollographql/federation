@@ -12,12 +12,8 @@ import {
   typeSerializer,
   graphqlErrorSerializer,
 } from '../../snapshotSerializers';
-import {
-  compositionHasErrors,
-  CompositionResult,
-  CompositionSuccess,
-  CompositionFailure,
-} from '@apollo/federation';
+import { assertCompositionFailure, assertCompositionSuccess } from '../utils';
+import { compositionHasErrors } from '../compose';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(typeSerializer);
@@ -103,30 +99,6 @@ function permutateList<T>(inputArr: T[]) {
   permute(inputArr);
 
   return result;
-}
-
-// This assertion function should be used for the sake of convenient type refinement.
-// It should not be depended on for causing a test to fail. If an error is thrown
-// from here, its use should be reconsidered.
-export function assertCompositionSuccess(
-  compositionResult: CompositionResult,
-  message?: string,
-): asserts compositionResult is CompositionSuccess {
-  if (compositionHasErrors(compositionResult)) {
-    throw new Error(message || 'Unexpected test failure');
-  }
-}
-
-// This assertion function should be used for the sake of convenient type refinement.
-// It should not be depended on for causing a test to fail. If an error is thrown
-// from here, its use should be reconsidered.
-export function assertCompositionFailure(
-  compositionResult: CompositionResult,
-  message?: string,
-): asserts compositionResult is CompositionFailure {
-  if (!compositionHasErrors(compositionResult)) {
-    throw new Error(message || 'Unexpected test failure');
-  }
 }
 
 it('composes and validates all (24) permutations without error', () => {

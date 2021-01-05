@@ -2,6 +2,7 @@ import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { keyFieldsMissingOnBase as validateKeyFieldsMissingOnBase } from '../';
 import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { assertCompositionSuccess } from '../../../utils';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -36,9 +37,9 @@ describe('keyFieldsMissingOnBase', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
-
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
     const warnings = validateKeyFieldsMissingOnBase({ schema, serviceList });
     expect(warnings).toHaveLength(0);
   });
@@ -66,8 +67,9 @@ describe('keyFieldsMissingOnBase', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const warnings = validateKeyFieldsMissingOnBase({ schema, serviceList });
     expect(warnings).toMatchInlineSnapshot(`
@@ -104,8 +106,9 @@ describe('keyFieldsMissingOnBase', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const warnings = validateKeyFieldsMissingOnBase({ schema, serviceList });
     expect(warnings).toMatchInlineSnapshot();

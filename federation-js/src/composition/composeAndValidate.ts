@@ -1,4 +1,8 @@
-import { composeServices } from './compose';
+import {
+  composeServices,
+  compositionHasErrors,
+  CompositionResult,
+} from './compose';
 import {
   validateComposedSchema,
   validateServicesBeforeComposition,
@@ -6,30 +10,6 @@ import {
 } from './validate';
 import { ServiceDefinition } from './types';
 import { normalizeTypeDefs } from './normalize';
-import { printComposedSdl } from '../service/printComposedSdl';
-import { GraphQLError, GraphQLSchema } from 'graphql';
-
-export type CompositionResult = CompositionFailure | CompositionSuccess;
-
-// Yes, it's a bit awkward that we still return a schema when errors occur.
-// This is old behavior that I'm choosing not to modify for now.
-export interface CompositionFailure {
-  /** @deprecated Use composedSdl instead */
-  schema: GraphQLSchema;
-  errors: GraphQLError[];
-}
-
-export interface CompositionSuccess {
-  /** @deprecated Use composedSdl instead */
-  schema: GraphQLSchema;
-  composedSdl: string;
-}
-
-export function compositionHasErrors(
-  compositionResult: CompositionResult,
-): compositionResult is CompositionFailure {
-  return 'errors' in compositionResult;
-}
 
 export function composeAndValidate(
   serviceList: ServiceDefinition[],
@@ -46,7 +26,10 @@ export function composeAndValidate(
 
   // generate a schema and any errors or warnings
   const compositionResult = composeServices(normalizedServiceList);
-  errors.push(...compositionResult.errors);
+
+  if (compositionHasErrors(compositionResult)) {
+    errors.push(...compositionResult.errors);
+  }
 
   // validate the composed schema based on service information
   errors.push(
@@ -61,10 +44,7 @@ export function composeAndValidate(
       schema: compositionResult.schema,
       errors,
     };
+  } else {
+    return compositionResult;
   }
-
-  return {
-    schema: compositionResult.schema,
-    composedSdl: printComposedSdl(compositionResult.schema, serviceList),
-  };
 }
