@@ -1,12 +1,16 @@
 ---
-title: Apollo Federation overview
-sidebar_title: Overview
+title: Introduction to Apollo Federation
+sidebar_title: Introduction
 description: Implement a single data graph across multiple services
 ---
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
 
-To get the most out of GraphQL, your organization should expose a [single data graph](https://principledgraphql.com/integrity#1-one-graph) that provides a unified interface for querying any combination of your backing data sources. However, it can be challenging to represent an enterprise-scale data graph with a single, monolithic GraphQL server. To remedy this, you can divide your graph's implementation across multiple composable services with **Apollo Federation**.
+To get the most out of GraphQL, your organization should expose a [single data graph](https://principledgraphql.com/integrity#1-one-graph) that provides a unified interface for querying any combination of your backing data sources. However, it can be challenging to represent an enterprise-scale data graph with a single, monolithic GraphQL server.
+
+To remedy this, you can divide your graph's implementation across multiple composable services with **Apollo Federation**:
+
+<FederationArchitecture />
 
 Unlike other distributed GraphQL architectures (such as schema stitching), Apollo Federation uses a declarative programming model that enables each **implementing service** to implement _only_ the part of your graph that it's responsible for.
 
@@ -18,8 +22,6 @@ An Apollo Federation architecture consists of:
 
 * A collection of **implementing services** that each define a distinct GraphQL schema
 * A **gateway** that composes the distinct schemas into a **federated data graph** and executes queries across the services in the graph
-
-<FederationArchitecture />
 
 Apollo Server provides libraries for acting both as an implementing service and as a gateway, but these components can be implemented in any language and framework.
 
@@ -51,7 +53,7 @@ Apollo Federation encourages a design principle called [separation of concerns](
 
 When considering how to split a single GraphQL schema across multiple services, it seems straightforward to divide schemas up by type. For example, a `users` service would define the entirety of a `User` type, the `products` service would define a `Product` type, and so on:
 
-<img class="screenshot" src="../images/composition_schema-1.png" alt="3 separate types divided into 3 services"></img>
+<img class="screenshot" src="./images/composition_schema-1.png" alt="3 separate types divided into 3 services"></img>
 
 Although this separation looks clean, it quickly causes issues. Specifically, a particular feature (or concern) usually spans multiple types.
 
@@ -66,7 +68,7 @@ By defining the `recentPurchases` field in the `products` service instead:
 
 The following schema uses Apollo Federation to divide the same set of types and fields across the same three services:
 
-<img class="screenshot" src="../images/composition_schema-2.png" alt="Splitting those 3 types by data source rather than by type. Includes type extensions across services"></img>
+<img class="screenshot" src="./images/composition_schema-2.png" alt="Splitting those 3 types by data source rather than by type. Includes type extensions across services"></img>
 
 The difference is that now, each service defines the types and fields that it is capable of (and _should_ be responsible for) populating from its back-end data store.
 
@@ -166,9 +168,9 @@ operations across those implementing services.
 
 ### Managed federation
 
-In addition to running a gateway with a static list of services, Apollo Gateway can operate in **managed federation** mode, where [Apollo Studio](https://www.apollographql.com/docs/graph-manager/) acts as the source of truth for each implementing service's schema.
+In addition to running a gateway with a static list of services, Apollo Gateway can operate in **managed federation** mode, where [Apollo Studio](https://www.apollographql.com/docs/studio/) acts as the source of truth for each implementing service's schema.
 
-This mode enables multiple teams working on a data graph to coordinate when and how underlying services change. For more information, read [Managed federation overview](https://www.apollographql.com/docs/graph-manager/managed-federation/overview/).
+This mode enables multiple teams working on a data graph to coordinate when and how underlying services change. For more information, read [Managed federation overview](https://www.apollographql.com/docs/studio/managed-federation/overview/).
 
 ## Query example
 

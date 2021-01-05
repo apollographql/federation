@@ -6,6 +6,44 @@
 
 - Include original error during creation of `GraphQLError` in `downstreamServiceError()`. [PR #309](https://github.com/apollographql/federation/pull/309)
 
+## v0.21.4
+
+- Update version of `@apollo/federation`
+
+## v0.21.3
+
+- No changes, but please note that `v0.21.2` was a botched release, with no update to the `@apollo/query-planner-wasm` package that was needed. If you're seeing an error similar to `This data graph is missing a valid configuration. unreachable`, please upgrade to at least this patch release.
+## v0.21.2
+
+- Whenever "AccessDenied" 403 error comes from Apollo, provide a useful error message indicating how to resolve the problem. [PR #245](https://github.com/apollographql/federation/pull/245)
+
+## v0.21.1
+
+- Only changes in the similarly versioned `@apollo/federation` package.
+
+## v0.21.0
+
+- Fix `Cannot convert undefined or null to object` error which occurred when nullable variables were declared/used within an operation (i.e. `query`) document but `variables` was undefined on the request. [PR #167](https://github.com/apollographql/federation/pull/167) [Issue #196](https://github.com/apollographql/federation/issues/196)
+- When using a custom `fetcher` on a `RemoteGraphQLDataSource`, use that fetcher's `Request` initialization in order to satisfy and of its own implementation details.  This is necessary, for example, when using `make-fetch-happen`. [PR #188](https://github.com/apollographql/federation/pull/188) [Issue #191](https://github.com/apollographql/federation/issues/191)
+
+## v0.20.4
+
+- Adjust a `preinstall` script which was only intended to be executed by the monorepo tool-chain, not merely by installing the `@apollo/gateway` package as a dependency in another project. [PR #185](https://github.com/apollographql/federation/pull/185) [Issue #184](https://github.com/apollographql/federation/issues/184)
+
+## v0.20.3
+
+- Read managed federation configuration from the `apollo` option to `ApolloGateway.load` rather than the deprecated `engine` option, when available (ie, when running Apollo Server v2.18+), and update error messages referring to the old Engine and Graph Manager product names. [PR #148](https://github.com/apollographql/federation/pull/148)
+- __FIX__: Directives which are located on inline fragments should not be skipped and should be sent to the service [PR #178](https://github.com/apollographql/federation/pull/178)
+
+## v0.20.2
+
+- __FIX__: Minifying a String argument should escape quotes and slashes [PR #174](https://github.com/apollographql/federation/pull/174)
+
+## v0.20.1
+
+- Replace the query planner implementation with a new implementation written in rust and integrated into the gateway
+  via wasm. [PR #4534](https://github.com/apollographql/apollo-server/pull/4534)
+
 ## v0.20.0
 
 - Only changes in the similarly versioned `@apollo/federation` package.

@@ -1,9 +1,9 @@
 ---
-title: Third-party support for Apollo Federation
-sidebar_title: Third-party support
+title: Third-party libraries that support Apollo Federation
+sidebar_title: Supported libraries
 ---
 
-The following is a list of known open source GraphQL server libraries that have built-in support for Apollo Federation.
+In addition to Apollo Server, the following open-source GraphQL server libraries provide built-in support for Apollo Federation.
 
 | Language    | Framework     | Library                                                                          |
 | ----------- | ------------- | -------------------------------------------------------------------------------- |

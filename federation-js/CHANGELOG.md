@@ -4,7 +4,35 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- _Nothing yet! Stay tuned!_
+- Export `GraphQLSchemaModule` type. [PR #293](https://github.com/apollographql/federation/pull/293)
+
+## v0.20.7
+
+- Fix check for value types when having fields and arguments with the same name [PR #280](https://github.com/apollographql/federation/pull/280)
+
+## v0.20.6
+
+- No changes, but please note that `v0.20.5` was a botched release, with no update to the `@apollo/query-planner-wasm` package that was needed. If you're seeing an error similar to `This data graph is missing a valid configuration. unreachable`, please upgrade to at least this patch release.
+
+## v0.20.5
+
+- Apply `repeatable` keyword to CSDL schema directives `@key` and `@graph. [PR #285](https://github.com/apollographql/apollo-federation/pull/285)
+
+## v0.20.4
+
+- Only changes in the similarly versioned `@apollo/gateway` package.
+
+## v0.20.3
+
+- Fix warning for non-matching `@external` types when the declaration's type is non-null or a list [PR #4392](https://github.com/apollographql/apollo-server/pull/4392)
+
+## v0.20.2
+
+- Only changes in the similarly versioned `@apollo/gateway` package.
+
+## v0.20.1
+
+- Only changes in the similarly versioned `@apollo/gateway` package.
 
 ## v0.20.0
 

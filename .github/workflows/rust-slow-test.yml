@@ -46,7 +46,7 @@ jobs:
         if: matrix.build == 'macos'
         run: |
           brew install gnu-tar
-          echo "::add-path::/usr/local/opt/gnu-tar/libexec/gnubin"
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
       - name: Cache Cargo registry, target, index
         uses: actions/cache@v2
         with:
@@ -59,7 +59,8 @@ jobs:
 
       - name: Install wasm-pack (unix)
         if: matrix.build != 'windows'
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        shell: bash
+        run: which wasm-pack || curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Install wasm-pack (windows)
         if: matrix.build == 'windows'

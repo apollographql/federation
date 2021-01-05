@@ -1,6 +1,6 @@
 ---
 title: Apollo Federation specification
-sidebar_title: Specification
+sidebar_title: Federation specification
 description: For implementing federation in other languages
 ---
 
@@ -215,7 +215,7 @@ A new scalar called `_Any` must be created. The `_Any` scalar is used to pass re
 
 ### `scalar _FieldSet`
 
-A new scalar called `_FieldSet` is a custom scalar type that is used to represent a set of fields. Grammatically, a field set is a [selection set](https://facebook.github.io/graphql/draft/#sec-Selection-Sets) minus the braces. This means it can represent a single field `"upc"`, multiple fields `"id countryCode"`, and even nested selection sets `"id organization { id }"`.
+A new scalar called `_FieldSet` is a custom scalar type that is used to represent a set of fields. Grammatically, a field set is a [selection set](http://spec.graphql.org/draft/#sec-Selection-Sets) minus the braces. This means it can represent a single field `"upc"`, multiple fields `"id countryCode"`, and even nested selection sets `"id organization { id }"`.
 
 ### `Query._entities`
 
@@ -227,8 +227,7 @@ A new field must be added to the query root called `_entities`. This field must 
 ### `@key`
 
 ```graphql
-directive @key(fields: _FieldSet!) on OBJECT
-directive @key(fields: _FieldSet!) on INTERFACE
+directive @key(fields: _FieldSet!) on OBJECT | INTERFACE
 ```
 
 The `@key` directive is used to indicate a combination of fields that can be used to uniquely identify and fetch an object or interface.

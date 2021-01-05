@@ -1,0 +1,27 @@
+[package]
+name = "graphql-parser"
+description = """
+    A parser, AST and serializer for graphql query language and scheme
+    definition language (sometimes called IDL).
+"""
+license = "MIT/Apache-2.0"
+readme = "README.md"
+keywords = ["graphql", "parser"]
+categories = ["parser-implementations", "command-line-interface"]
+homepage = "https://github.com/graphql-rust/graphql-parser"
+documentation = "https://docs.rs/graphql-parser"
+version = "0.3.0"
+authors = ["Paul Colomiets <paul@colomiets.name>"]
+edition = "2018"
+
+[dependencies]
+bytecount = "0.6.0"
+combine = "3.8.1"
+derivative = "2.1.1"
+ordered-float = "2.0.0"
+thiserror = "1.0.22"
+
+[dev-dependencies]
+pretty_assertions = "0.6.1"
+insta = "1.1.0"
+paste = "1.0.2"

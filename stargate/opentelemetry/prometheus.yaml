@@ -1,0 +1,5 @@
+scrape_configs:
+  - job_name: 'stargate'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['host.docker.internal:8080']

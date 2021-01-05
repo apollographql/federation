@@ -1,0 +1,12 @@
+---
+source: stargate/crates/graphql-parser/tests/tests.rs
+expression: "format!(\"{}\\n---\\n{:#?}\", & input, & result)"
+---
+directive @key(fields: String!, graph: String!) repeatable on OBJECT
+
+---
+Err(
+    ParseError(
+        "Parse error at 1:1\nUnexpected `directive[Name]`\nExpected `{`, `query`, `mutation`, `subscription` or `fragment`\n",
+    ),
+)

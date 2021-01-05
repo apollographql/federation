@@ -11,7 +11,7 @@ import {
   GraphQLFieldResolver,
   GraphQLFormattedError,
 } from 'graphql';
-import { Trace, google } from 'apollo-engine-reporting-protobuf';
+import { Trace, google } from 'apollo-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
 import { GraphQLDataSource } from './datasources/types';
 import {
@@ -104,7 +104,7 @@ export async function executeQueryPlan<TContext>(
 // Note: this function always returns a protobuf QueryPlanNode tree, even if
 // we're going to ignore it, because it makes the code much simpler and more
 // typesafe. However, it doesn't actually ask for traces from the backend
-// service unless we are capturing traces for Engine.
+// service unless we are capturing traces for Studio.
 async function executeNode<TContext>(
   context: ExecutionContext<TContext>,
   node: PlanNode,
@@ -287,7 +287,7 @@ async function executeFetch<TContext>(
     // GraphQLRequest.http is supposed to have if it exists.
     let http: any;
 
-    // If we're capturing a trace for Engine, then save the operation text to
+    // If we're capturing a trace for Studio, then save the operation text to
     // the node we're building and tell the federated service to include a trace
     // in its response.
     if (traceNode) {
@@ -326,7 +326,7 @@ async function executeFetch<TContext>(
       context.errors.push(...errors);
     }
 
-    // If we're capturing a trace for Engine, save the received trace into the
+    // If we're capturing a trace for Studio, save the received trace into the
     // query plan.
     if (traceNode) {
       traceNode.receivedTime = dateToProtoTimestamp(new Date());

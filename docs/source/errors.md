@@ -84,6 +84,7 @@ If Apollo Gateway encounters an error, composition fails. This document lists co
 | Code | Description |
 |---|---|
 | `VALUE_TYPE_FIELD_TYPE_MISMATCH` | Multiple implementing services define the same value type, but with mismatched fields. Value types must match across all services that define them. |
+| `VALUE_TYPE_INPUT_VALUE_MISMATCH` | Multiple implementing services define the same value type, but with mismatched input values for fields. Value types and input values for fields must match across all services that define them. |
 | `VALUE_TYPE_NO_ENTITY` | Multiple implementing services define the same value type, but at least one service assigns it a `@key`. Either remove the `@key` or convert the type to an entity and `extend` it.|
 | `VALUE_TYPE_UNION_TYPES_MISMATCH` | Multiple implementing services define the same union type, but with mismatched sets of types. Union types must match across all services that define them. |
 | `VALUE_TYPE_KIND_MISMATCH` | An implementing service defines a type with the same name and fields as a type in another service, but there is a declaration mismatch. For example, `type MyType` is invalid if another service defines `interface MyType`. |

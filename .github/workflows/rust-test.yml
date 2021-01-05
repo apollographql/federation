@@ -110,7 +110,8 @@ jobs:
 
       # Install wasm-pack
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        shell: bash
+        run: which wasm-pack || curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       ### RUN TESTS ###
       - name: Test (cargo test)
