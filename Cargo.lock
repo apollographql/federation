@@ -409,6 +409,8 @@ dependencies = [
  "harmonizer",
  "lazy_static",
  "linked-hash-map",
+ "proc-macro2",
+ "quote",
  "serde",
  "serde_json",
  "tracing",

@@ -1,4 +1,4 @@
-use std::fs::{read_dir, read_to_string, write};
+use std::{io::Write, fs::{read_dir, read_to_string, write, File}};
 use std::path::PathBuf;
 
 use harmonizer::{harmonize, ServiceDefinition};
@@ -18,9 +18,8 @@ fn main() {
 
     for dir in dirs {
         write_composed_schema(&dir).expect("composition");
-        // write_tests(dir)?;
+        write_tests(&dir).expect("generating test files");
     }
-    println!("cargo:rerun-if-changed=build.rs");
 }
 
 fn write_composed_schema(dir: &PathBuf) -> std::io::Result<()> {
@@ -30,9 +29,13 @@ fn write_composed_schema(dir: &PathBuf) -> std::io::Result<()> {
         .filter(|e| {
             match (e.extension(), e.file_name()) {
                 (Some(ext), Some(name)) =>
-                    name != "schema.graphql" && ext == "graphql",
+                    ext == "graphql" && name != "schema.graphql",
                 _ => false,
             }
+        })
+        .map(|path| {
+            println!("cargo:rerun-if-changed={}", path.to_str().expect("path to string"));
+            path
         })
         .map(|path| ServiceDefinition {
             name: path.file_stem().expect("input schema should have a file stem")
@@ -40,13 +43,6 @@ fn write_composed_schema(dir: &PathBuf) -> std::io::Result<()> {
                 .expect("file path to string")
                 .to_owned(),
             type_defs: read_to_string(path)
-                // .map(|src| {
-                //     // for line in src.split("\n") {
-                //     //     println!("cargo:warning={}", line);
-                //     // }
-                //     println!("{}", &src);
-                //     src
-                // })
                 .expect("reading input schema"),
             url: "undefined".to_owned(),
         });
@@ -66,62 +62,114 @@ fn write_composed_schema(dir: &PathBuf) -> std::io::Result<()> {
     }
 }
 
-//
-// use gherkin_rust::Feature;
-// use gherkin_rust::StepType;
-//
 
-// macro_rules! get_step {
-//     ($scenario:ident, $typ:pat) => {
-//         $scenario
-//             .steps
-//             .iter()
-//             .find(|s| matches!(s.ty, $typ))
-//             .unwrap()
-//             .docstring
-//             .as_ref()
-//             .unwrap()
-//     };
-// }
+use gherkin_rust::Feature;
+use gherkin_rust::StepType;
 
-// fn write_tests(dir: &PathBuf) -> io::Result<()> {
-//         let schema = read_to_string(dir.join("csdl.graphql")).unwrap();
-//         let planner = QueryPlanner::new(&schema);
-//         let feature_paths = read_dir(dir)
-//             .unwrap()
-//             .map(|res| res.map(|e| e.path()).unwrap())
-//             .filter(|e| {
-//                 if let Some(d) = e.extension() {
-//                     d == "feature"
-//                 } else {
-//                     false
-//                 }
-//             });
 
-//         for path in feature_paths {
-//             let feature = read_to_string(&path).unwrap();
+macro_rules! get_step {
+    ($scenario:ident, $typ:pat) => {
+        $scenario
+            .steps
+            .iter()
+            .find(|s| matches!(s.ty, $typ))
+            .unwrap()
+            .docstring
+            .as_ref()
+            .unwrap()
+    };
+}
 
-//             let feature = match Feature::parse(feature) {
-//                 Result::Ok(feature) => feature,
-//                 Result::Err(e) => panic!("Unparseable .feature file {:?} -- {}", &path, e),
-//             };
+use quote::*;
+use proc_macro2::{Ident, Span};
 
-//             for scenario in feature.scenarios {
-//                 let query: &str = get_step!(scenario, StepType::Given);
-//                 let expected_str: &str = get_step!(scenario, StepType::Then);
-//                 let expected: QueryPlan = serde_json::from_str(&expected_str).unwrap();
+fn write_tests(dir: &PathBuf) -> std::io::Result<()> {
+    let feature_paths = read_dir(dir)
+        .unwrap()
+        .map(|res| res.map(|e| e.path()).unwrap())
+        .filter(|e| {
+            if let Some(d) = e.extension() {
+                d == "feature"
+            } else {
+                false
+            }
+        });
 
-//                 let auto_fragmentization = scenario
-//                     .steps
-//                     .iter()
-//                     .any(|s| matches!(s.ty, StepType::When));
-//                 let options = QueryPlanningOptionsBuilder::default()
-//                     .auto_fragmentization(auto_fragmentization)
-//                     .build()
-//                     .unwrap();
-//                 let result = planner.plan(query, options).unwrap();
-//                 assert_eq!(result, expected);
-//             }
-//         }
-//     }
-// }
+    let output_path = dir.with_extension("rs");
+    let mut output = File::create(output_path)
+        .expect("opening output file");
+
+    let schema_path_str = format!("{}/schema.graphql",
+        dir.file_name().expect("feature dir has filename")
+            .to_str().expect("schema filename"));
+
+    output.write(br#"
+// Autogenerated from build.rs
+use apollo_query_planner::QueryPlanningOptions;
+use crate::helpers::assert_query_plan;
+
+"#)?;
+
+    for path in feature_paths {
+        let feature = read_to_string(&path).unwrap();
+        let feature_name = path.file_name()
+            .expect("feature path has a filename")
+            .to_str()
+            .expect("unicode conversion of feature path name");
+
+        let feature = match Feature::parse(feature) {
+            Result::Ok(feature) => feature,
+            Result::Err(e) => panic!("Unparseable .feature file {:?} -- {}", &path, e),
+        };
+
+
+        for scenario in feature.scenarios {
+            let query: &str = get_step!(scenario, StepType::Given);
+            let expected_str: &str = get_step!(scenario, StepType::Then);
+
+            let auto_fragmentization = scenario
+                .steps
+                .iter()
+                // FIXME -- we don't currently check the content of the When, just assume that
+                // it says "When using auto_framgentation"
+                .any(|s| matches!(s.ty, StepType::When));
+
+            let base_name = format!("{} {}", feature_name, scenario.name);
+                
+            let clean_name: String = base_name.chars()
+                .filter(|c| match c {
+                    '@' | '\'' | '"' | ',' | '/' | '.' | '(' | ')' | ':' | '[' | ']' => false,
+                    _ => true,
+                })
+                .map(
+                    |c| match c {
+                        ' ' | '-' => '_',
+                        _ => c
+                    }
+                )
+                .collect();
+            
+            let name = Ident::new(
+                &clean_name,
+                Span::call_site());
+            
+            let test = quote! {
+                #[test]
+                fn #name() {
+                    assert_query_plan(
+                        include_str!(#schema_path_str),
+                        #query,
+                        #expected_str,
+                        QueryPlanningOptions {
+                            auto_fragmentization: #auto_fragmentization
+                        }
+                    );
+                }
+            };
+
+            output.write(&test.to_string().as_bytes())?;
+        }
+    }
+    
+    Ok(())
+}
