@@ -5,7 +5,7 @@
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
 - Include original error during creation of `GraphQLError` in `downstreamServiceError()`. [PR #309](https://github.com/apollographql/federation/pull/309)
-
+- Gateway accepts `csdl` for startup configuration, uses CSDL internally for schema object creation. [PR #278](https://github.com/apollographql/federation/pull/278)
 ## v0.21.4
 
 - Update version of `@apollo/federation`
