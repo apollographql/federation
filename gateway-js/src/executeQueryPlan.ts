@@ -456,23 +456,23 @@ function downstreamServiceError(
   query: string,
   variables?: Record<string, any>,
 ) {
-  const {
+  let {
     message,
-    extensions: originalExtensions,
+    extensions,
     path,
   } = originalError
 
   if (!message) {
     message = `Error while fetching subquery from service "${serviceName}"`;
   }
-  const extensions = {
+  extensions = {
     code: 'DOWNSTREAM_SERVICE_ERROR',
     // XXX The presence of a serviceName in extensions is used to
     // determine if this error should be captured for metrics reporting.
     serviceName,
     query,
     variables,
-    ...originalExtensions,
+    ...extensions,
   };
   return new GraphQLError(
     message,
