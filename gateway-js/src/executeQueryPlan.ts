@@ -9,6 +9,7 @@ import {
   Kind,
   TypeNameMetaFieldDef,
   GraphQLFieldResolver,
+  GraphQLFormattedError,
 } from 'graphql';
 import { Trace, google } from 'apollo-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
@@ -316,12 +317,10 @@ async function executeFetch<TContext>(
     if (response.errors) {
       const errors = response.errors.map(error =>
         downstreamServiceError(
-          error.message,
+          error,
           fetch.serviceName,
           source,
           variables,
-          error.extensions,
-          error.path,
         ),
       );
       context.errors.push(...errors);
@@ -452,13 +451,17 @@ function flattenResultsAtPath(value: any, path: ResponsePath): any {
 }
 
 function downstreamServiceError(
-  message: string | undefined,
+  originalError: GraphQLFormattedError,
   serviceName: string,
   query: string,
   variables?: Record<string, any>,
-  extensions?: Record<string, any>,
-  path?: ReadonlyArray<string | number> | undefined,
 ) {
+  let {
+    message,
+    extensions,
+    path,
+  } = originalError
+
   if (!message) {
     message = `Error while fetching subquery from service "${serviceName}"`;
   }
@@ -477,7 +480,7 @@ function downstreamServiceError(
     undefined,
     undefined,
     path,
-    undefined,
+    originalError as Error,
     extensions,
   );
 }
