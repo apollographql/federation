@@ -3,4 +3,82 @@
 use apollo_query_planner::QueryPlanningOptions;
 use crate::helpers::assert_query_plan;
 
-# [test] fn multiple_keysfeature_Multiple_key_fields () { assert_query_plan (include_str ! ("multiple_keys/schema.graphql") , "\nquery {\n  reviews {\n    body\n    author {\n      name\n      risk\n    }\n  }\n}\n" , "\n{\n  \"kind\": \"QueryPlan\",\n  \"node\": {\n    \"kind\": \"Sequence\",\n    \"nodes\": [\n      {\n        \"kind\": \"Fetch\",\n        \"serviceName\": \"reviews\",\n        \"variableUsages\": [],\n        \"operation\": \"{reviews{body author{__typename id}}}\"\n      },\n      {\n        \"kind\": \"Flatten\",\n        \"path\": [\"reviews\", \"@\", \"author\"],\n        \"node\": {\n          \"kind\": \"Fetch\",\n          \"serviceName\": \"users\",\n          \"requires\": [\n            {\n              \"kind\": \"InlineFragment\",\n              \"typeCondition\": \"User\",\n              \"selections\": [\n                { \"kind\": \"Field\", \"name\": \"__typename\" },\n                { \"kind\": \"Field\", \"name\": \"id\" }\n              ]\n            }\n          ],\n          \"variableUsages\": [],\n          \"operation\": \"query($representations:[_Any!]!){_entities(representations:$representations){...on User{name __typename ssn}}}\"\n        }\n      },\n      {\n        \"kind\": \"Flatten\",\n        \"path\": [\"reviews\", \"@\", \"author\"],\n        \"node\": {\n          \"kind\": \"Fetch\",\n          \"serviceName\": \"actuary\",\n          \"requires\": [\n            {\n              \"kind\": \"InlineFragment\",\n              \"typeCondition\": \"User\",\n              \"selections\": [\n                { \"kind\": \"Field\", \"name\": \"__typename\" },\n                { \"kind\": \"Field\", \"name\": \"ssn\" }\n              ]\n            }\n          ],\n          \"variableUsages\": [],\n          \"operation\": \"query($representations:[_Any!]!){_entities(representations:$representations){...on User{risk}}}\"\n        }\n      }\n    ]\n  }\n}\n" , QueryPlanningOptions { auto_fragmentization : false }) ; }
+
+#[allow(non_snake_case)]
+#[test]
+fn multiple_keys_multiple_key_fields() {
+    assert_query_plan(
+        include_str!("multiple_keys/schema.graphql"),
+        r##"
+query {
+  reviews {
+    body
+    author {
+      name
+      risk
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "reviews",
+        "variableUsages": [],
+        "operation": "{reviews{body author{__typename id}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["reviews", "@", "author"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "users",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name __typename ssn}}}"
+        }
+      },
+      {
+        "kind": "Flatten",
+        "path": ["reviews", "@", "author"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "actuary",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "ssn" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{risk}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+

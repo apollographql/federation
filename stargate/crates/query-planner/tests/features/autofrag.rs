@@ -3,4 +3,75 @@
 use apollo_query_planner::QueryPlanningOptions;
 use crate::helpers::assert_query_plan;
 
-# [test] fn auto_fragmentizationfeature_Using_interfaces () { assert_query_plan (include_str ! ("autofrag/schema.graphql") , "\n{\n  field {\n    a { b { f1 f2 f4 } }\n    b { f1 f2 f4 }\n    iface {\n        ...on IFaceImpl1 { x }\n        ...on IFaceImpl2 { x }\n    }\n  }\n}\n" , "\n{\n  \"kind\": \"QueryPlan\",\n  \"node\": {\n    \"kind\": \"Fetch\",\n    \"serviceName\": \"users\",\n    \"variableUsages\": [],\n    \"operation\": \"{field{...__QueryPlanFragment_2__}}fragment __QueryPlanFragment_0__ on B{f1 f2 f4}fragment __QueryPlanFragment_1__ on IFace{__typename ...on IFaceImpl1{x}...on IFaceImpl2{x}}fragment __QueryPlanFragment_2__ on SomeField{a{b{...__QueryPlanFragment_0__}}b{...__QueryPlanFragment_0__}iface{...__QueryPlanFragment_1__}}\"\n  }\n}\n" , QueryPlanningOptions { auto_fragmentization : true }) ; }# [test] fn auto_fragmentizationfeature_Identical_selection_sets_in_different_types () { assert_query_plan (include_str ! ("autofrag/schema.graphql") , "\n{\n  sender {\n   name\n   address\n   location\n  }\n  receiver {\n   name\n   address\n   location\n  }\n}\n" , "\n{\n  \"kind\": \"QueryPlan\",\n  \"node\": {\n    \"kind\": \"Fetch\",\n    \"serviceName\": \"users\",\n    \"variableUsages\": [],\n    \"operation\": \"{sender{...__QueryPlanFragment_0__}receiver{...__QueryPlanFragment_1__}}fragment __QueryPlanFragment_0__ on SendingUser{name address location}fragment __QueryPlanFragment_1__ on ReceivingUser{name address location}\"\n  }\n}\n" , QueryPlanningOptions { auto_fragmentization : true }) ; }
+
+#[allow(non_snake_case)]
+#[test]
+fn auto_fragmentization_using_interfaces() {
+    assert_query_plan(
+        include_str!("autofrag/schema.graphql"),
+        r##"
+{
+  field {
+    a { b { f1 f2 f4 } }
+    b { f1 f2 f4 }
+    iface {
+        ...on IFaceImpl1 { x }
+        ...on IFaceImpl2 { x }
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Fetch",
+    "serviceName": "users",
+    "variableUsages": [],
+    "operation": "{field{...__QueryPlanFragment_2__}}fragment __QueryPlanFragment_0__ on B{f1 f2 f4}fragment __QueryPlanFragment_1__ on IFace{__typename ...on IFaceImpl1{x}...on IFaceImpl2{x}}fragment __QueryPlanFragment_2__ on SomeField{a{b{...__QueryPlanFragment_0__}}b{...__QueryPlanFragment_0__}iface{...__QueryPlanFragment_1__}}"
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: true
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn auto_fragmentization_identical_selection_sets_in_different_types() {
+    assert_query_plan(
+        include_str!("autofrag/schema.graphql"),
+        r##"
+{
+  sender {
+   name
+   address
+   location
+  }
+  receiver {
+   name
+   address
+   location
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Fetch",
+    "serviceName": "users",
+    "variableUsages": [],
+    "operation": "{sender{...__QueryPlanFragment_0__}receiver{...__QueryPlanFragment_1__}}fragment __QueryPlanFragment_0__ on SendingUser{name address location}fragment __QueryPlanFragment_1__ on ReceivingUser{name address location}"
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: true
+        }
+    );
+}
+

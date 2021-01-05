@@ -80,9 +80,6 @@ macro_rules! get_step {
     };
 }
 
-use quote::*;
-use proc_macro2::{Ident, Span};
-
 fn write_tests(dir: &PathBuf) -> std::io::Result<()> {
     let feature_paths = read_dir(dir)
         .unwrap()
@@ -96,7 +93,7 @@ fn write_tests(dir: &PathBuf) -> std::io::Result<()> {
         });
 
     let output_path = dir.with_extension("rs");
-    let mut output = File::create(output_path)
+    let mut output = File::create(&output_path)
         .expect("opening output file");
 
     let schema_path_str = format!("{}/schema.graphql",
@@ -112,8 +109,8 @@ use crate::helpers::assert_query_plan;
 
     for path in feature_paths {
         let feature = read_to_string(&path).unwrap();
-        let feature_name = path.file_name()
-            .expect("feature path has a filename")
+        let feature_name = path.file_stem()
+            .expect("feature path has a file stem")
             .to_str()
             .expect("unicode conversion of feature path name");
 
@@ -125,7 +122,7 @@ use crate::helpers::assert_query_plan;
 
         for scenario in feature.scenarios {
             let query: &str = get_step!(scenario, StepType::Given);
-            let expected_str: &str = get_step!(scenario, StepType::Then);
+            let expected: &str = get_step!(scenario, StepType::Then);
 
             let auto_fragmentization = scenario
                 .steps
@@ -134,9 +131,9 @@ use crate::helpers::assert_query_plan;
                 // it says "When using auto_framgentation"
                 .any(|s| matches!(s.ty, StepType::When));
 
-            let base_name = format!("{} {}", feature_name, scenario.name);
+            let base_name = format!("{}_{}", feature_name, scenario.name);
                 
-            let clean_name: String = base_name.chars()
+            let clean_name: String = base_name.to_lowercase().chars()
                 .filter(|c| match c {
                     '@' | '\'' | '"' | ',' | '/' | '.' | '(' | ')' | ':' | '[' | ']' => false,
                     _ => true,
@@ -149,27 +146,24 @@ use crate::helpers::assert_query_plan;
                 )
                 .collect();
             
-            let name = Ident::new(
-                &clean_name,
-                Span::call_site());
-            
-            let test = quote! {
-                #[test]
-                fn #name() {
-                    assert_query_plan(
-                        include_str!(#schema_path_str),
-                        #query,
-                        #expected_str,
-                        QueryPlanningOptions {
-                            auto_fragmentization: #auto_fragmentization
-                        }
-                    );
-                }
-            };
+            let test = format!(r###"
+#[allow(non_snake_case)]
+#[test]
+fn {}() {{
+    assert_query_plan(
+        include_str!("{}"),
+        r##"{}"##,
+        r##"{}"##,
+        QueryPlanningOptions {{
+            auto_fragmentization: {}
+        }}
+    );
+}}
 
-            output.write(&test.to_string().as_bytes())?;
+"###, clean_name, schema_path_str, query, expected, auto_fragmentization);
+            output.write(test.as_bytes())?;
         }
     }
-    
+
     Ok(())
 }

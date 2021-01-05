@@ -23,5 +23,3 @@ tracing-futures = "0.2.4"
 [build-dependencies]
 harmonizer = { path = "../../../harmonizer" }
 gherkin_rust = "0.8.3"
-proc-macro2 = "*"
-quote = "1.0"
