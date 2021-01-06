@@ -19,7 +19,8 @@ import {
   VariableDefinitionNode,
 } from 'graphql';
 import { GraphQLSchemaValidationError } from 'apollo-graphql';
-import { composeAndValidate, ServiceDefinition, ComposedGraphQLSchema } from '@apollo/federation';
+import { ServiceDefinition, ComposedGraphQLSchema } from '@apollo/federation';
+import composeAndValidate from './compose';
 import loglevel from 'loglevel';
 
 import { buildQueryPlan, buildOperationContext } from './buildQueryPlan';
@@ -202,6 +203,7 @@ export class ApolloGateway implements GraphQLService {
   private serviceSdlCache = new Map<string, string>();
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlannerPointer?: WasmPointer;
+  private composingLocalConfig?: Promise<void>;
 
   private fetcher: typeof fetch = getDefaultGcsFetcher();
 
@@ -251,14 +253,17 @@ export class ApolloGateway implements GraphQLService {
     }
 
     if (isLocalConfig(this.config)) {
-      const { schema, composedSdl } = this.createSchema(this.config.localServiceList);
-      this.schema = schema;
+      this.composingLocalConfig =
+        this.createSchema(this.config.localServiceList).then(
+          ({ schema, composedSdl }) => {
+            this.schema = schema;
 
-      if (!composedSdl) {
-        this.logger.error("A valid schema couldn't be composed.")
-      } else {
-       this.queryPlannerPointer = getQueryPlanner(composedSdl);
-      }
+            if (!composedSdl) {
+              this.logger.error("A valid schema couldn't be composed.")
+            } else {
+              this.queryPlannerPointer = getQueryPlanner(composedSdl);
+            }
+          });
     }
 
     this.initializeQueryPlanStore();
@@ -310,6 +315,9 @@ export class ApolloGateway implements GraphQLService {
   }
 
   public async load(options?: { apollo?: ApolloConfig; engine?: GraphQLServiceEngineConfig }) {
+    // If local config composition is in progress, wait for that to finish.
+    await this.composingLocalConfig;
+
     if (options?.apollo) {
       this.apolloConfig = options.apollo;
     } else if (options?.engine) {
@@ -409,7 +417,7 @@ export class ApolloGateway implements GraphQLService {
 
     if (this.queryPlanStore) this.queryPlanStore.flush();
 
-    const { schema, composedSdl } = this.createSchema(result.serviceDefinitions);
+    const { schema, composedSdl } = await this.createSchema(result.serviceDefinitions);
 
     if (!composedSdl) {
       this.logger.error(
@@ -475,15 +483,14 @@ export class ApolloGateway implements GraphQLService {
     );
   }
 
-  protected createSchema(serviceList: ServiceDefinition[]) {
+  protected async createSchema(serviceList: ServiceDefinition[]) {
     this.logger.debug(
       `Composing schema from service list: \n${serviceList
         .map(({ name, url }) => `  ${url || 'local'}: ${name}`)
         .join('\n')}`,
     );
 
-    const { schema, errors, composedSdl } = composeAndValidate(serviceList);
-
+    const { schema, errors, composedSdl } = await composeAndValidate(serviceList);
     if (errors && errors.length > 0) {
       if (this.experimental_didFailComposition) {
         this.experimental_didFailComposition({
@@ -524,7 +531,7 @@ export class ApolloGateway implements GraphQLService {
     // Sleep for the specified pollInterval before kicking off another round of polling
     await new Promise(res => {
       this.pollingTimer = setTimeout(
-        () => res(),
+        () => res(void 0),
         this.experimental_pollInterval || 10000,
       );
       // Prevent the Node.js event loop from remaining active (and preventing,
