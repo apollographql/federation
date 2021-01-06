@@ -18,7 +18,7 @@ export default async (serviceList: ServiceDefinition[]): Promise<Result> => {
     const worker = new Worker(WORKER_SCRIPT, { workerData });
     worker.on('message', done);
     worker.on('error', reject);
-    worker.on('exit', (code) => {
+    worker.on('exit', (code: number) => {
       if (code !== 0)
         reject(new Error(`Worker stopped with exit code ${code}`));
     });
