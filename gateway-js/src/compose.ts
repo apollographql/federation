@@ -13,7 +13,6 @@ export default async (serviceList: ServiceDefinition[]): Promise<Result> => {
     name, url,
     typeDefs: print(typeDefs),
   }))
-  // console.log(require('util').inspect(workerData, {depth: null}))
   return new Promise((resolve, reject) => {
     const worker = new Worker(WORKER_SCRIPT, { workerData });
     worker.on('message', done);
