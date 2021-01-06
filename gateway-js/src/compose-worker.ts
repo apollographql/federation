@@ -8,7 +8,7 @@ if (isMainThread) {
     (see https://nodejs.org/api/worker_threads.html)`)
 }
 
-export type WorkerServiceDefinition = Omit<ServiceDefinition, 'type{Defs'> & { typeDefs: string };
+export type WorkerServiceDefinition = Omit<ServiceDefinition, 'typeDefs'> & { typeDefs: string };
 export type WorkerCompositionResult = Omit<ReturnType<typeof composeAndValidate>, 'schema'>
 
 const result: WorkerCompositionResult = composeAndValidate(
