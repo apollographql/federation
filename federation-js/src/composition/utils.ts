@@ -611,18 +611,20 @@ export interface CompositionFailure {
   /** @deprecated Use composedSdl instead */
   schema: GraphQLSchema;
   errors: GraphQLError[];
+  composedSdl?: undefined;
 }
 
 export interface CompositionSuccess {
   /** @deprecated Use composedSdl instead */
   schema: GraphQLSchema;
   composedSdl: string;
+  errors?: undefined;
 }
 
 export function compositionHasErrors(
   compositionResult: CompositionResult,
 ): compositionResult is CompositionFailure {
-  return 'errors' in compositionResult;
+  return 'errors' in compositionResult && !!compositionResult.errors;
 }
 
 // This assertion function should be used for the sake of convenient type refinement.
