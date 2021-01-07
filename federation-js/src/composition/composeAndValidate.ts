@@ -1,8 +1,4 @@
-import {
-  composeServices,
-  compositionHasErrors,
-  CompositionResult,
-} from './compose';
+import { composeServices } from './compose';
 import {
   validateComposedSchema,
   validateServicesBeforeComposition,
@@ -10,6 +6,7 @@ import {
 } from './validate';
 import { ServiceDefinition } from './types';
 import { normalizeTypeDefs } from './normalize';
+import { compositionHasErrors, CompositionResult } from './utils';
 
 export function composeAndValidate(
   serviceList: ServiceDefinition[],

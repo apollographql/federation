@@ -22,7 +22,11 @@ import {
   DocumentNode,
 } from 'graphql';
 import { GraphQLSchemaValidationError } from 'apollo-graphql';
-import { composeAndValidate, compositionHasErrors, ServiceDefinition } from '@apollo/federation';
+import {
+  composeAndValidate,
+  compositionHasErrors,
+  ServiceDefinition,
+} from '@apollo/federation';
 import loglevel from 'loglevel';
 
 import { buildQueryPlan, buildOperationContext } from './buildQueryPlan';

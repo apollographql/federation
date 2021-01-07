@@ -34,6 +34,7 @@ import {
   stripTypeSystemDirectivesFromTypeDefs,
   defaultRootOperationNameLookup,
   getFederationMetadata,
+  CompositionResult
 } from './utils';
 import {
   ServiceDefinition,
@@ -120,28 +121,6 @@ export interface KeyDirectivesMap {
  * shared across at least 2 services.
  */
 type ValueTypes = Set<string>;
-
-export type CompositionResult = CompositionFailure | CompositionSuccess;
-
-// Yes, it's a bit awkward that we still return a schema when errors occur.
-// This is old behavior that I'm choosing not to modify for now.
-export interface CompositionFailure {
-  /** @deprecated Use composedSdl instead */
-  schema: GraphQLSchema;
-  errors: GraphQLError[];
-}
-
-export interface CompositionSuccess {
-  /** @deprecated Use composedSdl instead */
-  schema: GraphQLSchema;
-  composedSdl: string;
-}
-
-export function compositionHasErrors(
-  compositionResult: CompositionResult,
-): compositionResult is CompositionFailure {
-  return 'errors' in compositionResult;
-}
 
 /**
  * Loop over each service and process its typeDefs (`definitions`)

@@ -43,12 +43,6 @@ import {
   FederationField,
 } from './types';
 import federationDirectives from '../directives';
-import {
-  CompositionFailure,
-  compositionHasErrors,
-  CompositionResult,
-  CompositionSuccess,
-} from './compose';
 
 export function isStringValueNode(node: any): node is StringValueNode {
   return node.kind === Kind.STRING;
@@ -609,16 +603,26 @@ export const defaultRootOperationNameLookup: {
   subscription: 'Subscription',
 };
 
-// This function is overloaded for 3 different input types. Each input type
-// maps to a particular return type, hence the overload.
-export function getFederationMetadata(obj: GraphQLNamedType): FederationType | undefined;
-export function getFederationMetadata(obj: GraphQLField<any, any>): FederationField | undefined;
-export function getFederationMetadata(obj: GraphQLDirective): FederationDirective | undefined;
-export function getFederationMetadata(obj: any) {
-  if (typeof obj === "undefined") return undefined;
-  else if (isNamedType(obj)) return obj.extensions?.federation as FederationType | undefined;
-  else if (isDirective(obj)) return obj.extensions?.federation as FederationDirective | undefined;
-  else return obj.extensions?.federation as FederationField | undefined;
+export type CompositionResult = CompositionFailure | CompositionSuccess;
+
+// Yes, it's a bit awkward that we still return a schema when errors occur.
+// This is old behavior that I'm choosing not to modify for now.
+export interface CompositionFailure {
+  /** @deprecated Use composedSdl instead */
+  schema: GraphQLSchema;
+  errors: GraphQLError[];
+}
+
+export interface CompositionSuccess {
+  /** @deprecated Use composedSdl instead */
+  schema: GraphQLSchema;
+  composedSdl: string;
+}
+
+export function compositionHasErrors(
+  compositionResult: CompositionResult,
+): compositionResult is CompositionFailure {
+  return 'errors' in compositionResult;
 }
 
 // This assertion function should be used for the sake of convenient type refinement.
@@ -643,4 +647,16 @@ export function assertCompositionFailure(
   if (!compositionHasErrors(compositionResult)) {
     throw new Error(message || 'Unexpected test failure');
   }
+}
+
+// This function is overloaded for 3 different input types. Each input type
+// maps to a particular return type, hence the overload.
+export function getFederationMetadata(obj: GraphQLNamedType): FederationType | undefined;
+export function getFederationMetadata(obj: GraphQLField<any, any>): FederationField | undefined;
+export function getFederationMetadata(obj: GraphQLDirective): FederationDirective | undefined;
+export function getFederationMetadata(obj: any) {
+  if (typeof obj === "undefined") return undefined;
+  else if (isNamedType(obj)) return obj.extensions?.federation as FederationType | undefined;
+  else if (isDirective(obj)) return obj.extensions?.federation as FederationDirective | undefined;
+  else return obj.extensions?.federation as FederationField | undefined;
 }
