@@ -26,6 +26,8 @@ import {
   composeAndValidate,
   compositionHasErrors,
   ServiceDefinition,
+  findDirectivesOnNode,
+  isStringValueNode,
 } from '@apollo/federation';
 import loglevel from 'loglevel';
 
@@ -52,7 +54,6 @@ import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
 import { getQueryPlanner } from '@apollo/query-planner-wasm';
 import { csdlToSchema } from './csdlToSchema';
-import { findDirectivesOnNode, isStringValueNode } from '@apollo/federation/dist/composition/utils';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 

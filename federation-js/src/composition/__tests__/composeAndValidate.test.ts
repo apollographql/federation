@@ -12,8 +12,11 @@ import {
   typeSerializer,
   graphqlErrorSerializer,
 } from '../../snapshotSerializers';
-import { assertCompositionFailure, assertCompositionSuccess } from '../utils';
-import { compositionHasErrors } from '../utils';
+import {
+  assertCompositionFailure,
+  assertCompositionSuccess,
+  compositionHasErrors,
+} from '../utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(typeSerializer);
