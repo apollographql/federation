@@ -1,22 +1,21 @@
-import { GraphQLError } from 'graphql';
+import { GraphQLSchema } from 'graphql';
 import gql from 'graphql-tag';
 import { buildQueryPlan, buildOperationContext } from '../buildQueryPlan';
 import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
 import { getFederatedTestingSchema } from './execution-utils';
-import { ComposedGraphQLSchema } from '@apollo/federation';
 import { WasmPointer } from '../QueryPlan';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 describe('buildQueryPlan', () => {
-  let schema: ComposedGraphQLSchema;
-  let errors: GraphQLError[];
+  let schema: GraphQLSchema;
   let queryPlannerPointer: WasmPointer;
 
   beforeEach(() => {
-    ({ schema, errors, queryPlannerPointer } = getFederatedTestingSchema());
-    expect(errors).toHaveLength(0);
+    expect(
+      () => ({ schema, queryPlannerPointer } = getFederatedTestingSchema()),
+    ).not.toThrow();
   });
 
   it(`should not confuse union types with overlapping field names`, () => {

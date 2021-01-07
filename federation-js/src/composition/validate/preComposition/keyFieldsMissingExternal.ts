@@ -11,7 +11,7 @@ import { buildSchemaFromSDL } from 'apollo-graphql';
 import { federationDirectives } from '../../../directives';
 import { ServiceDefinition } from '../../types';
 import {
-  findDirectivesOnTypeOrField,
+  findDirectivesOnNode,
   isStringValueNode,
   logServiceAndType,
   errorWithCode,
@@ -34,7 +34,7 @@ export const keyFieldsMissingExternal = ({
   }[] = [];
   visit(typeDefs, {
     ObjectTypeExtension(node) {
-      const keyDirectivesOnTypeExtension = findDirectivesOnTypeOrField(
+      const keyDirectivesOnTypeExtension = findDirectivesOnNode(
         node,
         'key',
       );
@@ -91,7 +91,7 @@ export const keyFieldsMissingExternal = ({
               );
               return;
             }
-            const externalDirectivesOnField = findDirectivesOnTypeOrField(
+            const externalDirectivesOnField = findDirectivesOnNode(
               fieldDef.astNode,
               'external',
             );

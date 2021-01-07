@@ -27,7 +27,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
     const typeFederationMetadata = getFederationMetadata(namedType);
     if (typeFederationMetadata?.keys) {
       const allFieldsInType = namedType.getFields();
-      for (const [serviceName, selectionSets] of Object.entries(
+      for (const [serviceName, selectionSets = []] of Object.entries(
         typeFederationMetadata.keys,
       )) {
         for (const selectionSet of selectionSets) {

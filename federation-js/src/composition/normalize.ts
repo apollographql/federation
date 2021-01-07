@@ -10,7 +10,7 @@ import {
   specifiedDirectives,
 } from 'graphql';
 import {
-  findDirectivesOnTypeOrField,
+  findDirectivesOnNode,
   defKindToExtKind,
   reservedRootFields,
   defaultRootOperationNameLookup
@@ -236,7 +236,7 @@ export function replaceExtendedDefinitionsWithExtensions(
     node: ObjectTypeDefinitionNode | InterfaceTypeDefinitionNode,
   ) {
     const isExtensionDefinition =
-      findDirectivesOnTypeOrField(node, 'extends').length > 0;
+      findDirectivesOnNode(node, 'extends').length > 0;
 
     if (!isExtensionDefinition) {
       return node;
