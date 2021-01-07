@@ -171,7 +171,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
             keyDirectivesMap[typeName][serviceName] =
               keyDirectivesMap[typeName][serviceName] || [];
             // Add @key metadata to the array
-            keyDirectivesMap[typeName][serviceName].push(
+            keyDirectivesMap[typeName][serviceName]!.push(
               parseSelections(keyDirective.arguments[0].value.value),
             );
           }

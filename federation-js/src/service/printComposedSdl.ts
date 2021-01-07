@@ -218,21 +218,24 @@ function printFederationTypeDirectives(type: GraphQLObjectType): string {
 
   // Separate owner @keys from the rest of the @keys so we can print them
   // adjacent to the @owner directive.
-  const { [ownerService]: ownerKeys, ...restKeys } = keys
+  const { [ownerService]: ownerKeys = [], ...restKeys } = keys
   const ownerEntry: [string, (readonly SelectionNode[])[]] = [ownerService, ownerKeys];
   const restEntries = Object.entries(restKeys);
 
   return (
     `\n  @owner(graph: "${ownerService}")` +
-    [ownerEntry, ...restEntries].map(([service, keys]) =>
-      keys
-        .map(
-          (selections) =>
-            `\n  @key(fields: "${printFieldSet(selections)}", graph: "${service}")`,
-        )
-        .join(''),
-    )
-    .join('')
+    [ownerEntry, ...restEntries]
+      .map(([service, keys = []]) =>
+        keys
+          .map(
+            (selections) =>
+              `\n  @key(fields: "${printFieldSet(
+                selections,
+              )}", graph: "${service}")`,
+          )
+          .join(''),
+      )
+      .join('')
   );
 }
 
