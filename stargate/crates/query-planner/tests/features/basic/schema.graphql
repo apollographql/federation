@@ -17,7 +17,7 @@ directive @cs__resolve(
 directive @cs__error(
   graphs: [cs__Graph!],
   message: String)
-    on OBJECT
+    repeatable on OBJECT
     | INTERFACE
     | UNION
     | FIELD_DEFINITION
@@ -68,10 +68,10 @@ type Book implements Product
   inStock: Boolean @cs__resolve(graph: inventory)
   isCheckedOut: Boolean @cs__resolve(graph: inventory)
   reviews: [Review] @cs__resolve(graph: reviews)
-  relatedReviews: [Review!]! @cs__resolve(graph: reviews, requires: "{ similarBooks { isbn } }")
+  relatedReviews: [Review!]! @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Book_similarBooks_isbn_0")
   upc: String! @cs__resolve(graph: product)
   sku: String! @cs__resolve(graph: product)
-  name(delimeter: String = " "): String @cs__resolve(graph: product, requires: "{ title year }")
+  name(delimeter: String = " "): String @cs__resolve(graph: product, requires: "cs__fragmentOn_Book_title_year_1")
   price: String @cs__resolve(graph: product)
   details: ProductDetailsBook @cs__resolve(graph: product)
 }
@@ -80,6 +80,9 @@ fragment cs__keyFor_Book_1 on Book @cs__key(graph: reviews) { isbn }
 fragment cs__keyFor_Book_2 on Book @cs__key(graph: product) { isbn }
 fragment cs__keyFor_Book_3 on Book @cs__key(graph: books) { isbn }
 
+fragment cs__fragmentOn_Book_similarBooks_isbn_0 on Book { similarBooks { isbn } },
+fragment cs__fragmentOn_Book_title_year_1 on Book { title year }
+
 union Brand = Ikea | Amazon
 
 type Car implements Vehicle
@@ -87,10 +90,12 @@ type Car implements Vehicle
   id: String!
   description: String
   price: String
-  retailPrice: String @cs__resolve(graph: reviews, requires: "{ price }")
+  retailPrice: String @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Car_price_0")
 }
 fragment cs__keyFor_Car_4 on Car @cs__key(graph: reviews) { id }
 fragment cs__keyFor_Car_5 on Car @cs__key(graph: product) { id }
+
+fragment cs__fragmentOn_Car_price_0 on Car { price }
 
 type Error {
   code: Int
@@ -115,6 +120,7 @@ fragment cs__keyFor_Furniture_7 on Furniture @cs__key(graph: reviews) { upc }
 fragment cs__keyFor_Furniture_8 on Furniture @cs__key(graph: product) { upc }
 fragment cs__keyFor_Furniture_9 on Furniture @cs__key(graph: product) { sku }
 
+
 type Ikea {
   asile: Int
 }
@@ -137,10 +143,12 @@ type Library
 {
   id: ID!
   name: String
-  userAccount(id: ID! = 1): User @cs__resolve(graph: accounts, requires: "{ name }")
+  userAccount(id: ID! = 1): User @cs__resolve(graph: accounts, requires: "cs__fragmentOn_Library_name_0")
 }
 fragment cs__keyFor_Library_10 on Library @cs__key(graph: accounts) { id }
 fragment cs__keyFor_Library_11 on Library @cs__key(graph: books) { id }
+
+fragment cs__fragmentOn_Library_name_0 on Library { name }
 
 union MetadataOrError = KeyValue | Error
 
@@ -161,6 +169,7 @@ type PasswordAccount
   email: String!
 }
 fragment cs__keyFor_PasswordAccount_12 on PasswordAccount @cs__key(graph: accounts) { email }
+
 
 interface Product {
   upc: String!
@@ -204,17 +213,20 @@ type Review
 {
   id: ID!
   body(format: Boolean = false): String
-  author: User @cs__resolve(graph: reviews, provides: "{ username }")
+  author: User @cs__resolve(graph: reviews, provides: "cs__fragmentOn_Review_username_0")
   product: Product
   metadata: [MetadataOrError]
 }
 fragment cs__keyFor_Review_13 on Review @cs__key(graph: reviews) { id }
+
+fragment cs__fragmentOn_Review_username_0 on Review { username }
 
 type SMSAccount
 {
   number: String
 }
 fragment cs__keyFor_SMSAccount_14 on SMSAccount @cs__key(graph: accounts) { number }
+
 
 type Text {
   name: String!
@@ -241,10 +253,10 @@ type User
   birthDate(locale: String): String
   account: AccountType
   metadata: [UserMetadata]
-  goodDescription: Boolean @cs__resolve(graph: inventory, requires: "{ metadata { description } }")
+  goodDescription: Boolean @cs__resolve(graph: inventory, requires: "cs__fragmentOn_User_metadata_description_0")
   reviews: [Review] @cs__resolve(graph: reviews)
   numberOfReviews: Int! @cs__resolve(graph: reviews)
-  goodAddress: Boolean @cs__resolve(graph: reviews, requires: "{ metadata { address } }")
+  goodAddress: Boolean @cs__resolve(graph: reviews, requires: "cs__fragmentOn_User_metadata_address_1")
   vehicle: Vehicle @cs__resolve(graph: product)
   thing: Thing @cs__resolve(graph: product)
 }
@@ -253,6 +265,9 @@ fragment cs__keyFor_User_16 on User @cs__key(graph: accounts) { id }
 fragment cs__keyFor_User_17 on User @cs__key(graph: accounts) { username name { first last } }
 fragment cs__keyFor_User_18 on User @cs__key(graph: reviews) { id }
 fragment cs__keyFor_User_19 on User @cs__key(graph: product) { id }
+
+fragment cs__fragmentOn_User_metadata_description_0 on User { metadata { description } },
+fragment cs__fragmentOn_User_metadata_address_1 on User { metadata { address } }
 
 type UserMetadata {
   name: String
@@ -265,10 +280,12 @@ type Van implements Vehicle
   id: String!
   description: String
   price: String
-  retailPrice: String @cs__resolve(graph: reviews, requires: "{ price }")
+  retailPrice: String @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Van_price_0")
 }
 fragment cs__keyFor_Van_20 on Van @cs__key(graph: reviews) { id }
 fragment cs__keyFor_Van_21 on Van @cs__key(graph: product) { id }
+
+fragment cs__fragmentOn_Van_price_0 on Van { price }
 
 interface Vehicle {
   id: String!

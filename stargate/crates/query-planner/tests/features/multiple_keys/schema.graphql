@@ -16,7 +16,7 @@ directive @cs__resolve(
 directive @cs__error(
   graphs: [cs__Graph!],
   message: String)
-    on OBJECT
+    repeatable on OBJECT
     | INTERFACE
     | UNION
     | FIELD_DEFINITION
@@ -72,3 +72,4 @@ fragment cs__keyFor_User_1 on User @cs__key(graph: users) { id }
 fragment cs__keyFor_User_2 on User @cs__key(graph: users) { group { id } }
 fragment cs__keyFor_User_3 on User @cs__key(graph: reviews) { id }
 fragment cs__keyFor_User_4 on User @cs__key(graph: actuary) { ssn }
+

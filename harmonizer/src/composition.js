@@ -23982,7 +23982,8 @@ var composition = (function (node_fetch_1) {
 	            .some(field => field.kind === graphql_1.Kind.FIELD && field.name.value === fieldNameToMatch));
 	}
 	exports.hasMatchingFieldInDirectives = hasMatchingFieldInDirectives;
-	exports.logServiceAndType = (serviceName, typeName, fieldName) => `[${serviceName}] ${typeName}${fieldName ? `.${fieldName} -> ` : ' -> '}`;
+	const logServiceAndType = (serviceName, typeName, fieldName) => `[${serviceName}] ${typeName}${fieldName ? `.${fieldName} -> ` : ' -> '}`;
+	exports.logServiceAndType = logServiceAndType;
 	function logDirective(directiveName) {
 	    return `[@${directiveName}] -> `;
 	}
@@ -27275,6 +27276,7 @@ var composition = (function (node_fetch_1) {
 
 	var sdl = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.UniqueUnionTypes = exports.UniqueFieldDefinitionNames = exports.PossibleTypeExtensions = exports.MatchingEnums = exports.UniqueTypeNamesWithFields = void 0;
 
 	Object.defineProperty(exports, "UniqueTypeNamesWithFields", { enumerable: true, get: function () { return uniqueTypeNamesWithFields.UniqueTypeNamesWithFields; } });
 
@@ -27661,12 +27663,12 @@ var composition = (function (node_fetch_1) {
 
 	});
 
-	var rootFieldUsed = createCommonjsModule(function (module, exports) {
+	var rootFieldUsed_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.rootFieldUsed = void 0;
 
 
-	exports.rootFieldUsed = ({ name: serviceName, typeDefs, }) => {
+	const rootFieldUsed = ({ name: serviceName, typeDefs, }) => {
 	    const errors = [];
 	    const defaultRootOperationNames = Object.values(utils$1.defaultRootOperationNameLookup);
 	    const disallowedTypeNames = {};
@@ -27695,22 +27697,24 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.rootFieldUsed = rootFieldUsed;
 
 	});
 
 	var preNormalization = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.rootFieldUsed = void 0;
 
-	Object.defineProperty(exports, "rootFieldUsed", { enumerable: true, get: function () { return rootFieldUsed.rootFieldUsed; } });
+	Object.defineProperty(exports, "rootFieldUsed", { enumerable: true, get: function () { return rootFieldUsed_1.rootFieldUsed; } });
 
 	});
 
-	var externalUsedOnBase = createCommonjsModule(function (module, exports) {
+	var externalUsedOnBase_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.externalUsedOnBase = void 0;
 
 
-	exports.externalUsedOnBase = ({ name: serviceName, typeDefs, }) => {
+	const externalUsedOnBase = ({ name: serviceName, typeDefs, }) => {
 	    const errors = [];
 	    graphql_1.visit(typeDefs, {
 	        ObjectTypeDefinition(typeDefinition) {
@@ -27731,15 +27735,16 @@ var composition = (function (node_fetch_1) {
 	    });
 	    return errors;
 	};
+	exports.externalUsedOnBase = externalUsedOnBase;
 
 	});
 
-	var requiresUsedOnBase = createCommonjsModule(function (module, exports) {
+	var requiresUsedOnBase_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.requiresUsedOnBase = void 0;
 
 
-	exports.requiresUsedOnBase = ({ name: serviceName, typeDefs, }) => {
+	const requiresUsedOnBase = ({ name: serviceName, typeDefs, }) => {
 	    const errors = [];
 	    graphql_1.visit(typeDefs, {
 	        ObjectTypeDefinition(typeDefinition) {
@@ -27760,17 +27765,18 @@ var composition = (function (node_fetch_1) {
 	    });
 	    return errors;
 	};
+	exports.requiresUsedOnBase = requiresUsedOnBase;
 
 	});
 
-	var keyFieldsMissingExternal = createCommonjsModule(function (module, exports) {
+	var keyFieldsMissingExternal_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.keyFieldsMissingExternal = void 0;
 
 
 
 
-	exports.keyFieldsMissingExternal = ({ name: serviceName, typeDefs, }) => {
+	const keyFieldsMissingExternal = ({ name: serviceName, typeDefs, }) => {
 	    const errors = [];
 	    let keyDirectiveInfoOnTypeExtensions = [];
 	    graphql_1.visit(typeDefs, {
@@ -27823,15 +27829,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.keyFieldsMissingExternal = keyFieldsMissingExternal;
 
 	});
 
-	var reservedFieldUsed = createCommonjsModule(function (module, exports) {
+	var reservedFieldUsed_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.reservedFieldUsed = void 0;
 
 
-	exports.reservedFieldUsed = ({ name: serviceName, typeDefs, }) => {
+	const reservedFieldUsed = ({ name: serviceName, typeDefs, }) => {
 	    const errors = [];
 	    let rootQueryName = 'Query';
 	    graphql_1.visit(typeDefs, {
@@ -27856,15 +27863,16 @@ var composition = (function (node_fetch_1) {
 	    });
 	    return errors;
 	};
+	exports.reservedFieldUsed = reservedFieldUsed;
 
 	});
 
-	var duplicateEnumOrScalar = createCommonjsModule(function (module, exports) {
+	var duplicateEnumOrScalar_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.duplicateEnumOrScalar = void 0;
 
 
-	exports.duplicateEnumOrScalar = ({ name: serviceName, typeDefs, }) => {
+	const duplicateEnumOrScalar = ({ name: serviceName, typeDefs, }) => {
 	    const errors = [];
 	    const enums = [];
 	    const scalars = [];
@@ -27892,15 +27900,16 @@ var composition = (function (node_fetch_1) {
 	    });
 	    return errors;
 	};
+	exports.duplicateEnumOrScalar = duplicateEnumOrScalar;
 
 	});
 
-	var duplicateEnumValue = createCommonjsModule(function (module, exports) {
+	var duplicateEnumValue_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.duplicateEnumValue = void 0;
 
 
-	exports.duplicateEnumValue = ({ name: serviceName, typeDefs, }) => {
+	const duplicateEnumValue = ({ name: serviceName, typeDefs, }) => {
 	    const errors = [];
 	    const enums = {};
 	    graphql_1.visit(typeDefs, {
@@ -27947,32 +27956,34 @@ var composition = (function (node_fetch_1) {
 	    });
 	    return errors;
 	};
+	exports.duplicateEnumValue = duplicateEnumValue;
 
 	});
 
 	var preComposition = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.duplicateEnumValue = exports.duplicateEnumOrScalar = exports.reservedFieldUsed = exports.keyFieldsMissingExternal = exports.requiresUsedOnBase = exports.externalUsedOnBase = void 0;
 
-	Object.defineProperty(exports, "externalUsedOnBase", { enumerable: true, get: function () { return externalUsedOnBase.externalUsedOnBase; } });
+	Object.defineProperty(exports, "externalUsedOnBase", { enumerable: true, get: function () { return externalUsedOnBase_1.externalUsedOnBase; } });
 
-	Object.defineProperty(exports, "requiresUsedOnBase", { enumerable: true, get: function () { return requiresUsedOnBase.requiresUsedOnBase; } });
+	Object.defineProperty(exports, "requiresUsedOnBase", { enumerable: true, get: function () { return requiresUsedOnBase_1.requiresUsedOnBase; } });
 
-	Object.defineProperty(exports, "keyFieldsMissingExternal", { enumerable: true, get: function () { return keyFieldsMissingExternal.keyFieldsMissingExternal; } });
+	Object.defineProperty(exports, "keyFieldsMissingExternal", { enumerable: true, get: function () { return keyFieldsMissingExternal_1.keyFieldsMissingExternal; } });
 
-	Object.defineProperty(exports, "reservedFieldUsed", { enumerable: true, get: function () { return reservedFieldUsed.reservedFieldUsed; } });
+	Object.defineProperty(exports, "reservedFieldUsed", { enumerable: true, get: function () { return reservedFieldUsed_1.reservedFieldUsed; } });
 
-	Object.defineProperty(exports, "duplicateEnumOrScalar", { enumerable: true, get: function () { return duplicateEnumOrScalar.duplicateEnumOrScalar; } });
+	Object.defineProperty(exports, "duplicateEnumOrScalar", { enumerable: true, get: function () { return duplicateEnumOrScalar_1.duplicateEnumOrScalar; } });
 
-	Object.defineProperty(exports, "duplicateEnumValue", { enumerable: true, get: function () { return duplicateEnumValue.duplicateEnumValue; } });
+	Object.defineProperty(exports, "duplicateEnumValue", { enumerable: true, get: function () { return duplicateEnumValue_1.duplicateEnumValue; } });
 
 	});
 
-	var externalUnused = createCommonjsModule(function (module, exports) {
+	var externalUnused_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.externalUnused = void 0;
 
 
-	exports.externalUnused = ({ schema }) => {
+	const externalUnused = ({ schema }) => {
 	    const errors = [];
 	    const types = schema.getTypeMap();
 	    for (const [parentTypeName, parentType] of Object.entries(types)) {
@@ -28060,15 +28071,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.externalUnused = externalUnused;
 
 	});
 
-	var externalMissingOnBase = createCommonjsModule(function (module, exports) {
+	var externalMissingOnBase_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.externalMissingOnBase = void 0;
 
 
-	exports.externalMissingOnBase = ({ schema }) => {
+	const externalMissingOnBase = ({ schema }) => {
 	    const errors = [];
 	    const types = schema.getTypeMap();
 	    for (const [typeName, namedType] of Object.entries(types)) {
@@ -28097,15 +28109,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.externalMissingOnBase = externalMissingOnBase;
 
 	});
 
-	var externalTypeMismatch = createCommonjsModule(function (module, exports) {
+	var externalTypeMismatch_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.externalTypeMismatch = void 0;
 
 
-	exports.externalTypeMismatch = ({ schema }) => {
+	const externalTypeMismatch = ({ schema }) => {
 	    const errors = [];
 	    const types = schema.getTypeMap();
 	    for (const [typeName, namedType] of Object.entries(types)) {
@@ -28134,15 +28147,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.externalTypeMismatch = externalTypeMismatch;
 
 	});
 
-	var requiresFieldsMissingExternal = createCommonjsModule(function (module, exports) {
+	var requiresFieldsMissingExternal_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.requiresFieldsMissingExternal = void 0;
 
 
-	exports.requiresFieldsMissingExternal = ({ schema, }) => {
+	const requiresFieldsMissingExternal = ({ schema, }) => {
 	    var _a;
 	    const errors = [];
 	    const types = schema.getTypeMap();
@@ -28172,15 +28186,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.requiresFieldsMissingExternal = requiresFieldsMissingExternal;
 
 	});
 
-	var requiresFieldsMissingOnBase = createCommonjsModule(function (module, exports) {
+	var requiresFieldsMissingOnBase_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.requiresFieldsMissingOnBase = void 0;
 
 
-	exports.requiresFieldsMissingOnBase = ({ schema, }) => {
+	const requiresFieldsMissingOnBase = ({ schema, }) => {
 	    const errors = [];
 	    const types = schema.getTypeMap();
 	    for (const [typeName, namedType] of Object.entries(types)) {
@@ -28206,15 +28221,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.requiresFieldsMissingOnBase = requiresFieldsMissingOnBase;
 
 	});
 
-	var keyFieldsMissingOnBase = createCommonjsModule(function (module, exports) {
+	var keyFieldsMissingOnBase_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.keyFieldsMissingOnBase = void 0;
 
 
-	exports.keyFieldsMissingOnBase = ({ schema, }) => {
+	const keyFieldsMissingOnBase = ({ schema, }) => {
 	    const errors = [];
 	    const types = schema.getTypeMap();
 	    for (const [typeName, namedType] of Object.entries(types)) {
@@ -28242,15 +28258,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.keyFieldsMissingOnBase = keyFieldsMissingOnBase;
 
 	});
 
-	var keyFieldsSelectInvalidType = createCommonjsModule(function (module, exports) {
+	var keyFieldsSelectInvalidType_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.keyFieldsSelectInvalidType = void 0;
 
 
-	exports.keyFieldsSelectInvalidType = ({ schema, }) => {
+	const keyFieldsSelectInvalidType = ({ schema, }) => {
 	    const errors = [];
 	    const types = schema.getTypeMap();
 	    for (const [typeName, namedType] of Object.entries(types)) {
@@ -28289,15 +28306,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.keyFieldsSelectInvalidType = keyFieldsSelectInvalidType;
 
 	});
 
-	var providesFieldsMissingExternal = createCommonjsModule(function (module, exports) {
+	var providesFieldsMissingExternal_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.providesFieldsMissingExternal = void 0;
 
 
-	exports.providesFieldsMissingExternal = ({ schema, }) => {
+	const providesFieldsMissingExternal = ({ schema, }) => {
 	    var _a;
 	    const errors = [];
 	    const types = schema.getTypeMap();
@@ -28330,15 +28348,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.providesFieldsMissingExternal = providesFieldsMissingExternal;
 
 	});
 
-	var providesFieldsSelectInvalidType = createCommonjsModule(function (module, exports) {
+	var providesFieldsSelectInvalidType_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.providesFieldsSelectInvalidType = void 0;
 
 
-	exports.providesFieldsSelectInvalidType = ({ schema, }) => {
+	const providesFieldsSelectInvalidType = ({ schema, }) => {
 	    const errors = [];
 	    const types = schema.getTypeMap();
 	    for (const [typeName, namedType] of Object.entries(types)) {
@@ -28387,15 +28406,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.providesFieldsSelectInvalidType = providesFieldsSelectInvalidType;
 
 	});
 
-	var providesNotOnEntity = createCommonjsModule(function (module, exports) {
+	var providesNotOnEntity_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.providesNotOnEntity = void 0;
 
 
-	exports.providesNotOnEntity = ({ schema }) => {
+	const providesNotOnEntity = ({ schema }) => {
 	    var _a;
 	    const errors = [];
 	    const types = schema.getTypeMap();
@@ -28431,15 +28451,16 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.providesNotOnEntity = providesNotOnEntity;
 
 	});
 
-	var executableDirectivesInAllServices = createCommonjsModule(function (module, exports) {
+	var executableDirectivesInAllServices_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.executableDirectivesInAllServices = void 0;
 
 
-	exports.executableDirectivesInAllServices = ({ schema, serviceList, }) => {
+	const executableDirectivesInAllServices = ({ schema, serviceList, }) => {
 	    const errors = [];
 	    const customExecutableDirectives = schema
 	        .getDirectives()
@@ -28463,15 +28484,16 @@ var composition = (function (node_fetch_1) {
 	    });
 	    return errors;
 	};
+	exports.executableDirectivesInAllServices = executableDirectivesInAllServices;
 
 	});
 
-	var executableDirectivesIdentical = createCommonjsModule(function (module, exports) {
+	var executableDirectivesIdentical_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.executableDirectivesIdentical = void 0;
 
 
-	exports.executableDirectivesIdentical = ({ schema, }) => {
+	const executableDirectivesIdentical = ({ schema, }) => {
 	    const errors = [];
 	    const customDirectives = schema
 	        .getDirectives()
@@ -28498,6 +28520,7 @@ var composition = (function (node_fetch_1) {
 	    });
 	    return errors;
 	};
+	exports.executableDirectivesIdentical = executableDirectivesIdentical;
 
 	});
 
@@ -28593,7 +28616,7 @@ var composition = (function (node_fetch_1) {
 	var __importStar = (commonjsGlobal && commonjsGlobal.__importStar) || function (mod) {
 	    if (mod && mod.__esModule) return mod;
 	    var result = {};
-	    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+	    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
 	    __setModuleDefault(result, mod);
 	    return result;
 	};
@@ -28860,7 +28883,7 @@ var composition = (function (node_fetch_1) {
 	var __importStar = (commonjsGlobal && commonjsGlobal.__importStar) || function (mod) {
 	    if (mod && mod.__esModule) return mod;
 	    var result = {};
-	    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+	    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
 	    __setModuleDefault(result, mod);
 	    return result;
 	};
@@ -28949,7 +28972,7 @@ var composition = (function (node_fetch_1) {
 	    o[k2] = m[k];
 	}));
 	var __exportStar = (commonjsGlobal && commonjsGlobal.__exportStar) || function(m, exports) {
-	    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+	    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 	};
 	Object.defineProperty(exports, "__esModule", { value: true });
 	__exportStar(buildFederatedSchema_1, exports);
@@ -28957,13 +28980,13 @@ var composition = (function (node_fetch_1) {
 
 	});
 
-	var keysMatchBaseService = createCommonjsModule(function (module, exports) {
+	var keysMatchBaseService_1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.keysMatchBaseService = void 0;
 
 
 
-	exports.keysMatchBaseService = function ({ schema, }) {
+	const keysMatchBaseService = function ({ schema, }) {
 	    const errors = [];
 	    const types = schema.getTypeMap();
 	    for (const [parentTypeName, parentType] of Object.entries(types)) {
@@ -29002,6 +29025,7 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return errors;
 	};
+	exports.keysMatchBaseService = keysMatchBaseService;
 	function printFieldSet(selections) {
 	    return selections.map(service.printWithReducedWhitespace).join(' ');
 	}
@@ -29010,32 +29034,33 @@ var composition = (function (node_fetch_1) {
 
 	var postComposition = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.keysMatchBaseService = exports.executableDirectivesIdentical = exports.executableDirectivesInAllServices = exports.providesNotOnEntity = exports.providesFieldsSelectInvalidType = exports.providesFieldsMissingExternal = exports.keyFieldsSelectInvalidType = exports.keyFieldsMissingOnBase = exports.requiresFieldsMissingOnBase = exports.requiresFieldsMissingExternal = exports.externalTypeMismatch = exports.externalMissingOnBase = exports.externalUnused = void 0;
 
-	Object.defineProperty(exports, "externalUnused", { enumerable: true, get: function () { return externalUnused.externalUnused; } });
+	Object.defineProperty(exports, "externalUnused", { enumerable: true, get: function () { return externalUnused_1.externalUnused; } });
 
-	Object.defineProperty(exports, "externalMissingOnBase", { enumerable: true, get: function () { return externalMissingOnBase.externalMissingOnBase; } });
+	Object.defineProperty(exports, "externalMissingOnBase", { enumerable: true, get: function () { return externalMissingOnBase_1.externalMissingOnBase; } });
 
-	Object.defineProperty(exports, "externalTypeMismatch", { enumerable: true, get: function () { return externalTypeMismatch.externalTypeMismatch; } });
+	Object.defineProperty(exports, "externalTypeMismatch", { enumerable: true, get: function () { return externalTypeMismatch_1.externalTypeMismatch; } });
 
-	Object.defineProperty(exports, "requiresFieldsMissingExternal", { enumerable: true, get: function () { return requiresFieldsMissingExternal.requiresFieldsMissingExternal; } });
+	Object.defineProperty(exports, "requiresFieldsMissingExternal", { enumerable: true, get: function () { return requiresFieldsMissingExternal_1.requiresFieldsMissingExternal; } });
 
-	Object.defineProperty(exports, "requiresFieldsMissingOnBase", { enumerable: true, get: function () { return requiresFieldsMissingOnBase.requiresFieldsMissingOnBase; } });
+	Object.defineProperty(exports, "requiresFieldsMissingOnBase", { enumerable: true, get: function () { return requiresFieldsMissingOnBase_1.requiresFieldsMissingOnBase; } });
 
-	Object.defineProperty(exports, "keyFieldsMissingOnBase", { enumerable: true, get: function () { return keyFieldsMissingOnBase.keyFieldsMissingOnBase; } });
+	Object.defineProperty(exports, "keyFieldsMissingOnBase", { enumerable: true, get: function () { return keyFieldsMissingOnBase_1.keyFieldsMissingOnBase; } });
 
-	Object.defineProperty(exports, "keyFieldsSelectInvalidType", { enumerable: true, get: function () { return keyFieldsSelectInvalidType.keyFieldsSelectInvalidType; } });
+	Object.defineProperty(exports, "keyFieldsSelectInvalidType", { enumerable: true, get: function () { return keyFieldsSelectInvalidType_1.keyFieldsSelectInvalidType; } });
 
-	Object.defineProperty(exports, "providesFieldsMissingExternal", { enumerable: true, get: function () { return providesFieldsMissingExternal.providesFieldsMissingExternal; } });
+	Object.defineProperty(exports, "providesFieldsMissingExternal", { enumerable: true, get: function () { return providesFieldsMissingExternal_1.providesFieldsMissingExternal; } });
 
-	Object.defineProperty(exports, "providesFieldsSelectInvalidType", { enumerable: true, get: function () { return providesFieldsSelectInvalidType.providesFieldsSelectInvalidType; } });
+	Object.defineProperty(exports, "providesFieldsSelectInvalidType", { enumerable: true, get: function () { return providesFieldsSelectInvalidType_1.providesFieldsSelectInvalidType; } });
 
-	Object.defineProperty(exports, "providesNotOnEntity", { enumerable: true, get: function () { return providesNotOnEntity.providesNotOnEntity; } });
+	Object.defineProperty(exports, "providesNotOnEntity", { enumerable: true, get: function () { return providesNotOnEntity_1.providesNotOnEntity; } });
 
-	Object.defineProperty(exports, "executableDirectivesInAllServices", { enumerable: true, get: function () { return executableDirectivesInAllServices.executableDirectivesInAllServices; } });
+	Object.defineProperty(exports, "executableDirectivesInAllServices", { enumerable: true, get: function () { return executableDirectivesInAllServices_1.executableDirectivesInAllServices; } });
 
-	Object.defineProperty(exports, "executableDirectivesIdentical", { enumerable: true, get: function () { return executableDirectivesIdentical.executableDirectivesIdentical; } });
+	Object.defineProperty(exports, "executableDirectivesIdentical", { enumerable: true, get: function () { return executableDirectivesIdentical_1.executableDirectivesIdentical; } });
 
-	Object.defineProperty(exports, "keysMatchBaseService", { enumerable: true, get: function () { return keysMatchBaseService.keysMatchBaseService; } });
+	Object.defineProperty(exports, "keysMatchBaseService", { enumerable: true, get: function () { return keysMatchBaseService_1.keysMatchBaseService; } });
 
 	});
 
@@ -29055,7 +29080,7 @@ var composition = (function (node_fetch_1) {
 	var __importStar = (commonjsGlobal && commonjsGlobal.__importStar) || function (mod) {
 	    if (mod && mod.__esModule) return mod;
 	    var result = {};
-	    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+	    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
 	    __setModuleDefault(result, mod);
 	    return result;
 	};
@@ -29077,7 +29102,7 @@ var composition = (function (node_fetch_1) {
 	}
 	exports.validateServicesBeforeNormalization = validateServicesBeforeNormalization;
 	const preCompositionValidators = Object.values(preCompositionRules);
-	exports.validateServicesBeforeComposition = (services) => {
+	const validateServicesBeforeComposition = (services) => {
 	    const warningsOrErrors = [];
 	    for (const serviceDefinition of services) {
 	        for (const validator of preCompositionValidators) {
@@ -29086,8 +29111,9 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return warningsOrErrors;
 	};
+	exports.validateServicesBeforeComposition = validateServicesBeforeComposition;
 	const postCompositionValidators = Object.values(postCompositionRules);
-	exports.validateComposedSchema = ({ schema, serviceList, }) => {
+	const validateComposedSchema = ({ schema, serviceList, }) => {
 	    const warningsOrErrors = [];
 	    warningsOrErrors.push(...graphql_1.validateSchema(schema));
 	    for (const validator of postCompositionValidators) {
@@ -29095,6 +29121,7 @@ var composition = (function (node_fetch_1) {
 	    }
 	    return warningsOrErrors;
 	};
+	exports.validateComposedSchema = validateComposedSchema;
 
 	});
 
@@ -29284,7 +29311,7 @@ directive @cs__resolve(
 directive @cs__error(
   graphs: [cs__Graph!],
   message: String)
-    on OBJECT
+    repeatable on OBJECT
     | INTERFACE
     | UNION
     | FIELD_DEFINITION
@@ -29398,7 +29425,8 @@ scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__sel
 	        `type ${type.name}` +
 	        implementedInterfaces +
 	        printFields(options, type) +
-	        printKeys(type));
+	        printKeys(type) +
+	        printFragmentsForType(type));
 	}
 	let nextKeyId = 0;
 	function printKeys(type) {
@@ -29412,14 +29440,15 @@ scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__sel
 	    return (Object.entries(keys).map(([service, keys]) => keys
 	        .map((selections) => `\nfragment cs__keyFor_${type.name}_${nextKeyId++} on ${type.name} @cs__key(graph: ${service}) ${printFieldSet(selections)}`)
 	        .join(''))
-	        .join(''));
+	        .join('') + '\n');
 	}
 	function printInterface(type, options) {
 	    const isExtension = type.extensionASTNodes && type.astNode && !type.astNode.fields;
 	    return (printDescription(options, type) +
 	        (isExtension ? 'extend ' : '') +
 	        `interface ${type.name}` +
-	        printFields(options, type));
+	        printFields(options, type) +
+	        printFragmentsForType(type));
 	}
 	function printUnion(type, options) {
 	    const types = type.getTypes();
@@ -29448,7 +29477,7 @@ scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__sel
 	        ': ' +
 	        String(f.type) +
 	        printDeprecated(f) +
-	        printFederationFieldDirectives(f));
+	        printFederationFieldDirectives(type, f));
 	    const isEntity = Boolean((_b = (_a = type.extensions) === null || _a === void 0 ? void 0 : _a.federation) === null || _b === void 0 ? void 0 : _b.keys);
 	    return printBlock(fields, isEntity);
 	}
@@ -29461,16 +29490,38 @@ scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__sel
 	function printFieldSet(selections) {
 	    return `{ ${selections.map(printWithReducedWhitespace).join(' ')} }`;
 	}
-	function printFederationFieldDirectives(field) {
+	function printFederationFieldDirectives(type, field) {
 	    var _a;
 	    if (!((_a = field.extensions) === null || _a === void 0 ? void 0 : _a.federation))
 	        return '';
 	    const { serviceName, requires = [], provides = [], } = field.extensions.federation;
 	    return ` @cs__resolve(graph: ${serviceName}${requires.length ?
-        `, requires: "${printFieldSet(requires)}"`
+        `, requires: "${findOrCreateFragment(type, requires)}"`
         : ''}${provides.length ?
-        `, provides: "${printFieldSet(provides)}"`
+        `, provides: "${findOrCreateFragment(type, provides)}"`
         : ''})`;
+	}
+	function findOrCreateFragment(type, selections) {
+	    var _a, _b;
+	    (_a = type.fragments) !== null && _a !== void 0 ? _a : (type.fragments = new Map);
+	    (_b = type.nextFragmentId) !== null && _b !== void 0 ? _b : (type.nextFragmentId = 0);
+	    const key = printFieldSet(selections);
+	    const existing = type.fragments.get(key);
+	    if (existing)
+	        return existing.id;
+	    const id = `cs__fragmentOn_` + asValidIdentifier(`${type}_${key}_${type.nextFragmentId++}`);
+	    type.fragments.set(id, { id, text: `fragment ${id} on ${type.name} ${printFieldSet(selections)}` });
+	    return id;
+	}
+	function asValidIdentifier(input) {
+	    return input.trim()
+	        .replace(/(\s|,|{|})+/g, '_')
+	        .replace(/_+/g, '_')
+	        .replace(/[^A-Za-z_0-9]/g, '');
+	}
+	function printFragmentsForType(type) {
+	    var _a, _b;
+	    return [...(_b = (_a = type.fragments) === null || _a === void 0 ? void 0 : _a.values()) !== null && _b !== void 0 ? _b : []].map(f => `\n${f.text}`).join();
 	}
 	function printBlock(items, onNewLine) {
 	    return items.length !== 0
@@ -29626,9 +29677,10 @@ scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__sel
 	    o[k2] = m[k];
 	}));
 	var __exportStar = (commonjsGlobal && commonjsGlobal.__exportStar) || function(m, exports) {
-	    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+	    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 	};
 	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.defaultRootOperationNameLookup = exports.normalizeTypeDefs = exports.compositionRules = void 0;
 	__exportStar(compose, exports);
 	__exportStar(composeAndValidate_1, exports);
 	__exportStar(require$$2, exports);
@@ -29650,7 +29702,7 @@ scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__sel
 	    o[k2] = m[k];
 	}));
 	var __exportStar = (commonjsGlobal && commonjsGlobal.__exportStar) || function(m, exports) {
-	    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+	    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 	};
 	Object.defineProperty(exports, "__esModule", { value: true });
 
@@ -29662,6 +29714,7 @@ scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__sel
 
 	var dist$1 = createCommonjsModule(function (module, exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.parseGraphqlDocument = exports.composeAndValidate = void 0;
 
 	Object.defineProperty(exports, "composeAndValidate", { enumerable: true, get: function () { return dist.composeAndValidate; } });
 

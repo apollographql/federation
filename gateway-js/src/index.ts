@@ -609,7 +609,7 @@ export class ApolloGateway implements GraphQLService {
     // Sleep for the specified pollInterval before kicking off another round of polling
     await new Promise(res => {
       this.pollingTimer = setTimeout(
-        () => res(),
+        () => res(void 0),
         this.experimental_pollInterval || 10000,
       );
       // Prevent the Node.js event loop from remaining active (and preventing,

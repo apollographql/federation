@@ -16,7 +16,7 @@ directive @cs__resolve(
 directive @cs__error(
   graphs: [cs__Graph!],
   message: String)
-    on OBJECT
+    repeatable on OBJECT
     | INTERFACE
     | UNION
     | FIELD_DEFINITION
@@ -82,6 +82,7 @@ type ReceivingUser
 }
 fragment cs__keyFor_ReceivingUser_0 on ReceivingUser @cs__key(graph: users) { id }
 
+
 type SendingUser
 {
   id: ID!
@@ -90,6 +91,7 @@ type SendingUser
   location: Location
 }
 fragment cs__keyFor_SendingUser_1 on SendingUser @cs__key(graph: users) { id }
+
 
 type SomeField {
   a: A
