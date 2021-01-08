@@ -41,14 +41,4 @@ function parseTypedefs(source) {
  */
 const composed = composition.composeAndValidate(serviceList);
 
-// if (typeof composed.errors !== "undefined") {
-//   print(`There were ${composed.errors.length} composition error(s):`);
-//   composed.errors.forEach((error, index) => {
-//     print(`  ${index+1}. ${error}`);
-//   });
-// } else if (composed.composedSdl) {
-//   print("We have composed SDL");
-//   print(composed.composedSdl);
-// }
-
 done(composed.errors ? { Err: composed.errors } : { Ok: composed.composedSdl })

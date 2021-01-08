@@ -6,7 +6,6 @@
   "include": [],
   "references": [
     { "path": "./federation-js" },
-    { "path": "./gateway-js" },
-    { "path": "./harmonizer-js" },
+    { "path": "./gateway-js" }
   ]
 }

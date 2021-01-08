@@ -4,7 +4,7 @@ use harmonizer::{harmonize, Result::*, ServiceDefinition};
 
 fn main() {
   let composed =
-    harmonize(std::env::args().skip(2)
+    harmonize(std::env::args().skip(1)
       .map(|file| {
         let src = read_to_string(&file)
           .expect("reading source file");

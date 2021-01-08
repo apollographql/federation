@@ -2,6 +2,9 @@ use std::fs;
 use std::process::Command;
 
 fn main() {
+  println!("cargo:rerun-if-changed=package.json");
+  println!("cargo:rerun-if-changed=js/index.js");
+
   let ts_compile = Command::new("npm")
     .current_dir("../")
     .args(&["run", "compile"])
@@ -12,7 +15,7 @@ fn main() {
 
   let rollup = Command::new("npx")
     .current_dir("../")
-    .args(&["lerna", "run", "--scope", "@apollo/harmonizer-js", "rollup"])
+    .args(&["lerna", "run", "--scope", "@apollo/harmonizer", "rollup"])
     .status()
     .unwrap();
 
@@ -23,6 +26,4 @@ fn main() {
     "./src/composition.js",
   )
   .unwrap();
-
-  println!("cargo:rerun-if-changed=src/composition.js");
 }

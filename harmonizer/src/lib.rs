@@ -28,16 +28,11 @@ impl ServiceDefinition {
 pub type ServiceList = Vec<ServiceDefinition>;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub enum Result<T> {
-  Ok(T),
-  Err(Vec<CompositionError>),
-}
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct CompositionError {
   pub message: String
 }
 
-pub fn harmonize(service_list: ServiceList) -> Result<String> {
+pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionError>> {
   // Initialize a runtime instance
   let mut runtime = JsRuntime::new(Default::default());
 
@@ -126,7 +121,7 @@ exports = {};
 
   // Load the composition library.
   runtime
-    .execute("composition.js", include_str!("composition.js"))
+    .execute("composition.js", include_str!("../dist/composition.js"))
     .unwrap();
 
   // We literally just turn it into a JSON object that we'll execute within
@@ -141,7 +136,7 @@ exports = {};
     .unwrap();
 
   runtime
-    .execute("do_compose.js", include_str!("do_compose.js"))
+    .execute("do_compose.js", include_str!("../js/do_compose.js"))
     .unwrap();
 
   rx.recv().expect("channel remains open")
@@ -151,9 +146,9 @@ exports = {};
 mod tests {
   #[test]
   fn it_works() {
-    use crate::{harmonize, ServiceDefinition, Result};
+    use crate::{harmonize, ServiceDefinition};
 
-    assert_eq!(
+    insta::assert_snapshot!(
       harmonize(vec![
         ServiceDefinition::new(
           "users",
@@ -185,65 +180,6 @@ mod tests {
               movies: [Movie!]
             }
           ")
-      ]),
-      Result::Ok(String::from(r#"schema @using(spec: "https://specs.apollo.dev/cs/v0.1")
-{
-  query: Query
-}
-
-
-directive @cs__key(graph: cs__Graph!)
-  repeatable on FRAGMENT_DEFINITION
-
-directive @cs__resolve(
-  graph: cs__Graph!,
-  requires: cs__SelectionSet,
-  provides: cs__SelectionSet)
-  on FIELD_DEFINITION
-
-directive @cs__error(
-  graphs: [cs__Graph!],
-  message: String)
-    on OBJECT
-    | INTERFACE
-    | UNION
-    | FIELD_DEFINITION
-
-directive @cs__link(to: cs__OutboundLink!)
-  on ENUM_VALUE
-
-input cs__OutboundLink {
-  http: cs__OutboundLinkHTTP
-}
-
-input cs__OutboundLinkHTTP {
-  url: cs__URL
-}
-
-scalar cs__URL @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__url")
-scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__selectionset")
-
-
-enum cs__Graph {
-  users @cs__link(to: { http: { url: "undefined" } }),
-  movies @cs__link(to: { http: { url: "undefined" } })
-}
-
-type Movie {
-  title: String
-  name: String
-}
-
-type Query {
-  users: [User!] @cs__resolve(graph: users)
-  movies: [Movie!] @cs__resolve(graph: movies)
-}
-
-type User {
-  id: ID
-  name: String
-  favorites: [Movie!] @cs__resolve(graph: movies)
-}
-"#)));
+      ]).unwrap());
   }
 }

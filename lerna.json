@@ -3,7 +3,7 @@
     "federation-js",
     "federation-integration-testsuite-js",
     "gateway-js",
-    "harmonizer-js",
+    "harmonizer",
     "query-planner-wasm"
   ],
   "version": "independent",
