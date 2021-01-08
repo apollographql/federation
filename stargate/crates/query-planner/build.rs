@@ -56,7 +56,6 @@ fn write_composed_schema(dir: &PathBuf) -> std::io::Result<()> {
     service_list.sort_by_key(|def| def.name.to_owned());
 
     let composed = harmonize(service_list);
-    use harmonizer::Result::*;
     match composed {
         Ok(schema) => write(dir.join("schema.graphql"), schema),
         Err(errors) => {

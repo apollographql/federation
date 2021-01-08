@@ -5,6 +5,8 @@ schema @using(spec: "https://specs.apollo.dev/cs/v0.1")
 }
 
 
+directive @using(spec: String!, prefix: String) on SCHEMA
+
 directive @cs__key(graph: cs__Graph!)
   repeatable on FRAGMENT_DEFINITION
 

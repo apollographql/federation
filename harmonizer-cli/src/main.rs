@@ -1,6 +1,6 @@
 use std::{fs::read_to_string, path::PathBuf};
 
-use harmonizer::{harmonize, Result::*, ServiceDefinition};
+use harmonizer::{harmonize, ServiceDefinition};
 
 fn main() {
   let composed =

@@ -1,4 +1,6 @@
 export default `
+directive @using(spec: String!, prefix: String) on SCHEMA
+
 directive @cs__key(graph: cs__Graph!)
   repeatable on FRAGMENT_DEFINITION
 
