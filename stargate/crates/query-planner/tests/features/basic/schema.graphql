@@ -38,12 +38,12 @@ scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__sel
 
 
 enum cs__Graph {
+  accounts @cs__link(to: { http: { url: "undefined" } }),
+  books @cs__link(to: { http: { url: "undefined" } }),
   documents @cs__link(to: { http: { url: "undefined" } }),
   inventory @cs__link(to: { http: { url: "undefined" } }),
-  accounts @cs__link(to: { http: { url: "undefined" } }),
-  reviews @cs__link(to: { http: { url: "undefined" } }),
   product @cs__link(to: { http: { url: "undefined" } }),
-  books @cs__link(to: { http: { url: "undefined" } })
+  reviews @cs__link(to: { http: { url: "undefined" } })
 }
 
 directive @stream on FIELD
@@ -67,21 +67,21 @@ type Book implements Product
   metadata: [MetadataOrError]
   inStock: Boolean @cs__resolve(graph: inventory)
   isCheckedOut: Boolean @cs__resolve(graph: inventory)
-  reviews: [Review] @cs__resolve(graph: reviews)
-  relatedReviews: [Review!]! @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Book_similarBooks_isbn_0")
   upc: String! @cs__resolve(graph: product)
   sku: String! @cs__resolve(graph: product)
-  name(delimeter: String = " "): String @cs__resolve(graph: product, requires: "cs__fragmentOn_Book_title_year_1")
+  name(delimeter: String = " "): String @cs__resolve(graph: product, requires: "cs__fragmentOn_Book_title_year_0")
   price: String @cs__resolve(graph: product)
   details: ProductDetailsBook @cs__resolve(graph: product)
+  reviews: [Review] @cs__resolve(graph: reviews)
+  relatedReviews: [Review!]! @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Book_similarBooks_isbn_1")
 }
-fragment cs__keyFor_Book_0 on Book @cs__key(graph: inventory) { isbn }
-fragment cs__keyFor_Book_1 on Book @cs__key(graph: reviews) { isbn }
+fragment cs__keyFor_Book_0 on Book @cs__key(graph: books) { isbn }
+fragment cs__keyFor_Book_1 on Book @cs__key(graph: inventory) { isbn }
 fragment cs__keyFor_Book_2 on Book @cs__key(graph: product) { isbn }
-fragment cs__keyFor_Book_3 on Book @cs__key(graph: books) { isbn }
+fragment cs__keyFor_Book_3 on Book @cs__key(graph: reviews) { isbn }
 
-fragment cs__fragmentOn_Book_similarBooks_isbn_0 on Book { similarBooks { isbn } },
-fragment cs__fragmentOn_Book_title_year_1 on Book { title year }
+fragment cs__fragmentOn_Book_title_year_0 on Book { title year },
+fragment cs__fragmentOn_Book_similarBooks_isbn_1 on Book { similarBooks { isbn } }
 
 union Brand = Ikea | Amazon
 
@@ -92,8 +92,8 @@ type Car implements Vehicle
   price: String
   retailPrice: String @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Car_price_0")
 }
-fragment cs__keyFor_Car_4 on Car @cs__key(graph: reviews) { id }
-fragment cs__keyFor_Car_5 on Car @cs__key(graph: product) { id }
+fragment cs__keyFor_Car_4 on Car @cs__key(graph: product) { id }
+fragment cs__keyFor_Car_5 on Car @cs__key(graph: reviews) { id }
 
 fragment cs__fragmentOn_Car_price_0 on Car { price }
 
@@ -116,9 +116,9 @@ type Furniture implements Product
   reviews: [Review] @cs__resolve(graph: reviews)
 }
 fragment cs__keyFor_Furniture_6 on Furniture @cs__key(graph: inventory) { sku }
-fragment cs__keyFor_Furniture_7 on Furniture @cs__key(graph: reviews) { upc }
-fragment cs__keyFor_Furniture_8 on Furniture @cs__key(graph: product) { upc }
-fragment cs__keyFor_Furniture_9 on Furniture @cs__key(graph: product) { sku }
+fragment cs__keyFor_Furniture_7 on Furniture @cs__key(graph: product) { upc }
+fragment cs__keyFor_Furniture_8 on Furniture @cs__key(graph: product) { sku }
+fragment cs__keyFor_Furniture_9 on Furniture @cs__key(graph: reviews) { upc }
 
 
 type Ikea {
@@ -196,17 +196,17 @@ type ProductDetailsFurniture implements ProductDetails {
 }
 
 type Query {
-  body: Body! @cs__resolve(graph: documents)
   user(id: ID!): User @cs__resolve(graph: accounts)
   me: User @cs__resolve(graph: accounts)
-  topReviews(first: Int = 5): [Review] @cs__resolve(graph: reviews)
+  book(isbn: String!): Book @cs__resolve(graph: books)
+  books: [Book] @cs__resolve(graph: books)
+  library(id: ID!): Library @cs__resolve(graph: books)
+  body: Body! @cs__resolve(graph: documents)
   product(upc: String!): Product @cs__resolve(graph: product)
   vehicle(id: String!): Vehicle @cs__resolve(graph: product)
   topProducts(first: Int = 5): [Product] @cs__resolve(graph: product)
   topCars(first: Int = 5): [Car] @cs__resolve(graph: product)
-  book(isbn: String!): Book @cs__resolve(graph: books)
-  books: [Book] @cs__resolve(graph: books)
-  library(id: ID!): Library @cs__resolve(graph: books)
+  topReviews(first: Int = 5): [Review] @cs__resolve(graph: reviews)
 }
 
 type Review
@@ -254,17 +254,17 @@ type User
   account: AccountType
   metadata: [UserMetadata]
   goodDescription: Boolean @cs__resolve(graph: inventory, requires: "cs__fragmentOn_User_metadata_description_0")
+  vehicle: Vehicle @cs__resolve(graph: product)
+  thing: Thing @cs__resolve(graph: product)
   reviews: [Review] @cs__resolve(graph: reviews)
   numberOfReviews: Int! @cs__resolve(graph: reviews)
   goodAddress: Boolean @cs__resolve(graph: reviews, requires: "cs__fragmentOn_User_metadata_address_1")
-  vehicle: Vehicle @cs__resolve(graph: product)
-  thing: Thing @cs__resolve(graph: product)
 }
-fragment cs__keyFor_User_15 on User @cs__key(graph: inventory) { id }
-fragment cs__keyFor_User_16 on User @cs__key(graph: accounts) { id }
-fragment cs__keyFor_User_17 on User @cs__key(graph: accounts) { username name { first last } }
-fragment cs__keyFor_User_18 on User @cs__key(graph: reviews) { id }
-fragment cs__keyFor_User_19 on User @cs__key(graph: product) { id }
+fragment cs__keyFor_User_15 on User @cs__key(graph: accounts) { id }
+fragment cs__keyFor_User_16 on User @cs__key(graph: accounts) { username name { first last } }
+fragment cs__keyFor_User_17 on User @cs__key(graph: inventory) { id }
+fragment cs__keyFor_User_18 on User @cs__key(graph: product) { id }
+fragment cs__keyFor_User_19 on User @cs__key(graph: reviews) { id }
 
 fragment cs__fragmentOn_User_metadata_description_0 on User { metadata { description } },
 fragment cs__fragmentOn_User_metadata_address_1 on User { metadata { address } }
@@ -282,8 +282,8 @@ type Van implements Vehicle
   price: String
   retailPrice: String @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Van_price_0")
 }
-fragment cs__keyFor_Van_20 on Van @cs__key(graph: reviews) { id }
-fragment cs__keyFor_Van_21 on Van @cs__key(graph: product) { id }
+fragment cs__keyFor_Van_20 on Van @cs__key(graph: product) { id }
+fragment cs__keyFor_Van_21 on Van @cs__key(graph: reviews) { id }
 
 fragment cs__fragmentOn_Van_price_0 on Van { price }
 

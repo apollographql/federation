@@ -1,4 +1,4 @@
-use std::{io::Write, fs::{read_dir, read_to_string, write, File}};
+use std::{fs::{read_dir, read_to_string, write, File}, io::Write};
 use std::path::PathBuf;
 
 use harmonizer::{harmonize, ServiceDefinition};
@@ -10,11 +10,15 @@ use harmonizer::{harmonize, ServiceDefinition};
 fn main() {
     // If debugging with IJ, use `read_dir("query-planner/tests/features")`
     // let dirs = read_dir("query-planner/tests/features")
-    let dirs =
+    let mut dirs =
         read_dir(PathBuf::from("tests").join("features"))
             .expect("read features dir")
             .map(|res| res.map(|e| e.path()).unwrap())
-            .filter(|d| d.is_dir());
+            .filter(|d| d.is_dir())
+            .collect::<Vec::<_>>();
+    
+    // Sort by name to ensure stability across machines and builds.
+    dirs.sort();
 
     for dir in dirs {
         write_composed_schema(&dir).expect("composition");
@@ -23,7 +27,7 @@ fn main() {
 }
 
 fn write_composed_schema(dir: &PathBuf) -> std::io::Result<()> {
-    let schema_paths = read_dir(dir)
+    let mut service_list: Vec<_> = read_dir(dir)
         .unwrap()
         .map(|res| res.map(|e| e.path()).unwrap())
         .filter(|e| {
@@ -45,9 +49,13 @@ fn write_composed_schema(dir: &PathBuf) -> std::io::Result<()> {
             type_defs: read_to_string(path)
                 .expect("reading input schema"),
             url: "undefined".to_owned(),
-        });
+        })
+        .collect();
+    
+    // Sort by name to ensure stability across machines
+    service_list.sort_by_key(|def| def.name.to_owned());
 
-    let composed = harmonize(schema_paths.collect());
+    let composed = harmonize(service_list);
     use harmonizer::Result::*;
     match composed {
         Ok(schema) => write(dir.join("schema.graphql"), schema),
@@ -81,7 +89,7 @@ macro_rules! get_step {
 }
 
 fn write_tests(dir: &PathBuf) -> std::io::Result<()> {
-    let feature_paths = read_dir(dir)
+    let mut feature_paths: Vec<_> = read_dir(dir)
         .unwrap()
         .map(|res| res.map(|e| e.path()).unwrap())
         .filter(|e| {
@@ -90,7 +98,11 @@ fn write_tests(dir: &PathBuf) -> std::io::Result<()> {
             } else {
                 false
             }
-        });
+        })
+        .collect();
+
+    // Sort by path to ensure stability across machines and builds
+    feature_paths.sort();
 
     let output_path = dir.with_extension("rs");
     let mut output = File::create(&output_path)

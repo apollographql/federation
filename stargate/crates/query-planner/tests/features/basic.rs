@@ -18,17 +18,15 @@ use crate::helpers::assert_query_plan;
 
 #[allow(non_snake_case)]
 #[test]
-fn mutations_supports_mutations() {
+fn abstract_types_handles_an_abstract_type_from_the_base_service() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
-mutation Login($username: String!, $password: String!) {
-  login(username: $username, password: $password) {
-    reviews {
-      product {
-        upc
-      }
-    }
+query GetProduct($upc: String!) {
+  product(upc: $upc) {
+    upc
+    name
+    price
   }
 }
 "##,
@@ -40,36 +38,16 @@ mutation Login($username: String!, $password: String!) {
     "nodes": [
       {
         "kind": "Fetch",
-        "serviceName": "accounts",
-        "variableUsages": ["username", "password"],
-        "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
+        "serviceName": "product",
+        "variableUsages": ["upc"],
+        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{upc __typename isbn price}...on Furniture{upc name price}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["login"],
+        "path": ["product"],
         "node": {
           "kind": "Fetch",
-          "serviceName": "reviews",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "User",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
-        }
-      },
-      {
-        "kind": "Flatten",
-        "path": ["login", "reviews", "@", "product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "product",
+          "serviceName": "books",
           "requires": [
             {
               "kind": "InlineFragment",
@@ -81,7 +59,29 @@ mutation Login($username: String!, $password: String!) {
             }
           ],
           "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+        }
+      },
+      {
+        "kind": "Flatten",
+        "path": ["product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "product",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" },
+                { "kind": "Field", "name": "title" },
+                { "kind": "Field", "name": "year" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
         }
       }
     ]
@@ -97,14 +97,78 @@ mutation Login($username: String!, $password: String!) {
 
 #[allow(non_snake_case)]
 #[test]
-fn mutations_mutations_across_service_boundaries() {
+fn abstract_types_can_request_fields_on_extended_interfaces() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
-mutation Review($upc: String!, $body: String!) {
-  reviewProduct(upc: $upc, body: $body) {
+query GetProduct($upc: String!) {
+  product(upc: $upc) {
+    inStock
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "product",
+        "variableUsages": ["upc"],
+        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "inventory",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" }
+              ]
+            },
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Furniture",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "sku" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{inStock}...on Furniture{inStock}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn abstract_types_can_request_fields_on_extended_types_that_implement_an_interface() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetProduct($upc: String!) {
+  product(upc: $upc) {
+    inStock
     ... on Furniture {
-      name
+      isHeavy
     }
   }
 }
@@ -117,17 +181,416 @@ mutation Review($upc: String!, $body: String!) {
     "nodes": [
       {
         "kind": "Fetch",
-        "serviceName": "reviews",
-        "variableUsages": ["upc", "body"],
-        "operation": "mutation($upc:String!$body:String!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{__typename upc}}}"
+        "serviceName": "product",
+        "variableUsages": ["upc"],
+        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["reviewProduct"],
+        "path": ["product"],
         "node": {
           "kind": "Fetch",
-          "serviceName": "product",
+          "serviceName": "inventory",
           "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" }
+              ]
+            },
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Furniture",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "sku" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{inStock}...on Furniture{inStock isHeavy}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn abstract_types_prunes_unfilled_type_conditions() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetProduct($upc: String!) {
+  product(upc: $upc) {
+    inStock
+    ... on Furniture {
+      isHeavy
+    }
+    ... on Book {
+      isCheckedOut
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "product",
+        "variableUsages": ["upc"],
+        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "inventory",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" }
+              ]
+            },
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Furniture",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "sku" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{inStock isCheckedOut}...on Furniture{inStock isHeavy}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn abstract_types_fetches_interfaces_returned_from_other_services() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetUserAndProducts {
+  me {
+    reviews {
+      product {
+        price
+        ... on Book {
+          title
+        }
+      }
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "accounts",
+        "variableUsages": [],
+        "operation": "{me{__typename id}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["me"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "reviews",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}"
+        }
+      },
+      {
+        "kind": "Parallel",
+        "nodes": [
+          {
+            "kind": "Flatten",
+            "path": ["me", "reviews", "@", "product"],
+            "node": {
+              "kind": "Fetch",
+              "serviceName": "product",
+              "requires": [
+                {
+                  "kind": "InlineFragment",
+                  "typeCondition": "Book",
+                  "selections": [
+                    { "kind": "Field", "name": "__typename" },
+                    { "kind": "Field", "name": "isbn" }
+                  ]
+                },
+                {
+                  "kind": "InlineFragment",
+                  "typeCondition": "Furniture",
+                  "selections": [
+                    { "kind": "Field", "name": "__typename" },
+                    { "kind": "Field", "name": "upc" }
+                  ]
+                }
+              ],
+              "variableUsages": [],
+              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}"
+            }
+          },
+          {
+            "kind": "Flatten",
+            "path": ["me", "reviews", "@", "product"],
+            "node": {
+              "kind": "Fetch",
+              "serviceName": "books",
+              "requires": [
+                {
+                  "kind": "InlineFragment",
+                  "typeCondition": "Book",
+                  "selections": [
+                    { "kind": "Field", "name": "__typename" },
+                    { "kind": "Field", "name": "isbn" }
+                  ]
+                }
+              ],
+              "variableUsages": [],
+              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn abstract_types_fetches_composite_fields_from_a_foreign_type_casted_to_an_interface_provides_field() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetUserAndProducts {
+  me {
+    reviews {
+      product {
+        price
+        ... on Book {
+          name
+        }
+      }
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "accounts",
+        "variableUsages": [],
+        "operation": "{me{__typename id}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["me"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "reviews",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}"
+        }
+      },
+      {
+        "kind": "Parallel",
+        "nodes": [
+          {
+            "kind": "Flatten",
+            "path": ["me", "reviews", "@", "product"],
+            "node": {
+              "kind": "Fetch",
+              "serviceName": "product",
+              "requires": [
+                {
+                  "kind": "InlineFragment",
+                  "typeCondition": "Book",
+                  "selections": [
+                    { "kind": "Field", "name": "__typename" },
+                    { "kind": "Field", "name": "isbn" }
+                  ]
+                },
+                {
+                  "kind": "InlineFragment",
+                  "typeCondition": "Furniture",
+                  "selections": [
+                    { "kind": "Field", "name": "__typename" },
+                    { "kind": "Field", "name": "upc" }
+                  ]
+                }
+              ],
+              "variableUsages": [],
+              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}"
+            }
+          },
+          {
+            "kind": "Sequence",
+            "nodes": [
+              {
+                "kind": "Flatten",
+                "path": ["me", "reviews", "@", "product"],
+                "node": {
+                  "kind": "Fetch",
+                  "serviceName": "books",
+                  "requires": [
+                    {
+                      "kind": "InlineFragment",
+                      "typeCondition": "Book",
+                      "selections": [
+                        { "kind": "Field", "name": "__typename" },
+                        { "kind": "Field", "name": "isbn" }
+                      ]
+                    }
+                  ],
+                  "variableUsages": [],
+                  "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+                }
+              },
+              {
+                "kind": "Flatten",
+                "path": ["me", "reviews", "@", "product"],
+                "node": {
+                  "kind": "Fetch",
+                  "serviceName": "product",
+                  "requires": [
+                    {
+                      "kind": "InlineFragment",
+                      "typeCondition": "Book",
+                      "selections": [
+                        { "kind": "Field", "name": "__typename" },
+                        { "kind": "Field", "name": "isbn" },
+                        { "kind": "Field", "name": "title" },
+                        { "kind": "Field", "name": "year" }
+                      ]
+                    }
+                  ],
+                  "variableUsages": [],
+                  "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn abstract_types_allows_for_extending_an_interface_from_another_service_with_fields() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetProduct($upc: String!) {
+  product(upc: $upc) {
+    reviews {
+      body
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "product",
+        "variableUsages": ["upc"],
+        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "reviews",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" }
+              ]
+            },
             {
               "kind": "InlineFragment",
               "typeCondition": "Furniture",
@@ -138,13 +601,12 @@ mutation Review($upc: String!, $body: String!) {
             }
           ],
           "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}"
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{body}}...on Furniture{reviews{body}}}}"
         }
       }
     ]
   }
 }
-
 "##,
         QueryPlanningOptions {
             auto_fragmentization: false
@@ -155,26 +617,26 @@ mutation Review($upc: String!, $body: String!) {
 
 #[allow(non_snake_case)]
 #[test]
-fn mutations_multiple_root_mutations() {
+fn abstract_types_handles_unions_from_the_same_service() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
-mutation LoginAndReview(
-  $username: String!
-  $password: String!
-  $upc: String!
-  $body: String!
-) {
-  login(username: $username, password: $password) {
+query GetUserAndProducts {
+  me {
     reviews {
       product {
-        upc
+        price
+        ... on Furniture {
+          brand {
+            ... on Ikea {
+              asile
+            }
+            ... on Amazon {
+              referrer
+            }
+          }
+        }
       }
-    }
-  }
-  reviewProduct(upc: $upc, body: $body) {
-    ... on Furniture {
-      name
     }
   }
 }
@@ -188,12 +650,12 @@ mutation LoginAndReview(
       {
         "kind": "Fetch",
         "serviceName": "accounts",
-        "variableUsages": ["username", "password"],
-        "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
+        "variableUsages": [],
+        "operation": "{me{__typename id}}"
       },
       {
         "kind": "Flatten",
-        "path": ["login"],
+        "path": ["me"],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -208,12 +670,12 @@ mutation LoginAndReview(
             }
           ],
           "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}"
         }
       },
       {
         "kind": "Flatten",
-        "path": ["login", "reviews", "@", "product"],
+        "path": ["me", "reviews", "@", "product"],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -225,25 +687,7 @@ mutation LoginAndReview(
                 { "kind": "Field", "name": "__typename" },
                 { "kind": "Field", "name": "isbn" }
               ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
-        }
-      },
-      {
-        "kind": "Fetch",
-        "serviceName": "reviews",
-        "variableUsages": ["upc", "body"],
-        "operation": "mutation($upc:String!$body:String!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{__typename upc}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["reviewProduct"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "product",
-          "requires": [
+            },
             {
               "kind": "InlineFragment",
               "typeCondition": "Furniture",
@@ -254,116 +698,8 @@ mutation LoginAndReview(
             }
           ],
           "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}"
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price brand{__typename ...on Ikea{asile}...on Amazon{referrer}}}}}"
         }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn mutations_multiple_root_mutations_with_correct_service_order() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-mutation LoginAndReview(
-  $upc: String!
-  $body: String!
-  $updatedReview: UpdateReviewInput!
-  $username: String!
-  $password: String!
-  $reviewId: ID!
-) {
-  reviewProduct(upc: $upc, body: $body) {
-    ... on Furniture {
-      upc
-    }
-  }
-  updateReview(review: $updatedReview) {
-    id
-    body
-  }
-  login(username: $username, password: $password) {
-    reviews {
-      product {
-        upc
-      }
-    }
-  }
-  deleteReview(id: $reviewId)
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "reviews",
-        "variableUsages": ["upc", "body", "updatedReview"],
-        "operation": "mutation($upc:String!$body:String!$updatedReview:UpdateReviewInput!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{upc}}updateReview(review:$updatedReview){id body}}"
-      },
-      {
-        "kind": "Fetch",
-        "serviceName": "accounts",
-        "variableUsages": ["username", "password"],
-        "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["login"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "reviews",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "User",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
-        }
-      },
-      {
-        "kind": "Flatten",
-        "path": ["login", "reviews", "@", "product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "product",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
-        }
-      },
-      {
-        "kind": "Fetch",
-        "serviceName": "reviews",
-        "variableUsages": ["reviewId"],
-        "operation": "mutation($reviewId:ID!){deleteReview(id:$reviewId)}"
       }
     ]
   }
@@ -704,285 +1040,14 @@ query GetProduct($upc: String!) {
 
 #[allow(non_snake_case)]
 #[test]
-fn introspection_can_execute_schema_introspection_query() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query IntrospectionQuery {
-  __schema {
-    queryType {
-      name
-    }
-    mutationType {
-      name
-    }
-    subscriptionType {
-      name
-    }
-    types {
-      ...FullType
-    }
-    directives {
-      name
-      description
-      locations
-      args {
-        ...InputValue
-      }
-    }
-  }
-}
-fragment FullType on __Type {
-  kind
-  name
-  description
-  fields(includeDeprecated: true) {
-    name
-    description
-    args {
-      ...InputValue
-    }
-    type {
-      ...TypeRef
-    }
-    isDeprecated
-    deprecationReason
-  }
-  inputFields {
-    ...InputValue
-  }
-  interfaces {
-    ...TypeRef
-  }
-  enumValues(includeDeprecated: true) {
-    name
-    description
-    isDeprecated
-    deprecationReason
-  }
-  possibleTypes {
-    ...TypeRef
-  }
-}
-fragment InputValue on __InputValue {
-  name
-  description
-  type {
-    ...TypeRef
-  }
-  defaultValue
-}
-fragment TypeRef on __Type {
-  kind
-  name
-  ofType {
-    kind
-    name
-    ofType {
-      kind
-      name
-      ofType {
-        kind
-        name
-        ofType {
-          kind
-          name
-          ofType {
-            kind
-            name
-            ofType {
-              kind
-              name
-              ofType {
-                kind
-                name
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-"##,
-        r##"
-{ "kind": "QueryPlan" }
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn introspection_can_execute_type_introspection_query() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query($foo:String!) {
-  __type(name:$foo) {
-    enumValues{ __typename name }
-  }
-}
-"##,
-        r##"
-{ "kind": "QueryPlan" }
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn requires_supports_passing_additional_fields_defined_by_a_requires() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetReviwedBookNames {
-  me {
-    reviews {
-      product {
-        ... on Book {
-          name
-        }
-      }
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "accounts",
-        "variableUsages": [],
-        "operation": "{me{__typename id}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["me"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "reviews",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "User",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}}}}}}"
-        }
-      },
-      {
-        "kind": "Flatten",
-        "path": ["me", "reviews", "@", "product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "books",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
-        }
-      },
-      {
-        "kind": "Flatten",
-        "path": ["me", "reviews", "@", "product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "product",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" },
-                { "kind": "Field", "name": "title" },
-                { "kind": "Field", "name": "year" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
-        }
-      }
-    ]
-  }
-}
-
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn provides_does_not_have_to_go_to_another_service_when_field_is_given() {
+fn boolean_supports_skip_when_a_boolean_condition_is_met() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
 query GetReviewers {
   topReviews {
-    author {
-      username
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Fetch",
-    "serviceName": "reviews",
-    "variableUsages": [],
-    "operation": "{topReviews{author{username}}}"
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn provides_does_not_load_fields_provided_even_when_going_to_other_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetReviewers {
-  topReviews {
-    author {
-      username
+    body
+    author @skip(if: true) {
       name
     }
   }
@@ -998,7 +1063,7 @@ query GetReviewers {
         "kind": "Fetch",
         "serviceName": "reviews",
         "variableUsages": [],
-        "operation": "{topReviews{author{username __typename id}}}"
+        "operation": "{topReviews{body author@skip(if:true){__typename id}}}"
       },
       {
         "kind": "Flatten",
@@ -1033,13 +1098,16 @@ query GetReviewers {
 
 #[allow(non_snake_case)]
 #[test]
-fn custom_directives_successfully_passes_directives_along_in_requests_to_an_underlying_service() {
+fn boolean_supports_skip_when_a_boolean_condition_is_met_variable_driven() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
-query GetReviewers {
+query GetReviewers($skip: Boolean! = true) {
   topReviews {
-    body @stream
+    body
+    author @skip(if: $skip) {
+      username
+    }
   }
 }
 "##,
@@ -1049,8 +1117,8 @@ query GetReviewers {
   "node": {
     "kind": "Fetch",
     "serviceName": "reviews",
-    "variableUsages": [],
-    "operation": "{topReviews{body@stream}}"
+    "variableUsages": ["skip"],
+    "operation": "query($skip:Boolean!=true){topReviews{body author@skip(if:$skip){username}}}"
   }
 }
 "##,
@@ -1063,15 +1131,15 @@ query GetReviewers {
 
 #[allow(non_snake_case)]
 #[test]
-fn custom_directives_successfully_passes_directives_and_their_variables_along_in_requests_to_underlying_services() {
+fn boolean_supports_skip_when_a_boolean_condition_is_not_met() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
 query GetReviewers {
   topReviews {
-    body @stream
-    author @transform(from: "JSON") {
-      name @stream
+    body
+    author @skip(if: false) {
+      name
     }
   }
 }
@@ -1086,7 +1154,7 @@ query GetReviewers {
         "kind": "Fetch",
         "serviceName": "reviews",
         "variableUsages": [],
-        "operation": "{topReviews{body@stream author@transform(from:\"JSON\"){__typename id}}}"
+        "operation": "{topReviews{body author@skip(if:false){__typename id}}}"
       },
       {
         "kind": "Flatten",
@@ -1105,7 +1173,247 @@ query GetReviewers {
             }
           ],
           "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name@stream}}}"
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn boolean_supports_skip_when_a_boolean_condition_is_not_met_variable_driven() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetReviewers($skip: Boolean!) {
+  topReviews {
+    body
+    author @skip(if: $skip) {
+      name
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "reviews",
+        "variableUsages": ["skip"],
+        "operation": "query($skip:Boolean!){topReviews{body author@skip(if:$skip){__typename id}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["topReviews", "@", "author"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "accounts",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn boolean_supports_include_when_a_boolean_condition_is_not_met() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetReviewers {
+  topReviews {
+    body
+    author @include(if: false) {
+      username
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Fetch",
+    "serviceName": "reviews",
+    "variableUsages": [],
+    "operation": "{topReviews{body author@include(if:false){username}}}"
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn boolean_supports_include_when_a_boolean_condition_is_not_met_variable_driven() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetReviewers($include: Boolean! = false) {
+  topReviews {
+    body
+    author @include(if: $include) {
+      username
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Fetch",
+    "serviceName": "reviews",
+    "variableUsages": ["include"],
+    "operation": "query($include:Boolean!=false){topReviews{body author@include(if:$include){username}}}"
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn boolean_supports_include_when_a_boolean_condition_is_met() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetReviewers {
+  topReviews {
+    body
+    author @include(if: true) {
+      name
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "reviews",
+        "variableUsages": [],
+        "operation": "{topReviews{body author@include(if:true){__typename id}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["topReviews", "@", "author"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "accounts",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn boolean_supports_include_when_a_boolean_condition_is_met_variable_driven() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetReviewers($include: Boolean!) {
+  topReviews {
+    body
+    author @include(if: $include) {
+      name
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "reviews",
+        "variableUsages": ["include"],
+        "operation": "query($include:Boolean!){topReviews{body author@include(if:$include){__typename id}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["topReviews", "@", "author"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "accounts",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
         }
       }
     ]
@@ -3095,521 +3403,13 @@ query MergeArrays {
 
 #[allow(non_snake_case)]
 #[test]
-fn variables_passes_variables_to_root_fields() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetProduct($upc: String!) {
-  product(upc: $upc) {
-    name
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "product",
-        "variableUsages": ["upc"],
-        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "books",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
-        }
-      },
-      {
-        "kind": "Flatten",
-        "path": ["product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "product",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" },
-                { "kind": "Field", "name": "title" },
-                { "kind": "Field", "name": "year" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
-        }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn variables_supports_default_variables_in_a_variable_definition() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetProduct($upc: String = "1") {
-  product(upc: $upc) {
-    name
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "product",
-        "variableUsages": ["upc"],
-        "operation": "query($upc:String=\"1\"){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "books",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
-        }
-      },
-      {
-        "kind": "Flatten",
-        "path": ["product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "product",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" },
-                { "kind": "Field", "name": "title" },
-                { "kind": "Field", "name": "year" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
-        }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn variables_passes_variables_to_nested_services() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetProductsForUser($format: Boolean) {
-  me {
-    reviews {
-      body(format: $format)
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "accounts",
-        "variableUsages": [],
-        "operation": "{me{__typename id}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["me"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "reviews",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "User",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
-              ]
-            }
-          ],
-          "variableUsages": ["format"],
-          "operation": "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
-        }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn variables_works_with_default_variables_in_the_schema() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query LibraryUser($libraryId: ID!, $userId: ID) {
-  library(id: $libraryId) {
-    userAccount(id: $userId) {
-      id
-      name
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "books",
-        "variableUsages": ["libraryId"],
-        "operation": "query($libraryId:ID!){library(id:$libraryId){__typename id name}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["library"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "accounts",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Library",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" },
-                { "kind": "Field", "name": "name" }
-              ]
-            }
-          ],
-          "variableUsages": ["userId"],
-          "operation": "query($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name}}}}"
-        }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn variables_string_arguments_with_quotes_that_need_to_be_escaped() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query {
- vehicle(id: "{\"make\":\"Toyota\",\"model\":\"Rav4\",\"trim\":\"Limited\"}")
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Fetch",
-    "serviceName": "product",
-    "variableUsages": [],
-    "operation": "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\"){__typename}}"
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn boolean_supports_skip_when_a_boolean_condition_is_met() {
+fn custom_directives_successfully_passes_directives_along_in_requests_to_an_underlying_service() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
 query GetReviewers {
   topReviews {
-    body
-    author @skip(if: true) {
-      name
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "reviews",
-        "variableUsages": [],
-        "operation": "{topReviews{body author@skip(if:true){__typename id}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "accounts",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "User",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
-        }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn boolean_supports_skip_when_a_boolean_condition_is_met_variable_driven() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetReviewers($skip: Boolean! = true) {
-  topReviews {
-    body
-    author @skip(if: $skip) {
-      username
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Fetch",
-    "serviceName": "reviews",
-    "variableUsages": ["skip"],
-    "operation": "query($skip:Boolean!=true){topReviews{body author@skip(if:$skip){username}}}"
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn boolean_supports_skip_when_a_boolean_condition_is_not_met() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetReviewers {
-  topReviews {
-    body
-    author @skip(if: false) {
-      name
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "reviews",
-        "variableUsages": [],
-        "operation": "{topReviews{body author@skip(if:false){__typename id}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "accounts",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "User",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
-        }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn boolean_supports_skip_when_a_boolean_condition_is_not_met_variable_driven() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetReviewers($skip: Boolean!) {
-  topReviews {
-    body
-    author @skip(if: $skip) {
-      name
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "reviews",
-        "variableUsages": ["skip"],
-        "operation": "query($skip:Boolean!){topReviews{body author@skip(if:$skip){__typename id}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "accounts",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "User",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
-        }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn boolean_supports_include_when_a_boolean_condition_is_not_met() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetReviewers {
-  topReviews {
-    body
-    author @include(if: false) {
-      username
-    }
+    body @stream
   }
 }
 "##,
@@ -3620,7 +3420,7 @@ query GetReviewers {
     "kind": "Fetch",
     "serviceName": "reviews",
     "variableUsages": [],
-    "operation": "{topReviews{body author@include(if:false){username}}}"
+    "operation": "{topReviews{body@stream}}"
   }
 }
 "##,
@@ -3633,48 +3433,15 @@ query GetReviewers {
 
 #[allow(non_snake_case)]
 #[test]
-fn boolean_supports_include_when_a_boolean_condition_is_not_met_variable_driven() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetReviewers($include: Boolean! = false) {
-  topReviews {
-    body
-    author @include(if: $include) {
-      username
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Fetch",
-    "serviceName": "reviews",
-    "variableUsages": ["include"],
-    "operation": "query($include:Boolean!=false){topReviews{body author@include(if:$include){username}}}"
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn boolean_supports_include_when_a_boolean_condition_is_met() {
+fn custom_directives_successfully_passes_directives_and_their_variables_along_in_requests_to_underlying_services() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
 query GetReviewers {
   topReviews {
-    body
-    author @include(if: true) {
-      name
+    body @stream
+    author @transform(from: "JSON") {
+      name @stream
     }
   }
 }
@@ -3689,7 +3456,7 @@ query GetReviewers {
         "kind": "Fetch",
         "serviceName": "reviews",
         "variableUsages": [],
-        "operation": "{topReviews{body author@include(if:true){__typename id}}}"
+        "operation": "{topReviews{body@stream author@transform(from:\"JSON\"){__typename id}}}"
       },
       {
         "kind": "Flatten",
@@ -3708,65 +3475,7 @@ query GetReviewers {
             }
           ],
           "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
-        }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn boolean_supports_include_when_a_boolean_condition_is_met_variable_driven() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetReviewers($include: Boolean!) {
-  topReviews {
-    body
-    author @include(if: $include) {
-      name
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "reviews",
-        "variableUsages": ["include"],
-        "operation": "query($include:Boolean!){topReviews{body author@include(if:$include){__typename id}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "accounts",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "User",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name@stream}}}"
         }
       }
     ]
@@ -3812,120 +3521,6 @@ query GetUserAndReviews {
         "serviceName": "reviews",
         "variableUsages": [],
         "operation": "{topReviews{body}}"
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn value_types_resolves_value_types_within_their_respective_services() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-fragment Metadata on MetadataOrError {
-  ... on KeyValue {
-    key
-    value
-  }
-  ... on Error {
-    code
-    message
-  }
-}
-
-query ProducsWithMetadata {
-  topProducts(first: 10) {
-    upc
-    ... on Book {
-      metadata {
-        ...Metadata
-      }
-    }
-    ... on Furniture {
-      metadata {
-        ...Metadata
-      }
-    }
-    reviews {
-      metadata {
-        ...Metadata
-      }
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "product",
-        "variableUsages": [],
-        "operation": "{topProducts(first:10){__typename ...on Book{upc __typename isbn}...on Furniture{upc metadata{__typename ...on KeyValue{key value}...on Error{code message}}__typename}}}"
-      },
-      {
-        "kind": "Parallel",
-        "nodes": [
-          {
-            "kind": "Flatten",
-            "path": ["topProducts", "@"],
-            "node": {
-              "kind": "Fetch",
-              "serviceName": "books",
-              "requires": [
-                {
-                  "kind": "InlineFragment",
-                  "typeCondition": "Book",
-                  "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
-                  ]
-                }
-              ],
-              "variableUsages": [],
-              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}"
-            }
-          },
-          {
-            "kind": "Flatten",
-            "path": ["topProducts", "@"],
-            "node": {
-              "kind": "Fetch",
-              "serviceName": "reviews",
-              "requires": [
-                {
-                  "kind": "InlineFragment",
-                  "typeCondition": "Book",
-                  "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
-                  ]
-                },
-                {
-                  "kind": "InlineFragment",
-                  "typeCondition": "Furniture",
-                  "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
-                  ]
-                }
-              ],
-              "variableUsages": [],
-              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}...on Furniture{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}}"
-            }
-          }
-        ]
       }
     ]
   }
@@ -4344,204 +3939,109 @@ query GetVehicle {
 
 #[allow(non_snake_case)]
 #[test]
-fn abstract_types_handles_an_abstract_type_from_the_base_service() {
+fn introspection_can_execute_schema_introspection_query() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
-query GetProduct($upc: String!) {
-  product(upc: $upc) {
-    upc
+query IntrospectionQuery {
+  __schema {
+    queryType {
+      name
+    }
+    mutationType {
+      name
+    }
+    subscriptionType {
+      name
+    }
+    types {
+      ...FullType
+    }
+    directives {
+      name
+      description
+      locations
+      args {
+        ...InputValue
+      }
+    }
+  }
+}
+fragment FullType on __Type {
+  kind
+  name
+  description
+  fields(includeDeprecated: true) {
     name
-    price
+    description
+    args {
+      ...InputValue
+    }
+    type {
+      ...TypeRef
+    }
+    isDeprecated
+    deprecationReason
+  }
+  inputFields {
+    ...InputValue
+  }
+  interfaces {
+    ...TypeRef
+  }
+  enumValues(includeDeprecated: true) {
+    name
+    description
+    isDeprecated
+    deprecationReason
+  }
+  possibleTypes {
+    ...TypeRef
   }
 }
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "product",
-        "variableUsages": ["upc"],
-        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{upc __typename isbn price}...on Furniture{upc name price}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "books",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
-              ]
+fragment InputValue on __InputValue {
+  name
+  description
+  type {
+    ...TypeRef
+  }
+  defaultValue
+}
+fragment TypeRef on __Type {
+  kind
+  name
+  ofType {
+    kind
+    name
+    ofType {
+      kind
+      name
+      ofType {
+        kind
+        name
+        ofType {
+          kind
+          name
+          ofType {
+            kind
+            name
+            ofType {
+              kind
+              name
+              ofType {
+                kind
+                name
+              }
             }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
-        }
-      },
-      {
-        "kind": "Flatten",
-        "path": ["product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "product",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" },
-                { "kind": "Field", "name": "title" },
-                { "kind": "Field", "name": "year" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
+          }
         }
       }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn abstract_types_can_request_fields_on_extended_interfaces() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetProduct($upc: String!) {
-  product(upc: $upc) {
-    inStock
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "product",
-        "variableUsages": ["upc"],
-        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "inventory",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
-              ]
-            },
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Furniture",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "sku" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{inStock}...on Furniture{inStock}}}"
-        }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn abstract_types_can_request_fields_on_extended_types_that_implement_an_interface() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetProduct($upc: String!) {
-  product(upc: $upc) {
-    inStock
-    ... on Furniture {
-      isHeavy
     }
   }
 }
 "##,
         r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "product",
-        "variableUsages": ["upc"],
-        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "inventory",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
-              ]
-            },
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Furniture",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "sku" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{inStock}...on Furniture{inStock isHeavy}}}"
-        }
-      }
-    ]
-  }
-}
+{ "kind": "QueryPlan" }
 "##,
         QueryPlanningOptions {
             auto_fragmentization: false
@@ -4552,65 +4052,18 @@ query GetProduct($upc: String!) {
 
 #[allow(non_snake_case)]
 #[test]
-fn abstract_types_prunes_unfilled_type_conditions() {
+fn introspection_can_execute_type_introspection_query() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
-query GetProduct($upc: String!) {
-  product(upc: $upc) {
-    inStock
-    ... on Furniture {
-      isHeavy
-    }
-    ... on Book {
-      isCheckedOut
-    }
+query($foo:String!) {
+  __type(name:$foo) {
+    enumValues{ __typename name }
   }
 }
 "##,
         r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "product",
-        "variableUsages": ["upc"],
-        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["product"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "inventory",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Book",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
-              ]
-            },
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Furniture",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "sku" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{inStock isCheckedOut}...on Furniture{inStock isHeavy}}}"
-        }
-      }
-    ]
-  }
-}
+{ "kind": "QueryPlan" }
 "##,
         QueryPlanningOptions {
             auto_fragmentization: false
@@ -4621,18 +4074,15 @@ query GetProduct($upc: String!) {
 
 #[allow(non_snake_case)]
 #[test]
-fn abstract_types_fetches_interfaces_returned_from_other_services() {
+fn mutations_supports_mutations() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
-query GetUserAndProducts {
-  me {
+mutation Login($username: String!, $password: String!) {
+  login(username: $username, password: $password) {
     reviews {
       product {
-        price
-        ... on Book {
-          title
-        }
+        upc
       }
     }
   }
@@ -4647,12 +4097,12 @@ query GetUserAndProducts {
       {
         "kind": "Fetch",
         "serviceName": "accounts",
-        "variableUsages": [],
-        "operation": "{me{__typename id}}"
+        "variableUsages": ["username", "password"],
+        "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": ["login"],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -4667,61 +4117,28 @@ query GetUserAndProducts {
             }
           ],
           "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}"
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
         }
       },
       {
-        "kind": "Parallel",
-        "nodes": [
-          {
-            "kind": "Flatten",
-            "path": ["me", "reviews", "@", "product"],
-            "node": {
-              "kind": "Fetch",
-              "serviceName": "product",
-              "requires": [
-                {
-                  "kind": "InlineFragment",
-                  "typeCondition": "Book",
-                  "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
-                  ]
-                },
-                {
-                  "kind": "InlineFragment",
-                  "typeCondition": "Furniture",
-                  "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
-                  ]
-                }
-              ],
-              "variableUsages": [],
-              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}"
+        "kind": "Flatten",
+        "path": ["login", "reviews", "@", "product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "product",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" }
+              ]
             }
-          },
-          {
-            "kind": "Flatten",
-            "path": ["me", "reviews", "@", "product"],
-            "node": {
-              "kind": "Fetch",
-              "serviceName": "books",
-              "requires": [
-                {
-                  "kind": "InlineFragment",
-                  "typeCondition": "Book",
-                  "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
-                  ]
-                }
-              ],
-              "variableUsages": [],
-              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}"
-            }
-          }
-        ]
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
+        }
       }
     ]
   }
@@ -4736,15 +4153,385 @@ query GetUserAndProducts {
 
 #[allow(non_snake_case)]
 #[test]
-fn abstract_types_fetches_composite_fields_from_a_foreign_type_casted_to_an_interface_provides_field() {
+fn mutations_mutations_across_service_boundaries() {
     assert_query_plan(
         include_str!("basic/schema.graphql"),
         r##"
-query GetUserAndProducts {
+mutation Review($upc: String!, $body: String!) {
+  reviewProduct(upc: $upc, body: $body) {
+    ... on Furniture {
+      name
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "reviews",
+        "variableUsages": ["upc", "body"],
+        "operation": "mutation($upc:String!$body:String!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{__typename upc}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["reviewProduct"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "product",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Furniture",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "upc" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}"
+        }
+      }
+    ]
+  }
+}
+
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn mutations_multiple_root_mutations() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+mutation LoginAndReview(
+  $username: String!
+  $password: String!
+  $upc: String!
+  $body: String!
+) {
+  login(username: $username, password: $password) {
+    reviews {
+      product {
+        upc
+      }
+    }
+  }
+  reviewProduct(upc: $upc, body: $body) {
+    ... on Furniture {
+      name
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "accounts",
+        "variableUsages": ["username", "password"],
+        "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["login"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "reviews",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
+        }
+      },
+      {
+        "kind": "Flatten",
+        "path": ["login", "reviews", "@", "product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "product",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
+        }
+      },
+      {
+        "kind": "Fetch",
+        "serviceName": "reviews",
+        "variableUsages": ["upc", "body"],
+        "operation": "mutation($upc:String!$body:String!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{__typename upc}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["reviewProduct"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "product",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Furniture",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "upc" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn mutations_multiple_root_mutations_with_correct_service_order() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+mutation LoginAndReview(
+  $upc: String!
+  $body: String!
+  $updatedReview: UpdateReviewInput!
+  $username: String!
+  $password: String!
+  $reviewId: ID!
+) {
+  reviewProduct(upc: $upc, body: $body) {
+    ... on Furniture {
+      upc
+    }
+  }
+  updateReview(review: $updatedReview) {
+    id
+    body
+  }
+  login(username: $username, password: $password) {
+    reviews {
+      product {
+        upc
+      }
+    }
+  }
+  deleteReview(id: $reviewId)
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "reviews",
+        "variableUsages": ["upc", "body", "updatedReview"],
+        "operation": "mutation($upc:String!$body:String!$updatedReview:UpdateReviewInput!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{upc}}updateReview(review:$updatedReview){id body}}"
+      },
+      {
+        "kind": "Fetch",
+        "serviceName": "accounts",
+        "variableUsages": ["username", "password"],
+        "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["login"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "reviews",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
+        }
+      },
+      {
+        "kind": "Flatten",
+        "path": ["login", "reviews", "@", "product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "product",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
+        }
+      },
+      {
+        "kind": "Fetch",
+        "serviceName": "reviews",
+        "variableUsages": ["reviewId"],
+        "operation": "mutation($reviewId:ID!){deleteReview(id:$reviewId)}"
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn provides_does_not_have_to_go_to_another_service_when_field_is_given() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetReviewers {
+  topReviews {
+    author {
+      username
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Fetch",
+    "serviceName": "reviews",
+    "variableUsages": [],
+    "operation": "{topReviews{author{username}}}"
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn provides_does_not_load_fields_provided_even_when_going_to_other_service() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetReviewers {
+  topReviews {
+    author {
+      username
+      name
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "reviews",
+        "variableUsages": [],
+        "operation": "{topReviews{author{username __typename id}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["topReviews", "@", "author"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "accounts",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn requires_supports_passing_additional_fields_defined_by_a_requires() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetReviwedBookNames {
   me {
     reviews {
       product {
-        price
         ... on Book {
           name
         }
@@ -4782,132 +4569,15 @@ query GetUserAndProducts {
             }
           ],
           "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}"
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}}}}}}"
         }
-      },
-      {
-        "kind": "Parallel",
-        "nodes": [
-          {
-            "kind": "Flatten",
-            "path": ["me", "reviews", "@", "product"],
-            "node": {
-              "kind": "Fetch",
-              "serviceName": "product",
-              "requires": [
-                {
-                  "kind": "InlineFragment",
-                  "typeCondition": "Book",
-                  "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
-                  ]
-                },
-                {
-                  "kind": "InlineFragment",
-                  "typeCondition": "Furniture",
-                  "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
-                  ]
-                }
-              ],
-              "variableUsages": [],
-              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}"
-            }
-          },
-          {
-            "kind": "Sequence",
-            "nodes": [
-              {
-                "kind": "Flatten",
-                "path": ["me", "reviews", "@", "product"],
-                "node": {
-                  "kind": "Fetch",
-                  "serviceName": "books",
-                  "requires": [
-                    {
-                      "kind": "InlineFragment",
-                      "typeCondition": "Book",
-                      "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" }
-                      ]
-                    }
-                  ],
-                  "variableUsages": [],
-                  "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
-                }
-              },
-              {
-                "kind": "Flatten",
-                "path": ["me", "reviews", "@", "product"],
-                "node": {
-                  "kind": "Fetch",
-                  "serviceName": "product",
-                  "requires": [
-                    {
-                      "kind": "InlineFragment",
-                      "typeCondition": "Book",
-                      "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" },
-                        { "kind": "Field", "name": "title" },
-                        { "kind": "Field", "name": "year" }
-                      ]
-                    }
-                  ],
-                  "variableUsages": [],
-                  "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
-                }
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn abstract_types_allows_for_extending_an_interface_from_another_service_with_fields() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetProduct($upc: String!) {
-  product(upc: $upc) {
-    reviews {
-      body
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "product",
-        "variableUsages": ["upc"],
-        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": ["me", "reviews", "@", "product"],
         "node": {
           "kind": "Fetch",
-          "serviceName": "reviews",
+          "serviceName": "books",
           "requires": [
             {
               "kind": "InlineFragment",
@@ -4916,87 +4586,10 @@ query GetProduct($upc: String!) {
                 { "kind": "Field", "name": "__typename" },
                 { "kind": "Field", "name": "isbn" }
               ]
-            },
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Furniture",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "upc" }
-              ]
             }
           ],
           "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{body}}...on Furniture{reviews{body}}}}"
-        }
-      }
-    ]
-  }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
-    );
-}
-
-
-#[allow(non_snake_case)]
-#[test]
-fn abstract_types_handles_unions_from_the_same_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
-query GetUserAndProducts {
-  me {
-    reviews {
-      product {
-        price
-        ... on Furniture {
-          brand {
-            ... on Ikea {
-              asile
-            }
-            ... on Amazon {
-              referrer
-            }
-          }
-        }
-      }
-    }
-  }
-}
-"##,
-        r##"
-{
-  "kind": "QueryPlan",
-  "node": {
-    "kind": "Sequence",
-    "nodes": [
-      {
-        "kind": "Fetch",
-        "serviceName": "accounts",
-        "variableUsages": [],
-        "operation": "{me{__typename id}}"
-      },
-      {
-        "kind": "Flatten",
-        "path": ["me"],
-        "node": {
-          "kind": "Fetch",
-          "serviceName": "reviews",
-          "requires": [
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "User",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
-              ]
-            }
-          ],
-          "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}"
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
         }
       },
       {
@@ -5011,25 +4604,20 @@ query GetUserAndProducts {
               "typeCondition": "Book",
               "selections": [
                 { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
-              ]
-            },
-            {
-              "kind": "InlineFragment",
-              "typeCondition": "Furniture",
-              "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "upc" }
+                { "kind": "Field", "name": "isbn" },
+                { "kind": "Field", "name": "title" },
+                { "kind": "Field", "name": "year" }
               ]
             }
           ],
           "variableUsages": [],
-          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price brand{__typename ...on Ikea{asile}...on Amazon{referrer}}}}}"
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
         }
       }
     ]
   }
 }
+
 "##,
         QueryPlanningOptions {
             auto_fragmentization: false
@@ -5110,6 +4698,418 @@ query GetUser {
     "serviceName": "accounts",
     "variableUsages": [],
     "operation": "{me{account{__typename}}}"
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn value_types_resolves_value_types_within_their_respective_services() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+fragment Metadata on MetadataOrError {
+  ... on KeyValue {
+    key
+    value
+  }
+  ... on Error {
+    code
+    message
+  }
+}
+
+query ProducsWithMetadata {
+  topProducts(first: 10) {
+    upc
+    ... on Book {
+      metadata {
+        ...Metadata
+      }
+    }
+    ... on Furniture {
+      metadata {
+        ...Metadata
+      }
+    }
+    reviews {
+      metadata {
+        ...Metadata
+      }
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "product",
+        "variableUsages": [],
+        "operation": "{topProducts(first:10){__typename ...on Book{upc __typename isbn}...on Furniture{upc metadata{__typename ...on KeyValue{key value}...on Error{code message}}__typename}}}"
+      },
+      {
+        "kind": "Parallel",
+        "nodes": [
+          {
+            "kind": "Flatten",
+            "path": ["topProducts", "@"],
+            "node": {
+              "kind": "Fetch",
+              "serviceName": "books",
+              "requires": [
+                {
+                  "kind": "InlineFragment",
+                  "typeCondition": "Book",
+                  "selections": [
+                    { "kind": "Field", "name": "__typename" },
+                    { "kind": "Field", "name": "isbn" }
+                  ]
+                }
+              ],
+              "variableUsages": [],
+              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}"
+            }
+          },
+          {
+            "kind": "Flatten",
+            "path": ["topProducts", "@"],
+            "node": {
+              "kind": "Fetch",
+              "serviceName": "reviews",
+              "requires": [
+                {
+                  "kind": "InlineFragment",
+                  "typeCondition": "Book",
+                  "selections": [
+                    { "kind": "Field", "name": "__typename" },
+                    { "kind": "Field", "name": "isbn" }
+                  ]
+                },
+                {
+                  "kind": "InlineFragment",
+                  "typeCondition": "Furniture",
+                  "selections": [
+                    { "kind": "Field", "name": "__typename" },
+                    { "kind": "Field", "name": "upc" }
+                  ]
+                }
+              ],
+              "variableUsages": [],
+              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}...on Furniture{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}}"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn variables_passes_variables_to_root_fields() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetProduct($upc: String!) {
+  product(upc: $upc) {
+    name
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "product",
+        "variableUsages": ["upc"],
+        "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "books",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+        }
+      },
+      {
+        "kind": "Flatten",
+        "path": ["product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "product",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" },
+                { "kind": "Field", "name": "title" },
+                { "kind": "Field", "name": "year" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn variables_supports_default_variables_in_a_variable_definition() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetProduct($upc: String = "1") {
+  product(upc: $upc) {
+    name
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "product",
+        "variableUsages": ["upc"],
+        "operation": "query($upc:String=\"1\"){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "books",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+        }
+      },
+      {
+        "kind": "Flatten",
+        "path": ["product"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "product",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Book",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "isbn" },
+                { "kind": "Field", "name": "title" },
+                { "kind": "Field", "name": "year" }
+              ]
+            }
+          ],
+          "variableUsages": [],
+          "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn variables_passes_variables_to_nested_services() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query GetProductsForUser($format: Boolean) {
+  me {
+    reviews {
+      body(format: $format)
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "accounts",
+        "variableUsages": [],
+        "operation": "{me{__typename id}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["me"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "reviews",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "User",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" }
+              ]
+            }
+          ],
+          "variableUsages": ["format"],
+          "operation": "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn variables_works_with_default_variables_in_the_schema() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query LibraryUser($libraryId: ID!, $userId: ID) {
+  library(id: $libraryId) {
+    userAccount(id: $userId) {
+      id
+      name
+    }
+  }
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Sequence",
+    "nodes": [
+      {
+        "kind": "Fetch",
+        "serviceName": "books",
+        "variableUsages": ["libraryId"],
+        "operation": "query($libraryId:ID!){library(id:$libraryId){__typename id name}}"
+      },
+      {
+        "kind": "Flatten",
+        "path": ["library"],
+        "node": {
+          "kind": "Fetch",
+          "serviceName": "accounts",
+          "requires": [
+            {
+              "kind": "InlineFragment",
+              "typeCondition": "Library",
+              "selections": [
+                { "kind": "Field", "name": "__typename" },
+                { "kind": "Field", "name": "id" },
+                { "kind": "Field", "name": "name" }
+              ]
+            }
+          ],
+          "variableUsages": ["userId"],
+          "operation": "query($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name}}}}"
+        }
+      }
+    ]
+  }
+}
+"##,
+        QueryPlanningOptions {
+            auto_fragmentization: false
+        }
+    );
+}
+
+
+#[allow(non_snake_case)]
+#[test]
+fn variables_string_arguments_with_quotes_that_need_to_be_escaped() {
+    assert_query_plan(
+        include_str!("basic/schema.graphql"),
+        r##"
+query {
+ vehicle(id: "{\"make\":\"Toyota\",\"model\":\"Rav4\",\"trim\":\"Limited\"}")
+}
+"##,
+        r##"
+{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Fetch",
+    "serviceName": "product",
+    "variableUsages": [],
+    "operation": "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\"){__typename}}"
   }
 }
 "##,

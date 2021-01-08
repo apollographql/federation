@@ -37,9 +37,9 @@ scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__sel
 
 
 enum cs__Graph {
-  users @cs__link(to: { http: { url: "undefined" } }),
+  actuary @cs__link(to: { http: { url: "undefined" } }),
   reviews @cs__link(to: { http: { url: "undefined" } }),
-  actuary @cs__link(to: { http: { url: "undefined" } })
+  users @cs__link(to: { http: { url: "undefined" } })
 }
 
 type Group {
@@ -48,8 +48,8 @@ type Group {
 }
 
 type Query {
-  users: [User!]! @cs__resolve(graph: users)
   reviews: [Review!]! @cs__resolve(graph: reviews)
+  users: [User!]! @cs__resolve(graph: users)
 }
 
 type Review {
@@ -64,12 +64,12 @@ type User
   ssn: ID!
   name: String!
   group: Group
-  reviews: [Review!]! @cs__resolve(graph: reviews)
   risk: Float @cs__resolve(graph: actuary)
+  reviews: [Review!]! @cs__resolve(graph: reviews)
 }
-fragment cs__keyFor_User_0 on User @cs__key(graph: users) { ssn }
-fragment cs__keyFor_User_1 on User @cs__key(graph: users) { id }
-fragment cs__keyFor_User_2 on User @cs__key(graph: users) { group { id } }
-fragment cs__keyFor_User_3 on User @cs__key(graph: reviews) { id }
-fragment cs__keyFor_User_4 on User @cs__key(graph: actuary) { ssn }
+fragment cs__keyFor_User_0 on User @cs__key(graph: actuary) { ssn }
+fragment cs__keyFor_User_1 on User @cs__key(graph: reviews) { id }
+fragment cs__keyFor_User_2 on User @cs__key(graph: users) { ssn }
+fragment cs__keyFor_User_3 on User @cs__key(graph: users) { id }
+fragment cs__keyFor_User_4 on User @cs__key(graph: users) { group { id } }
 
