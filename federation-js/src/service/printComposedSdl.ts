@@ -200,7 +200,8 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
     `type ${type.name}` +
     implementedInterfaces +
     printFields(options, type) +
-    printKeys(type)
+    printKeys(type) +
+    printFragmentsForType(type)
   );
 }
 
@@ -222,7 +223,7 @@ function printKeys(type: GraphQLObjectType): string {
         )
         .join(''),
     )
-    .join('')
+    .join('') + '\n'
   );
 }
 
@@ -238,7 +239,8 @@ function printInterface(type: GraphQLInterfaceType, options?: Options): string {
     printDescription(options, type) +
     (isExtension ? 'extend ' : '') +
     `interface ${type.name}` +
-    printFields(options, type)
+    printFields(options, type) +
+    printFragmentsForType(type)
   );
 }
 
@@ -291,7 +293,7 @@ function printFields(
       ': ' +
       String(f.type) +
       printDeprecated(f) +
-      printFederationFieldDirectives(f),
+      printFederationFieldDirectives(type, f),
   );
 
   // Federation change: for entities, we want to print the block on a new line.
@@ -322,6 +324,7 @@ function printFieldSet(selections: readonly SelectionNode[]): string {
  * @param field
  */
 function printFederationFieldDirectives(
+  type: GraphQLObjectType | GraphQLInterfaceType,
   field: GraphQLField<any, any>,
 ): string {
   if (!field.extensions?.federation) return '';
@@ -334,13 +337,47 @@ function printFederationFieldDirectives(
 
   return ` @cs__resolve(graph: ${serviceName}${
     requires.length ?
-      `, requires: "${printFieldSet(requires)}"`
+      `, requires: "${findOrCreateFragment(type, requires)}"`
       : ''
   }${
     provides.length ?
-      `, provides: "${printFieldSet(provides)}"`
+      `, provides: "${findOrCreateFragment(type, provides)}"`
       : ''
   })`
+}
+
+type FragmentSource = (GraphQLObjectType | GraphQLInterfaceType) & {
+  fragments?: Map<string, { id: string, text: string }>,
+  nextFragmentId?: number
+}
+
+function findOrCreateFragment(
+  type: FragmentSource,
+  selections: readonly SelectionNode[]
+): string {
+  type.fragments ??= new Map;
+  type.nextFragmentId ??= 0;
+
+  const key = printFieldSet(selections);
+  const existing = type.fragments.get(key);
+  if (existing) return existing.id;
+
+  const id = `cs__fragmentOn_` + asValidIdentifier(`${type}_${key}_${type.nextFragmentId++}`);
+
+  type.fragments.set(id,
+    { id, text: `fragment ${id} on ${type.name} ${printFieldSet(selections)}` });
+  return id;
+}
+
+function asValidIdentifier(input: string) {
+  return input.trim()
+    .replace(/(\s|,|{|})+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/[^A-Za-z_0-9]/g, '');
+}
+
+function printFragmentsForType(type: FragmentSource) {
+  return [...type.fragments?.values() ?? []].map(f => `\n${f.text}`).join();
 }
 
 // Federation change: `onNewLine` is a formatting nice-to-have for printing

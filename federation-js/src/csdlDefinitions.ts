@@ -11,7 +11,7 @@ directive @cs__resolve(
 directive @cs__error(
   graphs: [cs__Graph!],
   message: String)
-    on OBJECT
+    repeatable on OBJECT
     | INTERFACE
     | UNION
     | FIELD_DEFINITION

@@ -25,8 +25,7 @@ describe('printComposedSdl', () => {
 
   it('prints a fully composed schema correctly', () => {
     expect(composedSdl).toMatchInlineSnapshot(`
-      "schema
-        @using(spec: \\"https://specs.apollo.dev/cs/v0.1\\")
+      "schema @using(spec: \\"https://specs.apollo.dev/cs/v0.1\\")
       {
         query: Query
         mutation: Mutation
@@ -45,10 +44,10 @@ describe('printComposedSdl', () => {
       directive @cs__error(
         graphs: [cs__Graph!],
         message: String)
-          on OBJECT
-           | INTERFACE
-           | UNION
-           | FIELD_DEFINITION
+          repeatable on OBJECT
+          | INTERFACE
+          | UNION
+          | FIELD_DEFINITION
 
       directive @cs__link(to: cs__OutboundLink!)
         on ENUM_VALUE
@@ -97,16 +96,19 @@ describe('printComposedSdl', () => {
         isCheckedOut: Boolean @cs__resolve(graph: inventory)
         upc: String! @cs__resolve(graph: product)
         sku: String! @cs__resolve(graph: product)
-        name(delimeter: String = \\" \\"): String @cs__resolve(graph: product, requires: \\"{ title year }\\")
+        name(delimeter: String = \\" \\"): String @cs__resolve(graph: product, requires: \\"cs__fragmentOn_Book_title_year_0\\")
         price: String @cs__resolve(graph: product)
         details: ProductDetailsBook @cs__resolve(graph: product)
         reviews: [Review] @cs__resolve(graph: reviews)
-        relatedReviews: [Review!]! @cs__resolve(graph: reviews, requires: \\"{ similarBooks { isbn } }\\")
+        relatedReviews: [Review!]! @cs__resolve(graph: reviews, requires: \\"cs__fragmentOn_Book_similarBooks_isbn_1\\")
       }
       fragment cs__keyFor_Book_0 on Book @cs__key(graph: books) { isbn }
       fragment cs__keyFor_Book_1 on Book @cs__key(graph: inventory) { isbn }
       fragment cs__keyFor_Book_2 on Book @cs__key(graph: product) { isbn }
       fragment cs__keyFor_Book_3 on Book @cs__key(graph: reviews) { isbn }
+
+      fragment cs__fragmentOn_Book_title_year_0 on Book { title year },
+      fragment cs__fragmentOn_Book_similarBooks_isbn_1 on Book { similarBooks { isbn } }
 
       union Brand = Ikea | Amazon
 
@@ -115,10 +117,12 @@ describe('printComposedSdl', () => {
         id: String!
         description: String
         price: String
-        retailPrice: String @cs__resolve(graph: reviews, requires: \\"{ price }\\")
+        retailPrice: String @cs__resolve(graph: reviews, requires: \\"cs__fragmentOn_Car_price_0\\")
       }
       fragment cs__keyFor_Car_4 on Car @cs__key(graph: product) { id }
       fragment cs__keyFor_Car_5 on Car @cs__key(graph: reviews) { id }
+
+      fragment cs__fragmentOn_Car_price_0 on Car { price }
 
       type Error {
         code: Int
@@ -143,6 +147,7 @@ describe('printComposedSdl', () => {
       fragment cs__keyFor_Furniture_8 on Furniture @cs__key(graph: product) { sku }
       fragment cs__keyFor_Furniture_9 on Furniture @cs__key(graph: reviews) { upc }
 
+
       type Ikea {
         asile: Int
       }
@@ -165,10 +170,12 @@ describe('printComposedSdl', () => {
       {
         id: ID!
         name: String
-        userAccount(id: ID! = 1): User @cs__resolve(graph: accounts, requires: \\"{ name }\\")
+        userAccount(id: ID! = 1): User @cs__resolve(graph: accounts, requires: \\"cs__fragmentOn_Library_name_0\\")
       }
       fragment cs__keyFor_Library_10 on Library @cs__key(graph: accounts) { id }
       fragment cs__keyFor_Library_11 on Library @cs__key(graph: books) { id }
+
+      fragment cs__fragmentOn_Library_name_0 on Library { name }
 
       union MetadataOrError = KeyValue | Error
 
@@ -189,6 +196,7 @@ describe('printComposedSdl', () => {
         email: String!
       }
       fragment cs__keyFor_PasswordAccount_12 on PasswordAccount @cs__key(graph: accounts) { email }
+
 
       interface Product {
         upc: String!
@@ -232,17 +240,20 @@ describe('printComposedSdl', () => {
       {
         id: ID!
         body(format: Boolean = false): String
-        author: User @cs__resolve(graph: reviews, provides: \\"{ username }\\")
+        author: User @cs__resolve(graph: reviews, provides: \\"cs__fragmentOn_Review_username_0\\")
         product: Product
         metadata: [MetadataOrError]
       }
       fragment cs__keyFor_Review_13 on Review @cs__key(graph: reviews) { id }
+
+      fragment cs__fragmentOn_Review_username_0 on Review { username }
 
       type SMSAccount
       {
         number: String
       }
       fragment cs__keyFor_SMSAccount_14 on SMSAccount @cs__key(graph: accounts) { number }
+
 
       type Text {
         name: String!
@@ -269,18 +280,21 @@ describe('printComposedSdl', () => {
         birthDate(locale: String): String
         account: AccountType
         metadata: [UserMetadata]
-        goodDescription: Boolean @cs__resolve(graph: inventory, requires: \\"{ metadata { description } }\\")
+        goodDescription: Boolean @cs__resolve(graph: inventory, requires: \\"cs__fragmentOn_User_metadata_description_0\\")
         vehicle: Vehicle @cs__resolve(graph: product)
         thing: Thing @cs__resolve(graph: product)
         reviews: [Review] @cs__resolve(graph: reviews)
         numberOfReviews: Int! @cs__resolve(graph: reviews)
-        goodAddress: Boolean @cs__resolve(graph: reviews, requires: \\"{ metadata { address } }\\")
+        goodAddress: Boolean @cs__resolve(graph: reviews, requires: \\"cs__fragmentOn_User_metadata_address_1\\")
       }
       fragment cs__keyFor_User_15 on User @cs__key(graph: accounts) { id }
       fragment cs__keyFor_User_16 on User @cs__key(graph: accounts) { username name { first last } }
       fragment cs__keyFor_User_17 on User @cs__key(graph: inventory) { id }
       fragment cs__keyFor_User_18 on User @cs__key(graph: product) { id }
       fragment cs__keyFor_User_19 on User @cs__key(graph: reviews) { id }
+
+      fragment cs__fragmentOn_User_metadata_description_0 on User { metadata { description } },
+      fragment cs__fragmentOn_User_metadata_address_1 on User { metadata { address } }
 
       type UserMetadata {
         name: String
@@ -293,10 +307,12 @@ describe('printComposedSdl', () => {
         id: String!
         description: String
         price: String
-        retailPrice: String @cs__resolve(graph: reviews, requires: \\"{ price }\\")
+        retailPrice: String @cs__resolve(graph: reviews, requires: \\"cs__fragmentOn_Van_price_0\\")
       }
       fragment cs__keyFor_Van_20 on Van @cs__key(graph: product) { id }
       fragment cs__keyFor_Van_21 on Van @cs__key(graph: reviews) { id }
+
+      fragment cs__fragmentOn_Van_price_0 on Van { price }
 
       interface Vehicle {
         id: String!
