@@ -22,13 +22,24 @@ fn main() {
   match composed {
     Ok(schema) => { println!("{}", schema); },
     Err(errors) => {
-      for err in &errors {
-        eprintln!("{}", err.message);
+      eprintln!("{count} errors during composition:", count = errors.len());
+
+      for (index, err) in errors.iter().enumerate() {
+        if let Some(ref msg) = err.message {
+          eprintln!("  {index}. {code}: {message}",
+            index = index + 1,
+            code = err.code(),
+            message = msg);
+        } else {
+          eprintln!("  {index}. {code}",
+            index = index + 1,
+            code = err.code())
+        }
       }
 
-      eprintln!("{} {} during composition",
-        errors.len(),
-        if errors.len() == 1 { "error" } else { "errors" });
+      eprintln!("{count} {errors} occurred during composition",
+        count = errors.len(),
+        errors = if errors.len() == 1 { "error" } else { "errors" });
     }
   }
 }

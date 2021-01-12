@@ -29,7 +29,23 @@ pub type ServiceList = Vec<ServiceDefinition>;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct CompositionError {
-  pub message: String
+  pub message: Option<String>,
+  pub extensions: Option<CompositionErrorExtensions>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct CompositionErrorExtensions {
+  pub code: String
+}
+
+impl CompositionError {
+  pub fn code(&self) -> &str {
+    if let Some(ref ext) = self.extensions {
+      ext.code.as_str()
+    } else {
+      "UNKNOWN"
+    }
+  }
 }
 
 pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionError>> {
@@ -65,13 +81,8 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
 
   runtime.register_op(
     "op_composition_result",
-    json_op_sync(move |_state, value, zero_copy| {      
-      let mut result = String::new();
-
-      // Write the contents of every buffer to stdout
-      for buf in zero_copy {
-        result.push_str(std::str::from_utf8(&buf).expect("utf8 conversion"));
-      }
+    json_op_sync(move |_state, value, _zero_copy| {
+      println!("value:{:?}", &value);
 
       tx.send(
         serde_json::from_value(value)
