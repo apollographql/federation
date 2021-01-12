@@ -235,11 +235,11 @@ We can perform this migration safely with the following steps:
 
 ### Field migration
 
-The steps for migrating an individual field are nearly identical in form to the steps for [migrating an entire entity](#entity-migration).
+The steps for migrating an individual field are nearly identical in form to the steps for [migrating an entire entity](#type-migration).
 
 Let's say our `products` service defines a `Product` entity, which includes the boolean field `inStock`. Then, we add an `inventory` service to our federated graph. It now makes sense for the `inStock` field to originate in the `inventory` service instead.
 
-We can perform this migration safely with the following steps (_additional commentary on each step is provided in [Entity migration](#entity-migration)_):
+We can perform this migration safely with the following steps (_additional commentary on each step is provided in [Entity migration](#type-migration)_):
 
 1. In the `inventory` service's schema, [extend](#extending) the `Product` entity to add the `inStock` field. If you're using managed federation, register this schema change with Studio.
 
