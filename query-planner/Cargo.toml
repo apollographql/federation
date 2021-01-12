@@ -21,5 +21,10 @@ tracing = "0.1.21"
 tracing-futures = "0.2.4"
 
 [build-dependencies]
-harmonizer = { path = "../../../harmonizer" }
+# workspace build deps
+harmonizer = { path = "../harmonizer" }
+
+# 3rd party
 gherkin_rust = "0.8.3"
+
+

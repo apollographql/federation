@@ -90,9 +90,9 @@ fn execute_node<'schema, 'request>(
                         ]
                     }
 
-                    inner_to_merge = {
+                    inner_to_merge = [
                         { __typename: "Book", isbn: "1234" }
-                    }
+                    ]
                 */
                 {
                     let results_to_flatten = results.read().unwrap();
@@ -113,9 +113,9 @@ fn execute_node<'schema, 'request>(
                         topProducts: []
                     }
 
-                    inner_to_merge = {
+                    inner_to_merge = [
                         { __typename: "Book", isbn: "1234", name: "Best book ever" }
-                    }
+                    ]
 
                     path = [topProducts, @]
                 */

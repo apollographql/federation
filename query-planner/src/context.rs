@@ -85,7 +85,7 @@ impl<'q> QueryPlanningContext<'q> {
     pub(crate) fn get_base_service(&self, parent_type: &schema::ObjectType) -> String {
         self.federation
             .service_name_for_type(parent_type)
-            .expect("Cannot find federation metadata")
+            .expect(&format!("Cannot find federation metadata for {type}", type=parent_type.name))
     }
 
     pub(crate) fn get_owning_service(
