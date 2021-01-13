@@ -1,14 +1,14 @@
 pub mod version;
-pub use version::Version;
+pub use version::*;
 
 pub mod request;
-pub use request::Request;
+pub use request::*;
 
 pub mod spec;
-pub use spec::Spec;
+pub use spec::*;
 
 pub mod constants;
 pub use constants::*;
 
-mod schema;
+pub mod schema;
 pub use schema::*;

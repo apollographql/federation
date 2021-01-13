@@ -4,7 +4,7 @@ use graphql_parser::{
 
 use crate::spec::{
     Spec,
-    ParseError,
+    SpecParseError,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,8 +14,8 @@ pub struct Request {
 }
 
 impl Request {
-    pub fn from_directive(dir: &Directive) -> Option<Result<Request, ParseError>> {
-        let mut spec: Option<Result<Spec, ParseError>> = None;
+    pub fn from_directive(dir: &Directive) -> Option<Result<Request, SpecParseError>> {
+        let mut spec: Option<Result<Spec, SpecParseError>> = None;
         let mut prefix: Option<String> = None;
         for (arg, val) in &dir.arguments {
             if *arg == "spec" {

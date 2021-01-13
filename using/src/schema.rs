@@ -39,7 +39,7 @@ pub enum SchemaError {
 
     /// A request in the document failed to parse.
     #[error("bad using request")]
-    BadUsingRequest(Pos, spec::ParseError),
+    BadUsingRequest(Pos, spec::SpecParseError),
 }
 
 
@@ -107,7 +107,7 @@ impl<'a> Schema<'a> {
     }    
 }
 
-fn bootstrap(requests: &Vec<(&Directive, Result<Request, spec::ParseError>)>, errors: &mut Vec<SchemaError>) -> Request {
+fn bootstrap(requests: &Vec<(&Directive, Result<Request, spec::SpecParseError>)>, errors: &mut Vec<SchemaError>) -> Request {
     let mut bootstraps: Vec<_> = requests.iter()
         // Select only those requests which parsed without error
         .filter_map(|(dir, req)|
@@ -210,7 +210,7 @@ mod tests {
 
 
     #[test]
-    pub fn it_bootstraps() -> Result<(), ParseError> {
+    pub fn it_can_prefix_using() -> Result<(), ParseError> {
         let schema = Schema::parse(r#"
             schema
                 @req(spec: "https://specs.apollo.dev/using/v0.1", prefix: "req")

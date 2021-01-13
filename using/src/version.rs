@@ -8,7 +8,7 @@ use thiserror::Error;
 pub struct Version(pub u64, pub u64);
 
 impl Version {
-    pub fn parse(input: &str) -> Result<Version, ParseError> {
+    pub fn parse(input: &str) -> Result<Version, VersionParseError> {
         lazy_static! {
             static ref VERSION_RE: Regex = Regex::new(r#"^v(\d+)\.(\d+)$"#).unwrap();
         }
@@ -16,7 +16,7 @@ impl Version {
         if let Some(ver) = VERSION_RE.captures(input) {
             Ok(Version(ver[1].parse()?, ver[2].parse()?))
         } else {
-            Err(ParseError)
+            Err(VersionParseError)
         }
     }
 
@@ -31,7 +31,7 @@ impl Version {
 }
 
 impl FromStr for Version {
-    type Err = ParseError;
+    type Err = VersionParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Version::parse(s)
@@ -40,8 +40,8 @@ impl FromStr for Version {
 
 #[derive(Error, Debug, Clone, Copy)]
 #[error("error parsing version specifier")]
-pub struct ParseError;
+pub struct VersionParseError;
 
-impl From<ParseIntError> for ParseError {
+impl From<ParseIntError> for VersionParseError {
     fn from(_: ParseIntError) -> Self { Self }
 }

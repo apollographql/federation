@@ -15,7 +15,7 @@ pub struct Spec {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Error)]
-pub enum ParseError {
+pub enum SpecParseError {
     #[error("error parsing url")]
     UrlParseError(url::ParseError),
 
@@ -32,19 +32,19 @@ pub enum ParseError {
     NoDefaultPrefix,
 }
 
-impl From<url::ParseError> for ParseError {
+impl From<url::ParseError> for SpecParseError {
     fn from(error: url::ParseError) -> Self {
         Self::UrlParseError(error)
     }
 }
 
-impl From<version::ParseError> for ParseError {
-    fn from(_: version::ParseError) -> Self { Self::VersionParseError }
+impl From<version::VersionParseError> for SpecParseError {
+    fn from(_: version::VersionParseError) -> Self { Self::VersionParseError }
 }
 
 impl Spec {
-    pub fn parse(input: &str) -> Result<Spec, ParseError> {
-        use ParseError::*;
+    pub fn parse(input: &str) -> Result<Spec, SpecParseError> {
+        use SpecParseError::*;
 
         let mut parsed = Url::parse(input)?;            
         let mut path: Vec<_> = parsed.path_segments().ok_or(NoPath)?
