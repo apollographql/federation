@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use graphql_parser::{
     ParseError,
     Pos,
@@ -40,6 +42,10 @@ pub enum SchemaError {
     /// A request in the document failed to parse.
     #[error("bad using request")]
     BadUsingRequest(Pos, spec::SpecParseError),
+
+    /// Document is using multiple specs with the same prefix.
+    #[error("prefixes overlap")]
+    OverlappingPrefix(String, Vec<Request>)
 }
 
 
@@ -62,7 +68,7 @@ impl<'a> Schema<'a> {
             errors.push(SchemaError::NoSchemas);
             return Ok(Schema {
                 document,
-                using: vec!(),
+                using: vec![],
                 errors
             })
         }
@@ -91,6 +97,7 @@ impl<'a> Schema<'a> {
             .collect();
         
         let using_req = bootstrap(&requests, &mut errors);
+        
         let mut using = vec!();
         
         for (dir, req) in requests.drain(0..) {
@@ -101,10 +108,32 @@ impl<'a> Schema<'a> {
                     SchemaError::BadUsingRequest(dir.position, err)
                 )
             }
-        }
+        }        
 
-        Ok(Schema { document, using, errors })
+        let mut machined = Schema { document, using, errors };
+        machined.validate_no_overlapping_prefixes();
+        Ok(machined)
     }    
+
+    fn validate_no_overlapping_prefixes(&mut self) {
+        let mut by_prefix = HashMap::<_, u32>::new();
+        for req in &self.using {
+            let count = by_prefix.entry(req.prefix.clone()).or_default();
+            *count = *count + 1;
+        }        
+        for (prefix, count) in by_prefix.drain() {
+            if count > 1 {
+                self.errors.push(
+                    SchemaError::OverlappingPrefix(
+                        prefix.clone(),
+                        self.using
+                            .drain_filter(|req| req.prefix == *prefix)
+                            .collect()
+                    )
+                );
+            }
+        }
+    }
 }
 
 fn bootstrap(requests: &Vec<(&Directive, Result<Request, spec::SpecParseError>)>, errors: &mut Vec<SchemaError>) -> Request {
@@ -140,38 +169,13 @@ fn bootstrap(requests: &Vec<(&Directive, Result<Request, spec::SpecParseError>)>
 #[cfg(test)]
 mod tests {
     use crate::{Schema, Request, Spec, Version, SchemaError};
-    use graphql_parser::ParseError;
+    use graphql_parser::{ParseError, Pos};
 
     #[test]
     pub fn it_identifies_one_spec() -> Result<(), ParseError> {
         let schema = Schema::parse(r#"
-            schema @using(spec: "https://spec.example.com/A/v1.0") {
-                query: Query
-            }
-        "#)?;
-
-        assert_eq!(schema.errors, Vec::<SchemaError>::new());
-        assert_eq!(schema.using, vec![
-            Request {
-                spec: Spec {
-                    identity: "https://spec.example.com/A".to_owned(),
-                    default_prefix: "A".to_owned(),
-                    version: Version(1, 0),
-                },
-                prefix: "A".to_owned(),
-            }
-        ]);
-
-        Ok(())
-    }
-
-    #[test]
-    pub fn it_identifies_several_specs() -> Result<(), ParseError> {
-        let schema = Schema::parse(r#"
             schema
-            @using(spec: "https://spec.example.com/A/v1.0")
-            @using(spec: "https://spec.example.com/B/v0.0", prefix: "specB")
-            @using(spec: "https://spec.example.com/C/v21.913")
+                @using(spec: "https://spec.example.com/A/v1.0")
             {
                 query: Query
             }
@@ -186,6 +190,35 @@ mod tests {
                     version: Version(1, 0),
                 },
                 prefix: "A".to_owned(),
+                position: Pos { line: 3, column: 17 },
+            }
+        ]);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn it_identifies_several_specs() -> Result<(), ParseError> {
+        let schema = Schema::parse(r#"
+            schema
+                @using(spec: "https://spec.example.com/A/v1.0")
+                @using(spec: "https://spec.example.com/B/v0.0", prefix: "specB")
+                @using(spec: "https://spec.example.com/C/v21.913")
+            {
+                query: Query
+            }
+        "#)?;
+
+        assert_eq!(schema.errors, Vec::<SchemaError>::new());
+        assert_eq!(schema.using, vec![
+            Request {
+                spec: Spec {
+                    identity: "https://spec.example.com/A".to_owned(),
+                    default_prefix: "A".to_owned(),
+                    version: Version(1, 0),
+                },
+                prefix: "A".to_owned(),
+                position: Pos { line: 3, column: 17 },
             },
             Request {
                 spec: Spec {
@@ -194,6 +227,7 @@ mod tests {
                     version: Version(0, 0),
                 },
                 prefix: "specB".to_owned(),
+                position: Pos { line: 4, column: 17 },
             },
             Request {
                 spec: Spec {
@@ -202,6 +236,7 @@ mod tests {
                     version: Version(21, 913),
                 },
                 prefix: "C".to_owned(),
+                position: Pos { line: 5, column: 17 },
             },
         ]);
 
@@ -210,7 +245,7 @@ mod tests {
 
 
     #[test]
-    pub fn it_can_prefix_using() -> Result<(), ParseError> {
+    pub fn it_can_load_using_with_a_different_prefix() -> Result<(), ParseError> {
         let schema = Schema::parse(r#"
             schema
                 @req(spec: "https://specs.apollo.dev/using/v0.1", prefix: "req")
@@ -230,6 +265,7 @@ mod tests {
                     version: Version(0, 1),
                 },
                 prefix: "req".to_owned(),
+                position: Pos { line: 3, column: 17 },
             },
             Request {
                 spec: Spec {
@@ -238,9 +274,148 @@ mod tests {
                     version: Version(1, 0),
                 },
                 prefix: "A".to_owned(),
+                position: Pos { line: 4, column: 17 },
             }
         ]);
 
         Ok(())
     }
+
+    #[test]
+    pub fn it_errors_when_default_prefixes_overlap() -> Result<(), ParseError> {
+        let schema = Schema::parse(r#"
+            schema
+                @using(spec: "https://spec.example.com/A/v1.0")
+                @using(spec: "https://spec.example.com/B/v2.3")
+                @using(spec: "https://somewhere-else.specs.com/A/v1.0")
+            {
+                query: Query
+            }
+        "#)?;
+
+        assert_eq!(schema.errors, vec![
+            SchemaError::OverlappingPrefix(
+                "A".to_owned(),
+                vec![
+                    Request {
+                        spec: Spec {
+                            identity: "https://spec.example.com/A".to_owned(),
+                            default_prefix: "A".to_owned(),
+                            version: Version(1, 0),
+                        },
+                        prefix: "A".to_owned(),
+                        position: Pos { line: 3, column: 17 },
+                    },
+                    Request {
+                        spec: Spec {
+                            identity: "https://somewhere-else.specs.com/A".to_owned(),
+                            default_prefix: "A".to_owned(),
+                            version: Version(1, 0),
+                        },
+                        prefix: "A".to_owned(),
+                        position: Pos { line: 5, column: 17 },
+                    }
+                ]    
+            )
+        ]);
+        assert_eq!(schema.using, vec![
+            Request {
+                spec: Spec {
+                    identity: "https://spec.example.com/B".to_owned(),
+                    default_prefix: "B".to_owned(),
+                    version: Version(2, 3),
+                },
+                prefix: "B".to_owned(),
+                position: Pos { line: 4, column: 17 },
+            }
+        ]);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn it_errors_when_non_default_prefixes_overlap() -> Result<(), ParseError> {
+        let schema = Schema::parse(r#"
+            schema
+                @using(spec: "https://spec.example.com/A/v1.0")
+                @using(spec: "https://somewhere-else.specs.com/myspec/v1.0", prefix: "A")
+            {
+                query: Query
+            }
+        "#)?;
+
+        assert_eq!(schema.errors, vec![
+            SchemaError::OverlappingPrefix(
+                "A".to_owned(),
+                vec![
+                    Request {
+                        spec: Spec {
+                            identity: "https://spec.example.com/A".to_owned(),
+                            default_prefix: "A".to_owned(),
+                            version: Version(1, 0),
+                        },
+                        prefix: "A".to_owned(),
+                        position: Pos { line: 3, column: 17 },
+                    },
+                    Request {
+                        spec: Spec {
+                            identity: "https://somewhere-else.specs.com/myspec".to_owned(),
+                            default_prefix: "myspec".to_owned(),
+                            version: Version(1, 0),
+                        },
+                        prefix: "A".to_owned(),
+                        position: Pos { line: 4, column: 17 },
+                    }
+                ]    
+            )
+        ]);        
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn it_is_ok_when_prefixes_are_disambugated() -> Result<(), ParseError> {
+        let schema = Schema::parse(r#"
+            schema
+                @using(spec: "https://spec.example.com/A/v1.0")
+                @using(spec: "https://spec.example.com/B/v2.3")
+                @using(spec: "https://somewhere-else.specs.com/A/v1.0", prefix: "otherA")
+            {
+                query: Query
+            }
+        "#)?;
+
+        assert_eq!(schema.errors, vec![]);
+        assert_eq!(schema.using, vec![
+            Request {
+                spec: Spec {
+                    identity: "https://spec.example.com/A".to_owned(),
+                    default_prefix: "A".to_owned(),
+                    version: Version(1, 0),
+                },
+                prefix: "A".to_owned(),
+                position: Pos { line: 3, column: 17 },
+            },
+            Request {
+                spec: Spec {
+                    identity: "https://spec.example.com/B".to_owned(),
+                    default_prefix: "B".to_owned(),
+                    version: Version(2, 3),
+                },
+                prefix: "B".to_owned(),
+                position: Pos { line: 4, column: 17 },
+            },
+            Request {
+                spec: Spec {
+                    identity: "https://somewhere-else.specs.com/A".to_owned(),
+                    default_prefix: "A".to_owned(),
+                    version: Version(1, 0),
+                },
+                prefix: "otherA".to_owned(),
+                position: Pos { line: 5, column: 17 },
+            },            
+        ]);
+
+        Ok(())
+    }    
 }

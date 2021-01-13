@@ -7,7 +7,7 @@ use crate::{
     version::Version,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Spec {
     pub identity: String,
     pub default_prefix: String,

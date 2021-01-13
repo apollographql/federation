@@ -1,16 +1,15 @@
-use graphql_parser::{
-    schema::{Directive, Value}
-};
+use graphql_parser::{Pos, schema::{Directive, Value}};
 
 use crate::spec::{
     Spec,
     SpecParseError,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Request {
     pub spec: Spec,
     pub prefix: String,
+    pub position: Pos,
 }
 
 impl Request {
@@ -34,7 +33,8 @@ impl Request {
             result.map(|spec|
                 Request {
                     prefix: prefix.unwrap_or_else(|| spec.default_prefix.clone()),
-                    spec,    
+                    spec,
+                    position: dir.position,
                 }
             )
         )

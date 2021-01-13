@@ -1,3 +1,4 @@
+use graphql_parser::Pos;
 use lazy_static::lazy_static;
 
 use crate::{
@@ -18,6 +19,7 @@ lazy_static! {
             default_prefix: "using".to_owned(),
             version: USING_VERSIONS[0].clone(),
         },
-        prefix: "using".to_owned()
+        prefix: "using".to_owned(),
+        position: Pos { line: 0, column: 0 },
     };
 }
