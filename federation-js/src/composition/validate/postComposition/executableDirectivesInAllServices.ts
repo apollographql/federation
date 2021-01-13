@@ -1,3 +1,4 @@
+import 'apollo-server-env';
 import { GraphQLError, isSpecifiedDirective } from 'graphql';
 import {
   errorWithCode,

@@ -1,6 +1,6 @@
 import { isObjectType, GraphQLError, Kind } from 'graphql';
 import {
-  findDirectivesOnTypeOrField,
+  findDirectivesOnNode,
   logServiceAndType,
   hasMatchingFieldInDirectives,
   errorWithCode,
@@ -45,7 +45,7 @@ export const externalUnused: PostCompositionValidator = ({ schema }) => {
           // check the selected fields of every @key provided by `serviceName`
           const hasMatchingKeyOnType = Boolean(
             hasMatchingFieldInDirectives({
-              directives: findDirectivesOnTypeOrField(
+              directives: findDirectivesOnNode(
                 parentType.astNode,
                 'key',
               ),
@@ -76,7 +76,7 @@ export const externalUnused: PostCompositionValidator = ({ schema }) => {
             schema,
             typeToFind: parentType,
           }).some(field =>
-            findDirectivesOnTypeOrField(field.astNode, 'provides').some(
+            findDirectivesOnNode(field.astNode, 'provides').some(
               directive => {
                 if (!directive.arguments) return false;
                 const selections =
@@ -127,7 +127,7 @@ export const externalUnused: PostCompositionValidator = ({ schema }) => {
             // for every object type, loop over its fields and find fields
             // with requires directives
             return Object.values(namedType.getFields()).some(field =>
-              findDirectivesOnTypeOrField(field.astNode, 'requires').some(
+              findDirectivesOnNode(field.astNode, 'requires').some(
                 directive => {
                   if (!directive.arguments) return false;
                   const selections =
@@ -154,7 +154,7 @@ export const externalUnused: PostCompositionValidator = ({ schema }) => {
             const fieldOwner = getFederationMetadata(maybeRequiresField)?.serviceName;
             if (fieldOwner !== serviceName) return false;
 
-            const requiresDirectives = findDirectivesOnTypeOrField(
+            const requiresDirectives = findDirectivesOnNode(
               maybeRequiresField.astNode,
               'requires',
             );

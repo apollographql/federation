@@ -1,8 +1,9 @@
 use deno_core::{JsRuntime, json_op_sync};
 use deno_core::Op;
 use serde::{Serialize, Deserialize};
-use std::io::Write;
+use std::{fmt::Display, io::Write};
 use std::sync::mpsc::channel;
+use thiserror::Error;
 
 #[derive(Serialize)]
 // When serialized, we'll be putting this into JavaScript expecting camelCase.
@@ -27,10 +28,20 @@ impl ServiceDefinition {
 
 pub type ServiceList = Vec<ServiceDefinition>;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct CompositionError {
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq)]
+pub struct CompositionError {  
   pub message: Option<String>,
   pub extensions: Option<CompositionErrorExtensions>,
+}
+
+impl Display for CompositionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(msg) = &self.message {
+          f.write_fmt(format_args!("{code}: {msg}", code = self.code(), msg = msg))
+        } else {
+          f.write_str(self.code())
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -82,8 +93,6 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
   runtime.register_op(
     "op_composition_result",
     json_op_sync(move |_state, value, _zero_copy| {
-      println!("value:{:?}", &value);
-
       tx.send(
         serde_json::from_value(value)
           .expect("deserializing composition result")

@@ -1,6 +1,6 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { composeAndValidate, compositionHasErrors } from '../../composition';
 import { parse, GraphQLError, visit, StringValueNode } from 'graphql';
+import { composeAndValidate, compositionHasErrors } from '../../composition';
 
 describe('printComposedSdl', () => {
   let composedSdl: string, errors: GraphQLError[];
@@ -25,53 +25,32 @@ describe('printComposedSdl', () => {
 
   it('prints a fully composed schema correctly', () => {
     expect(composedSdl).toMatchInlineSnapshot(`
-      "schema @using(spec: \\"https://specs.apollo.dev/cs/v0.1\\")
+      "schema
+        @graph(name: \\"accounts\\", url: \\"https://accounts.api.com\\")
+        @graph(name: \\"books\\", url: \\"https://books.api.com\\")
+        @graph(name: \\"documents\\", url: \\"https://documents.api.com\\")
+        @graph(name: \\"inventory\\", url: \\"https://inventory.api.com\\")
+        @graph(name: \\"product\\", url: \\"https://product.api.com\\")
+        @graph(name: \\"reviews\\", url: \\"https://reviews.api.com\\")
+        @composedGraph(version: 1)
       {
         query: Query
         mutation: Mutation
       }
 
+      directive @composedGraph(version: Int!) on SCHEMA
 
-      directive @cs__key(graph: cs__Graph!)
-        repeatable on FRAGMENT_DEFINITION
+      directive @graph(name: String!, url: String!) repeatable on SCHEMA
 
-      directive @cs__resolve(
-        graph: cs__Graph!,
-        requires: cs__SelectionSet,
-        provides: cs__SelectionSet)
-        on FIELD_DEFINITION
+      directive @owner(graph: String!) on OBJECT
 
-      directive @cs__error(
-        graphs: [cs__Graph!],
-        message: String)
-          repeatable on OBJECT
-          | INTERFACE
-          | UNION
-          | FIELD_DEFINITION
+      directive @key(fields: String!, graph: String!) repeatable on OBJECT
 
-      directive @cs__link(to: cs__OutboundLink!)
-        on ENUM_VALUE
+      directive @resolve(graph: String!) on FIELD_DEFINITION
 
-      input cs__OutboundLink {
-        http: cs__OutboundLinkHTTP
-      }
+      directive @provides(fields: String!) on FIELD_DEFINITION
 
-      input cs__OutboundLinkHTTP {
-        url: cs__URL
-      }
-
-      scalar cs__URL @specifiedBy(url: \\"https://specs.apollo.dev/v0.1#cs__url\\")
-      scalar cs__SelectionSet @specifiedBy(url: \\"https://specs.apollo.dev/v0.1#cs__selectionset\\")
-
-
-      enum cs__Graph {
-        accounts @cs__link(to: { http: { url: \\"https://accounts.api.com\\" } }),
-        books @cs__link(to: { http: { url: \\"https://books.api.com\\" } }),
-        documents @cs__link(to: { http: { url: \\"https://documents.api.com\\" } }),
-        inventory @cs__link(to: { http: { url: \\"https://inventory.api.com\\" } }),
-        product @cs__link(to: { http: { url: \\"https://product.api.com\\" } }),
-        reviews @cs__link(to: { http: { url: \\"https://reviews.api.com\\" } })
-      }
+      directive @requires(fields: String!) on FIELD_DEFINITION
 
       directive @stream on FIELD
 
@@ -86,43 +65,40 @@ describe('printComposedSdl', () => {
       union Body = Image | Text
 
       type Book implements Product
+        @owner(graph: \\"books\\")
+        @key(fields: \\"{ isbn }\\", graph: \\"books\\")
+        @key(fields: \\"{ isbn }\\", graph: \\"inventory\\")
+        @key(fields: \\"{ isbn }\\", graph: \\"product\\")
+        @key(fields: \\"{ isbn }\\", graph: \\"reviews\\")
       {
         isbn: String!
         title: String
         year: Int
         similarBooks: [Book]!
         metadata: [MetadataOrError]
-        inStock: Boolean @cs__resolve(graph: inventory)
-        isCheckedOut: Boolean @cs__resolve(graph: inventory)
-        upc: String! @cs__resolve(graph: product)
-        sku: String! @cs__resolve(graph: product)
-        name(delimeter: String = \\" \\"): String @cs__resolve(graph: product, requires: \\"cs__fragmentOn_Book_title_year_0\\")
-        price: String @cs__resolve(graph: product)
-        details: ProductDetailsBook @cs__resolve(graph: product)
-        reviews: [Review] @cs__resolve(graph: reviews)
-        relatedReviews: [Review!]! @cs__resolve(graph: reviews, requires: \\"cs__fragmentOn_Book_similarBooks_isbn_1\\")
+        inStock: Boolean @resolve(graph: \\"inventory\\")
+        isCheckedOut: Boolean @resolve(graph: \\"inventory\\")
+        upc: String! @resolve(graph: \\"product\\")
+        sku: String! @resolve(graph: \\"product\\")
+        name(delimeter: String = \\" \\"): String @resolve(graph: \\"product\\") @requires(fields: \\"{ title year }\\")
+        price: String @resolve(graph: \\"product\\")
+        details: ProductDetailsBook @resolve(graph: \\"product\\")
+        reviews: [Review] @resolve(graph: \\"reviews\\")
+        relatedReviews: [Review!]! @resolve(graph: \\"reviews\\") @requires(fields: \\"{ similarBooks { isbn } }\\")
       }
-      fragment cs__keyFor_Book_0 on Book @cs__key(graph: books) { isbn }
-      fragment cs__keyFor_Book_1 on Book @cs__key(graph: inventory) { isbn }
-      fragment cs__keyFor_Book_2 on Book @cs__key(graph: product) { isbn }
-      fragment cs__keyFor_Book_3 on Book @cs__key(graph: reviews) { isbn }
-
-      fragment cs__fragmentOn_Book_title_year_0 on Book { title year },
-      fragment cs__fragmentOn_Book_similarBooks_isbn_1 on Book { similarBooks { isbn } }
 
       union Brand = Ikea | Amazon
 
       type Car implements Vehicle
+        @owner(graph: \\"product\\")
+        @key(fields: \\"{ id }\\", graph: \\"product\\")
+        @key(fields: \\"{ id }\\", graph: \\"reviews\\")
       {
         id: String!
         description: String
         price: String
-        retailPrice: String @cs__resolve(graph: reviews, requires: \\"cs__fragmentOn_Car_price_0\\")
+        retailPrice: String @resolve(graph: \\"reviews\\") @requires(fields: \\"{ price }\\")
       }
-      fragment cs__keyFor_Car_4 on Car @cs__key(graph: product) { id }
-      fragment cs__keyFor_Car_5 on Car @cs__key(graph: reviews) { id }
-
-      fragment cs__fragmentOn_Car_price_0 on Car { price }
 
       type Error {
         code: Int
@@ -130,6 +106,11 @@ describe('printComposedSdl', () => {
       }
 
       type Furniture implements Product
+        @owner(graph: \\"product\\")
+        @key(fields: \\"{ upc }\\", graph: \\"product\\")
+        @key(fields: \\"{ sku }\\", graph: \\"product\\")
+        @key(fields: \\"{ sku }\\", graph: \\"inventory\\")
+        @key(fields: \\"{ upc }\\", graph: \\"reviews\\")
       {
         upc: String!
         sku: String!
@@ -138,15 +119,10 @@ describe('printComposedSdl', () => {
         brand: Brand
         metadata: [MetadataOrError]
         details: ProductDetailsFurniture
-        inStock: Boolean @cs__resolve(graph: inventory)
-        isHeavy: Boolean @cs__resolve(graph: inventory)
-        reviews: [Review] @cs__resolve(graph: reviews)
+        inStock: Boolean @resolve(graph: \\"inventory\\")
+        isHeavy: Boolean @resolve(graph: \\"inventory\\")
+        reviews: [Review] @resolve(graph: \\"reviews\\")
       }
-      fragment cs__keyFor_Furniture_6 on Furniture @cs__key(graph: inventory) { sku }
-      fragment cs__keyFor_Furniture_7 on Furniture @cs__key(graph: product) { upc }
-      fragment cs__keyFor_Furniture_8 on Furniture @cs__key(graph: product) { sku }
-      fragment cs__keyFor_Furniture_9 on Furniture @cs__key(graph: reviews) { upc }
-
 
       type Ikea {
         asile: Int
@@ -167,23 +143,22 @@ describe('printComposedSdl', () => {
       }
 
       type Library
+        @owner(graph: \\"books\\")
+        @key(fields: \\"{ id }\\", graph: \\"books\\")
+        @key(fields: \\"{ id }\\", graph: \\"accounts\\")
       {
         id: ID!
         name: String
-        userAccount(id: ID! = 1): User @cs__resolve(graph: accounts, requires: \\"cs__fragmentOn_Library_name_0\\")
+        userAccount(id: ID! = 1): User @resolve(graph: \\"accounts\\") @requires(fields: \\"{ name }\\")
       }
-      fragment cs__keyFor_Library_10 on Library @cs__key(graph: accounts) { id }
-      fragment cs__keyFor_Library_11 on Library @cs__key(graph: books) { id }
-
-      fragment cs__fragmentOn_Library_name_0 on Library { name }
 
       union MetadataOrError = KeyValue | Error
 
       type Mutation {
-        login(username: String!, password: String!): User @cs__resolve(graph: accounts)
-        reviewProduct(upc: String!, body: String!): Product @cs__resolve(graph: reviews)
-        updateReview(review: UpdateReviewInput!): Review @cs__resolve(graph: reviews)
-        deleteReview(id: ID!): Boolean @cs__resolve(graph: reviews)
+        login(username: String!, password: String!): User @resolve(graph: \\"accounts\\")
+        reviewProduct(upc: String!, body: String!): Product @resolve(graph: \\"reviews\\")
+        updateReview(review: UpdateReviewInput!): Review @resolve(graph: \\"reviews\\")
+        deleteReview(id: ID!): Boolean @resolve(graph: \\"reviews\\")
       }
 
       type Name {
@@ -192,11 +167,11 @@ describe('printComposedSdl', () => {
       }
 
       type PasswordAccount
+        @owner(graph: \\"accounts\\")
+        @key(fields: \\"{ email }\\", graph: \\"accounts\\")
       {
         email: String!
       }
-      fragment cs__keyFor_PasswordAccount_12 on PasswordAccount @cs__key(graph: accounts) { email }
-
 
       interface Product {
         upc: String!
@@ -223,37 +198,36 @@ describe('printComposedSdl', () => {
       }
 
       type Query {
-        user(id: ID!): User @cs__resolve(graph: accounts)
-        me: User @cs__resolve(graph: accounts)
-        book(isbn: String!): Book @cs__resolve(graph: books)
-        books: [Book] @cs__resolve(graph: books)
-        library(id: ID!): Library @cs__resolve(graph: books)
-        body: Body! @cs__resolve(graph: documents)
-        product(upc: String!): Product @cs__resolve(graph: product)
-        vehicle(id: String!): Vehicle @cs__resolve(graph: product)
-        topProducts(first: Int = 5): [Product] @cs__resolve(graph: product)
-        topCars(first: Int = 5): [Car] @cs__resolve(graph: product)
-        topReviews(first: Int = 5): [Review] @cs__resolve(graph: reviews)
+        user(id: ID!): User @resolve(graph: \\"accounts\\")
+        me: User @resolve(graph: \\"accounts\\")
+        book(isbn: String!): Book @resolve(graph: \\"books\\")
+        books: [Book] @resolve(graph: \\"books\\")
+        library(id: ID!): Library @resolve(graph: \\"books\\")
+        body: Body! @resolve(graph: \\"documents\\")
+        product(upc: String!): Product @resolve(graph: \\"product\\")
+        vehicle(id: String!): Vehicle @resolve(graph: \\"product\\")
+        topProducts(first: Int = 5): [Product] @resolve(graph: \\"product\\")
+        topCars(first: Int = 5): [Car] @resolve(graph: \\"product\\")
+        topReviews(first: Int = 5): [Review] @resolve(graph: \\"reviews\\")
       }
 
       type Review
+        @owner(graph: \\"reviews\\")
+        @key(fields: \\"{ id }\\", graph: \\"reviews\\")
       {
         id: ID!
         body(format: Boolean = false): String
-        author: User @cs__resolve(graph: reviews, provides: \\"cs__fragmentOn_Review_username_0\\")
+        author: User @provides(fields: \\"{ username }\\")
         product: Product
         metadata: [MetadataOrError]
       }
-      fragment cs__keyFor_Review_13 on Review @cs__key(graph: reviews) { id }
-
-      fragment cs__fragmentOn_Review_username_0 on Review { username }
 
       type SMSAccount
+        @owner(graph: \\"accounts\\")
+        @key(fields: \\"{ number }\\", graph: \\"accounts\\")
       {
         number: String
       }
-      fragment cs__keyFor_SMSAccount_14 on SMSAccount @cs__key(graph: accounts) { number }
-
 
       type Text {
         name: String!
@@ -273,6 +247,12 @@ describe('printComposedSdl', () => {
       }
 
       type User
+        @owner(graph: \\"accounts\\")
+        @key(fields: \\"{ id }\\", graph: \\"accounts\\")
+        @key(fields: \\"{ username name { first last } }\\", graph: \\"accounts\\")
+        @key(fields: \\"{ id }\\", graph: \\"inventory\\")
+        @key(fields: \\"{ id }\\", graph: \\"product\\")
+        @key(fields: \\"{ id }\\", graph: \\"reviews\\")
       {
         id: ID!
         name: Name
@@ -280,21 +260,13 @@ describe('printComposedSdl', () => {
         birthDate(locale: String): String
         account: AccountType
         metadata: [UserMetadata]
-        goodDescription: Boolean @cs__resolve(graph: inventory, requires: \\"cs__fragmentOn_User_metadata_description_0\\")
-        vehicle: Vehicle @cs__resolve(graph: product)
-        thing: Thing @cs__resolve(graph: product)
-        reviews: [Review] @cs__resolve(graph: reviews)
-        numberOfReviews: Int! @cs__resolve(graph: reviews)
-        goodAddress: Boolean @cs__resolve(graph: reviews, requires: \\"cs__fragmentOn_User_metadata_address_1\\")
+        goodDescription: Boolean @resolve(graph: \\"inventory\\") @requires(fields: \\"{ metadata { description } }\\")
+        vehicle: Vehicle @resolve(graph: \\"product\\")
+        thing: Thing @resolve(graph: \\"product\\")
+        reviews: [Review] @resolve(graph: \\"reviews\\")
+        numberOfReviews: Int! @resolve(graph: \\"reviews\\")
+        goodAddress: Boolean @resolve(graph: \\"reviews\\") @requires(fields: \\"{ metadata { address } }\\")
       }
-      fragment cs__keyFor_User_15 on User @cs__key(graph: accounts) { id }
-      fragment cs__keyFor_User_16 on User @cs__key(graph: accounts) { username name { first last } }
-      fragment cs__keyFor_User_17 on User @cs__key(graph: inventory) { id }
-      fragment cs__keyFor_User_18 on User @cs__key(graph: product) { id }
-      fragment cs__keyFor_User_19 on User @cs__key(graph: reviews) { id }
-
-      fragment cs__fragmentOn_User_metadata_description_0 on User { metadata { description } },
-      fragment cs__fragmentOn_User_metadata_address_1 on User { metadata { address } }
 
       type UserMetadata {
         name: String
@@ -303,16 +275,15 @@ describe('printComposedSdl', () => {
       }
 
       type Van implements Vehicle
+        @owner(graph: \\"product\\")
+        @key(fields: \\"{ id }\\", graph: \\"product\\")
+        @key(fields: \\"{ id }\\", graph: \\"reviews\\")
       {
         id: String!
         description: String
         price: String
-        retailPrice: String @cs__resolve(graph: reviews, requires: \\"cs__fragmentOn_Van_price_0\\")
+        retailPrice: String @resolve(graph: \\"reviews\\") @requires(fields: \\"{ price }\\")
       }
-      fragment cs__keyFor_Van_20 on Van @cs__key(graph: product) { id }
-      fragment cs__keyFor_Van_21 on Van @cs__key(graph: reviews) { id }
-
-      fragment cs__fragmentOn_Van_price_0 on Van { price }
 
       interface Vehicle {
         id: String!

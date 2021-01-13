@@ -38,11 +38,11 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
           continue;
         }
 
-        const availableKeys = keys[serviceName].map(printFieldSet);
+        const availableKeys = (keys[serviceName] || []).map(printFieldSet);
         Object.entries(keys)
           // No need to validate that the owning service matches its specified keys
           .filter(([service]) => service !== serviceName)
-          .forEach(([extendingService, keyFields]) => {
+          .forEach(([extendingService, keyFields = []]) => {
             // Extensions can't specify more than one key
             if (keyFields.length > 1) {
               errors.push(

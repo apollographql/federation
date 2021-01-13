@@ -60,10 +60,10 @@ fn write_composed_schema(dir: &PathBuf) -> std::io::Result<()> {
         Ok(schema) => write(dir.join("schema.graphql"), schema),
         Err(errors) => {
             let mut message = String::new();
-            for err in &errors {
-                message.push_str(&err.message);
-                message.push('\n');
+            for err in &errors {                
+                message.push_str(&format!("{}\n", err));
             }
+            eprintln!("dir={}", &dir.to_str().unwrap());
             panic!(message);
         }
     }

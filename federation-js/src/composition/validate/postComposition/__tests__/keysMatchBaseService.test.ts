@@ -2,6 +2,7 @@ import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { keysMatchBaseService as validateKeysMatchBaseService } from '../';
 import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { assertCompositionSuccess } from '../../../utils';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -28,8 +29,9 @@ describe('keysMatchBaseService', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const validationErrors = validateKeysMatchBaseService({
       schema,
@@ -60,8 +62,9 @@ describe('keysMatchBaseService', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const validationErrors = validateKeysMatchBaseService({
       schema,
@@ -98,8 +101,9 @@ describe('keysMatchBaseService', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const validationErrors = validateKeysMatchBaseService({
       schema,

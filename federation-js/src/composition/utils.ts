@@ -1,3 +1,4 @@
+import 'apollo-server-env';
 import {
   InterfaceTypeExtensionNode,
   FieldDefinitionNode,
@@ -58,7 +59,7 @@ export function mapFieldNamesToServiceName<Node extends { name: NameNode }>(
   }, Object.create(null));
 }
 
-export function findDirectivesOnTypeOrField(
+export function findDirectivesOnNode(
   node: Maybe<
     | TypeDefinitionNode
     | TypeExtensionNode
@@ -127,10 +128,7 @@ function removeExternalFieldsFromExtensionVisitor<
     let fields = node.fields;
     if (fields) {
       fields = fields.filter(field => {
-        const externalDirectives = findDirectivesOnTypeOrField(
-          field,
-          'external',
-        );
+        const externalDirectives = findDirectivesOnNode(field, 'external');
 
         if (externalDirectives.length > 0) {
           collector.push({
@@ -604,6 +602,54 @@ export const defaultRootOperationNameLookup: {
   mutation: 'Mutation',
   subscription: 'Subscription',
 };
+
+export type CompositionResult = CompositionFailure | CompositionSuccess;
+
+// Yes, it's a bit awkward that we still return a schema when errors occur.
+// This is old behavior that I'm choosing not to modify for now.
+export interface CompositionFailure {
+  /** @deprecated Use composedSdl instead */
+  schema: GraphQLSchema;
+  errors: GraphQLError[];
+  composedSdl?: undefined;
+}
+
+export interface CompositionSuccess {
+  /** @deprecated Use composedSdl instead */
+  schema: GraphQLSchema;
+  composedSdl: string;
+  errors?: undefined;
+}
+
+export function compositionHasErrors(
+  compositionResult: CompositionResult,
+): compositionResult is CompositionFailure {
+  return 'errors' in compositionResult && !!compositionResult.errors;
+}
+
+// This assertion function should be used for the sake of convenient type refinement.
+// It should not be depended on for causing a test to fail. If an error is thrown
+// from here, its use should be reconsidered.
+export function assertCompositionSuccess(
+  compositionResult: CompositionResult,
+  message?: string,
+): asserts compositionResult is CompositionSuccess {
+  if (compositionHasErrors(compositionResult)) {
+    throw new Error(message || 'Unexpected test failure');
+  }
+}
+
+// This assertion function should be used for the sake of convenient type refinement.
+// It should not be depended on for causing a test to fail. If an error is thrown
+// from here, its use should be reconsidered.
+export function assertCompositionFailure(
+  compositionResult: CompositionResult,
+  message?: string,
+): asserts compositionResult is CompositionFailure {
+  if (!compositionHasErrors(compositionResult)) {
+    throw new Error(message || 'Unexpected test failure');
+  }
+}
 
 // This function is overloaded for 3 different input types. Each input type
 // maps to a particular return type, hence the overload.

@@ -5,7 +5,7 @@
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
 - Export `GraphQLSchemaModule` type. [PR #293](https://github.com/apollographql/federation/pull/293)
-
+- __BREAKING__: Remove `ComposedGraphQLSchema` type as it's no longer needed. This is breaking because it was part of the public API, though we strongly believe nobody was or should have had any need for this type. Update `composeAndValidate` function signature for better typing, and align the `compose` function signature with that of `composeAndValidate` [PR #278](https://github.com/apollographql/federation/pull/278)
 ## v0.20.7
 
 - Fix check for value types when having fields and arguments with the same name [PR #280](https://github.com/apollographql/federation/pull/280)
