@@ -1,10 +1,5 @@
 const config = require('../jest.config.base');
 
-const additionalConfig = {
-  testPathIgnorePatterns: [
-    ...config.testPathIgnorePatterns,
-    ...[]
-  ]
-};
+const additionalConfig = {};
 
 module.exports = Object.assign(Object.create(null), config, additionalConfig);
