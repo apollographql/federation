@@ -612,7 +612,7 @@ export class ApolloGateway implements GraphQLService {
     if (this.pollingTimer) clearTimeout(this.pollingTimer);
 
     // Sleep for the specified pollInterval before kicking off another round of polling
-    await new Promise(res => {
+    await new Promise<void>(res => {
       this.pollingTimer = setTimeout(
         () => res(),
         this.experimental_pollInterval || 10000,

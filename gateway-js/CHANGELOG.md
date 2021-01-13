@@ -6,6 +6,7 @@
 
 - Include original error during creation of `GraphQLError` in `downstreamServiceError()`. [PR #309](https://github.com/apollographql/federation/pull/309)
 - Gateway accepts `csdl` for startup configuration, uses CSDL internally for schema object creation. [PR #278](https://github.com/apollographql/federation/pull/278)
+- Add `Promise<T>` generic type info to fix typescript errors [PR #324](https://github.com/apollographql/federation/pull/324)
 ## v0.21.4
 
 - Update version of `@apollo/federation`
