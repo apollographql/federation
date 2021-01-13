@@ -63,8 +63,7 @@ impl<'a> Schema<'a> {
             })
             .collect();
 
-        let schema = schemas.pop();
-        if schema.is_none() {
+        if schemas.is_empty() {
             errors.push(SchemaError::NoSchemas);
             return Ok(Schema {
                 document,
@@ -72,10 +71,10 @@ impl<'a> Schema<'a> {
                 errors
             })
         }
+        let schema = schemas.remove(0);
         for extraneous in schemas {
             errors.push(SchemaError::ExtraSchema(extraneous.position));
         }
-        let schema = schema.expect("schema must exist");
         
         // Collect everything which could be a using request.
         // "Looks like a using request" means it's a directive
@@ -181,7 +180,7 @@ mod tests {
             }
         "#)?;
 
-        assert_eq!(schema.errors, Vec::<SchemaError>::new());
+        assert_eq!(schema.errors, vec![]);
         assert_eq!(schema.using, vec![
             Request {
                 spec: Spec {
@@ -209,7 +208,7 @@ mod tests {
             }
         "#)?;
 
-        assert_eq!(schema.errors, Vec::<SchemaError>::new());
+        assert_eq!(schema.errors, vec![]);
         assert_eq!(schema.using, vec![
             Request {
                 spec: Spec {
@@ -275,6 +274,52 @@ mod tests {
                 },
                 prefix: "A".to_owned(),
                 position: Pos { line: 4, column: 17 },
+            }
+        ]);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn it_errors_when_no_schema_defs_are_present() -> Result<(), ParseError> {
+        let schema = Schema::parse(r#"
+            type User {
+                id: ID!
+            }
+        "#)?;
+        assert_eq!(schema.errors, vec![
+            SchemaError::NoSchemas
+        ]);
+        assert_eq!(schema.using, vec![]);
+        Ok(())
+    }    
+
+    #[test]
+    pub fn it_errors_when_multiple_schema_defs_are_present() -> Result<(), ParseError> {
+        let schema = Schema::parse(r#"
+            schema
+                @using(spec: "https://spec.example.com/A/v2.2")
+            {
+                query: Query
+            }
+            
+            schema {
+                query: Query
+            }
+        "#)?;
+
+        assert_eq!(schema.errors, vec![
+            SchemaError::ExtraSchema(Pos { line: 8, column: 13 })
+        ]);
+        assert_eq!(schema.using, vec![
+            Request {
+                spec: Spec {
+                    identity: "https://spec.example.com/A".to_owned(),
+                    default_prefix: "A".to_owned(),
+                    version: Version(2, 2),
+                },
+                prefix: "A".to_owned(),
+                position: Pos { line: 3, column: 17 },
             }
         ]);
 
