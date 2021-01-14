@@ -27,6 +27,8 @@ use crate::{
     version::Version,
 };
 
+/// Specs contain the `identity`, `default_prefix`, and `version` extracted from
+/// a spec URL.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Spec {
     pub identity: String,
@@ -53,6 +55,7 @@ pub enum SpecParseError {
 }
 
 impl Spec {
+    /// Parse a spec URL
     pub fn parse(input: &str) -> Result<Spec, SpecParseError> {
         use SpecParseError::*;
 
