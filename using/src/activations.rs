@@ -39,7 +39,6 @@ impl<'a> Schema<'a> {
 #[cfg(test)]
 mod tests {
     use graphql_parser::ParseError;
-    use url::form_urlencoded::Parse;
     use crate::*;
     
     #[test]
