@@ -39,6 +39,7 @@ impl<'a> Schema<'a> {
 #[cfg(test)]
 mod tests {
     use graphql_parser::ParseError;
+    use url::form_urlencoded::Parse;
     use crate::*;
     
     #[test]
@@ -111,6 +112,33 @@ r#"Activation {
             .for_each(|req|
                 assert_eq!(expected.pop().unwrap(), format!("{:#?}", req)));
         
+        Ok(())
+    }
+
+    #[test]
+    fn it_takes_arbitrary_types_as_implementations() -> Result<(), ParseError> {
+        let implementations = Implementations::new()
+            .provide("https://spec.example.com/A", Version(1, 2), 
+            Box::<&dyn Fn () -> String>::new(&|| "impl A v1.2".to_owned()))
+            .provide("https://spec.example.com/B", Version(1, 2), 
+            Box::<&dyn Fn () -> String>::new(&|| "impl B v1.2".to_owned()));
+        let output = Schema::parse(r#"
+            schema
+                @using(spec: "https://spec.example.com/A/v1.0")
+                @using(spec: "https://spec.example.com/unknown/v1.0")
+            {
+                query: Query
+            }
+        "#)?
+            .activations(&implementations)
+            .map(|activ| activ.max.map(|(_, f)| f()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(output, vec![
+            Some("impl A v1.2".to_owned()),
+            None,
+        ]);
+
         Ok(())
     }
 }
