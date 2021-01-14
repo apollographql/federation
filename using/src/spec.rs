@@ -1,3 +1,23 @@
+//! Spec url handling
+//!
+//! `Spec`s are parsed from URL strings and extract the spec's:
+//!   - **identity**, which is the URL excluding the version specifier,
+//!   - **default_prefix**, which is the second-to-last path segment of the URL, and
+//!   - **version**, specified in the last URL path segment.
+//!
+//! # Example:
+//! ```
+//! use using::*;
+//! assert_eq!(
+//!   Spec::parse("https://spec.example.com/specA/v1.0")?,
+//!   Spec {
+//!       identity: "https://spec.example.com/specA".to_owned(),
+//!       default_prefix: "specA".to_owned(),
+//!       version: Version(1, 0)
+//!   }
+//! );
+//! Ok::<(), SpecParseError>(())
+//! ```
 use thiserror::Error;
 use url;
 use url::Url;
@@ -32,16 +52,6 @@ pub enum SpecParseError {
     NoDefaultPrefix,
 }
 
-impl From<url::ParseError> for SpecParseError {
-    fn from(error: url::ParseError) -> Self {
-        Self::UrlParseError(error)
-    }
-}
-
-impl From<version::VersionParseError> for SpecParseError {
-    fn from(_: version::VersionParseError) -> Self { Self::VersionParseError }
-}
-
 impl Spec {
     pub fn parse(input: &str) -> Result<Spec, SpecParseError> {
         use SpecParseError::*;
@@ -65,4 +75,14 @@ impl Spec {
             version,
         })
     }
+}
+
+impl From<url::ParseError> for SpecParseError {
+    fn from(error: url::ParseError) -> Self {
+        Self::UrlParseError(error)
+    }
+}
+
+impl From<version::VersionParseError> for SpecParseError {
+    fn from(_: version::VersionParseError) -> Self { Self::VersionParseError }
 }
