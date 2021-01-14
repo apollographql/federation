@@ -1,6 +1,6 @@
 {
   "name": "@apollo/gateway",
-  "version": "0.21.4",
+  "version": "0.22.0",
   "description": "Apollo Gateway",
   "author": "Apollo <opensource@apollographql.com>",
   "main": "dist/index.js",
