@@ -70,57 +70,6 @@ pub struct Schema<'a> {
     pub errors: Vec<SchemaError>,
 }
 
-/// Validation errors which may occur on a `Schema`
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum SchemaError {
-    /// Machine schemas must contain exactly one schema definition.
-    #[error("no schema definitions found in document")]
-    NoSchemas,
-
-    /// Multiple schema definitions were found in the document
-    /// Extra schema definitions are reported as these errors.
-    #[error("{} extra schema definition ignored", .0)]
-    ExtraSchema(Pos),
-
-    /// Multiple versions of @using were requested
-    /// by the document. One will be selected, the others
-    /// will generate these errors.
-    #[error("{} extra using spec ignored", .0)]
-    ExtraUsing(Pos, Version),
-
-    /// A request in the document failed to parse.
-    #[error("{} bad spec url: {}", .0, .1)]
-    BadUsingRequest(Pos, spec::SpecParseError),
-
-    /// Document is using multiple specs with the same prefix.
-    #[error("multiple requests using the {} prefix:\n{}", .0, self.requests())]
-    OverlappingPrefix(String, Vec<Request>)
-}
-
-impl SchemaError {
-    /// Collect `Request`s referenced by this error and join their position, urls,
-    /// and versions into an indented, "\n"-separated String for purposes of
-    /// displaying the error.
-    ///
-    /// Returns the empty string if this error does not reference any `Request`s.
-    fn requests(&self) -> String {
-        match self {
-            Self::OverlappingPrefix(_, requests) => requests.iter()
-                .map(|req|
-                    format!("    {pos}: {url}/{ver}",
-                        pos = req.position,
-                        url = &req.spec.identity,
-                        ver = &req.spec.version,
-                    )
-                )
-                .collect::<Vec<String>>()
-                .join("\n"),
-            _ => "".to_owned(),
-        }
-    }
-}
-
-
 impl<'a> Schema<'a> {
     /// Parse a schema source string and return a validated `Schema` with all
     /// `Request`s identified, or fail with a `graphql_parser::ParseError`.
@@ -298,6 +247,55 @@ fn bootstrap(
         errors.push(SchemaError::ExtraUsing(dir.position, unused.spec.version))
     }
     using.clone()
+}
+/// Validation errors which may occur on a `Schema`
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum SchemaError {
+    /// Machine schemas must contain exactly one schema definition.
+    #[error("no schema definitions found in document")]
+    NoSchemas,
+
+    /// Multiple schema definitions were found in the document
+    /// Extra schema definitions are reported as these errors.
+    #[error("{} extra schema definition ignored", .0)]
+    ExtraSchema(Pos),
+
+    /// Multiple versions of @using were requested
+    /// by the document. One will be selected, the others
+    /// will generate these errors.
+    #[error("{} extra using spec ignored", .0)]
+    ExtraUsing(Pos, Version),
+
+    /// A request in the document failed to parse.
+    #[error("{} bad spec url: {}", .0, .1)]
+    BadUsingRequest(Pos, spec::SpecParseError),
+
+    /// Document is using multiple specs with the same prefix.
+    #[error("multiple requests using the {} prefix:\n{}", .0, self.requests())]
+    OverlappingPrefix(String, Vec<Request>)
+}
+
+impl SchemaError {
+    /// Collect `Request`s referenced by this error and join their position, urls,
+    /// and versions into an indented, "\n"-separated String for purposes of
+    /// displaying the error.
+    ///
+    /// Returns the empty string if this error does not reference any `Request`s.
+    fn requests(&self) -> String {
+        match self {
+            Self::OverlappingPrefix(_, requests) => requests.iter()
+                .map(|req|
+                    format!("    {pos}: {url}/{ver}",
+                        pos = req.position,
+                        url = &req.spec.identity,
+                        ver = &req.spec.version,
+                    )
+                )
+                .collect::<Vec<String>>()
+                .join("\n"),
+            _ => "".to_owned(),
+        }
+    }
 }
 
 #[cfg(test)]

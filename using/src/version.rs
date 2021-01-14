@@ -21,11 +21,11 @@ impl Version {
     }
 
     pub fn satisfies(&self, required: &Version) -> bool {
-        let Version(major, minor) = self;
-        let Version(r_major, r_minor) = required;
+        let Version(major, minor) = *self;
+        let Version(r_major, r_minor) = *required;
         r_major == major && (
-            *major == 0 && r_minor == minor ||
-            r_minor <= minor
+            if major == 0 { r_minor == minor }
+            else { r_minor <= minor }
         )
     }
 }
@@ -50,4 +50,59 @@ pub struct VersionParseError;
 
 impl From<ParseIntError> for VersionParseError {
     fn from(_: ParseIntError) -> Self { Self }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Version, VersionParseError};
+
+    #[test]
+    fn it_parses_valid_version_specifiers() -> Result<(), VersionParseError> {
+        assert_eq!(Version::parse("v0.0")?, Version(0, 0));
+        assert_eq!(Version::parse("v1.0")?, Version(1, 0));
+        assert_eq!(Version::parse("v99.0")?, Version(99, 0));
+        assert_eq!(Version::parse("v2.3")?, Version(2, 3));
+        assert_eq!(Version::parse("v12.34")?, Version(12, 34));
+        assert_eq!(Version::parse("v987.654")?, Version(987, 654));
+        Ok(())
+    }
+
+    #[test]
+    fn it_errors_on_invalid_specifiers() {
+        assert!(matches!(Version::parse("bloop"), Err(VersionParseError)));
+        assert!(matches!(Version::parse("v0."), Err(VersionParseError)));
+        assert!(matches!(Version::parse("v0.?"), Err(VersionParseError)));
+        assert!(matches!(Version::parse("v1.x"), Err(VersionParseError)));
+        assert!(matches!(Version::parse("v0.1-tags_are_not_supported"), Err(VersionParseError)));
+    }
+
+    #[test]
+    fn it_still_parses_version_specifiers_which_are_slightly_out_of_spec() -> Result<(), VersionParseError> {
+        assert_eq!(Version::parse("v01.0002")?, Version(1, 2));
+        Ok(())
+    }
+
+    #[test]
+    fn it_compares_minor_version_differences_ok() {
+        assert!(Version(1, 5).satisfies(&Version(1, 0)));
+        assert!(!Version(1, 0).satisfies(&Version(1, 1)));
+    }
+
+    #[test]
+    fn it_compares_zerodot_series_version_differences_ok() {
+        assert!(Version(0, 1).satisfies(&Version(0, 1)));
+        assert!(!Version(0, 2).satisfies(&Version(0, 1)));
+    }
+
+    #[test]
+    fn it_compares_major_version_differences_ok() {
+        assert!(!Version(2, 2).satisfies(&Version(1, 2)));
+    }
+
+    #[test]
+    fn it_formats_itself() {
+        assert_eq!(format!("{}", Version(0, 1)), "v0.1");
+        assert_eq!(format!("{}", Version(1234, 5678)), "v1234.5678");
+    }
+
 }
