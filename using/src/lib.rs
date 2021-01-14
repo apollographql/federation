@@ -1,5 +1,3 @@
-#![feature(drain_filter)]
-
 pub mod version;
 pub use version::*;
 

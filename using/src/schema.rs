@@ -199,14 +199,29 @@ impl<'a> Schema<'a> {
                 self.errors.push(
                     SchemaError::OverlappingPrefix(
                         prefix.clone(),
-                        self.using
-                            .drain_filter(|req| req.prefix == *prefix)
-                            .collect()
+                        drain_filter_collect(&mut self.using, |req| req.prefix == *prefix)
                     )
                 );
             }
         }
     }
+}
+
+/// Drain all items from a `Vec<T>` which match `pred` and collect the results
+///
+/// Equivalent to (and probably slower than) `vec.drain_filter(pred).collect()`,
+/// which we should switch to once it stabilizes.
+fn drain_filter_collect<T, F: Fn(&T) -> bool>(vec: &mut Vec<T>, pred: F) -> Vec<T> {
+    let mut i = 0;
+    let mut collected = vec![];
+    while i != vec.len() {
+        if pred(&vec[i]) {
+            collected.push(vec.remove(i));
+        } else {
+            i += 1;
+        }
+    }
+    collected
 }
 
 /// Given a `Vec` of possible requests identify and return a clone of the one
