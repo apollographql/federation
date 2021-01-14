@@ -4,10 +4,27 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use thiserror::Error;
 
+/// Versions are a (major, minor) u64 pair.
+///
+/// Versions implement `PartialOrd` and `Ord`, which orders them by major and then
+/// minor version. Be aware that this ordering does *not* imply compatibility. For
+/// example, `Version(2, 0) > Version(1, 9)`, but an implementation of `Version(2, 0)`
+/// *cannot* satisfy a request for `Version(1, 9)`. To check for version compatibility,
+/// use [the `satisfies` method](#satisfies).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Version(pub u64, pub u64);
 
 impl Version {
+    /// Parse a version specifier of the form "v(major).(minor)"
+    ///
+    /// # Example
+    /// ```
+    /// use using::Version;
+    /// assert_eq!(Version::parse("v1.0")?, Version(1, 0));
+    /// assert_eq!(Version::parse("v0.1")?, Version(0, 1));
+    /// assert_eq!(Version::parse("v987.65432")?, Version(987, 65432));
+    /// # Ok::<(), using::VersionParseError>(())
+    /// ```
     pub fn parse(input: &str) -> Result<Version, VersionParseError> {
         lazy_static! {
             static ref VERSION_RE: Regex = Regex::new(r#"^v(\d+)\.(\d+)$"#).unwrap();
@@ -20,6 +37,15 @@ impl Version {
         }
     }
 
+    /// Return true iff this Version satisfies the `required` version
+    ///
+    /// # Example
+    /// ```
+    /// use using::Version;
+    /// assert!(Version(1, 0).satisfies(&Version(1, 0)));
+    /// assert!(Version(1, 2).satisfies(&Version(1, 0)));
+    /// assert!(!Version(2, 0).satisfies(&Version(1, 9)));
+    /// ```
     pub fn satisfies(&self, required: &Version) -> bool {
         let Version(major, minor) = *self;
         let Version(r_major, r_minor) = *required;
