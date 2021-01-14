@@ -14,3 +14,5 @@ pub use constants::*;
 
 pub mod schema;
 pub use schema::*;
+
+pub use graphql_parser::Pos;

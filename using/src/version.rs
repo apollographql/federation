@@ -1,4 +1,4 @@
-use std::{num::ParseIntError, str::FromStr};
+use std::{fmt::Display, num::ParseIntError, str::FromStr};
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -27,6 +27,12 @@ impl Version {
             *major == 0 && r_minor == minor ||
             r_minor <= minor
         )
+    }
+}
+
+impl Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("v{major}.{minor}", major = self.0, minor = self.1))
     }
 }
 
