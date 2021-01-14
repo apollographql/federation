@@ -18,4 +18,7 @@ pub use schema::*;
 pub mod implementations;
 pub use implementations::*;
 
+pub mod activations;
+pub use activations::*;
+
 pub use graphql_parser::Pos;
