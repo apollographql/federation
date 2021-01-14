@@ -1,12 +1,12 @@
 //! A `Request` for a spec within a document.
 //!
 //! `Request`s are derived from `Directive`s during schema bootstrapping.
-use graphql_parser::{Pos, schema::{Directive, Value}};
-
-use crate::spec::{
-    Spec,
-    SpecParseError,
+use graphql_parser::{
+    schema::{Directive, Value},
+    Pos,
 };
+
+use crate::spec::{Spec, SpecParseError};
 
 /// Requests contain a `spec`, the `prefix` requested for that spec (which
 /// will be the spec's [default prefix](Spec.html#default_prefix) if none was
@@ -51,14 +51,12 @@ impl Request {
             }
         }
 
-        spec.map(|result|
-            result.map(|spec|
-                Request {
-                    prefix: prefix.unwrap_or_else(|| spec.default_prefix.clone()),
-                    spec,
-                    position: dir.position,
-                }
-            )
-        )
+        spec.map(|result| {
+            result.map(|spec| Request {
+                prefix: prefix.unwrap_or_else(|| spec.default_prefix.clone()),
+                spec,
+                position: dir.position,
+            })
+        })
     }
 }

@@ -22,10 +22,7 @@ use thiserror::Error;
 use url;
 use url::Url;
 
-use crate::{
-    version,
-    version::Version,
-};
+use crate::{version, version::Version};
 
 /// Specs contain the `identity`, `default_prefix`, and `version` extracted from
 /// a spec URL.
@@ -59,19 +56,21 @@ impl Spec {
     pub fn parse(input: &str) -> Result<Spec, SpecParseError> {
         use SpecParseError::*;
 
-        let mut parsed = Url::parse(input)?;            
-        let mut path: Vec<_> = parsed.path_segments().ok_or(NoPath)?
+        let mut parsed = Url::parse(input)?;
+        let mut path: Vec<_> = parsed
+            .path_segments()
+            .ok_or(NoPath)?
             .map(|x| x.to_owned())
             .collect();
         let version = path.pop().ok_or(NoVersion)?;
         let version = Version::parse(&version)?;
         let default_prefix = path.last().ok_or(NoDefaultPrefix)?;
-        parsed.set_fragment(None);        
+        parsed.set_fragment(None);
         let _ = parsed.set_username("");
         parsed.set_query(None);
         let _ = parsed.set_password(None);
         parsed.set_path(&path.join("/"));
-        
+
         Ok(Spec {
             identity: parsed.to_string(),
             default_prefix: default_prefix.into(),
@@ -87,5 +86,7 @@ impl From<url::ParseError> for SpecParseError {
 }
 
 impl From<version::VersionParseError> for SpecParseError {
-    fn from(_: version::VersionParseError) -> Self { Self::VersionParseError }
+    fn from(_: version::VersionParseError) -> Self {
+        Self::VersionParseError
+    }
 }

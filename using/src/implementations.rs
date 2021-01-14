@@ -10,9 +10,18 @@ use crate::{Request, Version};
 pub struct Implementations<T>(HashMap<String, BTreeMap<Version, T>>);
 
 impl<T> Implementations<T> {
-    pub fn new() -> Self { Implementations(HashMap::new()) }
-    pub fn provide<S: ToString>(mut self, identity: S, version: Version, implementation: T) -> Self {
-        self.0.entry(identity.to_string()).or_default()
+    pub fn new() -> Self {
+        Implementations(HashMap::new())
+    }
+    pub fn provide<S: ToString>(
+        mut self,
+        identity: S,
+        version: Version,
+        implementation: T,
+    ) -> Self {
+        self.0
+            .entry(identity.to_string())
+            .or_default()
             .entry(version)
             .or_insert(implementation);
         self
@@ -40,9 +49,10 @@ pub trait Find<T> {
     }
 }
 
-impl<T> Find<T> for Implementations<T> {    
+impl<T> Find<T> for Implementations<T> {
     fn find_max<S: AsRef<str>>(&self, identity: S, version: &Version) -> Option<(&Version, &T)> {
-        self.0.get(identity.as_ref())?
+        self.0
+            .get(identity.as_ref())?
             .range(version..&Version(version.0, u64::MAX))
             .rev()
             .filter(|(impl_version, _impl)| impl_version.satisfies(version))
@@ -52,7 +62,8 @@ impl<T> Find<T> for Implementations<T> {
     }
 
     fn find_min<S: AsRef<str>>(&self, identity: S, version: &Version) -> Option<(&Version, &T)> {
-        self.0.get(identity.as_ref())?
+        self.0
+            .get(identity.as_ref())?
             .range(version..&Version(version.0, u64::MAX))
             .filter(|(impl_version, _impl)| impl_version.satisfies(version))
             .take(1)
@@ -63,7 +74,7 @@ impl<T> Find<T> for Implementations<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Implementations, Find};
+    use super::{Find, Implementations};
     use crate::Version;
 
     #[test]
@@ -82,7 +93,6 @@ mod tests {
             Some((&Version(1, 0), &"Specification A"))
         );
     }
-
 
     #[test]
     fn it_finds_satisfying_matches() {
@@ -121,25 +131,25 @@ mod tests {
             .provide(identity, Version(1, 5), "1.5")
             .provide(unrelated, Version(2, 0), "2.0")
             .provide(identity, Version(2, 0), "2.0");
-            assert_eq!(
-                impls.find_max(&identity, &Version(1, 0)),
-                Some((&Version(1, 5), &"1.5"))
-            );
-            assert_eq!(
-                impls.find_min(&identity, &Version(2, 1)),
-                Some((&Version(2, 99), &"2.99"))
-            );
+        assert_eq!(
+            impls.find_max(&identity, &Version(1, 0)),
+            Some((&Version(1, 5), &"1.5"))
+        );
+        assert_eq!(
+            impls.find_min(&identity, &Version(2, 1)),
+            Some((&Version(2, 99), &"2.99"))
+        );
     }
 
     #[test]
     fn it_treats_each_zerodot_version_as_mutually_incompatible() {
         let identity = "https://spec.example.com/specA";
         let impls = Implementations::new()
-        .provide(identity, Version(0, 0), "0.0")
-        .provide(identity, Version(0, 1), "0.1")
-        .provide(identity, Version(0, 2), "0.0")
-        .provide(identity, Version(0, 3), "0.1")
-        .provide(identity, Version(0, 99), "0.99");
+            .provide(identity, Version(0, 0), "0.0")
+            .provide(identity, Version(0, 1), "0.1")
+            .provide(identity, Version(0, 2), "0.0")
+            .provide(identity, Version(0, 3), "0.1")
+            .provide(identity, Version(0, 99), "0.99");
         assert_eq!(
             impls.find_max(&identity, &Version(0, 1)),
             Some((&Version(0, 1), &"0.1"))
@@ -157,5 +167,4 @@ mod tests {
             Some((&Version(0, 99), &"0.99"))
         );
     }
-
 }

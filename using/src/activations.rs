@@ -18,29 +18,34 @@ impl<'a> Schema<'a> {
     /// return an iterator over `Activation`s containing the min- and max-
     /// versioned implementations which will satisfy the request if any such
     /// implementations are available.
-    pub fn activations<'impls, T, F>(&'impls self, implementations: &'impls F) -> impl Iterator<Item=Activation<'a, 'impls, T>> + 'impls
-        where
-            'impls: 'a,
-            T: 'impls,
-            F: Find<T>
+    pub fn activations<'impls, T, F>(
+        &'impls self,
+        implementations: &'impls F,
+    ) -> impl Iterator<Item = Activation<'a, 'impls, T>> + 'impls
+    where
+        'impls: 'a,
+        T: 'impls,
+        F: Find<T>,
     {
-        self.using.iter()
-            .map(move |req| (
-                req,
-                implementations.find_min_req(req),
-                implementations.find_max_req(req),
-            ))
-            .map(|(request, min, max)|
-                Activation { request, min, max }
-            )
+        self.using
+            .iter()
+            .map(move |req| {
+                (
+                    req,
+                    implementations.find_min_req(req),
+                    implementations.find_max_req(req),
+                )
+            })
+            .map(|(request, min, max)| Activation { request, min, max })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use graphql_parser::ParseError;
     use crate::*;
-    
+    use graphql_parser::ParseError;
+
+    #[rustfmt::skip]
     #[test]
     fn it_iterates_over_activations() -> Result<(), ParseError> {
         let implementations = Implementations::new()
@@ -117,26 +122,31 @@ r#"Activation {
     #[test]
     fn it_takes_arbitrary_types_as_implementations() -> Result<(), ParseError> {
         let implementations = Implementations::new()
-            .provide("https://spec.example.com/A", Version(1, 2), 
-            Box::<&dyn Fn () -> String>::new(&|| "impl A v1.2".to_owned()))
-            .provide("https://spec.example.com/B", Version(1, 2), 
-            Box::<&dyn Fn () -> String>::new(&|| "impl B v1.2".to_owned()));
-        let output = Schema::parse(r#"
+            .provide(
+                "https://spec.example.com/A",
+                Version(1, 2),
+                Box::<&dyn Fn() -> String>::new(&|| "impl A v1.2".to_owned()),
+            )
+            .provide(
+                "https://spec.example.com/B",
+                Version(1, 2),
+                Box::<&dyn Fn() -> String>::new(&|| "impl B v1.2".to_owned()),
+            );
+        let output = Schema::parse(
+            r#"
             schema
                 @using(spec: "https://spec.example.com/A/v1.0")
                 @using(spec: "https://spec.example.com/unknown/v1.0")
             {
                 query: Query
             }
-        "#)?
-            .activations(&implementations)
-            .map(|activ| activ.max.map(|(_, f)| f()))
-            .collect::<Vec<_>>();
+        "#,
+        )?
+        .activations(&implementations)
+        .map(|activ| activ.max.map(|(_, f)| f()))
+        .collect::<Vec<_>>();
 
-        assert_eq!(output, vec![
-            Some("impl A v1.2".to_owned()),
-            None,
-        ]);
+        assert_eq!(output, vec![Some("impl A v1.2".to_owned()), None,]);
 
         Ok(())
     }

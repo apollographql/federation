@@ -4,19 +4,13 @@
 use graphql_parser::Pos;
 use lazy_static::lazy_static;
 
-use crate::{
-    version::Version,
-    request::Request,
-    spec::Spec,
-};
+use crate::{request::Request, spec::Spec, version::Version};
 
 /// The well-known URL for the `using` spec
 pub const USING_SPEC_URL: &str = "https://specs.apollo.dev/using";
 
 /// Versions of the `using` spec supported by this crate
-pub const USING_VERSIONS: &[Version] = &[
-    Version(0, 1),
-];
+pub const USING_VERSIONS: &[Version] = &[Version(0, 1)];
 
 lazy_static! {
     /// A [`Request`](Request.html) for the default version of the `using` spec.

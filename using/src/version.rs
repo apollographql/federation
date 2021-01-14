@@ -49,16 +49,22 @@ impl Version {
     pub fn satisfies(&self, required: &Version) -> bool {
         let Version(major, minor) = *self;
         let Version(r_major, r_minor) = *required;
-        r_major == major && (
-            if major == 0 { r_minor == minor }
-            else { r_minor <= minor }
-        )
+        r_major == major
+            && (if major == 0 {
+                r_minor == minor
+            } else {
+                r_minor <= minor
+            })
     }
 }
 
 impl Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("v{major}.{minor}", major = self.0, minor = self.1))
+        f.write_fmt(format_args!(
+            "v{major}.{minor}",
+            major = self.0,
+            minor = self.1
+        ))
     }
 }
 
@@ -75,7 +81,9 @@ impl FromStr for Version {
 pub struct VersionParseError;
 
 impl From<ParseIntError> for VersionParseError {
-    fn from(_: ParseIntError) -> Self { Self }
+    fn from(_: ParseIntError) -> Self {
+        Self
+    }
 }
 
 #[cfg(test)]
@@ -99,11 +107,15 @@ mod tests {
         assert!(matches!(Version::parse("v0."), Err(VersionParseError)));
         assert!(matches!(Version::parse("v0.?"), Err(VersionParseError)));
         assert!(matches!(Version::parse("v1.x"), Err(VersionParseError)));
-        assert!(matches!(Version::parse("v0.1-tags_are_not_supported"), Err(VersionParseError)));
+        assert!(matches!(
+            Version::parse("v0.1-tags_are_not_supported"),
+            Err(VersionParseError)
+        ));
     }
 
     #[test]
-    fn it_still_parses_version_specifiers_which_are_slightly_out_of_spec() -> Result<(), VersionParseError> {
+    fn it_still_parses_version_specifiers_which_are_slightly_out_of_spec(
+    ) -> Result<(), VersionParseError> {
         assert_eq!(Version::parse("v01.0002")?, Version(1, 2));
         Ok(())
     }
@@ -130,5 +142,4 @@ mod tests {
         assert_eq!(format!("{}", Version(0, 1)), "v0.1");
         assert_eq!(format!("{}", Version(1234, 5678)), "v1234.5678");
     }
-
 }
