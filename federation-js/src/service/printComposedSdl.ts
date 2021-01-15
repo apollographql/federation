@@ -216,8 +216,7 @@ function printKeys(type: GraphQLObjectType): string {
 
   return (
     Object.entries(keys).map(([service, keys]) =>
-      keys
-        .map(
+      keys?.map(
           (selections) =>
             `\nfragment cs__keyFor_${type.name}_${nextKeyId++} on ${type.name} @cs__key(graph: ${service}) ${printFieldSet(selections)}`
         )

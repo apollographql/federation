@@ -56,6 +56,7 @@ use crate::{
 
 /// A Schema holds a parsed GraphQL schema document and the specs requested by that document,
 /// along with any errors which occurred during validation.
+#[derive(Debug)]
 pub struct Schema<'a> {
     /// the document AST, as parsed by graphql_parser
     pub document: Document<'a>,

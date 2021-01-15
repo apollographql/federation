@@ -10,6 +10,7 @@ repository = "https://github.com/apollographql/federation"
 [dependencies]
 # workspace
 graphql-parser = { path = "../graphql-parser" }
+using = { path = "../using" }
 
 # 3rd party
 derive_builder = "0.9.0"

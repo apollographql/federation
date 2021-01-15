@@ -29,14 +29,16 @@ pub enum QueryPlanError {
 
 pub type Result<T> = std::result::Result<T, QueryPlanError>;
 
+pub use using::Schema;
+
 #[derive(Debug)]
 pub struct QueryPlanner<'s> {
-    pub schema: schema::Document<'s>,
+    pub schema: using::Schema<'s>,
 }
 
 impl<'s> QueryPlanner<'s> {
     pub fn new(schema: &'s str) -> QueryPlanner<'s> {
-        let schema = parse_schema(schema).expect("failed parsing schema");
+        let schema = Schema::parse(schema).expect("failed parsing schema");
         QueryPlanner { schema }
     }
 

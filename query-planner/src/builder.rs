@@ -29,7 +29,7 @@ impl<'s> QueryPlanner<'s> {
         query: &Document,
         options: QueryPlanningOptions,
     ) -> Result<QueryPlan> {
-        let schema = &self.schema;
+        let schema = &self.schema.document;
         let mut ops = get_operations(&query);
 
         if ops.is_empty() {
