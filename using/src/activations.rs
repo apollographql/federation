@@ -1,42 +1,61 @@
 //! Methods to select which of a set of implementations to activate based on a schema's
 //! `Request`s.
 
-use crate::{Find, Request, Schema, Version};
+use crate::{Find, Found, Implementations, Request, Schema};
 
 /// An Activation references a request and contains the min and max versioned implementations
 /// available in the implementation registry which can satisfy that request, or None if no
 /// matching implementations were available.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Activation<'schema, 'impls, T> {
-    pub request: &'schema Request,
-    pub min: Option<(&'impls Version, &'impls T)>,
-    pub max: Option<(&'impls Version, &'impls T)>,
-}
+// type Activation<'schema, 'impls, T> = (&'schema Request, Find<'impls, T>);
 
 impl<'a> Schema<'a> {
     /// Given a set of implementations, take all requests in the document and
-    /// return an iterator over `Activation`s containing the min- and max-
-    /// versioned implementations which will satisfy the request if any such
-    /// implementations are available.
-    pub fn activations<'impls, T, F>(
+    /// match them to the implementations which satisfy them ("satisfying
+    /// implementations").
+    ///
+    /// This returns an `Iterator` over `(&Request, Find<T>)`.
+    /// `Find` is an `Iterator` over `(&Version, &T)`, which will iterate satisfying
+    /// implementations ordered by lowest to highest version. The
+    /// [`bound`](Bounds.html#bound) method can be used to get the lowest and highest
+    /// satisfying versions.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use using::*;
+    ///
+    /// let impls = Implementations::new()
+    ///     .provide("https://spec.example.com/A", Version(1, 2), "impl for A 1.2")
+    ///     .provide("https://spec.example.com/A", Version(1, 3), "impl for A 1.3")
+    ///     .provide("https://spec.example.com/A", Version(1, 7), "impl for A 1.7");
+    /// let schema = Schema::parse(r#"schema @using(spec: "https://spec.example.com/A/v1.0") { query: Query }"#)?;
+    ///
+    /// let max = schema
+    ///   .activations(&impls)
+    ///   .filter_map(|(_request, mut impls)| impls.bounds())
+    ///   .collect::<Vec<_>>();
+    ///
+    /// assert_eq!(max, vec![(
+    ///     (&Version(1, 2), &"impl for A 1.2"), (&Version(1, 7), &"impl for A 1.7")
+    /// )]);
+    /// # Ok::<(), GraphQLParseError>(())
+    /// ```
+    pub fn activations<'impls, T>(
         &'impls self,
-        implementations: &'impls F,
-    ) -> impl Iterator<Item = Activation<'a, 'impls, T>> + 'impls
+        implementations: &'impls Implementations<T>,
+    ) -> impl Iterator<
+        Item = (
+            &'a Request,
+            Find<'impls, T, impl Iterator<Item = Found<'impls, T>>>,
+        ),
+    > + 'impls
     where
         'impls: 'a,
         T: 'impls,
-        F: Find<T>,
     {
         self.using
             .iter()
-            .map(move |req| {
-                (
-                    req,
-                    implementations.find_min_req(req),
-                    implementations.find_max_req(req),
-                )
-            })
-            .map(|(request, min, max)| Activation { request, min, max })
+            .map(move |request| (request, implementations.find_req(request)))
     }
 }
 
@@ -44,78 +63,42 @@ impl<'a> Schema<'a> {
 mod tests {
     use crate::*;
     use graphql_parser::ParseError;
+    use insta::assert_snapshot;
 
-    #[rustfmt::skip]
     #[test]
     fn it_iterates_over_activations() -> Result<(), ParseError> {
-        let implementations = Implementations::new()
-            .provide("https://spec.example.com/A", Version(1, 2), "impl A v1.2".to_owned())
-            .provide("https://spec.example.com/B", Version(1, 2), "impl B v1.2".to_owned());
+        assert_snapshot!({
+            let implementations = Implementations::new()
+                .provide(
+                    "https://spec.example.com/A",
+                    Version(1, 2),
+                    "impl A v1.2".to_owned(),
+                )
+                .provide(
+                    "https://spec.example.com/B",
+                    Version(1, 2),
+                    "impl B v1.2".to_owned(),
+                );
 
-        let mut expected = vec![
-r#"Activation {
-    request: Request {
-        spec: Spec {
-            identity: "https://spec.example.com/A",
-            default_prefix: "A",
-            version: Version(
-                1,
-                0,
-            ),
-        },
-        prefix: "A",
-        position: Pos(3:17),
-    },
-    min: Some(
-        (
-            Version(
-                1,
-                2,
-            ),
-            "impl A v1.2",
-        ),
-    ),
-    max: Some(
-        (
-            Version(
-                1,
-                2,
-            ),
-            "impl A v1.2",
-        ),
-    ),
-}"#,
-r#"Activation {
-    request: Request {
-        spec: Spec {
-            identity: "https://spec.example.com/unknown",
-            default_prefix: "unknown",
-            version: Version(
-                1,
-                0,
-            ),
-        },
-        prefix: "unknown",
-        position: Pos(4:17),
-    },
-    min: None,
-    max: None,
-}"#
-        ];
-        expected.reverse();
+            let schema = Schema::parse(
+                r#"
+                schema
+                    @using(spec: "https://spec.example.com/A/v1.0")
+                    @using(spec: "https://spec.example.com/unknown/v1.0")
+                {
+                    query: Query
+                }
+                "#,
+            )?;
 
-        Schema::parse(r#"
-            schema
-                @using(spec: "https://spec.example.com/A/v1.0")
-                @using(spec: "https://spec.example.com/unknown/v1.0")
-            {
-                query: Query
-            }
-        "#)?
-            .activations(&implementations)
-            .for_each(|req|
-                assert_eq!(expected.pop().unwrap(), format!("{:#?}", req)));
-        
+            let activations = schema
+                .activations(&implementations)
+                .map(|(req, find)| (req, find.collect::<Vec<_>>()))
+                .collect::<Vec<_>>();
+
+            format!("{:#?}", activations)
+        });
+
         Ok(())
     }
 
@@ -143,7 +126,7 @@ r#"Activation {
         "#,
         )?
         .activations(&implementations)
-        .map(|activ| activ.max.map(|(_, f)| f()))
+        .map(|(_req, find)| find.last().map(|(_ver, f)| f()))
         .collect::<Vec<_>>();
 
         assert_eq!(output, vec![Some("impl A v1.2".to_owned()), None,]);
