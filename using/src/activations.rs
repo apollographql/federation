@@ -97,7 +97,49 @@ mod tests {
                 .collect::<Vec<_>>();
 
             format!("{:#?}", activations)
-        });
+        },
+        @r###"
+        [
+            (
+                Request {
+                    spec: Spec {
+                        identity: "https://spec.example.com/A",
+                        default_prefix: "A",
+                        version: Version(
+                            1,
+                            0,
+                        ),
+                    },
+                    prefix: "A",
+                    position: Pos(3:21),
+                },
+                [
+                    (
+                        Version(
+                            1,
+                            2,
+                        ),
+                        "impl A v1.2",
+                    ),
+                ],
+            ),
+            (
+                Request {
+                    spec: Spec {
+                        identity: "https://spec.example.com/unknown",
+                        default_prefix: "unknown",
+                        version: Version(
+                            1,
+                            0,
+                        ),
+                    },
+                    prefix: "unknown",
+                    position: Pos(4:21),
+                },
+                [],
+            ),
+        ]
+        "###);
 
         Ok(())
     }
