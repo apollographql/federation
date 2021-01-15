@@ -20,7 +20,7 @@ lazy_static! {
         spec: Spec {
             identity: USING_SPEC_URL.to_owned(),
             default_prefix: "using".to_owned(),
-            version: USING_VERSIONS[0].clone(),
+            version: USING_VERSIONS[0],
         },
         prefix: "using".to_owned(),
         position: Pos { line: 0, column: 0 },

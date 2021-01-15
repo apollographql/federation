@@ -28,6 +28,12 @@ impl<T> Implementations<T> {
     }
 }
 
+impl<T> Default for Implementations<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Find an implementation of type T.
 pub trait Find<T> {
     /// Find the highest-versioned implementation which can satisfy a

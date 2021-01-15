@@ -19,7 +19,6 @@
 //! Ok::<(), SpecParseError>(())
 //! ```
 use thiserror::Error;
-use url;
 use url::Url;
 
 use crate::{version, version::Version};
