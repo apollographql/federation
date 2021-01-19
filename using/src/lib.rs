@@ -1,25 +1,25 @@
-pub mod version;
+mod version;
 pub use version::*;
 
-pub mod request;
+mod request;
 pub use request::*;
 
-pub mod spec;
+mod spec;
 pub use spec::*;
 
-pub mod constants;
+mod constants;
 pub use constants::*;
 
-pub mod schema;
+mod schema;
 pub use schema::*;
 
-pub mod bounds;
+mod bounds;
 pub use bounds::*;
 
-pub mod implementations;
+mod implementations;
 pub use implementations::*;
 
-pub mod activations;
+mod activations;
 pub use activations::*;
 
 pub use graphql_parser::ParseError as GraphQLParseError;

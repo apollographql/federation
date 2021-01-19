@@ -11,7 +11,7 @@ pub struct Implementations<T>(HashMap<String, BTreeMap<Version, T>>);
 
 impl<T> Implementations<T> {
     pub fn new() -> Self {
-        Implementations(HashMap::new())
+        Self(HashMap::new())
     }
 
     pub fn provide<S: ToString>(

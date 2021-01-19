@@ -9,7 +9,7 @@ where
     /// If the iterator has only one item, that item will
     /// be returned as both the lower and upper bound.
     fn bounds(&mut self) -> Option<(Self::Item, Self::Item)> {
-        let min = self.nth(0);
+        let min = self.next();
         min.map(move |min| (min, self.last().unwrap_or(min)))
     }
 }
