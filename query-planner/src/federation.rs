@@ -3,7 +3,7 @@ use graphql_parser::query::refs::SelectionSetRef;
 use graphql_parser::schema::*;
 use graphql_parser::{parse_query, Pos};
 use using::{Implementations, Request, Schema, Version};
-use std::{collections::{HashMap, HashSet}, fmt::Debug};
+use std::{collections::{HashMap, HashSet}, default, fmt::Debug};
 use thiserror::Error;
 
 use crate::helpers::directive_args_as_map;
@@ -219,7 +219,7 @@ impl SpecVersion {
         // TODO(ashik): make less stupid
         for (field, resolve) in resolves {
             let pos = field.position;
-            println!("field at {:?} {}: {}", field.position, &field.name, &resolve.graph);
+            // println!("field at {:?} {}: {}", field.position, &field.name, &resolve.graph);
             fields.service_name.insert(pos, resolve.graph.to_string());
             match resolve.requires {
                 Some(sel) => { fields.requires.insert(pos, sel); },
@@ -244,6 +244,10 @@ impl SpecVersion {
             let keys = match types.keys.get(&typ.position) {
                 Some(keys) => keys.values(),
                 None => {
+                    types.is_value_type.insert(
+                        typ.position,
+                        typ.fields.iter().all(|f| !fields.service_name.contains_key(&f.position))
+                    );
                     // types.is_value_type.insert(typ.position, true);
                     continue
                 }
@@ -424,7 +428,9 @@ impl<'q> Federation<'q> {
 
     pub(crate) fn is_value_type<'a>(&'a self, parent_type: &'q TypeDefinition<'q>) -> bool {
         if let TypeDefinition::Object(object_type) = parent_type {
-            self.types.is_value_type[&object_type.position]
+            self.types.is_value_type.get(&object_type.position)
+                .map(|x| *x)
+                .unwrap_or_default()
         } else {
             true
         }
