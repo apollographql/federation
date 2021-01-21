@@ -1,14 +1,13 @@
 use std::process::Command;
+use std::fs::metadata;
 
 fn main() {
-  println!("cargo:rerun-if-changed=package.json");
-  println!("cargo:rerun-if-changed=js/index.mjs");
-
-  let rollup = Command::new("npx")
-    .current_dir("../")
-    .args(&["lerna", "run", "--scope", "@apollo/harmonizer", "rollup"])
-    .status()
-    .unwrap();
-
-  assert!(rollup.success());
+  if !metadata("dist/composition.js").is_ok() {
+    assert!(Command::new("npm")
+      .current_dir("../")
+      .args(&["run", "compile"])
+      .status()
+      .unwrap()
+      .success());
+  }
 }
