@@ -6,7 +6,7 @@ pub fn assert_query_plan(
   expected_json: &str,
   options: QueryPlanningOptions
 ) {
-  let planner = QueryPlanner::new(&schema);
+  let planner = QueryPlanner::new(&schema).unwrap();
   let expected: QueryPlan = serde_json::from_str(&expected_json).unwrap();
   let result = planner.plan(&query, options).unwrap();
   assert_eq!(result, expected);

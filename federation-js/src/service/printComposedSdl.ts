@@ -326,7 +326,10 @@ function printFederationFieldDirectives(
   type: GraphQLObjectType | GraphQLInterfaceType,
   field: GraphQLField<any, any>,
 ): string {
-  if (!field.extensions?.federation) return '';
+  if (!field.extensions?.federation) {
+    const {serviceName}: FederationType = type.extensions?.federation;
+    return ` @cs__resolve(graph: ${serviceName})`
+  }
 
   const {
     serviceName,

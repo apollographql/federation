@@ -55,18 +55,18 @@ directive @transform(from: String!) on FIELD
 union AccountType = PasswordAccount | SMSAccount
 
 type Amazon {
-  referrer: String
+  referrer: String @cs__resolve(graph: product)
 }
 
 union Body = Image | Text
 
 type Book implements Product
 {
-  isbn: String!
-  title: String
-  year: Int
-  similarBooks: [Book]!
-  metadata: [MetadataOrError]
+  isbn: String! @cs__resolve(graph: books)
+  title: String @cs__resolve(graph: books)
+  year: Int @cs__resolve(graph: books)
+  similarBooks: [Book]! @cs__resolve(graph: books)
+  metadata: [MetadataOrError] @cs__resolve(graph: books)
   inStock: Boolean @cs__resolve(graph: inventory)
   isCheckedOut: Boolean @cs__resolve(graph: inventory)
   upc: String! @cs__resolve(graph: product)
@@ -89,9 +89,9 @@ union Brand = Ikea | Amazon
 
 type Car implements Vehicle
 {
-  id: String!
-  description: String
-  price: String
+  id: String! @cs__resolve(graph: product)
+  description: String @cs__resolve(graph: product)
+  price: String @cs__resolve(graph: product)
   retailPrice: String @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Car_price_0")
 }
 fragment cs__keyFor_Car_4 on Car @cs__key(graph: product) { id }
@@ -100,19 +100,19 @@ fragment cs__keyFor_Car_5 on Car @cs__key(graph: reviews) { id }
 fragment cs__fragmentOn_Car_price_0 on Car { price }
 
 type Error {
-  code: Int
-  message: String
+  code: Int @cs__resolve(graph: null)
+  message: String @cs__resolve(graph: null)
 }
 
 type Furniture implements Product
 {
-  upc: String!
-  sku: String!
-  name: String
-  price: String
-  brand: Brand
-  metadata: [MetadataOrError]
-  details: ProductDetailsFurniture
+  upc: String! @cs__resolve(graph: product)
+  sku: String! @cs__resolve(graph: product)
+  name: String @cs__resolve(graph: product)
+  price: String @cs__resolve(graph: product)
+  brand: Brand @cs__resolve(graph: product)
+  metadata: [MetadataOrError] @cs__resolve(graph: product)
+  details: ProductDetailsFurniture @cs__resolve(graph: product)
   inStock: Boolean @cs__resolve(graph: inventory)
   isHeavy: Boolean @cs__resolve(graph: inventory)
   reviews: [Review] @cs__resolve(graph: reviews)
@@ -124,27 +124,27 @@ fragment cs__keyFor_Furniture_9 on Furniture @cs__key(graph: reviews) { upc }
 
 
 type Ikea {
-  asile: Int
+  asile: Int @cs__resolve(graph: product)
 }
 
 type Image {
-  name: String!
-  attributes: ImageAttributes!
+  name: String! @cs__resolve(graph: documents)
+  attributes: ImageAttributes! @cs__resolve(graph: documents)
 }
 
 type ImageAttributes {
-  url: String!
+  url: String! @cs__resolve(graph: documents)
 }
 
 type KeyValue {
-  key: String!
-  value: String!
+  key: String! @cs__resolve(graph: null)
+  value: String! @cs__resolve(graph: null)
 }
 
 type Library
 {
-  id: ID!
-  name: String
+  id: ID! @cs__resolve(graph: books)
+  name: String @cs__resolve(graph: books)
   userAccount(id: ID! = 1): User @cs__resolve(graph: accounts, requires: "cs__fragmentOn_Library_name_0")
 }
 fragment cs__keyFor_Library_10 on Library @cs__key(graph: accounts) { id }
@@ -162,39 +162,39 @@ type Mutation {
 }
 
 type Name {
-  first: String
-  last: String
+  first: String @cs__resolve(graph: accounts)
+  last: String @cs__resolve(graph: accounts)
 }
 
 type PasswordAccount
 {
-  email: String!
+  email: String! @cs__resolve(graph: accounts)
 }
 fragment cs__keyFor_PasswordAccount_12 on PasswordAccount @cs__key(graph: accounts) { email }
 
 
 interface Product {
-  upc: String!
-  sku: String!
-  name: String
-  price: String
-  details: ProductDetails
-  inStock: Boolean
-  reviews: [Review]
+  upc: String! @cs__resolve(graph: product)
+  sku: String! @cs__resolve(graph: product)
+  name: String @cs__resolve(graph: product)
+  price: String @cs__resolve(graph: product)
+  details: ProductDetails @cs__resolve(graph: product)
+  inStock: Boolean @cs__resolve(graph: product)
+  reviews: [Review] @cs__resolve(graph: product)
 }
 
 interface ProductDetails {
-  country: String
+  country: String @cs__resolve(graph: product)
 }
 
 type ProductDetailsBook implements ProductDetails {
-  country: String
-  pages: Int
+  country: String @cs__resolve(graph: product)
+  pages: Int @cs__resolve(graph: product)
 }
 
 type ProductDetailsFurniture implements ProductDetails {
-  country: String
-  color: String
+  country: String @cs__resolve(graph: product)
+  color: String @cs__resolve(graph: product)
 }
 
 type Query {
@@ -213,11 +213,11 @@ type Query {
 
 type Review
 {
-  id: ID!
-  body(format: Boolean = false): String
+  id: ID! @cs__resolve(graph: reviews)
+  body(format: Boolean = false): String @cs__resolve(graph: reviews)
   author: User @cs__resolve(graph: reviews, provides: "cs__fragmentOn_Review_username_0")
-  product: Product
-  metadata: [MetadataOrError]
+  product: Product @cs__resolve(graph: reviews)
+  metadata: [MetadataOrError] @cs__resolve(graph: reviews)
 }
 fragment cs__keyFor_Review_13 on Review @cs__key(graph: reviews) { id }
 
@@ -225,19 +225,19 @@ fragment cs__fragmentOn_Review_username_0 on Review { username }
 
 type SMSAccount
 {
-  number: String
+  number: String @cs__resolve(graph: accounts)
 }
 fragment cs__keyFor_SMSAccount_14 on SMSAccount @cs__key(graph: accounts) { number }
 
 
 type Text {
-  name: String!
-  attributes: TextAttributes!
+  name: String! @cs__resolve(graph: documents)
+  attributes: TextAttributes! @cs__resolve(graph: documents)
 }
 
 type TextAttributes {
-  bold: Boolean
-  text: String
+  bold: Boolean @cs__resolve(graph: documents)
+  text: String @cs__resolve(graph: documents)
 }
 
 union Thing = Car | Ikea
@@ -249,12 +249,12 @@ input UpdateReviewInput {
 
 type User
 {
-  id: ID!
-  name: Name
-  username: String
-  birthDate(locale: String): String
-  account: AccountType
-  metadata: [UserMetadata]
+  id: ID! @cs__resolve(graph: accounts)
+  name: Name @cs__resolve(graph: accounts)
+  username: String @cs__resolve(graph: accounts)
+  birthDate(locale: String): String @cs__resolve(graph: accounts)
+  account: AccountType @cs__resolve(graph: accounts)
+  metadata: [UserMetadata] @cs__resolve(graph: accounts)
   goodDescription: Boolean @cs__resolve(graph: inventory, requires: "cs__fragmentOn_User_metadata_description_0")
   vehicle: Vehicle @cs__resolve(graph: product)
   thing: Thing @cs__resolve(graph: product)
@@ -272,16 +272,16 @@ fragment cs__fragmentOn_User_metadata_description_0 on User { metadata { descrip
 fragment cs__fragmentOn_User_metadata_address_1 on User { metadata { address } }
 
 type UserMetadata {
-  name: String
-  address: String
-  description: String
+  name: String @cs__resolve(graph: accounts)
+  address: String @cs__resolve(graph: accounts)
+  description: String @cs__resolve(graph: accounts)
 }
 
 type Van implements Vehicle
 {
-  id: String!
-  description: String
-  price: String
+  id: String! @cs__resolve(graph: product)
+  description: String @cs__resolve(graph: product)
+  price: String @cs__resolve(graph: product)
   retailPrice: String @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Van_price_0")
 }
 fragment cs__keyFor_Van_20 on Van @cs__key(graph: product) { id }
@@ -290,8 +290,8 @@ fragment cs__keyFor_Van_21 on Van @cs__key(graph: reviews) { id }
 fragment cs__fragmentOn_Van_price_0 on Van { price }
 
 interface Vehicle {
-  id: String!
-  description: String
-  price: String
-  retailPrice: String
+  id: String! @cs__resolve(graph: product)
+  description: String @cs__resolve(graph: product)
+  price: String @cs__resolve(graph: product)
+  retailPrice: String @cs__resolve(graph: product)
 }

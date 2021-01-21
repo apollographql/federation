@@ -45,8 +45,8 @@ enum cs__Graph {
 }
 
 type Group {
-  id: ID
-  name: String
+  id: ID @cs__resolve(graph: users)
+  name: String @cs__resolve(graph: users)
 }
 
 type Query {
@@ -55,17 +55,17 @@ type Query {
 }
 
 type Review {
-  id: ID!
-  author: User!
-  body: String!
+  id: ID! @cs__resolve(graph: reviews)
+  author: User! @cs__resolve(graph: reviews)
+  body: String! @cs__resolve(graph: reviews)
 }
 
 type User
 {
-  id: ID!
-  ssn: ID!
-  name: String!
-  group: Group
+  id: ID! @cs__resolve(graph: users)
+  ssn: ID! @cs__resolve(graph: users)
+  name: String! @cs__resolve(graph: users)
+  group: Group @cs__resolve(graph: users)
   risk: Float @cs__resolve(graph: actuary)
   reviews: [Review!]! @cs__resolve(graph: reviews)
 }

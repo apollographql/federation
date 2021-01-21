@@ -50,6 +50,8 @@ impl<'s> QueryPlanner<'s> {
 
         let types = names_to_types(schema);
 
+        let federation = Federation::new(&self.schema)?;
+
         // TODO(ran)(p2)(#114) see if we can optimize and memoize the stuff we build only using the schema.
         let context = QueryPlanningContext {
             schema,
@@ -64,7 +66,7 @@ impl<'s> QueryPlanner<'s> {
                 .collect(),
             possible_types: build_possible_types(schema, &types),
             variable_name_to_def: variable_name_to_def(&query),
-            federation: Federation::new(schema),
+            federation,
             names_to_types: types,
             options,
         };

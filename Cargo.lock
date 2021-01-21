@@ -411,6 +411,7 @@ dependencies = [
  "linked-hash-map",
  "serde",
  "serde_json",
+ "thiserror",
  "tracing",
  "tracing-futures",
  "using",

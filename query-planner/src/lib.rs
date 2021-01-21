@@ -4,7 +4,11 @@ extern crate lazy_static;
 #[macro_use]
 extern crate derive_builder;
 
+use std::{pin::Pin, ptr::NonNull};
+
 pub use crate::model::QueryPlan;
+use context::QueryPlanningContext;
+use federation::{Federation, FederationError};
 use graphql_parser::{parse_schema, parse_query, schema, ParseError};
 use serde::{Deserialize, Serialize};
 
@@ -24,12 +28,25 @@ mod visitors;
 pub enum QueryPlanError {
     FailedParsingSchema(ParseError),
     FailedParsingQuery(ParseError),
+    FederationError(FederationError),
     InvalidQuery(&'static str),
+}
+
+impl From<FederationError> for QueryPlanError {
+    fn from(err: FederationError) -> Self {
+        Self::FederationError(err)
+    }
+}
+
+impl From<ParseError> for QueryPlanError {
+    fn from(err: ParseError) -> Self {
+        Self::FailedParsingSchema(err)
+    }
 }
 
 pub type Result<T> = std::result::Result<T, QueryPlanError>;
 
-pub use using::Schema;
+pub use using::{Schema, Request};
 
 #[derive(Debug)]
 pub struct QueryPlanner<'s> {
@@ -37,9 +54,10 @@ pub struct QueryPlanner<'s> {
 }
 
 impl<'s> QueryPlanner<'s> {
-    pub fn new(schema: &'s str) -> QueryPlanner<'s> {
-        let schema = Schema::parse(schema).expect("failed parsing schema");
-        QueryPlanner { schema }
+    pub fn new(schema: &'s str) -> Result<QueryPlanner<'s>> {
+        let schema = Schema::parse(schema)?;
+        Federation::new(&schema)?;
+        Ok(QueryPlanner { schema })
     }
 
     // TODO(ran) FIXME: make options a field on the planner.

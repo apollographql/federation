@@ -43,28 +43,28 @@ enum cs__Graph {
 }
 
 type A {
-  b: B
+  b: B @cs__resolve(graph: users)
 }
 
 type B {
-  f1: String
-  f2: String
-  f3: String
-  f4: String
-  f5: String
-  f6: String
+  f1: String @cs__resolve(graph: users)
+  f2: String @cs__resolve(graph: users)
+  f3: String @cs__resolve(graph: users)
+  f4: String @cs__resolve(graph: users)
+  f5: String @cs__resolve(graph: users)
+  f6: String @cs__resolve(graph: users)
 }
 
 interface IFace {
-  x: Int
+  x: Int @cs__resolve(graph: users)
 }
 
 type IFaceImpl1 implements IFace {
-  x: Int
+  x: Int @cs__resolve(graph: users)
 }
 
 type IFaceImpl2 implements IFace {
-  x: Int
+  x: Int @cs__resolve(graph: users)
 }
 
 scalar Location
@@ -77,26 +77,26 @@ type Query {
 
 type ReceivingUser
 {
-  id: ID!
-  name: String
-  address: String
-  location: Location
+  id: ID! @cs__resolve(graph: users)
+  name: String @cs__resolve(graph: users)
+  address: String @cs__resolve(graph: users)
+  location: Location @cs__resolve(graph: users)
 }
 fragment cs__keyFor_ReceivingUser_0 on ReceivingUser @cs__key(graph: users) { id }
 
 
 type SendingUser
 {
-  id: ID!
-  name: String
-  address: String
-  location: Location
+  id: ID! @cs__resolve(graph: users)
+  name: String @cs__resolve(graph: users)
+  address: String @cs__resolve(graph: users)
+  location: Location @cs__resolve(graph: users)
 }
 fragment cs__keyFor_SendingUser_1 on SendingUser @cs__key(graph: users) { id }
 
 
 type SomeField {
-  a: A
-  b: B
-  iface: IFace
+  a: A @cs__resolve(graph: users)
+  b: B @cs__resolve(graph: users)
+  iface: IFace @cs__resolve(graph: users)
 }
