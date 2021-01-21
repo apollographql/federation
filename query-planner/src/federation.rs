@@ -249,7 +249,7 @@ impl SpecVersion {
                 }
             };
 
-            let possible_owners: Vec<_> =
+            let possible_owners: HashSet<&String> =
                 keys.flat_map(|sels| sels.iter())
                     .flat_map(|sel| sel.items.iter())
                     .filter_map(|sel| match sel {
@@ -266,10 +266,17 @@ impl SpecVersion {
                     })
                     .filter_map(|pos| fields.service_name.get(&pos))
                     .collect();
-            match possible_owners.len() {
-                0 => { types.is_value_type.insert(typ.position, true); },
-                1 => { types.owner.insert(typ.position, possible_owners[0].to_string()); }
-                _ => todo!("All key fields must currently be resolvable by one service")
+            match (possible_owners.len(), possible_owners.iter().next()) {
+                (0, _) => { types.is_value_type.insert(typ.position, true); },
+                (1, Some(owner)) => { types.owner.insert(typ.position, owner.to_string()); }
+                _ => {
+                    println!(
+                        "(free types) multiple possible owners for {typ}: {owners}",
+                        typ = typ.name,
+                        owners = &possible_owners.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+                    );
+                    todo!("free types");
+                }
             }
         }
 
