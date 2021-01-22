@@ -1,102 +1,116 @@
-schema @using(spec: "https://specs.apollo.dev/cs/v0.1")
+schema
+  @using(spec: "https://lib.apollo.dev/join/v0.1")
+  @using(spec: "https://lib.apollo.dev/local/v0.1")
 {
   query: Query
 }
 
+directive @using(
+  spec: String!,
+  prefix: String)
+  repeatable on SCHEMA
 
-directive @using(spec: String!, prefix: String) on SCHEMA
-
-directive @cs__key(graph: cs__Graph!)
+scalar join__FragmentId @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__fragmentid")
+scalar join__Url @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__url")
+input join__OutboundLinkHttp {
+    url: join__Url!
+}
+input join__OutboundLink {
+    http: join__OutboundLinkHttp
+}
+directive @join__key(
+  graph: join__Graph!)
   repeatable on FRAGMENT_DEFINITION
-
-directive @cs__resolve(
-  graph: cs__Graph!,
-  requires: cs__SelectionSet,
-  provides: cs__SelectionSet)
+directive @join__field(
+  graph: join__Graph!,
+  requires: join__FragmentId,
+  provides: join__FragmentId)
   on FIELD_DEFINITION
-
-directive @cs__error(
-  graphs: [cs__Graph!],
+directive @join__error(
+  graph: [join__Graph!]!,
   message: String)
-    repeatable on OBJECT
-    | INTERFACE
-    | UNION
-    | FIELD_DEFINITION
-
-directive @cs__link(to: cs__OutboundLink!)
+  repeatable on OBJECT
+  | INTERFACE
+  | UNION
+  | FIELD_DEFINITION
+directive @join__link(
+  to: join__OutboundLink!)
   on ENUM_VALUE
 
-input cs__OutboundLink {
-  http: cs__OutboundLinkHTTP
+enum join__Graph {
+  users @join__link(to: { http: { url: "undefined" } })
 }
 
-input cs__OutboundLinkHTTP {
-  url: cs__URL
-}
-
-scalar cs__URL @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__url")
-scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__selectionset")
-
-
-enum cs__Graph {
-  users @cs__link(to: { http: { url: "undefined" } })
-}
 
 type A {
-  b: B @cs__resolve(graph: users)
+  b: B @join__field(graph: users)
 }
+
+
 
 type B {
-  f1: String @cs__resolve(graph: users)
-  f2: String @cs__resolve(graph: users)
-  f3: String @cs__resolve(graph: users)
-  f4: String @cs__resolve(graph: users)
-  f5: String @cs__resolve(graph: users)
-  f6: String @cs__resolve(graph: users)
+  f1: String @join__field(graph: users)
+  f2: String @join__field(graph: users)
+  f3: String @join__field(graph: users)
+  f4: String @join__field(graph: users)
+  f5: String @join__field(graph: users)
+  f6: String @join__field(graph: users)
 }
 
+
+
 interface IFace {
-  x: Int @cs__resolve(graph: users)
+  x: Int @join__field(graph: users)
 }
 
 type IFaceImpl1 implements IFace {
-  x: Int @cs__resolve(graph: users)
+  x: Int @join__field(graph: users)
 }
 
+
+
 type IFaceImpl2 implements IFace {
-  x: Int @cs__resolve(graph: users)
+  x: Int @join__field(graph: users)
 }
+
+
 
 scalar Location
 
 type Query {
-  sender: SendingUser @cs__resolve(graph: users)
-  receiver: ReceivingUser @cs__resolve(graph: users)
-  field: SomeField @cs__resolve(graph: users)
+  sender: SendingUser @join__field(graph: users)
+  receiver: ReceivingUser @join__field(graph: users)
+  field: SomeField @join__field(graph: users)
 }
+
+
 
 type ReceivingUser
 {
-  id: ID! @cs__resolve(graph: users)
-  name: String @cs__resolve(graph: users)
-  address: String @cs__resolve(graph: users)
-  location: Location @cs__resolve(graph: users)
+  id: ID! @join__field(graph: users)
+  name: String @join__field(graph: users)
+  address: String @join__field(graph: users)
+  location: Location @join__field(graph: users)
 }
-fragment cs__keyFor_ReceivingUser_0 on ReceivingUser @cs__key(graph: users) { id }
+fragment local__id_0_ReceivingUser_id on ReceivingUser @join__key(graph: users)
+{ id }
 
 
 type SendingUser
 {
-  id: ID! @cs__resolve(graph: users)
-  name: String @cs__resolve(graph: users)
-  address: String @cs__resolve(graph: users)
-  location: Location @cs__resolve(graph: users)
+  id: ID! @join__field(graph: users)
+  name: String @join__field(graph: users)
+  address: String @join__field(graph: users)
+  location: Location @join__field(graph: users)
 }
-fragment cs__keyFor_SendingUser_1 on SendingUser @cs__key(graph: users) { id }
+fragment local__id_1_SendingUser_id on SendingUser @join__key(graph: users)
+{ id }
 
 
 type SomeField {
-  a: A @cs__resolve(graph: users)
-  b: B @cs__resolve(graph: users)
-  iface: IFace @cs__resolve(graph: users)
+  a: A @join__field(graph: users)
+  b: B @join__field(graph: users)
+  iface: IFace @join__field(graph: users)
 }
+
+

@@ -1,52 +1,52 @@
-schema @using(spec: "https://specs.apollo.dev/cs/v0.1")
+schema
+  @using(spec: "https://lib.apollo.dev/join/v0.1")
+  @using(spec: "https://lib.apollo.dev/local/v0.1")
 {
   query: Query
   mutation: Mutation
 }
 
+directive @using(
+  spec: String!,
+  prefix: String)
+  repeatable on SCHEMA
 
-directive @using(spec: String!, prefix: String) on SCHEMA
-
-directive @cs__key(graph: cs__Graph!)
+scalar join__FragmentId @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__fragmentid")
+scalar join__Url @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__url")
+input join__OutboundLinkHttp {
+    url: join__Url!
+}
+input join__OutboundLink {
+    http: join__OutboundLinkHttp
+}
+directive @join__key(
+  graph: join__Graph!)
   repeatable on FRAGMENT_DEFINITION
-
-directive @cs__resolve(
-  graph: cs__Graph!,
-  requires: cs__SelectionSet,
-  provides: cs__SelectionSet)
+directive @join__field(
+  graph: join__Graph!,
+  requires: join__FragmentId,
+  provides: join__FragmentId)
   on FIELD_DEFINITION
-
-directive @cs__error(
-  graphs: [cs__Graph!],
+directive @join__error(
+  graph: [join__Graph!]!,
   message: String)
-    repeatable on OBJECT
-    | INTERFACE
-    | UNION
-    | FIELD_DEFINITION
-
-directive @cs__link(to: cs__OutboundLink!)
+  repeatable on OBJECT
+  | INTERFACE
+  | UNION
+  | FIELD_DEFINITION
+directive @join__link(
+  to: join__OutboundLink!)
   on ENUM_VALUE
 
-input cs__OutboundLink {
-  http: cs__OutboundLinkHTTP
+enum join__Graph {
+  accounts @join__link(to: { http: { url: "undefined" } })
+  books @join__link(to: { http: { url: "undefined" } })
+  documents @join__link(to: { http: { url: "undefined" } })
+  inventory @join__link(to: { http: { url: "undefined" } })
+  product @join__link(to: { http: { url: "undefined" } })
+  reviews @join__link(to: { http: { url: "undefined" } })
 }
 
-input cs__OutboundLinkHTTP {
-  url: cs__URL
-}
-
-scalar cs__URL @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__url")
-scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__selectionset")
-
-
-enum cs__Graph {
-  accounts @cs__link(to: { http: { url: "undefined" } }),
-  books @cs__link(to: { http: { url: "undefined" } }),
-  documents @cs__link(to: { http: { url: "undefined" } }),
-  inventory @cs__link(to: { http: { url: "undefined" } }),
-  product @cs__link(to: { http: { url: "undefined" } }),
-  reviews @cs__link(to: { http: { url: "undefined" } })
-}
 
 directive @stream on FIELD
 
@@ -55,190 +55,222 @@ directive @transform(from: String!) on FIELD
 union AccountType = PasswordAccount | SMSAccount
 
 type Amazon {
-  referrer: String @cs__resolve(graph: product)
+  referrer: String @join__field(graph: product)
 }
+
+
 
 union Body = Image | Text
 
 type Book implements Product
 {
-  isbn: String! @cs__resolve(graph: books)
-  title: String @cs__resolve(graph: books)
-  year: Int @cs__resolve(graph: books)
-  similarBooks: [Book]! @cs__resolve(graph: books)
-  metadata: [MetadataOrError] @cs__resolve(graph: books)
-  inStock: Boolean @cs__resolve(graph: inventory)
-  isCheckedOut: Boolean @cs__resolve(graph: inventory)
-  upc: String! @cs__resolve(graph: product)
-  sku: String! @cs__resolve(graph: product)
-  name(delimeter: String = " "): String @cs__resolve(graph: product, requires: "cs__fragmentOn_Book_title_year_0")
-  price: String @cs__resolve(graph: product)
-  details: ProductDetailsBook @cs__resolve(graph: product)
-  reviews: [Review] @cs__resolve(graph: reviews)
-  relatedReviews: [Review!]! @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Book_similarBooks_isbn_1")
+  isbn: String! @join__field(graph: books)
+  title: String @join__field(graph: books)
+  year: Int @join__field(graph: books)
+  similarBooks: [Book]! @join__field(graph: books)
+  metadata: [MetadataOrError] @join__field(graph: books)
+  inStock: Boolean @join__field(graph: inventory)
+  isCheckedOut: Boolean @join__field(graph: inventory)
+  upc: String! @join__field(graph: product)
+  sku: String! @join__field(graph: product)
+  name(delimeter: String = " "): String @join__field(graph: product, requires: "local__id_0_Book_title_year")
+  price: String @join__field(graph: product)
+  details: ProductDetailsBook @join__field(graph: product)
+  reviews: [Review] @join__field(graph: reviews)
+  relatedReviews: [Review!]! @join__field(graph: reviews, requires: "local__id_1_Book_similarBooks_isbn")
 }
-fragment cs__keyFor_Book_0 on Book @cs__key(graph: books) { isbn }
-fragment cs__keyFor_Book_1 on Book @cs__key(graph: inventory) { isbn }
-fragment cs__keyFor_Book_2 on Book @cs__key(graph: product) { isbn }
-fragment cs__keyFor_Book_3 on Book @cs__key(graph: reviews) { isbn }
+fragment local__id_0_Book_title_year on Book
+{ title year }
+fragment local__id_1_Book_similarBooks_isbn on Book
+{ similarBooks { isbn } }
+fragment local__id_2_Book_isbn on Book @join__key(graph: books)
+{ isbn }
 
-fragment cs__fragmentOn_Book_title_year_0 on Book { title year },
-fragment cs__fragmentOn_Book_similarBooks_isbn_1 on Book { similarBooks { isbn } }
 
 union Brand = Ikea | Amazon
 
 type Car implements Vehicle
 {
-  id: String! @cs__resolve(graph: product)
-  description: String @cs__resolve(graph: product)
-  price: String @cs__resolve(graph: product)
-  retailPrice: String @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Car_price_0")
+  id: String! @join__field(graph: product)
+  description: String @join__field(graph: product)
+  price: String @join__field(graph: product)
+  retailPrice: String @join__field(graph: reviews, requires: "local__id_3_Car_price")
 }
-fragment cs__keyFor_Car_4 on Car @cs__key(graph: product) { id }
-fragment cs__keyFor_Car_5 on Car @cs__key(graph: reviews) { id }
+fragment local__id_3_Car_price on Car
+{ price }
+fragment local__id_4_Car_id on Car @join__key(graph: product)
+{ id }
 
-fragment cs__fragmentOn_Car_price_0 on Car { price }
 
 type Error {
-  code: Int @cs__resolve(graph: null)
-  message: String @cs__resolve(graph: null)
+  code: Int
+  message: String
 }
+
+
 
 type Furniture implements Product
 {
-  upc: String! @cs__resolve(graph: product)
-  sku: String! @cs__resolve(graph: product)
-  name: String @cs__resolve(graph: product)
-  price: String @cs__resolve(graph: product)
-  brand: Brand @cs__resolve(graph: product)
-  metadata: [MetadataOrError] @cs__resolve(graph: product)
-  details: ProductDetailsFurniture @cs__resolve(graph: product)
-  inStock: Boolean @cs__resolve(graph: inventory)
-  isHeavy: Boolean @cs__resolve(graph: inventory)
-  reviews: [Review] @cs__resolve(graph: reviews)
+  upc: String! @join__field(graph: product)
+  sku: String! @join__field(graph: product)
+  name: String @join__field(graph: product)
+  price: String @join__field(graph: product)
+  brand: Brand @join__field(graph: product)
+  metadata: [MetadataOrError] @join__field(graph: product)
+  details: ProductDetailsFurniture @join__field(graph: product)
+  inStock: Boolean @join__field(graph: inventory)
+  isHeavy: Boolean @join__field(graph: inventory)
+  reviews: [Review] @join__field(graph: reviews)
 }
-fragment cs__keyFor_Furniture_6 on Furniture @cs__key(graph: inventory) { sku }
-fragment cs__keyFor_Furniture_7 on Furniture @cs__key(graph: product) { upc }
-fragment cs__keyFor_Furniture_8 on Furniture @cs__key(graph: product) { sku }
-fragment cs__keyFor_Furniture_9 on Furniture @cs__key(graph: reviews) { upc }
+fragment local__id_5_Furniture_sku on Furniture @join__key(graph: inventory)
+{ sku }
+fragment local__id_6_Furniture_upc on Furniture @join__key(graph: product)
+{ upc }
 
 
 type Ikea {
-  asile: Int @cs__resolve(graph: product)
+  asile: Int @join__field(graph: product)
 }
+
+
 
 type Image {
-  name: String! @cs__resolve(graph: documents)
-  attributes: ImageAttributes! @cs__resolve(graph: documents)
+  name: String! @join__field(graph: documents)
+  attributes: ImageAttributes! @join__field(graph: documents)
 }
+
+
 
 type ImageAttributes {
-  url: String! @cs__resolve(graph: documents)
+  url: String! @join__field(graph: documents)
 }
 
+
+
 type KeyValue {
-  key: String! @cs__resolve(graph: null)
-  value: String! @cs__resolve(graph: null)
+  key: String!
+  value: String!
 }
+
+
 
 type Library
 {
-  id: ID! @cs__resolve(graph: books)
-  name: String @cs__resolve(graph: books)
-  userAccount(id: ID! = 1): User @cs__resolve(graph: accounts, requires: "cs__fragmentOn_Library_name_0")
+  id: ID! @join__field(graph: books)
+  name: String @join__field(graph: books)
+  userAccount(id: ID! = 1): User @join__field(graph: accounts, requires: "local__id_7_Library_name")
 }
-fragment cs__keyFor_Library_10 on Library @cs__key(graph: accounts) { id }
-fragment cs__keyFor_Library_11 on Library @cs__key(graph: books) { id }
+fragment local__id_7_Library_name on Library
+{ name }
+fragment local__id_8_Library_id on Library @join__key(graph: accounts)
+{ id }
 
-fragment cs__fragmentOn_Library_name_0 on Library { name }
 
 union MetadataOrError = KeyValue | Error
 
 type Mutation {
-  login(username: String!, password: String!): User @cs__resolve(graph: accounts)
-  reviewProduct(upc: String!, body: String!): Product @cs__resolve(graph: reviews)
-  updateReview(review: UpdateReviewInput!): Review @cs__resolve(graph: reviews)
-  deleteReview(id: ID!): Boolean @cs__resolve(graph: reviews)
+  login(username: String!, password: String!): User @join__field(graph: accounts)
+  reviewProduct(upc: String!, body: String!): Product @join__field(graph: reviews)
+  updateReview(review: UpdateReviewInput!): Review @join__field(graph: reviews)
+  deleteReview(id: ID!): Boolean @join__field(graph: reviews)
 }
 
+
+
 type Name {
-  first: String @cs__resolve(graph: accounts)
-  last: String @cs__resolve(graph: accounts)
+  first: String @join__field(graph: accounts)
+  last: String @join__field(graph: accounts)
 }
+
+
 
 type PasswordAccount
 {
-  email: String! @cs__resolve(graph: accounts)
+  email: String! @join__field(graph: accounts)
 }
-fragment cs__keyFor_PasswordAccount_12 on PasswordAccount @cs__key(graph: accounts) { email }
+fragment local__id_9_PasswordAccount_email on PasswordAccount @join__key(graph: accounts)
+{ email }
 
 
 interface Product {
-  upc: String! @cs__resolve(graph: product)
-  sku: String! @cs__resolve(graph: product)
-  name: String @cs__resolve(graph: product)
-  price: String @cs__resolve(graph: product)
-  details: ProductDetails @cs__resolve(graph: product)
-  inStock: Boolean @cs__resolve(graph: product)
-  reviews: [Review] @cs__resolve(graph: product)
+  upc: String! @join__field(graph: product)
+  sku: String! @join__field(graph: product)
+  name: String @join__field(graph: product)
+  price: String @join__field(graph: product)
+  details: ProductDetails @join__field(graph: product)
+  inStock: Boolean @join__field(graph: product)
+  reviews: [Review] @join__field(graph: product)
 }
 
 interface ProductDetails {
-  country: String @cs__resolve(graph: product)
+  country: String @join__field(graph: product)
 }
 
 type ProductDetailsBook implements ProductDetails {
-  country: String @cs__resolve(graph: product)
-  pages: Int @cs__resolve(graph: product)
+  country: String @join__field(graph: product)
+  pages: Int @join__field(graph: product)
 }
+
+
 
 type ProductDetailsFurniture implements ProductDetails {
-  country: String @cs__resolve(graph: product)
-  color: String @cs__resolve(graph: product)
+  country: String @join__field(graph: product)
+  color: String @join__field(graph: product)
 }
 
+
+
 type Query {
-  user(id: ID!): User @cs__resolve(graph: accounts)
-  me: User @cs__resolve(graph: accounts)
-  book(isbn: String!): Book @cs__resolve(graph: books)
-  books: [Book] @cs__resolve(graph: books)
-  library(id: ID!): Library @cs__resolve(graph: books)
-  body: Body! @cs__resolve(graph: documents)
-  product(upc: String!): Product @cs__resolve(graph: product)
-  vehicle(id: String!): Vehicle @cs__resolve(graph: product)
-  topProducts(first: Int = 5): [Product] @cs__resolve(graph: product)
-  topCars(first: Int = 5): [Car] @cs__resolve(graph: product)
-  topReviews(first: Int = 5): [Review] @cs__resolve(graph: reviews)
+  user(id: ID!): User @join__field(graph: accounts)
+  me: User @join__field(graph: accounts)
+  book(isbn: String!): Book @join__field(graph: books)
+  books: [Book] @join__field(graph: books)
+  library(id: ID!): Library @join__field(graph: books)
+  body: Body! @join__field(graph: documents)
+  product(upc: String!): Product @join__field(graph: product)
+  vehicle(id: String!): Vehicle @join__field(graph: product)
+  topProducts(first: Int = 5): [Product] @join__field(graph: product)
+  topCars(first: Int = 5): [Car] @join__field(graph: product)
+  topReviews(first: Int = 5): [Review] @join__field(graph: reviews)
 }
+
+
 
 type Review
 {
-  id: ID! @cs__resolve(graph: reviews)
-  body(format: Boolean = false): String @cs__resolve(graph: reviews)
-  author: User @cs__resolve(graph: reviews, provides: "cs__fragmentOn_Review_username_0")
-  product: Product @cs__resolve(graph: reviews)
-  metadata: [MetadataOrError] @cs__resolve(graph: reviews)
+  id: ID! @join__field(graph: reviews)
+  body(format: Boolean = false): String @join__field(graph: reviews)
+  author: User @join__field(graph: reviews, provides: "local__id_10_Review_username")
+  product: Product @join__field(graph: reviews)
+  metadata: [MetadataOrError] @join__field(graph: reviews)
 }
-fragment cs__keyFor_Review_13 on Review @cs__key(graph: reviews) { id }
+fragment local__id_10_Review_username on Review
+{ username }
+fragment local__id_11_Review_id on Review @join__key(graph: reviews)
+{ id }
 
-fragment cs__fragmentOn_Review_username_0 on Review { username }
 
 type SMSAccount
 {
-  number: String @cs__resolve(graph: accounts)
+  number: String @join__field(graph: accounts)
 }
-fragment cs__keyFor_SMSAccount_14 on SMSAccount @cs__key(graph: accounts) { number }
+fragment local__id_12_SMSAccount_number on SMSAccount @join__key(graph: accounts)
+{ number }
 
 
 type Text {
-  name: String! @cs__resolve(graph: documents)
-  attributes: TextAttributes! @cs__resolve(graph: documents)
+  name: String! @join__field(graph: documents)
+  attributes: TextAttributes! @join__field(graph: documents)
 }
 
+
+
 type TextAttributes {
-  bold: Boolean @cs__resolve(graph: documents)
-  text: String @cs__resolve(graph: documents)
+  bold: Boolean @join__field(graph: documents)
+  text: String @join__field(graph: documents)
 }
+
+
 
 union Thing = Car | Ikea
 
@@ -249,49 +281,53 @@ input UpdateReviewInput {
 
 type User
 {
-  id: ID! @cs__resolve(graph: accounts)
-  name: Name @cs__resolve(graph: accounts)
-  username: String @cs__resolve(graph: accounts)
-  birthDate(locale: String): String @cs__resolve(graph: accounts)
-  account: AccountType @cs__resolve(graph: accounts)
-  metadata: [UserMetadata] @cs__resolve(graph: accounts)
-  goodDescription: Boolean @cs__resolve(graph: inventory, requires: "cs__fragmentOn_User_metadata_description_0")
-  vehicle: Vehicle @cs__resolve(graph: product)
-  thing: Thing @cs__resolve(graph: product)
-  reviews: [Review] @cs__resolve(graph: reviews)
-  numberOfReviews: Int! @cs__resolve(graph: reviews)
-  goodAddress: Boolean @cs__resolve(graph: reviews, requires: "cs__fragmentOn_User_metadata_address_1")
+  id: ID! @join__field(graph: accounts)
+  name: Name @join__field(graph: accounts)
+  username: String @join__field(graph: accounts)
+  birthDate(locale: String): String @join__field(graph: accounts)
+  account: AccountType @join__field(graph: accounts)
+  metadata: [UserMetadata] @join__field(graph: accounts)
+  goodDescription: Boolean @join__field(graph: inventory, requires: "local__id_13_User_metadata_description")
+  vehicle: Vehicle @join__field(graph: product)
+  thing: Thing @join__field(graph: product)
+  reviews: [Review] @join__field(graph: reviews)
+  numberOfReviews: Int! @join__field(graph: reviews)
+  goodAddress: Boolean @join__field(graph: reviews, requires: "local__id_14_User_metadata_address")
 }
-fragment cs__keyFor_User_15 on User @cs__key(graph: accounts) { id }
-fragment cs__keyFor_User_16 on User @cs__key(graph: accounts) { username name { first last } }
-fragment cs__keyFor_User_17 on User @cs__key(graph: inventory) { id }
-fragment cs__keyFor_User_18 on User @cs__key(graph: product) { id }
-fragment cs__keyFor_User_19 on User @cs__key(graph: reviews) { id }
+fragment local__id_13_User_metadata_description on User
+{ metadata { description } }
+fragment local__id_14_User_metadata_address on User
+{ metadata { address } }
+fragment local__id_15_User_id on User @join__key(graph: accounts)
+{ id }
+fragment local__id_16_User_username_name_first_last on User @join__key(graph: accounts)
+{ username name { first last } }
 
-fragment cs__fragmentOn_User_metadata_description_0 on User { metadata { description } },
-fragment cs__fragmentOn_User_metadata_address_1 on User { metadata { address } }
 
 type UserMetadata {
-  name: String @cs__resolve(graph: accounts)
-  address: String @cs__resolve(graph: accounts)
-  description: String @cs__resolve(graph: accounts)
+  name: String @join__field(graph: accounts)
+  address: String @join__field(graph: accounts)
+  description: String @join__field(graph: accounts)
 }
+
+
 
 type Van implements Vehicle
 {
-  id: String! @cs__resolve(graph: product)
-  description: String @cs__resolve(graph: product)
-  price: String @cs__resolve(graph: product)
-  retailPrice: String @cs__resolve(graph: reviews, requires: "cs__fragmentOn_Van_price_0")
+  id: String! @join__field(graph: product)
+  description: String @join__field(graph: product)
+  price: String @join__field(graph: product)
+  retailPrice: String @join__field(graph: reviews, requires: "local__id_17_Van_price")
 }
-fragment cs__keyFor_Van_20 on Van @cs__key(graph: product) { id }
-fragment cs__keyFor_Van_21 on Van @cs__key(graph: reviews) { id }
+fragment local__id_17_Van_price on Van
+{ price }
+fragment local__id_18_Van_id on Van @join__key(graph: product)
+{ id }
 
-fragment cs__fragmentOn_Van_price_0 on Van { price }
 
 interface Vehicle {
-  id: String! @cs__resolve(graph: product)
-  description: String @cs__resolve(graph: product)
-  price: String @cs__resolve(graph: product)
-  retailPrice: String @cs__resolve(graph: product)
+  id: String! @join__field(graph: product)
+  description: String @join__field(graph: product)
+  price: String @join__field(graph: product)
+  retailPrice: String @join__field(graph: product)
 }

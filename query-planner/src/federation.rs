@@ -55,7 +55,7 @@ struct Resolve<'q> {
 
 struct Cs {
     key_directive: String,
-    resolve_directive: String,
+    field_directive: String,
     graph_enum: String,
 }
 
@@ -78,7 +78,7 @@ impl Cs {
     fn new(prefix: &str) -> Cs {
         Cs {
             key_directive: format!("{}__key", prefix),
-            resolve_directive: format!("{}__resolve", prefix),
+            field_directive: format!("{}__field", prefix),
             graph_enum: format!("{}__Graph", prefix),
         }
     }
@@ -125,7 +125,7 @@ impl Cs {
         errors: &mut Vec<FederationError>) -> Option<Resolve<'q>>
     {
         field.directives.iter()
-            .filter(|d| d.name == self.resolve_directive)
+            .filter(|d| d.name == self.field_directive)
             .filter_map(|d| {
                 let mut graph = None;
                 let mut requires = None;
@@ -365,7 +365,7 @@ pub(crate) struct Federation<'q> {
     errors: Vec<FederationError>,
 }
 
-pub const CS_SPEC_ID: &'static str = "https://specs.apollo.dev/cs";
+pub const CS_SPEC_ID: &'static str = "https://lib.apollo.dev/join";
 
 lazy_static! {
     static ref IMPLEMENTATIONS: Implementations<SpecVersion> = Implementations::new()

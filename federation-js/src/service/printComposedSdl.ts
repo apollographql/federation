@@ -28,10 +28,14 @@ import {
   ASTNode,
   SelectionNode,
 } from 'graphql';
+import dedent from 'dedent';
 import { Maybe, ServiceDefinition, FederationType, FederationField } from '../composition';
 import { isFederationType } from '../types';
 import { isFederationDirective } from '../composition/utils';
-import csdlDefinitions from '../csdlDefinitions';
+import Join from '../spec/join';
+import Using from '../spec/using';
+
+import { default as Local, Namer } from '../spec/local';
 
 type Options = {
   /**
@@ -42,8 +46,24 @@ type Options = {
    *
    * Default: false
    */
-  commentDescriptions?: boolean;
+  commentDescriptions: boolean;
+  join: Join;
+  local: Local;
+  using: Using;
+  namer: Namer;
 };
+
+function withDefaults(options: Partial<Options> = {}): Options {
+  const local = options.local ?? Local.default();
+  return {
+    commentDescriptions: true,
+    join: Join.default(),
+    using: Using.default(),
+    local,
+    namer: local.namer(),
+    ...options,
+  }
+}
 
 /**
  * Accepts options as a second argument:
@@ -55,8 +75,9 @@ type Options = {
 export function printComposedSdl(
   schema: GraphQLSchema,
   serviceList: ServiceDefinition[],
-  options?: Options,
+  options?: Partial<Options>,
 ): string {
+  const opts = withDefaults(options)
   return printFilteredSchema(
     schema,
     // Federation change: we need service and url information for the @graph directives
@@ -66,13 +87,13 @@ export function printComposedSdl(
     // their definitions).
     (n) => !isSpecifiedDirective(n) && !isFederationDirective(n),
     isDefinedType,
-    options,
+    opts,
   );
 }
 
 export function printIntrospectionSchema(
   schema: GraphQLSchema,
-  options?: Options,
+  options: Options,
 ): string {
   return printFilteredSchema(
     schema,
@@ -100,7 +121,7 @@ function printFilteredSchema(
   serviceList: ServiceDefinition[],
   directiveFilter: (type: GraphQLDirective) => boolean,
   typeFilter: (type: GraphQLNamedType) => boolean,
-  options?: Options,
+  options: Options,
 ): string {
   const directives = schema.getDirectives().filter(directiveFilter)
 
@@ -109,10 +130,12 @@ function printFilteredSchema(
     .filter(typeFilter);
 
   return (
-    [printSchemaDefinition(schema)]
+    [printSchemaDefinition(schema, options)]
       .concat(
-        csdlDefinitions,
-        printGraphs(serviceList),
+        options.using.definitions,
+        options.local.definitions,
+        options.join.definitions,
+        printGraphs(serviceList, options),
         directives.map(directive => printDirective(directive, options)),
         types.map(type => printType(type, options)),
       )
@@ -123,39 +146,45 @@ function printFilteredSchema(
 
 function printSchemaDefinition(
   schema: GraphQLSchema,
+  options: Options
 ): string | undefined {
+  const { using, join, local } = options;
   const operationTypes = [];
 
   const queryType = schema.getQueryType();
   if (queryType) {
-    operationTypes.push(`  query: ${queryType.name}`);
+    operationTypes.push(`query: ${queryType.name}`);
   }
 
   const mutationType = schema.getMutationType();
   if (mutationType) {
-    operationTypes.push(`  mutation: ${mutationType.name}`);
+    operationTypes.push(`mutation: ${mutationType.name}`);
   }
 
   const subscriptionType = schema.getSubscriptionType();
   if (subscriptionType) {
-    operationTypes.push(`  subscription: ${subscriptionType.name}`);
+    operationTypes.push(`subscription: ${subscriptionType.name}`);
   }
 
-  return (
-    'schema @using(spec: "https://specs.apollo.dev/cs/v0.1")' +
-    `\n{\n${operationTypes.join('\n')}\n}`
-  );
+  const directives = [using, join, local]
+    .map(spec => using.usingSpec(spec))
+    .filter(Boolean)
+    .map(dir => `\n  ${dir}`)
+    .join('')
+
+  const ops = operationTypes.map(op => `\n  ${op}`).join('')
+  return `schema${directives}\n{${ops}\n}`;
 }
 
-function printGraphs(serviceList: ServiceDefinition[]) {
-  return `enum cs__Graph {${
-    serviceList.map(service =>
-      `\n  ${service.name} @cs__link(to: { http: { url: ${JSON.stringify(service.url)} } })`
-    )
-  }\n}`
+function printGraphs(serviceList: ServiceDefinition[], {join}: Options) {
+  return join.Graph.define(
+    serviceList.map(service => [
+      service.name, join.link({ to: { http: { url: service.url! } } })
+    ])
+  )
 }
 
-export function printType(type: GraphQLNamedType, options?: Options): string {
+export function printType(type: GraphQLNamedType, options: Options): string {
   if (isScalarType(type)) {
     return printScalar(type, options);
   } else if (isObjectType(type)) {
@@ -173,11 +202,11 @@ export function printType(type: GraphQLNamedType, options?: Options): string {
   throw Error('Unexpected type: ' + (type as GraphQLNamedType).toString());
 }
 
-function printScalar(type: GraphQLScalarType, options?: Options): string {
+function printScalar(type: GraphQLScalarType, options: Options): string {
   return printDescription(options, type) + `scalar ${type.name}`;
 }
 
-function printObject(type: GraphQLObjectType, options?: Options): string {
+function printObject(type: GraphQLObjectType, options: Options): string {
   const interfaces = type.getInterfaces();
   const implementedInterfaces = interfaces.length
     ? ' implements ' + interfaces.map(i => i.name).join(' & ')
@@ -194,39 +223,40 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
   const isExtension =
     type.extensionASTNodes && type.astNode && !type.astNode.fields;
 
+  const {namer} = options
+  let fields = printFields(options, type)
+  collectKeys(type, options)
   return (
     printDescription(options, type) +
     (isExtension ? 'extend ' : '') +
     `type ${type.name}` +
     implementedInterfaces +
-    printFields(options, type) +
-    printKeys(type) +
-    printFragmentsForType(type)
+    fields + '\n' +
+    namer.definitions + '\n'
   );
 }
 
 // Federation change: print usages of the @owner and @key directives.
-let nextKeyId = 0
-function printKeys(type: GraphQLObjectType): string {
+function collectKeys(type: GraphQLObjectType, {join, namer}: Options) {
   const metadata: FederationType = type.extensions?.federation;
-  if (!metadata) return '';
+  if (!metadata) return;
 
   const { serviceName: ownerService, keys } = metadata;
-  if (!ownerService || !keys) return '';
+  if (!ownerService || !keys) return;
 
-  return (
-    Object.entries(keys).map(([service, keys]) =>
-      keys?.map(
-          (selections) =>
-            `\nfragment cs__keyFor_${type.name}_${nextKeyId++} on ${type.name} @cs__key(graph: ${service}) ${printFieldSet(selections)}`
-        )
-        .join(''),
-    )
-    .join('') + '\n'
-  );
+  for (const [service, selections] of Object.entries(keys)) {
+    if (!selections) continue
+    for (const key of selections) {
+      namer(`${type.name}_${printFieldSet(key)}`,
+        (id: string) => dedent `
+          fragment ${id} on ${type.name} ${join.key({ graph: service })}
+          ${printFieldSet(key)}
+        `)
+    }
+  }
 }
 
-function printInterface(type: GraphQLInterfaceType, options?: Options): string {
+function printInterface(type: GraphQLInterfaceType, options: Options): string {
   // Federation change: print `extend` keyword on type extensions.
   // See printObject for assumptions made.
   //
@@ -279,10 +309,9 @@ function printInputObject(
 }
 
 function printFields(
-  options: Options | undefined,
+  options: Options,
   type: GraphQLObjectType | GraphQLInterfaceType,
 ) {
-
   const fields = Object.values(type.getFields()).map(
     (f, i) =>
       printDescription(options, f, '  ', !i) +
@@ -292,7 +321,7 @@ function printFields(
       ': ' +
       String(f.type) +
       printDeprecated(f) +
-      printFederationFieldDirectives(type, f),
+      printFederationFieldDirectives(type, f, options),
   );
 
   // Federation change: for entities, we want to print the block on a new line.
@@ -325,10 +354,15 @@ function printFieldSet(selections: readonly SelectionNode[]): string {
 function printFederationFieldDirectives(
   type: GraphQLObjectType | GraphQLInterfaceType,
   field: GraphQLField<any, any>,
+  options: Options
 ): string {
+  const {join} = options;
+
   if (!field.extensions?.federation) {
-    const {serviceName}: FederationType = type.extensions?.federation;
-    return ` @cs__resolve(graph: ${serviceName})`
+    const fedType: FederationType = type.extensions?.federation;
+    const {serviceName, isValueType} = fedType
+    if (isValueType || !serviceName) return ''
+    return ` ${join.field({ graph: serviceName })}`
   }
 
   const {
@@ -337,15 +371,15 @@ function printFederationFieldDirectives(
     provides = [],
   }: FederationField = field.extensions.federation;
 
-  return ` @cs__resolve(graph: ${serviceName}${
-    requires.length ?
-      `, requires: "${findOrCreateFragment(type, requires)}"`
-      : ''
-  }${
-    provides.length ?
-      `, provides: "${findOrCreateFragment(type, provides)}"`
-      : ''
-  })`
+  return ' ' + join.field({
+    graph: serviceName!,
+    requires: requires.length
+      ? findOrCreateFragment(type, requires, options)
+      : undefined,
+    provides: provides.length
+      ? findOrCreateFragment(type, provides, options)
+      : undefined,
+  })
 }
 
 type FragmentSource = (GraphQLObjectType | GraphQLInterfaceType) & {
@@ -354,28 +388,15 @@ type FragmentSource = (GraphQLObjectType | GraphQLInterfaceType) & {
 }
 
 function findOrCreateFragment(
-  type: FragmentSource,
-  selections: readonly SelectionNode[]
+  type: GraphQLObjectType | GraphQLInterfaceType,
+  selections: readonly SelectionNode[],
+  {namer}: Options
 ): string {
-  type.fragments ??= new Map;
-  type.nextFragmentId ??= 0;
-
-  const key = printFieldSet(selections);
-  const existing = type.fragments.get(key);
-  if (existing) return existing.id;
-
-  const id = `cs__fragmentOn_` + asValidIdentifier(`${type}_${key}_${type.nextFragmentId++}`);
-
-  type.fragments.set(id,
-    { id, text: `fragment ${id} on ${type.name} ${printFieldSet(selections)}` });
-  return id;
-}
-
-function asValidIdentifier(input: string) {
-  return input.trim()
-    .replace(/(\s|,|{|})+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/[^A-Za-z_0-9]/g, '');
+  const key = `${type.name}_${printFieldSet(selections)}`;
+  return namer(key, (id: string) => dedent `
+    fragment ${id} on ${type.name}
+    ${printFieldSet(selections)}
+  `)
 }
 
 function printFragmentsForType(type: FragmentSource) {
