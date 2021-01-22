@@ -13,15 +13,17 @@
 // The tests are added sorted by name so that different machines building will not yield a git diff.
 
 use apollo_query_planner::QueryPlanningOptions;
-use crate::helpers::assert_query_plan;
+use crate::helpers::plan;
+use insta::assert_snapshot;
 
 
 #[allow(non_snake_case)]
 #[test]
 fn abstract_types_handles_an_abstract_type_from_the_base_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProduct($upc: String!) {
   product(upc: $upc) {
     upc
@@ -30,8 +32,11 @@ query GetProduct($upc: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -39,12 +44,16 @@ query GetProduct($upc: String!) {
       {
         "kind": "Fetch",
         "serviceName": "product",
-        "variableUsages": ["upc"],
+        "variableUsages": [
+          "upc"
+        ],
         "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{upc __typename isbn price}...on Furniture{upc name price}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "books",
@@ -53,8 +62,14 @@ query GetProduct($upc: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             }
           ],
@@ -64,7 +79,9 @@ query GetProduct($upc: String!) {
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -73,10 +90,22 @@ query GetProduct($upc: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" },
-                { "kind": "Field", "name": "title" },
-                { "kind": "Field", "name": "year" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                },
+                {
+                  "kind": "Field",
+                  "name": "title"
+                },
+                {
+                  "kind": "Field",
+                  "name": "year"
+                }
               ]
             }
           ],
@@ -86,11 +115,7 @@ query GetProduct($upc: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -98,17 +123,21 @@ query GetProduct($upc: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn abstract_types_can_request_fields_on_extended_interfaces() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProduct($upc: String!) {
   product(upc: $upc) {
     inStock
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -116,12 +145,16 @@ query GetProduct($upc: String!) {
       {
         "kind": "Fetch",
         "serviceName": "product",
-        "variableUsages": ["upc"],
+        "variableUsages": [
+          "upc"
+        ],
         "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "inventory",
@@ -130,16 +163,28 @@ query GetProduct($upc: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             },
             {
               "kind": "InlineFragment",
               "typeCondition": "Furniture",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "sku" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "sku"
+                }
               ]
             }
           ],
@@ -149,11 +194,7 @@ query GetProduct($upc: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -161,9 +202,10 @@ query GetProduct($upc: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn abstract_types_can_request_fields_on_extended_types_that_implement_an_interface() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProduct($upc: String!) {
   product(upc: $upc) {
     inStock
@@ -173,8 +215,11 @@ query GetProduct($upc: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -182,12 +227,16 @@ query GetProduct($upc: String!) {
       {
         "kind": "Fetch",
         "serviceName": "product",
-        "variableUsages": ["upc"],
+        "variableUsages": [
+          "upc"
+        ],
         "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "inventory",
@@ -196,16 +245,28 @@ query GetProduct($upc: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             },
             {
               "kind": "InlineFragment",
               "typeCondition": "Furniture",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "sku" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "sku"
+                }
               ]
             }
           ],
@@ -215,11 +276,7 @@ query GetProduct($upc: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -227,9 +284,10 @@ query GetProduct($upc: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn abstract_types_prunes_unfilled_type_conditions() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProduct($upc: String!) {
   product(upc: $upc) {
     inStock
@@ -242,8 +300,11 @@ query GetProduct($upc: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -251,12 +312,16 @@ query GetProduct($upc: String!) {
       {
         "kind": "Fetch",
         "serviceName": "product",
-        "variableUsages": ["upc"],
+        "variableUsages": [
+          "upc"
+        ],
         "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "inventory",
@@ -265,16 +330,28 @@ query GetProduct($upc: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             },
             {
               "kind": "InlineFragment",
               "typeCondition": "Furniture",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "sku" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "sku"
+                }
               ]
             }
           ],
@@ -284,11 +361,7 @@ query GetProduct($upc: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -296,9 +369,10 @@ query GetProduct($upc: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn abstract_types_fetches_interfaces_returned_from_other_services() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUserAndProducts {
   me {
     reviews {
@@ -312,8 +386,11 @@ query GetUserAndProducts {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -326,7 +403,9 @@ query GetUserAndProducts {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -335,8 +414,14 @@ query GetUserAndProducts {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -349,7 +434,12 @@ query GetUserAndProducts {
         "nodes": [
           {
             "kind": "Flatten",
-            "path": ["me", "reviews", "@", "product"],
+            "path": [
+              "me",
+              "reviews",
+              "@",
+              "product"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "product",
@@ -358,16 +448,28 @@ query GetUserAndProducts {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 },
                 {
                   "kind": "InlineFragment",
                   "typeCondition": "Furniture",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "upc"
+                    }
                   ]
                 }
               ],
@@ -377,7 +479,12 @@ query GetUserAndProducts {
           },
           {
             "kind": "Flatten",
-            "path": ["me", "reviews", "@", "product"],
+            "path": [
+              "me",
+              "reviews",
+              "@",
+              "product"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "books",
@@ -386,8 +493,14 @@ query GetUserAndProducts {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 }
               ],
@@ -399,11 +512,7 @@ query GetUserAndProducts {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -411,9 +520,10 @@ query GetUserAndProducts {
 #[allow(non_snake_case)]
 #[test]
 fn abstract_types_fetches_composite_fields_from_a_foreign_type_casted_to_an_interface_provides_field() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUserAndProducts {
   me {
     reviews {
@@ -427,8 +537,11 @@ query GetUserAndProducts {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -441,7 +554,9 @@ query GetUserAndProducts {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -450,8 +565,14 @@ query GetUserAndProducts {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -464,7 +585,12 @@ query GetUserAndProducts {
         "nodes": [
           {
             "kind": "Flatten",
-            "path": ["me", "reviews", "@", "product"],
+            "path": [
+              "me",
+              "reviews",
+              "@",
+              "product"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "product",
@@ -473,16 +599,28 @@ query GetUserAndProducts {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 },
                 {
                   "kind": "InlineFragment",
                   "typeCondition": "Furniture",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "upc"
+                    }
                   ]
                 }
               ],
@@ -495,7 +633,12 @@ query GetUserAndProducts {
             "nodes": [
               {
                 "kind": "Flatten",
-                "path": ["me", "reviews", "@", "product"],
+                "path": [
+                  "me",
+                  "reviews",
+                  "@",
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "books",
@@ -504,8 +647,14 @@ query GetUserAndProducts {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        }
                       ]
                     }
                   ],
@@ -515,7 +664,12 @@ query GetUserAndProducts {
               },
               {
                 "kind": "Flatten",
-                "path": ["me", "reviews", "@", "product"],
+                "path": [
+                  "me",
+                  "reviews",
+                  "@",
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "product",
@@ -524,10 +678,22 @@ query GetUserAndProducts {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" },
-                        { "kind": "Field", "name": "title" },
-                        { "kind": "Field", "name": "year" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "title"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "year"
+                        }
                       ]
                     }
                   ],
@@ -541,11 +707,7 @@ query GetUserAndProducts {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -553,9 +715,10 @@ query GetUserAndProducts {
 #[allow(non_snake_case)]
 #[test]
 fn abstract_types_allows_for_extending_an_interface_from_another_service_with_fields() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProduct($upc: String!) {
   product(upc: $upc) {
     reviews {
@@ -564,8 +727,11 @@ query GetProduct($upc: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -573,12 +739,16 @@ query GetProduct($upc: String!) {
       {
         "kind": "Fetch",
         "serviceName": "product",
-        "variableUsages": ["upc"],
+        "variableUsages": [
+          "upc"
+        ],
         "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -587,16 +757,28 @@ query GetProduct($upc: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             },
             {
               "kind": "InlineFragment",
               "typeCondition": "Furniture",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "upc" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "upc"
+                }
               ]
             }
           ],
@@ -606,11 +788,7 @@ query GetProduct($upc: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -618,9 +796,10 @@ query GetProduct($upc: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn abstract_types_handles_unions_from_the_same_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUserAndProducts {
   me {
     reviews {
@@ -641,8 +820,11 @@ query GetUserAndProducts {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -655,7 +837,9 @@ query GetUserAndProducts {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -664,8 +848,14 @@ query GetUserAndProducts {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -675,7 +865,12 @@ query GetUserAndProducts {
       },
       {
         "kind": "Flatten",
-        "path": ["me", "reviews", "@", "product"],
+        "path": [
+          "me",
+          "reviews",
+          "@",
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -684,16 +879,28 @@ query GetUserAndProducts {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             },
             {
               "kind": "InlineFragment",
               "typeCondition": "Furniture",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "upc" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "upc"
+                }
               ]
             }
           ],
@@ -703,11 +910,7 @@ query GetUserAndProducts {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -715,9 +918,10 @@ query GetUserAndProducts {
 #[allow(non_snake_case)]
 #[test]
 fn aliases_supports_simple_aliases() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProduct($upc: String!) {
   product(upc: $upc) {
     name
@@ -725,8 +929,11 @@ query GetProduct($upc: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -734,12 +941,16 @@ query GetProduct($upc: String!) {
       {
         "kind": "Fetch",
         "serviceName": "product",
-        "variableUsages": ["upc"],
+        "variableUsages": [
+          "upc"
+        ],
         "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name title:name}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "books",
@@ -748,8 +959,14 @@ query GetProduct($upc: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             }
           ],
@@ -759,7 +976,9 @@ query GetProduct($upc: String!) {
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -768,10 +987,22 @@ query GetProduct($upc: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" },
-                { "kind": "Field", "name": "title" },
-                { "kind": "Field", "name": "year" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                },
+                {
+                  "kind": "Field",
+                  "name": "title"
+                },
+                {
+                  "kind": "Field",
+                  "name": "year"
+                }
               ]
             }
           ],
@@ -781,11 +1012,7 @@ query GetProduct($upc: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -793,9 +1020,10 @@ query GetProduct($upc: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn aliases_supports_aliases_of_root_fields_on_subservices() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProduct($upc: String!) {
   product(upc: $upc) {
     name
@@ -809,8 +1037,11 @@ query GetProduct($upc: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -818,7 +1049,9 @@ query GetProduct($upc: String!) {
       {
         "kind": "Fetch",
         "serviceName": "product",
-        "variableUsages": ["upc"],
+        "variableUsages": [
+          "upc"
+        ],
         "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name title:name __typename upc}}}"
       },
       {
@@ -829,7 +1062,9 @@ query GetProduct($upc: String!) {
             "nodes": [
               {
                 "kind": "Flatten",
-                "path": ["product"],
+                "path": [
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "books",
@@ -838,8 +1073,14 @@ query GetProduct($upc: String!) {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        }
                       ]
                     }
                   ],
@@ -849,7 +1090,9 @@ query GetProduct($upc: String!) {
               },
               {
                 "kind": "Flatten",
-                "path": ["product"],
+                "path": [
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "product",
@@ -858,10 +1101,22 @@ query GetProduct($upc: String!) {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" },
-                        { "kind": "Field", "name": "title" },
-                        { "kind": "Field", "name": "year" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "title"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "year"
+                        }
                       ]
                     }
                   ],
@@ -873,7 +1128,9 @@ query GetProduct($upc: String!) {
           },
           {
             "kind": "Flatten",
-            "path": ["product"],
+            "path": [
+              "product"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "reviews",
@@ -882,16 +1139,28 @@ query GetProduct($upc: String!) {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 },
                 {
                   "kind": "InlineFragment",
                   "typeCondition": "Furniture",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "upc"
+                    }
                   ]
                 }
               ],
@@ -903,11 +1172,7 @@ query GetProduct($upc: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -915,9 +1180,10 @@ query GetProduct($upc: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn aliases_supports_aliases_of_nested_fields_on_subservices() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProduct($upc: String!) {
   product(upc: $upc) {
     name
@@ -935,8 +1201,11 @@ query GetProduct($upc: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -944,7 +1213,9 @@ query GetProduct($upc: String!) {
       {
         "kind": "Fetch",
         "serviceName": "product",
-        "variableUsages": ["upc"],
+        "variableUsages": [
+          "upc"
+        ],
         "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name title:name __typename upc}}}"
       },
       {
@@ -955,7 +1226,9 @@ query GetProduct($upc: String!) {
             "nodes": [
               {
                 "kind": "Flatten",
-                "path": ["product"],
+                "path": [
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "books",
@@ -964,8 +1237,14 @@ query GetProduct($upc: String!) {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        }
                       ]
                     }
                   ],
@@ -975,7 +1254,9 @@ query GetProduct($upc: String!) {
               },
               {
                 "kind": "Flatten",
-                "path": ["product"],
+                "path": [
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "product",
@@ -984,10 +1265,22 @@ query GetProduct($upc: String!) {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" },
-                        { "kind": "Field", "name": "title" },
-                        { "kind": "Field", "name": "year" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "title"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "year"
+                        }
                       ]
                     }
                   ],
@@ -999,7 +1292,9 @@ query GetProduct($upc: String!) {
           },
           {
             "kind": "Flatten",
-            "path": ["product"],
+            "path": [
+              "product"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "reviews",
@@ -1008,16 +1303,28 @@ query GetProduct($upc: String!) {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 },
                 {
                   "kind": "InlineFragment",
                   "typeCondition": "Furniture",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "upc"
+                    }
                   ]
                 }
               ],
@@ -1029,11 +1336,7 @@ query GetProduct($upc: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1041,9 +1344,10 @@ query GetProduct($upc: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn boolean_supports_skip_when_a_boolean_condition_is_met() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers {
   topReviews {
     body
@@ -1053,8 +1357,11 @@ query GetReviewers {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -1067,7 +1374,11 @@ query GetReviewers {
       },
       {
         "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
+        "path": [
+          "topReviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -1076,8 +1387,14 @@ query GetReviewers {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -1087,11 +1404,7 @@ query GetReviewers {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1099,9 +1412,10 @@ query GetReviewers {
 #[allow(non_snake_case)]
 #[test]
 fn boolean_supports_skip_when_a_boolean_condition_is_met_variable_driven() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers($skip: Boolean! = true) {
   topReviews {
     body
@@ -1111,20 +1425,21 @@ query GetReviewers($skip: Boolean! = true) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
     "serviceName": "reviews",
-    "variableUsages": ["skip"],
+    "variableUsages": [
+      "skip"
+    ],
     "operation": "query($skip:Boolean!=true){topReviews{body author@skip(if:$skip){username}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1132,9 +1447,10 @@ query GetReviewers($skip: Boolean! = true) {
 #[allow(non_snake_case)]
 #[test]
 fn boolean_supports_skip_when_a_boolean_condition_is_not_met() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers {
   topReviews {
     body
@@ -1144,8 +1460,11 @@ query GetReviewers {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -1158,7 +1477,11 @@ query GetReviewers {
       },
       {
         "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
+        "path": [
+          "topReviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -1167,8 +1490,14 @@ query GetReviewers {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -1178,11 +1507,7 @@ query GetReviewers {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1190,9 +1515,10 @@ query GetReviewers {
 #[allow(non_snake_case)]
 #[test]
 fn boolean_supports_skip_when_a_boolean_condition_is_not_met_variable_driven() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers($skip: Boolean!) {
   topReviews {
     body
@@ -1202,8 +1528,11 @@ query GetReviewers($skip: Boolean!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -1211,12 +1540,18 @@ query GetReviewers($skip: Boolean!) {
       {
         "kind": "Fetch",
         "serviceName": "reviews",
-        "variableUsages": ["skip"],
+        "variableUsages": [
+          "skip"
+        ],
         "operation": "query($skip:Boolean!){topReviews{body author@skip(if:$skip){__typename id}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
+        "path": [
+          "topReviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -1225,8 +1560,14 @@ query GetReviewers($skip: Boolean!) {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -1236,11 +1577,7 @@ query GetReviewers($skip: Boolean!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1248,9 +1585,10 @@ query GetReviewers($skip: Boolean!) {
 #[allow(non_snake_case)]
 #[test]
 fn boolean_supports_include_when_a_boolean_condition_is_not_met() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers {
   topReviews {
     body
@@ -1260,8 +1598,11 @@ query GetReviewers {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -1269,11 +1610,7 @@ query GetReviewers {
     "variableUsages": [],
     "operation": "{topReviews{body author@include(if:false){username}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1281,9 +1618,10 @@ query GetReviewers {
 #[allow(non_snake_case)]
 #[test]
 fn boolean_supports_include_when_a_boolean_condition_is_not_met_variable_driven() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers($include: Boolean! = false) {
   topReviews {
     body
@@ -1293,20 +1631,21 @@ query GetReviewers($include: Boolean! = false) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
     "serviceName": "reviews",
-    "variableUsages": ["include"],
+    "variableUsages": [
+      "include"
+    ],
     "operation": "query($include:Boolean!=false){topReviews{body author@include(if:$include){username}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1314,9 +1653,10 @@ query GetReviewers($include: Boolean! = false) {
 #[allow(non_snake_case)]
 #[test]
 fn boolean_supports_include_when_a_boolean_condition_is_met() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers {
   topReviews {
     body
@@ -1326,8 +1666,11 @@ query GetReviewers {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -1340,7 +1683,11 @@ query GetReviewers {
       },
       {
         "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
+        "path": [
+          "topReviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -1349,8 +1696,14 @@ query GetReviewers {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -1360,11 +1713,7 @@ query GetReviewers {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1372,9 +1721,10 @@ query GetReviewers {
 #[allow(non_snake_case)]
 #[test]
 fn boolean_supports_include_when_a_boolean_condition_is_met_variable_driven() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers($include: Boolean!) {
   topReviews {
     body
@@ -1384,8 +1734,11 @@ query GetReviewers($include: Boolean!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -1393,12 +1746,18 @@ query GetReviewers($include: Boolean!) {
       {
         "kind": "Fetch",
         "serviceName": "reviews",
-        "variableUsages": ["include"],
+        "variableUsages": [
+          "include"
+        ],
         "operation": "query($include:Boolean!){topReviews{body author@include(if:$include){__typename id}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
+        "path": [
+          "topReviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -1407,8 +1766,14 @@ query GetReviewers($include: Boolean!) {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -1418,11 +1783,7 @@ query GetReviewers($include: Boolean!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1430,9 +1791,10 @@ query GetReviewers($include: Boolean!) {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_should_not_confuse_union_types_with_overlapping_field_names() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   body {
     ...on Image {
@@ -1449,8 +1811,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -1458,11 +1823,7 @@ query {
     "variableUsages": [],
     "operation": "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold text}}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1470,17 +1831,21 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_should_use_a_single_fetch_when_requesting_a_root_field_from_one_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   me {
     name
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -1488,11 +1853,7 @@ query {
     "variableUsages": [],
     "operation": "{me{name}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1500,9 +1861,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_should_use_two_independent_fetches_when_requesting_root_fields_from_two_services() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   me {
     name
@@ -1512,8 +1874,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Parallel",
@@ -1535,7 +1900,10 @@ query {
           },
           {
             "kind": "Flatten",
-            "path": ["topProducts", "@"],
+            "path": [
+              "topProducts",
+              "@"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "books",
@@ -1544,8 +1912,14 @@ query {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 }
               ],
@@ -1555,7 +1929,10 @@ query {
           },
           {
             "kind": "Flatten",
-            "path": ["topProducts", "@"],
+            "path": [
+              "topProducts",
+              "@"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "product",
@@ -1564,10 +1941,22 @@ query {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" },
-                    { "kind": "Field", "name": "title" },
-                    { "kind": "Field", "name": "year" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "title"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "year"
+                    }
                   ]
                 }
               ],
@@ -1579,11 +1968,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1591,9 +1976,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_should_use_a_single_fetch_when_requesting_multiple_root_fields_from_the_same_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topProducts {
     name
@@ -1603,8 +1989,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -1623,7 +2012,10 @@ query {
             "nodes": [
               {
                 "kind": "Flatten",
-                "path": ["topProducts", "@"],
+                "path": [
+                  "topProducts",
+                  "@"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "books",
@@ -1632,8 +2024,14 @@ query {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        }
                       ]
                     }
                   ],
@@ -1643,7 +2041,10 @@ query {
               },
               {
                 "kind": "Flatten",
-                "path": ["topProducts", "@"],
+                "path": [
+                  "topProducts",
+                  "@"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "product",
@@ -1652,10 +2053,22 @@ query {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" },
-                        { "kind": "Field", "name": "title" },
-                        { "kind": "Field", "name": "year" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "title"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "year"
+                        }
                       ]
                     }
                   ],
@@ -1670,7 +2083,9 @@ query {
             "nodes": [
               {
                 "kind": "Flatten",
-                "path": ["product"],
+                "path": [
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "books",
@@ -1679,8 +2094,14 @@ query {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        }
                       ]
                     }
                   ],
@@ -1690,7 +2111,9 @@ query {
               },
               {
                 "kind": "Flatten",
-                "path": ["product"],
+                "path": [
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "product",
@@ -1699,10 +2122,22 @@ query {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" },
-                        { "kind": "Field", "name": "title" },
-                        { "kind": "Field", "name": "year" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "title"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "year"
+                        }
                       ]
                     }
                   ],
@@ -1716,11 +2151,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1728,9 +2159,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_should_use_a_single_fetch_when_requesting_relationship_subfields_from_the_same_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topReviews {
     body
@@ -1742,8 +2174,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -1751,11 +2186,7 @@ query {
     "variableUsages": [],
     "operation": "{topReviews{body author{reviews{body}}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1763,9 +2194,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_should_use_a_single_fetch_when_requesting_relationship_subfields_and_provided_keys_from_the_same_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topReviews {
     body
@@ -1778,8 +2210,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -1787,11 +2222,7 @@ query {
     "variableUsages": [],
     "operation": "{topReviews{body author{id reviews{body}}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1799,9 +2230,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_when_requesting_an_extension_field_from_another_service_it_should_add_the_fields_representation_requirements_to_the_parent_selection_set_and_use_a_dependent_fetch() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   me {
     name
@@ -1811,8 +2243,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -1825,7 +2260,9 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -1834,8 +2271,14 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -1845,11 +2288,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1857,9 +2296,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_when_requesting_an_extension_field_from_another_service_when_the_parent_selection_set_is_empty_should_add_the_fields_requirements_to_the_parent_selection_set_and_use_a_dependent_fetch() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   me {
     reviews {
@@ -1868,8 +2308,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -1882,7 +2325,9 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -1891,8 +2336,14 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -1902,11 +2353,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1914,9 +2361,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_when_requesting_an_extension_field_from_another_service_should_only_add_requirements_once() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   me {
     reviews {
@@ -1926,8 +2374,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -1940,7 +2391,9 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -1949,8 +2402,14 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -1960,11 +2419,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -1972,9 +2427,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_when_requesting_a_composite_field_with_subfields_from_another_service_it_should_add_key_fields_to_the_parent_selection_set_and_use_a_dependent_fetch() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topReviews {
     body
@@ -1984,8 +2440,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -1998,7 +2457,11 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
+        "path": [
+          "topReviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -2007,8 +2470,14 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -2018,11 +2487,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2030,17 +2495,21 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_when_requesting_a_composite_field_with_subfields_from_another_service_when_requesting_a_field_defined_in_another_service_which_requires_a_field_in_the_base_service_it_should_add_the_field_provided_by_base_service_in_first_fetch() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topCars {
     retailPrice
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -2053,7 +2522,10 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["topCars", "@"],
+        "path": [
+          "topCars",
+          "@"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -2062,9 +2534,18 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "Car",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" },
-                { "kind": "Field", "name": "price" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                },
+                {
+                  "kind": "Field",
+                  "name": "price"
+                }
               ]
             }
           ],
@@ -2074,11 +2555,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2086,9 +2563,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_when_requesting_a_composite_field_with_subfields_from_another_service_when_the_parent_selection_set_is_empty_it_should_add_key_fields_to_the_parent_selection_set_and_use_a_dependent_fetch() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topReviews {
     author {
@@ -2097,8 +2575,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -2111,7 +2592,11 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
+        "path": [
+          "topReviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -2120,8 +2605,14 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -2131,11 +2622,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2143,9 +2630,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_when_requesting_a_relationship_field_with_extension_subfields_from_a_different_service_it_should_first_fetch_the_object_using_a_key_from_the_base_service_and_then_pass_through_the_requirements() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topReviews {
     author {
@@ -2154,8 +2642,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -2168,7 +2659,11 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
+        "path": [
+          "topReviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -2177,8 +2672,14 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -2188,11 +2689,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2200,17 +2697,21 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_for_abstract_types_it_should_add___typename_when_fetching_objects_of_an_interface_type_from_a_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topProducts {
     price
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -2218,11 +2719,7 @@ query {
     "variableUsages": [],
     "operation": "{topProducts{__typename ...on Book{price}...on Furniture{price}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2230,9 +2727,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_should_break_up_when_traversing_an_extension_field_on_an_interface_type_from_a_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topProducts {
     price
@@ -2242,8 +2740,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -2256,7 +2757,10 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["topProducts", "@"],
+        "path": [
+          "topProducts",
+          "@"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -2265,16 +2769,28 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             },
             {
               "kind": "InlineFragment",
               "typeCondition": "Furniture",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "upc" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "upc"
+                }
               ]
             }
           ],
@@ -2284,11 +2800,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2296,9 +2808,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_interface_fragments_should_expand_into_possible_types_only() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   books {
     ... on Product {
@@ -2310,8 +2823,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -2324,7 +2840,10 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["books", "@"],
+        "path": [
+          "books",
+          "@"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -2333,10 +2852,22 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" },
-                { "kind": "Field", "name": "title" },
-                { "kind": "Field", "name": "year" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                },
+                {
+                  "kind": "Field",
+                  "name": "title"
+                },
+                {
+                  "kind": "Field",
+                  "name": "year"
+                }
               ]
             }
           ],
@@ -2346,11 +2877,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2358,9 +2885,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_interface_inside_interface_should_expand_into_possible_types_only() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   product(upc: "") {
     details {
@@ -2369,8 +2897,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -2378,11 +2909,7 @@ query {
     "variableUsages": [],
     "operation": "{product(upc:\"\"){__typename ...on Book{details{country}}...on Furniture{details{country}}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2390,9 +2917,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_experimental_compression_to_downstream_services_should_generate_fragments_internally_to_downstream_requests() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topReviews {
     body
@@ -2407,8 +2935,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: true
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -2427,7 +2958,11 @@ query {
             "nodes": [
               {
                 "kind": "Flatten",
-                "path": ["topReviews", "@", "product"],
+                "path": [
+                  "topReviews",
+                  "@",
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "books",
@@ -2436,8 +2971,14 @@ query {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        }
                       ]
                     }
                   ],
@@ -2447,7 +2988,11 @@ query {
               },
               {
                 "kind": "Flatten",
-                "path": ["topReviews", "@", "product"],
+                "path": [
+                  "topReviews",
+                  "@",
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "product",
@@ -2456,10 +3001,22 @@ query {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" },
-                        { "kind": "Field", "name": "title" },
-                        { "kind": "Field", "name": "year" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "title"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "year"
+                        }
                       ]
                     }
                   ],
@@ -2471,7 +3028,11 @@ query {
           },
           {
             "kind": "Flatten",
-            "path": ["topReviews", "@", "product"],
+            "path": [
+              "topReviews",
+              "@",
+              "product"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "product",
@@ -2480,16 +3041,28 @@ query {
                   "kind": "InlineFragment",
                   "typeCondition": "Furniture",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "upc"
+                    }
                   ]
                 },
                 {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 }
               ],
@@ -2501,11 +3074,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: true
-        }
+}"##
     );
 }
 
@@ -2513,9 +3082,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_experimental_compression_to_downstream_services_shouldnt_generate_fragments_for_selection_sets_of_length_2_or_less() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topReviews {
     body
@@ -2523,8 +3093,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: true
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -2532,11 +3105,7 @@ query {
     "variableUsages": [],
     "operation": "{topReviews{body author}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: true
-        }
+}"##
     );
 }
 
@@ -2544,9 +3113,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_experimental_compression_to_downstream_services_should_generate_fragments_for_selection_sets_of_length_3_or_greater() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   topReviews {
     id
@@ -2555,8 +3125,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: true
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -2564,11 +3137,7 @@ query {
     "variableUsages": [],
     "operation": "{topReviews{...__QueryPlanFragment_0__}}fragment __QueryPlanFragment_0__ on Review{id body author}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: true
-        }
+}"##
     );
 }
 
@@ -2576,9 +3145,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_experimental_compression_to_downstream_services_should_generate_fragments_correctly_when_aliases_are_used() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   reviews: topReviews {
     content: body
@@ -2593,8 +3163,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: true
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -2613,7 +3186,11 @@ query {
             "nodes": [
               {
                 "kind": "Flatten",
-                "path": ["reviews", "@", "product"],
+                "path": [
+                  "reviews",
+                  "@",
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "books",
@@ -2622,8 +3199,14 @@ query {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        }
                       ]
                     }
                   ],
@@ -2633,7 +3216,11 @@ query {
               },
               {
                 "kind": "Flatten",
-                "path": ["reviews", "@", "product"],
+                "path": [
+                  "reviews",
+                  "@",
+                  "product"
+                ],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "product",
@@ -2642,10 +3229,22 @@ query {
                       "kind": "InlineFragment",
                       "typeCondition": "Book",
                       "selections": [
-                        { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" },
-                        { "kind": "Field", "name": "title" },
-                        { "kind": "Field", "name": "year" }
+                        {
+                          "kind": "Field",
+                          "name": "__typename"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "isbn"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "title"
+                        },
+                        {
+                          "kind": "Field",
+                          "name": "year"
+                        }
                       ]
                     }
                   ],
@@ -2657,7 +3256,11 @@ query {
           },
           {
             "kind": "Flatten",
-            "path": ["reviews", "@", "product"],
+            "path": [
+              "reviews",
+              "@",
+              "product"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "product",
@@ -2666,16 +3269,28 @@ query {
                   "kind": "InlineFragment",
                   "typeCondition": "Furniture",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "upc"
+                    }
                   ]
                 },
                 {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 }
               ],
@@ -2687,11 +3302,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: true
-        }
+}"##
     );
 }
 
@@ -2699,9 +3310,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_should_properly_expand_nested_unions_with_inline_fragments() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   body {
     ... on Image {
@@ -2727,8 +3339,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -2736,11 +3351,7 @@ query {
     "variableUsages": [],
     "operation": "{body{__typename ...on Image{attributes{url}}...on Text{attributes{bold}}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2748,9 +3359,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_deduplicates_fields__selections_regardless_of_adjacency_and_type_condition_nesting_for_inline_fragments() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
   body {
     ... on Image {
@@ -2777,8 +3389,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -2786,11 +3401,7 @@ query {
     "variableUsages": [],
     "operation": "{body{__typename ...on Text{attributes{bold text}}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2798,9 +3409,10 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_deduplicates_fields__selections_regardless_of_adjacency_and_type_condition_nesting_for_named_fragment_spreads() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 fragment TextFragment on Text {
   attributes {
     bold
@@ -2820,8 +3432,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -2829,11 +3444,7 @@ query {
     "variableUsages": [],
     "operation": "{body{__typename ...on Text{attributes{bold text}}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2841,17 +3452,21 @@ query {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_supports_basic_single_service_mutation() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 mutation Login($username: String!, $password: String!) {
   login(username: $username, password: $password) {
     id
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -2862,11 +3477,7 @@ mutation Login($username: String!, $password: String!) {
     ],
     "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){id}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2874,9 +3485,10 @@ mutation Login($username: String!, $password: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_supports_mutations_with_a_cross_service_request() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 mutation Login($username: String!, $password: String!) {
   login(username: $username, password: $password) {
     reviews {
@@ -2887,8 +3499,11 @@ mutation Login($username: String!, $password: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -2963,11 +3578,7 @@ mutation Login($username: String!, $password: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -2975,9 +3586,10 @@ mutation Login($username: String!, $password: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_returning_across_service_boundaries() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 mutation Review($upc: String!, $body: String!) {
   reviewProduct(upc: $upc, body: $body) {
     ... on Furniture {
@@ -2986,8 +3598,11 @@ mutation Review($upc: String!, $body: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -3031,11 +3646,7 @@ mutation Review($upc: String!, $body: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3043,9 +3654,10 @@ mutation Review($upc: String!, $body: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_supports_multiple_root_mutations() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 mutation LoginAndReview(
   $username: String!
   $password: String!
@@ -3066,8 +3678,11 @@ mutation LoginAndReview(
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -3179,11 +3794,7 @@ mutation LoginAndReview(
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3191,9 +3802,10 @@ mutation LoginAndReview(
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_multiple_root_mutations_with_correct_service_order() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 mutation LoginAndReview(
   $upc: String!
   $body: String!
@@ -3221,8 +3833,11 @@ mutation LoginAndReview(
   deleteReview(id: $reviewId)
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -3315,11 +3930,7 @@ mutation LoginAndReview(
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3327,9 +3938,10 @@ mutation LoginAndReview(
 #[allow(non_snake_case)]
 #[test]
 fn build_query_plan_supports_arrays() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query MergeArrays {
   me {
     # goodAddress
@@ -3340,8 +3952,11 @@ query MergeArrays {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -3392,11 +4007,7 @@ query MergeArrays {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3404,17 +4015,21 @@ query MergeArrays {
 #[allow(non_snake_case)]
 #[test]
 fn custom_directives_successfully_passes_directives_along_in_requests_to_an_underlying_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers {
   topReviews {
     body @stream
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -3422,11 +4037,7 @@ query GetReviewers {
     "variableUsages": [],
     "operation": "{topReviews{body@stream}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3434,9 +4045,10 @@ query GetReviewers {
 #[allow(non_snake_case)]
 #[test]
 fn custom_directives_successfully_passes_directives_and_their_variables_along_in_requests_to_underlying_services() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers {
   topReviews {
     body @stream
@@ -3446,8 +4058,11 @@ query GetReviewers {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -3460,7 +4075,11 @@ query GetReviewers {
       },
       {
         "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
+        "path": [
+          "topReviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -3469,8 +4088,14 @@ query GetReviewers {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -3480,11 +4105,7 @@ query GetReviewers {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3492,9 +4113,10 @@ query GetReviewers {
 #[allow(non_snake_case)]
 #[test]
 fn execution_style_supports_parallel_root_fields() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUserAndReviews {
   me {
     username
@@ -3504,8 +4126,11 @@ query GetUserAndReviews {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Parallel",
@@ -3524,11 +4149,7 @@ query GetUserAndReviews {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3536,9 +4157,10 @@ query GetUserAndReviews {
 #[allow(non_snake_case)]
 #[test]
 fn fragments_supports_inline_fragments_one_level() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUser {
   me {
     ... on User {
@@ -3547,12 +4169,19 @@ query GetUser {
   }
 }
 "##,
-        r##"
-{"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"accounts","variableUsages":[],"operation":"{me{username}}"}}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Fetch",
+    "serviceName": "accounts",
+    "variableUsages": [],
+    "operation": "{me{username}}"
+  }
+}"##
     );
 }
 
@@ -3560,9 +4189,10 @@ query GetUser {
 #[allow(non_snake_case)]
 #[test]
 fn fragments_supports_inline_fragments_multi_level() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUser {
   me {
     ... on User {
@@ -3586,8 +4216,11 @@ query GetUser {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -3600,7 +4233,9 @@ query GetUser {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -3609,8 +4244,14 @@ query GetUser {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -3623,7 +4264,12 @@ query GetUser {
         "nodes": [
           {
             "kind": "Flatten",
-            "path": ["me", "reviews", "@", "product"],
+            "path": [
+              "me",
+              "reviews",
+              "@",
+              "product"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "books",
@@ -3632,8 +4278,14 @@ query GetUser {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 }
               ],
@@ -3643,7 +4295,12 @@ query GetUser {
           },
           {
             "kind": "Flatten",
-            "path": ["me", "reviews", "@", "product"],
+            "path": [
+              "me",
+              "reviews",
+              "@",
+              "product"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "product",
@@ -3652,8 +4309,14 @@ query GetUser {
                   "kind": "InlineFragment",
                   "typeCondition": "Furniture",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "upc"
+                    }
                   ]
                 }
               ],
@@ -3665,11 +4328,7 @@ query GetUser {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3677,9 +4336,10 @@ query GetUser {
 #[allow(non_snake_case)]
 #[test]
 fn fragments_supports_named_fragments_one_level() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUser {
   me {
     ...userDetails
@@ -3690,8 +4350,11 @@ fragment userDetails on User {
   username
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -3699,11 +4362,7 @@ fragment userDetails on User {
     "variableUsages": [],
     "operation": "{me{username}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3711,9 +4370,10 @@ fragment userDetails on User {
 #[allow(non_snake_case)]
 #[test]
 fn fragments_supports_multiple_named_fragments_one_level_mixed_ordering() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 fragment userInfo on User {
   name
 }
@@ -3728,8 +4388,11 @@ fragment userDetails on User {
   username
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -3737,11 +4400,7 @@ fragment userDetails on User {
     "variableUsages": [],
     "operation": "{me{username name}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3749,9 +4408,10 @@ fragment userDetails on User {
 #[allow(non_snake_case)]
 #[test]
 fn fragments_supports_multiple_named_fragments_multi_level_mixed_ordering() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 fragment reviewDetails on Review {
   body
 }
@@ -3768,8 +4428,11 @@ fragment userDetails on User {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -3782,7 +4445,9 @@ fragment userDetails on User {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -3791,8 +4456,14 @@ fragment userDetails on User {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -3802,11 +4473,7 @@ fragment userDetails on User {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3814,9 +4481,10 @@ fragment userDetails on User {
 #[allow(non_snake_case)]
 #[test]
 fn fragments_supports_variables_within_fragments() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUser($format: Boolean) {
   me {
     ...userDetails
@@ -3830,8 +4498,11 @@ fragment userDetails on User {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -3844,7 +4515,9 @@ fragment userDetails on User {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -3853,22 +4526,26 @@ fragment userDetails on User {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
-          "variableUsages": ["format"],
+          "variableUsages": [
+            "format"
+          ],
           "operation": "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
         }
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3876,9 +4553,10 @@ fragment userDetails on User {
 #[allow(non_snake_case)]
 #[test]
 fn fragments_supports_root_fragments() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUser {
   ... on Query {
     me {
@@ -3887,8 +4565,11 @@ query GetUser {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -3896,11 +4577,7 @@ query GetUser {
     "variableUsages": [],
     "operation": "{me{username}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -3908,9 +4585,10 @@ query GetUser {
 #[allow(non_snake_case)]
 #[test]
 fn fragments_supports_directives_on_inline_fragments_httpsgithubcomapollographqlfederationissues177() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetVehicle {
   vehicle(id:"rav4") {
     ... on Car @fragmentDirective {
@@ -3927,12 +4605,19 @@ query GetVehicle {
   }
 }
 "##,
-        r##"
-{"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"product","variableUsages":[],"operation":"{vehicle(id:\"rav4\"){__typename ...on Car@fragmentDirective{price thing{__typename ...on Ikea{asile}}}...on Van{price@fieldDirective}}}"}}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
+  "kind": "QueryPlan",
+  "node": {
+    "kind": "Fetch",
+    "serviceName": "product",
+    "variableUsages": [],
+    "operation": "{vehicle(id:\"rav4\"){__typename ...on Car@fragmentDirective{price thing{__typename ...on Ikea{asile}}}...on Van{price@fieldDirective}}}"
+  }
+}"##
     );
 }
 
@@ -3940,9 +4625,10 @@ query GetVehicle {
 #[allow(non_snake_case)]
 #[test]
 fn introspection_can_execute_schema_introspection_query() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query IntrospectionQuery {
   __schema {
     queryType {
@@ -4040,12 +4726,13 @@ fragment TypeRef on __Type {
   }
 }
 "##,
-        r##"
-{ "kind": "QueryPlan" }
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
+  "kind": "QueryPlan"
+}"##
     );
 }
 
@@ -4053,21 +4740,23 @@ fragment TypeRef on __Type {
 #[allow(non_snake_case)]
 #[test]
 fn introspection_can_execute_type_introspection_query() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query($foo:String!) {
   __type(name:$foo) {
     enumValues{ __typename name }
   }
 }
 "##,
-        r##"
-{ "kind": "QueryPlan" }
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
+  "kind": "QueryPlan"
+}"##
     );
 }
 
@@ -4075,9 +4764,10 @@ query($foo:String!) {
 #[allow(non_snake_case)]
 #[test]
 fn mutations_supports_mutations() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 mutation Login($username: String!, $password: String!) {
   login(username: $username, password: $password) {
     reviews {
@@ -4088,8 +4778,11 @@ mutation Login($username: String!, $password: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -4097,12 +4790,17 @@ mutation Login($username: String!, $password: String!) {
       {
         "kind": "Fetch",
         "serviceName": "accounts",
-        "variableUsages": ["username", "password"],
+        "variableUsages": [
+          "username",
+          "password"
+        ],
         "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
       },
       {
         "kind": "Flatten",
-        "path": ["login"],
+        "path": [
+          "login"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -4111,8 +4809,14 @@ mutation Login($username: String!, $password: String!) {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -4122,7 +4826,12 @@ mutation Login($username: String!, $password: String!) {
       },
       {
         "kind": "Flatten",
-        "path": ["login", "reviews", "@", "product"],
+        "path": [
+          "login",
+          "reviews",
+          "@",
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -4131,8 +4840,14 @@ mutation Login($username: String!, $password: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             }
           ],
@@ -4142,11 +4857,7 @@ mutation Login($username: String!, $password: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4154,9 +4865,10 @@ mutation Login($username: String!, $password: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn mutations_mutations_across_service_boundaries() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 mutation Review($upc: String!, $body: String!) {
   reviewProduct(upc: $upc, body: $body) {
     ... on Furniture {
@@ -4165,8 +4877,11 @@ mutation Review($upc: String!, $body: String!) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -4174,12 +4889,17 @@ mutation Review($upc: String!, $body: String!) {
       {
         "kind": "Fetch",
         "serviceName": "reviews",
-        "variableUsages": ["upc", "body"],
+        "variableUsages": [
+          "upc",
+          "body"
+        ],
         "operation": "mutation($upc:String!$body:String!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{__typename upc}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["reviewProduct"],
+        "path": [
+          "reviewProduct"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -4188,8 +4908,14 @@ mutation Review($upc: String!, $body: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Furniture",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "upc" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "upc"
+                }
               ]
             }
           ],
@@ -4199,12 +4925,7 @@ mutation Review($upc: String!, $body: String!) {
       }
     ]
   }
-}
-
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4212,9 +4933,10 @@ mutation Review($upc: String!, $body: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn mutations_multiple_root_mutations() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 mutation LoginAndReview(
   $username: String!
   $password: String!
@@ -4235,8 +4957,11 @@ mutation LoginAndReview(
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -4244,12 +4969,17 @@ mutation LoginAndReview(
       {
         "kind": "Fetch",
         "serviceName": "accounts",
-        "variableUsages": ["username", "password"],
+        "variableUsages": [
+          "username",
+          "password"
+        ],
         "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
       },
       {
         "kind": "Flatten",
-        "path": ["login"],
+        "path": [
+          "login"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -4258,8 +4988,14 @@ mutation LoginAndReview(
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -4269,7 +5005,12 @@ mutation LoginAndReview(
       },
       {
         "kind": "Flatten",
-        "path": ["login", "reviews", "@", "product"],
+        "path": [
+          "login",
+          "reviews",
+          "@",
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -4278,8 +5019,14 @@ mutation LoginAndReview(
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             }
           ],
@@ -4290,12 +5037,17 @@ mutation LoginAndReview(
       {
         "kind": "Fetch",
         "serviceName": "reviews",
-        "variableUsages": ["upc", "body"],
+        "variableUsages": [
+          "upc",
+          "body"
+        ],
         "operation": "mutation($upc:String!$body:String!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{__typename upc}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["reviewProduct"],
+        "path": [
+          "reviewProduct"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -4304,8 +5056,14 @@ mutation LoginAndReview(
               "kind": "InlineFragment",
               "typeCondition": "Furniture",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "upc" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "upc"
+                }
               ]
             }
           ],
@@ -4315,11 +5073,7 @@ mutation LoginAndReview(
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4327,9 +5081,10 @@ mutation LoginAndReview(
 #[allow(non_snake_case)]
 #[test]
 fn mutations_multiple_root_mutations_with_correct_service_order() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 mutation LoginAndReview(
   $upc: String!
   $body: String!
@@ -4357,8 +5112,11 @@ mutation LoginAndReview(
   deleteReview(id: $reviewId)
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -4366,18 +5124,27 @@ mutation LoginAndReview(
       {
         "kind": "Fetch",
         "serviceName": "reviews",
-        "variableUsages": ["upc", "body", "updatedReview"],
+        "variableUsages": [
+          "upc",
+          "body",
+          "updatedReview"
+        ],
         "operation": "mutation($upc:String!$body:String!$updatedReview:UpdateReviewInput!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{upc}}updateReview(review:$updatedReview){id body}}"
       },
       {
         "kind": "Fetch",
         "serviceName": "accounts",
-        "variableUsages": ["username", "password"],
+        "variableUsages": [
+          "username",
+          "password"
+        ],
         "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
       },
       {
         "kind": "Flatten",
-        "path": ["login"],
+        "path": [
+          "login"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -4386,8 +5153,14 @@ mutation LoginAndReview(
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -4397,7 +5170,12 @@ mutation LoginAndReview(
       },
       {
         "kind": "Flatten",
-        "path": ["login", "reviews", "@", "product"],
+        "path": [
+          "login",
+          "reviews",
+          "@",
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -4406,8 +5184,14 @@ mutation LoginAndReview(
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             }
           ],
@@ -4418,16 +5202,14 @@ mutation LoginAndReview(
       {
         "kind": "Fetch",
         "serviceName": "reviews",
-        "variableUsages": ["reviewId"],
+        "variableUsages": [
+          "reviewId"
+        ],
         "operation": "mutation($reviewId:ID!){deleteReview(id:$reviewId)}"
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4435,9 +5217,10 @@ mutation LoginAndReview(
 #[allow(non_snake_case)]
 #[test]
 fn provides_does_not_have_to_go_to_another_service_when_field_is_given() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers {
   topReviews {
     author {
@@ -4446,8 +5229,11 @@ query GetReviewers {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -4455,11 +5241,7 @@ query GetReviewers {
     "variableUsages": [],
     "operation": "{topReviews{author{username}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4467,9 +5249,10 @@ query GetReviewers {
 #[allow(non_snake_case)]
 #[test]
 fn provides_does_not_load_fields_provided_even_when_going_to_other_service() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviewers {
   topReviews {
     author {
@@ -4479,8 +5262,11 @@ query GetReviewers {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -4493,7 +5279,11 @@ query GetReviewers {
       },
       {
         "kind": "Flatten",
-        "path": ["topReviews", "@", "author"],
+        "path": [
+          "topReviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -4502,8 +5292,14 @@ query GetReviewers {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -4513,11 +5309,7 @@ query GetReviewers {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4525,9 +5317,10 @@ query GetReviewers {
 #[allow(non_snake_case)]
 #[test]
 fn requires_supports_passing_additional_fields_defined_by_a_requires() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetReviwedBookNames {
   me {
     reviews {
@@ -4540,8 +5333,11 @@ query GetReviwedBookNames {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -4554,7 +5350,9 @@ query GetReviwedBookNames {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -4563,8 +5361,14 @@ query GetReviwedBookNames {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -4574,7 +5378,12 @@ query GetReviwedBookNames {
       },
       {
         "kind": "Flatten",
-        "path": ["me", "reviews", "@", "product"],
+        "path": [
+          "me",
+          "reviews",
+          "@",
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "books",
@@ -4583,8 +5392,14 @@ query GetReviwedBookNames {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             }
           ],
@@ -4594,7 +5409,12 @@ query GetReviwedBookNames {
       },
       {
         "kind": "Flatten",
-        "path": ["me", "reviews", "@", "product"],
+        "path": [
+          "me",
+          "reviews",
+          "@",
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -4603,10 +5423,22 @@ query GetReviwedBookNames {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" },
-                { "kind": "Field", "name": "title" },
-                { "kind": "Field", "name": "year" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                },
+                {
+                  "kind": "Field",
+                  "name": "title"
+                },
+                {
+                  "kind": "Field",
+                  "name": "year"
+                }
               ]
             }
           ],
@@ -4616,12 +5448,7 @@ query GetReviwedBookNames {
       }
     ]
   }
-}
-
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4629,19 +5456,21 @@ query GetReviwedBookNames {
 #[allow(non_snake_case)]
 #[test]
 fn single_service_does_not_remove___typename_on_root_types() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUser {
   __typename
 }
 "##,
-        r##"
-{"kind":"QueryPlan"}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
+  "kind": "QueryPlan"
+}"##
     );
 }
 
@@ -4649,17 +5478,21 @@ query GetUser {
 #[allow(non_snake_case)]
 #[test]
 fn single_service_does_not_remove___typename_if_that_is_all_that_is_requested_on_an_entity() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUser {
   me {
     __typename
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -4667,11 +5500,7 @@ query GetUser {
     "variableUsages": [],
     "operation": "{me{__typename}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4679,9 +5508,10 @@ query GetUser {
 #[allow(non_snake_case)]
 #[test]
 fn single_service_does_not_remove___typename_if_that_is_all_that_is_requested_on_a_value_type() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetUser {
   me {
     account {
@@ -4690,8 +5520,11 @@ query GetUser {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -4699,11 +5532,7 @@ query GetUser {
     "variableUsages": [],
     "operation": "{me{account{__typename}}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4711,9 +5540,10 @@ query GetUser {
 #[allow(non_snake_case)]
 #[test]
 fn value_types_resolves_value_types_within_their_respective_services() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 fragment Metadata on MetadataOrError {
   ... on KeyValue {
     key
@@ -4746,8 +5576,11 @@ query ProducsWithMetadata {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -4763,7 +5596,10 @@ query ProducsWithMetadata {
         "nodes": [
           {
             "kind": "Flatten",
-            "path": ["topProducts", "@"],
+            "path": [
+              "topProducts",
+              "@"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "books",
@@ -4772,8 +5608,14 @@ query ProducsWithMetadata {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 }
               ],
@@ -4783,7 +5625,10 @@ query ProducsWithMetadata {
           },
           {
             "kind": "Flatten",
-            "path": ["topProducts", "@"],
+            "path": [
+              "topProducts",
+              "@"
+            ],
             "node": {
               "kind": "Fetch",
               "serviceName": "reviews",
@@ -4792,16 +5637,28 @@ query ProducsWithMetadata {
                   "kind": "InlineFragment",
                   "typeCondition": "Book",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "isbn" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "isbn"
+                    }
                   ]
                 },
                 {
                   "kind": "InlineFragment",
                   "typeCondition": "Furniture",
                   "selections": [
-                    { "kind": "Field", "name": "__typename" },
-                    { "kind": "Field", "name": "upc" }
+                    {
+                      "kind": "Field",
+                      "name": "__typename"
+                    },
+                    {
+                      "kind": "Field",
+                      "name": "upc"
+                    }
                   ]
                 }
               ],
@@ -4813,11 +5670,7 @@ query ProducsWithMetadata {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4825,17 +5678,21 @@ query ProducsWithMetadata {
 #[allow(non_snake_case)]
 #[test]
 fn variables_passes_variables_to_root_fields() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProduct($upc: String!) {
   product(upc: $upc) {
     name
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -4843,12 +5700,16 @@ query GetProduct($upc: String!) {
       {
         "kind": "Fetch",
         "serviceName": "product",
-        "variableUsages": ["upc"],
+        "variableUsages": [
+          "upc"
+        ],
         "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "books",
@@ -4857,8 +5718,14 @@ query GetProduct($upc: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             }
           ],
@@ -4868,7 +5735,9 @@ query GetProduct($upc: String!) {
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -4877,10 +5746,22 @@ query GetProduct($upc: String!) {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" },
-                { "kind": "Field", "name": "title" },
-                { "kind": "Field", "name": "year" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                },
+                {
+                  "kind": "Field",
+                  "name": "title"
+                },
+                {
+                  "kind": "Field",
+                  "name": "year"
+                }
               ]
             }
           ],
@@ -4890,11 +5771,7 @@ query GetProduct($upc: String!) {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4902,17 +5779,21 @@ query GetProduct($upc: String!) {
 #[allow(non_snake_case)]
 #[test]
 fn variables_supports_default_variables_in_a_variable_definition() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProduct($upc: String = "1") {
   product(upc: $upc) {
     name
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -4920,12 +5801,16 @@ query GetProduct($upc: String = "1") {
       {
         "kind": "Fetch",
         "serviceName": "product",
-        "variableUsages": ["upc"],
+        "variableUsages": [
+          "upc"
+        ],
         "operation": "query($upc:String=\"1\"){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "books",
@@ -4934,8 +5819,14 @@ query GetProduct($upc: String = "1") {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                }
               ]
             }
           ],
@@ -4945,7 +5836,9 @@ query GetProduct($upc: String = "1") {
       },
       {
         "kind": "Flatten",
-        "path": ["product"],
+        "path": [
+          "product"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "product",
@@ -4954,10 +5847,22 @@ query GetProduct($upc: String = "1") {
               "kind": "InlineFragment",
               "typeCondition": "Book",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "isbn" },
-                { "kind": "Field", "name": "title" },
-                { "kind": "Field", "name": "year" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "isbn"
+                },
+                {
+                  "kind": "Field",
+                  "name": "title"
+                },
+                {
+                  "kind": "Field",
+                  "name": "year"
+                }
               ]
             }
           ],
@@ -4967,11 +5872,7 @@ query GetProduct($upc: String = "1") {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -4979,9 +5880,10 @@ query GetProduct($upc: String = "1") {
 #[allow(non_snake_case)]
 #[test]
 fn variables_passes_variables_to_nested_services() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query GetProductsForUser($format: Boolean) {
   me {
     reviews {
@@ -4990,8 +5892,11 @@ query GetProductsForUser($format: Boolean) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -5004,7 +5909,9 @@ query GetProductsForUser($format: Boolean) {
       },
       {
         "kind": "Flatten",
-        "path": ["me"],
+        "path": [
+          "me"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "reviews",
@@ -5013,22 +5920,26 @@ query GetProductsForUser($format: Boolean) {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
-          "variableUsages": ["format"],
+          "variableUsages": [
+            "format"
+          ],
           "operation": "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
         }
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -5036,9 +5947,10 @@ query GetProductsForUser($format: Boolean) {
 #[allow(non_snake_case)]
 #[test]
 fn variables_works_with_default_variables_in_the_schema() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query LibraryUser($libraryId: ID!, $userId: ID) {
   library(id: $libraryId) {
     userAccount(id: $userId) {
@@ -5048,8 +5960,11 @@ query LibraryUser($libraryId: ID!, $userId: ID) {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -5057,12 +5972,16 @@ query LibraryUser($libraryId: ID!, $userId: ID) {
       {
         "kind": "Fetch",
         "serviceName": "books",
-        "variableUsages": ["libraryId"],
+        "variableUsages": [
+          "libraryId"
+        ],
         "operation": "query($libraryId:ID!){library(id:$libraryId){__typename id name}}"
       },
       {
         "kind": "Flatten",
-        "path": ["library"],
+        "path": [
+          "library"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "accounts",
@@ -5071,23 +5990,30 @@ query LibraryUser($libraryId: ID!, $userId: ID) {
               "kind": "InlineFragment",
               "typeCondition": "Library",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" },
-                { "kind": "Field", "name": "name" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                },
+                {
+                  "kind": "Field",
+                  "name": "name"
+                }
               ]
             }
           ],
-          "variableUsages": ["userId"],
+          "variableUsages": [
+            "userId"
+          ],
           "operation": "query($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name}}}}"
         }
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 
@@ -5095,15 +6021,19 @@ query LibraryUser($libraryId: ID!, $userId: ID) {
 #[allow(non_snake_case)]
 #[test]
 fn variables_string_arguments_with_quotes_that_need_to_be_escaped() {
-    assert_query_plan(
-        include_str!("basic/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("basic/schema.graphql"),
+            r##"
 query {
  vehicle(id: "{\"make\":\"Toyota\",\"model\":\"Rav4\",\"trim\":\"Limited\"}")
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -5111,11 +6041,7 @@ query {
     "variableUsages": [],
     "operation": "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\"){__typename}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 

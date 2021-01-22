@@ -13,15 +13,17 @@
 // The tests are added sorted by name so that different machines building will not yield a git diff.
 
 use apollo_query_planner::QueryPlanningOptions;
-use crate::helpers::assert_query_plan;
+use crate::helpers::plan;
+use insta::assert_snapshot;
 
 
 #[allow(non_snake_case)]
 #[test]
 fn multiple_keys_multiple_key_fields() {
-    assert_query_plan(
-        include_str!("multiple_keys/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("multiple_keys/schema.graphql"),
+            r##"
 query {
   reviews {
     body
@@ -32,8 +34,11 @@ query {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: false
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Sequence",
@@ -46,7 +51,11 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["reviews", "@", "author"],
+        "path": [
+          "reviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "users",
@@ -55,8 +64,14 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "id" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "id"
+                }
               ]
             }
           ],
@@ -66,7 +81,11 @@ query {
       },
       {
         "kind": "Flatten",
-        "path": ["reviews", "@", "author"],
+        "path": [
+          "reviews",
+          "@",
+          "author"
+        ],
         "node": {
           "kind": "Fetch",
           "serviceName": "actuary",
@@ -75,8 +94,14 @@ query {
               "kind": "InlineFragment",
               "typeCondition": "User",
               "selections": [
-                { "kind": "Field", "name": "__typename" },
-                { "kind": "Field", "name": "ssn" }
+                {
+                  "kind": "Field",
+                  "name": "__typename"
+                },
+                {
+                  "kind": "Field",
+                  "name": "ssn"
+                }
               ]
             }
           ],
@@ -86,11 +111,7 @@ query {
       }
     ]
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: false
-        }
+}"##
     );
 }
 

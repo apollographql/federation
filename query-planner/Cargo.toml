@@ -22,11 +22,18 @@ thiserror = "1.0.23"
 tracing = "0.1.21"
 tracing-futures = "0.2.4"
 
+[dev-dependencies]
+insta = "1.5.2"
+serde_json = "1.0.59"
+
+
 [build-dependencies]
 # workspace build deps
 harmonizer = { path = "../harmonizer" }
 
 # 3rd party
 gherkin_rust = "0.8.3"
+serde_json = "1.0.59"
+
 
 

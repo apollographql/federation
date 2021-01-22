@@ -13,15 +13,17 @@
 // The tests are added sorted by name so that different machines building will not yield a git diff.
 
 use apollo_query_planner::QueryPlanningOptions;
-use crate::helpers::assert_query_plan;
+use crate::helpers::plan;
+use insta::assert_snapshot;
 
 
 #[allow(non_snake_case)]
 #[test]
 fn auto_fragmentization_using_interfaces() {
-    assert_query_plan(
-        include_str!("autofrag/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("autofrag/schema.graphql"),
+            r##"
 {
   field {
     a { b { f1 f2 f4 } }
@@ -33,8 +35,11 @@ fn auto_fragmentization_using_interfaces() {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: true
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -42,11 +47,7 @@ fn auto_fragmentization_using_interfaces() {
     "variableUsages": [],
     "operation": "{field{...__QueryPlanFragment_2__}}fragment __QueryPlanFragment_0__ on B{f1 f2 f4}fragment __QueryPlanFragment_1__ on IFace{__typename ...on IFaceImpl1{x}...on IFaceImpl2{x}}fragment __QueryPlanFragment_2__ on SomeField{a{b{...__QueryPlanFragment_0__}}b{...__QueryPlanFragment_0__}iface{...__QueryPlanFragment_1__}}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: true
-        }
+}"##
     );
 }
 
@@ -54,9 +55,10 @@ fn auto_fragmentization_using_interfaces() {
 #[allow(non_snake_case)]
 #[test]
 fn auto_fragmentization_identical_selection_sets_in_different_types() {
-    assert_query_plan(
-        include_str!("autofrag/schema.graphql"),
-        r##"
+    assert_snapshot!(
+        plan(
+            include_str!("autofrag/schema.graphql"),
+            r##"
 {
   sender {
    name
@@ -70,8 +72,11 @@ fn auto_fragmentization_identical_selection_sets_in_different_types() {
   }
 }
 "##,
-        r##"
-{
+            QueryPlanningOptions {
+                auto_fragmentization: true
+            }        
+        ),
+        @r##"{
   "kind": "QueryPlan",
   "node": {
     "kind": "Fetch",
@@ -79,11 +84,7 @@ fn auto_fragmentization_identical_selection_sets_in_different_types() {
     "variableUsages": [],
     "operation": "{sender{...__QueryPlanFragment_0__}receiver{...__QueryPlanFragment_1__}}fragment __QueryPlanFragment_0__ on SendingUser{name address location}fragment __QueryPlanFragment_1__ on ReceivingUser{name address location}"
   }
-}
-"##,
-        QueryPlanningOptions {
-            auto_fragmentization: true
-        }
+}"##
     );
 }
 

@@ -1,13 +1,15 @@
-use apollo_query_planner::{QueryPlanner, QueryPlan, QueryPlanningOptions};
+use apollo_query_planner::{QueryPlanner, QueryPlanningOptions};
 
-pub fn assert_query_plan(
+pub fn plan(
   schema: &str,
   query: &str,
-  expected_json: &str,
   options: QueryPlanningOptions
-) {
+) -> String {
   let planner = QueryPlanner::new(&schema).unwrap();
-  let expected: QueryPlan = serde_json::from_str(&expected_json).unwrap();
+  // let expected: QueryPlan = serde_json::from_str(&expected_json).unwrap();
   let result = planner.plan(&query, options).unwrap();
-  assert_eq!(result, expected);
+  // assert_eq!(
+  //   format!("{:#?}", result),
+  //   format!("{:#?}", expected));
+  serde_json::to_string_pretty(&result).unwrap()
 }

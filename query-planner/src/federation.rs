@@ -78,7 +78,7 @@ impl Cs {
     fn new(prefix: &str) -> Cs {
         Cs {
             key_directive: format!("{}__key", prefix),
-            field_directive: format!("{}__field", prefix),
+            field_directive: prefix.to_string(),
             graph_enum: format!("{}__Graph", prefix),
         }
     }
@@ -173,7 +173,7 @@ impl SpecVersion {
         let mut errors = Vec::new();
 
         let cs = Cs::new(&request.prefix);
-        let graphs = cs.graphs(doc);
+        // let graphs = cs.graphs(doc);
 
         // Collect a map of (type name -> &ObjectType)
         let obj_types: HashMap<_, _> = doc.definitions.iter()
@@ -219,7 +219,6 @@ impl SpecVersion {
         // TODO(ashik): make less stupid
         for (field, resolve) in resolves {
             let pos = field.position;
-            // println!("field at {:?} {}: {}", field.position, &field.name, &resolve.graph);
             fields.service_name.insert(pos, resolve.graph.to_string());
             match resolve.requires {
                 Some(sel) => { fields.requires.insert(pos, sel); },
@@ -240,19 +239,28 @@ impl SpecVersion {
             ))
             .collect::<HashMap<_, _>>();
 
+        let realized = obj_types.values()
+            .flat_map(|typ| typ.fields.iter())
+            .map(|f| f.name);
+
         for typ in obj_types.values() {
+            // let keys = match types.keys.get(&typ.position) {
+            //     Some(keys) => keys.values(),
+            //     None => {
+            //         types.is_value_type.insert(
+            //             typ.position,
+            //             // if none of the fields have service names, consider this a value type
+            //             typ.fields.iter().all(|f| !fields.service_name.contains_key(&f.position))
+            //         );
+            //         continue
+            //     }
+            // };
+
             let keys = match types.keys.get(&typ.position) {
                 Some(keys) => keys.values(),
-                None => {
-                    types.is_value_type.insert(
-                        typ.position,
-                        typ.fields.iter().all(|f| !fields.service_name.contains_key(&f.position))
-                    );
-                    // types.is_value_type.insert(typ.position, true);
-                    continue
-                }
+                None => continue
             };
-
+                                
             let possible_owners: HashSet<&String> =
                 keys.flat_map(|sels| sels.iter())
                     .flat_map(|sel| sel.items.iter())
@@ -267,12 +275,16 @@ impl SpecVersion {
                         query::Selection::InlineFragment(_) => todo!(
                             "Inline fragments are not currently supported in keys"
                         ),
-                    })
+                    })                    
                     .filter_map(|pos| fields.service_name.get(&pos))
                     .collect();
+            eprintln!("possible owners for {}={:?}", typ.name, &possible_owners);
             match (possible_owners.len(), possible_owners.iter().next()) {
                 (0, _) => { types.is_value_type.insert(typ.position, true); },
-                (1, Some(owner)) => { types.owner.insert(typ.position, owner.to_string()); }
+                (1, Some(owner)) => {
+                    types.owner.insert(typ.position, owner.to_string());
+                    types.is_value_type.insert(typ.position, false);
+                }
                 _ => {
                     println!(
                         "(free types) multiple possible owners for {typ}: {owners}",
@@ -284,75 +296,15 @@ impl SpecVersion {
             }
         }
 
-        // for obj_type in obj_types {
-        //     // Populate type metadata
-        //     {
-        //         // value type / owner
-        //         match get_directive!(obj_type.directives, "owner").next() {
-        //             Some(owner_directive) => {
-        //                 types.is_value_type.insert(obj_type.position, false);
-        //                 let graph = letp!((_, Value::String(graph)) = &owner_directive.arguments[0] => graph.clone());
-        //                 types.owner.insert(obj_type.position, graph);
-        //             }
-        //             None => {
-        //                 types.is_value_type.insert(obj_type.position, true);
-        //             }
-        //         }
-
-        //         // keys
-        //         let mut keys_for_obj: HashMap<String, Vec<query::SelectionSet<'q>>> =
-        //             HashMap::new();
-
-        //         let graph_to_key_tuples = get_directive!(obj_type.directives, "key")
-        //             .map(|key_dir| directive_args_as_map(&key_dir.arguments))
-        //             .map(|args| {
-        //                 (
-        //                     String::from(args["graph"]),
-        //                     as_selection_set_ref(args["fields"]),
-        //                 )
-        //             });
-
-        //         for (graph, key) in graph_to_key_tuples {
-        //             keys_for_obj.entry(graph).or_insert_with(Vec::new).push(key)
-        //         }
-
-        //         types.keys.insert(obj_type.position, keys_for_obj);
-        //     }
-
-        //     // Populate field metadata
-        //     {
-        //         for field in obj_type.fields.iter() {
-        //             for d in field.directives.iter() {
-        //                 match d.name {
-        //                     "requires" => {
-        //                         let requires = letp!((_, Value::String(requires)) = &d.arguments[0] => requires);
-        //                         fields
-        //                             .requires
-        //                             .insert(field.position, as_selection_set_ref(requires));
-        //                     }
-        //                     "provides" => {
-        //                         let provides = letp!((_, Value::String(provides)) = &d.arguments[0] => provides);
-        //                         fields
-        //                             .provides
-        //                             .insert(field.position, as_selection_set_ref(provides));
-        //                     }
-        //                     "resolve" => {
-        //                         let graph = letp!((_, Value::String(graph)) = &d.arguments[0] => graph.clone());
-        //                         fields.service_name.insert(field.position, graph);
-        //                     }
-        //                     _ => (),
-        //                 }
-        //             }
-
-        //             // For serivce_name, fallback to owner of type if it's there.
-        //             if !fields.service_name.contains_key(&field.position) {
-        //                 if let Some(graph) = types.owner.get(&obj_type.position) {
-        //                     fields.service_name.insert(field.position, graph.clone());
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+        for typ in obj_types.values() {
+            // Assign all other object types to be value types?
+            types.is_value_type.entry(typ.position).or_insert(true);
+        }
+        for typ in obj_types.values() {
+            eprintln!("{typ} is value type? {result:?}",
+                typ=typ.name,
+                result=types.is_value_type.get(&typ.position));
+        }
 
         Federation { types, fields, errors }
     }
@@ -427,13 +379,15 @@ impl<'q> Federation<'q> {
     }
 
     pub(crate) fn is_value_type<'a>(&'a self, parent_type: &'q TypeDefinition<'q>) -> bool {
-        if let TypeDefinition::Object(object_type) = parent_type {
-            self.types.is_value_type.get(&object_type.position)
-                .map(|x| *x)
-                .unwrap_or_default()
-        } else {
-            true
-        }
+        let result = 
+            if let TypeDefinition::Object(object_type) = parent_type {
+                self.types.is_value_type.get(&object_type.position)
+                    .map(|x| *x)
+                    .unwrap_or_default()
+            } else {
+                true
+            };        
+        result
     }
 }
 

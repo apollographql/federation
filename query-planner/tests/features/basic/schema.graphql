@@ -19,10 +19,14 @@ input join__OutboundLinkHttp {
 input join__OutboundLink {
     http: join__OutboundLinkHttp
 }
+directive @join__owner(
+  graph: join__Graph,
+  valueType: Bool)
+  on OBJECT | INTERFACE
 directive @join__key(
   graph: join__Graph!)
   repeatable on FRAGMENT_DEFINITION
-directive @join__field(
+directive @join(
   graph: join__Graph!,
   requires: join__FragmentId,
   provides: join__FragmentId)
@@ -54,30 +58,30 @@ directive @transform(from: String!) on FIELD
 
 union AccountType = PasswordAccount | SMSAccount
 
-type Amazon {
-  referrer: String @join__field(graph: product)
+type Amazon @join__owner(graph: product) {
+  referrer: String @join(graph: product)
 }
 
 
 
 union Body = Image | Text
 
-type Book implements Product
+type Book implements Product @join__owner(graph: books)
 {
-  isbn: String! @join__field(graph: books)
-  title: String @join__field(graph: books)
-  year: Int @join__field(graph: books)
-  similarBooks: [Book]! @join__field(graph: books)
-  metadata: [MetadataOrError] @join__field(graph: books)
-  inStock: Boolean @join__field(graph: inventory)
-  isCheckedOut: Boolean @join__field(graph: inventory)
-  upc: String! @join__field(graph: product)
-  sku: String! @join__field(graph: product)
-  name(delimeter: String = " "): String @join__field(graph: product, requires: "local__id_0_Book_title_year")
-  price: String @join__field(graph: product)
-  details: ProductDetailsBook @join__field(graph: product)
-  reviews: [Review] @join__field(graph: reviews)
-  relatedReviews: [Review!]! @join__field(graph: reviews, requires: "local__id_1_Book_similarBooks_isbn")
+  isbn: String! @join(graph: books)
+  title: String @join(graph: books)
+  year: Int @join(graph: books)
+  similarBooks: [Book]! @join(graph: books)
+  metadata: [MetadataOrError] @join(graph: books)
+  inStock: Boolean @join(graph: inventory)
+  isCheckedOut: Boolean @join(graph: inventory)
+  upc: String! @join(graph: product)
+  sku: String! @join(graph: product)
+  name(delimeter: String = " "): String @join(graph: product, requires: "local__id_0_Book_title_year")
+  price: String @join(graph: product)
+  details: ProductDetailsBook @join(graph: product)
+  reviews: [Review] @join(graph: reviews)
+  relatedReviews: [Review!]! @join(graph: reviews, requires: "local__id_1_Book_similarBooks_isbn")
 }
 fragment local__id_0_Book_title_year on Book
 { title year }
@@ -89,12 +93,12 @@ fragment local__id_2_Book_isbn on Book @join__key(graph: books)
 
 union Brand = Ikea | Amazon
 
-type Car implements Vehicle
+type Car implements Vehicle @join__owner(graph: product)
 {
-  id: String! @join__field(graph: product)
-  description: String @join__field(graph: product)
-  price: String @join__field(graph: product)
-  retailPrice: String @join__field(graph: reviews, requires: "local__id_3_Car_price")
+  id: String! @join(graph: product)
+  description: String @join(graph: product)
+  price: String @join(graph: product)
+  retailPrice: String @join(graph: reviews, requires: "local__id_3_Car_price")
 }
 fragment local__id_3_Car_price on Car
 { price }
@@ -102,25 +106,25 @@ fragment local__id_4_Car_id on Car @join__key(graph: product)
 { id }
 
 
-type Error {
+type Error @join__owner(valueType: true) {
   code: Int
   message: String
 }
 
 
 
-type Furniture implements Product
+type Furniture implements Product @join__owner(graph: product)
 {
-  upc: String! @join__field(graph: product)
-  sku: String! @join__field(graph: product)
-  name: String @join__field(graph: product)
-  price: String @join__field(graph: product)
-  brand: Brand @join__field(graph: product)
-  metadata: [MetadataOrError] @join__field(graph: product)
-  details: ProductDetailsFurniture @join__field(graph: product)
-  inStock: Boolean @join__field(graph: inventory)
-  isHeavy: Boolean @join__field(graph: inventory)
-  reviews: [Review] @join__field(graph: reviews)
+  upc: String! @join(graph: product)
+  sku: String! @join(graph: product)
+  name: String @join(graph: product)
+  price: String @join(graph: product)
+  brand: Brand @join(graph: product)
+  metadata: [MetadataOrError] @join(graph: product)
+  details: ProductDetailsFurniture @join(graph: product)
+  inStock: Boolean @join(graph: inventory)
+  isHeavy: Boolean @join(graph: inventory)
+  reviews: [Review] @join(graph: reviews)
 }
 fragment local__id_5_Furniture_sku on Furniture @join__key(graph: inventory)
 { sku }
@@ -128,37 +132,37 @@ fragment local__id_6_Furniture_upc on Furniture @join__key(graph: product)
 { upc }
 
 
-type Ikea {
-  asile: Int @join__field(graph: product)
+type Ikea @join__owner(graph: product) {
+  asile: Int @join(graph: product)
 }
 
 
 
-type Image {
-  name: String! @join__field(graph: documents)
-  attributes: ImageAttributes! @join__field(graph: documents)
+type Image @join__owner(graph: documents) {
+  name: String! @join(graph: documents)
+  attributes: ImageAttributes! @join(graph: documents)
 }
 
 
 
-type ImageAttributes {
-  url: String! @join__field(graph: documents)
+type ImageAttributes @join__owner(graph: documents) {
+  url: String! @join(graph: documents)
 }
 
 
 
-type KeyValue {
+type KeyValue @join__owner(valueType: true) {
   key: String!
   value: String!
 }
 
 
 
-type Library
+type Library @join__owner(graph: books)
 {
-  id: ID! @join__field(graph: books)
-  name: String @join__field(graph: books)
-  userAccount(id: ID! = 1): User @join__field(graph: accounts, requires: "local__id_7_Library_name")
+  id: ID! @join(graph: books)
+  name: String @join(graph: books)
+  userAccount(id: ID! = 1): User @join(graph: accounts, requires: "local__id_7_Library_name")
 }
 fragment local__id_7_Library_name on Library
 { name }
@@ -168,81 +172,81 @@ fragment local__id_8_Library_id on Library @join__key(graph: accounts)
 
 union MetadataOrError = KeyValue | Error
 
-type Mutation {
-  login(username: String!, password: String!): User @join__field(graph: accounts)
-  reviewProduct(upc: String!, body: String!): Product @join__field(graph: reviews)
-  updateReview(review: UpdateReviewInput!): Review @join__field(graph: reviews)
-  deleteReview(id: ID!): Boolean @join__field(graph: reviews)
+type Mutation @join__owner {
+  login(username: String!, password: String!): User @join(graph: accounts)
+  reviewProduct(upc: String!, body: String!): Product @join(graph: reviews)
+  updateReview(review: UpdateReviewInput!): Review @join(graph: reviews)
+  deleteReview(id: ID!): Boolean @join(graph: reviews)
 }
 
 
 
-type Name {
-  first: String @join__field(graph: accounts)
-  last: String @join__field(graph: accounts)
+type Name @join__owner(graph: accounts) {
+  first: String @join(graph: accounts)
+  last: String @join(graph: accounts)
 }
 
 
 
-type PasswordAccount
+type PasswordAccount @join__owner(graph: accounts)
 {
-  email: String! @join__field(graph: accounts)
+  email: String! @join(graph: accounts)
 }
 fragment local__id_9_PasswordAccount_email on PasswordAccount @join__key(graph: accounts)
 { email }
 
 
-interface Product {
-  upc: String! @join__field(graph: product)
-  sku: String! @join__field(graph: product)
-  name: String @join__field(graph: product)
-  price: String @join__field(graph: product)
-  details: ProductDetails @join__field(graph: product)
-  inStock: Boolean @join__field(graph: product)
-  reviews: [Review] @join__field(graph: product)
+interface Product @join__owner(graph: product) {
+  upc: String!
+  sku: String!
+  name: String
+  price: String
+  details: ProductDetails
+  inStock: Boolean
+  reviews: [Review]
 }
 
-interface ProductDetails {
-  country: String @join__field(graph: product)
+interface ProductDetails @join__owner(graph: product) {
+  country: String
 }
 
-type ProductDetailsBook implements ProductDetails {
-  country: String @join__field(graph: product)
-  pages: Int @join__field(graph: product)
-}
-
-
-
-type ProductDetailsFurniture implements ProductDetails {
-  country: String @join__field(graph: product)
-  color: String @join__field(graph: product)
+type ProductDetailsBook implements ProductDetails @join__owner(graph: product) {
+  country: String @join(graph: product)
+  pages: Int @join(graph: product)
 }
 
 
 
-type Query {
-  user(id: ID!): User @join__field(graph: accounts)
-  me: User @join__field(graph: accounts)
-  book(isbn: String!): Book @join__field(graph: books)
-  books: [Book] @join__field(graph: books)
-  library(id: ID!): Library @join__field(graph: books)
-  body: Body! @join__field(graph: documents)
-  product(upc: String!): Product @join__field(graph: product)
-  vehicle(id: String!): Vehicle @join__field(graph: product)
-  topProducts(first: Int = 5): [Product] @join__field(graph: product)
-  topCars(first: Int = 5): [Car] @join__field(graph: product)
-  topReviews(first: Int = 5): [Review] @join__field(graph: reviews)
+type ProductDetailsFurniture implements ProductDetails @join__owner(graph: product) {
+  country: String @join(graph: product)
+  color: String @join(graph: product)
 }
 
 
 
-type Review
+type Query @join__owner {
+  user(id: ID!): User @join(graph: accounts)
+  me: User @join(graph: accounts)
+  book(isbn: String!): Book @join(graph: books)
+  books: [Book] @join(graph: books)
+  library(id: ID!): Library @join(graph: books)
+  body: Body! @join(graph: documents)
+  product(upc: String!): Product @join(graph: product)
+  vehicle(id: String!): Vehicle @join(graph: product)
+  topProducts(first: Int = 5): [Product] @join(graph: product)
+  topCars(first: Int = 5): [Car] @join(graph: product)
+  topReviews(first: Int = 5): [Review] @join(graph: reviews)
+}
+
+
+
+type Review @join__owner(graph: reviews)
 {
-  id: ID! @join__field(graph: reviews)
-  body(format: Boolean = false): String @join__field(graph: reviews)
-  author: User @join__field(graph: reviews, provides: "local__id_10_Review_username")
-  product: Product @join__field(graph: reviews)
-  metadata: [MetadataOrError] @join__field(graph: reviews)
+  id: ID! @join(graph: reviews)
+  body(format: Boolean = false): String @join(graph: reviews)
+  author: User @join(graph: reviews, provides: "local__id_10_Review_username")
+  product: Product @join(graph: reviews)
+  metadata: [MetadataOrError] @join(graph: reviews)
 }
 fragment local__id_10_Review_username on Review
 { username }
@@ -250,24 +254,24 @@ fragment local__id_11_Review_id on Review @join__key(graph: reviews)
 { id }
 
 
-type SMSAccount
+type SMSAccount @join__owner(graph: accounts)
 {
-  number: String @join__field(graph: accounts)
+  number: String @join(graph: accounts)
 }
 fragment local__id_12_SMSAccount_number on SMSAccount @join__key(graph: accounts)
 { number }
 
 
-type Text {
-  name: String! @join__field(graph: documents)
-  attributes: TextAttributes! @join__field(graph: documents)
+type Text @join__owner(graph: documents) {
+  name: String! @join(graph: documents)
+  attributes: TextAttributes! @join(graph: documents)
 }
 
 
 
-type TextAttributes {
-  bold: Boolean @join__field(graph: documents)
-  text: String @join__field(graph: documents)
+type TextAttributes @join__owner(graph: documents) {
+  bold: Boolean @join(graph: documents)
+  text: String @join(graph: documents)
 }
 
 
@@ -279,20 +283,20 @@ input UpdateReviewInput {
   body: String
 }
 
-type User
+type User @join__owner(graph: accounts)
 {
-  id: ID! @join__field(graph: accounts)
-  name: Name @join__field(graph: accounts)
-  username: String @join__field(graph: accounts)
-  birthDate(locale: String): String @join__field(graph: accounts)
-  account: AccountType @join__field(graph: accounts)
-  metadata: [UserMetadata] @join__field(graph: accounts)
-  goodDescription: Boolean @join__field(graph: inventory, requires: "local__id_13_User_metadata_description")
-  vehicle: Vehicle @join__field(graph: product)
-  thing: Thing @join__field(graph: product)
-  reviews: [Review] @join__field(graph: reviews)
-  numberOfReviews: Int! @join__field(graph: reviews)
-  goodAddress: Boolean @join__field(graph: reviews, requires: "local__id_14_User_metadata_address")
+  id: ID! @join(graph: accounts)
+  name: Name @join(graph: accounts)
+  username: String @join(graph: accounts)
+  birthDate(locale: String): String @join(graph: accounts)
+  account: AccountType @join(graph: accounts)
+  metadata: [UserMetadata] @join(graph: accounts)
+  goodDescription: Boolean @join(graph: inventory, requires: "local__id_13_User_metadata_description")
+  vehicle: Vehicle @join(graph: product)
+  thing: Thing @join(graph: product)
+  reviews: [Review] @join(graph: reviews)
+  numberOfReviews: Int! @join(graph: reviews)
+  goodAddress: Boolean @join(graph: reviews, requires: "local__id_14_User_metadata_address")
 }
 fragment local__id_13_User_metadata_description on User
 { metadata { description } }
@@ -304,20 +308,20 @@ fragment local__id_16_User_username_name_first_last on User @join__key(graph: ac
 { username name { first last } }
 
 
-type UserMetadata {
-  name: String @join__field(graph: accounts)
-  address: String @join__field(graph: accounts)
-  description: String @join__field(graph: accounts)
+type UserMetadata @join__owner(graph: accounts) {
+  name: String @join(graph: accounts)
+  address: String @join(graph: accounts)
+  description: String @join(graph: accounts)
 }
 
 
 
-type Van implements Vehicle
+type Van implements Vehicle @join__owner(graph: product)
 {
-  id: String! @join__field(graph: product)
-  description: String @join__field(graph: product)
-  price: String @join__field(graph: product)
-  retailPrice: String @join__field(graph: reviews, requires: "local__id_17_Van_price")
+  id: String! @join(graph: product)
+  description: String @join(graph: product)
+  price: String @join(graph: product)
+  retailPrice: String @join(graph: reviews, requires: "local__id_17_Van_price")
 }
 fragment local__id_17_Van_price on Van
 { price }
@@ -325,9 +329,9 @@ fragment local__id_18_Van_id on Van @join__key(graph: product)
 { id }
 
 
-interface Vehicle {
-  id: String! @join__field(graph: product)
-  description: String @join__field(graph: product)
-  price: String @join__field(graph: product)
-  retailPrice: String @join__field(graph: product)
+interface Vehicle @join__owner(graph: product) {
+  id: String!
+  description: String
+  price: String
+  retailPrice: String
 }

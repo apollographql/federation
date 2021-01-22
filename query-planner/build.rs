@@ -127,7 +127,8 @@ fn write_tests(dir: &PathBuf) -> std::io::Result<()> {
 // The tests are added sorted by name so that different machines building will not yield a git diff.
 
 use apollo_query_planner::QueryPlanningOptions;
-use crate::helpers::assert_query_plan;
+use crate::helpers::plan;
+use insta::assert_snapshot;
 
 "#, me = file!()).as_bytes())?;
 
@@ -170,21 +171,34 @@ use crate::helpers::assert_query_plan;
                 )
                 .collect();
             
+
+            let pretty_json = serde_json::to_string_pretty(
+                &serde_json::from_str::<serde_json::Value>(expected)
+                    .unwrap()
+            ).unwrap();
+
             let test = format!(r###"
 #[allow(non_snake_case)]
 #[test]
-fn {}() {{
-    assert_query_plan(
-        include_str!("{}"),
-        r##"{}"##,
-        r##"{}"##,
-        QueryPlanningOptions {{
-            auto_fragmentization: {}
-        }}
+fn {test_name}() {{
+    assert_snapshot!(
+        plan(
+            include_str!("{schema_path}"),
+            r##"{query}"##,
+            QueryPlanningOptions {{
+                auto_fragmentization: {auto_fragmentization}
+            }}        
+        ),
+        @r##"{expected}"##
     );
 }}
 
-"###, clean_name, schema_path_str, query, expected, auto_fragmentization);
+"###,
+                test_name = clean_name,
+                schema_path = schema_path_str,
+                query = query,
+                expected = pretty_json,
+                auto_fragmentization = auto_fragmentization);
             output.write(test.as_bytes())?;
         }
     }

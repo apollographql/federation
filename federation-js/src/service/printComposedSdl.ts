@@ -223,14 +223,17 @@ function printObject(type: GraphQLObjectType, options: Options): string {
   const isExtension =
     type.extensionASTNodes && type.astNode && !type.astNode.fields;
 
-  const {namer} = options
+  const {isValueType, serviceName}: FederationType = type.extensions?.federation;
+
+  const {join, namer} = options
   let fields = printFields(options, type)
   collectKeys(type, options)
   return (
     printDescription(options, type) +
     (isExtension ? 'extend ' : '') +
     `type ${type.name}` +
-    implementedInterfaces +
+    implementedInterfaces + ' ' +
+    (isValueType ? join.owner({ valueType: true }) : join.owner({ graph: serviceName! })) +
     fields + '\n' +
     namer.definitions + '\n'
   );
@@ -263,11 +266,14 @@ function printInterface(type: GraphQLInterfaceType, options: Options): string {
   // XXX revist extension checking
   const isExtension =
     type.extensionASTNodes && type.astNode && !type.astNode.fields;
+  const {isValueType, serviceName}: FederationType = type.extensions?.federation;
+  const { join } = options
 
   return (
     printDescription(options, type) +
     (isExtension ? 'extend ' : '') +
-    `interface ${type.name}` +
+    `interface ${type.name} ` +
+    (isValueType ? join.owner({ valueType: true }) : join.owner({ graph: serviceName! })) +
     printFields(options, type) +
     printFragmentsForType(type)
   );
@@ -358,11 +364,14 @@ function printFederationFieldDirectives(
 ): string {
   const {join} = options;
 
+  if (type.astNode?.kind === 'InterfaceTypeDefinition')
+    return ''
+
   if (!field.extensions?.federation) {
     const fedType: FederationType = type.extensions?.federation;
     const {serviceName, isValueType} = fedType
     if (isValueType || !serviceName) return ''
-    return ` ${join.field({ graph: serviceName })}`
+    return ` ${join.join({ graph: serviceName })}`
   }
 
   const {
@@ -371,7 +380,7 @@ function printFederationFieldDirectives(
     provides = [],
   }: FederationField = field.extensions.federation;
 
-  return ' ' + join.field({
+  return ' ' + join.join({
     graph: serviceName!,
     requires: requires.length
       ? findOrCreateFragment(type, requires, options)

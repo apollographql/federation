@@ -18,10 +18,14 @@ input join__OutboundLinkHttp {
 input join__OutboundLink {
     http: join__OutboundLinkHttp
 }
+directive @join__owner(
+  graph: join__Graph,
+  valueType: Bool)
+  on OBJECT | INTERFACE
 directive @join__key(
   graph: join__Graph!)
   repeatable on FRAGMENT_DEFINITION
-directive @join__field(
+directive @join(
   graph: join__Graph!,
   requires: join__FragmentId,
   provides: join__FragmentId)
@@ -44,36 +48,36 @@ enum join__Graph {
 }
 
 
-type Group {
-  id: ID @join__field(graph: users)
-  name: String @join__field(graph: users)
+type Group @join__owner(graph: users) {
+  id: ID @join(graph: users)
+  name: String @join(graph: users)
 }
 
 
 
-type Query {
-  reviews: [Review!]! @join__field(graph: reviews)
-  users: [User!]! @join__field(graph: users)
+type Query @join__owner {
+  reviews: [Review!]! @join(graph: reviews)
+  users: [User!]! @join(graph: users)
 }
 
 
 
-type Review {
-  id: ID! @join__field(graph: reviews)
-  author: User! @join__field(graph: reviews)
-  body: String! @join__field(graph: reviews)
+type Review @join__owner(graph: reviews) {
+  id: ID! @join(graph: reviews)
+  author: User! @join(graph: reviews)
+  body: String! @join(graph: reviews)
 }
 
 
 
-type User
+type User @join__owner(graph: users)
 {
-  id: ID! @join__field(graph: users)
-  ssn: ID! @join__field(graph: users)
-  name: String! @join__field(graph: users)
-  group: Group @join__field(graph: users)
-  risk: Float @join__field(graph: actuary)
-  reviews: [Review!]! @join__field(graph: reviews)
+  id: ID! @join(graph: users)
+  ssn: ID! @join(graph: users)
+  name: String! @join(graph: users)
+  group: Group @join(graph: users)
+  risk: Float @join(graph: actuary)
+  reviews: [Review!]! @join(graph: reviews)
 }
 fragment local__id_0_User_ssn on User @join__key(graph: actuary)
 { ssn }

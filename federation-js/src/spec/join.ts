@@ -1,24 +1,32 @@
-import { default as Spec, must, list, Str } from './spec'
+import { default as Spec, must, list, Str, Bool } from './spec'
 import dedent from 'dedent'
 
 export default class Join extends Spec {
   static PREFIX = 'join'
   static DEFAULT_VERSION = 'v0.1'
 
-  Graph = this.enum('Graph')
-  FragmentId = this.scalar('FragmentId')
-  Url = this.scalar('Url')
-  OutboundLinkHttp = this.input('OutboundLinkHttp', {
-    url: must(this.Url)
-  })
-  OutboundLink = this.input('OutboundLink', {
-    http: this.OutboundLinkHttp
-  })
-
+  Graph =
+    this.enum('Graph')
+  FragmentId =
+    this.scalar('FragmentId')
+  Url =
+    this.scalar('Url')
+  OutboundLinkHttp =
+    this.input('OutboundLinkHttp', {
+      url: must(this.Url)
+    })
+  OutboundLink =
+    this.input('OutboundLink', {
+      http: this.OutboundLinkHttp
+    })
+  owner = this.directive('owner', {
+    graph: this.Graph,
+    valueType: Bool,
+  }, 'on OBJECT | INTERFACE')
   key = this.directive('key', {
     graph: must(this.Graph)
   }, 'repeatable on FRAGMENT_DEFINITION')
-  field = this.directive('field', {
+  join = this.directive('join', {
     graph: must(this.Graph),
     requires: this.FragmentId,
     provides: this.FragmentId,

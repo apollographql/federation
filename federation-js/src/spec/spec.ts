@@ -83,7 +83,9 @@ export default class Spec {
         : `@${this.prefixed(name)}`
 
     function directive(input: Input<A>) {
-      return `${tag}(${printArgsInput(args, input)})`
+      let argStr = printArgsInput(args, input)
+      argStr = argStr ? `(${argStr})` : ''
+      return `${tag}${argStr}`
     }
     return this.addItem(Object.defineProperties(directive, {
       args: { writable: false, value: args },
@@ -163,8 +165,8 @@ export class Scalar<V> extends BaseType<V> {
   }
 }
 
-class NumScalar extends Scalar<number> {
-  printValue(value: number) {
+export class RawScalar<T=number> extends Scalar<T> {
+  printValue(value: T) {
     return str(value)
   }
 }
@@ -187,10 +189,10 @@ export class InputType<A> extends BaseType<Input<A>> {
   }
 }
 
-export const Float = new NumScalar('Float')
-export const Int = new NumScalar('Int')
-export const Bool = new NumScalar('Bool')
-export const Str = new Scalar<string>('String')
+export const Float = new RawScalar('Float')
+export const Int = new RawScalar('Int')
+export const Bool = new RawScalar<boolean>('Bool')
+export const Str = new RawScalar<string>('String')
 
 type OptionalKeys<A> = {
   [k in keyof A]-?: A[k] extends NonNull<infer _>
