@@ -12,10 +12,10 @@ pub fn get_query_planner(schema: JsString) -> usize {
     unsafe {
         if SCHEMA.is_empty() {
             SCHEMA.push(String::from(schema));
-            DATA.push(QueryPlanner::new(&SCHEMA[0]));
+            DATA.push(QueryPlanner::new(&SCHEMA[0]).unwrap());
         } else {
             SCHEMA[0] = String::from(schema);
-            DATA[0] = QueryPlanner::new(&SCHEMA[0]);
+            DATA[0] = QueryPlanner::new(&SCHEMA[0]).unwrap();
         }
         let data = &DATA[0];
         data as *const QueryPlanner as usize

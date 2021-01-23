@@ -36,7 +36,8 @@ impl Default for StargateOptions {
 impl<'app> Stargate<'app> {
     pub fn new(schema: &'app str, options: StargateOptions) -> Stargate<'app> {
         // TODO(ran) FIXME: gql validation on schema
-        let planner = QueryPlanner::new(schema);
+        let planner = QueryPlanner::new(schema)
+            .expect("error creating planner");
         let service_list = get_service_list(&planner.schema.document);
         Stargate {
             planner,

@@ -264,26 +264,6 @@ function hasProvides(item: any): item is { provides: IntoFragment } {
   return Array.isArray(item.provides) && item.provides.length
 }
 
-// Federation change: print usages of the @owner and @key directives.
-// function collectKeys(type: GraphQLObjectType, {join, namer}: Options) {
-//   const metadata: FederationType = type.extensions?.federation;
-//   if (!metadata) return;
-
-//   const { serviceName: ownerService, keys } = metadata;
-//   if (!ownerService || !keys) return;
-
-//   for (const [service, selections] of Object.entries(keys)) {
-//     if (!selections) continue
-//     for (const key of selections) {
-//       namer(`${type.name}_${printFieldSet(key)}`,
-//         (id: string) => dedent `
-//           fragment ${id} on ${type.name} ${join.key({ graph: service })}
-//           ${printFieldSet(key)}
-//         `)
-//     }
-//   }
-// }
-
 function printInterface(type: GraphQLInterfaceType, options: Options): string {
   // Federation change: print `extend` keyword on type extensions.
   // See printObject for assumptions made.

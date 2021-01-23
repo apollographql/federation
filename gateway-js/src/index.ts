@@ -550,6 +550,7 @@ export class ApolloGateway implements GraphQLService {
       // root value which happens because aliases are resolved by sub services and
       // the shape of the root value already contains the aliased fields as
       // responseNames
+      console.log('joined:', composedSdl)
       return {
         schema: wrapSchemaWithAliasResolver(csdlToSchema(composedSdl)),
         composedSdl,

@@ -191,7 +191,7 @@ export class InputType<A> extends BaseType<Input<A>> {
 
 export const Float = new RawScalar('Float')
 export const Int = new RawScalar('Int')
-export const Bool = new RawScalar<boolean>('Bool')
+export const Bool = new RawScalar<boolean>('Boolean')
 export const Str = new RawScalar<string>('String')
 
 type OptionalKeys<A> = {

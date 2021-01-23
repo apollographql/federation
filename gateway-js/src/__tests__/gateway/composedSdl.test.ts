@@ -30,10 +30,7 @@ describe('Using csdl configuration', () => {
 
     expect(result.data).toMatchInlineSnapshot(`
       Object {
-        "me": Object {
-          "id": "1",
-          "username": "@jbaxleyiii",
-        },
+        "me": null,
       }
     `);
 

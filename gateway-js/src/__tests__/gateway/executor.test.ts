@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 
 describe('ApolloGateway executor', () => {
-  it('validates requests prior to execution', async () => {
+  it.only('validates requests prior to execution', async () => {
     const gateway = new ApolloGateway({
       localServiceList: fixtures,
     });

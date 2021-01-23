@@ -2,62 +2,80 @@
 source: harmonizer/src/lib.rs
 expression: "harmonize(vec![ServiceDefinition ::\n               new(\"users\", \"undefined\",\n                   \"\n            type User {\n              id: ID\n              name: String\n            }\n\n            type Query {\n              users: [User!]\n            }\n          \"),\n               ServiceDefinition ::\n               new(\"movies\", \"undefined\",\n                   \"\n            type Movie {\n              title: String\n              name: String\n            }\n\n            extend type User {\n              favorites: [Movie!]\n            }\n\n            type Query {\n              movies: [Movie!]\n            }\n          \")]).unwrap()"
 ---
-schema @using(spec: "https://specs.apollo.dev/cs/v0.1")
+schema
+  @using(spec: "https://lib.apollo.dev/join/v0.1")
+  @using(spec: "https://lib.apollo.dev/local/v0.1")
 {
   query: Query
 }
 
+directive @using(
+  spec: String!,
+  prefix: String)
+  repeatable on SCHEMA
 
-directive @cs__key(graph: cs__Graph!)
+scalar join__FragmentId @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__fragmentid")
+scalar join__Url @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__url")
+input join__OutboundLinkHttp {
+    url: join__Url!
+}
+input join__OutboundLink {
+    http: join__OutboundLinkHttp
+}
+directive @join__owner(
+  graph: join__Graph,
+  valueType: Bool)
+  on OBJECT | INTERFACE
+directive @join__key(
+  graph: join__Graph!)
   repeatable on FRAGMENT_DEFINITION
-
-directive @cs__resolve(
-  graph: cs__Graph!,
-  requires: cs__SelectionSet,
-  provides: cs__SelectionSet)
-  on FIELD_DEFINITION
-
-directive @cs__error(
-  graphs: [cs__Graph!],
+directive @join(
+  graph: join__Graph!,
+  type: String,
+  requires: join__FragmentId,
+  provides: join__FragmentId)
+  on OBJECT | INTERFACE | UNION | FIELD_DEFINITION
+directive @join__error(
+  graph: [join__Graph!]!,
   message: String)
-    repeatable on OBJECT
-    | INTERFACE
-    | UNION
-    | FIELD_DEFINITION
-
-directive @cs__link(to: cs__OutboundLink!)
+  repeatable on OBJECT
+  | INTERFACE
+  | UNION
+  | FIELD_DEFINITION
+directive @join__link(
+  to: join__OutboundLink!)
   on ENUM_VALUE
 
-input cs__OutboundLink {
-  http: cs__OutboundLinkHTTP
+enum join__Graph {
+  users @join__link(to: { http: { url: "undefined" } })
+  movies @join__link(to: { http: { url: "undefined" } })
 }
 
-input cs__OutboundLinkHTTP {
-  url: cs__URL
+
+type Movie 
+  @join(graph: movies, type: "Movie") {
+  title: String @join(graph: movies)
+  name: String @join(graph: movies)
 }
 
-scalar cs__URL @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__url")
-scalar cs__SelectionSet @specifiedBy(url: "https://specs.apollo.dev/v0.1#cs__selectionset")
 
 
-enum cs__Graph {
-  users @cs__link(to: { http: { url: "undefined" } }),
-  movies @cs__link(to: { http: { url: "undefined" } })
+type Query 
+  @join(graph: users, type: "Query")
+  @join(graph: movies, type: "Query") {
+  users: [User!] @join(graph: users)
+  movies: [Movie!] @join(graph: movies)
 }
 
-type Movie {
-  title: String
-  name: String
+
+
+type User 
+  @join(graph: users, type: "User")
+  @join(graph: movies, type: "User") {
+  id: ID @join(graph: users)
+  name: String @join(graph: users)
+  favorites: [Movie!] @join(graph: movies)
 }
 
-type Query {
-  users: [User!] @cs__resolve(graph: users)
-  movies: [Movie!] @cs__resolve(graph: movies)
-}
 
-type User {
-  id: ID
-  name: String
-  favorites: [Movie!] @cs__resolve(graph: movies)
-}
 

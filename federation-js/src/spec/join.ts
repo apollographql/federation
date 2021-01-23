@@ -19,10 +19,6 @@ export default class Join extends Spec {
     this.input('OutboundLink', {
       http: this.OutboundLinkHttp
     })
-  owner = this.directive('owner', {
-    graph: this.Graph,
-    valueType: Bool,
-  }, 'on OBJECT | INTERFACE')
   key = this.directive('key', {
     graph: must(this.Graph)
   }, 'repeatable on FRAGMENT_DEFINITION')
