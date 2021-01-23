@@ -1,8 +1,3 @@
-#[test]
-fn it_fails() {
-    assert_eq!(false, true);
-}
-
 use apollo_query_planner::*;
 
 mod helpers;

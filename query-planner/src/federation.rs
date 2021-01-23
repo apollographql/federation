@@ -47,8 +47,8 @@ pub(crate) enum SpecVersion {
     V0_1,
 }
 
-struct Resolve<'q> {
-    graph: String,
+struct Join<'q> {
+    graph: String,    
     requires: Option<query::SelectionSet<'q>>,
     provides: Option<query::SelectionSet<'q>>,
 }
@@ -57,6 +57,19 @@ struct Cs {
     key_directive: String,
     field_directive: String,
     graph_enum: String,
+}
+
+type Id = Pos;
+type GraphId = Id;
+type TypeId = Id;
+type FieldId = Id;
+
+fn typename<'a>(typ: &'a Type<'a>) -> &'a str {
+    match typ {
+        Type::NamedType(n) => n,
+        Type::ListType(lt) => typename(lt.as_ref()),
+        Type::NonNullType(nn) => typename(nn.as_ref()),
+    }
 }
 
 #[derive(Debug, Error, Eq, PartialEq)]
@@ -119,12 +132,58 @@ impl Cs {
             .collect()
     }
 
-    fn resolve<'a, 'q>(&self,
-        field: &'a Field<'q>,
-        fragments: &'a HashMap<&'q str, (&'q FragmentDefinition, HashSet<&'q str>)>,
-        errors: &mut Vec<FederationError>) -> Option<Resolve<'q>>
+
+    // fn realized<'a>(&self, schema: &'a Schema<'a>, errors: &mut Vec<FederationError>) {
+    //     let type_fields = schema.document.definitions.iter().filter_map(
+    //         |def| match def {
+    //             // Definition::Schema(SchemaDefinition { position, ..  }) => position,
+    //             Definition::Type(td) => match td {
+    //                 TypeDefinition::Object(ObjectType { position, name, fields,  ..}) =>
+    //                     Some((position, name, fields)),
+    //                 TypeDefinition::Interface(InterfaceType { position, name, fields, ..}) =>
+    //                     Some((position, name, fields)),
+    //                 _ => None,
+    //             },
+    //             _ => None,
+    //         }
+    //     );
+
+    //     let fragments = self.fragments(&schema.document);
+
+    //     let mut type_joins: HashMap<String, HashSet<String>> = HashMap::new();
+    //     let mut realized: HashMap<(String, String), Vec<String>> = HashMap::new();        
+
+    //     for (_type_id, type_name, fields) in type_fields {
+    //         for field in fields {
+    //             let name = typename(&field.field_type); 
+    //             let graph = self.joins(field, &fragments, errors)
+    //                 .map(|r| r.graph.to_string())
+    //                 .unwrap_or_else(|| "*".to_string());                
+    //             realized.entry((graph.to_string(), name.to_string()))
+    //                 .or_default()
+    //                 .push(format!("{}.{}", type_name, field.name));
+    //             type_joins.entry(type_name.to_string())
+    //                 .or_default()
+    //                 .insert(graph);
+    //         }
+    //     }
+    // }
+
+    fn fragments<'a>(&self, doc: &'a Document<'a>) -> HashMap<&'a str, &'a FragmentDefinition<'a>> {
+        doc.definitions.iter()
+            .filter_map(|d| match d {
+                Definition::Fragment(frag) => Some((frag.name, frag)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn joins<'a, 'q>(&self,
+        directives: &Vec<Directive<'q>>,
+        fragments: &'a HashMap<&'q str, &'q FragmentDefinition>,
+        errors: &mut Vec<FederationError>) -> Vec<Join<'q>>
     {
-        field.directives.iter()
+        directives.iter()
             .filter(|d| d.name == self.field_directive)
             .filter_map(|d| {
                 let mut graph = None;
@@ -134,7 +193,7 @@ impl Cs {
                     match argument {
                         ("graph", Value::Enum(val)) => { graph = Some(val); },
                         ("requires", Value::String(val)) => match fragments.get(val.as_str()) {
-                            Some((frag, _)) => {
+                            Some(frag) => {
                                 requires = Some(frag.selection_set.clone());
                             },
                             _ => {
@@ -142,7 +201,7 @@ impl Cs {
                             }
                         },
                         ("provides", Value::String(val)) => match fragments.get(val.as_str()) {
-                            Some((frag, _)) => {
+                            Some(frag) => {
                                 provides = Some(frag.selection_set.clone());
                             },
                             _ => {
@@ -152,7 +211,7 @@ impl Cs {
                         _ => {},
                     }    
                 }
-                graph.map(|graph| Resolve {
+                graph.map(|graph| Join {
                     graph: graph.to_string(),
                     requires,
                     provides,
@@ -161,7 +220,7 @@ impl Cs {
                     None
                 })
             })
-            .next()
+            .collect()
     }
 }
 
@@ -183,53 +242,25 @@ impl SpecVersion {
             })
             .collect();
         
-        // Collect a map of fragment names -> (&FragmentDefinition, graphs for which this fragment is a key)
+        // Collect a map of fragment names -> &FragmentDefinition
         let fragments: HashMap<_, _> = doc.definitions.iter()
             .filter_map(|d| match d {
-                Definition::Fragment(frag) => Some((frag.name, (frag, cs.key_definitions(frag)))),
+                Definition::Fragment(frag) => {
+                    let typ = match obj_types.get(frag.type_condition) {
+                        Some(t) => Some(*t),
+                        None => {
+                            errors.push(FederationError::TypeNotFound(frag.position, frag.type_condition.to_string()));
+                            None
+                        }
+                    };                    
+                    Some((frag.name, frag))
+                },
                 _ => None,
             })
             .collect();
 
-        // Iterate over fragments and collect keys for each type
-        for (frag, graph_keys) in fragments.values() {
-            let typ = match obj_types.get(frag.type_condition) {
-                Some(t) => *t,
-                None => {
-                    errors.push(FederationError::TypeNotFound(frag.position, frag.type_condition.to_string()));
-                    continue
-                }
-            };
-            for graph in graph_keys {
-                types.keys
-                    .entry(typ.position).or_default()
-                    .entry(graph.to_string()).or_default()
-                    .push(frag.selection_set.clone());
-            }
-        }
 
-        // Scan resolve information from composed schema directives
-        let resolves = obj_types.values()
-            .flat_map(|t| t.fields.iter())
-            .filter_map(|field|
-                cs.resolve(field, &fragments, &mut errors)
-                    .map(|resolve| (field, resolve)));
-        
-        // Update this frankly kindof stupid data structure
-        // TODO(ashik): make less stupid
-        for (field, resolve) in resolves {
-            let pos = field.position;
-            fields.service_name.insert(pos, resolve.graph.to_string());
-            match resolve.requires {
-                Some(sel) => { fields.requires.insert(pos, sel); },
-                _ => {},
-            }
-            match resolve.provides {
-                Some(sel) => { fields.provides.insert(pos, sel); },
-                _ => {},
-            }
-        }
-
+        // Collect fields for each type
         let fields_for_type = obj_types.values()
             .map(|typ| (
                 typ.position,
@@ -239,23 +270,47 @@ impl SpecVersion {
             ))
             .collect::<HashMap<_, _>>();
 
-        let realized = obj_types.values()
-            .flat_map(|typ| typ.fields.iter())
-            .map(|f| f.name);
+        // Scan join information from directives
+        let type_joins: HashMap<_, _> =
+            obj_types.values()
+                .map(|typ|
+                    (typ.position,
+                    cs.joins(&typ.directives, &fragments, &mut errors))
+                )
+                .collect();
+
+        for (type_id, joins) in &type_joins {
+            for Join { graph, requires, ..} in joins {
+                if let Some(key) = requires {
+                    types.keys.entry(*type_id).or_default()
+                        .entry(graph.to_string()).or_default()
+                        .push(key.clone())
+                }                
+            }
+        }
+
+        let obj_fields = obj_types.values()
+            .flat_map(|t| t.fields.iter());            
+        
+        // Update this frankly kindof stupid data structure
+        // TODO(ashik): make less stupid
+        for field in obj_fields {
+            let pos = field.position;
+            let joins = cs.joins(&field.directives, &fragments, &mut errors);
+            if let Some(resolve) = joins.get(0) {
+                fields.service_name.insert(pos, resolve.graph.to_string());
+                match &resolve.requires {
+                    Some(sel) => { fields.requires.insert(pos, sel.clone()); },
+                    _ => {},
+                };
+                match &resolve.provides {
+                    Some(sel) => { fields.provides.insert(pos, sel.clone()); },
+                    _ => {},
+                };
+            }
+        }
 
         for typ in obj_types.values() {
-            // let keys = match types.keys.get(&typ.position) {
-            //     Some(keys) => keys.values(),
-            //     None => {
-            //         types.is_value_type.insert(
-            //             typ.position,
-            //             // if none of the fields have service names, consider this a value type
-            //             typ.fields.iter().all(|f| !fields.service_name.contains_key(&f.position))
-            //         );
-            //         continue
-            //     }
-            // };
-
             let keys = match types.keys.get(&typ.position) {
                 Some(keys) => keys.values(),
                 None => continue
@@ -269,16 +324,10 @@ impl SpecVersion {
                             Some(fields_for_type.get(&typ.position)?
                                 .get(&f.name)?
                                 .position),
-                        query::Selection::FragmentSpread(_) => todo!(
-                            "Fragment spreads are not currently supported in keys"
-                        ),
-                        query::Selection::InlineFragment(_) => todo!(
-                            "Inline fragments are not currently supported in keys"
-                        ),
+                        _ => None,
                     })                    
                     .filter_map(|pos| fields.service_name.get(&pos))
                     .collect();
-            eprintln!("possible owners for {}={:?}", typ.name, &possible_owners);
             match (possible_owners.len(), possible_owners.iter().next()) {
                 (0, _) => { types.is_value_type.insert(typ.position, true); },
                 (1, Some(owner)) => {
@@ -300,12 +349,6 @@ impl SpecVersion {
             // Assign all other object types to be value types?
             types.is_value_type.entry(typ.position).or_insert(true);
         }
-        for typ in obj_types.values() {
-            eprintln!("{typ} is value type? {result:?}",
-                typ=typ.name,
-                result=types.is_value_type.get(&typ.position));
-        }
-
         Federation { types, fields, errors }
     }
 }

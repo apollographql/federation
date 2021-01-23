@@ -203,7 +203,7 @@ impl<'q> GroupForField<'q> for GroupForSubField<'q> {
             };
 
             (
-                self.context.get_base_service(obj_type),
+                self.context.get_base_service(obj_type, field_def),
                 self.context.get_owning_service(obj_type, field_def),
             )
         };

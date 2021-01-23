@@ -22,7 +22,7 @@ fn main() {
 
     for dir in dirs {
         write_composed_schema(&dir).expect("composition");
-        write_tests(&dir).expect("generating test files");
+        // write_tests(&dir).expect("generating test files");
     }
 }
 

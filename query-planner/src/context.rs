@@ -82,9 +82,10 @@ impl<'q> QueryPlanningContext<'q> {
     }
 
     // TODO(ran)(p2)(#114) we may be able to change this return type to &str
-    pub(crate) fn get_base_service(&self, parent_type: &schema::ObjectType) -> String {
+    pub(crate) fn get_base_service(&self, parent_type: &schema::ObjectType, field_def: &schema::Field) -> String {
         self.federation
             .service_name_for_type(parent_type)
+            .or_else(|| self.federation.service_name_for_field(field_def))
             .expect(&format!("Cannot find federation metadata for {type}", type=parent_type.name))
     }
 
@@ -95,7 +96,7 @@ impl<'q> QueryPlanningContext<'q> {
     ) -> String {
         self.federation
             .service_name_for_field(field_def)
-            .unwrap_or_else(|| self.get_base_service(parent_type))
+            .unwrap_or_else(|| self.get_base_service(parent_type, field_def))
     }
 
     // TODO(ran)(p2)(#114) for get_X_fields, we can calculate it once from the schema and put it in some maps or something.

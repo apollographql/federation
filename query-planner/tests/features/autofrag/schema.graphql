@@ -27,9 +27,10 @@ directive @join__key(
   repeatable on FRAGMENT_DEFINITION
 directive @join(
   graph: join__Graph!,
+  type: String,
   requires: join__FragmentId,
   provides: join__FragmentId)
-  on FIELD_DEFINITION
+  on OBJECT | INTERFACE | UNION | FIELD_DEFINITION
 directive @join__error(
   graph: [join__Graph!]!,
   message: String)
@@ -46,13 +47,15 @@ enum join__Graph {
 }
 
 
-type A @join__owner(graph: users) {
+type A 
+  @join(graph: users, type: "A") {
   b: B @join(graph: users)
 }
 
 
 
-type B @join__owner(graph: users) {
+type B 
+  @join(graph: users, type: "B") {
   f1: String @join(graph: users)
   f2: String @join(graph: users)
   f3: String @join(graph: users)
@@ -63,17 +66,23 @@ type B @join__owner(graph: users) {
 
 
 
-interface IFace @join__owner(graph: users) {
+interface IFace 
+  @join(graph: users, type: "IFaceImpl1")
+  @join(graph: users, type: "IFaceImpl2")
+  @join(graph: users, type: "IFace") {
   x: Int
 }
 
-type IFaceImpl1 implements IFace @join__owner(graph: users) {
+
+type IFaceImpl1 implements IFace 
+  @join(graph: users, type: "IFaceImpl1") {
   x: Int @join(graph: users)
 }
 
 
 
-type IFaceImpl2 implements IFace @join__owner(graph: users) {
+type IFaceImpl2 implements IFace 
+  @join(graph: users, type: "IFaceImpl2") {
   x: Int @join(graph: users)
 }
 
@@ -81,7 +90,9 @@ type IFaceImpl2 implements IFace @join__owner(graph: users) {
 
 scalar Location
 
-type Query @join__owner {
+
+type Query 
+  @join(graph: users, type: "Query") {
   sender: SendingUser @join(graph: users)
   receiver: ReceivingUser @join(graph: users)
   field: SomeField @join(graph: users)
@@ -89,29 +100,32 @@ type Query @join__owner {
 
 
 
-type ReceivingUser @join__owner(graph: users)
+type ReceivingUser 
+  @join(graph: users, type: "ReceivingUser", requires: "local__id_0_ReceivingUser_id")
 {
   id: ID! @join(graph: users)
   name: String @join(graph: users)
   address: String @join(graph: users)
   location: Location @join(graph: users)
 }
-fragment local__id_0_ReceivingUser_id on ReceivingUser @join__key(graph: users)
+
+fragment local__id_0_ReceivingUser_id on ReceivingUser
 { id }
 
-
-type SendingUser @join__owner(graph: users)
+type SendingUser 
+  @join(graph: users, type: "SendingUser", requires: "local__id_1_SendingUser_id")
 {
   id: ID! @join(graph: users)
   name: String @join(graph: users)
   address: String @join(graph: users)
   location: Location @join(graph: users)
 }
-fragment local__id_1_SendingUser_id on SendingUser @join__key(graph: users)
+
+fragment local__id_1_SendingUser_id on SendingUser
 { id }
 
-
-type SomeField @join__owner(graph: users) {
+type SomeField 
+  @join(graph: users, type: "SomeField") {
   a: A @join(graph: users)
   b: B @join(graph: users)
   iface: IFace @join(graph: users)

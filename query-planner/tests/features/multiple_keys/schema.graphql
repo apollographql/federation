@@ -27,9 +27,10 @@ directive @join__key(
   repeatable on FRAGMENT_DEFINITION
 directive @join(
   graph: join__Graph!,
+  type: String,
   requires: join__FragmentId,
   provides: join__FragmentId)
-  on FIELD_DEFINITION
+  on OBJECT | INTERFACE | UNION | FIELD_DEFINITION
 directive @join__error(
   graph: [join__Graph!]!,
   message: String)
@@ -48,21 +49,25 @@ enum join__Graph {
 }
 
 
-type Group @join__owner(graph: users) {
+type Group 
+  @join(graph: users, type: "Group") {
   id: ID @join(graph: users)
   name: String @join(graph: users)
 }
 
 
 
-type Query @join__owner {
+type Query 
+  @join(graph: reviews, type: "Query")
+  @join(graph: users, type: "Query") {
   reviews: [Review!]! @join(graph: reviews)
   users: [User!]! @join(graph: users)
 }
 
 
 
-type Review @join__owner(graph: reviews) {
+type Review 
+  @join(graph: reviews, type: "Review") {
   id: ID! @join(graph: reviews)
   author: User! @join(graph: reviews)
   body: String! @join(graph: reviews)
@@ -70,7 +75,12 @@ type Review @join__owner(graph: reviews) {
 
 
 
-type User @join__owner(graph: users)
+type User 
+  @join(graph: actuary, type: "User", requires: "local__id_0_User_ssn")
+  @join(graph: reviews, type: "User", requires: "local__id_1_User_id")
+  @join(graph: users, type: "User", requires: "local__id_0_User_ssn")
+  @join(graph: users, type: "User", requires: "local__id_1_User_id")
+  @join(graph: users, type: "User", requires: "local__id_2_User_group_id")
 {
   id: ID! @join(graph: users)
   ssn: ID! @join(graph: users)
@@ -79,10 +89,10 @@ type User @join__owner(graph: users)
   risk: Float @join(graph: actuary)
   reviews: [Review!]! @join(graph: reviews)
 }
-fragment local__id_0_User_ssn on User @join__key(graph: actuary)
-{ ssn }
-fragment local__id_1_User_id on User @join__key(graph: reviews)
-{ id }
-fragment local__id_2_User_group_id on User @join__key(graph: users)
-{ group { id } }
 
+fragment local__id_0_User_ssn on User
+{ ssn }
+fragment local__id_1_User_id on User
+{ id }
+fragment local__id_2_User_group_id on User
+{ group { id } }

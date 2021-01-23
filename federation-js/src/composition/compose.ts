@@ -18,6 +18,7 @@ import {
   TypeExtensionNode,
   ObjectTypeDefinitionNode,
   NamedTypeNode,
+  TypeNode,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
 import federationDirectives from '../directives';
@@ -47,6 +48,7 @@ import {
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
 import { printComposedSdl } from '../service/printComposedSdl';
+import { addJoins } from './joins'
 
 const EmptyQueryDefinition = {
   kind: Kind.OBJECT_TYPE_DEFINITION,
@@ -122,6 +124,17 @@ export interface KeyDirectivesMap {
  */
 type ValueTypes = Set<string>;
 
+interface TypeJoinMap {
+  [typeName: string]: {
+    [serviceName: string]: Set<string>,
+  };
+}
+
+const baseType = (type: TypeNode): string =>
+  type.kind === 'NamedType'
+    ? type.name.value
+    : baseType(type.type)
+
 /**
  * Loop over each service and process its typeDefs (`definitions`)
  * - build up typeToServiceMap
@@ -135,6 +148,13 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
   const externalFields: ExternalFieldDefinition[] = [];
   const keyDirectivesMap: KeyDirectivesMap = Object.create(null);
   const valueTypes: ValueTypes = new Set();
+  const typeJoinMap: TypeJoinMap = Object.create(null);
+
+  function addTypeJoin(graph: string, type: string, as = type) {
+    ((typeJoinMap[type] ??= {})
+      [graph] ??= new Set)
+      .add(as);
+  }
 
   for (const { typeDefs, name: serviceName } of serviceList) {
     // Build a new SDL with @external fields removed, as well as information about
@@ -154,11 +174,24 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
       stripTypeSystemDirectivesFromTypeDefs(typeDefsWithoutExternalFields);
 
     for (const definition of typeDefsWithoutTypeSystemDirectives.definitions) {
+      if (definition.kind === Kind.UNION_TYPE_DEFINITION) {
+        definition.types?.forEach(type =>
+          addTypeJoin(serviceName, definition.name.value, type.name.value)
+        )
+      }
       if (
         definition.kind === Kind.OBJECT_TYPE_DEFINITION ||
         definition.kind === Kind.OBJECT_TYPE_EXTENSION
       ) {
         const typeName = definition.name.value;
+
+        addTypeJoin(serviceName, typeName);
+
+        definition.fields?.forEach(field =>
+          addTypeJoin(serviceName, baseType(field.type)))
+
+        definition.interfaces?.forEach(i =>
+          addTypeJoin(serviceName, i.name.value, typeName))
 
         for (const keyDirective of findDirectivesOnNode(definition, 'key')) {
           if (
@@ -331,6 +364,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     externalFields,
     keyDirectivesMap,
     valueTypes,
+    typeJoinMap,
   };
 }
 
@@ -440,6 +474,7 @@ export function addFederationMetadataToSchemaNodes({
   keyDirectivesMap,
   valueTypes,
   directiveDefinitionsMap,
+  typeJoinMap
 }: {
   schema: GraphQLSchema;
   typeToServiceMap: TypeToServiceMap;
@@ -447,7 +482,21 @@ export function addFederationMetadataToSchemaNodes({
   keyDirectivesMap: KeyDirectivesMap;
   valueTypes: ValueTypes;
   directiveDefinitionsMap: DirectiveDefinitionsMap;
+  typeJoinMap: TypeJoinMap;
 }) {
+  for (const [typeName, subgraphNames] of Object.entries(typeJoinMap)) {
+    const namedType = schema.getType(typeName)
+    if (!namedType) continue;
+    for (const [graph, types] of Object.entries(subgraphNames)) {
+      addJoins(namedType,
+        ...[...types].flatMap(type =>
+          (keyDirectivesMap[type]?.[graph] ?? [[]])
+            .map(requires => requires.length
+              ? { graph, type, requires }
+              : { graph, type })
+        ))
+    }
+  }
   for (const [
     typeName,
     { owningService, extensionFieldsToOwningServiceMap },
@@ -600,6 +649,7 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     externalFields,
     keyDirectivesMap,
     valueTypes,
+    typeJoinMap,
   } = buildMapsFromServiceList(services);
 
   let { schema, errors } = buildSchemaFromDefinitionsAndExtensions({
@@ -644,6 +694,7 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     keyDirectivesMap,
     valueTypes,
     directiveDefinitionsMap,
+    typeJoinMap,
   });
 
   if (errors.length > 0) {

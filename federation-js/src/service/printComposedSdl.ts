@@ -33,6 +33,7 @@ import { Maybe, ServiceDefinition, FederationType, FederationField } from '../co
 import { isFederationType } from '../types';
 import { isFederationDirective } from '../composition/utils';
 import Join from '../spec/join';
+import { getJoins, IntoFragment, JoinInput } from '../composition/joins'
 import Using from '../spec/using';
 
 import { default as Local, Namer } from '../spec/local';
@@ -185,6 +186,10 @@ function printGraphs(serviceList: ServiceDefinition[], {join}: Options) {
 }
 
 export function printType(type: GraphQLNamedType, options: Options): string {
+  return printKnownTypes(type, options) + '\n' + options.namer.definitions
+}
+
+export function printKnownTypes(type: GraphQLNamedType, options: Options): string {
   if (isScalarType(type)) {
     return printScalar(type, options);
   } else if (isObjectType(type)) {
@@ -223,41 +228,61 @@ function printObject(type: GraphQLObjectType, options: Options): string {
   const isExtension =
     type.extensionASTNodes && type.astNode && !type.astNode.fields;
 
-  const {isValueType, serviceName}: FederationType = type.extensions?.federation;
-
-  const {join, namer} = options
   let fields = printFields(options, type)
-  collectKeys(type, options)
   return (
     printDescription(options, type) +
     (isExtension ? 'extend ' : '') +
     `type ${type.name}` +
     implementedInterfaces + ' ' +
-    (isValueType ? join.owner({ valueType: true }) : join.owner({ graph: serviceName! })) +
-    fields + '\n' +
-    namer.definitions + '\n'
+    printJoinDirectives(type, type, options) +
+    fields + '\n'
   );
 }
 
-// Federation change: print usages of the @owner and @key directives.
-function collectKeys(type: GraphQLObjectType, {join, namer}: Options) {
-  const metadata: FederationType = type.extensions?.federation;
-  if (!metadata) return;
-
-  const { serviceName: ownerService, keys } = metadata;
-  if (!ownerService || !keys) return;
-
-  for (const [service, selections] of Object.entries(keys)) {
-    if (!selections) continue
-    for (const key of selections) {
-      namer(`${type.name}_${printFieldSet(key)}`,
-        (id: string) => dedent `
-          fragment ${id} on ${type.name} ${join.key({ graph: service })}
-          ${printFieldSet(key)}
-        `)
-    }
-  }
+function printJoinDirectives(type: GraphQLNamedType, node: any, options: Options): string {
+  return getJoins(node)
+    .map(j => `\n  ${printJoinDirective(type, j, options)}`)
+    .join('')
 }
+
+function printJoinDirective(type: GraphQLNamedType, input: JoinInput, opts: Options): string {
+  const {join: {join}} = opts
+  const args = {
+    graph: input.graph,
+    type: (input as any).type,
+    ...input.requires ? {
+      requires: findOrCreateFragment(type, input.requires, opts)
+    } : {},
+    ...hasProvides(input) ? {
+      provides: findOrCreateFragment(type, input.provides, opts)
+    } : {}
+  }
+  return join(args)
+}
+
+function hasProvides(item: any): item is { provides: IntoFragment } {
+  return Array.isArray(item.provides) && item.provides.length
+}
+
+// Federation change: print usages of the @owner and @key directives.
+// function collectKeys(type: GraphQLObjectType, {join, namer}: Options) {
+//   const metadata: FederationType = type.extensions?.federation;
+//   if (!metadata) return;
+
+//   const { serviceName: ownerService, keys } = metadata;
+//   if (!ownerService || !keys) return;
+
+//   for (const [service, selections] of Object.entries(keys)) {
+//     if (!selections) continue
+//     for (const key of selections) {
+//       namer(`${type.name}_${printFieldSet(key)}`,
+//         (id: string) => dedent `
+//           fragment ${id} on ${type.name} ${join.key({ graph: service })}
+//           ${printFieldSet(key)}
+//         `)
+//     }
+//   }
+// }
 
 function printInterface(type: GraphQLInterfaceType, options: Options): string {
   // Federation change: print `extend` keyword on type extensions.
@@ -266,23 +291,24 @@ function printInterface(type: GraphQLInterfaceType, options: Options): string {
   // XXX revist extension checking
   const isExtension =
     type.extensionASTNodes && type.astNode && !type.astNode.fields;
-  const {isValueType, serviceName}: FederationType = type.extensions?.federation;
-  const { join } = options
 
   return (
     printDescription(options, type) +
     (isExtension ? 'extend ' : '') +
     `interface ${type.name} ` +
-    (isValueType ? join.owner({ valueType: true }) : join.owner({ graph: serviceName! })) +
+    printJoinDirectives(type, type, options) +
     printFields(options, type) +
     printFragmentsForType(type)
   );
 }
 
-function printUnion(type: GraphQLUnionType, options?: Options): string {
+function printUnion(type: GraphQLUnionType, options: Options): string {
   const types = type.getTypes();
   const possibleTypes = types.length ? ' = ' + types.join(' | ') : '';
-  return printDescription(options, type) + 'union ' + type.name + possibleTypes;
+  return printDescription(options, type) +
+    'union ' + type.name +
+    printJoinDirectives(type, type, options) +
+    possibleTypes;
 }
 
 function printEnum(type: GraphQLEnumType, options?: Options): string {
@@ -397,7 +423,7 @@ type FragmentSource = (GraphQLObjectType | GraphQLInterfaceType) & {
 }
 
 function findOrCreateFragment(
-  type: GraphQLObjectType | GraphQLInterfaceType,
+  type: GraphQLNamedType,
   selections: readonly SelectionNode[],
   {namer}: Options
 ): string {

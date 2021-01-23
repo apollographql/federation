@@ -28,9 +28,10 @@ export default class Join extends Spec {
   }, 'repeatable on FRAGMENT_DEFINITION')
   join = this.directive('join', {
     graph: must(this.Graph),
+    type: Str,
     requires: this.FragmentId,
     provides: this.FragmentId,
-  }, 'on FIELD_DEFINITION')
+  }, 'on OBJECT | INTERFACE | UNION | FIELD_DEFINITION')
   error = this.directive('error', {
     graph: must(list(must(this.Graph))),
     message: Str,

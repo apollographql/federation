@@ -326,12 +326,7 @@ Scenario: supports directives on inline fragments (https://github.com/apollograp
   query GetVehicle {
     vehicle(id:"rav4") {
       ... on Car @fragmentDirective {
-        price
-        thing {
-          ... on Ikea {
-            asile
-          }
-        }
+        price        
       }
       ... on Van {
         price @fieldDirective
