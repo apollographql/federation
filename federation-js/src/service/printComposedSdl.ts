@@ -57,7 +57,7 @@ type Options = {
 function withDefaults(options: Partial<Options> = {}): Options {
   const local = options.local ?? Local.default();
   return {
-    commentDescriptions: true,
+    commentDescriptions: false,
     join: Join.default(),
     using: Using.default(),
     local,

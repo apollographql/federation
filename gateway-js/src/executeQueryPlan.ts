@@ -198,6 +198,7 @@ async function executeFetch<TContext>(
 ): Promise<void> {
   const logger = context.requestContext.logger || console;
   const service = context.serviceMap[fetch.serviceName];
+
   if (!service) {
     throw new Error(`Couldn't find service with name "${fetch.serviceName}"`);
   }

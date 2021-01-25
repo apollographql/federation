@@ -1,4 +1,4 @@
-import { default as Spec, must, list, Str, Bool } from './spec'
+import { default as Spec, must, list, Str } from './spec'
 import dedent from 'dedent'
 
 export default class Join extends Spec {

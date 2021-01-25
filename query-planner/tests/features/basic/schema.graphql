@@ -19,10 +19,6 @@ input join__OutboundLinkHttp {
 input join__OutboundLink {
     http: join__OutboundLinkHttp
 }
-directive @join__owner(
-  graph: join__Graph,
-  valueType: Bool)
-  on OBJECT | INTERFACE
 directive @join__key(
   graph: join__Graph!)
   repeatable on FRAGMENT_DEFINITION
