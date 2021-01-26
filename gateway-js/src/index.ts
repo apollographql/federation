@@ -425,23 +425,40 @@ export class ApolloGateway implements GraphQLService {
       }
     }
 
-    await this.updateComposition();
-    if (
-      (isManagedConfig(this.config) || this.experimental_pollInterval) &&
-      !this.pollingTimer
-    ) {
-      this.pollServices();
-    }
+    const result = isStaticConfig(this.config)
+      ? this.loadStatic()
+      : await this.loadDynamic();
 
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
-
     this.logger.info(
       `Gateway successfully loaded schema.\n\t* Mode: ${mode}${
-        (this.apolloConfig && this.apolloConfig.graphId)
+        this.apolloConfig && this.apolloConfig.graphId
           ? `\n\t* Service: ${this.apolloConfig.graphId}@${this.apolloConfig.graphVariant}`
           : ''
       }`,
     );
+
+    return result;
+  }
+
+  private loadStatic() {
+    this.maybeWarnOnConflictingConfig();
+
+    return {
+      schema: this.schema!,
+      executor: this.executor,
+    };
+  }
+
+  private async loadDynamic() {
+    if (isRemoteConfig(this.config)) {
+      this.maybeWarnOnConflictingConfig();
+    }
+
+    await this.updateComposition();
+    if (this.shouldBeginPolling()) {
+      this.pollServices();
+    }
 
     return {
       // we know this will be here since we're awaiting this.updateComposition
@@ -449,6 +466,13 @@ export class ApolloGateway implements GraphQLService {
       schema: this.schema!,
       executor: this.executor,
     };
+  }
+
+  private shouldBeginPolling() {
+    return (
+      (isManagedConfig(this.config) || this.experimental_pollInterval) &&
+      !this.pollingTimer
+    );
   }
 
   protected async updateComposition(): Promise<void> {
@@ -749,43 +773,6 @@ export class ApolloGateway implements GraphQLService {
   protected async loadServiceDefinitions(
     config: GatewayConfig,
   ): ReturnType<Experimental_UpdateServiceDefinitions> {
-    const canUseManagedConfig =
-      this.apolloConfig?.graphId && this.apolloConfig?.keyHash;
-    // This helper avoids the repetition of options in the two cases this method
-    // is invoked below. Only call it if canUseManagedConfig is true
-    // (which makes its uses of ! safe)
-    const getManagedConfig = () => {
-      return getServiceDefinitionsFromStorage({
-        graphId: this.apolloConfig!.graphId!,
-        apiKeyHash: this.apolloConfig!.keyHash!,
-        graphVariant: this.apolloConfig!.graphVariant,
-        federationVersion:
-          (config as ManagedGatewayConfig).federationVersion || 1,
-        fetcher: this.fetcher,
-      });
-    };
-
-    if (isLocalConfig(config) || isRemoteConfig(config) || isCsdlConfig(config)) {
-      if (canUseManagedConfig && !this.warnedStates.remoteWithLocalConfig) {
-        // Only display this warning once per start-up.
-        this.warnedStates.remoteWithLocalConfig = true;
-        // This error helps avoid common misconfiguration.
-        // We don't await this because a local configuration should assume
-        // remote is unavailable for one reason or another.
-        getManagedConfig().then(() => {
-          this.logger.warn(
-            "A local gateway configuration is overriding a managed federation " +
-            "configuration.  To use the managed " +
-            "configuration, do not specify a service list or csdl locally.",
-          );
-        }).catch(() => {}); // Don't mind errors if managed config is missing.
-      }
-    }
-
-    if (isLocalConfig(config) || isCsdlConfig(config)) {
-      return { isNewSchema: false };
-    }
-
     if (isRemoteConfig(config)) {
       const serviceList = config.serviceList.map(serviceDefinition => ({
         ...serviceDefinition,
@@ -801,13 +788,40 @@ export class ApolloGateway implements GraphQLService {
       });
     }
 
+    const canUseManagedConfig =
+      this.apolloConfig?.graphId && this.apolloConfig?.keyHash;
     if (!canUseManagedConfig) {
       throw new Error(
         'When `serviceList` is not set, an Apollo configuration must be provided. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ for more information.',
       );
     }
 
-    return getManagedConfig();
+    return getServiceDefinitionsFromStorage({
+      graphId: this.apolloConfig!.graphId!,
+      apiKeyHash: this.apolloConfig!.keyHash!,
+      graphVariant: this.apolloConfig!.graphVariant,
+      federationVersion:
+        (config as ManagedGatewayConfig).federationVersion || 1,
+      fetcher: this.fetcher,
+    });
+  }
+
+  private maybeWarnOnConflictingConfig() {
+    const canUseManagedConfig =
+      this.apolloConfig?.graphId && this.apolloConfig?.keyHash;
+
+    if (canUseManagedConfig && !this.warnedStates.remoteWithLocalConfig) {
+      // Only display this warning once per start-up.
+      this.warnedStates.remoteWithLocalConfig = true;
+      // This error helps avoid common misconfiguration.
+      // We don't await this because a local configuration should assume
+      // remote is unavailable for one reason or another.
+      this.logger.warn(
+        'A local gateway configuration is overriding a managed federation ' +
+          'configuration.  To use the managed ' +
+          'configuration, do not specify a service list or csdl locally.',
+      );
+    }
   }
 
   // XXX Nothing guarantees that the only errors thrown or returned in

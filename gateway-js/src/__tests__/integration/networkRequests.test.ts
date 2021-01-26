@@ -130,12 +130,8 @@ it('Extracts service definitions from remote storage', async () => {
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 });
 
-it.each([
-  ['warned', 'present'],
-  ['not warned', 'absent'],
-])('conflicting configurations are %s about when %s', async (_word, mode) => {
-  const isConflict = mode === 'present';
-  let blockerResolve: () => void;
+it('conflicting configurations are not warned about when absent', async () => {
+  let blockerResolve: (value: unknown) => void;
   const blocker = new Promise((resolve) => (blockerResolve = resolve));
   const original = loadServicesFromStorage.getServiceDefinitionsFromStorage;
   const spyGetServiceDefinitionsFromStorage = jest
@@ -151,15 +147,29 @@ it.each([
     });
 
   mockStorageSecretSuccess();
-  if (isConflict) {
-    mockCompositionConfigLinkSuccess();
-    mockCompositionConfigsSuccess([service]);
-    mockImplementingServicesSuccess(service);
-    mockRawPartialSchemaSuccess(service);
-  } else {
-    mockCompositionConfigLink().reply(403);
-  }
+  mockCompositionConfigLinkSuccess();
+  mockCompositionConfigsSuccess([service]);
+  mockImplementingServicesSuccess(service);
+  mockRawPartialSchemaSuccess(service);
 
+  const gateway = new ApolloGateway({
+    logger,
+  });
+
+  await gateway.load({
+    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+  });
+  await blocker; // Wait for the definitions to be "fetched".
+
+  expect(logger.warn).not.toHaveBeenCalledWith(
+    expect.stringMatching(
+      /A local gateway configuration is overriding a managed federation configuration/,
+    ),
+  );
+  spyGetServiceDefinitionsFromStorage.mockRestore();
+});
+
+it('conflicting configurations are warned about when present', async () => {
   mockSDLQuerySuccess(service);
 
   const gateway = new ApolloGateway({
@@ -170,41 +180,17 @@ it.each([
   await gateway.load({
     apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
   });
-  await blocker; // Wait for the definitions to be "fetched".
 
-  (isConflict
-    ? expect(logger.warn)
-    : expect(logger.warn).not
-  ).toHaveBeenCalledWith(
+  expect(logger.warn).toHaveBeenCalledWith(
     expect.stringMatching(
       /A local gateway configuration is overriding a managed federation configuration/,
     ),
   );
-  spyGetServiceDefinitionsFromStorage.mockRestore();
 });
 
+// TODO: this test / code path doesn't involve a network request anymore and
+// probably deserves a new home (something config related)
 it('warns when both csdl and studio configuration are provided', async () => {
-  mockStorageSecretSuccess();
-  mockCompositionConfigLinkSuccess();
-  mockCompositionConfigsSuccess([service]);
-  mockImplementingServicesSuccess(service);
-  mockRawPartialSchemaSuccess(service);
-
-  let blockerResolve: () => void;
-  const blocker = new Promise((resolve) => (blockerResolve = resolve));
-  const original = loadServicesFromStorage.getServiceDefinitionsFromStorage;
-  const spyGetServiceDefinitionsFromStorage = jest
-    .spyOn(loadServicesFromStorage, 'getServiceDefinitionsFromStorage')
-    .mockImplementationOnce(async (...args) => {
-      try {
-        return await original(...args);
-      } catch (e) {
-        throw e;
-      } finally {
-        setImmediate(blockerResolve);
-      }
-    });
-
   const gateway = new ApolloGateway({
     csdl: getTestingCsdl(),
     logger,
@@ -214,14 +200,10 @@ it('warns when both csdl and studio configuration are provided', async () => {
     apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
   });
 
-  await blocker;
-
   expect(logger.warn).toHaveBeenCalledWith(
     'A local gateway configuration is overriding a managed federation configuration.' +
       '  To use the managed configuration, do not specify a service list or csdl locally.',
   );
-
-  spyGetServiceDefinitionsFromStorage.mockRestore();
 });
 
 // This test has been flaky for a long time, and fails consistently after changes
