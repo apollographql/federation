@@ -69,7 +69,6 @@ interface GatewayConfigBase {
   // experimental observability callbacks
   experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
   experimental_didFailComposition?: Experimental_DidFailCompositionCallback;
-  experimental_updateServiceDefinitions?: Experimental_UpdateServiceDefinitions;
   experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
   experimental_pollInterval?: number;
   experimental_approximateQueryPlanStoreMiB?: number;
@@ -85,6 +84,10 @@ interface RemoteGatewayConfig extends GatewayConfigBase {
 
 interface ManagedGatewayConfig extends GatewayConfigBase {
   federationVersion?: number;
+}
+
+interface ManuallyManagedGatewayConfig extends GatewayConfigBase {
+  experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
 }
 interface LocalGatewayConfig extends GatewayConfigBase {
   localServiceList: ServiceDefinition[];
@@ -116,11 +119,41 @@ function isCsdlConfig(config: GatewayConfig): config is CsdlGatewayConfig {
   return 'csdl' in config;
 }
 
+// A manually managed config means the user has provided a function which
+// handles providing service definitions to the gateway.
+function isManuallyManagedConfig(
+  config: GatewayConfig,
+): config is ManuallyManagedGatewayConfig {
+  return 'experimental_updateServiceDefinitions' in config;
+}
+
+// Managed config strictly means managed by Studio
 function isManagedConfig(
   config: GatewayConfig,
 ): config is ManagedGatewayConfig {
   return (
-    !isRemoteConfig(config) && !isLocalConfig(config) && !isCsdlConfig(config)
+    !isRemoteConfig(config) &&
+    !isLocalConfig(config) &&
+    !isCsdlConfig(config) &&
+    !isManuallyManagedConfig(config)
+  );
+}
+
+// A static config is one which loads synchronously on start and never updates
+function isStaticConfig(
+  config: GatewayConfig,
+): config is LocalGatewayConfig | CsdlGatewayConfig {
+  return isLocalConfig(config) || isCsdlConfig(config);
+}
+
+// A dynamic config is one which loads asynchronously and (can) update via polling
+function isDynamicConfig(
+  config: GatewayConfig,
+): config is RemoteGatewayConfig | ManagedGatewayConfig {
+  return (
+    isRemoteConfig(config) ||
+    isManagedConfig(config) ||
+    isManuallyManagedConfig(config)
   );
 }
 
@@ -214,7 +247,7 @@ export class ApolloGateway implements GraphQLService {
   protected serviceMap: DataSourceMap = Object.create(null);
   protected config: GatewayConfig;
   private logger: Logger;
-  protected queryPlanStore?: InMemoryLRUCache<QueryPlan>;
+  protected queryPlanStore: InMemoryLRUCache<QueryPlan>;
   private apolloConfig?: ApolloConfig;
   private pollingTimer?: NodeJS.Timer;
   private onSchemaChangeListeners = new Set<SchemaChangeCallback>();
@@ -224,8 +257,7 @@ export class ApolloGateway implements GraphQLService {
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlannerPointer?: WasmPointer;
   private parsedCsdl?: DocumentNode;
-
-  private fetcher: typeof fetch = getDefaultGcsFetcher();
+  private fetcher: typeof fetch;
 
   // Observe query plan, service info, and operation info prior to execution.
   // The information made available here will give insight into the resulting
@@ -255,87 +287,129 @@ export class ApolloGateway implements GraphQLService {
       ...config,
     };
 
+    this.logger = this.initLogger();
+    this.queryPlanStore = this.initQueryPlanStore();
+    this.fetcher = config?.fetcher || getDefaultGcsFetcher();
+
+    // set up experimental observability callbacks and config settings
+    this.experimental_didResolveQueryPlan =
+      config?.experimental_didResolveQueryPlan;
+    this.experimental_didFailComposition =
+      config?.experimental_didFailComposition;
+    this.experimental_didFailComposition =
+      config?.experimental_didFailComposition;
+    this.experimental_didUpdateComposition =
+      config?.experimental_didUpdateComposition;
+    this.experimental_approximateQueryPlanStoreMiB =
+      config?.experimental_approximateQueryPlanStoreMiB;
+    this.experimental_pollInterval = config?.experimental_pollInterval;
+
+    // Use the provided updater function if provided by the user, else default
+    this.updateServiceDefinitions = isManuallyManagedConfig(this.config)
+      ? this.config.experimental_updateServiceDefinitions
+      : this.loadServiceDefinitions;
+
+    // If the gateway is running a static schema, we can initialize it
+    // immediately in the constructor
+    if (isStaticConfig(this.config)) {
+      const {
+        schema,
+        composedSdl,
+        queryPlannerPointer,
+      } = this.initStaticSchema(this.config);
+      this.schema = schema;
+      this.parsedCsdl = parse(composedSdl);
+      this.queryPlannerPointer = queryPlannerPointer;
+    }
+
+    if (isDynamicConfig(this.config)) {
+      this.issueDynamicWarningsIfApplicable();
+    }
+  }
+
+  private initLogger() {
     // Setup logging facilities
     if (this.config.logger) {
-      this.logger = this.config.logger;
+      return this.config.logger;
+    }
+
+    // If the user didn't provide their own logger, we'll initialize one.
+    const loglevelLogger = loglevel.getLogger(`apollo-gateway`);
+
+    // And also support the `debug` option, if it's truthy.
+    if (this.config.debug === true) {
+      loglevelLogger.setLevel(loglevelLogger.levels.DEBUG);
     } else {
-      // If the user didn't provide their own logger, we'll initialize one.
-      const loglevelLogger = loglevel.getLogger(`apollo-gateway`);
-
-      // And also support the `debug` option, if it's truthy.
-      if (this.config.debug === true) {
-        loglevelLogger.setLevel(loglevelLogger.levels.DEBUG);
-      } else {
-        loglevelLogger.setLevel(loglevelLogger.levels.WARN);
-      }
-
-      this.logger = loglevelLogger;
+      loglevelLogger.setLevel(loglevelLogger.levels.WARN);
     }
 
-    if (isLocalConfig(this.config)) {
+    return loglevelLogger;
+  }
+
+  private initStaticSchema(config: LocalGatewayConfig | CsdlGatewayConfig) {
+    if (isLocalConfig(config)) {
       const { schema, composedSdl } = this.createSchema({
-        serviceList: this.config.localServiceList,
+        serviceList: config.localServiceList,
       });
-      this.schema = schema;
 
+      // TODO: test this case
       if (!composedSdl) {
-        this.logger.error("A valid schema couldn't be composed.")
-      } else {
-       this.queryPlannerPointer = getQueryPlanner(composedSdl);
+        throw Error("A valid schema couldn't be composed.");
       }
+
+      const queryPlannerPointer = getQueryPlanner(composedSdl);
+      return { schema, composedSdl, queryPlannerPointer };
     }
 
-    if (isCsdlConfig(this.config)) {
-      const { schema } = this.createSchema({ csdl: this.config.csdl });
-      this.schema = schema;
-      this.queryPlannerPointer = getQueryPlanner(this.config.csdl);
+    if (isCsdlConfig(config)) {
+      const { schema, composedSdl } = this.createSchema({ csdl: config.csdl });
+      const queryPlannerPointer = getQueryPlanner(config.csdl);
+      return { schema, composedSdl, queryPlannerPointer };
     }
 
-    this.initializeQueryPlanStore();
+    // This should be unreachable, and TS even recognizes that `config` is
+    // of type `never` here, but TS still thinks "not all code paths return a value".
+    throw Error("Programming error: impossible config type.");
+  }
 
-    // this will be overwritten if the config provides experimental_updateServiceDefinitions
-    this.updateServiceDefinitions = this.loadServiceDefinitions;
+  private initQueryPlanStore() {
+    return new InMemoryLRUCache<QueryPlan>({
+      // Create ~about~ a 30MiB InMemoryLRUCache.  This is less than precise
+      // since the technique to calculate the size of a DocumentNode is
+      // only using JSON.stringify on the DocumentNode (and thus doesn't account
+      // for unicode characters, etc.), but it should do a reasonable job at
+      // providing a caching document store for most operations.
+      maxSize:
+        Math.pow(2, 20) *
+        (this.experimental_approximateQueryPlanStoreMiB || 30),
+      sizeCalculator: approximateObjectSize,
+    });
+  }
 
-    if (config) {
-      this.updateServiceDefinitions =
-        config.experimental_updateServiceDefinitions ||
-        this.updateServiceDefinitions;
-      // set up experimental observability callbacks
-      this.experimental_didResolveQueryPlan =
-        config.experimental_didResolveQueryPlan;
-      this.experimental_didFailComposition =
-        config.experimental_didFailComposition;
-      this.experimental_didUpdateComposition =
-        config.experimental_didUpdateComposition;
+  private issueDynamicWarningsIfApplicable() {
+    // Warn against a pollInterval of < 10s in managed mode and reset it to 10s
+    if (
+      isManagedConfig(this.config) &&
+      this.config.experimental_pollInterval &&
+      this.config?.experimental_pollInterval < 10000
+    ) {
+      this.experimental_pollInterval = 10000;
+      this.logger.warn(
+        'Polling Apollo services at a frequency of less than once per 10 ' +
+          'seconds (10000) is disallowed. Instead, the minimum allowed ' +
+          'pollInterval of 10000 will be used. Please reconfigure your ' +
+          'experimental_pollInterval accordingly. If this is problematic for ' +
+          'your team, please contact support.',
+      );
+    }
 
-      this.experimental_approximateQueryPlanStoreMiB =
-        config.experimental_approximateQueryPlanStoreMiB;
-
-      if (
-        isManagedConfig(config) &&
-        config.experimental_pollInterval &&
-        config.experimental_pollInterval < 10000
-      ) {
-        this.experimental_pollInterval = 10000;
-        this.logger.warn(
-          'Polling Apollo services at a frequency of less than once per 10 seconds (10000) is disallowed. Instead, the minimum allowed pollInterval of 10000 will be used. Please reconfigure your experimental_pollInterval accordingly. If this is problematic for your team, please contact support.',
-        );
-      } else {
-        this.experimental_pollInterval = config.experimental_pollInterval;
-      }
-
-      // Warn against using the pollInterval and a serviceList simultaneously
-      if (config.experimental_pollInterval && isRemoteConfig(config)) {
-        this.logger.warn(
-          'Polling running services is dangerous and not recommended in production. ' +
-            'Polling should only be used against a registry. ' +
-            'If you are polling running services, use with caution.',
-        );
-      }
-
-      if (config.fetcher) {
-        this.fetcher = config.fetcher;
-      }
+    // Warn against using the pollInterval and a serviceList simultaneously
+    if (this.config.experimental_pollInterval && isRemoteConfig(this.config)) {
+      this.logger.warn(
+        'Polling running services is dangerous and not recommended in production. ' +
+          'Polling should only be used against a registry. ' +
+          'If you are polling running services, use with caution.',
+      );
     }
   }
 
@@ -874,20 +948,6 @@ export class ApolloGateway implements GraphQLService {
     );
 
     return errors || [];
-  }
-
-  private initializeQueryPlanStore(): void {
-    this.queryPlanStore = new InMemoryLRUCache<QueryPlan>({
-      // Create ~about~ a 30MiB InMemoryLRUCache.  This is less than precise
-      // since the technique to calculate the size of a DocumentNode is
-      // only using JSON.stringify on the DocumentNode (and thus doesn't account
-      // for unicode characters, etc.), but it should do a reasonable job at
-      // providing a caching document store for most operations.
-      maxSize:
-        Math.pow(2, 20) *
-        (this.experimental_approximateQueryPlanStoreMiB || 30),
-      sizeCalculator: approximateObjectSize,
-    });
   }
 
   public async stop() {
