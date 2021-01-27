@@ -1,4 +1,3 @@
-import 'apollo-server-env';
 import { isObjectType, GraphQLError } from 'graphql';
 import { logServiceAndType, errorWithCode, getFederationMetadata } from '../../utils';
 import { PostCompositionValidator } from '.';

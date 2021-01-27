@@ -4,6 +4,9 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+## v0.21.0
+
+- __BREAKING__: Drop support for Node.js 8 and Node.js 10.  This package now only targets Node.js 12+ LTS (Long-Term Support) versions, the same as `@apollo/gateway`, which first received this treatment in https://github.com/apollographql/apollo-server/pull/4031.  Node.js 8 has already lapsed from the [Node.js Foundation's LTS schedule](https://github.com/nodejs/release) and Node.js 10 (in _Maintenance LTS_ right now) is targeted to be end-of-life'd (EOL) at the end of April 2021.  [PR #311](https://github.com/apollographql/federation/pull/311)
 - Export `GraphQLSchemaModule` type. [PR #293](https://github.com/apollographql/federation/pull/293)
 - __BREAKING__: Remove `ComposedGraphQLSchema` type as it's no longer needed. This is breaking because it was part of the public API, though we strongly believe nobody was or should have had any need for this type. Update `composeAndValidate` function signature for better typing, and align the `compose` function signature with that of `composeAndValidate` [PR #278](https://github.com/apollographql/federation/pull/278)
 ## v0.20.7

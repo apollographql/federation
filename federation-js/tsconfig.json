@@ -2,8 +2,7 @@
   "extends": "../tsconfig.base",
   "compilerOptions": {
     "rootDir": "./src",
-    "outDir": "./dist",
-    "lib": ["es2017", "es2019.array", "esnext.asynciterable"],
+    "outDir": "./dist"
   },
   "include": ["src/**/*"],
   "exclude": ["**/__tests__"],
