@@ -201,19 +201,19 @@ type Query {
 }
 ```
 
-## Migrating types and fields (advanced)
+## Migrating entities and fields (advanced)
 
-As your federated graph grows, you might decide that you want a type (or a particular field of a type) to originate in a different service. Apollo Gateway helps you perform these migrations safely.
+As your federated graph grows, you might decide that you want an entity (or a particular field of an entity) to originate in a different service. Apollo Gateway helps you perform these migrations safely.
 
-### Type migration
+### Entity migration
 
-Let's say our `payments` service defines a `Bill` type. Then, we add a dedicated `billing` service to our federated graph. It now makes sense for the `Bill` type to originate in the `billing` service instead.
+Let's say our `payments` service defines a `Bill` entity. Then, we add a dedicated `billing` service to our federated graph. It now makes sense for the `Bill` entity to originate in the `billing` service instead.
 
 We can perform this migration safely with the following steps:
 
-1. In the `billing` service's schema, define the `Bill` type (do _not_ extend it). If you're using managed federation, register this schema change with Studio.
+1. In the `billing` service's schema, define the `Bill` entity just as it's defined in the `payments` service (do _not_ extend it). If you're using managed federation, register this schema change with Studio.
 
-    _Note that this is technically a composition error, because `Bill` is already defined in the `payments` service. However, this error is handled gracefully, as described below._
+    _Note that this is technically a composition error, because the `Bill` entity can't originate in more than one service. However, this error is handled gracefully, as described below._
 
 2. In the `billing` service, define resolvers for every field of `Bill` that currently originates in the `payments` service. This service should resolve those fields with the exact same outcome as the resolvers in the `payments` service.
 
