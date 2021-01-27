@@ -191,20 +191,12 @@ mod tests {
             .provide(identity, Version(0, 3), "0.1")
             .provide(identity, Version(0, 99), "0.99");
         assert_eq!(
-            impls.find(&identity, &Version(0, 1)).last(),
-            Some((&Version(0, 1), &"0.1"))
+            impls.find(&identity, &Version(0, 1)).bounds(),
+            Some(((&Version(0, 1), &"0.1"), (&Version(0, 1), &"0.1")))
         );
         assert_eq!(
-            impls.find(&identity, &Version(0, 99)).next(),
-            Some((&Version(0, 99), &"0.99"))
-        );
-        assert_eq!(
-            impls.find(&identity, &Version(0, 1)).next(),
-            Some((&Version(0, 1), &"0.1"))
-        );
-        assert_eq!(
-            impls.find(&identity, &Version(0, 99)).last(),
-            Some((&Version(0, 99), &"0.99"))
+            impls.find(&identity, &Version(0, 99)).bounds(),
+            Some(((&Version(0, 99), &"0.99"), (&Version(0, 99), &"0.99")))
         );
     }
 }
