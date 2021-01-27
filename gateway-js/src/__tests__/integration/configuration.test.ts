@@ -12,6 +12,7 @@ import {
 } from './nockMocks';
 import { getTestingCsdl } from '../execution-utils';
 import { MockService } from './networkRequests.test';
+import { parse } from 'graphql';
 
 let logger: Logger;
 
@@ -104,5 +105,37 @@ describe('gateway configuration warnings', () => {
         /A local gateway configuration is overriding a managed federation configuration/,
       ),
     );
+  });
+});
+
+describe('gateway startup errors', () => {
+  it("throws when static config can't be composed", async () => {
+    const uncomposableSdl = parse(`#graphql
+      type Query {
+        me: User
+        everyone: [User]
+        account(id: String): Account
+      }
+
+      type User @key(fields: "id") {
+        name: String
+        username: String
+      }
+
+      type Account @key(fields: "id") {
+        name: String
+        username: String
+      }
+    `);
+
+    expect(
+      () =>
+        new ApolloGateway({
+          localServiceList: [
+            { name: 'accounts', url: service.url, typeDefs: uncomposableSdl },
+          ],
+          logger,
+        }),
+    ).toThrowError("A valid schema couldn't be composed");
   });
 });

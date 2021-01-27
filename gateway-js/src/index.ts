@@ -348,13 +348,17 @@ export class ApolloGateway implements GraphQLService {
 
   private initStaticSchema(config: LocalGatewayConfig | CsdlGatewayConfig) {
     if (isLocalConfig(config)) {
-      const { schema, composedSdl } = this.createSchema({
-        serviceList: config.localServiceList,
-      });
-
-      // TODO: test this case
-      if (!composedSdl) {
-        throw Error("A valid schema couldn't be composed.");
+      let schema: GraphQLSchema;
+      let composedSdl: string;
+      try {
+        ({ schema, composedSdl } = this.createSchema({
+          serviceList: config.localServiceList,
+        }));
+      } catch (e) {
+        throw Error(
+          "A valid schema couldn't be composed. The following errors were found:\n" +
+            e.message,
+        );
       }
 
       const queryPlannerPointer = getQueryPlanner(composedSdl);
