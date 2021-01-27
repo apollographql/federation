@@ -28,7 +28,7 @@ impl<'a> Schema<'a> {
     ///     .provide("https://spec.example.com/A", Version(1, 2), "impl for A 1.2")
     ///     .provide("https://spec.example.com/A", Version(1, 3), "impl for A 1.3")
     ///     .provide("https://spec.example.com/A", Version(1, 7), "impl for A 1.7");
-    /// let schema = Schema::parse(r#"schema @using(spec: "https://spec.example.com/A/v1.0") { query: Query }"#)?;
+    /// let schema = Schema::parse(r#"schema @core(using: "https://lib.apollo.dev/core/v0.1") @core(using: "https://spec.example.com/A/v1.0") { query: Query }"#)?;
     ///
     /// let max = schema
     ///   .activations(&impls)
@@ -83,8 +83,9 @@ mod tests {
             let schema = Schema::parse(
                 r#"
                 schema
-                    @using(spec: "https://spec.example.com/A/v1.0")
-                    @using(spec: "https://spec.example.com/unknown/v1.0")
+                    @core(using: "https://lib.apollo.dev/core/v0.1")
+                    @core(using: "https://spec.example.com/A/v1.0")
+                    @core(using: "https://spec.example.com/unknown/v1.0")
                 {
                     query: Query
                 }
@@ -97,49 +98,7 @@ mod tests {
                 .collect::<Vec<_>>();
 
             format!("{:#?}", activations)
-        },
-        @r###"
-        [
-            (
-                Request {
-                    spec: Spec {
-                        identity: "https://spec.example.com/A",
-                        default_prefix: "A",
-                        version: Version(
-                            1,
-                            0,
-                        ),
-                    },
-                    prefix: "A",
-                    position: Pos(3:21),
-                },
-                [
-                    (
-                        Version(
-                            1,
-                            2,
-                        ),
-                        "impl A v1.2",
-                    ),
-                ],
-            ),
-            (
-                Request {
-                    spec: Spec {
-                        identity: "https://spec.example.com/unknown",
-                        default_prefix: "unknown",
-                        version: Version(
-                            1,
-                            0,
-                        ),
-                    },
-                    prefix: "unknown",
-                    position: Pos(4:21),
-                },
-                [],
-            ),
-        ]
-        "###);
+        });
 
         Ok(())
     }
@@ -160,8 +119,9 @@ mod tests {
         let output = Schema::parse(
             r#"
             schema
-                @using(spec: "https://spec.example.com/A/v1.0")
-                @using(spec: "https://spec.example.com/unknown/v1.0")
+                @core(using: "https://lib.apollo.dev/core/v0.1")
+                @core(using: "https://spec.example.com/A/v1.0")
+                @core(using: "https://spec.example.com/unknown/v1.0")
             {
                 query: Query
             }
@@ -171,7 +131,7 @@ mod tests {
         .map(|(_req, find)| find.last().map(|(_ver, f)| f()))
         .collect::<Vec<_>>();
 
-        assert_eq!(output, vec![Some("impl A v1.2".to_owned()), None,]);
+        assert_eq!(output, vec![None, Some("impl A v1.2".to_owned()), None,]);
 
         Ok(())
     }

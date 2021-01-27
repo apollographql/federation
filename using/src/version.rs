@@ -37,7 +37,7 @@ impl Version {
         }
     }
 
-    /// Return true iff this Version satisfies the `required` version
+    /// Return true if and only if this Version satisfies the `required` version
     ///
     /// # Example
     /// ```
@@ -73,6 +73,12 @@ impl FromStr for Version {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Version::parse(s)
+    }
+}
+
+impl From<(u64, u64)> for Version {
+    fn from((major, minor): (u64, u64)) -> Self {
+        Self(major, minor)
     }
 }
 

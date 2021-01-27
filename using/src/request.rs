@@ -1,6 +1,8 @@
 //! A `Request` for a spec within a document.
 //!
 //! `Request`s are derived from `Directive`s during schema bootstrapping.
+use std::borrow::Cow;
+
 use graphql_parser::{
     schema::{Directive, Value},
     Pos,
@@ -15,7 +17,7 @@ use crate::spec::{Spec, SpecParseError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Request {
     pub spec: Spec,
-    pub prefix: String,
+    pub name: Cow<'static, str>,
     pub position: Pos,
 }
 
@@ -37,23 +39,23 @@ impl Request {
     /// `Result<Request, SpecParseError>` during bootstrapping to assist error reporting.)
     pub(crate) fn from_directive(dir: &Directive) -> Option<Result<Request, SpecParseError>> {
         let mut spec: Option<Result<Spec, SpecParseError>> = None;
-        let mut prefix: Option<String> = None;
+        let mut prefix: Option<Cow<'static, str>> = None;
         for (arg, val) in &dir.arguments {
-            if *arg == "spec" {
+            if *arg == "using" {
                 if let Value::String(url) = val {
                     spec = Some(Spec::parse(url));
                 }
             }
-            if *arg == "prefix" {
+            if *arg == "as" {
                 if let Value::String(prefix_str) = val {
-                    prefix = Some(prefix_str.to_owned())
+                    prefix = Some(Cow::Owned(prefix_str.clone()));
                 }
             }
         }
 
         spec.map(|result| {
             result.map(|spec| Request {
-                prefix: prefix.unwrap_or_else(|| spec.default_prefix.clone()),
+                name: prefix.unwrap_or_else(|| spec.name.clone()),
                 spec,
                 position: dir.position,
             })
