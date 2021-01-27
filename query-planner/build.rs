@@ -87,7 +87,7 @@ macro_rules! get_step {
     };
 }
 
-fn write_tests(dir: &PathBuf) -> std::io::Result<()> {
+pub fn write_tests(dir: &PathBuf) -> std::io::Result<()> {
     let mut feature_paths: Vec<_> = read_dir(dir)
         .unwrap()
         .map(|res| res.map(|e| e.path()).unwrap())

@@ -1,4 +1,4 @@
-use graphql_parser::query;
+use graphql_parser::{Name, query};
 use graphql_parser::query::refs::SelectionSetRef;
 use graphql_parser::schema::*;
 use graphql_parser::{parse_query, Pos};
@@ -243,21 +243,7 @@ impl SpecVersion {
             .collect();
         
         // Collect a map of fragment names -> &FragmentDefinition
-        let fragments: HashMap<_, _> = doc.definitions.iter()
-            .filter_map(|d| match d {
-                Definition::Fragment(frag) => {
-                    let typ = match obj_types.get(frag.type_condition) {
-                        Some(t) => Some(*t),
-                        None => {
-                            errors.push(FederationError::TypeNotFound(frag.position, frag.type_condition.to_string()));
-                            None
-                        }
-                    };                    
-                    Some((frag.name, frag))
-                },
-                _ => None,
-            })
-            .collect();
+        let fragments: HashMap<_, _> = cs.fragments(doc);
 
 
         // Collect fields for each type
@@ -429,16 +415,16 @@ impl<'q> Federation<'q> {
                     .unwrap_or_default()
             } else {
                 true
-            };        
+            };
         result
     }
 }
 
-fn as_selection_set_ref(value: &str) -> query::SelectionSet {
-    let ss = parse_query(value)
-        .expect("failed parsing directive value as selection set")
-        .definitions
-        .pop()
-        .unwrap();
-    letp!(query::Definition::SelectionSet(ss) = ss => ss)
-}
+// fn as_selection_set_ref(value: &str) -> query::SelectionSet {
+//     let ss = parse_query(value)
+//         .expect("failed parsing directive value as selection set")
+//         .definitions
+//         .pop()
+//         .unwrap();
+//     letp!(query::Definition::SelectionSet(ss) = ss => ss)
+// }
