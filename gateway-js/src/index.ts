@@ -101,7 +101,8 @@ export type GatewayConfig =
   | RemoteGatewayConfig
   | LocalGatewayConfig
   | ManagedGatewayConfig
-  | CsdlGatewayConfig;
+  | CsdlGatewayConfig
+  | ManuallyManagedGatewayConfig;
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
