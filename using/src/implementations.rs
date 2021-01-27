@@ -1,7 +1,10 @@
 //! A set of spec implementations stored for easy lookup with
 //! [`Schema.activations`](Schema.html#activations).
 
-use std::{borrow::Cow, collections::{BTreeMap, HashMap}};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+};
 
 use crate::{Request, Version};
 
@@ -14,15 +17,10 @@ impl<T> Implementations<T> {
         Self(HashMap::new())
     }
 
-    pub fn provide<Id, V>(
-        mut self,
-        identity: Id,
-        version: V,
-        implementation: T,
-    ) -> Self
-        where
-            Id: Into<Cow<'static, str>>,
-            V: Into<Version>
+    pub fn provide<Id, V>(mut self, identity: Id, version: V, implementation: T) -> Self
+    where
+        Id: Into<Cow<'static, str>>,
+        V: Into<Version>,
     {
         self.0
             .entry(identity.into())

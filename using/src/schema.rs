@@ -50,11 +50,15 @@
 
 use std::{borrow::Cow, collections::HashMap};
 
-use graphql_parser::{ParseError, Pos, parse_schema, schema::{Definition, Document, SchemaDefinition}};
+use graphql_parser::{
+    parse_schema,
+    schema::{Definition, Document, SchemaDefinition},
+    ParseError, Pos,
+};
 
 use thiserror::Error;
 
-use crate::{Find, Found, Implementations, Request, Version, constants::CORE, spec};
+use crate::{constants::CORE, spec, Find, Found, Implementations, Request, Version};
 
 /// A Schema holds a parsed GraphQL schema document and the specs requested by that document,
 /// along with any errors which occurred during validation.
@@ -167,7 +171,11 @@ impl<'a> Schema<'a> {
             Some(req) => req,
             None => {
                 errors.push(SchemaError::NoCore);
-                return Ok(Schema { document, using: vec![], errors })
+                return Ok(Schema {
+                    document,
+                    using: vec![],
+                    errors,
+                });
             }
         };
 
@@ -199,7 +207,7 @@ impl<'a> Schema<'a> {
         let mut by_prefix = HashMap::<_, u32>::new();
         for req in &self.using {
             let count = by_prefix.entry(req.name.clone()).or_default();
-            *count = *count + 1;
+            *count += 1;
         }
         for (prefix, count) in by_prefix.drain() {
             if count > 1 {
@@ -280,23 +288,18 @@ fn drain_filter_collect<T, F: Fn(&T) -> bool>(vec: &mut Vec<T>, pred: F) -> Vec<
 
 // Given a `SchemaDefinition`, locate the first `@core` request, which must be for
 // the core spec itself.
-fn bootstrap(
-    schema: &SchemaDefinition
-) -> Option<Request> {
-    schema.directives.iter()
+fn bootstrap(schema: &SchemaDefinition) -> Option<Request> {
+    schema
+        .directives
+        .iter()
         // Scan requests which parsed without error
-        .filter_map(|dir|
-            Request::from_directive(dir)
-                .map(|res| (dir, res))
-        )
-        .filter_map(|(dir, res)|
-            res.ok().map(|req| (dir, req))
-        )
-        .find_map(|(dir, req)|
+        .filter_map(|dir| Request::from_directive(dir).map(|res| (dir, res)))
+        .filter_map(|(dir, res)| res.ok().map(|req| (dir, req)))
+        .find_map(|(dir, req)| {
             if
-                // We're looking for bootstrap @core directives, so select only
-                // those requests whose requested name matches the directive name...
-                dir.name == req.name &&
+            // We're looking for bootstrap @core directives, so select only
+            // those requests whose requested name matches the directive name...
+            dir.name == req.name &&
                 // ...and which are requesting a the core spec...
                 req.spec.identity == CORE.identity &&
                 // ...at a supported version.
@@ -306,7 +309,7 @@ fn bootstrap(
             } else {
                 None
             }
-        )
+        })
 }
 /// Validation errors which may occur on a `Schema`
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -368,7 +371,7 @@ impl SchemaError {
 mod tests {
     use crate::{Implementations, Schema};
     use graphql_parser::ParseError;
-    use insta::{assert_snapshot, assert_debug_snapshot};
+    use insta::{assert_debug_snapshot, assert_snapshot};
 
     macro_rules! assert_schema_snapshots {
         ($source:expr) => {
@@ -376,25 +379,28 @@ mod tests {
                 let schema = Schema::parse($source)?;
                 (schema.errors, schema.using)
             });
-        }
+        };
     }
 
     #[test]
     pub fn it_identifies_one_spec() -> Result<(), ParseError> {
-        assert_schema_snapshots!(r#"
+        assert_schema_snapshots!(
+            r#"
             schema
                 @core(using: "https://lib.apollo.dev/core/v0.1")
                 @core(using: "https://spec.example.com/A/v1.0")
             {
                 query: Query
             }
-        "#);        
+        "#
+        );
         Ok(())
     }
 
     #[test]
     pub fn it_identifies_several_specs() -> Result<(), ParseError> {
-        assert_schema_snapshots!(r#"
+        assert_schema_snapshots!(
+            r#"
             schema
                 @core(using: "https://lib.apollo.dev/core/v0.1")
                 @core(using: "https://spec.example.com/A/v1.0")
@@ -403,13 +409,15 @@ mod tests {
             {
                 query: Query
             }
-        "#);
+        "#
+        );
         Ok(())
     }
 
     #[test]
     pub fn it_can_load_using_with_a_different_prefix() -> Result<(), ParseError> {
-        assert_schema_snapshots!(r#"
+        assert_schema_snapshots!(
+            r#"
             schema
                 @req(using: "https://lib.apollo.dev/core/v0.1", as: "req")
                 @req(using: "https://spec.example.com/A/v1.0")
@@ -417,24 +425,28 @@ mod tests {
                 {
                     query: Query
                 }
-        "#);
+        "#
+        );
 
         Ok(())
     }
 
     #[test]
     pub fn it_errors_when_no_schema_defs_are_present() -> Result<(), ParseError> {
-        assert_schema_snapshots!(r#"
+        assert_schema_snapshots!(
+            r#"
             type User {
                 id: ID!
             }
-        "#);
+        "#
+        );
         Ok(())
     }
 
     #[test]
     pub fn it_errors_when_multiple_schema_defs_are_present() -> Result<(), ParseError> {
-        assert_schema_snapshots!(r#"
+        assert_schema_snapshots!(
+            r#"
             schema
                 @core(using: "https://lib.apollo.dev/core/v0.1")
                 @core(using: "https://spec.example.com/A/v2.2")
@@ -445,13 +457,15 @@ mod tests {
             schema {
                 query: Query
             }
-        "#);
+        "#
+        );
         Ok(())
     }
 
     #[test]
     pub fn it_errors_when_default_prefixes_overlap() -> Result<(), ParseError> {
-        assert_schema_snapshots!(r#"
+        assert_schema_snapshots!(
+            r#"
             schema
                 @core(using: "https://lib.apollo.dev/core/v0.1")
                 @core(using: "https://spec.example.com/A/v1.0")
@@ -460,13 +474,15 @@ mod tests {
             {
                 query: Query
             }
-        "#);
+        "#
+        );
         Ok(())
     }
 
     #[test]
     pub fn it_errors_when_non_default_prefixes_overlap() -> Result<(), ParseError> {
-        assert_schema_snapshots!(r#"
+        assert_schema_snapshots!(
+            r#"
             schema
                 @core(using: "https://lib.apollo.dev/core/v0.1")
                 @core(using: "https://spec.example.com/A/v1.0")
@@ -474,13 +490,15 @@ mod tests {
             {
                 query: Query
             }
-        "#);
+        "#
+        );
         Ok(())
     }
 
     #[test]
     pub fn it_is_ok_when_prefixes_are_disambugated() -> Result<(), ParseError> {
-        assert_schema_snapshots!(r#"
+        assert_schema_snapshots!(
+            r#"
             schema
                 @core(using: "https://lib.apollo.dev/core/v0.1")
                 @core(using: "https://spec.example.com/A/v1.0")
@@ -489,7 +507,8 @@ mod tests {
             {
                 query: Query
             }
-        "#);
+        "#
+        );
         Ok(())
     }
 

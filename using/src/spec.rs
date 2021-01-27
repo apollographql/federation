@@ -52,10 +52,10 @@ pub enum SpecParseError {
 impl Spec {
     /// Construct a Spec with identity, name, version
     pub fn new<I, N, V>(identity: I, name: N, version: V) -> Self
-        where
-            I: Into<Cow<'static, str>>,
-            N: Into<Cow<'static, str>>,
-            V: Into<Version>
+    where
+        I: Into<Cow<'static, str>>,
+        N: Into<Cow<'static, str>>,
+        V: Into<Version>,
     {
         Self {
             identity: identity.into(),

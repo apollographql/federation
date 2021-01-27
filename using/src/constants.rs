@@ -3,7 +3,7 @@
 
 use std::borrow::Cow;
 
-use crate::{Version, spec::Spec};
+use crate::{spec::Spec, Version};
 
 pub const CORE: Spec = Spec {
     identity: Cow::Borrowed("https://lib.apollo.dev/core"),
