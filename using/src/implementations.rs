@@ -1,34 +1,38 @@
 //! A set of spec implementations stored for easy lookup with
 //! [`Schema.activations`](Schema.html#activations).
 
-use std::collections::{BTreeMap, HashMap};
+use std::{borrow::Cow, collections::{BTreeMap, HashMap}};
 
 use crate::{Request, Version};
 
 /// Implementations stores a set of implementations indexed by
 /// spec identity and version.
-pub struct Implementations<T>(HashMap<String, BTreeMap<Version, T>>);
+pub struct Implementations<T>(HashMap<Cow<'static, str>, BTreeMap<Version, T>>);
 
 impl<T> Implementations<T> {
     pub fn new() -> Self {
         Self(HashMap::new())
     }
 
-    pub fn provide<S: ToString>(
+    pub fn provide<Id, V>(
         mut self,
-        identity: S,
-        version: Version,
+        identity: Id,
+        version: V,
         implementation: T,
-    ) -> Self {
+    ) -> Self
+        where
+            Id: Into<Cow<'static, str>>,
+            V: Into<Version>
+    {
         self.0
-            .entry(identity.to_string())
+            .entry(identity.into())
             .or_default()
-            .entry(version)
+            .entry(version.into())
             .or_insert(implementation);
         self
     }
 
-    pub fn find<'a, S: AsRef<str>>(
+    pub(crate) fn find<'a, S: AsRef<str>>(
         &'a self,
         identity: S,
         version: &'a Version,

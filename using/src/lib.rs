@@ -19,8 +19,5 @@ pub use bounds::*;
 mod implementations;
 pub use implementations::*;
 
-mod activations;
-pub use activations::*;
-
 pub use graphql_parser::ParseError as GraphQLParseError;
 pub use graphql_parser::Pos;
