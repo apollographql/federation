@@ -1,8 +1,5 @@
 {
   "extends": "../../../../tsconfig.test.base",
-  "compilerOptions": {
-    "strictNullChecks": false
-  },
   "include": ["**/*"],
   "references": [
     { "path": "../../.." }
