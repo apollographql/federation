@@ -389,7 +389,8 @@ export class ApolloGateway implements GraphQLService {
 
     this.maybeWarnOnConflictingConfig();
 
-    const result = isStaticConfig(this.config)
+    // Handles initial assignment of `this.schema`, `this.queryPlannerPointer`
+    isStaticConfig(this.config)
       ? this.loadStatic(this.config)
       : await this.loadDynamic();
 
@@ -402,9 +403,14 @@ export class ApolloGateway implements GraphQLService {
       }`,
     );
 
-    return result;
+    return {
+      schema: this.schema!,
+      executor: this.executor
+    };
   }
 
+  // Synchronously load a statically configured schema, update class instance's
+  // schema and query planner.
   private loadStatic(config: StaticGatewayConfig) {
     const schemaConstructionOpts = isLocalConfig(config)
       ? { serviceList: config.localServiceList }
@@ -424,25 +430,15 @@ export class ApolloGateway implements GraphQLService {
     this.schema = schema;
     this.parsedCsdl = parse(composedSdl);
     this.queryPlannerPointer = getQueryPlanner(composedSdl);
-
-    return {
-      schema: this.schema!,
-      executor: this.executor,
-    };
   }
 
+  // Asynchronously load a dynamically configured schema. `this.updateComposition`
+  // is responsible for updating the class instance's schema and query planner.
   private async loadDynamic() {
     await this.updateComposition();
     if (this.shouldBeginPolling()) {
       this.pollServices();
     }
-
-    return {
-      // we know this will be here since we're awaiting this.updateComposition
-      // before here which sets this.schema
-      schema: this.schema!,
-      executor: this.executor,
-    };
   }
 
   private shouldBeginPolling() {
