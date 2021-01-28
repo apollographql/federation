@@ -395,7 +395,7 @@ export class ApolloGateway implements GraphQLService {
     if (
       isManagedConfig(this.config) &&
       this.config.experimental_pollInterval &&
-      this.config?.experimental_pollInterval < 10000
+      this.config.experimental_pollInterval < 10000
     ) {
       this.experimental_pollInterval = 10000;
       this.logger.warn(
