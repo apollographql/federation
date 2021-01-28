@@ -97,12 +97,14 @@ interface CsdlGatewayConfig extends GatewayConfigBase {
   csdl: string;
 }
 
-export type GatewayConfig =
-  | RemoteGatewayConfig
-  | LocalGatewayConfig
-  | ManagedGatewayConfig
-  | CsdlGatewayConfig
-  | ManuallyManagedGatewayConfig;
+type StaticGatewayConfig = LocalGatewayConfig | CsdlGatewayConfig;
+
+type DynamicGatewayConfig =
+| ManagedGatewayConfig
+| RemoteGatewayConfig
+| ManuallyManagedGatewayConfig;
+
+export type GatewayConfig = StaticGatewayConfig | DynamicGatewayConfig;
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -143,14 +145,14 @@ function isManagedConfig(
 // A static config is one which loads synchronously on start and never updates
 function isStaticConfig(
   config: GatewayConfig,
-): config is LocalGatewayConfig | CsdlGatewayConfig {
+): config is StaticGatewayConfig {
   return isLocalConfig(config) || isCsdlConfig(config);
 }
 
 // A dynamic config is one which loads asynchronously and (can) update via polling
 function isDynamicConfig(
   config: GatewayConfig,
-): config is RemoteGatewayConfig | ManagedGatewayConfig {
+): config is DynamicGatewayConfig {
   return (
     isRemoteConfig(config) ||
     isManagedConfig(config) ||
