@@ -1,8 +1,8 @@
 {
-  "compilerOptions": {
-    "composite": true
-  },
   "files": [],
   "include": [],
-  "references": []
+  "references": [
+    { "path": "./federation-js/tsconfig.test.json" },
+    { "path": "./gateway-js/tsconfig.test.json" },
+  ]
 }

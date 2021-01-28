@@ -4,5 +4,7 @@
     "strictNullChecks": false
   },
   "include": ["**/*"],
-  "references": [{ "path": "../../../../../" }]
+  "references": [
+    { "path": "../../.." }
+  ]
 }
