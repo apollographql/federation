@@ -106,6 +106,16 @@ describe('gateway configuration warnings', () => {
       ),
     );
   });
+
+  it('throws when no configuration is provided', async () => {
+    const gateway = new ApolloGateway({
+      logger,
+    });
+
+    expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"When a manual configuration is not provided, gateway requires an Apollo configuration. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ for more information. Manual configuration options include: \`serviceList\`, \`csdl\`, and \`experimental_updateServiceDefinitions\`."`,
+    );
+  });
 });
 
 describe('gateway startup errors', () => {

@@ -774,7 +774,10 @@ export class ApolloGateway implements GraphQLService {
       this.apolloConfig?.graphId && this.apolloConfig?.keyHash;
     if (!canUseManagedConfig) {
       throw new Error(
-        'When `serviceList` is not set, an Apollo configuration must be provided. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ for more information.',
+        'When a manual configuration is not provided, gateway requires an Apollo ' +
+        'configuration. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ ' +
+        'for more information. Manual configuration options include: ' +
+        '`serviceList`, `csdl`, and `experimental_updateServiceDefinitions`.',
       );
     }
 
