@@ -279,8 +279,6 @@ export class ApolloGateway implements GraphQLService {
   // how often service defs should be loaded/updated (in ms)
   protected experimental_pollInterval?: number;
 
-  private experimental_approximateQueryPlanStoreMiB?: number;
-
   constructor(config?: GatewayConfig) {
     this.config = {
       // TODO: expose the query plan in a more flexible JSON format in the future
@@ -291,7 +289,9 @@ export class ApolloGateway implements GraphQLService {
     };
 
     this.logger = this.initLogger();
-    this.queryPlanStore = this.initQueryPlanStore();
+    this.queryPlanStore = this.initQueryPlanStore(
+      config?.experimental_approximateQueryPlanStoreMiB,
+    );
     this.fetcher = config?.fetcher || getDefaultGcsFetcher();
 
     // set up experimental observability callbacks and config settings
@@ -301,8 +301,7 @@ export class ApolloGateway implements GraphQLService {
       config?.experimental_didFailComposition;
     this.experimental_didUpdateComposition =
       config?.experimental_didUpdateComposition;
-    this.experimental_approximateQueryPlanStoreMiB =
-      config?.experimental_approximateQueryPlanStoreMiB;
+
     this.experimental_pollInterval = config?.experimental_pollInterval;
 
     // Use the provided updater function if provided by the user, else default
@@ -377,7 +376,7 @@ export class ApolloGateway implements GraphQLService {
     throw Error("Programming error: impossible config type.");
   }
 
-  private initQueryPlanStore() {
+  private initQueryPlanStore(size?: number) {
     return new InMemoryLRUCache<QueryPlan>({
       // Create ~about~ a 30MiB InMemoryLRUCache.  This is less than precise
       // since the technique to calculate the size of a DocumentNode is
@@ -386,7 +385,7 @@ export class ApolloGateway implements GraphQLService {
       // providing a caching document store for most operations.
       maxSize:
         Math.pow(2, 20) *
-        (this.experimental_approximateQueryPlanStoreMiB || 30),
+        (size || 30),
       sizeCalculator: approximateObjectSize,
     });
   }
