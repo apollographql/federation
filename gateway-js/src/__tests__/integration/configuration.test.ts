@@ -145,7 +145,22 @@ describe('gateway startup errors', () => {
       logger,
     });
 
-    expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(`
+    // This is the ideal, but our version of Jest has a bug with printing error snapshots.
+    // See: https://github.com/facebook/jest/pull/10217 (fixed in v26.2.0)
+    //     expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(`
+    //       "A valid schema couldn't be composed. The following composition errors were found:
+    //         [accounts] User -> A @key selects id, but User.id could not be found
+    //         [accounts] Account -> A @key selects id, but Account.id could not be found"
+    //     `);
+    // Instead we'll just use the regular snapshot matcher...
+    let err: any;
+    try {
+      await gateway.load();
+    } catch (e) {
+      err = e;
+    }
+
+    expect(err.message).toMatchInlineSnapshot(`
       "A valid schema couldn't be composed. The following composition errors were found:
       	[accounts] User -> A @key selects id, but User.id could not be found
       	[accounts] Account -> A @key selects id, but Account.id could not be found"
