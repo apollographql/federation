@@ -309,19 +309,6 @@ export class ApolloGateway implements GraphQLService {
       ? this.config.experimental_updateServiceDefinitions
       : this.loadServiceDefinitions;
 
-    // If the gateway is running a static schema, we can initialize it
-    // immediately in the constructor
-    if (isStaticConfig(this.config)) {
-      const {
-        schema,
-        composedSdl,
-        queryPlannerPointer,
-      } = this.initStaticSchema(this.config);
-      this.schema = schema;
-      this.parsedCsdl = parse(composedSdl);
-      this.queryPlannerPointer = queryPlannerPointer;
-    }
-
     if (isDynamicConfig(this.config)) {
       this.issueDynamicWarningsIfApplicable();
     }
@@ -346,36 +333,6 @@ export class ApolloGateway implements GraphQLService {
     return loglevelLogger;
   }
 
-  private initStaticSchema(config: LocalGatewayConfig | CsdlGatewayConfig) {
-    if (isLocalConfig(config)) {
-      let schema: GraphQLSchema;
-      let composedSdl: string;
-      try {
-        ({ schema, composedSdl } = this.createSchema({
-          serviceList: config.localServiceList,
-        }));
-      } catch (e) {
-        throw Error(
-          "A valid schema couldn't be composed. The following errors were found:\n" +
-            e.message,
-        );
-      }
-
-      const queryPlannerPointer = getQueryPlanner(composedSdl);
-      return { schema, composedSdl, queryPlannerPointer };
-    }
-
-    if (isCsdlConfig(config)) {
-      const { schema, composedSdl } = this.createSchema({ csdl: config.csdl });
-      const queryPlannerPointer = getQueryPlanner(config.csdl);
-      return { schema, composedSdl, queryPlannerPointer };
-    }
-
-    // This should be unreachable, and TS even recognizes that `config` is
-    // of type `never` here, but TS still thinks "not all code paths return a value".
-    throw Error("Programming error: impossible config type.");
-  }
-
   private initQueryPlanStore(size?: number) {
     return new InMemoryLRUCache<QueryPlan>({
       // Create ~about~ a 30MiB InMemoryLRUCache.  This is less than precise
@@ -383,9 +340,7 @@ export class ApolloGateway implements GraphQLService {
       // only using JSON.stringify on the DocumentNode (and thus doesn't account
       // for unicode characters, etc.), but it should do a reasonable job at
       // providing a caching document store for most operations.
-      maxSize:
-        Math.pow(2, 20) *
-        (size || 30),
+      maxSize: Math.pow(2, 20) * (size || 30),
       sizeCalculator: approximateObjectSize,
     });
   }
@@ -417,7 +372,10 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  public async load(options?: { apollo?: ApolloConfig; engine?: GraphQLServiceEngineConfig }) {
+  public async load(options?: {
+    apollo?: ApolloConfig;
+    engine?: GraphQLServiceEngineConfig;
+  }) {
     if (options?.apollo) {
       this.apolloConfig = options.apollo;
     } else if (options?.engine) {
@@ -426,11 +384,13 @@ export class ApolloGateway implements GraphQLService {
         keyHash: options.engine.apiKeyHash,
         graphId: options.engine.graphId,
         graphVariant: options.engine.graphVariant || 'current',
-      }
+      };
     }
 
+    this.maybeWarnOnConflictingConfig();
+
     const result = isStaticConfig(this.config)
-      ? this.loadStatic()
+      ? this.loadStatic(this.config)
       : await this.loadDynamic();
 
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
@@ -445,8 +405,25 @@ export class ApolloGateway implements GraphQLService {
     return result;
   }
 
-  private loadStatic() {
-    this.maybeWarnOnConflictingConfig();
+  private loadStatic(config: StaticGatewayConfig) {
+    const schemaConstructionOpts = isLocalConfig(config)
+      ? { serviceList: config.localServiceList }
+      : { csdl: config.csdl };
+
+    let schema: GraphQLSchema;
+    let composedSdl: string;
+    try {
+      ({ schema, composedSdl } = this.createSchema(schemaConstructionOpts));
+    } catch (e) {
+      throw Error(
+        "A valid schema couldn't be composed. The following errors were found:\n" +
+          e.message,
+      );
+    }
+
+    this.schema = schema;
+    this.parsedCsdl = parse(composedSdl);
+    this.queryPlannerPointer = getQueryPlanner(composedSdl);
 
     return {
       schema: this.schema!,
@@ -455,10 +432,6 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private async loadDynamic() {
-    if (isRemoteConfig(this.config)) {
-      this.maybeWarnOnConflictingConfig();
-    }
-
     await this.updateComposition();
     if (this.shouldBeginPolling()) {
       this.pollServices();
@@ -486,8 +459,8 @@ export class ApolloGateway implements GraphQLService {
       result = await this.updateServiceDefinitions(this.config);
     } catch (e) {
       this.logger.error(
-        "Error checking for changes to service definitions: " +
-         (e && e.message || e)
+        'Error checking for changes to service definitions: ' +
+          ((e && e.message) || e),
       );
       throw e;
     }
@@ -506,7 +479,7 @@ export class ApolloGateway implements GraphQLService {
     const previousCompositionMetadata = this.compositionMetadata;
 
     if (previousSchema) {
-      this.logger.info("New service definitions were found.");
+      this.logger.info('New service definitions were found.');
     }
 
     // Run service health checks before we commit and update the new schema.
@@ -530,7 +503,8 @@ export class ApolloGateway implements GraphQLService {
       } catch (e) {
         this.logger.error(
           'The gateway did not update its schema due to failed service health checks.  ' +
-          'The gateway will continue to operate with the previous schema and reattempt updates.' + e
+            'The gateway will continue to operate with the previous schema and reattempt updates.' +
+            e,
         );
         throw e;
       }
@@ -547,19 +521,23 @@ export class ApolloGateway implements GraphQLService {
 
     if (!composedSdl) {
       this.logger.error(
-        "A valid schema couldn't be composed. Falling back to previous schema."
-      )
+        "A valid schema couldn't be composed. Falling back to previous schema.",
+      );
     } else {
       this.schema = schema;
       this.queryPlannerPointer = getQueryPlanner(composedSdl);
 
       // Notify the schema listeners of the updated schema
       try {
-        this.onSchemaChangeListeners.forEach(listener => listener(this.schema!));
+        this.onSchemaChangeListeners.forEach((listener) =>
+          listener(this.schema!),
+        );
       } catch (e) {
         this.logger.error(
           "An error was thrown from an 'onSchemaChange' listener. " +
-          "The schema will still update: " + (e && e.message || e));
+            'The schema will still update: ' +
+            ((e && e.message) || e),
+        );
       }
 
       if (this.experimental_didUpdateComposition) {
@@ -604,7 +582,7 @@ export class ApolloGateway implements GraphQLService {
       Object.entries(serviceMap).map(([name, { dataSource }]) =>
         dataSource
           .process({ request: { query: HEALTH_CHECK_QUERY }, context: {} })
-          .then(response => ({ name, response })),
+          .then((response) => ({ name, response })),
       ),
     );
   }
@@ -613,7 +591,7 @@ export class ApolloGateway implements GraphQLService {
     input: { serviceList: ServiceDefinition[] } | { csdl: string },
   ) {
     if ('serviceList' in input) {
-      return this.createSchemaFromServiceList(input.serviceList)
+      return this.createSchemaFromServiceList(input.serviceList);
     } else {
       return this.createSchemaFromCsdl(input.csdl);
     }
@@ -714,7 +692,7 @@ export class ApolloGateway implements GraphQLService {
     if (this.pollingTimer) clearTimeout(this.pollingTimer);
 
     // Sleep for the specified pollInterval before kicking off another round of polling
-    await new Promise<void>(res => {
+    await new Promise<void>((res) => {
       this.pollingTimer = setTimeout(
         () => res(),
         this.experimental_pollInterval || 10000,
@@ -728,7 +706,7 @@ export class ApolloGateway implements GraphQLService {
     try {
       await this.updateComposition();
     } catch (err) {
-      this.logger.error(err && err.message || err);
+      this.logger.error((err && err.message) || err);
     }
 
     this.pollServices();
@@ -778,7 +756,7 @@ export class ApolloGateway implements GraphQLService {
     config: GatewayConfig,
   ): ReturnType<Experimental_UpdateServiceDefinitions> {
     if (isRemoteConfig(config)) {
-      const serviceList = config.serviceList.map(serviceDefinition => ({
+      const serviceList = config.serviceList.map((serviceDefinition) => ({
         ...serviceDefinition,
         dataSource: this.createAndCacheDataSource(serviceDefinition),
       }));
@@ -814,7 +792,15 @@ export class ApolloGateway implements GraphQLService {
     const canUseManagedConfig =
       this.apolloConfig?.graphId && this.apolloConfig?.keyHash;
 
-    if (canUseManagedConfig && !this.warnedStates.remoteWithLocalConfig) {
+    // This might be a bit confusing just by reading, but `!isManagedConfig` just
+    // means it's any of the other types of config. If it's any other config _and_
+    // we have a studio config available (`canUseManagedConfig`) then we have a
+    // conflict.
+    if (
+      !isManagedConfig(this.config) &&
+      canUseManagedConfig &&
+      !this.warnedStates.remoteWithLocalConfig
+    ) {
       // Only display this warning once per start-up.
       this.warnedStates.remoteWithLocalConfig = true;
       // This error helps avoid common misconfiguration.
@@ -883,7 +869,7 @@ export class ApolloGateway implements GraphQLService {
         // is returning a non-native `Promise` (e.g. Bluebird, etc.).
         Promise.resolve(
           this.queryPlanStore.set(queryPlanStoreKey, queryPlan),
-        ).catch(err =>
+        ).catch((err) =>
           this.logger.warn(
             'Could not store queryPlan' + ((err && err.message) || err),
           ),

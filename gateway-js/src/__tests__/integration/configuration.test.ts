@@ -128,14 +128,15 @@ describe('gateway startup errors', () => {
       }
     `);
 
-    expect(
-      () =>
-        new ApolloGateway({
-          localServiceList: [
-            { name: 'accounts', url: service.url, typeDefs: uncomposableSdl },
-          ],
-          logger,
-        }),
-    ).toThrowError("A valid schema couldn't be composed");
+    const gateway = new ApolloGateway({
+      localServiceList: [
+        { name: 'accounts', url: service.url, typeDefs: uncomposableSdl },
+      ],
+      logger,
+    });
+
+    expect(gateway.load()).rejects.toThrowError(
+      "A valid schema couldn't be composed",
+    );
   });
 });
