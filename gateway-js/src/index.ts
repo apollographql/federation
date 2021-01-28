@@ -333,14 +333,14 @@ export class ApolloGateway implements GraphQLService {
     return loglevelLogger;
   }
 
-  private initQueryPlanStore(size?: number) {
+  private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
     return new InMemoryLRUCache<QueryPlan>({
       // Create ~about~ a 30MiB InMemoryLRUCache.  This is less than precise
       // since the technique to calculate the size of a DocumentNode is
       // only using JSON.stringify on the DocumentNode (and thus doesn't account
       // for unicode characters, etc.), but it should do a reasonable job at
       // providing a caching document store for most operations.
-      maxSize: Math.pow(2, 20) * (size || 30),
+      maxSize: Math.pow(2, 20) * (approximateQueryPlanStoreMiB || 30),
       sizeCalculator: approximateObjectSize,
     });
   }
