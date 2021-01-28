@@ -299,8 +299,6 @@ export class ApolloGateway implements GraphQLService {
       config?.experimental_didResolveQueryPlan;
     this.experimental_didFailComposition =
       config?.experimental_didFailComposition;
-    this.experimental_didFailComposition =
-      config?.experimental_didFailComposition;
     this.experimental_didUpdateComposition =
       config?.experimental_didUpdateComposition;
     this.experimental_approximateQueryPlanStoreMiB =
