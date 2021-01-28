@@ -88,11 +88,11 @@ fn check_int(value: &str) -> bool {
         || (!value.starts_with('0')
             && value != "-"
             && !value.starts_with("-0")
-            && value[1..].chars().all(|x| x >= '0' && x <= '9'))
+            && value[1..].chars().all(|x| ('0'..='9').contains(&x)))
 }
 
 fn check_dec(value: &str) -> bool {
-    !value.is_empty() && value.chars().all(|x| x >= '0' && x <= '9')
+    !value.is_empty() && value.chars().all(|x| ('0'..='9').contains(&x))
 }
 
 fn check_exp(value: &str) -> bool {
@@ -104,7 +104,7 @@ fn check_exp(value: &str) -> bool {
         return false;
     }
 
-    value[1..].chars().all(|x| x >= '0' && x <= '9')
+    value[1..].chars().all(|x| ('0'..='9').contains(&x))
 }
 
 fn check_float(value: &str, exponent: Option<usize>, real: Option<usize>) -> bool {

@@ -61,7 +61,7 @@ pub(crate) fn build_possible_types<'a, 'q>(
 
                 if !obj.implements_interfaces.is_empty() {
                     let mut queue: VecDeque<&str> =
-                        VecDeque::from_iter(obj.implements_interfaces.iter().cloned());
+                        obj.implements_interfaces.iter().cloned().collect();
 
                     while !queue.is_empty() {
                         // get iface from queue.
