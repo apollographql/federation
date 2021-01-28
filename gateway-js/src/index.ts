@@ -200,7 +200,7 @@ export type Experimental_DidUpdateCompositionCallback = (
  * since a type has moved from one service to another.
  */
 export type Experimental_UpdateServiceDefinitions = (
-  config: GatewayConfig,
+  config: DynamicGatewayConfig,
 ) => Promise<{
   serviceDefinitions?: ServiceDefinition[];
   compositionMetadata?: CompositionMetadata;
@@ -749,7 +749,7 @@ export class ApolloGateway implements GraphQLService {
   }
 
   protected async loadServiceDefinitions(
-    config: GatewayConfig,
+    config: RemoteGatewayConfig | ManagedGatewayConfig,
   ): ReturnType<Experimental_UpdateServiceDefinitions> {
     if (isRemoteConfig(config)) {
       const serviceList = config.serviceList.map((serviceDefinition) => ({
@@ -781,8 +781,7 @@ export class ApolloGateway implements GraphQLService {
       graphId: this.apolloConfig!.graphId!,
       apiKeyHash: this.apolloConfig!.keyHash!,
       graphVariant: this.apolloConfig!.graphVariant,
-      federationVersion:
-        (config as ManagedGatewayConfig).federationVersion || 1,
+      federationVersion: config.federationVersion || 1,
       fetcher: this.fetcher,
     });
   }

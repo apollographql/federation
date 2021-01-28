@@ -1,7 +1,6 @@
 import gql from 'graphql-tag';
 import {
   ApolloGateway,
-  GatewayConfig,
   Experimental_DidResolveQueryPlanCallback,
   Experimental_UpdateServiceDefinitions,
 } from '../../index';
@@ -49,7 +48,7 @@ beforeEach(() => {
 describe('lifecycle hooks', () => {
   it('uses updateServiceDefinitions override', async () => {
     const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions = jest.fn(
-      async (_config: GatewayConfig) => {
+      async () => {
         return { serviceDefinitions, isNewSchema: true };
       },
     );
@@ -71,7 +70,7 @@ describe('lifecycle hooks', () => {
     const experimental_didFailComposition = jest.fn();
 
     const gateway = new ApolloGateway({
-      async experimental_updateServiceDefinitions(_config: GatewayConfig) {
+      async experimental_updateServiceDefinitions() {
         return {
           serviceDefinitions: [serviceDefinitions[0]],
           compositionMetadata: {
@@ -107,9 +106,7 @@ describe('lifecycle hooks', () => {
       schemaHash: 'hash1',
     };
 
-    const update: Experimental_UpdateServiceDefinitions = async (
-      _config: GatewayConfig,
-    ) => ({
+    const update: Experimental_UpdateServiceDefinitions = async () => ({
       serviceDefinitions,
       isNewSchema: true,
       compositionMetadata: {
@@ -124,7 +121,7 @@ describe('lifecycle hooks', () => {
 
     // We want to return a different composition across two ticks, so we mock it
     // slightly differenty
-    mockUpdate.mockImplementationOnce(async (_config: GatewayConfig) => {
+    mockUpdate.mockImplementationOnce(async () => {
       const services = serviceDefinitions.filter(s => s.name !== 'books');
       return {
         serviceDefinitions: [
@@ -215,7 +212,7 @@ describe('lifecycle hooks', () => {
 
   it('registers schema change callbacks when experimental_pollInterval is set for unmanaged configs', async () => {
     const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions = jest.fn(
-      async (_config: GatewayConfig) => {
+      async (_config) => {
         return { serviceDefinitions, isNewSchema: true };
       },
     );
