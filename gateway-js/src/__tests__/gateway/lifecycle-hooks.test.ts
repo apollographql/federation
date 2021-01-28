@@ -1,9 +1,9 @@
 import gql from 'graphql-tag';
+import { ApolloGateway } from '../..';
 import {
-  ApolloGateway,
   Experimental_DidResolveQueryPlanCallback,
   Experimental_UpdateServiceDefinitions,
-} from '../../index';
+} from '../../config';
 import {
   product,
   reviews,
