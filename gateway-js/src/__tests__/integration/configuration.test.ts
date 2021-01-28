@@ -145,8 +145,10 @@ describe('gateway startup errors', () => {
       logger,
     });
 
-    expect(gateway.load()).rejects.toThrowError(
-      "A valid schema couldn't be composed",
-    );
+    expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(`
+      "A valid schema couldn't be composed. The following composition errors were found:
+      	[accounts] User -> A @key selects id, but User.id could not be found
+      	[accounts] Account -> A @key selects id, but Account.id could not be found"
+    `);
   });
 });

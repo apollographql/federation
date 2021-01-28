@@ -21,7 +21,6 @@ import {
   visit,
   DocumentNode,
 } from 'graphql';
-import { GraphQLSchemaValidationError } from 'apollo-graphql';
 import {
   composeAndValidate,
   compositionHasErrors,
@@ -416,16 +415,7 @@ export class ApolloGateway implements GraphQLService {
       ? { serviceList: config.localServiceList }
       : { csdl: config.csdl };
 
-    let schema: GraphQLSchema;
-    let composedSdl: string;
-    try {
-      ({ schema, composedSdl } = this.createSchema(schemaConstructionOpts));
-    } catch (e) {
-      throw Error(
-        "A valid schema couldn't be composed. The following errors were found:\n" +
-          e.message,
-      );
-    }
+    const { schema, composedSdl } = this.createSchema(schemaConstructionOpts);
 
     this.schema = schema;
     this.parsedCsdl = parse(composedSdl);
@@ -613,7 +603,10 @@ export class ApolloGateway implements GraphQLService {
           }),
         });
       }
-      throw new GraphQLSchemaValidationError(errors);
+      throw Error(
+        "A valid schema couldn't be composed. The following composition errors were found:\n" +
+          errors.map(e => '\t' + e.message).join('\n'),
+      );
     } else {
       const { composedSdl } = compositionResult;
       this.createServices(serviceList);
