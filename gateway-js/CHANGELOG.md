@@ -4,6 +4,8 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- Simplify startup code paths. This is technically only intended to be an internal restructure, but it's substantial enough to warrant a changelog entry for observability in case of any unexpected behavioral changes. [PR #440](https://github.com/apollographql/federation/pull/440)
+
 ## v0.22.0
 
 - Include original error during creation of `GraphQLError` in `downstreamServiceError()`. [PR #309](https://github.com/apollographql/federation/pull/309)

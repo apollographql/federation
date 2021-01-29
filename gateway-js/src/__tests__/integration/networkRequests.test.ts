@@ -19,12 +19,6 @@ import {
   apiKeyHash,
   graphId,
 } from './nockMocks';
-import loadServicesFromStorage = require('../../loadServicesFromStorage');
-import { getTestingCsdl } from '../execution-utils';
-
-// This is a nice DX hack for GraphQL code highlighting and formatting within the file.
-// Anything wrapped within the gql tag within this file is just a string, not an AST.
-const gql = String.raw;
 
 export interface MockService {
   gcsDefinitionPath: string;
@@ -37,7 +31,7 @@ const service: MockService = {
   gcsDefinitionPath: 'service-definition.json',
   partialSchemaPath: 'accounts-partial-schema.json',
   url: 'http://localhost:4001',
-  sdl: gql`
+  sdl: `#graphql
     extend type Query {
       me: User
       everyone: [User]
@@ -56,7 +50,7 @@ const updatedService: MockService = {
   gcsDefinitionPath: 'updated-service-definition.json',
   partialSchemaPath: 'updated-accounts-partial-schema.json',
   url: 'http://localhost:4002',
-  sdl: gql`
+  sdl: `#graphql
     extend type Query {
       me: User
       everyone: [User]
@@ -128,100 +122,6 @@ it('Extracts service definitions from remote storage', async () => {
     apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
   });
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
-});
-
-it.each([
-  ['warned', 'present'],
-  ['not warned', 'absent'],
-])('conflicting configurations are %s about when %s', async (_word, mode) => {
-  const isConflict = mode === 'present';
-  let blockerResolve: () => void;
-  const blocker = new Promise((resolve) => (blockerResolve = resolve));
-  const original = loadServicesFromStorage.getServiceDefinitionsFromStorage;
-  const spyGetServiceDefinitionsFromStorage = jest
-    .spyOn(loadServicesFromStorage, 'getServiceDefinitionsFromStorage')
-    .mockImplementationOnce(async (...args) => {
-      try {
-        return await original(...args);
-      } catch (e) {
-        throw e;
-      } finally {
-        setImmediate(blockerResolve);
-      }
-    });
-
-  mockStorageSecretSuccess();
-  if (isConflict) {
-    mockCompositionConfigLinkSuccess();
-    mockCompositionConfigsSuccess([service]);
-    mockImplementingServicesSuccess(service);
-    mockRawPartialSchemaSuccess(service);
-  } else {
-    mockCompositionConfigLink().reply(403);
-  }
-
-  mockSDLQuerySuccess(service);
-
-  const gateway = new ApolloGateway({
-    serviceList: [{ name: 'accounts', url: service.url }],
-    logger,
-  });
-
-  await gateway.load({
-    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-  });
-  await blocker; // Wait for the definitions to be "fetched".
-
-  (isConflict
-    ? expect(logger.warn)
-    : expect(logger.warn).not
-  ).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /A local gateway configuration is overriding a managed federation configuration/,
-    ),
-  );
-  spyGetServiceDefinitionsFromStorage.mockRestore();
-});
-
-it('warns when both csdl and studio configuration are provided', async () => {
-  mockStorageSecretSuccess();
-  mockCompositionConfigLinkSuccess();
-  mockCompositionConfigsSuccess([service]);
-  mockImplementingServicesSuccess(service);
-  mockRawPartialSchemaSuccess(service);
-
-  let blockerResolve: () => void;
-  const blocker = new Promise((resolve) => (blockerResolve = resolve));
-  const original = loadServicesFromStorage.getServiceDefinitionsFromStorage;
-  const spyGetServiceDefinitionsFromStorage = jest
-    .spyOn(loadServicesFromStorage, 'getServiceDefinitionsFromStorage')
-    .mockImplementationOnce(async (...args) => {
-      try {
-        return await original(...args);
-      } catch (e) {
-        throw e;
-      } finally {
-        setImmediate(blockerResolve);
-      }
-    });
-
-  const gateway = new ApolloGateway({
-    csdl: getTestingCsdl(),
-    logger,
-  });
-
-  await gateway.load({
-    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-  });
-
-  await blocker;
-
-  expect(logger.warn).toHaveBeenCalledWith(
-    'A local gateway configuration is overriding a managed federation configuration.' +
-      '  To use the managed configuration, do not specify a service list or csdl locally.',
-  );
-
-  spyGetServiceDefinitionsFromStorage.mockRestore();
 });
 
 // This test has been flaky for a long time, and fails consistently after changes
