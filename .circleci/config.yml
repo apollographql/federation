@@ -17,7 +17,7 @@ commands:
     description: "Commands to run on every Node.js environment"
     steps:
       - run:
-          # rustup must be installed prior to installing `wasm-pack`.
+          # rustup must be installed in order to use `wasm-pack`.
           # If rustup isn't already in our environment, install it.
           # On the `circleci/rust:*-node` images, it's already installed, so
           # it's marginally faster to skip this when not necessary.
@@ -30,11 +30,6 @@ commands:
                   echo 'source $HOME/.cargo/env' >> $BASH_ENV
                   # This last line here is for subsequent "run" steps.
               )
-      - run:
-          name: Install wasm-pack
-          command: |
-            curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf |
-              sh
       - oss/install_specific_npm_version
       - checkout
       - oss/npm_clean_install_with_caching
