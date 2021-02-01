@@ -5,6 +5,7 @@ import { ApolloGateway } from '../..';
 import {
   mockSDLQuerySuccess,
   mockServiceHealthCheckSuccess,
+  mockAllServicesHealthCheckSuccess,
   mockServiceHealthCheck,
   mockCsdlRequestSuccess,
   apiKey,
@@ -12,7 +13,14 @@ import {
   graphId,
   graphVariant,
 } from './nockMocks';
-import { accounts, books, documents, inventory, product, reviews } from 'apollo-federation-integration-testsuite';
+import {
+  accounts,
+  books,
+  documents,
+  inventory,
+  product,
+  reviews,
+} from 'apollo-federation-integration-testsuite';
 import { DocumentNode } from 'graphql';
 
 export interface MockService {
@@ -20,6 +28,7 @@ export interface MockService {
   typeDefs: DocumentNode;
 }
 
+// TODO: get rid of maybe?
 const service: MockService = {
   url: 'http://localhost:4001',
   typeDefs: gql`
@@ -37,6 +46,7 @@ const service: MockService = {
   `,
 };
 
+// TODO: get rid of
 const updatedService: MockService = {
   url: 'http://localhost:4002',
   typeDefs: gql`
@@ -221,12 +231,7 @@ describe('Downstream service health checks', () => {
   describe('Managed mode', () => {
     it('Performs health checks to downstream services on load', async () => {
       mockCsdlRequestSuccess();
-      mockServiceHealthCheckSuccess(accounts);
-      mockServiceHealthCheckSuccess(books);
-      mockServiceHealthCheckSuccess(documents);
-      mockServiceHealthCheckSuccess(inventory);
-      mockServiceHealthCheckSuccess(product);
-      mockServiceHealthCheckSuccess(reviews);
+      mockAllServicesHealthCheckSuccess();
 
       gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
 
@@ -242,10 +247,10 @@ describe('Downstream service health checks', () => {
       mockCsdlRequestSuccess();
       mockServiceHealthCheck(accounts).reply(500);
       mockServiceHealthCheckSuccess(books);
-      mockServiceHealthCheckSuccess(documents);
       mockServiceHealthCheckSuccess(inventory);
       mockServiceHealthCheckSuccess(product);
       mockServiceHealthCheckSuccess(reviews);
+      mockServiceHealthCheckSuccess(documents);
 
       const gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
 

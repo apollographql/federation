@@ -4,6 +4,7 @@ import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
 import { CSDL_QUERY } from '../../loadCsdlFromStorage';
 import { getTestingCsdl } from '../../__tests__/execution-utils';
 import { print } from 'graphql';
+import { fixtures } from 'apollo-federation-integration-testsuite';
 
 export const graphId = 'federated-service';
 export const graphVariant = 'current';
@@ -34,6 +35,14 @@ export function mockServiceHealthCheckSuccess(service: MockService) {
   return mockServiceHealthCheck(service).reply(200, {
     data: { __typename: 'Query' },
   });
+}
+
+export function mockAllServicesHealthCheckSuccess() {
+  return fixtures.map((fixture) =>
+    mockServiceHealthCheck(fixture).reply(200, {
+      data: { __typename: 'Query' },
+    }),
+  );
 }
 
 // CSDL fetching mocks
