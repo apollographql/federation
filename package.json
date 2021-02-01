@@ -10,14 +10,16 @@
     "watch": "tsc --build tsconfig.build.json --watch",
     "release:version-bump": "lerna version --force-publish=@apollo/query-planner-wasm",
     "release:start-ci-publish": "node -p '`Publish (dist-tag:${process.env.APOLLO_DIST_TAG || \"latest\"})`' | git tag -F - \"publish/$(date -u '+%Y%m%d%H%M%S')\" && git push origin \"$(git describe --match='publish/*' --tags --exact-match HEAD)\"",
-    "postinstall": "lerna run monorepo-prepare --stream && npm run compile",
+    "postinstall": "npm run rustup-ensure && lerna run monorepo-prepare --stream && npm run compile",
     "test": "jest --verbose",
     "test:clean": "jest --clearCache",
     "test:watch": "jest --verbose --watchAll",
     "testonly": "npm test",
     "test:ci": "npm run coverage -- --ci --maxWorkers=2  --reporters=default --reporters=jest-junit",
     "coverage": "npm test -- --coverage",
-    "coverage:upload": "codecov"
+    "coverage:upload": "codecov",
+    "rustup-install": "INSTALL_RUSTUP=true ./ensure-rustup.sh",
+    "rustup-ensure": "INSTALL_RUSTUP= ./ensure-rustup.sh"
   },
   "engines": {
     "node": ">=6"

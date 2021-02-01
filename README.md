@@ -13,8 +13,6 @@ We'll be improving this `README` as soon as possible, but to learn about Apollo 
 
 ## Contributing
 
-In order to work in this repository (even on the TypeScript code), you must have Rust installed. Specifically, install [`rustup`](https://rustup.rs/).
-
 If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://www.apollographql.com/docs/community/code-of-conduct/) and then head on over to the [contributing guide](./CONTRIBUTING.md) to learn how to work on this project.
 
 If you ever have any problems, questions, or ideas, the maintainers of this project are:
