@@ -1,11 +1,14 @@
 import nock from 'nock';
-import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
 import { MockService } from './networkRequests.test';
+import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
+import { CSDL_QUERY } from '../../loadCsdlFromStorage';
+import { getTestingCsdl } from '../../__tests__/execution-utils';
+import { print } from 'graphql';
 
 export const graphId = 'federated-service';
+export const graphVariant = 'current';
+export const apiKey = 'service:federated-service:DD71EBbGmsuh-6suUVDwnA';
 export const apiKeyHash = 'dd55a79d467976346d229a7b12b673ce';
-const storageSecret = 'my-storage-secret';
-const accountsService = 'accounts';
 
 // Service mocks
 function mockSDLQuery({ url }: MockService) {
@@ -14,9 +17,10 @@ function mockSDLQuery({ url }: MockService) {
   });
 }
 
+// TODO: do we need the manual call to print?
 export function mockSDLQuerySuccess(service: MockService) {
   mockSDLQuery(service).reply(200, {
-    data: { _service: { sdl: service.sdl } },
+    data: { _service: { sdl: print(service.typeDefs) } },
   });
 }
 
@@ -32,82 +36,40 @@ export function mockServiceHealthCheckSuccess(service: MockService) {
   });
 }
 
-// GCS mocks
-function gcsNock(url: Parameters<typeof nock>[0]): nock.Scope {
+// CSDL fetching mocks
+function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
   return nock(url, {
-    reqheaders: {
-      'user-agent': `apollo-gateway/${
-        require('../../../package.json').version
-      }`,
+    // reqheaders: {
+    //   'user-agent': `apollo-gateway/${
+    //     require('../../../package.json').version
+    //   }`,
+    // },
+  });
+}
+
+export function mockCsdlRequest() {
+  return gatewayNock(
+    'https://us-central1-mdg-services.cloudfunctions.net:443/cloudconfig-staging',
+  ).post('/', {
+    query: CSDL_QUERY,
+    variables: {
+      ref: `${graphId}@${graphVariant}`,
+      apiKey: apiKey,
     },
   });
 }
 
-export function mockStorageSecret() {
-  return gcsNock('https://storage-secrets.api.apollographql.com:443').get(
-    `/${graphId}/storage-secret/${apiKeyHash}.json`,
+export function mockCsdlRequestSuccess() {
+  return mockCsdlRequest().reply(
+    200,
+    JSON.stringify({
+      data: {
+        routerConfig: {
+          __typename: 'RouterConfigResult',
+          id: 'blahblah',
+          csdl: getTestingCsdl(),
+        },
+      },
+    }),
   );
-}
-
-export function mockStorageSecretSuccess() {
-  return gcsNock('https://storage-secrets.api.apollographql.com:443')
-    .get(
-      `/${graphId}/storage-secret/${apiKeyHash}.json`,
-    )
-    .reply(200, `"${storageSecret}"`);
-}
-
-// get composition config link, using received storage secret
-export function mockCompositionConfigLink() {
-  return gcsNock('https://federation.api.apollographql.com:443').get(
-    `/${storageSecret}/current/v1/composition-config-link`,
-  );
-}
-
-export function mockCompositionConfigLinkSuccess() {
-  return mockCompositionConfigLink().reply(200, {
-    configPath: `${storageSecret}/current/v1/composition-configs/composition-config-path.json`,
-  });
-}
-
-// get composition configs, using received composition config link
-export function mockCompositionConfigs() {
-  return gcsNock('https://federation.api.apollographql.com:443').get(
-    `/${storageSecret}/current/v1/composition-configs/composition-config-path.json`,
-  );
-}
-
-export function mockCompositionConfigsSuccess(services: MockService[]) {
-  return mockCompositionConfigs().reply(200, {
-    implementingServiceLocations: services.map(service => ({
-      name: accountsService,
-      path: `${storageSecret}/current/v1/implementing-services/${accountsService}/${service.gcsDefinitionPath}`,
-    })),
-  });
-}
-
-// get implementing service reference, using received composition-config
-export function mockImplementingServices({ gcsDefinitionPath }: MockService) {
-  return gcsNock('https://federation.api.apollographql.com:443').get(
-    `/${storageSecret}/current/v1/implementing-services/${accountsService}/${gcsDefinitionPath}`,
-  );
-}
-
-export function mockImplementingServicesSuccess(service: MockService) {
-  return mockImplementingServices(service).reply(200, {
-    name: accountsService,
-    partialSchemaPath: `${storageSecret}/current/raw-partial-schemas/${service.partialSchemaPath}`,
-    url: service.url,
-  });
-}
-
-// get raw-partial-schema, using received composition-config
-export function mockRawPartialSchema({ partialSchemaPath }: MockService) {
-  return gcsNock('https://federation.api.apollographql.com:443').get(
-    `/${storageSecret}/current/raw-partial-schemas/${partialSchemaPath}`,
-  );
-}
-
-export function mockRawPartialSchemaSuccess(service: MockService) {
-  return mockRawPartialSchema(service).reply(200, service.sdl);
 }

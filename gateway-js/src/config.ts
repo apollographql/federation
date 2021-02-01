@@ -6,9 +6,6 @@ import { ServiceDefinition } from "@apollo/federation";
 import { GraphQLDataSource } from './datasources/types';
 import { QueryPlan, OperationContext } from './QueryPlan';
 import { ServiceMap } from './executeQueryPlan';
-import {
-  CompositionMetadata,
-} from './loadServicesFromStorage';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -26,6 +23,18 @@ export type Experimental_DidResolveQueryPlanCallback = ({
   >;
 }) => void;
 
+interface ImplementingServiceLocation {
+  name: string;
+  path: string;
+}
+
+export interface CompositionMetadata {
+  formatVersion: number;
+  id: string;
+  implementingServiceLocations: ImplementingServiceLocation[];
+  schemaHash: string;
+}
+
 export type Experimental_DidFailCompositionCallback = ({
   errors,
   serviceList,
@@ -36,17 +45,39 @@ export type Experimental_DidFailCompositionCallback = ({
   readonly compositionMetadata?: CompositionMetadata;
 }) => void;
 
-export interface Experimental_CompositionInfo {
+export interface ServiceDefinitionCompositionInfo {
   serviceDefinitions: ServiceDefinition[];
   schema: GraphQLSchema;
   compositionMetadata?: CompositionMetadata;
 }
 
+export interface CsdlCompositionInfo {
+  schema: GraphQLSchema;
+  compositionId: string;
+  csdl: string;
+}
+
+export type CompositionInfo =
+  | ServiceDefinitionCompositionInfo
+  | CsdlCompositionInfo;
+
 export type Experimental_DidUpdateCompositionCallback = (
-  currentConfig: Experimental_CompositionInfo,
-  previousConfig?: Experimental_CompositionInfo,
+  currentConfig: CompositionInfo,
+  previousConfig?: CompositionInfo,
 ) => void;
 
+export type UpdateReturnType = UpdatedServiceDefinitions | UpdatedCsdl;
+
+export interface UpdatedServiceDefinitions {
+  serviceDefinitions?: ServiceDefinition[];
+  compositionMetadata?: CompositionMetadata;
+  isNewSchema: boolean;
+}
+
+export interface UpdatedCsdl {
+  id: string;
+  csdl: string;
+}
 /**
  * **Note:** It's possible for a schema to be the same (`isNewSchema: false`) when
  * `serviceDefinitions` have changed. For example, during type migration, the
@@ -55,11 +86,7 @@ export type Experimental_DidUpdateCompositionCallback = (
  */
 export type Experimental_UpdateServiceDefinitions = (
   config: DynamicGatewayConfig,
-) => Promise<{
-  serviceDefinitions?: ServiceDefinition[];
-  compositionMetadata?: CompositionMetadata;
-  isNewSchema: boolean;
-}>;
+) => Promise<UpdateReturnType>;
 
 interface GatewayConfigBase {
   debug?: boolean;
