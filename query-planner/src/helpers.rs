@@ -6,7 +6,6 @@ use graphql_parser::{query, schema, Name, Pos};
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
-use std::iter::FromIterator;
 
 pub(crate) fn get_operations<'q>(query: &'q Document<'q>) -> Vec<Op<'q>> {
     query
