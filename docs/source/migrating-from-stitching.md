@@ -192,6 +192,6 @@ You can now begin to modify your existing schema to take full advantage of the
 features that federation provides. These features include:
 
 * Greater flexibility with [federation core concepts](https://www.apollographql.com/docs/federation/core-concepts/)
-* [Metrics and analysis of query plans](https://www.apollographql.com/docs/studio/managed-federation/advanced-topics/#metrics-and-observability)
-* [Gateway support for live schema updates from implementing services](https://www.apollographql.com/docs/studio/managed-federation/advanced-topics/#diving-into-servicepush)
-* [Validation of composition logic and usage traffic](https://www.apollographql.com/docs/studio/managed-federation/advanced-topics/#checking-changes-to-a-federated-graph) (with paid subscription)
+* [Metrics and analysis of query plans](https://www.apollographql.com/docs/studio/managed-federation/monitoring/#metrics-and-observability)
+* [Gateway support for live schema updates from implementing services](https://www.apollographql.com/docs/studio/managed-federation/deployment/#the-servicepush-lifecycle)
+* [Validation of composition logic and usage traffic](https://www.apollographql.com/docs/studio/managed-federation/federated-schema-checks/) (with paid subscription)

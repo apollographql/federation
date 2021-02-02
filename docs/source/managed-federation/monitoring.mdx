@@ -1,0 +1,39 @@
+---
+title: Monitoring a federated graph
+sidebar_title: Monitoring
+---
+
+The following sections describe features for monitoring a federated graph with Apollo Studio.
+
+## Inspecting your graph
+
+You can view the implementing services that make up your graph with either the Apollo CLI or [Apollo Studio](https://studio.apollographql.com/).
+
+Run `apollo service:list` to see a snapshot of the services that make up your graph, including their endpoints and when they were last updated:
+
+```
+$ apollo service:list
+  ✔ Loading Apollo Project
+  ✔ Fetching list of services for graph service-list-federation-demo
+
+name       URL                            last updated
+─────────  ─────────────────────────────  ────────────────────────
+Accounts   http://localhost:4001/graphql  3 July 2019 (2 days ago)
+Inventory  http://localhost:4004/graphql  3 July 2019 (2 days ago)
+Products   http://localhost:4003/graphql  3 July 2019 (2 days ago)
+Reviews    http://localhost:4002/graphql  3 July 2019 (2 days ago)
+
+View full details at: https://studio.apollographql.com/graph/service-list-federation-demo/service-list
+```
+
+## Metrics and observability
+
+Like any distributed architecture, you should make sure that your federated graph has proper observability, monitoring, and automation to ensure reliability and performance of both your gateway and the federated services underneath it. Serving your GraphQL API from a distributed architecture has many benefits, like productivity, isolation, and being able to match the right services with the right runtimes. Operating a distributed system also has more complexity and points of failure than operating a monolith, and with that complexity comes a need to heighten observability into the state of your system and control over its coordination.
+
+Apollo Server has support for reporting federated [tracing](https://www.apollographql.com/docs/studio/performance/) information from the gateway. In order to support the gateway with detailed timing and error information, federated services expose their own tracing information per-fetch in their extensions, which are consumed by the gateway and merged together in order to be emitted to the Apollo metrics ingress.
+
+To enable federated tracing, make sure the `APOLLO_KEY` is set in the environment for your gateway server and ensure that all federated services and the gateway are running `apollo-server` version `2.7.0` or greater. Also, ensure that federated services **do not** set the `APOLLO_KEY` environment variable (`ENGINE_API_KEY` in `apollo-server` versions pre 2.13.0).
+
+Traces are reported in Studio in the shape of the query plan, with each unique fetch to a federated service reporting timing and error data.
+
+Operation-level statistics are still collected over the operations sent by the client, and those operations will be validated as part of the `service:check` validation workflow.
