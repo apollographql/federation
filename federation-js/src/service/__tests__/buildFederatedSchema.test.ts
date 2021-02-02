@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import { Kind, graphql, DocumentNode, execute } from 'graphql';
 import { buildFederatedSchema } from '../buildFederatedSchema';
-import { typeSerializer } from '../../snapshotSerializers';
+import { typeSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(typeSerializer);
 

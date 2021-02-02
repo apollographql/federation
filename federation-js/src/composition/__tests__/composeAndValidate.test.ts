@@ -11,7 +11,7 @@ import {
   astSerializer,
   typeSerializer,
   graphqlErrorSerializer,
-} from '../../snapshotSerializers';
+} from 'apollo-federation-integration-testsuite';
 import {
   assertCompositionFailure,
   assertCompositionSuccess,

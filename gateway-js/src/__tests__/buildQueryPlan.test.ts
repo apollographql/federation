@@ -1,7 +1,7 @@
 import { GraphQLSchema } from 'graphql';
 import gql from 'graphql-tag';
 import { buildQueryPlan, buildOperationContext } from '../buildQueryPlan';
-import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
+import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
 import { WasmPointer } from '../QueryPlan';
 

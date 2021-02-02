@@ -15,8 +15,8 @@ function prepareHttpOptions(requestUrl: string, requestOpts: RequestInit): Reque
   const headers = new Headers();
   headers.set('Content-Type', 'application/json');
   if (requestOpts.headers) {
-    for (let name in requestOpts.headers) {
-      headers.set(name, requestOpts.headers[name]);
+    for (const [name, value] of new Headers(requestOpts.headers)) {
+      headers.set(name, value);
     }
   }
 

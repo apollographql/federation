@@ -1,6 +1,6 @@
 import { ASTNode, print, Kind, visit } from 'graphql';
 import { Plugin, Config, Refs } from 'pretty-format';
-import { QueryPlanSelectionNode, QueryPlanInlineFragmentNode } from '../QueryPlan';
+import { QueryPlanSelectionNode, QueryPlanInlineFragmentNode } from '@apollo/gateway';
 import { SelectionNode as GraphQLJSSelectionNode } from 'graphql';
 
 export default {
@@ -18,7 +18,6 @@ export default {
   ): string {
     return print(remapInlineFragmentNodes(value))
       .trim()
-      .replace(/\n\n/g, '\n')
       .replace(/\n/g, '\n' + indentation);
   },
 } as Plugin;

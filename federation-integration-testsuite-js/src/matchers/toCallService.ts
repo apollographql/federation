@@ -1,7 +1,6 @@
-import { QueryPlan } from '@apollo/gateway';
-import { PlanNode } from '../../QueryPlan';
-import astSerializer from '../../snapshotSerializers/astSerializer';
-import queryPlanSerializer from '../../snapshotSerializers/queryPlanSerializer';
+import { QueryPlan, PlanNode } from '@apollo/gateway';
+import astSerializer from '../snapshotSerializers/astSerializer';
+import queryPlanSerializer from '../snapshotSerializers/queryPlanSerializer';
 const prettyFormat = require('pretty-format');
 
 declare global {

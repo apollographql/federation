@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import deepFreeze from 'deep-freeze';
 import { stripExternalFieldsFromTypeDefs } from '../utils';
-import { astSerializer } from '../../snapshotSerializers';
+import { astSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(astSerializer);
 

@@ -1,5 +1,5 @@
 import { Config, Plugin, Refs } from 'pretty-format';
-import { PlanNode, QueryPlan } from '../QueryPlan';
+import { PlanNode, QueryPlan } from '@apollo/gateway';
 import { parse, Kind, visit, DocumentNode } from 'graphql';
 
 export default {

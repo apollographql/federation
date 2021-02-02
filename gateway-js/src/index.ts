@@ -41,8 +41,7 @@ import {
   getServiceDefinitionsFromStorage,
   CompositionMetadata,
 } from './loadServicesFromStorage';
-
-import { serializeQueryPlan, QueryPlan, OperationContext, WasmPointer } from './QueryPlan';
+import { QueryPlan, OperationContext, WasmPointer } from './QueryPlan';
 import { GraphQLDataSource } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
@@ -772,7 +771,12 @@ export class ApolloGateway implements GraphQLService {
     // 2) non-empty query plan and shouldShowQueryPlan === true
     const serializedQueryPlan =
       queryPlan.node && (this.config.debug || shouldShowQueryPlan)
-        ? serializeQueryPlan(queryPlan)
+        // FIXME: I disabled printing the query plan because this lead to a
+        // circular dependency between the `@apollo/gateway` and
+        // `apollo-federation-integration-testsuite` packages.
+        // We should either solve that or switch Playground to
+        // the JSON serialization format.
+        ? {} // prettyPrintQueryPlan(queryPlan)
         : null;
 
     if (this.config.debug && serializedQueryPlan) {
@@ -850,9 +854,7 @@ function wrapSchemaWithAliasResolver(
 export {
   buildQueryPlan,
   executeQueryPlan,
-  serializeQueryPlan,
   buildOperationContext,
-  QueryPlan,
   ServiceMap,
   Experimental_DidFailCompositionCallback,
   Experimental_DidResolveQueryPlanCallback,
@@ -863,4 +865,5 @@ export {
   Experimental_CompositionInfo,
 };
 
+export * from './QueryPlan';
 export * from './datasources';

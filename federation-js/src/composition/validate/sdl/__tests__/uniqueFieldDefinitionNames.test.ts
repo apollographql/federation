@@ -7,7 +7,7 @@ import {
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
 import gql from 'graphql-tag';
-import { typeSerializer } from '../../../../snapshotSerializers';
+import { typeSerializer } from 'apollo-federation-integration-testsuite';
 import { buildMapsFromServiceList } from '../../../compose';
 import federationDirectives from '../../../../directives';
 import { UniqueFieldDefinitionNames } from '..';

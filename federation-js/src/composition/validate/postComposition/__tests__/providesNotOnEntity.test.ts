@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { providesNotOnEntity as validateProvidesNotOnEntity } from '../';
-import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 

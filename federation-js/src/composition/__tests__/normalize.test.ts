@@ -5,7 +5,7 @@ import {
   normalizeTypeDefs,
   stripCommonPrimitives,
 } from '../normalize';
-import { astSerializer } from '../../snapshotSerializers';
+import { astSerializer } from 'apollo-federation-integration-testsuite';
 import { specifiedDirectives } from 'graphql';
 
 expect.addSnapshotSerializer(astSerializer);

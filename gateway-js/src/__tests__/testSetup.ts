@@ -1,4 +1,1 @@
-import './matchers/toMatchAST';
-import './matchers/toCallService';
-import './matchers/toHaveBeenCalledBefore';
-import './matchers/toHaveFetched';
+import 'apollo-federation-integration-testsuite';

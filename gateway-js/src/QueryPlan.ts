@@ -5,8 +5,6 @@ import {
   SelectionNode as GraphQLJSSelectionNode,
   GraphQLSchema,
 } from 'graphql';
-import prettyFormat from 'pretty-format';
-import { queryPlanSerializer, astSerializer } from './snapshotSerializers';
 
 export type ResponsePath = (string | number)[];
 
@@ -72,12 +70,6 @@ export interface QueryPlanInlineFragmentNode {
   readonly kind: 'InlineFragment';
   readonly typeCondition?: string;
   readonly selections: QueryPlanSelectionNode[];
-}
-
-export function serializeQueryPlan(queryPlan: QueryPlan) {
-  return prettyFormat(queryPlan, {
-    plugins: [queryPlanSerializer, astSerializer],
-  });
 }
 
 export function getResponseName(node: QueryPlanFieldNode): string {

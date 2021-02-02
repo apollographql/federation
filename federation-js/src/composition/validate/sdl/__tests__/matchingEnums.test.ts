@@ -13,7 +13,7 @@ import {
   astSerializer,
   typeSerializer,
   selectionSetSerializer,
-} from '../../../../snapshotSerializers';
+} from 'apollo-federation-integration-testsuite';
 import { normalizeTypeDefs } from '../../../normalize';
 import federationDirectives from '../../../../directives';
 import { ServiceDefinition } from '../../../types';

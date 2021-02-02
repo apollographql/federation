@@ -3,5 +3,6 @@
   "include": ["**/__tests__/**/*"],
   "references": [
     { "path": "./" },
+    { "path": "../federation-integration-testsuite-js" }
   ]
 }
