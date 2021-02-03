@@ -80,8 +80,6 @@ type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
 };
 
-type Await<T> = T extends Promise<infer U> ? U : T;
-
 // Local state to track whether particular UX-improving warning messages have
 // already been emitted.  This is particularly useful to prevent recurring
 // warnings of the same type in, e.g. repeating timers, which don't provide
@@ -135,7 +133,6 @@ export class ApolloGateway implements GraphQLService {
   private parsedCsdl?: DocumentNode;
   private fetcher: typeof fetch;
   private compositionId?: string;
-
   private state: GatewayState;
 
   // Observe query plan, service info, and operation info prior to execution.
@@ -156,7 +153,7 @@ export class ApolloGateway implements GraphQLService {
   protected experimental_pollInterval?: number;
 
   constructor(config?: GatewayConfig) {
-    this.config = {
+     this.config = {
       // TODO: expose the query plan in a more flexible JSON format in the future
       // and remove this config option in favor of `exposeQueryPlan`. Playground
       // should cutover to use the new option when it's built.
@@ -338,6 +335,7 @@ export class ApolloGateway implements GraphQLService {
   // Asynchronously load a dynamically configured schema. `this.updateComposition`
   // is responsible for updating the class instance's schema and query planner.
   private async loadDynamic(unrefTimer: boolean) {
+    // This may throw, but it's expected on initial load to do so
     await this.updateComposition();
     this.state = { phase: 'loaded' };
     if (this.shouldBeginPolling()) {
@@ -350,17 +348,10 @@ export class ApolloGateway implements GraphQLService {
   }
 
   protected async updateComposition(): Promise<void> {
-    let result: Await<UpdateReturnType>;
-    this.logger.debug('Checking service definitions...');
-    try {
-      result = await this.updateServiceDefinitions(this.config);
-    } catch (e) {
-      this.logger.error(
-        'Error checking for changes to service definitions: ' +
-          ((e && e.message) || e),
-      );
-      throw e;
-    }
+    this.logger.debug('Checking for composition updates...');
+
+    // This may throw, but an error here is caught and logged upstream
+    const result = await this.updateServiceDefinitions(this.config);
 
     //TODO: proper predicates
     if ('csdl' in result) {

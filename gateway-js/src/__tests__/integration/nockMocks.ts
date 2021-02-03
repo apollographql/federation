@@ -48,11 +48,11 @@ export function mockAllServicesHealthCheckSuccess() {
 // CSDL fetching mocks
 function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
   return nock(url, {
-    // reqheaders: {
-    //   'user-agent': `apollo-gateway/${
-    //     require('../../../package.json').version
-    //   }`,
-    // },
+    reqheaders: {
+      'user-agent': `apollo-gateway/${
+        require('../../../package.json').version
+      }`,
+    },
   });
 }
 
@@ -68,15 +68,15 @@ export function mockCsdlRequest() {
   });
 }
 
-export function mockCsdlRequestSuccess() {
+export function mockCsdlRequestSuccess(csdl = getTestingCsdl(), id = "1234") {
   return mockCsdlRequest().reply(
     200,
     JSON.stringify({
       data: {
         routerConfig: {
           __typename: 'RouterConfigResult',
-          id: 'blahblah',
-          csdl: getTestingCsdl(),
+          id,
+          csdl,
         },
       },
     }),

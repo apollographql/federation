@@ -287,7 +287,7 @@ describe('', () => {
         retailPrice: String
       }
       ",
-        "id": "blahblah",
+        "id": "originalId-1234",
       }
     `);
   });

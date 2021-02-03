@@ -3,7 +3,7 @@ import { Logger } from 'apollo-server-types';
 import { ApolloGateway } from '../..';
 import {
   mockSDLQuerySuccess,
-  mockCsdlRequest,
+  mockCsdlRequestSuccess,
   apiKeyHash,
   graphId,
   apiKey,
@@ -15,6 +15,7 @@ import { MockService } from './networkRequests.test';
 let logger: Logger;
 
 const service: MockService = {
+  name: 'accounts',
   url: 'http://localhost:4001',
   typeDefs: gql`
     extend type Query {
@@ -89,7 +90,7 @@ describe('gateway configuration warnings', () => {
   });
 
   it('conflicting configurations are not warned about when absent', async () => {
-    mockCsdlRequest();
+    mockCsdlRequestSuccess();
 
     gateway = new ApolloGateway({
       logger,
@@ -98,6 +99,8 @@ describe('gateway configuration warnings', () => {
     await gateway.load({
       apollo: { key: apiKey, keyHash: apiKeyHash, graphId, graphVariant },
     });
+
+    await gateway.stop();
 
     expect(logger.warn).not.toHaveBeenCalledWith(
       expect.stringMatching(

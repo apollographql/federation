@@ -10,7 +10,7 @@ import * as log4js from "log4js";
 
 const LOWEST_LOG_LEVEL = "debug";
 
-const KNOWN_DEBUG_MESSAGE = "Checking service definitions...";
+const KNOWN_DEBUG_MESSAGE = "Checking for composition updates...";
 
 async function triggerKnownDebugMessage(logger: Logger) {
   // Trigger a known error.

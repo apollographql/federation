@@ -115,10 +115,10 @@ describe('ApolloGateway executor', () => {
 
     expect(server.requestOptions.executor).toBe(gateway.executor);
 
-    expect(logger.error.mock.calls).toEqual([
-      ["Error checking for changes to service definitions: Tried to load services from remote endpoints but none provided"],
-      ["This data graph is missing a valid configuration. Tried to load services from remote endpoints but none provided"]
-    ]);
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(logger.error).toHaveBeenCalledWith(
+      "This data graph is missing a valid configuration. Tried to load services from remote endpoints but none provided"
+    );
 
     mockExit.mockRestore();
   });
