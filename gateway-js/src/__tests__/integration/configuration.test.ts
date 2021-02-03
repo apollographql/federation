@@ -50,8 +50,15 @@ beforeEach(() => {
 });
 
 describe('gateway configuration warnings', () => {
+  let gateway: ApolloGateway | null = null;
+  afterEach(async () => {
+    if (gateway) {
+      await gateway.stop();
+      gateway = null;
+    }
+  });
   it('warns when both csdl and studio configuration are provided', async () => {
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       csdl: getTestingCsdl(),
       logger,
     });
@@ -69,7 +76,7 @@ describe('gateway configuration warnings', () => {
   it('conflicting configurations are warned about when present', async () => {
     mockSDLQuerySuccess(service);
 
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       serviceList: [{ name: 'accounts', url: service.url }],
       logger,
     });
@@ -92,7 +99,7 @@ describe('gateway configuration warnings', () => {
     mockImplementingServicesSuccess(service);
     mockRawPartialSchemaSuccess(service);
 
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       logger,
     });
 
