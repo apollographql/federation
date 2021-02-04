@@ -5,8 +5,9 @@ import { RequestInit, Headers } from 'apollo-server-env';
 export {};
 declare global {
   namespace jest {
-    interface Matchers<R, T> {
-      toHaveFetched(spy: SpyInstance): R;
+    interface Matchers<R> {
+      toHaveFetched(requestUrl: string, requestOpts?: RequestInit): R;
+      toHaveFetchedNth(nthCall: number, requestUrl: string, requestOpts?: RequestInit): R;
     }
   }
 }
@@ -37,7 +38,7 @@ function toHaveFetched(
   this: jest.MatcherUtils,
   fetch: jest.SpyInstance,
   requestUrl: string,
-  requestOpts: RequestInit
+  requestOpts: RequestInit = {}
 ): { message(): string; pass: boolean } {
   const httpOptions = prepareHttpOptions(requestUrl, requestOpts);
   let pass = false;
@@ -60,7 +61,7 @@ function toHaveFetchedNth(
   fetch: jest.SpyInstance,
   nthCall: number,
   requestUrl: string,
-  requestOpts: RequestInit
+  requestOpts: RequestInit = {}
 ): { message(): string; pass: boolean } {
   const httpOptions = prepareHttpOptions(requestUrl, requestOpts);
   let pass = false;
