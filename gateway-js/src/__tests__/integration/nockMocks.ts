@@ -9,7 +9,16 @@ import { fixtures } from 'apollo-federation-integration-testsuite';
 export const graphId = 'federated-service';
 export const graphVariant = 'current';
 export const apiKey = 'service:federated-service:DD71EBbGmsuh-6suUVDwnA';
-export const apiKeyHash = 'dd55a79d467976346d229a7b12b673ce';
+const apiKeyHash = 'dd55a79d467976346d229a7b12b673ce';
+
+export const mockApolloConfig = {
+  apollo: {
+    key: apiKey,
+    keyHash: apiKeyHash,
+    graphId,
+    graphVariant,
+  },
+};
 
 // Service mocks
 function mockSDLQuery({ url }: MockService) {
@@ -18,7 +27,6 @@ function mockSDLQuery({ url }: MockService) {
   });
 }
 
-// TODO: do we need the manual call to print?
 export function mockSDLQuerySuccess(service: MockService) {
   mockSDLQuery(service).reply(200, {
     data: { _service: { sdl: print(service.typeDefs) } },
@@ -68,7 +76,10 @@ export function mockCsdlRequest() {
   });
 }
 
-export function mockCsdlRequestSuccess(csdl = getTestingCsdl(), id = "1234") {
+export function mockCsdlRequestSuccess(
+  csdl = getTestingCsdl(),
+  id = 'originalId-1234',
+) {
   return mockCsdlRequest().reply(
     200,
     JSON.stringify({

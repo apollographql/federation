@@ -66,27 +66,38 @@ export type Experimental_DidUpdateCompositionCallback = (
   previousConfig?: CompositionInfo,
 ) => void;
 
-export type UpdateReturnType = UpdatedServiceDefinitions | UpdatedCsdl;
+export type CompositionUpdate = ServiceDefinitionUpdate | CsdlUpdate;
 
-export interface UpdatedServiceDefinitions {
+export interface ServiceDefinitionUpdate {
   serviceDefinitions?: ServiceDefinition[];
   compositionMetadata?: CompositionMetadata;
   isNewSchema: boolean;
 }
 
-export interface UpdatedCsdl {
+export interface CsdlUpdate {
   id: string;
   csdl: string;
 }
+
+export function isCsdlUpdate(update: CompositionUpdate): update is CsdlUpdate {
+  return 'csdl' in update;
+}
+
+export function isServiceDefinitionUpdate(
+  update: CompositionUpdate,
+): update is ServiceDefinitionUpdate {
+  return 'isNewSchema' in update;
+}
+
 /**
  * **Note:** It's possible for a schema to be the same (`isNewSchema: false`) when
  * `serviceDefinitions` have changed. For example, during type migration, the
  * composed schema may be identical but the `serviceDefinitions` would differ
  * since a type has moved from one service to another.
  */
-export type Experimental_UpdateServiceDefinitions = (
+export type Experimental_UpdateComposition = (
   config: DynamicGatewayConfig,
-) => Promise<UpdateReturnType>;
+) => Promise<CompositionUpdate>;
 
 interface GatewayConfigBase {
   debug?: boolean;
@@ -118,7 +129,7 @@ export interface ManagedGatewayConfig extends GatewayConfigBase {
 }
 
 interface ManuallyManagedGatewayConfig extends GatewayConfigBase {
-  experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
+  experimental_updateServiceDefinitions: Experimental_UpdateComposition;
 }
 interface LocalGatewayConfig extends GatewayConfigBase {
   localServiceList: ServiceDefinition[];

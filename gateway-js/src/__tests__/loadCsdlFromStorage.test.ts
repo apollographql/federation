@@ -5,7 +5,7 @@ import {
   graphId,
   graphVariant,
   apiKey,
-} from '../__tests__/integration/nockMocks';
+} from './integration/nockMocks';
 
 describe('', () => {
   it('', async () => {

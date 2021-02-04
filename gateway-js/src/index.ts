@@ -57,7 +57,7 @@ import {
   Experimental_DidFailCompositionCallback,
   Experimental_DidResolveQueryPlanCallback,
   Experimental_DidUpdateCompositionCallback,
-  Experimental_UpdateServiceDefinitions,
+  Experimental_UpdateComposition,
   CompositionInfo,
   GatewayConfig,
   StaticGatewayConfig,
@@ -69,10 +69,12 @@ import {
   isManagedConfig,
   isDynamicConfig,
   isStaticConfig,
-  UpdateReturnType,
-  UpdatedServiceDefinitions,
-  UpdatedCsdl,
   CompositionMetadata,
+  isCsdlUpdate,
+  isServiceDefinitionUpdate,
+  ServiceDefinitionUpdate,
+  CsdlUpdate,
+  CompositionUpdate,
 } from './config';
 import { loadCsdlFromStorage } from '@apollo/gateway/src/loadCsdlFromStorage';
 
@@ -148,7 +150,7 @@ export class ApolloGateway implements GraphQLService {
   protected experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
   // Used for overriding the default service list fetcher. This should return
   // an array of ServiceDefinition. *This function must be awaited.*
-  protected updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
+  protected updateServiceDefinitions: Experimental_UpdateComposition;
   // how often service defs should be loaded/updated (in ms)
   protected experimental_pollInterval?: number;
 
@@ -353,15 +355,18 @@ export class ApolloGateway implements GraphQLService {
     // This may throw, but an error here is caught and logged upstream
     const result = await this.updateServiceDefinitions(this.config);
 
-    //TODO: proper predicates
-    if ('csdl' in result) {
+    if (isCsdlUpdate(result)) {
       await this.updateCsdl(result);
-    } else {
+    } else if (isServiceDefinitionUpdate(result)) {
       await this.updateServiceDefs(result);
+    } else {
+      throw new Error(
+        'Programming error: unexpected result type from `updateServiceDefinitions`',
+      );
     }
   }
 
-  private async updateServiceDefs(result: UpdatedServiceDefinitions): Promise<void> {
+  private async updateServiceDefs(result: ServiceDefinitionUpdate): Promise<void> {
     if (
       !result.serviceDefinitions ||
       JSON.stringify(this.serviceDefinitions) ===
@@ -379,33 +384,7 @@ export class ApolloGateway implements GraphQLService {
       this.logger.info('New service definitions were found.');
     }
 
-    // Run service health checks before we commit and update the new schema.
-    // This is the last chance to bail out of a schema update.
-    if (this.config.serviceHealthCheck) {
-      // Here we need to construct new datasources based on the new schema info
-      // so we can check the health of the services we're _updating to_.
-      const serviceMap = result.serviceDefinitions.reduce(
-        (serviceMap, serviceDef) => {
-          serviceMap[serviceDef.name] = {
-            url: serviceDef.url,
-            dataSource: this.createDataSource(serviceDef),
-          };
-          return serviceMap;
-        },
-        Object.create(null) as DataSourceMap,
-      );
-
-      try {
-        await this.serviceHealthCheck(serviceMap);
-      } catch (e) {
-        this.logger.error(
-          'The gateway did not update its schema due to failed service health checks.  ' +
-            'The gateway will continue to operate with the previous schema and reattempt updates.' +
-            e,
-        );
-        throw e;
-      }
-    }
+    await this.maybePerformServiceHealthCheck(result);
 
     this.compositionMetadata = result.compositionMetadata;
     this.serviceDefinitions = result.serviceDefinitions;
@@ -459,9 +438,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async updateCsdl(result: UpdatedCsdl): Promise<void> {
-    // TODO: better logging message
-    // TODO: test code path
+  private async updateCsdl(result: CsdlUpdate): Promise<void> {
     if (result.id === this.compositionId) {
       this.logger.debug('No change in composition since last check.');
       return;
@@ -472,36 +449,13 @@ export class ApolloGateway implements GraphQLService {
     const previousCompositionId = this.compositionId;
 
     if (previousSchema) {
-      this.logger.info('New service definitions were found.');
+      this.logger.info('Updated CSDL was found.');
     }
 
-    // Run service health checks before we commit and update the new schema.
-    // This is the last chance to bail out of a schema update.
-    const parsedCsdl = parse(result.csdl);
-    if (this.config.serviceHealthCheck) {
-      const serviceList = this.serviceListFromCsdl(parsedCsdl);
-      const serviceMap = serviceList.reduce((serviceMap, serviceDef) => {
-        serviceMap[serviceDef.name] = {
-          url: serviceDef.url,
-          dataSource: this.createDataSource(serviceDef),
-        };
-        return serviceMap;
-      }, Object.create(null) as DataSourceMap);
-
-      try {
-        await this.serviceHealthCheck(serviceMap);
-      } catch (e) {
-        this.logger.error(
-          'The gateway did not update its schema due to failed service health checks.  ' +
-            'The gateway will continue to operate with the previous schema and reattempt updates.' +
-            e,
-        );
-        throw e;
-      }
-    }
+    await this.maybePerformServiceHealthCheck(result);
 
     this.compositionId = result.id;
-    this.parsedCsdl = parsedCsdl;
+    this.parsedCsdl = parse(result.csdl);
 
     if (this.queryPlanStore) this.queryPlanStore.flush();
 
@@ -545,6 +499,37 @@ export class ApolloGateway implements GraphQLService {
               }
             : undefined,
         );
+      }
+    }
+  }
+
+  private async maybePerformServiceHealthCheck(update: CompositionUpdate) {
+    // Run service health checks before we commit and update the new schema.
+    // This is the last chance to bail out of a schema update.
+    if (this.config.serviceHealthCheck) {
+      const serviceList = isCsdlUpdate(update)
+        ? this.serviceListFromCsdl(parse(update.csdl))
+        : // Existence of this is determined in advance with an early return otherwise
+          update.serviceDefinitions!;
+      // Here we need to construct new datasources based on the new schema info
+      // so we can check the health of the services we're _updating to_.
+      const serviceMap = serviceList.reduce((serviceMap, serviceDef) => {
+        serviceMap[serviceDef.name] = {
+          url: serviceDef.url,
+          dataSource: this.createDataSource(serviceDef),
+        };
+        return serviceMap;
+      }, Object.create(null) as DataSourceMap);
+
+      try {
+        await this.serviceHealthCheck(serviceMap);
+      } catch (e) {
+        this.logger.error(
+          'The gateway did not update its schema due to failed service health checks.  ' +
+            'The gateway will continue to operate with the previous schema and reattempt updates.' +
+            e,
+        );
+        throw e;
       }
     }
   }
@@ -797,7 +782,7 @@ export class ApolloGateway implements GraphQLService {
 
   protected async loadServiceDefinitions(
     config: RemoteGatewayConfig | ManagedGatewayConfig,
-  ): Promise<UpdateReturnType> {
+  ): Promise<CompositionUpdate> {
     if (isRemoteConfig(config)) {
       const serviceList = config.serviceList.map((serviceDefinition) => ({
         ...serviceDefinition,
@@ -1102,7 +1087,7 @@ export {
   Experimental_DidFailCompositionCallback,
   Experimental_DidResolveQueryPlanCallback,
   Experimental_DidUpdateCompositionCallback,
-  Experimental_UpdateServiceDefinitions,
+  Experimental_UpdateComposition,
   GatewayConfig,
   ServiceEndpointDefinition,
   CompositionInfo,
