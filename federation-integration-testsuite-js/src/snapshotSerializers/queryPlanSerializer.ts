@@ -48,7 +48,6 @@ function printNode(
         `Fetch(service: "${node.serviceName}")` +
         ' {' +
         config.spacingOuter +
-        indentationNext +
         (node.requires
           ? printer(
               // this is an array of selections, so we need to make it a proper
@@ -61,8 +60,7 @@ function printNode(
               printer,
             ) +
             ' =>' +
-            config.spacingOuter +
-            indentationNext
+            config.spacingOuter
           : '') +
         printer(
           flattenEntitiesField(parse(node.operation)),
