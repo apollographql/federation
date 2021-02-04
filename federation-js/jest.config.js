@@ -1,5 +1,8 @@
-const config = require('../jest.config.base');
+const baseConfig = require('../jest.config.base');
 
-const additionalConfig = {};
-
-module.exports = Object.assign(Object.create(null), config, additionalConfig);
+/** @typedef {import('ts-jest/dist/types')} */
+/** @type {import('@jest/types').Config.InitialOptions} */
+module.exports = {
+  ...baseConfig,
+  setupFilesAfterEnv: ['./src/__tests__/testSetup.ts'],
+};

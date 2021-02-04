@@ -1,5 +1,7 @@
 const { defaults } = require("jest-config");
 
+/** @typedef {import('ts-jest/dist/types')} */
+/** @type {import('@jest/types').Config.InitialOptions} */
 module.exports = {
   testEnvironment: "node",
     preset: "ts-jest",
