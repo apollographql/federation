@@ -5,7 +5,7 @@ const prettyFormat = require('pretty-format');
 
 declare global {
   namespace jest {
-    interface Matchers<R, T> {
+    interface Matchers<R> {
       toCallService(service: string): R;
     }
   }

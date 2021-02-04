@@ -1,18 +1,18 @@
-import { ASTNode } from 'graphql';
+import { QueryPlan } from '@apollo/gateway';
 import { MatcherHintOptions } from 'jest-matcher-utils';
 import { diffFormatted, indentLines, printExpectedFormatted } from './utils';
 
 declare global {
   namespace jest {
     interface Matchers<R> {
-      toMatchAST(expected: ASTNode): R;
+      toMatchQueryPlan(expected: QueryPlan): R;
     }
   }
 }
 
 expect.extend({
-  toMatchAST(received: ASTNode, expected: ASTNode) {
-    const matcherName = 'toMatchAST';
+  toMatchQueryPlan(received: QueryPlan, expected: QueryPlan) {
+    const matcherName = 'toMatchQueryPlan';
     const options: MatcherHintOptions = {
       isNot: this.isNot,
       promise: this.promise,
@@ -24,7 +24,7 @@ expect.extend({
       ? () =>
           this.utils.matcherHint(matcherName, undefined, undefined, options) +
           '\n\n' +
-          `Expected AST to not equal:\n` +
+          `Expected query plan to not equal:\n` +
           indentLines(printExpectedFormatted(expected))
       : () =>
           this.utils.matcherHint(matcherName, undefined, undefined, options) +
