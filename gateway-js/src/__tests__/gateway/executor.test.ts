@@ -3,7 +3,7 @@ import { ApolloGateway } from '../../';
 import { ApolloServer } from "apollo-server";
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { Logger } from 'apollo-server-types';
-import { fetch } from '__mocks__/apollo-server-env';
+import { fetch } from '../../__mocks__/apollo-server-env';
 
 let logger: Logger;
 

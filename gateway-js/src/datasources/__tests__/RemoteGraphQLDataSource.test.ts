@@ -1,5 +1,5 @@
-import { fetch } from '__mocks__/apollo-server-env';
-import { makeFetchHappenFetcher} from '__mocks__/make-fetch-happen-fetcher';
+import { fetch } from '../../__mocks__/apollo-server-env';
+import { makeFetchHappenFetcher} from '../../__mocks__/make-fetch-happen-fetcher';
 
 import {
   ApolloError,

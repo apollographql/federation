@@ -12,9 +12,6 @@ module.exports = {
       "/dist/"
     ],
     moduleFileExtensions: [...defaults.moduleFileExtensions, "ts", "tsx"],
-    moduleNameMapper: {
-      '^__mocks__/(.*)$': '<rootDir>/src/__mocks__/$1',
-    },
     clearMocks: true,
     globals: {
       "ts-jest": {
