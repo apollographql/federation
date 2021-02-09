@@ -64,6 +64,7 @@ describe('lifecycle hooks', () => {
 
     expect(experimental_updateServiceDefinitions).toBeCalled();
     expect(gateway.schema!.getType('Furniture')).toBeDefined();
+    await gateway.stop();
   });
 
   it('calls experimental_didFailComposition with a bad config', async () => {
@@ -181,6 +182,8 @@ describe('lifecycle hooks', () => {
     // second call should have previous info in the second arg
     expect(secondCall[1]!.schema).toBeDefined();
     expect(secondCall[1]!.compositionMetadata!.schemaHash).toEqual('hash1');
+
+    await gateway.stop();
   });
 
   it('uses default service definition updater', async () => {
@@ -196,6 +199,8 @@ describe('lifecycle hooks', () => {
     // updater, it has to use the default. If there's a valid schema, then
     // the loader had to have been called.
     expect(schema.getType('User')).toBeDefined();
+
+    await gateway.stop();
   });
 
   it('warns when polling on the default fetcher', async () => {
@@ -229,11 +234,12 @@ describe('lifecycle hooks', () => {
     const schemaChangeCallback = jest.fn(() => resolve());
 
     gateway.onSchemaChange(schemaChangeCallback);
-    gateway.load();
+    await gateway.load();
 
     await schemaChangeBlocker;
 
     expect(schemaChangeCallback).toBeCalledTimes(1);
+    await gateway.stop();
   });
 
   it('calls experimental_didResolveQueryPlan when executor is called', async () => {
@@ -261,5 +267,6 @@ describe('lifecycle hooks', () => {
     });
 
     expect(experimental_didResolveQueryPlan).toBeCalled();
+    await gateway.stop();
   });
 });

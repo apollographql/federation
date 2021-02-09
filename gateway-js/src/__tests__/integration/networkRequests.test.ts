@@ -67,6 +67,7 @@ const updatedService: MockService = {
 
 let fetcher: typeof fetch;
 let logger: Logger;
+let gateway: ApolloGateway | null = null;
 
 beforeEach(() => {
   if (!nock.isActive()) nock.activate();
@@ -92,16 +93,20 @@ beforeEach(() => {
   };
 });
 
-afterEach(() => {
+afterEach(async () => {
   expect(nock.isDone()).toBeTruthy();
   nock.cleanAll();
   nock.restore();
+  if (gateway) {
+    await gateway.stop();
+    gateway = null;
+  }
 });
 
 it('Queries remote endpoints for their SDLs', async () => {
   mockSDLQuerySuccess(service);
 
-  const gateway = new ApolloGateway({
+  gateway = new ApolloGateway({
     serviceList: [{ name: 'accounts', url: service.url }],
     logger,
   });
@@ -116,7 +121,7 @@ it('Extracts service definitions from remote storage', async () => {
   mockImplementingServicesSuccess(service);
   mockRawPartialSchemaSuccess(service);
 
-  const gateway = new ApolloGateway({ logger });
+  gateway = new ApolloGateway({ logger });
 
   await gateway.load({
     apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
@@ -163,7 +168,7 @@ it.skip('Rollsback to a previous schema when triggered', async () => {
     .mockImplementationOnce(() => secondResolve())
     .mockImplementationOnce(() => thirdResolve());
 
-  const gateway = new ApolloGateway({ logger });
+  gateway = new ApolloGateway({ logger });
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
   gateway.experimental_pollInterval = 100;
 
@@ -204,7 +209,7 @@ it(`Retries GCS (up to ${GCS_RETRY_COUNT} times) on failure for each request and
   failNTimes(GCS_RETRY_COUNT, () => mockRawPartialSchema(service));
   mockRawPartialSchemaSuccess(service);
 
-  const gateway = new ApolloGateway({ fetcher, logger });
+  gateway = new ApolloGateway({ fetcher, logger });
 
   await gateway.load({
     apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
@@ -255,7 +260,7 @@ describe('Downstream service health checks', () => {
       mockSDLQuerySuccess(service);
       mockServiceHealthCheckSuccess(service);
 
-      const gateway = new ApolloGateway({
+      gateway = new ApolloGateway({
         logger,
         serviceList: [{ name: 'accounts', url: service.url }],
         serviceHealthCheck: true,
@@ -293,7 +298,7 @@ describe('Downstream service health checks', () => {
 
       mockServiceHealthCheckSuccess(service);
 
-      const gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
+      gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
 
       await gateway.load({
         apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
@@ -352,7 +357,7 @@ describe('Downstream service health checks', () => {
         .mockImplementationOnce(() => resolve1())
         .mockImplementationOnce(() => resolve2());
 
-      const gateway = new ApolloGateway({
+      gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
       });
@@ -396,7 +401,7 @@ describe('Downstream service health checks', () => {
       let resolve: () => void;
       const schemaChangeBlocker = new Promise((res) => (resolve = res));
 
-      const gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
+      gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
 
