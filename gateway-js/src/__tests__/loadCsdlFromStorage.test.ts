@@ -7,8 +7,8 @@ import {
   apiKey,
 } from './integration/nockMocks';
 
-describe('', () => {
-  it('', async () => {
+describe('loadCsdlFromStorage', () => {
+  it('fetches CSDL as expected', async () => {
     mockCsdlRequestSuccess();
     const fetcher = getDefaultFetcher();
     const result = await loadCsdlFromStorage({
