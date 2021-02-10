@@ -44,8 +44,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn getting_a_query_planner_and_using_it_multiple_times() {
-        let schema =
-            include_str!("../../stargate/crates/query-planner/tests/features/basic/csdl.graphql");
+        let schema = include_str!("../../query-planner/tests/features/basic/csdl.graphql");
         let planner = get_query_planner(JsString::from(schema));
         let query = "query { me { name } }";
 

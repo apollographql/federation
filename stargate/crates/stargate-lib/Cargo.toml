@@ -11,8 +11,8 @@ repository = "https://github.com/apollographql/federation"
 
 [dependencies]
 # Workspace
-apollo-query-planner = { path = "../query-planner" }
-graphql-parser = { path = "../graphql-parser" }
+apollo-query-planner = { path = "../../../query-planner" }
+graphql-parser = { path = "../../../graphql-parser" }
 
 # 3rd party
 async-trait = "0.1.41"
