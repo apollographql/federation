@@ -156,7 +156,7 @@ export class ApolloGateway implements GraphQLService {
   protected experimental_pollInterval?: number;
 
   constructor(config?: GatewayConfig) {
-     this.config = {
+    this.config = {
       // TODO: expose the query plan in a more flexible JSON format in the future
       // and remove this config option in favor of `exposeQueryPlan`. Playground
       // should cutover to use the new option when it's built.
@@ -301,14 +301,9 @@ export class ApolloGateway implements GraphQLService {
     this.maybeWarnOnConflictingConfig();
 
     // Handles initial assignment of `this.schema`, `this.queryPlannerPointer`
-    try {
-      isStaticConfig(this.config)
-        ? this.loadStatic(this.config)
-        : await this.loadDynamic(unrefTimer);
-    } catch (e) {
-      this.state = { phase: 'failed to load' };
-      throw e;
-    }
+    isStaticConfig(this.config)
+      ? this.loadStatic(this.config)
+      : await this.loadDynamic(unrefTimer);
 
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
     this.logger.info(
@@ -344,7 +339,13 @@ export class ApolloGateway implements GraphQLService {
   // is responsible for updating the class instance's schema and query planner.
   private async loadDynamic(unrefTimer: boolean) {
     // This may throw, but it's expected on initial load to do so
-    await this.updateComposition();
+    try {
+      await this.updateComposition();
+    } catch (e) {
+      this.state = { phase: 'failed to load' };
+      throw e;
+    }
+
     this.state = { phase: 'loaded' };
     if (this.shouldBeginPolling()) {
       this.pollServices(unrefTimer);
