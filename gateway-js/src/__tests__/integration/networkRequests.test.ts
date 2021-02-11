@@ -131,7 +131,7 @@ describe('CSDL update failures', () => {
   it('Gateway throws on initial load failure', async () => {
     mockCsdlRequest().reply(401);
 
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       logger,
     });
 
@@ -146,16 +146,19 @@ describe('CSDL update failures', () => {
     mockCsdlRequestSuccess();
     mockCsdlRequest().reply(500);
 
-    const gateway = new ApolloGateway({
-      logger,
-    });
+    // Spy on logger.error so we can just await once it's been called
+    let errorLogged: Function;
+    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
+    logger.error = jest.fn(() => errorLogged());
+
+    gateway = new ApolloGateway({ logger });
+
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 
     await gateway.load(mockApolloConfig);
-    await gateway.stop();
+    await errorLoggedPromise;
 
-    expect(logger.error).toHaveBeenCalledTimes(1);
     expect(logger.error).toHaveBeenCalledWith(
       '500: Unexpected failure while fetching updated CSDL',
     );
@@ -173,16 +176,18 @@ describe('CSDL update failures', () => {
       ],
     });
 
-    const gateway = new ApolloGateway({
-      logger,
-    });
+    // Spy on logger.error so we can just await once it's been called
+    let errorLogged: Function;
+    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
+    logger.error = jest.fn(() => errorLogged());
+
+    gateway = new ApolloGateway({ logger });
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 
     await gateway.load(mockApolloConfig);
-    await gateway.stop();
+    await errorLoggedPromise;
 
-    expect(logger.error).toHaveBeenCalledTimes(1);
     expect(logger.error).toHaveBeenCalledWith(
       'Cannot query field "fail" on type "Query".',
     );
@@ -302,7 +307,10 @@ describe('Downstream service health checks', () => {
       mockAllServicesHealthCheckSuccess();
 
       // Update
-      mockCsdlRequestSuccess(getTestingCsdl(fixturesWithUpdate), 'updatedId-5678');
+      mockCsdlRequestSuccess(
+        getTestingCsdl(fixturesWithUpdate),
+        'updatedId-5678',
+      );
       mockAllServicesHealthCheckSuccess();
 
       let resolve1: Function;
@@ -341,7 +349,10 @@ describe('Downstream service health checks', () => {
       mockAllServicesHealthCheckSuccess();
 
       // Update (with one health check failure)
-      mockCsdlRequestSuccess(getTestingCsdl(fixturesWithUpdate), 'updatedId-5678');
+      mockCsdlRequestSuccess(
+        getTestingCsdl(fixturesWithUpdate),
+        'updatedId-5678',
+      );
       mockServiceHealthCheck(accounts).reply(500);
       mockServiceHealthCheckSuccess(books);
       mockServiceHealthCheckSuccess(inventory);

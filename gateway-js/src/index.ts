@@ -110,6 +110,7 @@ export const SERVICE_DEFINITION_QUERY =
 
 type GatewayState =
   | { phase: 'initialized' }
+  | { phase: 'failed to load'}
   | { phase: 'loaded' }
   | { phase: 'stopping'; stoppingDonePromise: Promise<void> }
   | { phase: 'stopped' }
@@ -300,9 +301,14 @@ export class ApolloGateway implements GraphQLService {
     this.maybeWarnOnConflictingConfig();
 
     // Handles initial assignment of `this.schema`, `this.queryPlannerPointer`
-    isStaticConfig(this.config)
-      ? this.loadStatic(this.config)
-      : await this.loadDynamic(unrefTimer);
+    try {
+      isStaticConfig(this.config)
+        ? this.loadStatic(this.config)
+        : await this.loadDynamic(unrefTimer);
+    } catch (e) {
+      this.state = { phase: 'failed to load' };
+      throw e;
+    }
 
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
     this.logger.info(
@@ -670,6 +676,7 @@ export class ApolloGateway implements GraphQLService {
     switch (this.state.phase) {
       case 'stopping':
       case 'stopped':
+      case 'failed to load':
         return;
       case 'initialized':
         throw Error('pollServices should not be called before load!');
@@ -993,6 +1000,7 @@ export class ApolloGateway implements GraphQLService {
         throw Error(
           'ApolloGateway.stop does not need to be called before ApolloGateway.load',
         );
+      case 'failed to load':
       case 'stopped':
         // Calls to stop() are idempotent.
         return;
