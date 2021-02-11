@@ -264,7 +264,7 @@ export class ApolloGateway implements GraphQLService {
   }) {
     if (this.state.phase !== 'initialized') {
       throw Error(
-        'ApolloGateway.load called in surprising state ${this.state}',
+        `ApolloGateway.load called in surprising state ${this.state.phase}`,
       );
     }
     if (options?.apollo) {
