@@ -25,7 +25,9 @@ module.exports = {
           'Managed Federation': [
             'managed-federation/overview',
             'managed-federation/setup',
-            'managed-federation/advanced-topics',
+            'managed-federation/federated-schema-checks',
+            'managed-federation/deployment',
+            'managed-federation/monitoring',
           ],
           'Debugging': [
             'errors',

@@ -2,7 +2,8 @@ import { GraphQLRequest } from 'apollo-server-types';
 import { parse } from 'graphql';
 import { Headers, HeadersInit } from 'node-fetch';
 import { GraphQLDataSource } from './datasources/types';
-import { Experimental_UpdateServiceDefinitions, SERVICE_DEFINITION_QUERY } from './';
+import { SERVICE_DEFINITION_QUERY } from './';
+import { Experimental_UpdateServiceDefinitions } from './config';
 import { ServiceDefinition } from '@apollo/federation';
 
 export async function getServiceDefinitionsFromRemoteEndpoint({

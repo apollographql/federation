@@ -5,7 +5,8 @@ version: 2.1
 orbs:
   # `oss` is a local reference to the package.  The source for Apollo Orbs can
   # be found at http://github.com/apollographql/CircleCI-Orbs/.
-  oss: apollo/oss-ci-cd-tooling@0.0.5
+  # We could use Renovate to bump this version via PR, but that's not set up now.
+  oss: apollo/oss-ci-cd-tooling@0.0.15
 
 commands:
   # These are the steps used for each version of Node which we're testing
@@ -16,27 +17,13 @@ commands:
   common_test_steps:
     description: "Commands to run on every Node.js environment"
     steps:
-      - run:
-          # rustup must be installed prior to installing `wasm-pack`.
-          # If rustup isn't already in our environment, install it.
-          # On the `circleci/rust:*-node` images, it's already installed, so
-          # it's marginally faster to skip this when not necessary.
-          name: Ensure / Install rustup
-          command: |
-            which rustup > /dev/null 2>&1 ||
-              (
-                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
-                  bash -s -- -y &&
-                  echo 'source $HOME/.cargo/env' >> $BASH_ENV
-                  # This last line here is for subsequent "run" steps.
-              )
-      - run:
-          name: Install wasm-pack
-          command: |
-            curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf |
-              sh
       - oss/install_specific_npm_version
       - checkout
+      - run:
+          # rustup must be installed in order to use `wasm-pack`.
+          # If rustup isn't already in our environment, install it.
+          name: Ensure / Install rustup
+          command: WRITE_BASH_ENV=t npm run rustup-install
       - oss/npm_clean_install_with_caching
       - run:
           command: npm run test:ci
