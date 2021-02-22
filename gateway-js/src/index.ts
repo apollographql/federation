@@ -76,7 +76,7 @@ import {
   CsdlUpdate,
   CompositionUpdate,
 } from './config';
-import { loadCsdlFromStorage } from '@apollo/gateway/src/loadCsdlFromStorage';
+import { loadCsdlFromStorage } from './loadCsdlFromStorage';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
