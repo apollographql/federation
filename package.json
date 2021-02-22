@@ -40,7 +40,7 @@
     "@types/node-fetch": "2.5.4",
     "apollo-link": "1.2.14",
     "apollo-link-http": "1.5.17",
-    "apollo-server": "2.19.2",
+    "apollo-server": "2.21.0",
     "apollo-server-env": "3.0.0",
     "apollo-server-testing": "2.21.0",
     "bunyan": "1.8.14",
