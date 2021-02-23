@@ -42,5 +42,6 @@ describe('Using csdl configuration', () => {
     expect(request.body).toEqual(
       JSON.stringify({ query: '{me{id username}}', variables: {} }),
     );
+    await server.stop();
   });
 });

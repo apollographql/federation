@@ -1,8 +1,31 @@
 {
-  "packageFiles": [
-    "docs/package.json"
-  ],
   "extends": [
-    "apollo-docs"
+    "apollo-open-source"
+  ],
+  "force": {
+    "constraints": {
+      // Until we bump everything to npm@7 and make sure our
+      // tooling and contribution guides know this is expected
+      // and enforced via tooling, otherwise we could end up with
+      // flapping.
+      "node": "< 15.0.0"
+    }
+  },
+  "dependencyDashboard": true,
+  "packageRules": [
+    {
+      "matchPaths": [
+        "docs/package.json"
+      ],
+      "extends": [
+        "apollo-docs"
+      ],
+      // "Past" major version branches, preserved as
+      // "version-[0-9]" branches, should be added here!
+      // See Apollo Server or Apollo Client repos for examples.
+      "baseBranches": [
+        "main"
+      ]
+    }
   ]
 }

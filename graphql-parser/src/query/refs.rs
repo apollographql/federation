@@ -16,12 +16,7 @@ pub enum SelectionRef<'a> {
 
 impl<'a> SelectionRef<'a> {
     pub fn is_field(&self) -> bool {
-        match self {
-            SelectionRef::Ref(query::Selection::Field(_)) => true,
-            SelectionRef::Field(_) => true,
-            SelectionRef::FieldRef(_) => true,
-            _ => false,
-        }
+        matches!(self, SelectionRef::Ref(query::Selection::Field(_)) | SelectionRef::Field(_) | SelectionRef::FieldRef(_))
     }
 
     pub fn is_aliased_field(&self) -> bool {
