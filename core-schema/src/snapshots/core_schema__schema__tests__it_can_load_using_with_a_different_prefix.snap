@@ -1,11 +1,11 @@
 ---
-source: using/src/schema.rs
-expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema\n                @core(using: \"https://lib.apollo.dev/core/v0.1\")\n                @core(using: \"https://spec.example.com/A/v1.0\")\n            {\n                query: Query\n            }\n        \"#)?;\n    (schema.errors, schema.using)\n}"
+source: core-schema/src/schema.rs
+expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema\n                @req(feature: \"https://lib.apollo.dev/core/v0.1\", as: \"req\")\n                @req(feature: \"https://spec.example.com/A/v1.0\")\n                @core(feature: \"https://spec.example.com/B/v2.2\")\n                {\n                    query: Query\n                }\n        \"#)?;\n    (schema.errors, schema.features)\n}"
 ---
 (
     [],
     [
-        Request {
+        Feature {
             spec: Spec {
                 identity: "https://lib.apollo.dev/core",
                 name: "core",
@@ -14,10 +14,10 @@ expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema
                     1,
                 ),
             },
-            name: "core",
+            name: "req",
             position: Pos(3:17),
         },
-        Request {
+        Feature {
             spec: Spec {
                 identity: "https://spec.example.com/A",
                 name: "A",

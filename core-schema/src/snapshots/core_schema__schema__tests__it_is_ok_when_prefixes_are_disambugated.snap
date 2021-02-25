@@ -1,11 +1,11 @@
 ---
-source: using/src/schema.rs
-expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema\n                @core(using: \"https://lib.apollo.dev/core/v0.1\")\n                @core(using: \"https://spec.example.com/A/v1.0\")\n                @core(using: \"https://spec.example.com/B/v2.3\")\n                @core(using: \"https://somewhere-else.specs.com/A/v1.0\", as: \"otherA\")\n            {\n                query: Query\n            }\n        \"#)?;\n    (schema.errors, schema.using)\n}"
+source: core-schema/src/schema.rs
+expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema\n                @core(feature: \"https://lib.apollo.dev/core/v0.1\")\n                @core(feature: \"https://spec.example.com/A/v1.0\")\n                @core(feature: \"https://spec.example.com/B/v2.3\")\n                @core(feature: \"https://somewhere-else.specs.com/A/v1.0\", as: \"otherA\")\n            {\n                query: Query\n            }\n        \"#)?;\n    (schema.errors, schema.features)\n}"
 ---
 (
     [],
     [
-        Request {
+        Feature {
             spec: Spec {
                 identity: "https://lib.apollo.dev/core",
                 name: "core",
@@ -17,7 +17,7 @@ expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema
             name: "core",
             position: Pos(3:17),
         },
-        Request {
+        Feature {
             spec: Spec {
                 identity: "https://spec.example.com/A",
                 name: "A",
@@ -29,7 +29,7 @@ expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema
             name: "A",
             position: Pos(4:17),
         },
-        Request {
+        Feature {
             spec: Spec {
                 identity: "https://spec.example.com/B",
                 name: "B",
@@ -41,7 +41,7 @@ expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema
             name: "B",
             position: Pos(5:17),
         },
-        Request {
+        Feature {
             spec: Spec {
                 identity: "https://somewhere-else.specs.com/A",
                 name: "A",

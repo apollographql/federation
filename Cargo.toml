@@ -1,9 +1,9 @@
 [workspace]
 members = [
+  "core-schema",
   "graphql-parser",
   "query-planner",
   "query-planner-wasm",
-  "using",
   "stargate",
   "stargate/crates/stargate-lib",
 ]

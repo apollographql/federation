@@ -1,13 +1,13 @@
 ---
-source: using/src/schema.rs
-expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema\n                @core(using: \"https://lib.apollo.dev/core/v0.1\")\n                @core(using: \"https://spec.example.com/A/v1.0\")\n                @core(using: \"https://somewhere-else.specs.com/myspec/v1.0\", as: \"A\")\n            {\n                query: Query\n            }\n        \"#)?;\n    (schema.errors, schema.using)\n}"
+source: core-schema/src/schema.rs
+expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema\n                @core(feature: \"https://lib.apollo.dev/core/v0.1\")\n                @core(feature: \"https://spec.example.com/A/v1.0\")\n                @core(feature: \"https://somewhere-else.specs.com/myspec/v1.0\", as: \"A\")\n            {\n                query: Query\n            }\n        \"#)?;\n    (schema.errors, schema.features)\n}"
 ---
 (
     [
         OverlappingPrefix(
             "A",
             [
-                Request {
+                Feature {
                     spec: Spec {
                         identity: "https://spec.example.com/A",
                         name: "A",
@@ -19,7 +19,7 @@ expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema
                     name: "A",
                     position: Pos(4:17),
                 },
-                Request {
+                Feature {
                     spec: Spec {
                         identity: "https://somewhere-else.specs.com/myspec",
                         name: "myspec",
@@ -35,7 +35,7 @@ expression: "{\n    let schema =\n        Schema::parse(r#\"\n            schema
         ),
     ],
     [
-        Request {
+        Feature {
             spec: Spec {
                 identity: "https://lib.apollo.dev/core",
                 name: "core",

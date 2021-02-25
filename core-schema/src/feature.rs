@@ -15,13 +15,13 @@ use crate::spec::{Spec, SpecParseError};
 /// explicitly specified, and the position of the directive making the request
 /// (for validation error reporting).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Request {
+pub struct Feature {
     pub spec: Spec,
     pub name: Cow<'static, str>,
     pub position: Pos,
 }
 
-impl Request {
+impl Feature {
     /// Extract a `Request` from a directive.
     ///
     /// This returns an `Option<Result<_, _>>`, which is admittedly odd! The reason
@@ -37,11 +37,11 @@ impl Request {
     /// which is impossible to reach from [`Spec::parse`](Spec.html#parse). It also simplifies
     /// the bootstrapping code, which can simply use `filter_map` to collect `Result`s. (We track
     /// `Result<Request, SpecParseError>` during bootstrapping to assist error reporting.)
-    pub(crate) fn from_directive(dir: &Directive) -> Option<Result<Request, SpecParseError>> {
+    pub(crate) fn from_directive(dir: &Directive) -> Option<Result<Feature, SpecParseError>> {
         let mut spec: Option<Result<Spec, SpecParseError>> = None;
         let mut prefix: Option<Cow<'static, str>> = None;
         for (arg, val) in &dir.arguments {
-            if *arg == "using" {
+            if *arg == "feature" {
                 if let Value::String(url) = val {
                     spec = Some(Spec::parse(url));
                 }
@@ -54,7 +54,7 @@ impl Request {
         }
 
         spec.map(|result| {
-            result.map(|spec| Request {
+            result.map(|spec| Feature {
                 name: prefix.unwrap_or_else(|| spec.name.clone()),
                 spec,
                 position: dir.position,

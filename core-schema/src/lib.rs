@@ -1,8 +1,8 @@
 mod version;
 pub use version::*;
 
-mod request;
-pub use request::*;
+mod feature;
+pub use feature::*;
 
 mod spec;
 pub use spec::*;

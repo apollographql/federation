@@ -6,7 +6,7 @@ use std::{
     collections::{BTreeMap, HashMap},
 };
 
-use crate::{Request, Version};
+use crate::{Feature, Version};
 
 /// Implementations stores a set of implementations indexed by
 /// spec identity and version.
@@ -45,11 +45,11 @@ impl<T> Implementations<T> {
         }
     }
 
-    pub fn find_req<'a>(
+    pub fn find_feature<'a>(
         &'a self,
-        request: &'a Request,
+        feature: &'a Feature,
     ) -> Find<'a, T, impl Iterator<Item = Found<'a, T>>> {
-        self.find(&request.spec.identity, &request.spec.version)
+        self.find(&feature.spec.identity, &feature.spec.version)
     }
 }
 

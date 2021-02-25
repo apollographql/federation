@@ -5,12 +5,12 @@
 //!
 //! ```
 //! use std::borrow::Cow;
-//! use using::*;
+//! use core_schema::*;
 //!
 //! let schema = Schema::parse(r#"
 //!     schema
-//!       @core(using: "https://lib.apollo.dev/core/v0.1")
-//!       @core(using: "https://spec.example.com/A/v1.0")
+//!       @core(feature: "https://lib.apollo.dev/core/v0.1")
+//!       @core(feature: "https://spec.example.com/A/v1.0")
 //!     {
 //!       query: Query
 //!     }
@@ -23,12 +23,12 @@
 //!
 //! ```
 //! # use std::borrow::Cow;
-//! # use using::*;
+//! # use core_schema::*;
 //!
 //! # let schema = Schema::parse(r#"
 //! #     schema
-//! #       @core(using: "https://lib.apollo.dev/core/v0.1")
-//! #       @core(using: "https://spec.example.com/A/v1.0")
+//! #       @core(feature: "https://lib.apollo.dev/core/v0.1")
+//! #       @core(feature: "https://spec.example.com/A/v1.0")
 //! #     {
 //! #       query: Query
 //! #     }
@@ -58,16 +58,16 @@ use graphql_parser::{
 
 use thiserror::Error;
 
-use crate::{constants::CORE, spec, Find, Found, Implementations, Request, Version};
+use crate::{constants::CORE, spec, Find, Found, Implementations, Feature, Version};
 
-/// A Schema holds a parsed GraphQL schema document and the specs requested by that document,
+/// A Schema holds a parsed GraphQL schema document and the features in that document,
 /// along with any errors which occurred during validation.
 pub struct Schema<'a> {
     /// the document AST, as parsed by graphql_parser
     pub document: Document<'a>,
 
-    /// specifications requested by the document
-    pub using: Vec<Request>,
+    /// features in the document
+    pub features: Vec<Feature>,
 
     /// validation errors
     pub errors: Vec<SchemaError>,
@@ -84,33 +84,33 @@ impl<'a> Schema<'a> {
     /// # Example:
     ///
     /// ```
-    /// use using::{Schema, Request, Spec, Version};
+    /// use core_schema::{Schema, Feature, Spec, Version};
     /// use graphql_parser::{ParseError, Pos};
     /// use std::borrow::Cow;
     ///
     /// let schema = Schema::parse(r#"
     ///     schema
-    ///       @core(using: "https://lib.apollo.dev/core/v0.1")
-    ///       @core(using: "https://spec.example.com/A/v1.2", as: "exampleA")
-    ///       @core(using: "https://example.net/specB/v0.1")
+    ///       @core(feature: "https://lib.apollo.dev/core/v0.1")
+    ///       @core(feature: "https://spec.example.com/A/v1.2", as: "exampleA")
+    ///       @core(feature: "https://example.net/specB/v0.1")
     ///     {
     ///       query: Query
     ///     }
     /// "#)?;
     ///
     /// assert_eq!(schema.errors, vec![]);
-    /// assert_eq!(schema.using, vec![
-    ///    Request {
+    /// assert_eq!(schema.features, vec![
+    ///    Feature {
     ///        spec: Spec::new("https://lib.apollo.dev/core", "core", (0, 1)),
     ///        name: Cow::Borrowed("core"),
     ///        position: Pos { line: 3, column: 7 },
     ///    },        
-    ///    Request {
+    ///    Feature {
     ///        spec: Spec::new("https://spec.example.com/A", "A", (1, 2)),
     ///        name: Cow::Borrowed("exampleA"),
     ///        position: Pos { line: 4, column: 7 },
     ///    },
-    ///    Request {
+    ///    Feature {
     ///        spec: Spec::new("https://example.net/specB", "specB", (0, 1)),
     ///        name: Cow::Borrowed("specB"),
     ///        position: Pos { line: 5, column: 7 },
@@ -138,7 +138,7 @@ impl<'a> Schema<'a> {
             // such as NoSchemas are available on the `errors` field.
             return Ok(Schema {
                 document,
-                using: vec![],
+                features: vec![],
                 errors,
             });
         }
@@ -147,33 +147,33 @@ impl<'a> Schema<'a> {
             errors.push(SchemaError::ExtraSchema(extraneous.position));
         }
 
-        // Collect everything which *could be* a using request.
-        // "Could be a using request" means it's a directive on
+        // Collect everything which *could be* a core feature declaration.
+        // "Could be a core feature" means it's a directive on
         // the schema which has a `spec: String` argument. We consider
         // as candidates requests whose `spec` does not parse and retain
         // error information so we can provide it later.
         //
         // Notably not checked here is the name of the directive.
-        // That's because @using might itself be prefixed (and thus, named
+        // That's because @core might itself be prefixed (and thus, named
         // something else!) We'll filter these candidates down when we
         // discover using's true prefix in subsequent boostrapping phase.
-        let mut requests: Vec<_> = schema
+        let mut features: Vec<_> = schema
             .directives
             .iter()
             .filter_map(|dir|
                 // Parse as a using request and retain the directive.
                 // This filters out any directives which do not have a spec: argument at all.
-                Request::from_directive(dir)
+                Feature::from_directive(dir)
                     .map(|res| (dir, res)))
             .collect();
 
-        let using_req = match bootstrap(&schema) {
+        let using_features = match bootstrap(&schema) {
             Some(req) => req,
             None => {
                 errors.push(SchemaError::NoCore);
                 return Ok(Schema {
                     document,
-                    using: vec![],
+                    features: vec![],
                     errors,
                 });
             }
@@ -181,8 +181,8 @@ impl<'a> Schema<'a> {
 
         let mut using = vec![];
 
-        for (dir, req) in requests.drain(0..) {
-            if dir.name != using_req.name {
+        for (dir, req) in features.drain(0..) {
+            if dir.name != using_features.name {
                 continue;
             }
             match req {
@@ -193,19 +193,19 @@ impl<'a> Schema<'a> {
 
         let mut machined = Schema {
             document,
-            using,
+            features: using,
             errors,
         };
         machined.validate_no_overlapping_prefixes();
         Ok(machined)
     }
 
-    /// Validate that no two `Request`s are using the same `prefix`, removing
-    /// *all* overlapping `Request`s from `self.using` and reporting
+    /// Validate that no two `Feature`s are using the same `prefix`, removing
+    /// *all* overlapping `Feature`s from `self.features` and reporting
     /// `SchemaError::OverlappingPrefix` in `self.errors`.
     fn validate_no_overlapping_prefixes(&mut self) {
         let mut by_prefix = HashMap::<_, u32>::new();
-        for req in &self.using {
+        for req in &self.features {
             let count = by_prefix.entry(req.name.clone()).or_default();
             *count += 1;
         }
@@ -213,17 +213,17 @@ impl<'a> Schema<'a> {
             if count > 1 {
                 self.errors.push(SchemaError::OverlappingPrefix(
                     prefix.clone(),
-                    drain_filter_collect(&mut self.using, |req| req.name == *prefix),
+                    drain_filter_collect(&mut self.features, |req| req.name == *prefix),
                 ));
             }
         }
     }
 
-    /// Given a set of implementations, take all requests in the document and
+    /// Given a set of implementations, take all features in the document and
     /// match them to the implementations which satisfy them ("satisfying
     /// implementations").
     ///
-    /// This returns an `Iterator` over `(&Request, Find<T>)`.
+    /// This returns an `Iterator` over `(&Feature, Find<T>)`.
     /// `Find` is an `Iterator` over `(&Version, &T)`, which will iterate satisfying
     /// implementations ordered by lowest to highest version. The
     /// [`bound`](Bounds.html#bound) method can be used to get the lowest and highest
@@ -232,13 +232,13 @@ impl<'a> Schema<'a> {
     /// # Example:
     ///
     /// ```
-    /// use using::*;
+    /// use core_schema::*;
     ///
     /// let impls = Implementations::new()
     ///     .provide("https://spec.example.com/A", Version(1, 2), "impl for A 1.2")
     ///     .provide("https://spec.example.com/A", Version(1, 3), "impl for A 1.3")
     ///     .provide("https://spec.example.com/A", Version(1, 7), "impl for A 1.7");
-    /// let schema = Schema::parse(r#"schema @core(using: "https://lib.apollo.dev/core/v0.1") @core(using: "https://spec.example.com/A/v1.0") { query: Query }"#)?;
+    /// let schema = Schema::parse(r#"schema @core(feature: "https://lib.apollo.dev/core/v0.1") @core(feature: "https://spec.example.com/A/v1.0") { query: Query }"#)?;
     ///
     /// let max = schema
     ///   .activations(&impls)
@@ -255,7 +255,7 @@ impl<'a> Schema<'a> {
         implementations: &'impls Implementations<T>,
     ) -> impl Iterator<
         Item = (
-            &'a Request,
+            &'a Feature,
             Find<'impls, T, impl Iterator<Item = Found<'impls, T>>>,
         ),
     > + 'impls
@@ -263,9 +263,9 @@ impl<'a> Schema<'a> {
         'impls: 'a,
         T: 'impls,
     {
-        self.using
+        self.features
             .iter()
-            .map(move |request| (request, implementations.find_req(request)))
+            .map(move |request| (request, implementations.find_feature(request)))
     }
 }
 
@@ -288,12 +288,12 @@ fn drain_filter_collect<T, F: Fn(&T) -> bool>(vec: &mut Vec<T>, pred: F) -> Vec<
 
 // Given a `SchemaDefinition`, locate the first `@core` request, which must be for
 // the core spec itself.
-fn bootstrap(schema: &SchemaDefinition) -> Option<Request> {
+fn bootstrap(schema: &SchemaDefinition) -> Option<Feature> {
     schema
         .directives
         .iter()
         // Scan requests which parsed without error
-        .filter_map(|dir| Request::from_directive(dir).map(|res| (dir, res)))
+        .filter_map(|dir| Feature::from_directive(dir).map(|res| (dir, res)))
         .filter_map(|(dir, res)| res.ok().map(|req| (dir, req)))
         .find_map(|(dir, req)| {
             if
@@ -339,7 +339,7 @@ pub enum SchemaError {
 
     /// Document is using multiple specs with the same prefix.
     #[error("multiple requests using the {} prefix:\n{}", .0, self.requests())]
-    OverlappingPrefix(Cow<'static, str>, Vec<Request>),
+    OverlappingPrefix(Cow<'static, str>, Vec<Feature>),
 }
 
 impl SchemaError {
@@ -377,7 +377,7 @@ mod tests {
         ($source:expr) => {
             assert_debug_snapshot!({
                 let schema = Schema::parse($source)?;
-                (schema.errors, schema.using)
+                (schema.errors, schema.features)
             });
         };
     }
@@ -387,8 +387,8 @@ mod tests {
         assert_schema_snapshots!(
             r#"
             schema
-                @core(using: "https://lib.apollo.dev/core/v0.1")
-                @core(using: "https://spec.example.com/A/v1.0")
+                @core(feature: "https://lib.apollo.dev/core/v0.1")
+                @core(feature: "https://spec.example.com/A/v1.0")
             {
                 query: Query
             }
@@ -402,10 +402,10 @@ mod tests {
         assert_schema_snapshots!(
             r#"
             schema
-                @core(using: "https://lib.apollo.dev/core/v0.1")
-                @core(using: "https://spec.example.com/A/v1.0")
-                @core(using: "https://spec.example.com/B/v0.0", as: "specB")
-                @core(using: "https://spec.example.com/C/v21.913")
+                @core(feature: "https://lib.apollo.dev/core/v0.1")
+                @core(feature: "https://spec.example.com/A/v1.0")
+                @core(feature: "https://spec.example.com/B/v0.0", as: "specB")
+                @core(feature: "https://spec.example.com/C/v21.913")
             {
                 query: Query
             }
@@ -419,9 +419,9 @@ mod tests {
         assert_schema_snapshots!(
             r#"
             schema
-                @req(using: "https://lib.apollo.dev/core/v0.1", as: "req")
-                @req(using: "https://spec.example.com/A/v1.0")
-                @core(using: "https://spec.example.com/B/v2.2")
+                @req(feature: "https://lib.apollo.dev/core/v0.1", as: "req")
+                @req(feature: "https://spec.example.com/A/v1.0")
+                @core(feature: "https://spec.example.com/B/v2.2")
                 {
                     query: Query
                 }
@@ -448,8 +448,8 @@ mod tests {
         assert_schema_snapshots!(
             r#"
             schema
-                @core(using: "https://lib.apollo.dev/core/v0.1")
-                @core(using: "https://spec.example.com/A/v2.2")
+                @core(feature: "https://lib.apollo.dev/core/v0.1")
+                @core(feature: "https://spec.example.com/A/v2.2")
             {
                 query: Query
             }
@@ -467,10 +467,10 @@ mod tests {
         assert_schema_snapshots!(
             r#"
             schema
-                @core(using: "https://lib.apollo.dev/core/v0.1")
-                @core(using: "https://spec.example.com/A/v1.0")
-                @core(using: "https://spec.example.com/B/v2.3")
-                @core(using: "https://somewhere-else.specs.com/A/v1.0")
+                @core(feature: "https://lib.apollo.dev/core/v0.1")
+                @core(feature: "https://spec.example.com/A/v1.0")
+                @core(feature: "https://spec.example.com/B/v2.3")
+                @core(feature: "https://somewhere-else.specs.com/A/v1.0")
             {
                 query: Query
             }
@@ -484,9 +484,9 @@ mod tests {
         assert_schema_snapshots!(
             r#"
             schema
-                @core(using: "https://lib.apollo.dev/core/v0.1")
-                @core(using: "https://spec.example.com/A/v1.0")
-                @core(using: "https://somewhere-else.specs.com/myspec/v1.0", as: "A")
+                @core(feature: "https://lib.apollo.dev/core/v0.1")
+                @core(feature: "https://spec.example.com/A/v1.0")
+                @core(feature: "https://somewhere-else.specs.com/myspec/v1.0", as: "A")
             {
                 query: Query
             }
@@ -500,10 +500,10 @@ mod tests {
         assert_schema_snapshots!(
             r#"
             schema
-                @core(using: "https://lib.apollo.dev/core/v0.1")
-                @core(using: "https://spec.example.com/A/v1.0")
-                @core(using: "https://spec.example.com/B/v2.3")
-                @core(using: "https://somewhere-else.specs.com/A/v1.0", as: "otherA")
+                @core(feature: "https://lib.apollo.dev/core/v0.1")
+                @core(feature: "https://spec.example.com/A/v1.0")
+                @core(feature: "https://spec.example.com/B/v2.3")
+                @core(feature: "https://somewhere-else.specs.com/A/v1.0", as: "otherA")
             {
                 query: Query
             }
@@ -530,9 +530,9 @@ mod tests {
             let schema = Schema::parse(
                 r#"
                 schema
-                    @core(using: "https://lib.apollo.dev/core/v0.1")
-                    @core(using: "https://spec.example.com/A/v1.0")
-                    @core(using: "https://spec.example.com/unknown/v1.0")
+                    @core(feature: "https://lib.apollo.dev/core/v0.1")
+                    @core(feature: "https://spec.example.com/A/v1.0")
+                    @core(feature: "https://spec.example.com/unknown/v1.0")
                 {
                     query: Query
                 }
@@ -566,9 +566,9 @@ mod tests {
         let output = Schema::parse(
             r#"
             schema
-                @core(using: "https://lib.apollo.dev/core/v0.1")
-                @core(using: "https://spec.example.com/A/v1.0")
-                @core(using: "https://spec.example.com/unknown/v1.0")
+                @core(feature: "https://lib.apollo.dev/core/v0.1")
+                @core(feature: "https://spec.example.com/A/v1.0")
+                @core(feature: "https://spec.example.com/unknown/v1.0")
             {
                 query: Query
             }
