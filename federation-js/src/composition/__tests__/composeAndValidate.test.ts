@@ -162,26 +162,38 @@ it('errors when a type extension has no base', () => {
 fit("doesn't throw errors when a type is unknown, but captures them instead", () => {
   const serviceA = {
     typeDefs: gql`
+      type Query {
+        foo: Bar!
+      }
+
       extend type Bar @key(fields: "id") {
         id: ID! @external
         thing: String
-      }
-
-      type Query {
-        foo: Bar!
       }
     `,
     name: 'serviceA',
   };
 
-  const compositionResult = composeAndValidate([
-    serviceA
-  ]);
+  const compositionResult = composeAndValidate([serviceA]);
 
   assertCompositionFailure(compositionResult);
   const { errors } = compositionResult;
-  expect(errors).toHaveLength(1);
-  expect(errors[0]).toMatchInlineSnapshot(`[Error: Unknown type: "Bar".]`);
+  expect(errors).toMatchInlineSnapshot(`
+    Array [
+      Object {
+        "code": "MISSING_ERROR",
+        "message": "Unknown type \\"Bar\\".",
+      },
+      Object {
+        "code": "EXTENSION_WITH_NO_BASE",
+        "message": "[serviceA] Bar -> \`Bar\` is an extension type, but \`Bar\` is not defined in any service",
+      },
+      Object {
+        "code": "MISSING_ERROR",
+        "message": "Type Query must define one or more fields.",
+      },
+    ]
+  `);
 });
 
 it('treats types with @extends as type extensions', () => {
