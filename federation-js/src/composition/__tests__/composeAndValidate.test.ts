@@ -159,7 +159,7 @@ it('errors when a type extension has no base', () => {
   `);
 });
 
-fit("doesn't throw errors when a type is unknown, but captures them instead", () => {
+it("doesn't throw errors when a type is unknown, but captures them instead", () => {
   const serviceA = {
     typeDefs: gql`
       type Query {
