@@ -33,13 +33,13 @@
 //! #       query: Query
 //! #     }
 //! # "#)?;
-//! assert_eq!(schema.using, vec![
-//!     Request {
+//! assert_eq!(schema.features, vec![
+//!     Feature {
 //!         spec: Spec::new("https://lib.apollo.dev/core", "core", (0, 1)),
 //!         name: Cow::Borrowed("core"),
 //!         position: Pos { line: 3, column: 7 },
 //!     },
-//!     Request {
+//!     Feature {
 //!         spec: Spec::new("https://spec.example.com/A", "A", (1, 0)),
 //!         name: Cow::Borrowed("A"),
 //!         position: Pos { line: 4, column: 7 },

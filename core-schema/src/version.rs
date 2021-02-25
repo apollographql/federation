@@ -19,11 +19,11 @@ impl Version {
     ///
     /// # Example
     /// ```
-    /// use using::Version;
+    /// use core_schema::Version;
     /// assert_eq!(Version::parse("v1.0")?, Version(1, 0));
     /// assert_eq!(Version::parse("v0.1")?, Version(0, 1));
     /// assert_eq!(Version::parse("v987.65432")?, Version(987, 65432));
-    /// # Ok::<(), using::VersionParseError>(())
+    /// # Ok::<(), core_schema::VersionParseError>(())
     /// ```
     pub fn parse(input: &str) -> Result<Version, VersionParseError> {
         lazy_static! {
@@ -41,7 +41,7 @@ impl Version {
     ///
     /// # Example
     /// ```
-    /// use using::Version;
+    /// use core_schema::Version;
     /// assert!(Version(1, 0).satisfies(&Version(1, 0)));
     /// assert!(Version(1, 2).satisfies(&Version(1, 0)));
     /// assert!(!Version(2, 0).satisfies(&Version(1, 9)));

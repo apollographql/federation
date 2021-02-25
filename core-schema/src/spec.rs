@@ -8,7 +8,7 @@
 //!
 //! # Example:
 //! ```
-//! use using::*;
+//! use core_schema::*;
 //! assert_eq!(
 //!   Spec::parse("https://spec.example.com/specA/v1.0")?,
 //!   Spec::new("https://spec.example.com/specA", "specA", (1, 0))
