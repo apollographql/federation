@@ -159,6 +159,31 @@ it('errors when a type extension has no base', () => {
   `);
 });
 
+fit("doesn't throw errors when a type is unknown, but captures them instead", () => {
+  const serviceA = {
+    typeDefs: gql`
+      extend type Bar @key(fields: "id") {
+        id: ID! @external
+        thing: String
+      }
+
+      type Query {
+        foo: Bar!
+      }
+    `,
+    name: 'serviceA',
+  };
+
+  const compositionResult = composeAndValidate([
+    serviceA
+  ]);
+
+  assertCompositionFailure(compositionResult);
+  const { errors } = compositionResult;
+  expect(errors).toHaveLength(1);
+  expect(errors[0]).toMatchInlineSnapshot(`[Error: Unknown type: "Bar".]`);
+});
+
 it('treats types with @extends as type extensions', () => {
   const serviceA = {
     typeDefs: gql`
@@ -395,7 +420,8 @@ describe('composition of value types', () => {
         }
       `);
       assertCompositionSuccess(compositionResult);
-      expect(compositionResult.schema.getType('CatalogItemEnum')).toMatchInlineSnapshot(`
+      expect(compositionResult.schema.getType('CatalogItemEnum'))
+        .toMatchInlineSnapshot(`
               enum CatalogItemEnum {
                 COUCH
                 MATTRESS
@@ -648,10 +674,13 @@ describe('composition of value types', () => {
 
     assertCompositionSuccess(compositionResult);
     const { schema, composedSdl } = compositionResult;
-    expect((schema.getType('Product') as GraphQLObjectType).getInterfaces())
-      .toHaveLength(2);
+    expect(
+      (schema.getType('Product') as GraphQLObjectType).getInterfaces(),
+    ).toHaveLength(2);
 
-    expect(printSchema(schema)).toContain('type Product implements Named & Node');
+    expect(printSchema(schema)).toContain(
+      'type Product implements Named & Node',
+    );
     expect(composedSdl).toContain('type Product implements Named & Node');
   });
 });
