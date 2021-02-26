@@ -51,7 +51,7 @@ pub(crate) fn build_query_plan(
     // TODO(ran)(p2)(#114) see if we can optimize and memoize the stuff we build only using the schema.
     let context = QueryPlanningContext {
         schema,
-        operation: ops.pop().unwrap(),
+        operation: ops.pop().expect("ops has exactly one item"),
         fragments: query
             .definitions
             .iter()
@@ -364,11 +364,11 @@ fn complete_field<'a, 'q: 'a>(
         // the type_name could be a primitive type which is not in our names_to_types map.
         let return_type = context.names_to_types.get(type_name);
 
-        if return_type.is_none() || !return_type.unwrap().is_composite_type() {
+        if return_type.is_none() || !return_type.expect("checked not None").is_composite_type() {
             let mut fields = fields;
             context::Field {
                 scope,
-                ..fields.pop().unwrap()
+                ..fields.pop().expect("fields cannot be empty")
             }
         } else {
             let return_type = return_type.expect("Already checked this is not None");
@@ -465,7 +465,7 @@ fn split_sub_fields<'q>(
 ) -> FetchGroup<'q> {
     let mut grouper = GroupForSubField::new(context, parent_group);
     split_fields(context, field_path, sub_fields, &mut grouper);
-    grouper.into_groups().pop().unwrap()
+    grouper.into_groups().pop().expect("groups cannot be empty")
 }
 
 fn execution_node_for_group(
@@ -576,8 +576,7 @@ fn selection_set_from_field_set<'q>(
             let name = fields_with_same_reponse_name[0]
                 .field_def
                 .field_type
-                .name()
-                .unwrap();
+                .as_name();
 
             // NB: we don't have specified types (i.e. primitives) in our map.
             // They are not composite types.
@@ -592,7 +591,7 @@ fn selection_set_from_field_set<'q>(
             let field_ref = fields_with_same_reponse_name
                 .into_iter()
                 .next()
-                .unwrap()
+                .expect("There must be only one field")
                 .field_node;
             SelectionRef::FieldRef(field_ref)
         } else {
@@ -754,7 +753,7 @@ fn flat_wrap(kind: NodeCollectionKind, mut nodes: Vec<PlanNode>) -> PlanNode {
     }
 
     if nodes.len() == 1 {
-        nodes.pop().unwrap()
+        nodes.pop().expect("nodes length is 1")
     } else {
         let nodes = nodes
             .into_iter()

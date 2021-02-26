@@ -12,6 +12,13 @@
     }
   },
   "dependencyDashboard": true,
+  // Adding this TEMPORARILY until this Monday (2021-03-01) due to work that is
+  // in flight within https://github.com/apollographql/federation/pull/453.
+  // This PR actually attempts many of the upgrades that will come in the first
+  // round of Renovations this weekend, but it'll mostly just cause merge
+  // conflicts this time around since these (Renovate and that PR) were both
+  // introduced this week.
+  "automerge": false,
   "packageRules": [
     {
       "matchPaths": [

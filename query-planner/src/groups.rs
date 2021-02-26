@@ -153,7 +153,7 @@ impl<'q> GroupForField<'q> for SerialGroupForField<'q> {
             _ => self.groups.push(FetchGroup::init(service_name)),
         }
 
-        self.groups.last_mut().unwrap()
+        self.groups.last_mut().expect("groups is not empty")
     }
 
     fn into_groups(self) -> Vec<FetchGroup<'q>> {
