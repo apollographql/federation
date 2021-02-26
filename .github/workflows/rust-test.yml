@@ -1,3 +1,11 @@
+# Unfortunately, GitHub Actions doesn't support YAML aliases OR depending
+# on an Action from another Action, like other CI providers do.
+#
+# See https://github.com/actions/runner/issues/646#issuecomment-777325191
+#
+# To reduce subtle nuances and simplify a future where these can converge,
+# please try to apply chances as equally as practical across these files!
+# (At the time of this writing, uniform blocks are indicated with comments)
 name: Rust Tests
 
 on:
@@ -25,6 +33,7 @@ jobs:
             target: x86_64-pc-windows-msvc
 
     steps:
+      ## Below this line to the designated comment is uniform across rust-test.yml, rust-slow-test.yml and lint.yml!
       - name: Checkout Code
         uses: actions/checkout@v2
 
@@ -59,6 +68,8 @@ jobs:
             target
           key: ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
+      ### UP FROM HERE TO "Checkout Code" is  uniform in rust-test.yml, rust-slow-test.yml, and lint.yml!
+
       # Install wasm-pack
       - name: Install wasm-pack (unix)
         if: matrix.build != 'windows'
@@ -69,7 +80,9 @@ jobs:
         if: matrix.build == 'windows'
         run: npm install -g wasm-pack
 
-      ### RUN TESTS ###
+      ### BELOW THIS LINE IS UNIFORM IN rust-test.yml
+
+      ### RUN TESTS
       - name: Test (cargo test)
         uses: actions-rs/cargo@v1
         with:

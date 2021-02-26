@@ -1,3 +1,11 @@
+# Unfortunately, GitHub Actions doesn't support YAML aliases OR depending
+# on an Action from another Action, like other CI providers do.
+#
+# See https://github.com/actions/runner/issues/646#issuecomment-777325191
+#
+# To reduce subtle nuances and simplify a future where these can converge,
+# please try to apply chances as equally as practical across these files!
+# (At the time of this writing, uniform blocks are indicated with comments)
 name: Rust Lint
 
 on:
@@ -12,6 +20,7 @@ jobs:
     name: Assert Format and Run Clippy
     runs-on: ubuntu-latest
     steps:
+      ## Below this line to the designated comment is uniform across rust-test.yml, rust-slow-test.yml and lint.yml!
       - name: Checkout Code
         uses: actions/checkout@v2
 
@@ -32,6 +41,8 @@ jobs:
             ~/.cargo/git
             target
           key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+
+      ### UP FROM HERE TO "Checkout Code" is  uniform in rust-test.yml, rust-slow-test.yml, and lint.yml!
 
       ### FORMATTING AND STYLE ###
       - name: Check formatting
