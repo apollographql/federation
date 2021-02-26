@@ -16,6 +16,7 @@ import {
   assertCompositionFailure,
   assertCompositionSuccess,
   compositionHasErrors,
+  CompositionResult,
 } from '../utils';
 
 expect.addSnapshotSerializer(astSerializer);
@@ -174,7 +175,10 @@ it("doesn't throw errors when a type is unknown, but captures them instead", () 
     name: 'serviceA',
   };
 
-  const compositionResult = composeAndValidate([serviceA]);
+  let compositionResult: CompositionResult;
+  expect(
+    () => (compositionResult = composeAndValidate([serviceA])),
+  ).not.toThrow();
 
   assertCompositionFailure(compositionResult);
   const { errors } = compositionResult;
