@@ -1,0 +1,44 @@
+name: Rust Lint
+
+on:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check_format_and_lint:
+    continue-on-error: true # we want to show this check failure in GH but to not prevent building.
+    name: Assert Format and Run Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          toolchain: nightly
+          profile: minimal
+          components: rustfmt, clippy
+
+      ### BUILD CACHE ###
+      - name: Cache Cargo registry, target, index
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+
+      ### FORMATTING AND STYLE ###
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Check Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
