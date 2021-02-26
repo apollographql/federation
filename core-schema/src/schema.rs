@@ -58,7 +58,7 @@ use graphql_parser::{
 
 use thiserror::Error;
 
-use crate::{constants::CORE, spec, Find, Found, Implementations, Feature, Version};
+use crate::{constants::CORE, spec, Feature, Find, Found, Implementations, Version};
 
 /// A Schema holds a parsed GraphQL schema document and the features in that document,
 /// along with any errors which occurred during validation.
