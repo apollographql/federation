@@ -1,4 +1,4 @@
-import { QueryPlan } from '@apollo/gateway';
+import { QueryPlan } from '@apollo/query-planner';
 import { MatcherHintOptions } from 'jest-matcher-utils';
 import { diffFormatted, indentLines, printExpectedFormatted } from './utils';
 

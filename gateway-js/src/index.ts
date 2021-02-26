@@ -19,6 +19,8 @@ import {
   parse,
   visit,
   DocumentNode,
+  FragmentDefinitionNode,
+  OperationDefinitionNode,
 } from 'graphql';
 import {
   composeAndValidate,
@@ -41,14 +43,13 @@ import {
   getServiceDefinitionsFromStorage,
   CompositionMetadata,
 } from './loadServicesFromStorage';
-import { QueryPlan, OperationContext, WasmPointer } from './QueryPlan';
 import { GraphQLDataSource } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
-import { getQueryPlanner } from '@apollo/query-planner-wasm';
+import { getQueryPlanner, QueryPlannerPointer, QueryPlan } from '@apollo/query-planner';
 import { csdlToSchema } from './csdlToSchema';
 import {
   ServiceEndpointDefinition,
@@ -68,6 +69,16 @@ import {
   isDynamicConfig,
   isStaticConfig,
 } from './config';
+
+type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
+
+export type OperationContext = {
+  schema: GraphQLSchema;
+  operation: OperationDefinitionNode;
+  fragments: FragmentMap;
+  queryPlannerPointer: QueryPlannerPointer;
+  operationString: string;
+};
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -124,7 +135,7 @@ export class ApolloGateway implements GraphQLService {
   private compositionMetadata?: CompositionMetadata;
   private serviceSdlCache = new Map<string, string>();
   private warnedStates: WarnedStates = Object.create(null);
-  private queryPlannerPointer?: WasmPointer;
+  private queryPlannerPointer?: QueryPlannerPointer;
   private parsedCsdl?: DocumentNode;
   private fetcher: typeof fetch;
 
@@ -865,5 +876,4 @@ export {
   Experimental_CompositionInfo,
 };
 
-export * from './QueryPlan';
 export * from './datasources';

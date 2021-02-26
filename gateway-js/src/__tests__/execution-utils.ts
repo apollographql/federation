@@ -14,9 +14,9 @@ import {
 import {
   buildQueryPlan,
   executeQueryPlan,
-  QueryPlan,
   buildOperationContext,
 } from '@apollo/gateway';
+import { QueryPlan } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from 'apollo-utilities';
 

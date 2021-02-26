@@ -8,7 +8,7 @@ import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
-import { WasmPointer } from '../QueryPlan';
+import { QueryPlannerPointer } from '@apollo/query-planner';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -26,7 +26,7 @@ describe('executeQueryPlan', () => {
   }
 
   let schema: GraphQLSchema;
-  let queryPlannerPointer: WasmPointer;
+  let queryPlannerPointer: QueryPlannerPointer;
 
   beforeEach(() => {
     expect(

@@ -1,4 +1,4 @@
-import { QueryPlanInlineFragmentNode, QueryPlanSelectionNode } from '@apollo/gateway';
+import { QueryPlanInlineFragmentNode, QueryPlanSelectionNode } from '@apollo/query-planner';
 import { ASTNode, Kind, print, SelectionNode as GraphQLJSSelectionNode, visit } from 'graphql';
 import { Config, NewPlugin, Refs } from 'pretty-format';
 

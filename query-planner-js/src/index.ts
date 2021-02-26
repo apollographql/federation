@@ -1,24 +1,20 @@
 import {
-  FragmentDefinitionNode,
-  OperationDefinitionNode,
   Kind,
   SelectionNode as GraphQLJSSelectionNode,
-  GraphQLSchema,
 } from 'graphql';
+import * as wasm from '@apollo/query-planner-wasm';
+
+export type QueryPlannerPointer = number;
+
+export function getQueryPlanner(schema: string): QueryPlannerPointer {
+  return wasm.getQueryPlanner(schema);
+}
+
+export function getQueryPlan(planner_ptr: QueryPlannerPointer, query: string, options: any): QueryPlan {
+  return wasm.getQueryPlan(planner_ptr, query, options)
+}
 
 export type ResponsePath = (string | number)[];
-
-export type WasmPointer = number;
-
-type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
-
-export type OperationContext = {
-  schema: GraphQLSchema;
-  operation: OperationDefinitionNode;
-  fragments: FragmentMap;
-  queryPlannerPointer: WasmPointer;
-  operationString: string;
-};
 
 export interface QueryPlan {
   kind: 'QueryPlan';
