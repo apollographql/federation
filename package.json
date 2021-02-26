@@ -15,9 +15,7 @@
     "test:clean": "jest --clearCache",
     "test:watch": "jest --verbose --watchAll",
     "testonly": "npm test",
-    "test:ci": "npm run coverage -- --ci --maxWorkers=2  --reporters=default --reporters=jest-junit",
-    "coverage": "npm test -- --coverage",
-    "coverage:upload": "codecov",
+    "test:ci": "npm test -- --ci --maxWorkers=2  --reporters=default --reporters=jest-junit",
     "rustup-install": "INSTALL_RUSTUP=true ./ensure-rustup.sh",
     "rustup-ensure": "INSTALL_RUSTUP= ./ensure-rustup.sh"
   },
@@ -44,7 +42,6 @@
     "apollo-server-env": "3.0.0",
     "apollo-server-testing": "2.21.0",
     "bunyan": "1.8.14",
-    "codecov": "3.7.2",
     "deep-freeze": "0.0.1",
     "graphql": "14.7.0",
     "graphql-tag": "2.11.0",
