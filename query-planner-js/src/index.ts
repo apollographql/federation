@@ -4,6 +4,9 @@ import {
 } from 'graphql';
 import * as wasm from '@apollo/query-planner-wasm';
 
+export { queryPlanSerializer, astSerializer } from './snapshotSerializers';
+export { prettyFormatQueryPlan } from './prettyFormatQueryPlan';
+
 export type QueryPlannerPointer = number;
 
 export function getQueryPlanner(schema: string): QueryPlannerPointer {

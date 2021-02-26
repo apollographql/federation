@@ -49,7 +49,7 @@ import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
-import { getQueryPlanner, QueryPlannerPointer, QueryPlan } from '@apollo/query-planner';
+import { getQueryPlanner, QueryPlannerPointer, QueryPlan, prettyFormatQueryPlan } from '@apollo/query-planner';
 import { csdlToSchema } from './csdlToSchema';
 import {
   ServiceEndpointDefinition,
@@ -787,7 +787,7 @@ export class ApolloGateway implements GraphQLService {
         // `apollo-federation-integration-testsuite` packages.
         // We should either solve that or switch Playground to
         // the JSON serialization format.
-        ? {} // prettyPrintQueryPlan(queryPlan)
+        ? prettyFormatQueryPlan(queryPlan)
         : null;
 
     if (this.config.debug && serializedQueryPlan) {

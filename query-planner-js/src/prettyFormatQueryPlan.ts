@@ -1,4 +1,4 @@
-import { QueryPlan } from '@apollo/query-planner';
+import { QueryPlan } from './';
 import prettyFormat from 'pretty-format';
 import { astSerializer, queryPlanSerializer } from './snapshotSerializers';
 
