@@ -15,10 +15,23 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v2
 
-      - uses: ./.github/actions/rust-prepare
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        id: toolchain
         with:
-          build: ${{matrix}}
-          install-wasm-pack: false
+          toolchain: nightly
+          profile: minimal
+          components: rustfmt, clippy
+
+      ### BUILD CACHE ###
+      - name: Cache Cargo registry, target, index
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
       ### FORMATTING AND STYLE ###
       - name: Check formatting
