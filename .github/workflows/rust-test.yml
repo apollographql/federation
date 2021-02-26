@@ -43,47 +43,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features
 
-  test-no-run:
-    name: Compile tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      ### INSTALL RUST ###
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        id: toolchain
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-
-      ### BUILD CACHE ###
-      - name: Cache Cargo registry, target, index
-        if: matrix.build != 'macos'
-        uses: actions/cache@v2
-        id: cache-cargo
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/bin
-            ~/.cargo/git
-            target
-          key: linux-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
-
-      ### COMPILE INCLUDING TESTS ###
-      # Note: we do this so that we'll cache the compile results/registry even if test might fail
-      # We don't need to do it if there was a cache hit.
-      - name: Compile tests on cache miss
-        if: steps.cache-cargo.outputs.cache-hit != 'true'
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: "--no-run --workspace --locked"
-
   test:
     name: Test
-    needs: test-no-run
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
