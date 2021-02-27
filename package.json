@@ -54,7 +54,7 @@
     "nock": "13.0.9",
     "node-fetch": "2.6.1",
     "prettier": "2.2.1",
-    "ts-jest": "26.3.0",
+    "ts-jest": "26.5.2",
     "typescript": "3.9.7",
     "wasm-pack": "0.9.1",
     "winston": "3.3.3",
