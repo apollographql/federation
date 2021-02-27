@@ -27,7 +27,7 @@
   "dependencies": {
     "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner-wasm": "file:../query-planner-wasm",
-    "@types/node-fetch": "2.5.4",
+    "@types/node-fetch": "2.5.8",
     "apollo-graphql": "^0.6.0",
     "apollo-reporting-protobuf": "^0.6.0",
     "apollo-server-caching": "^0.5.3",
