@@ -51,7 +51,7 @@
     "jest-junit": "10.0.0",
     "lerna": "3.22.1",
     "log4js": "6.3.0",
-    "nock": "13.0.4",
+    "nock": "13.0.9",
     "node-fetch": "2.6.1",
     "prettier": "2.1.1",
     "ts-jest": "26.3.0",
