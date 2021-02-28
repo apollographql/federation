@@ -19,7 +19,7 @@ apollo-query-planner = { path = "../query-planner" }
 
 # 3rd party
 wasm-bindgen = { version = "0.2.69", features = ["serde-serialize"] }
-js-sys = "0.3.45"
+js-sys = "0.3.0"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.18"
