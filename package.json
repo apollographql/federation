@@ -55,7 +55,7 @@
     "node-fetch": "2.6.1",
     "prettier": "2.2.1",
     "ts-jest": "26.5.2",
-    "typescript": "3.9.7",
+    "typescript": "3.9.9",
     "wasm-pack": "0.9.1",
     "winston": "3.3.3",
     "winston-transport": "4.4.0"
