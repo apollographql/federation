@@ -20,7 +20,7 @@ actix-web = "3.3.2"
 actix-web-opentelemetry = "0.6.0"
 env_logger = "0.8.0"
 futures = "0.3.0"
-http = "0.2.1"
+http = "0.2.0"
 opentelemetry = "0.8.0"
 opentelemetry-jaeger = { version = "0.7.0", features = ["collector_client"] }
 thrift = "0.13.0"
