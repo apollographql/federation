@@ -17,7 +17,7 @@ edition = "2018"
 [dependencies]
 bytecount = "0.6.0"
 combine = "3.8.1"
-derivative = "2.1.1"
+derivative = "2.2.0"
 ordered-float = "2.0.0"
 thiserror = "1.0.22"
 
