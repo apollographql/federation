@@ -227,7 +227,7 @@ it("doesn't drop fields during composition after an unknown type is encountered"
 
   // `foo` field will not exist due to missing `Bar`,
   // but `bar` and `baz` should be present
-  expect(schema.getQueryType().getFields()).toHaveLength(2);
+  expect(Object.keys(schema.getQueryType().getFields())).toHaveLength(2);
 });
 
 it('treats types with @extends as type extensions', () => {
