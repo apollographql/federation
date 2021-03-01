@@ -26,7 +26,7 @@ opentelemetry-jaeger = { version = "0.7.0", features = ["collector_client"] }
 thrift = "0.13.0"
 tracing = "0.1.0"
 tracing-actix-web = "0.2.1"
-tracing-bunyan-formatter = "0.1.6"
+tracing-bunyan-formatter = "0.1.0"
 tracing-futures = "0.2.4"
 tracing-log = { version = "0.1.1", features = ["env_logger"] }
 tracing-opentelemetry = "0.7.0"
