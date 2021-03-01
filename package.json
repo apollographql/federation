@@ -48,7 +48,7 @@
     "jest": "25.5.4",
     "jest-config": "25.5.4",
     "jest-cucumber": "2.0.13",
-    "jest-junit": "10.0.0",
+    "jest-junit": "12.0.0",
     "lerna": "3.22.1",
     "log4js": "6.3.0",
     "nock": "13.0.9",
