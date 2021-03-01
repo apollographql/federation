@@ -523,6 +523,7 @@ export function addFederationMetadataToSchemaNodes({
       // TODO: Why don't we need to check for non-object types here
       if (isObjectType(namedType)) {
         const field = namedType.getFields()[fieldName];
+        // TODO: restore to `continue`
         if (!field) break;
 
         const fieldFederationMetadata: FederationField = {
