@@ -1,5 +1,4 @@
 import gql from 'graphql-tag';
-import { GraphQLSchemaValidationError } from 'apollo-graphql';
 import { defineFeature, loadFeature } from 'jest-cucumber';
 import { DocumentNode } from 'graphql';
 

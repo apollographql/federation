@@ -1,4 +1,4 @@
-import { GraphQLError, getIntrospectionQuery, GraphQLSchema } from 'graphql';
+import { getIntrospectionQuery, GraphQLSchema } from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { GraphQLRequestContext } from 'apollo-server-types';
