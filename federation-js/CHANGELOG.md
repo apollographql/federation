@@ -4,6 +4,14 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+## v0.21.2
+
+- Fix an erroneous `break` to `continue`, follow-up fix for #478 [PR #481](https://github.com/apollographql/federation/pull/481)
+
+## v0.21.1
+
+- Ignore thrown errors from `extendSchema` during composition (these particular errors are already validated against and returned as composition errors) [PR #478](https://github.com/apollographql/federation/pull/478)
+
 ## v0.21.0
 
 - __BREAKING__: Drop support for Node.js 8 and Node.js 10.  This package now only targets Node.js 12+ LTS (Long-Term Support) versions, the same as `@apollo/gateway`, which first received this treatment in https://github.com/apollographql/apollo-server/pull/4031.  Node.js 8 has already lapsed from the [Node.js Foundation's LTS schedule](https://github.com/nodejs/release) and Node.js 10 (in _Maintenance LTS_ right now) is targeted to be end-of-life'd (EOL) at the end of April 2021.  [PR #311](https://github.com/apollographql/federation/pull/311)

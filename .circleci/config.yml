@@ -7,6 +7,7 @@ orbs:
   # be found at http://github.com/apollographql/CircleCI-Orbs/.
   # We could use Renovate to bump this version via PR, but that's not set up now.
   oss: apollo/oss-ci-cd-tooling@0.0.15
+  rust: circleci/rust@1.0.0
 
 commands:
   # These are the steps used for each version of Node which we're testing
@@ -19,11 +20,21 @@ commands:
     steps:
       - oss/install_specific_npm_version
       - checkout
-      - run:
-          # rustup must be installed in order to use `wasm-pack`.
-          # If rustup isn't already in our environment, install it.
-          name: Ensure / Install rustup
-          command: WRITE_BASH_ENV=t npm run rustup-install
+
+      # Install Rust
+      - rust/install:
+          version: stable
+
+      # Setup the Cargo env in CircleCI's BASH_ENV file.
+      #
+      # It's unfortunate that the rust/install Orb doesn't do this since this
+      # is a CircleCI-ism.  I've opened a PR in hopes of avoiding this,
+      # though it's possible that it's out of scope (or I'm doing smth wrong):
+      #
+      #   => https://github.com/CircleCI-Public/rust-orb/pull/3
+      #   => https://circleci.com/docs/2.0/env-vars/#setting-an-environment-variable-in-a-shell-command
+      #
+      - run: echo 'source $HOME/.cargo/env' >> $BASH_ENV
       - oss/npm_clean_install_with_caching
       - run:
           command: npm run test:ci

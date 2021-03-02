@@ -20,6 +20,14 @@
   // introduced this week.
   "automerge": false,
   "packageRules": [
+    // We set this to the lowest supported Node.js version to ensure we don't
+    // use newer Node.js APIs unknowingly during development which are going to
+    // fail in CI anyway when they're run against the full range of Node.js
+    // versions we support.
+    {
+      "matchPackageNames": ["@types/node"],
+      "allowedVersions": "12.x"
+    },
     {
       "matchPaths": [
         "docs/package.json"

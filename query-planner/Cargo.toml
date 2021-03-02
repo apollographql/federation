@@ -14,10 +14,10 @@ graphql-parser = { path = "../graphql-parser" }
 # 3rd party
 derive_builder = "0.9.0"
 lazy_static = "1.4.0"
-linked-hash-map = "0.5.3"
-serde = { version = "1.0.117", features = ["derive"] }
-serde_json = "1.0.59"
-tracing = "0.1.21"
+linked-hash-map = "0.5.0"
+serde = { version = "1.0.123", features = ["derive"] }
+serde_json = "1.0.64"
+tracing = "0.1.0"
 tracing-futures = "0.2.4"
 
 [dev-dependencies]
