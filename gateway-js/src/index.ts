@@ -335,12 +335,12 @@ export class ApolloGateway implements GraphQLService {
     this.state = { phase: 'loaded' };
   }
 
-  // Asynchronously load a dynamically configured schema. `this.updateComposition`
+  // Asynchronously load a dynamically configured schema. `this.updateSchema`
   // is responsible for updating the class instance's schema and query planner.
   private async loadDynamic(unrefTimer: boolean) {
     // This may throw, but it's expected on initial load to do so
     try {
-      await this.updateComposition();
+      await this.updateSchema();
     } catch (e) {
       this.state = { phase: 'failed to load' };
       throw e;
@@ -356,7 +356,7 @@ export class ApolloGateway implements GraphQLService {
     return isManagedConfig(this.config) || this.experimental_pollInterval;
   }
 
-  protected async updateComposition(): Promise<void> {
+  protected async updateSchema(): Promise<void> {
     this.logger.debug('Checking for composition updates...');
 
     // This may throw, but an error here is caught and logged upstream
@@ -365,7 +365,7 @@ export class ApolloGateway implements GraphQLService {
     if (isCsdlUpdate(result)) {
       await this.updateCsdl(result);
     } else if (isServiceDefinitionUpdate(result)) {
-      await this.updateServiceDefs(result);
+      await this.updateComposition(result);
     } else {
       throw new Error(
         'Programming error: unexpected result type from `updateServiceDefinitions`',
@@ -373,7 +373,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async updateServiceDefs(result: ServiceDefinitionUpdate): Promise<void> {
+  private async updateComposition(result: ServiceDefinitionUpdate): Promise<void> {
     if (
       !result.serviceDefinitions ||
       JSON.stringify(this.serviceDefinitions) ===
@@ -732,7 +732,7 @@ export class ApolloGateway implements GraphQLService {
     };
 
     try {
-      await this.updateComposition();
+      await this.updateSchema();
     } catch (err) {
       this.logger.error((err && err.message) || err);
     }
@@ -1029,7 +1029,7 @@ export class ApolloGateway implements GraphQLService {
         return;
       }
       case 'polling': {
-        // We're in the middle of running updateComposition. We need to go into 'stopping'
+        // We're in the middle of running updateSchema. We need to go into 'stopping'
         // mode and let this run complete. First we set things up so that any concurrent
         // calls to stop() will wait until we let them finish. (Those concurrent calls shouldn't
         // just wait on pollingDonePromise themselves because we want to make sure we fully

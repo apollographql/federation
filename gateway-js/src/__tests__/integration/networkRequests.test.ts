@@ -367,14 +367,14 @@ describe('Downstream service health checks', () => {
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
 
-      // @ts-ignore for testing purposes, we'll call the original `updateComposition`
+      // @ts-ignore for testing purposes, we'll call the original `updateSchema`
       // function from our mock. The first call should mimic original behavior,
       // but the second call needs to handle the PromiseRejection. Typically for tests
       // like these we would leverage the `gateway.onSchemaChange` callback to drive
       // the test, but in this case, that callback isn't triggered when the update
       // fails (as expected) so we get creative with the second mock as seen below.
-      const original = gateway.updateComposition;
-      const mockUpdateComposition = jest
+      const original = gateway.updateSchema;
+      const mockUpdateSchema = jest
         .fn()
         .mockImplementationOnce(async () => {
           await original.apply(gateway);
@@ -391,9 +391,9 @@ describe('Downstream service health checks', () => {
           resolve();
         });
 
-      // @ts-ignore for testing purposes, replace the `updateComposition`
+      // @ts-ignore for testing purposes, replace the `updateSchema`
       // function on the gateway with our mock
-      gateway.updateComposition = mockUpdateComposition;
+      gateway.updateSchema= mockUpdateSchema;
 
       // load the gateway as usual
       await gateway.load(mockApolloConfig);
@@ -406,7 +406,7 @@ describe('Downstream service health checks', () => {
 
       // At this point, the mock update should have been called but the schema
       // should still be the original.
-      expect(mockUpdateComposition).toHaveBeenCalledTimes(2);
+      expect(mockUpdateSchema).toHaveBeenCalledTimes(2);
       expect(getRootQueryFields(gateway.schema)).toContain('topReviews');
       expect(getRootQueryFields(gateway.schema)).not.toContain('review');
     });
