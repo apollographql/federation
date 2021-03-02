@@ -13,13 +13,8 @@ declare global {
 }
 
 function prepareHttpOptions(requestUrl: string, requestOpts: RequestInit): RequestInit {
-  const headers = new Headers();
+  const headers = new Headers(requestOpts.headers);
   headers.set('Content-Type', 'application/json');
-  if (requestOpts.headers) {
-    for (const [name, value] of new Headers(requestOpts.headers)) {
-      headers.set(name, value);
-    }
-  }
 
   const requestHttp = {
     method: 'POST',
