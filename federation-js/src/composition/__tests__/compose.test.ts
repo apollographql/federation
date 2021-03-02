@@ -649,7 +649,7 @@ describe('composeServices', () => {
                         }
                   `);
 
-      const query = schema.getQueryType();
+      const query = schema.getQueryType()!;
 
       expect(getFederationMetadata(query)?.serviceName).toBeUndefined();
     });
@@ -824,7 +824,7 @@ describe('composeServices', () => {
         assertCompositionSuccess(compositionResult);
         const { schema } = compositionResult;
 
-        const product = schema.getType('Product');
+        const product = schema.getType('Product')!;
 
         expect(getFederationMetadata(product)?.externals).toMatchInlineSnapshot(`
                               Object {
