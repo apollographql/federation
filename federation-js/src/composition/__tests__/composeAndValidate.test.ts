@@ -180,7 +180,7 @@ it("doesn't throw errors when a type is unknown, but captures them instead", () 
     () => (compositionResult = composeAndValidate([serviceA])),
   ).not.toThrow();
 
-  assertCompositionFailure(compositionResult);
+  assertCompositionFailure(compositionResult!);
   const { errors } = compositionResult;
   expect(errors).toMatchInlineSnapshot(`
     Array [
