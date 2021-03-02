@@ -38,6 +38,7 @@ describe('ApolloGateway executor', () => {
       }
     `;
 
+     // @ts-ignore
     const { errors } = await executor({
       source,
       document: gql(source),
@@ -73,6 +74,7 @@ describe('ApolloGateway executor', () => {
       }
     `;
 
+     // @ts-ignore
     const { errors, data } = await executor({
       source,
       document: gql(source),

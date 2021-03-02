@@ -40,13 +40,14 @@ describe('executeQueryPlan', () => {
   });
 
   function buildRequestContext(): GraphQLRequestContext {
+     // @ts-ignore
     return {
       cache: undefined as any,
       context: {},
       request: {
         variables: {},
       },
-    } as GraphQLRequestContext;
+    };
   }
 
   describe(`errors`, () => {

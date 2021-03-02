@@ -70,6 +70,7 @@ export async function execute(
   const result = await executeQueryPlan(
     queryPlan,
     serviceMap,
+     // @ts-ignore
     {
       cache: undefined as any,
       context: {},
