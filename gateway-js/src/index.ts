@@ -323,11 +323,9 @@ export class ApolloGateway implements GraphQLService {
   // Synchronously load a statically configured schema, update class instance's
   // schema and query planner.
   private loadStatic(config: StaticGatewayConfig) {
-    const schemaConstructionOpts = isLocalConfig(config)
-      ? { serviceList: config.localServiceList }
-      : { csdl: config.csdl };
-
-    const { schema, composedSdl } = this.createSchema(schemaConstructionOpts);
+    const { schema, composedSdl } = isLocalConfig(config)
+      ? this.createSchemaFromServiceList(config.localServiceList)
+      : this.createSchemaFromCsdl(config.csdl);
 
     this.schema = schema;
     this.parsedCsdl = parse(composedSdl);
@@ -398,9 +396,9 @@ export class ApolloGateway implements GraphQLService {
 
     if (this.queryPlanStore) this.queryPlanStore.flush();
 
-    const { schema, composedSdl } = this.createSchema({
-      serviceList: result.serviceDefinitions,
-    });
+    const { schema, composedSdl } = this.createSchemaFromServiceList(
+      result.serviceDefinitions,
+    );
 
     if (!composedSdl) {
       this.logger.error(
@@ -466,9 +464,7 @@ export class ApolloGateway implements GraphQLService {
 
     if (this.queryPlanStore) this.queryPlanStore.flush();
 
-    const { schema, composedSdl } = this.createSchema({
-      csdl: result.csdl,
-    });
+    const { schema, composedSdl } = this.createSchemaFromCsdl(result.csdl);
 
     if (!composedSdl) {
       this.logger.error(
@@ -564,16 +560,6 @@ export class ApolloGateway implements GraphQLService {
           .then((response) => ({ name, response })),
       ),
     );
-  }
-
-  protected createSchema(
-    input: { serviceList: ServiceDefinition[] } | { csdl: string },
-  ) {
-    if ('serviceList' in input) {
-      return this.createSchemaFromServiceList(input.serviceList);
-    } else {
-      return this.createSchemaFromCsdl(input.csdl);
-    }
   }
 
   protected createSchemaFromServiceList(serviceList: ServiceDefinition[]) {
