@@ -5,20 +5,21 @@ import { fixtures } from 'apollo-federation-integration-testsuite';
 import { Logger } from 'apollo-server-types';
 import { fetch } from '../../__mocks__/apollo-server-env';
 
-let logger: Logger;
+let logger: {
+  warn: jest.MockedFunction<Logger['warn']>,
+  debug: jest.MockedFunction<Logger['debug']>,
+  error: jest.MockedFunction<Logger['error']>,
+  info: jest.MockedFunction<Logger['info']>,
+}
 
 beforeEach(() => {
   fetch.mockReset();
-  const warn = jest.fn();
-  const debug = jest.fn();
-  const error = jest.fn();
-  const info = jest.fn();
 
   logger = {
-    warn,
-    debug,
-    error,
-    info,
+    warn: jest.fn(),
+    debug: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn(),
   };
 });
 
