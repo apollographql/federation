@@ -146,6 +146,7 @@ it('supports aliases when using ApolloServer', async () => {
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
     buildService: service => {
+      // @ts-ignore
       return new LocalGraphQLDataSource(buildFederatedSchema([service]));
     },
   });
