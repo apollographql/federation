@@ -52,7 +52,7 @@ declare module 'make-fetch-happen' {
   }
 
   let fetch: Fetcher & {
-    defaults(opts?: RequestInit & FetcherOptions): Fetcher;
+    defaults(opts?: RequestInit & FetcherOptions): typeof fetch;
   };
 
   export default fetch;
