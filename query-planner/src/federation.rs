@@ -186,6 +186,6 @@ fn as_selection_set_ref(value: &str) -> query::SelectionSet {
         .expect("failed parsing directive value as selection set")
         .definitions
         .pop()
-        .unwrap();
+        .expect("parsed selection set must have at least one definition");
     letp!(query::Definition::SelectionSet(ss) = ss => ss)
 }

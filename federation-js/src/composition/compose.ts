@@ -405,7 +405,12 @@ export function buildSchemaFromDefinitionsAndExtensions({
   };
 
   errors = validateSDL(definitionsDocument, schema, compositionRules);
-  schema = extendSchema(schema, definitionsDocument, { assumeValidSDL: true });
+
+  try {
+    schema = extendSchema(schema, definitionsDocument, {
+      assumeValidSDL: true,
+    });
+  } catch (e) {}
 
   // Extend the schema with the extension definitions (as an AST node)
   const extensionsDocument: DocumentNode = {
@@ -415,7 +420,11 @@ export function buildSchemaFromDefinitionsAndExtensions({
 
   errors.push(...validateSDL(extensionsDocument, schema, compositionRules));
 
-  schema = extendSchema(schema, extensionsDocument, { assumeValidSDL: true });
+  try {
+    schema = extendSchema(schema, extensionsDocument, {
+      assumeValidSDL: true,
+    });
+  } catch {}
 
   // Remove federation directives from the final schema
   schema = new GraphQLSchema({
@@ -514,6 +523,7 @@ export function addFederationMetadataToSchemaNodes({
       // TODO: Why don't we need to check for non-object types here
       if (isObjectType(namedType)) {
         const field = namedType.getFields()[fieldName];
+        if (!field) continue;
 
         const fieldFederationMetadata: FederationField = {
           ...getFederationMetadata(field),

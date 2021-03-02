@@ -62,10 +62,7 @@ pub(crate) fn build_possible_types<'a, 'q>(
                     let mut queue: VecDeque<&str> =
                         obj.implements_interfaces.iter().cloned().collect();
 
-                    while !queue.is_empty() {
-                        // get iface from queue.
-                        let iface = queue.pop_front().unwrap();
-
+                    while let Some(iface) = queue.pop_front() {
                         // associate iface with obj
                         implementing_types
                             .entry(iface)
@@ -255,7 +252,7 @@ impl<T> Head<T> for Vec<T> {
             panic!("head must be called on a non empty Vec")
         } else {
             let mut iter = self.into_iter();
-            (iter.next().unwrap(), iter.collect())
+            (iter.next().expect("self is not empty"), iter.collect())
         }
     }
 }
