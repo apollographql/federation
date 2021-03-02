@@ -304,7 +304,7 @@ describe('willSendRequest', () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
       willSendRequest: ({ request, context }) => {
-        request.http.headers.set('x-user-id', context.userId);
+        request.http?.headers.set('x-user-id', context.userId);
       },
     });
 

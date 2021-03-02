@@ -90,7 +90,7 @@ describe('rootFieldUsed', () => {
     const warnings = validateRootFieldUsed(serviceA);
 
     expect(warnings).toHaveLength(1);
-    expect(warnings[0].extensions.code).toEqual('ROOT_QUERY_USED');
+    expect(warnings[0].extensions?.code).toEqual('ROOT_QUERY_USED');
     expect(warnings).toMatchInlineSnapshot(`
       Array [
         Object {
