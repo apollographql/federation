@@ -1,20 +1,17 @@
 import {
-  GraphQLEnumType,
   Kind,
   DocumentNode,
-  validate,
   GraphQLSchema,
   specifiedDirectives,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
 import gql from 'graphql-tag';
-import { composeServices, buildMapsFromServiceList } from '../../../compose';
+import { buildMapsFromServiceList } from '../../../compose';
 import {
   astSerializer,
   typeSerializer,
   selectionSetSerializer,
 } from 'apollo-federation-integration-testsuite';
-import { normalizeTypeDefs } from '../../../normalize';
 import federationDirectives from '../../../../directives';
 import { ServiceDefinition } from '../../../types';
 import { MatchingEnums } from '../matchingEnums';
