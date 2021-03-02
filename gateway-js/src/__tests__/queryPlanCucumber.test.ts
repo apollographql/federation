@@ -2,7 +2,7 @@ import gql from 'graphql-tag';
 import { defineFeature, loadFeature } from 'jest-cucumber';
 import { DocumentNode } from 'graphql';
 
-import { QueryPlan } from '../..';
+import { QueryPlan } from '@apollo/query-planner';
 import { buildQueryPlan, buildOperationContext, BuildQueryPlanOptions } from '../buildQueryPlan';
 import { getFederatedTestingSchema } from './execution-utils';
 
