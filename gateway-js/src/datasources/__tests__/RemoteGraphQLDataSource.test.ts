@@ -277,7 +277,7 @@ describe('willSendRequest', () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
       willSendRequest: ({ request }) => {
-        request.variables = JSON.stringify(request.variables);
+        request.variables = { id: '2' };
       },
     });
 
@@ -295,7 +295,7 @@ describe('willSendRequest', () => {
     expect(fetch).toHaveFetched('https://api.example.com/foo', {
       body: {
         query: '{ me { name } }',
-        variables: JSON.stringify({ id: '1' }),
+        variables: { id: '2' },
       },
     });
   });
