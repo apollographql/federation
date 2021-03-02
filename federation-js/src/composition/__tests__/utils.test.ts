@@ -79,7 +79,7 @@ describe('Composition utility functions', () => {
       deepFreeze(typeDefs);
 
       // Assert that mutation does, in fact, throw
-      expect(() => (typeDefs.blah = [])).toThrow();
+      expect(() => ((typeDefs as any).blah = [])).toThrow();
       expect(() =>
         stripExternalFieldsFromTypeDefs(typeDefs, 'serviceA'),
       ).not.toThrow();
