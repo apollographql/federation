@@ -43,11 +43,17 @@ pub enum TypeDefinition<'a> {
 
 impl<'a> TypeDefinition<'a> {
     pub fn is_composite_type(&self) -> bool {
-        matches!(self, TypeDefinition::Object(_) | TypeDefinition::Interface(_) | TypeDefinition::Union(_))
+        matches!(
+            self,
+            TypeDefinition::Object(_) | TypeDefinition::Interface(_) | TypeDefinition::Union(_)
+        )
     }
 
     pub fn is_abstract_type(&self) -> bool {
-        matches!(self, TypeDefinition::Interface(_) | TypeDefinition::Union(_))
+        matches!(
+            self,
+            TypeDefinition::Interface(_) | TypeDefinition::Union(_)
+        )
     }
 }
 
