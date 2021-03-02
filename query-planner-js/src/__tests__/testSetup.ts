@@ -1,1 +1,1 @@
-import 'apollo-federation-integration-testsuite';
+import 'apollo-federation-integration-testsuite/dist/matchers';
