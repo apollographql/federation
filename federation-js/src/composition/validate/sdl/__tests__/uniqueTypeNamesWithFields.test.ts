@@ -9,7 +9,7 @@ import gql from 'graphql-tag';
 import {
   typeSerializer,
   graphqlErrorSerializer,
-} from '../../../../snapshotSerializers';
+} from 'apollo-federation-integration-testsuite';
 import federationDirectives from '../../../../directives';
 import { UniqueTypeNamesWithFields } from '..';
 import { ServiceDefinition } from '../../../types';

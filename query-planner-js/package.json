@@ -1,0 +1,34 @@
+{
+  "name": "@apollo/query-planner",
+  "version": "0.0.10",
+  "description": "Apollo Query Planner",
+  "author": "Apollo <opensource@apollographql.com>",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollographql/federation.git",
+    "directory": "query-planner-js/"
+  },
+  "keywords": [
+    "graphql",
+    "federation",
+    "gateway",
+    "server",
+    "apollo"
+  ],
+  "engines": {
+    "node": ">=12.13.0 <15.0"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@apollo/query-planner-wasm": "file:../query-planner-wasm",
+    "pretty-format": "^26.0.0"
+  },
+  "peerDependencies": {
+    "graphql": "^14.5.0 || ^15.0.0"
+  }
+}

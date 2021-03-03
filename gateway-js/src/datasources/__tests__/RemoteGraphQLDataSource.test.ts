@@ -1,5 +1,5 @@
-import { fetch } from '__mocks__/apollo-server-env';
-import { makeFetchHappenFetcher} from '__mocks__/make-fetch-happen-fetcher';
+import { fetch } from '../../__mocks__/apollo-server-env';
+import { makeFetchHappenFetcher} from '../../__mocks__/make-fetch-happen-fetcher';
 
 import {
   ApolloError,
@@ -277,7 +277,7 @@ describe('willSendRequest', () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
       willSendRequest: ({ request }) => {
-        request.variables = JSON.stringify(request.variables);
+        request.variables = { id: '2' };
       },
     });
 
@@ -295,7 +295,7 @@ describe('willSendRequest', () => {
     expect(fetch).toHaveFetched('https://api.example.com/foo', {
       body: {
         query: '{ me { name } }',
-        variables: JSON.stringify({ id: '1' }),
+        variables: { id: '2' },
       },
     });
   });
@@ -304,7 +304,7 @@ describe('willSendRequest', () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
       willSendRequest: ({ request, context }) => {
-        request.http.headers.set('x-user-id', context.userId);
+        request.http?.headers.set('x-user-id', context.userId);
       },
     });
 

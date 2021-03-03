@@ -1,7 +1,9 @@
 import gql from 'graphql-tag';
 import { execute } from '../execution-utils';
-import { serializeQueryPlan } from '../..';
+import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 
+expect.addSnapshotSerializer(astSerializer);
+expect.addSnapshotSerializer(queryPlanSerializer);
 it('supports passing additional fields defined by a requires', async () => {
   const query = `#graphql
     query GetReviwedBookNames {
@@ -128,10 +130,10 @@ it('collapses nested requires', async () => {
 
   expect(errors).toEqual(undefined);
 
-  expect(serializeQueryPlan(queryPlan)).toMatchInlineSnapshot(`
-    "QueryPlan {
+  expect(queryPlan).toMatchInlineSnapshot(`
+    QueryPlan {
       Sequence {
-        Fetch(service: \\"a\\") {
+        Fetch(service: "a") {
           {
             user {
               __typename
@@ -145,8 +147,8 @@ it('collapses nested requires', async () => {
             }
           }
         },
-        Flatten(path: \\"user\\") {
-          Fetch(service: \\"b\\") {
+        Flatten(path: "user") {
+          Fetch(service: "b") {
             {
               ... on User {
                 __typename
@@ -168,7 +170,7 @@ it('collapses nested requires', async () => {
           },
         },
       },
-    }"
+    }
   `);
 
   expect(data).toEqual({
@@ -209,10 +211,10 @@ it('collapses nested requires with user-defined fragments', async () => {
 
   expect(errors).toEqual(undefined);
 
-  expect(serializeQueryPlan(queryPlan)).toMatchInlineSnapshot(`
-    "QueryPlan {
+  expect(queryPlan).toMatchInlineSnapshot(`
+    QueryPlan {
       Sequence {
-        Fetch(service: \\"a\\") {
+        Fetch(service: "a") {
           {
             user {
               __typename
@@ -226,8 +228,8 @@ it('collapses nested requires with user-defined fragments', async () => {
             }
           }
         },
-        Flatten(path: \\"user\\") {
-          Fetch(service: \\"b\\") {
+        Flatten(path: "user") {
+          Fetch(service: "b") {
             {
               ... on User {
                 __typename
@@ -247,7 +249,7 @@ it('collapses nested requires with user-defined fragments', async () => {
           },
         },
       },
-    }"
+    }
   `);
 
   expect(data).toEqual({

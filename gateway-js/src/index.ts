@@ -19,6 +19,8 @@ import {
   parse,
   visit,
   DocumentNode,
+  FragmentDefinitionNode,
+  OperationDefinitionNode,
 } from 'graphql';
 import {
   composeAndValidate,
@@ -41,20 +43,13 @@ import {
   getServiceDefinitionsFromStorage,
   CompositionMetadata,
 } from './loadServicesFromStorage';
-
-import {
-  serializeQueryPlan,
-  QueryPlan,
-  OperationContext,
-  WasmPointer,
-} from './QueryPlan';
 import { GraphQLDataSource } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
-import { getQueryPlanner } from '@apollo/query-planner-wasm';
+import { getQueryPlanner, QueryPlannerPointer, QueryPlan, prettyFormatQueryPlan } from '@apollo/query-planner';
 import { csdlToSchema } from './csdlToSchema';
 import {
   ServiceEndpointDefinition,
@@ -74,6 +69,16 @@ import {
   isDynamicConfig,
   isStaticConfig,
 } from './config';
+
+type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
+
+export type OperationContext = {
+  schema: GraphQLSchema;
+  operation: OperationDefinitionNode;
+  fragments: FragmentMap;
+  queryPlannerPointer: QueryPlannerPointer;
+  operationString: string;
+};
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -140,7 +145,7 @@ export class ApolloGateway implements GraphQLService {
   private compositionMetadata?: CompositionMetadata;
   private serviceSdlCache = new Map<string, string>();
   private warnedStates: WarnedStates = Object.create(null);
-  private queryPlannerPointer?: WasmPointer;
+  private queryPlannerPointer?: QueryPlannerPointer;
   private parsedCsdl?: DocumentNode;
   private fetcher: typeof fetch;
 
@@ -876,7 +881,12 @@ export class ApolloGateway implements GraphQLService {
     // 2) non-empty query plan and shouldShowQueryPlan === true
     const serializedQueryPlan =
       queryPlan.node && (this.config.debug || shouldShowQueryPlan)
-        ? serializeQueryPlan(queryPlan)
+        // FIXME: I disabled printing the query plan because this lead to a
+        // circular dependency between the `@apollo/gateway` and
+        // `apollo-federation-integration-testsuite` packages.
+        // We should either solve that or switch Playground to
+        // the JSON serialization format.
+        ? prettyFormatQueryPlan(queryPlan)
         : null;
 
     if (this.config.debug && serializedQueryPlan) {
@@ -1013,9 +1023,7 @@ class UnreachableCaseError extends Error {
 export {
   buildQueryPlan,
   executeQueryPlan,
-  serializeQueryPlan,
   buildOperationContext,
-  QueryPlan,
   ServiceMap,
   Experimental_DidFailCompositionCallback,
   Experimental_DidResolveQueryPlanCallback,

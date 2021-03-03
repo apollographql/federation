@@ -1,4 +1,4 @@
-import { GraphQLError, getIntrospectionQuery, GraphQLSchema } from 'graphql';
+import { getIntrospectionQuery, GraphQLSchema } from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { GraphQLRequestContext } from 'apollo-server-types';
@@ -6,9 +6,9 @@ import { AuthenticationError } from 'apollo-server-core';
 import { buildQueryPlan, buildOperationContext } from '../buildQueryPlan';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
-import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
+import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
-import { WasmPointer } from '../QueryPlan';
+import { QueryPlannerPointer } from '@apollo/query-planner';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -26,7 +26,7 @@ describe('executeQueryPlan', () => {
   }
 
   let schema: GraphQLSchema;
-  let queryPlannerPointer: WasmPointer;
+  let queryPlannerPointer: QueryPlannerPointer;
 
   beforeEach(() => {
     expect(
@@ -40,13 +40,14 @@ describe('executeQueryPlan', () => {
   });
 
   function buildRequestContext(): GraphQLRequestContext {
+     // @ts-ignore
     return {
       cache: undefined as any,
       context: {},
       request: {
         variables: {},
       },
-    } as GraphQLRequestContext;
+    };
   }
 
   describe(`errors`, () => {

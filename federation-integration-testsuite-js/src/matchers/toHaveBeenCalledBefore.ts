@@ -3,8 +3,8 @@
 export {};
 declare global {
   namespace jest {
-    interface Matchers<R, T> {
-      toHaveBeenCalledBefore(spy: SpyInstance): R;
+    interface Matchers<R> {
+      toHaveBeenCalledBefore(secondSpy: jest.SpyInstance): R;
     }
   }
 }

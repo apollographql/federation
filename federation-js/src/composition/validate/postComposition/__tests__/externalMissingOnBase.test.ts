@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { externalMissingOnBase as validateExternalMissingOnBase } from '../';
-import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 

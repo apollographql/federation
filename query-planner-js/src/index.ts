@@ -1,26 +1,23 @@
 import {
-  FragmentDefinitionNode,
-  OperationDefinitionNode,
   Kind,
   SelectionNode as GraphQLJSSelectionNode,
-  GraphQLSchema,
 } from 'graphql';
-import prettyFormat from 'pretty-format';
-import { queryPlanSerializer, astSerializer } from './snapshotSerializers';
+import * as wasm from '@apollo/query-planner-wasm';
+
+export { queryPlanSerializer, astSerializer } from './snapshotSerializers';
+export { prettyFormatQueryPlan } from './prettyFormatQueryPlan';
+
+export type QueryPlannerPointer = number;
+
+export function getQueryPlanner(schema: string): QueryPlannerPointer {
+  return wasm.getQueryPlanner(schema);
+}
+
+export function getQueryPlan(planner_ptr: QueryPlannerPointer, query: string, options: any): QueryPlan {
+  return wasm.getQueryPlan(planner_ptr, query, options)
+}
 
 export type ResponsePath = (string | number)[];
-
-export type WasmPointer = number;
-
-type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
-
-export type OperationContext = {
-  schema: GraphQLSchema;
-  operation: OperationDefinitionNode;
-  fragments: FragmentMap;
-  queryPlannerPointer: WasmPointer;
-  operationString: string;
-};
 
 export interface QueryPlan {
   kind: 'QueryPlan';
@@ -72,12 +69,6 @@ export interface QueryPlanInlineFragmentNode {
   readonly kind: 'InlineFragment';
   readonly typeCondition?: string;
   readonly selections: QueryPlanSelectionNode[];
-}
-
-export function serializeQueryPlan(queryPlan: QueryPlan) {
-  return prettyFormat(queryPlan, {
-    plugins: [queryPlanSerializer, astSerializer],
-  });
 }
 
 export function getResponseName(node: QueryPlanFieldNode): string {

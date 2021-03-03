@@ -158,9 +158,9 @@ it.skip('Rollsback to a previous schema when triggered', async () => {
   let firstResolve: () => void;
   let secondResolve: () => void;
   let thirdResolve: () => void;
-  const firstSchemaChangeBlocker = new Promise((res) => (firstResolve = res));
-  const secondSchemaChangeBlocker = new Promise((res) => (secondResolve = res));
-  const thirdSchemaChangeBlocker = new Promise((res) => (thirdResolve = res));
+  const firstSchemaChangeBlocker = new Promise<void>((res) => (firstResolve = res));
+  const secondSchemaChangeBlocker = new Promise<void>((res) => (secondResolve = res));
+  const thirdSchemaChangeBlocker = new Promise<void>((res) => (thirdResolve = res));
 
   const onChange = jest
     .fn()
@@ -350,8 +350,8 @@ describe('Downstream service health checks', () => {
 
       let resolve1: () => void;
       let resolve2: () => void;
-      const schemaChangeBlocker1 = new Promise((res) => (resolve1 = res));
-      const schemaChangeBlocker2 = new Promise((res) => (resolve2 = res));
+      const schemaChangeBlocker1 = new Promise<void>((res) => (resolve1 = res));
+      const schemaChangeBlocker2 = new Promise<void>((res) => (resolve2 = res));
       const onChange = jest
         .fn()
         .mockImplementationOnce(() => resolve1())
@@ -399,7 +399,7 @@ describe('Downstream service health checks', () => {
       mockServiceHealthCheck(updatedService).reply(500);
 
       let resolve: () => void;
-      const schemaChangeBlocker = new Promise((res) => (resolve = res));
+      const schemaChangeBlocker = new Promise<void>((res) => (resolve = res));
 
       gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here

@@ -258,6 +258,7 @@ describe('lifecycle hooks', () => {
       { book(isbn: "0262510871") { year } }
     `;
 
+     // @ts-ignore
     await executor({
       source,
       document: gql(source),
