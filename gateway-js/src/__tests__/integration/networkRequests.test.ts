@@ -259,9 +259,10 @@ describe('Downstream service health checks', () => {
       });
 
       // TODO: smell that we should be awaiting something else
-      await expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"500: Internal Server Error"`,
-      );
+      await expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(`
+              "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+              [accounts]: 500: Internal Server Error"
+            `);
     });
   });
 
@@ -291,11 +292,11 @@ describe('Downstream service health checks', () => {
 
       gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
 
-      await expect(
-        gateway.load(mockApolloConfig),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"500: Internal Server Error"`,
-      );
+      await expect(gateway.load(mockApolloConfig)).rejects
+        .toThrowErrorMatchingInlineSnapshot(`
+              "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+              [accounts]: 500: Internal Server Error"
+            `);
     });
 
     // This test has been flaky for a long time, and fails consistently after changes
@@ -382,18 +383,18 @@ describe('Downstream service health checks', () => {
         .mockImplementationOnce(async () => {
           // mock the first poll and handle the error which would otherwise be caught
           // and logged from within the `pollServices` class method
-          await expect(
-            original.apply(gateway),
-          ).rejects.toThrowErrorMatchingInlineSnapshot(
-            `"500: Internal Server Error"`,
-          );
+          await expect(original.apply(gateway)).rejects
+            .toThrowErrorMatchingInlineSnapshot(`
+                  "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+                  [accounts]: 500: Internal Server Error"
+                `);
           // finally resolve the promise which drives this test
           resolve();
         });
 
       // @ts-ignore for testing purposes, replace the `updateSchema`
       // function on the gateway with our mock
-      gateway.updateSchema= mockUpdateSchema;
+      gateway.updateSchema = mockUpdateSchema;
 
       // load the gateway as usual
       await gateway.load(mockApolloConfig);

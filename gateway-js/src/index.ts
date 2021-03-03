@@ -527,12 +527,12 @@ export class ApolloGateway implements GraphQLService {
       try {
         await this.serviceHealthCheck(serviceMap);
       } catch (e) {
-        this.logger.error(
-          'The gateway did not update its schema due to failed service health checks.  ' +
-            'The gateway will continue to operate with the previous schema and reattempt updates.' +
-            e,
+        throw new Error(
+          'The gateway did not update its schema due to failed service health checks. ' +
+            'The gateway will continue to operate with the previous schema and reattempt updates. ' +
+            'The following error occurred during the health check:\n' +
+            e.message,
         );
-        throw e;
       }
     }
   }
@@ -557,7 +557,10 @@ export class ApolloGateway implements GraphQLService {
       Object.entries(serviceMap).map(([name, { dataSource }]) =>
         dataSource
           .process({ request: { query: HEALTH_CHECK_QUERY }, context: {} })
-          .then((response) => ({ name, response })),
+          .then((response) => ({ name, response }))
+          .catch((e) => {
+            throw new Error(`[${name}]: ${e.message}`);
+          }),
       ),
     );
   }
