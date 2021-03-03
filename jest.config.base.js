@@ -1,5 +1,7 @@
 const { defaults } = require("jest-config");
 
+/** @typedef {import('ts-jest/dist/types')} */
+/** @type {import('@jest/types').Config.InitialOptions} */
 module.exports = {
   testEnvironment: "node",
     preset: "ts-jest",
@@ -10,17 +12,10 @@ module.exports = {
       "/dist/"
     ],
     moduleFileExtensions: [...defaults.moduleFileExtensions, "ts", "tsx"],
-    moduleNameMapper: {
-      '^__mocks__/(.*)$': '<rootDir>/src/__mocks__/$1',
-      // This regex should match the packages that we want compiled from source
-      // through `ts-jest`, as opposed to loaded from their output files in
-      // `dist`.
-      '^((?:federation-js|gateway-js)[^/]*)(?:/dist)?((?:/.*)|$)': '<rootDir>/../$1/src$2'
-    },
     clearMocks: true,
     globals: {
       "ts-jest": {
-        tsConfig: "<rootDir>/src/__tests__/tsconfig.json",
+        tsconfig: "<rootDir>/tsconfig.test.json",
         diagnostics: false
       }
     }

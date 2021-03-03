@@ -4,7 +4,8 @@ import { fetch } from 'apollo-server-env';
 import { GraphQLRequestContextExecutionDidStart, Logger } from "apollo-server-types";
 import { ServiceDefinition } from "@apollo/federation";
 import { GraphQLDataSource } from './datasources/types';
-import { QueryPlan, OperationContext } from './QueryPlan';
+import { QueryPlan } from '@apollo/query-planner';
+import { OperationContext } from './';
 import { ServiceMap } from './executeQueryPlan';
 import {
   CompositionMetadata,

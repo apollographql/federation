@@ -1,5 +1,5 @@
 import gql from 'graphql-tag';
-import { fetch } from '__mocks__/apollo-server-env';
+import { fetch } from '../../__mocks__/apollo-server-env';
 import { createTestClient } from 'apollo-server-testing';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 

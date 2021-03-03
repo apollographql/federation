@@ -1,12 +1,10 @@
-import { QueryPlan } from '@apollo/gateway';
-import { PlanNode } from '../../QueryPlan';
-import astSerializer from '../../snapshotSerializers/astSerializer';
-import queryPlanSerializer from '../../snapshotSerializers/queryPlanSerializer';
+import { QueryPlan, PlanNode } from '@apollo/query-planner';
+import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
 const prettyFormat = require('pretty-format');
 
 declare global {
   namespace jest {
-    interface Matchers<R, T> {
+    interface Matchers<R> {
       toCallService(service: string): R;
     }
   }

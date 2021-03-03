@@ -16,6 +16,7 @@ it('caches the query plan for a request', async () => {
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
     buildService: service => {
+      // @ts-ignore
       return new LocalGraphQLDataSource(buildFederatedSchema([service]));
     },
   });
@@ -72,6 +73,7 @@ it('supports multiple operations and operationName', async () => {
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
     buildService: service => {
+      // @ts-ignore
       return new LocalGraphQLDataSource(buildFederatedSchema([service]));
     },
   });
@@ -176,6 +178,7 @@ it('does not corrupt cached queryplan data across requests', async () => {
   const gateway = new ApolloGateway({
     localServiceList: [serviceA, serviceB],
     buildService: service => {
+      // @ts-ignore
       return new LocalGraphQLDataSource(buildFederatedSchema([service]));
     },
   });

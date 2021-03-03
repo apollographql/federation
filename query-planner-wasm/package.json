@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-planner-wasm",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Bridge code written in Rust to Javascript/Typescript, to be internally used by Apollo Gateway. This package is not meant to be independently consumed.",
   "scripts": {
     "wasm-pack": "wasm-pack build --target nodejs --out-dir dist --out-name index --scope apollo",

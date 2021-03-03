@@ -1,6 +1,7 @@
 import { LocalGraphQLDataSource } from '../LocalGraphQLDataSource';
 import { buildFederatedSchema } from '@apollo/federation';
 import gql from 'graphql-tag';
+import { GraphQLResolverMap } from 'apollo-graphql';
 
 describe('constructing requests', () => {
   it('accepts context', async () => {
@@ -13,7 +14,7 @@ describe('constructing requests', () => {
         name: String!
       }
     `;
-    const resolvers = {
+    const resolvers: GraphQLResolverMap<{ userId: number }> = {
       Query: {
         me(_, __, { userId }) {
           const users = [

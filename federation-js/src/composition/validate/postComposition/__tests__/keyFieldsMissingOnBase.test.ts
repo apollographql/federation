@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { keyFieldsMissingOnBase as validateKeyFieldsMissingOnBase } from '../';
-import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);

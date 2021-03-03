@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import { Kind, graphql, DocumentNode, execute } from 'graphql';
 import { buildFederatedSchema } from '../buildFederatedSchema';
-import { typeSerializer } from '../../snapshotSerializers';
+import { typeSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(typeSerializer);
 
@@ -268,8 +268,8 @@ type Query {
         variables,
       );
       expect(errors).toBeUndefined();
-      expect(data._entities[0].name).toEqual('Apollo Gateway');
-      expect(data._entities[1].firstName).toEqual('James');
+      expect(data?._entities[0].name).toEqual('Apollo Gateway');
+      expect(data?._entities[1].firstName).toEqual('James');
     });
     it('executes resolveReference with default representation values', async () => {
       const query = `query GetEntities($representations: [_Any!]!) {
@@ -301,7 +301,7 @@ type Query {
         variables,
       );
       expect(errors).toBeUndefined();
-      expect(data._entities[0].name).toEqual('Apollo Gateway');
+      expect(data?._entities[0].name).toEqual('Apollo Gateway');
     });
   });
   describe('_service root field', () => {
@@ -328,7 +328,7 @@ type Query {
 
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
-      expect(data._service.sdl)
+      expect(data?._service.sdl)
         .toEqual(`extend type Product @key(fields: "upc") {
   upc: String @external
   reviews: [Review]
@@ -367,7 +367,7 @@ type Review {
 
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
-      expect(data._service.sdl).toEqual(`interface Node @key(fields: "id") {
+      expect(data?._service.sdl).toEqual(`interface Node @key(fields: "id") {
   id: ID!
 }
 
@@ -398,7 +398,7 @@ type Review {
 
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
-      expect(data._service.sdl).toEqual(`type Product @key(fields: "upc") {
+      expect(data?._service.sdl).toEqual(`type Product @key(fields: "upc") {
   upc: String!
   name: String
   price: Int
@@ -421,7 +421,7 @@ type Review {
 
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
-      expect(data._service.sdl)
+      expect(data?._service.sdl)
         .toEqual(`type Product @key(fields: "upc") @key(fields: "name") {
   upc: String!
   name: String
@@ -457,7 +457,7 @@ type Review {
 
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
-      expect(data._service.sdl)
+      expect(data?._service.sdl)
         .toEqual(`extend type Product @key(fields: "upc") {
   upc: String @external
   reviews: [Review]
@@ -493,7 +493,7 @@ extend type User @key(fields: "email") {
 
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
-      expect(data._service.sdl).toEqual(`directive @custom on FIELD
+      expect(data?._service.sdl).toEqual(`directive @custom on FIELD
 
 extend type User @key(fields: "email") {
   email: String @external

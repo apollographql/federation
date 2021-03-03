@@ -39,7 +39,7 @@ describe('Using csdl configuration', () => {
 
     const [url, request] = fetch.mock.calls[0];
     expect(url).toEqual('https://accounts.api.com');
-    expect(request.body).toEqual(
+    expect(request?.body).toEqual(
       JSON.stringify({ query: '{me{id username}}', variables: {} }),
     );
     await server.stop();

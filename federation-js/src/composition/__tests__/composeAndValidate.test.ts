@@ -11,11 +11,12 @@ import {
   astSerializer,
   typeSerializer,
   graphqlErrorSerializer,
-} from '../../snapshotSerializers';
+} from 'apollo-federation-integration-testsuite';
 import {
   assertCompositionFailure,
   assertCompositionSuccess,
   compositionHasErrors,
+  CompositionResult,
 } from '../utils';
 
 expect.addSnapshotSerializer(astSerializer);
@@ -154,6 +155,46 @@ it('errors when a type extension has no base', () => {
       Object {
         "code": "EXTENSION_WITH_NO_BASE",
         "message": "[serviceB] Location -> \`Location\` is an extension type, but \`Location\` is not defined in any service",
+      },
+    ]
+  `);
+});
+
+it("doesn't throw errors when a type is unknown, but captures them instead", () => {
+  const serviceA = {
+    typeDefs: gql`
+      type Query {
+        foo: Bar!
+      }
+
+      extend type Bar @key(fields: "id") {
+        id: ID! @external
+        thing: String
+      }
+    `,
+    name: 'serviceA',
+  };
+
+  let compositionResult: CompositionResult;
+  expect(
+    () => (compositionResult = composeAndValidate([serviceA])),
+  ).not.toThrow();
+
+  assertCompositionFailure(compositionResult!);
+  const { errors } = compositionResult;
+  expect(errors).toMatchInlineSnapshot(`
+    Array [
+      Object {
+        "code": "MISSING_ERROR",
+        "message": "Unknown type \\"Bar\\".",
+      },
+      Object {
+        "code": "EXTENSION_WITH_NO_BASE",
+        "message": "[serviceA] Bar -> \`Bar\` is an extension type, but \`Bar\` is not defined in any service",
+      },
+      Object {
+        "code": "MISSING_ERROR",
+        "message": "Type Query must define one or more fields.",
       },
     ]
   `);
@@ -395,7 +436,8 @@ describe('composition of value types', () => {
         }
       `);
       assertCompositionSuccess(compositionResult);
-      expect(compositionResult.schema.getType('CatalogItemEnum')).toMatchInlineSnapshot(`
+      expect(compositionResult.schema.getType('CatalogItemEnum'))
+        .toMatchInlineSnapshot(`
               enum CatalogItemEnum {
                 COUCH
                 MATTRESS
@@ -648,10 +690,13 @@ describe('composition of value types', () => {
 
     assertCompositionSuccess(compositionResult);
     const { schema, composedSdl } = compositionResult;
-    expect((schema.getType('Product') as GraphQLObjectType).getInterfaces())
-      .toHaveLength(2);
+    expect(
+      (schema.getType('Product') as GraphQLObjectType).getInterfaces(),
+    ).toHaveLength(2);
 
-    expect(printSchema(schema)).toContain('type Product implements Named & Node');
+    expect(printSchema(schema)).toContain(
+      'type Product implements Named & Node',
+    );
     expect(composedSdl).toContain('type Product implements Named & Node');
   });
 });

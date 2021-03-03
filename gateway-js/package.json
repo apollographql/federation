@@ -1,6 +1,6 @@
 {
   "name": "@apollo/gateway",
-  "version": "0.23.0",
+  "version": "0.23.2",
   "description": "Apollo Gateway",
   "author": "Apollo <opensource@apollographql.com>",
   "main": "dist/index.js",
@@ -26,12 +26,12 @@
   },
   "dependencies": {
     "@apollo/federation": "file:../federation-js",
-    "@apollo/query-planner-wasm": "file:../query-planner-wasm",
-    "@types/node-fetch": "2.5.4",
+    "@apollo/query-planner": "file:../query-planner-js",
+    "@types/node-fetch": "2.5.8",
     "apollo-graphql": "^0.6.0",
     "apollo-reporting-protobuf": "^0.6.0",
     "apollo-server-caching": "^0.5.3",
-    "apollo-server-core": "^2.19.2",
+    "apollo-server-core": "^2.21.0",
     "apollo-server-env": "^3.0.0",
     "apollo-server-errors": "^2.4.2",
     "apollo-server-types": "^0.6.3",

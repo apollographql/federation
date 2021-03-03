@@ -1,16 +1,16 @@
 import { GraphQLSchema } from 'graphql';
 import gql from 'graphql-tag';
 import { buildQueryPlan, buildOperationContext } from '../buildQueryPlan';
-import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
+import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
-import { WasmPointer } from '../QueryPlan';
+import { QueryPlannerPointer } from '@apollo/query-planner';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 describe('buildQueryPlan', () => {
   let schema: GraphQLSchema;
-  let queryPlannerPointer: WasmPointer;
+  let queryPlannerPointer: QueryPlannerPointer;
 
   beforeEach(() => {
     expect(
@@ -1079,6 +1079,7 @@ describe('buildQueryPlan', () => {
                   ...__QueryPlanFragment_1__
                 }
               }
+              
               fragment __QueryPlanFragment_0__ on Product {
                 __typename
                 ... on Book {
@@ -1090,6 +1091,7 @@ describe('buildQueryPlan', () => {
                   upc
                 }
               }
+              
               fragment __QueryPlanFragment_1__ on Review {
                 body
                 author
@@ -1238,6 +1240,7 @@ describe('buildQueryPlan', () => {
                 ...__QueryPlanFragment_0__
               }
             }
+            
             fragment __QueryPlanFragment_0__ on Review {
               id
               body
@@ -1286,6 +1289,7 @@ describe('buildQueryPlan', () => {
                   ...__QueryPlanFragment_1__
                 }
               }
+              
               fragment __QueryPlanFragment_0__ on Product {
                 __typename
                 ... on Book {
@@ -1297,6 +1301,7 @@ describe('buildQueryPlan', () => {
                   upc
                 }
               }
+              
               fragment __QueryPlanFragment_1__ on Review {
                 content: body
                 author
