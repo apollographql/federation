@@ -1,4 +1,7 @@
 {
+  "engines": {
+    "node": ">=14 <15"
+  },
   "scripts": {
     "prestart": "gatsby clean",
     "start": "gatsby develop",
@@ -6,8 +9,8 @@
     "serve": "gatsby serve"
   },
   "dependencies": {
-    "gatsby": "2.32.8",
-    "gatsby-theme-apollo-docs": "4.6.1",
+    "gatsby": "2.32.9",
+    "gatsby-theme-apollo-docs": "4.6.5",
     "react": "17.0.1",
     "react-dom": "17.0.1"
   }
