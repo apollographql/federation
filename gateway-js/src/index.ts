@@ -135,10 +135,10 @@ type GatewayState =
   | { phase: 'polling'; pollingDonePromise: Promise<void> };
 export class ApolloGateway implements GraphQLService {
   public schema?: GraphQLSchema;
-  protected serviceMap: DataSourceMap = Object.create(null);
-  protected config: GatewayConfig;
+  private serviceMap: DataSourceMap = Object.create(null);
+  private config: GatewayConfig;
   private logger: Logger;
-  protected queryPlanStore: InMemoryLRUCache<QueryPlan>;
+  private queryPlanStore: InMemoryLRUCache<QueryPlan>;
   private apolloConfig?: ApolloConfig;
   private onSchemaChangeListeners = new Set<SchemaChangeCallback>();
   private serviceDefinitions: ServiceDefinition[] = [];
@@ -154,19 +154,19 @@ export class ApolloGateway implements GraphQLService {
   // Observe query plan, service info, and operation info prior to execution.
   // The information made available here will give insight into the resulting
   // query plan and the inputs that generated it.
-  protected experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
+  private experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
   // Observe composition failures and the ServiceList that caused them. This
   // enables reporting any issues that occur during composition. Implementors
   // will be interested in addressing these immediately.
-  protected experimental_didFailComposition?: Experimental_DidFailCompositionCallback;
+  private experimental_didFailComposition?: Experimental_DidFailCompositionCallback;
   // Used to communicated composition changes, and what definitions caused
   // those updates
-  protected experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
+  private experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
   // Used for overriding the default service list fetcher. This should return
   // an array of ServiceDefinition. *This function must be awaited.*
-  protected updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
+  private updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
   // how often service defs should be loaded/updated (in ms)
-  protected experimental_pollInterval?: number;
+  private experimental_pollInterval?: number;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -362,7 +362,7 @@ export class ApolloGateway implements GraphQLService {
     return isManagedConfig(this.config) || this.experimental_pollInterval;
   }
 
-  protected async updateComposition(): Promise<void> {
+  private async updateComposition(): Promise<void> {
     let result: Await<ReturnType<Experimental_UpdateServiceDefinitions>>;
     this.logger.debug('Checking service definitions...');
     try {
@@ -497,7 +497,7 @@ export class ApolloGateway implements GraphQLService {
     );
   }
 
-  protected createSchema(
+  private createSchema(
     input: { serviceList: ServiceDefinition[] } | { csdl: string },
   ) {
     if ('serviceList' in input) {
@@ -507,7 +507,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  protected createSchemaFromServiceList(serviceList: ServiceDefinition[]) {
+  private createSchemaFromServiceList(serviceList: ServiceDefinition[]) {
     this.logger.debug(
       `Composing schema from service list: \n${serviceList
         .map(({ name, url }) => `  ${url || 'local'}: ${name}`)
@@ -550,7 +550,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  protected serviceListFromCsdl() {
+  private serviceListFromCsdl() {
     const serviceList: Omit<ServiceDefinition, 'typeDefs'>[] = [];
 
     visit(this.parsedCsdl!, {
@@ -581,7 +581,7 @@ export class ApolloGateway implements GraphQLService {
     return serviceList;
   }
 
-  protected createSchemaFromCsdl(csdl: string) {
+  private createSchemaFromCsdl(csdl: string) {
     this.parsedCsdl = parse(csdl);
     const serviceList = this.serviceListFromCsdl();
 
@@ -712,13 +712,13 @@ export class ApolloGateway implements GraphQLService {
         });
   }
 
-  protected createServices(services: ServiceEndpointDefinition[]) {
+  private createServices(services: ServiceEndpointDefinition[]) {
     for (const serviceDef of services) {
       this.createAndCacheDataSource(serviceDef);
     }
   }
 
-  protected async loadServiceDefinitions(
+  private async loadServiceDefinitions(
     config: RemoteGatewayConfig | ManagedGatewayConfig,
   ): ReturnType<Experimental_UpdateServiceDefinitions> {
     if (isRemoteConfig(config)) {
@@ -908,7 +908,7 @@ export class ApolloGateway implements GraphQLService {
     return response;
   };
 
-  protected validateIncomingRequest<TContext>(
+  private validateIncomingRequest<TContext>(
     requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
     operationContext: OperationContext,
   ) {
