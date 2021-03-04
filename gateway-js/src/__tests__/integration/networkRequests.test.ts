@@ -258,11 +258,25 @@ describe('Downstream service health checks', () => {
         logger,
       });
 
+      // This is the ideal, but our version of Jest has a bug with printing error snapshots.
+      // See: https://github.com/facebook/jest/pull/10217 (fixed in v26.2.0)
+      //     expect(gateway.load(mockApolloConfig)).rejects.toThrowErrorMatchingInlineSnapshot(`
+      //       "A valid schema couldn't be composed. The following composition errors were found:
+      //         [accounts] User -> A @key selects id, but User.id could not be found
+      //         [accounts] Account -> A @key selects id, but Account.id could not be found"
+      //     `);
+      // Instead we'll just use the regular snapshot matcher...
+      try {
+        await gateway.load(mockApolloConfig);
+      } catch (e) {
+        var err = e;
+      }
+
       // TODO: smell that we should be awaiting something else
-      await expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(`
-              "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
-              [accounts]: 500: Internal Server Error"
-            `);
+      expect(err.message).toMatchInlineSnapshot(`
+        "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+        [accounts]: 500: Internal Server Error"
+      `);
     });
   });
 
@@ -292,11 +306,25 @@ describe('Downstream service health checks', () => {
 
       gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
 
-      await expect(gateway.load(mockApolloConfig)).rejects
-        .toThrowErrorMatchingInlineSnapshot(`
-              "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
-              [accounts]: 500: Internal Server Error"
-            `);
+      // This is the ideal, but our version of Jest has a bug with printing error snapshots.
+      // See: https://github.com/facebook/jest/pull/10217 (fixed in v26.2.0)
+      //     expect(gateway.load(mockApolloConfig)).rejects.toThrowErrorMatchingInlineSnapshot(`
+      //       "A valid schema couldn't be composed. The following composition errors were found:
+      //         [accounts] User -> A @key selects id, but User.id could not be found
+      //         [accounts] Account -> A @key selects id, but Account.id could not be found"
+      //     `);
+      // Instead we'll just use the regular snapshot matcher...
+      try {
+        await gateway.load(mockApolloConfig);
+      } catch (e) {
+        var err = e;
+      }
+
+      // TODO: smell that we should be awaiting something else
+      expect(err.message).toMatchInlineSnapshot(`
+        "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+        [accounts]: 500: Internal Server Error"
+      `);
     });
 
     // This test has been flaky for a long time, and fails consistently after changes
@@ -383,11 +411,24 @@ describe('Downstream service health checks', () => {
         .mockImplementationOnce(async () => {
           // mock the first poll and handle the error which would otherwise be caught
           // and logged from within the `pollServices` class method
-          await expect(original.apply(gateway)).rejects
-            .toThrowErrorMatchingInlineSnapshot(`
-                  "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
-                  [accounts]: 500: Internal Server Error"
-                `);
+
+          // This is the ideal, but our version of Jest has a bug with printing error snapshots.
+          // See: https://github.com/facebook/jest/pull/10217 (fixed in v26.2.0)
+          //     expect(original.apply(gateway)).rejects.toThrowErrorMatchingInlineSnapshot(`
+          //       The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+          //         [accounts]: 500: Internal Server Error"
+          //     `);
+          // Instead we'll just use the regular snapshot matcher...
+          try {
+            await original.apply(gateway);
+          } catch (e) {
+            var err = e;
+          }
+
+          expect(err.message).toMatchInlineSnapshot(`
+            "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+            [accounts]: 500: Internal Server Error"
+          `);
           // finally resolve the promise which drives this test
           resolve();
         });
