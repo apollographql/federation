@@ -4,6 +4,10 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+## v0.21.3
+
+- No code changes, but when used with TypeScript, the generated code is now compatible with `graphql@15` (as well as previous versions).
+
 ## v0.21.2
 
 - Fix an erroneous `break` to `continue`, follow-up fix for #478 [PR #481](https://github.com/apollographql/federation/pull/481)

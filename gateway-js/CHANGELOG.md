@@ -4,6 +4,10 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+## v0.23.3
+
+- The only change is pulling in the `graphql@15` compatibility fix in `@apollo/federation@0.21.3`.
+
 ## v0.23.2
 
 - Only changes in the similarly versioned `@apollo/federation` package.
