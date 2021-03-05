@@ -3,6 +3,8 @@ members = [
   "graphql-parser",
   "query-planner-wasm",
   "query-planner",
+  "harmonizer",
+  "harmonizer-cli",
   "stargate",
   "stargate/crates/stargate-lib",
 ]

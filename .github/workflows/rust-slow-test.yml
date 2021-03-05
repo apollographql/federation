@@ -52,6 +52,12 @@ jobs:
           components: rustfmt, clippy
           override: true
 
+      ## INSTALL NODE AND NPM
+      - name: Install Node and npm
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
       # NB: We install gnu-tar because BSD tar is buggy on Github's macos machines. https://github.com/actions/cache/issues/403
       - name: Install GNU tar (Macos)
         if: matrix.build == 'macos'
@@ -73,6 +79,18 @@ jobs:
             target
           key: ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache npm
+        uses: actions/cache@v2
+        id: cache-node-modules
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ~/.npm
+          key: ${{ matrix.build }}-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ env.cache-name }}-
+            ${{ matrix.build }}-
+
       ### UP FROM HERE TO "Checkout Code" is  uniform in rust-test.yml, rust-slow-test.yml, and lint.yml!
 
       # Install wasm-pack
@@ -86,6 +104,9 @@ jobs:
         run: npm install -g wasm-pack
 
       ### BELOW THIS LINE IS UNIFORM IN rust-test.yml
+
+      - name: Install npm dependencies
+        run: npm install
 
       ### RUN TESTS
       - name: Test (cargo test)

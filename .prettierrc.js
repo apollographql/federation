@@ -15,7 +15,7 @@ module.exports = {
   requirePragma: true,
   overrides: [
     {
-      files: '{docs/{,source/**},.,{gateway-js,federation-js,federation-integration-testsuite-js}/**,test}/{*.js,*.ts}',
+      files: '{docs/{,source/**},.,{gateway-js,federation-js,harmonizer,federation-integration-testsuite-js}/**,test}/{*.js,*.ts}',
       options: {
         requirePragma: false,
         trailingComma: 'all',
