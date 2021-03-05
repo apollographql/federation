@@ -6,24 +6,23 @@
 # To reduce subtle nuances and simplify a future where these can converge,
 # please try to apply chances as equally as practical across these files!
 # (At the time of this writing, uniform blocks are indicated with comments)
-name: Rust Tests (all platforms)
+name: Rust Lint
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    name: Test
+  check_format_and_lint:
+    name: Assert Format and Run Clippy
     runs-on: ${{ matrix.os }}
+    # This matrix is not necessary for Linting, but this keeps
+    # the configuration more uniform across the three workflows.
     strategy:
       matrix:
-        build: [linux, macos, windows]
+        build: [linux]
         include:
           - build: linux
             os: ubuntu-latest
@@ -34,6 +33,7 @@ jobs:
           - build: windows
             os: windows-latest
             target: x86_64-pc-windows-msvc
+    continue-on-error: true # we want to show this check failure in GH but to not prevent building.
 
     steps:
       ## Below this line to the designated comment is uniform across rust-test.yml, rust-slow-test.yml and lint.yml!
@@ -46,21 +46,13 @@ jobs:
         id: toolchain
         with:
           toolchain: stable
-          target: ${{ matrix.target }}
           profile: minimal
-          # In theory, this line can be removed in the non-lint workflow.
           components: rustfmt, clippy
           override: true
 
-      # NB: We install gnu-tar because BSD tar is buggy on Github's macos machines. https://github.com/actions/cache/issues/403
-      - name: Install GNU tar (Macos)
-        if: matrix.build == 'macos'
-        run: |
-          brew install gnu-tar
-          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
 
       ### BUILD CACHE ###
-      - name: Cache cargo registry, target, index
+      - name: Cache Cargo registry, target, index
         uses: actions/cache@v2
         id: cache-cargo
         env:
@@ -75,27 +67,12 @@ jobs:
 
       ### UP FROM HERE TO "Checkout Code" is  uniform in rust-test.yml, rust-slow-test.yml, and lint.yml!
 
-      # Install wasm-pack
-      - name: Install wasm-pack (unix)
-        if: matrix.build != 'windows'
-        shell: bash
-        run: which wasm-pack || curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      ### FORMATTING AND STYLE ###
+      - name: Check formatting
+        run: cargo fmt -- --check
 
-      - name: Install wasm-pack (windows)
-        if: matrix.build == 'windows'
-        run: npm install -g wasm-pack
-
-      ### BELOW THIS LINE IS UNIFORM IN rust-test.yml
-
-      ### RUN TESTS
-      - name: Test (cargo test)
-        uses: actions-rs/cargo@v1
+      - name: Check Clippy
+        uses: actions-rs/clippy-check@v1
         with:
-          command: test
-          args: "--workspace --locked -- --nocapture"
-        env:
-          RUST_LOG: debug
-          RUST_BACKTRACE: 1
-      - name: Test (wasm-pack test --node)
-        working-directory: query-planner-wasm
-        run: wasm-pack test --node
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
