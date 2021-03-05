@@ -718,7 +718,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async loadServiceDefinitions(
+  protected async loadServiceDefinitions(
     config: RemoteGatewayConfig | ManagedGatewayConfig,
   ): ReturnType<Experimental_UpdateServiceDefinitions> {
     if (isRemoteConfig(config)) {
