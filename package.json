@@ -43,7 +43,7 @@
     "apollo-server-testing": "2.21.0",
     "bunyan": "1.8.14",
     "deep-freeze": "0.0.1",
-    "graphql": "14.7.0",
+    "graphql": "15.5.0",
     "graphql-tag": "2.11.0",
     "jest": "25.5.4",
     "jest-config": "25.5.4",
