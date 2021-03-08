@@ -21,7 +21,8 @@
     "ensure-prereqs": "node ensure-prereqs.js"
   },
   "engines": {
-    "node": ">=6"
+    "node": ">=6 <15",
+    "npm": "6.x"
   },
   "dependencies": {
     "@apollo/federation": "file:federation-js",
