@@ -3,12 +3,10 @@ schema
   @graph(name: "books", url: "https://acephei-books.herokuapp.com")
   @graph(name: "products", url: "https://acephei-products.herokuapp.com")
   @graph(name: "reviews", url: "https://acephei-reviews.herokuapp.com")
-  @composedGraph(version: 1)
+  @using(spec: "http://specs.apollo.dev/cs/v0.1")
 {
   query: Query
 }
-
-directive @composedGraph(version: Int!) on SCHEMA
 
 directive @graph(name: String!, url: String!) repeatable on SCHEMA
 
@@ -21,6 +19,8 @@ directive @resolve(graph: String!) on FIELD_DEFINITION
 directive @provides(fields: String!) on FIELD_DEFINITION
 
 directive @requires(fields: String!) on FIELD_DEFINITION
+
+directive @using(spec: String!) on SCHEMA
 
 """Information about the brand Amazon"""
 type Amazon {

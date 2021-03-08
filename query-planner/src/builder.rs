@@ -12,7 +12,7 @@ use crate::helpers::*;
 use crate::model::Selection as ModelSelection;
 use crate::model::SelectionSet as ModelSelectionSet;
 use crate::model::{FetchNode, FlattenNode, GraphQLDocument, PlanNode, QueryPlan, ResponsePath};
-use crate::{context, model, QueryPlanError, QueryPlanningOptions, Result};
+use crate::{context, model, QueryPlanError, QueryPlanner, QueryPlanningOptions, Result};
 use graphql_parser::query::refs::{FieldRef, InlineFragmentRef, SelectionRef, SelectionSetRef};
 use graphql_parser::query::*;
 use graphql_parser::schema::TypeDefinition;
@@ -22,85 +22,90 @@ use std::collections::HashSet;
 use std::rc::Rc;
 use tracing::instrument;
 
-#[instrument(skip(schema, query, options))]
-pub(crate) fn build_query_plan(
-    schema: &schema::Document,
-    query: &Document,
-    options: QueryPlanningOptions,
-) -> Result<QueryPlan> {
-    let mut ops = get_operations(query);
+impl<'s> QueryPlanner<'s> {
+    #[instrument(skip(self, query, options))]
+    pub(crate) fn build_query_plan(
+        &self,
+        query: &Document,
+        options: QueryPlanningOptions,
+    ) -> Result<QueryPlan> {
+        let schema = &self.schema.document;
+        let mut ops = get_operations(&query);
 
-    if ops.is_empty() {
-        return Ok(QueryPlan { node: None });
+        if ops.is_empty() {
+            return Ok(QueryPlan { node: None });
+        }
+
+        if ops.len() > 1 {
+            return Err(QueryPlanError::InvalidQuery(
+                "multiple operations are not supported",
+            ));
+        }
+
+        if let Operation::Subscription = ops[0].kind {
+            return Err(QueryPlanError::InvalidQuery(
+                "subscriptions are not supported",
+            ));
+        }
+
+        let types = names_to_types(schema);
+
+        let federation = Federation::new(&self.schema)?;
+
+        // TODO(ran)(p2)(#114) see if we can optimize and memoize the stuff we build only using the schema.
+        let context = QueryPlanningContext {
+            schema,
+            operation: ops.pop().unwrap(),
+            fragments: query
+                .definitions
+                .iter()
+                .filter_map(|d| match d {
+                    Definition::Fragment(frag) => Some((frag.name, frag)),
+                    _ => None,
+                })
+                .collect(),
+            possible_types: build_possible_types(schema, &types),
+            variable_name_to_def: variable_name_to_def(&query),
+            federation,
+            names_to_types: types,
+            options,
+        };
+
+        let is_mutation = context.operation.kind.as_str() == "mutation";
+
+        let root_type = if is_mutation {
+            context.names_to_types[MUTATION_TYPE_NAME]
+        } else {
+            context.names_to_types[QUERY_TYPE_NAME]
+        };
+
+        let fields = collect_fields(
+            &context,
+            context.new_scope(root_type, None),
+            SelectionSetRef::from(context.operation.selection_set),
+        );
+
+        let groups = if is_mutation {
+            split_root_fields_serially(&context, fields)
+        } else {
+            split_root_fields(&context, fields)
+        };
+
+        let nodes: Vec<PlanNode> = groups
+            .into_iter()
+            .map(|group| execution_node_for_group(&context, group, Some(root_type)))
+            .collect();
+
+        let node = if nodes.is_empty() {
+            None
+        } else if is_mutation {
+            Some(flat_wrap(NodeCollectionKind::Sequence, nodes))
+        } else {
+            Some(flat_wrap(NodeCollectionKind::Parallel, nodes))
+        };
+
+        Ok(QueryPlan { node })
     }
-
-    if ops.len() > 1 {
-        return Err(QueryPlanError::InvalidQuery(
-            "multiple operations are not supported",
-        ));
-    }
-
-    if let Operation::Subscription = ops[0].kind {
-        return Err(QueryPlanError::InvalidQuery(
-            "subscriptions are not supported",
-        ));
-    }
-
-    let types = names_to_types(schema);
-
-    // TODO(ran)(p2)(#114) see if we can optimize and memoize the stuff we build only using the schema.
-    let context = QueryPlanningContext {
-        schema,
-        operation: ops.pop().expect("ops has exactly one item"),
-        fragments: query
-            .definitions
-            .iter()
-            .filter_map(|d| match d {
-                Definition::Fragment(frag) => Some((frag.name, frag)),
-                _ => None,
-            })
-            .collect(),
-        possible_types: build_possible_types(schema, &types),
-        variable_name_to_def: variable_name_to_def(query),
-        federation: Federation::new(schema),
-        names_to_types: types,
-        options,
-    };
-
-    let is_mutation = context.operation.kind.as_str() == "mutation";
-
-    let root_type = if is_mutation {
-        context.names_to_types[MUTATION_TYPE_NAME]
-    } else {
-        context.names_to_types[QUERY_TYPE_NAME]
-    };
-
-    let fields = collect_fields(
-        &context,
-        context.new_scope(root_type, None),
-        SelectionSetRef::from(context.operation.selection_set),
-    );
-
-    let groups = if is_mutation {
-        split_root_fields_serially(&context, fields)
-    } else {
-        split_root_fields(&context, fields)
-    };
-
-    let nodes: Vec<PlanNode> = groups
-        .into_iter()
-        .map(|group| execution_node_for_group(&context, group, Some(root_type)))
-        .collect();
-
-    let node = if nodes.is_empty() {
-        None
-    } else if is_mutation {
-        Some(flat_wrap(NodeCollectionKind::Sequence, nodes))
-    } else {
-        Some(flat_wrap(NodeCollectionKind::Parallel, nodes))
-    };
-
-    Ok(QueryPlan { node })
 }
 
 pub(crate) fn collect_fields<'q>(

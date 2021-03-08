@@ -1,0 +1,4 @@
+extend type User @key(fields: "ssn") {
+  ssn: ID! @external
+  risk: Float
+}

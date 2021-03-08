@@ -3,40 +3,75 @@ source: harmonizer/src/lib.rs
 expression: "harmonize(vec![ServiceDefinition ::\n               new(\"users\", \"undefined\",\n                   \"\n            type User {\n              id: ID\n              name: String\n            }\n\n            type Query {\n              users: [User!]\n            }\n          \"),\n               ServiceDefinition ::\n               new(\"movies\", \"undefined\",\n                   \"\n            type Movie {\n              title: String\n              name: String\n            }\n\n            extend type User {\n              favorites: [Movie!]\n            }\n\n            type Query {\n              movies: [Movie!]\n            }\n          \")]).unwrap()"
 ---
 schema
-  @graph(name: "users", url: "undefined")
-  @graph(name: "movies", url: "undefined")
-  @composedGraph(version: 1)
+  @using(spec: "https://lib.apollo.dev/join/v0.1")
+  @using(spec: "https://lib.apollo.dev/local/v0.1")
 {
   query: Query
 }
 
-directive @composedGraph(version: Int!) on SCHEMA
+directive @using(
+  spec: String!,
+  prefix: String)
+  repeatable on SCHEMA
 
-directive @graph(name: String!, url: String!) repeatable on SCHEMA
+scalar join__FragmentId @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__fragmentid")
+scalar join__Url @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__url")
+input join__OutboundLinkHttp {
+    url: join__Url!
+}
+input join__OutboundLink {
+    http: join__OutboundLinkHttp
+}
+directive @join__key(
+  graph: join__Graph!)
+  repeatable on FRAGMENT_DEFINITION
+directive @join(
+  graph: join__Graph!,
+  type: String,
+  requires: join__FragmentId,
+  provides: join__FragmentId)
+  on OBJECT | INTERFACE | UNION | FIELD_DEFINITION
+directive @join__error(
+  graph: [join__Graph!]!,
+  message: String)
+  repeatable on OBJECT
+  | INTERFACE
+  | UNION
+  | FIELD_DEFINITION
+directive @join__link(
+  to: join__OutboundLink!)
+  on ENUM_VALUE
 
-directive @owner(graph: String!) on OBJECT
-
-directive @key(fields: String!, graph: String!) repeatable on OBJECT
-
-directive @resolve(graph: String!) on FIELD_DEFINITION
-
-directive @provides(fields: String!) on FIELD_DEFINITION
-
-directive @requires(fields: String!) on FIELD_DEFINITION
-
-type Movie {
-  title: String
-  name: String
+enum join__Graph {
+  users @join__link(to: { http: { url: "undefined" } })
+  movies @join__link(to: { http: { url: "undefined" } })
 }
 
-type Query {
-  users: [User!] @resolve(graph: "users")
-  movies: [Movie!] @resolve(graph: "movies")
+
+type Movie 
+  @join(graph: movies, type: "Movie") {
+  title: String @join(graph: movies)
+  name: String @join(graph: movies)
 }
 
-type User {
-  id: ID
-  name: String
-  favorites: [Movie!] @resolve(graph: "movies")
+
+
+type Query 
+  @join(graph: users, type: "Query")
+  @join(graph: movies, type: "Query") {
+  users: [User!] @join(graph: users)
+  movies: [Movie!] @join(graph: movies)
 }
+
+
+
+type User 
+  @join(graph: users, type: "User")
+  @join(graph: movies, type: "User") {
+  id: ID @join(graph: users)
+  name: String @join(graph: users)
+  favorites: [Movie!] @join(graph: movies)
+}
+
+
 

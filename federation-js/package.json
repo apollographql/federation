@@ -24,6 +24,8 @@
   },
   "dependencies": {
     "apollo-graphql": "^0.6.0",
+    "dedent": "^0.7.0",
+    "core-js": "^3.4.0",
     "lodash.xorby": "^4.7.0"
   },
   "peerDependencies": {

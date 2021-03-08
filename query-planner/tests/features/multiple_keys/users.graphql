@@ -1,0 +1,19 @@
+type Group {
+  id: ID
+  name: String
+}
+
+type Query {
+  users: [User!]!
+}
+
+type User
+  @key(fields: "ssn")
+  @key(fields: "id")
+  @key(fields: "group { id }")
+{
+  id: ID!
+  ssn: ID!
+  name: String!
+  group: Group
+}

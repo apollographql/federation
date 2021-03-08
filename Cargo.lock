@@ -357,10 +357,12 @@ dependencies = [
  "gherkin_rust",
  "graphql-parser",
  "harmonizer",
+ "insta",
  "lazy_static",
  "linked-hash-map",
  "serde",
  "serde_json",
+ "thiserror",
  "tracing",
  "tracing-futures",
 ]

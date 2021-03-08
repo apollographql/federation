@@ -32,6 +32,7 @@ import {
   isDirective,
   isNamedType,
   SchemaDefinitionNode,
+  EnumValueDefinitionNode,
 } from 'graphql';
 import {
   ExternalFieldDefinition,
@@ -64,6 +65,7 @@ export function findDirectivesOnNode(
     | TypeExtensionNode
     | FieldDefinitionNode
     | SchemaDefinitionNode
+    | EnumValueDefinitionNode
   >,
   directiveName: string,
 ) {

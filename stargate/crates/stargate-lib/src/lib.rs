@@ -36,8 +36,8 @@ impl Default for StargateOptions {
 impl<'app> Stargate<'app> {
     pub fn new(schema: &'app str, options: StargateOptions) -> Stargate<'app> {
         // TODO(ran) FIXME: gql validation on schema
-        let planner = QueryPlanner::new(schema);
-        let service_list = get_service_list(&planner.schema);
+        let planner = QueryPlanner::new(schema).expect("error creating planner");
+        let service_list = get_service_list(&planner.schema.document);
         Stargate {
             planner,
             service_list,
@@ -62,6 +62,7 @@ impl<'app> Stargate<'app> {
     }
 }
 
+// TODO(ashik): move this to query planner
 fn get_service_list(schema: &schema::Document) -> HashMap<String, ServiceDefinition> {
     let schema_defintion: Option<&schema::SchemaDefinition> = schema
         .definitions

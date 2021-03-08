@@ -41,6 +41,7 @@
     "@rollup/plugin-commonjs": "17.0.0",
     "@rollup/plugin-node-resolve": "11.0.1",
     "@types/bunyan": "1.8.6",
+    "@types/dedent": "0.7.0",
     "@types/deep-freeze": "0.1.2",
     "@types/jest": "26.0.20",
     "@types/lodash.xorby": "4.7.6",

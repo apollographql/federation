@@ -554,27 +554,22 @@ export class ApolloGateway implements GraphQLService {
     const serviceList: Omit<ServiceDefinition, 'typeDefs'>[] = [];
 
     visit(this.parsedCsdl!, {
-      SchemaDefinition(node) {
-        findDirectivesOnNode(node, 'graph').forEach((directive) => {
-          const name = directive.arguments?.find(
-            (arg) => arg.name.value === 'name',
-          );
-          const url = directive.arguments?.find(
-            (arg) => arg.name.value === 'url',
-          );
-
-          if (
-            name &&
-            isStringValueNode(name.value) &&
-            url &&
-            isStringValueNode(url.value)
-          ) {
-            serviceList.push({
-              name: name.value.value,
-              url: url.value.value,
-            });
+      EnumTypeDefinition(enumDef) {
+        // FIXME: respect the @using prefix machinery
+        const prefix = 'join'
+        if (enumDef?.name.value !== `${prefix}__Graph`) return
+        for (const graph of enumDef.values ?? []) {
+          const name = graph.name.value
+          for (const dir of findDirectivesOnNode(graph, `${prefix}__link`)) {
+            const to = dir.arguments?.find(a => a.name.value === 'to')?.value
+            if (to?.kind !== 'ObjectValue') continue
+            const http = to.fields.find(f => f.name.value === 'http')?.value
+            if (http?.kind !== 'ObjectValue') continue
+            const url = http.fields.find(f => f.name.value === 'url')?.value
+            if (!isStringValueNode(url)) continue
+            serviceList.push({ name, url: url.value })
           }
-        });
+        }
       },
     });
 

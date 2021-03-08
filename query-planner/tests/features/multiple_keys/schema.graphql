@@ -1,0 +1,94 @@
+schema
+  @using(spec: "https://lib.apollo.dev/join/v0.1")
+  @using(spec: "https://lib.apollo.dev/local/v0.1")
+{
+  query: Query
+}
+
+directive @using(
+  spec: String!,
+  prefix: String)
+  repeatable on SCHEMA
+
+scalar join__FragmentId @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__fragmentid")
+scalar join__Url @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__url")
+input join__OutboundLinkHttp {
+    url: join__Url!
+}
+input join__OutboundLink {
+    http: join__OutboundLinkHttp
+}
+directive @join__key(
+  graph: join__Graph!)
+  repeatable on FRAGMENT_DEFINITION
+directive @join(
+  graph: join__Graph!,
+  type: String,
+  requires: join__FragmentId,
+  provides: join__FragmentId)
+  on OBJECT | INTERFACE | UNION | FIELD_DEFINITION
+directive @join__error(
+  graph: [join__Graph!]!,
+  message: String)
+  repeatable on OBJECT
+  | INTERFACE
+  | UNION
+  | FIELD_DEFINITION
+directive @join__link(
+  to: join__OutboundLink!)
+  on ENUM_VALUE
+
+enum join__Graph {
+  actuary @join__link(to: { http: { url: "undefined" } })
+  reviews @join__link(to: { http: { url: "undefined" } })
+  users @join__link(to: { http: { url: "undefined" } })
+}
+
+
+type Group 
+  @join(graph: users, type: "Group") {
+  id: ID @join(graph: users)
+  name: String @join(graph: users)
+}
+
+
+
+type Query 
+  @join(graph: reviews, type: "Query")
+  @join(graph: users, type: "Query") {
+  reviews: [Review!]! @join(graph: reviews)
+  users: [User!]! @join(graph: users)
+}
+
+
+
+type Review 
+  @join(graph: reviews, type: "Review") {
+  id: ID! @join(graph: reviews)
+  author: User! @join(graph: reviews)
+  body: String! @join(graph: reviews)
+}
+
+
+
+type User 
+  @join(graph: actuary, type: "User", requires: "local__id_0_User_ssn")
+  @join(graph: reviews, type: "User", requires: "local__id_1_User_id")
+  @join(graph: users, type: "User", requires: "local__id_0_User_ssn")
+  @join(graph: users, type: "User", requires: "local__id_1_User_id")
+  @join(graph: users, type: "User", requires: "local__id_2_User_group_id")
+{
+  id: ID! @join(graph: users)
+  ssn: ID! @join(graph: users)
+  name: String! @join(graph: users)
+  group: Group @join(graph: users)
+  risk: Float @join(graph: actuary)
+  reviews: [Review!]! @join(graph: reviews)
+}
+
+fragment local__id_0_User_ssn on User
+{ ssn }
+fragment local__id_1_User_id on User
+{ id }
+fragment local__id_2_User_group_id on User
+{ group { id } }

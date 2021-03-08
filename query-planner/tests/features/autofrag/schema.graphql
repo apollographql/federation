@@ -1,0 +1,130 @@
+schema
+  @using(spec: "https://lib.apollo.dev/join/v0.1")
+  @using(spec: "https://lib.apollo.dev/local/v0.1")
+{
+  query: Query
+}
+
+directive @using(
+  spec: String!,
+  prefix: String)
+  repeatable on SCHEMA
+
+scalar join__FragmentId @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__fragmentid")
+scalar join__Url @specifiedBy(url: "https://lib.apollo.dev/join/v0.1/#join__url")
+input join__OutboundLinkHttp {
+    url: join__Url!
+}
+input join__OutboundLink {
+    http: join__OutboundLinkHttp
+}
+directive @join__key(
+  graph: join__Graph!)
+  repeatable on FRAGMENT_DEFINITION
+directive @join(
+  graph: join__Graph!,
+  type: String,
+  requires: join__FragmentId,
+  provides: join__FragmentId)
+  on OBJECT | INTERFACE | UNION | FIELD_DEFINITION
+directive @join__error(
+  graph: [join__Graph!]!,
+  message: String)
+  repeatable on OBJECT
+  | INTERFACE
+  | UNION
+  | FIELD_DEFINITION
+directive @join__link(
+  to: join__OutboundLink!)
+  on ENUM_VALUE
+
+enum join__Graph {
+  users @join__link(to: { http: { url: "undefined" } })
+}
+
+
+type A 
+  @join(graph: users, type: "A") {
+  b: B @join(graph: users)
+}
+
+
+
+type B 
+  @join(graph: users, type: "B") {
+  f1: String @join(graph: users)
+  f2: String @join(graph: users)
+  f3: String @join(graph: users)
+  f4: String @join(graph: users)
+  f5: String @join(graph: users)
+  f6: String @join(graph: users)
+}
+
+
+
+interface IFace 
+  @join(graph: users, type: "IFaceImpl1")
+  @join(graph: users, type: "IFaceImpl2")
+  @join(graph: users, type: "IFace") {
+  x: Int
+}
+
+
+type IFaceImpl1 implements IFace 
+  @join(graph: users, type: "IFaceImpl1") {
+  x: Int @join(graph: users)
+}
+
+
+
+type IFaceImpl2 implements IFace 
+  @join(graph: users, type: "IFaceImpl2") {
+  x: Int @join(graph: users)
+}
+
+
+
+scalar Location
+
+
+type Query 
+  @join(graph: users, type: "Query") {
+  sender: SendingUser @join(graph: users)
+  receiver: ReceivingUser @join(graph: users)
+  field: SomeField @join(graph: users)
+}
+
+
+
+type ReceivingUser 
+  @join(graph: users, type: "ReceivingUser", requires: "local__id_0_ReceivingUser_id")
+{
+  id: ID! @join(graph: users)
+  name: String @join(graph: users)
+  address: String @join(graph: users)
+  location: Location @join(graph: users)
+}
+
+fragment local__id_0_ReceivingUser_id on ReceivingUser
+{ id }
+
+type SendingUser 
+  @join(graph: users, type: "SendingUser", requires: "local__id_1_SendingUser_id")
+{
+  id: ID! @join(graph: users)
+  name: String @join(graph: users)
+  address: String @join(graph: users)
+  location: Location @join(graph: users)
+}
+
+fragment local__id_1_SendingUser_id on SendingUser
+{ id }
+
+type SomeField 
+  @join(graph: users, type: "SomeField") {
+  a: A @join(graph: users)
+  b: B @join(graph: users)
+  iface: IFace @join(graph: users)
+}
+
+
