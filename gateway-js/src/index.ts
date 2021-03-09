@@ -814,7 +814,6 @@ export class ApolloGateway implements GraphQLService {
 
     return loadCsdlFromStorage({
       graphId: this.apolloConfig!.graphId!,
-      // TODO: remove TS !
       apiKey: this.apolloConfig!.key!,
       graphVariant: this.apolloConfig!.graphVariant,
       fetcher: this.fetcher,
