@@ -4,6 +4,8 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- __BREAKING__: Make all `protected` gateway fields and methods `private` (except `loadServiceDefinitions`). If you currently depend on the ability to override any of these currently `protected` members of `ApolloGateway` please let us know. For additional context on why `loadServiceDefinitions` remains `protected` (for now) please read the associated PR description and linked issue. [PR #539](https://github.com/apollographql/federation/pull/539)
+
 ## v0.23.2
 
 - Only changes in the similarly versioned `@apollo/federation` package.

@@ -1,24 +1,21 @@
 import { RequestInit, Headers } from 'apollo-server-env';
+type RequestInitWithJSONBody = Omit<RequestInit, 'body'> & { body?: object }
 
 // Make this file a module
 // See: https://github.com/microsoft/TypeScript/issues/17736
 export {};
 declare global {
   namespace jest {
-    interface Matchers<R, T> {
-      toHaveFetched(spy: SpyInstance): R;
+    interface Matchers<R> {
+      toHaveFetched(requestUrl: string, requestOpts?: RequestInitWithJSONBody): R;
+      toHaveFetchedNth(nthCall: number, requestUrl: string, requestOpts?: RequestInitWithJSONBody): R;
     }
   }
 }
 
-function prepareHttpOptions(requestUrl: string, requestOpts: RequestInit): RequestInit {
-  const headers = new Headers();
+function prepareHttpOptions(requestUrl: string, requestOpts: RequestInitWithJSONBody): RequestInit {
+  const headers = new Headers(requestOpts.headers);
   headers.set('Content-Type', 'application/json');
-  if (requestOpts.headers) {
-    for (let name in requestOpts.headers) {
-      headers.set(name, requestOpts.headers[name]);
-    }
-  }
 
   const requestHttp = {
     method: 'POST',
@@ -37,7 +34,7 @@ function toHaveFetched(
   this: jest.MatcherUtils,
   fetch: jest.SpyInstance,
   requestUrl: string,
-  requestOpts: RequestInit
+  requestOpts: RequestInitWithJSONBody = {}
 ): { message(): string; pass: boolean } {
   const httpOptions = prepareHttpOptions(requestUrl, requestOpts);
   let pass = false;
@@ -60,7 +57,7 @@ function toHaveFetchedNth(
   fetch: jest.SpyInstance,
   nthCall: number,
   requestUrl: string,
-  requestOpts: RequestInit
+  requestOpts: RequestInitWithJSONBody = {}
 ): { message(): string; pass: boolean } {
   const httpOptions = prepareHttpOptions(requestUrl, requestOpts);
   let pass = false;

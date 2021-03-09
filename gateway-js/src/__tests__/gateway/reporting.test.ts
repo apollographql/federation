@@ -13,6 +13,15 @@ import { Plugin, Config, Refs } from 'pretty-format';
 import { Report } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 
+// TODO: We should fix this another way, but for now adding this
+// type declaration here to avoid a typing error in `apollo-link-http-common`
+// due to us not dependeing on `dom` (or `webworker`) types.
+declare global {
+  interface WindowOrWorkerGlobalScope {
+    fetch: typeof import('apollo-server-env')['fetch']
+  }
+}
+
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally
 // useful, they could be moved to a different file.)

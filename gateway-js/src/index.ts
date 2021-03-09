@@ -20,6 +20,8 @@ import {
   visit,
   DocumentNode,
   print,
+  FragmentDefinitionNode,
+  OperationDefinitionNode,
 } from 'graphql';
 import {
   composeAndValidate,
@@ -38,19 +40,13 @@ import {
 } from './executeQueryPlan';
 
 import { getServiceDefinitionsFromRemoteEndpoint } from './loadServicesFromRemoteEndpoint';
-import {
-  serializeQueryPlan,
-  QueryPlan,
-  OperationContext,
-  WasmPointer,
-} from './QueryPlan';
 import { GraphQLDataSource } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
 import fetcher, { Fetcher } from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
-import { getQueryPlanner } from '@apollo/query-planner-wasm';
+import { getQueryPlanner, QueryPlannerPointer, QueryPlan, prettyFormatQueryPlan } from '@apollo/query-planner';
 import { csdlToSchema } from './csdlToSchema';
 import {
   ServiceEndpointDefinition,
@@ -77,6 +73,16 @@ import {
   CompositionUpdate,
 } from './config';
 import { loadCsdlFromStorage } from './loadCsdlFromStorage';
+
+type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
+
+export type OperationContext = {
+  schema: GraphQLSchema;
+  operation: OperationDefinitionNode;
+  fragments: FragmentMap;
+  queryPlannerPointer: QueryPlannerPointer;
+  operationString: string;
+};
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -122,17 +128,17 @@ type GatewayState =
   | { phase: 'polling'; pollingDonePromise: Promise<void> };
 export class ApolloGateway implements GraphQLService {
   public schema?: GraphQLSchema;
-  protected serviceMap: DataSourceMap = Object.create(null);
-  protected config: GatewayConfig;
+  private serviceMap: DataSourceMap = Object.create(null);
+  private config: GatewayConfig;
   private logger: Logger;
-  protected queryPlanStore: InMemoryLRUCache<QueryPlan>;
+  private queryPlanStore: InMemoryLRUCache<QueryPlan>;
   private apolloConfig?: ApolloConfig;
   private onSchemaChangeListeners = new Set<SchemaChangeCallback>();
   private serviceDefinitions: ServiceDefinition[] = [];
   private compositionMetadata?: CompositionMetadata;
   private serviceSdlCache = new Map<string, string>();
   private warnedStates: WarnedStates = Object.create(null);
-  private queryPlannerPointer?: WasmPointer;
+  private queryPlannerPointer?: QueryPlannerPointer;
   private parsedCsdl?: DocumentNode;
   private fetcher: typeof fetch;
   private compositionId?: string;
@@ -141,19 +147,19 @@ export class ApolloGateway implements GraphQLService {
   // Observe query plan, service info, and operation info prior to execution.
   // The information made available here will give insight into the resulting
   // query plan and the inputs that generated it.
-  protected experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
+  private experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
   // Observe composition failures and the ServiceList that caused them. This
   // enables reporting any issues that occur during composition. Implementors
   // will be interested in addressing these immediately.
-  protected experimental_didFailComposition?: Experimental_DidFailCompositionCallback;
+  private experimental_didFailComposition?: Experimental_DidFailCompositionCallback;
   // Used to communicated composition changes, and what definitions caused
   // those updates
-  protected experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
+  private experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
   // Used for overriding the default service list fetcher. This should return
   // an array of ServiceDefinition. *This function must be awaited.*
-  protected updateServiceDefinitions: Experimental_UpdateComposition;
+  private updateServiceDefinitions: Experimental_UpdateComposition;
   // how often service defs should be loaded/updated (in ms)
-  protected experimental_pollInterval?: number;
+  private experimental_pollInterval?: number;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -354,7 +360,7 @@ export class ApolloGateway implements GraphQLService {
     return isManagedConfig(this.config) || this.experimental_pollInterval;
   }
 
-  protected async updateSchema(): Promise<void> {
+  private async updateSchema(): Promise<void> {
     this.logger.debug('Checking for composition updates...');
 
     // This may throw, but an error here is caught and logged upstream
@@ -565,7 +571,7 @@ export class ApolloGateway implements GraphQLService {
     );
   }
 
-  protected createSchemaFromServiceList(serviceList: ServiceDefinition[]) {
+  private createSchemaFromServiceList(serviceList: ServiceDefinition[]) {
     this.logger.debug(
       `Composing schema from service list: \n${serviceList
         .map(({ name, url }) => `  ${url || 'local'}: ${name}`)
@@ -608,7 +614,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  protected serviceListFromCsdl(csdl?: DocumentNode) {
+  private serviceListFromCsdl(csdl?: DocumentNode) {
     const serviceList: Omit<ServiceDefinition, 'typeDefs'>[] = [];
 
     visit(csdl || this.parsedCsdl!, {
@@ -639,7 +645,7 @@ export class ApolloGateway implements GraphQLService {
     return serviceList;
   }
 
-  protected createSchemaFromCsdl(csdl: string) {
+  private createSchemaFromCsdl(csdl: string) {
     this.parsedCsdl = parse(csdl);
     const serviceList = this.serviceListFromCsdl();
 
@@ -771,7 +777,7 @@ export class ApolloGateway implements GraphQLService {
         });
   }
 
-  protected createServices(services: ServiceEndpointDefinition[]) {
+  private createServices(services: ServiceEndpointDefinition[]) {
     for (const serviceDef of services) {
       this.createAndCacheDataSource(serviceDef);
     }
@@ -940,7 +946,12 @@ export class ApolloGateway implements GraphQLService {
     // 2) non-empty query plan and shouldShowQueryPlan === true
     const serializedQueryPlan =
       queryPlan.node && (this.config.debug || shouldShowQueryPlan)
-        ? serializeQueryPlan(queryPlan)
+        // FIXME: I disabled printing the query plan because this lead to a
+        // circular dependency between the `@apollo/gateway` and
+        // `apollo-federation-integration-testsuite` packages.
+        // We should either solve that or switch Playground to
+        // the JSON serialization format.
+        ? prettyFormatQueryPlan(queryPlan)
         : null;
 
     if (this.config.debug && serializedQueryPlan) {
@@ -962,7 +973,7 @@ export class ApolloGateway implements GraphQLService {
     return response;
   };
 
-  protected validateIncomingRequest<TContext>(
+  private validateIncomingRequest<TContext>(
     requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
     operationContext: OperationContext,
   ) {
@@ -1078,9 +1089,7 @@ class UnreachableCaseError extends Error {
 export {
   buildQueryPlan,
   executeQueryPlan,
-  serializeQueryPlan,
   buildOperationContext,
-  QueryPlan,
   ServiceMap,
   Experimental_DidFailCompositionCallback,
   Experimental_DidResolveQueryPlanCallback,

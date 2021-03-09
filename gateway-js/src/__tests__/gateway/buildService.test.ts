@@ -1,6 +1,4 @@
-import gql from 'graphql-tag';
-import { fetch } from '__mocks__/apollo-server-env';
-import { createTestClient } from 'apollo-server-testing';
+import { fetch } from '../../__mocks__/apollo-server-env';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 
 import { RemoteGraphQLDataSource } from '../../datasources/RemoteGraphQLDataSource';
@@ -55,9 +53,7 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
     }),
   });
 
-  const call = createTestClient(server);
-
-  const query = gql`
+  const query = `#graphql
     {
       me {
         username
@@ -67,7 +63,7 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
 
   fetch.mockJSONResponseOnce({ data: { me: { username: '@jbaxleyiii' } } });
 
-  const result = await call.query({
+  const result = await server.executeOperation({
     query,
   });
 

@@ -7,12 +7,8 @@ import {
   OperationDefinitionNode,
   print,
 } from 'graphql';
-import {
-  QueryPlan,
-  OperationContext,
-  WasmPointer,
-} from './QueryPlan';
-import { getQueryPlan } from '@apollo/query-planner-wasm';
+import { OperationContext } from './';
+import { getQueryPlan, QueryPlan, QueryPlannerPointer } from '@apollo/query-planner';
 
 export interface BuildQueryPlanOptions {
   autoFragmentization: boolean;
@@ -35,7 +31,7 @@ interface BuildOperationContextOptions {
   schema: GraphQLSchema;
   operationDocument: DocumentNode;
   operationString: string;
-  queryPlannerPointer: WasmPointer;
+  queryPlannerPointer: QueryPlannerPointer;
   operationName?: string;
 };
 

@@ -14,14 +14,13 @@ import {
 import {
   buildQueryPlan,
   executeQueryPlan,
-  QueryPlan,
   buildOperationContext,
 } from '@apollo/gateway';
+import { QueryPlan } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from 'apollo-utilities';
 
-import queryPlanSerializer from '../snapshotSerializers/queryPlanSerializer';
-import astSerializer from '../snapshotSerializers/astSerializer';
+import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { getQueryPlanner } from '@apollo/query-planner-wasm';
@@ -71,6 +70,7 @@ export async function execute(
   const result = await executeQueryPlan(
     queryPlan,
     serviceMap,
+     // @ts-ignore
     {
       cache: undefined as any,
       context: {},

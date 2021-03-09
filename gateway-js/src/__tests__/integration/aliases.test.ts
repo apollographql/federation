@@ -1,6 +1,4 @@
 import { execute } from '../execution-utils';
-// FIXME: remove this when GraphQLExtensions is removed
-import { createTestClient } from 'apollo-server-testing';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { buildFederatedSchema } from '@apollo/federation';
 import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
@@ -146,6 +144,7 @@ it('supports aliases when using ApolloServer', async () => {
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
     buildService: service => {
+      // @ts-ignore
       return new LocalGraphQLDataSource(buildFederatedSchema([service]));
     },
   });
@@ -155,9 +154,8 @@ it('supports aliases when using ApolloServer', async () => {
   const server = new ApolloServer({ schema, executor });
 
   const upc = '1';
-  const { query } = createTestClient(server);
 
-  const result = await query({
+  const result = await server.executeOperation({
     query: `#graphql
       query GetProduct($upc: String!) {
         product(upc: $upc) {

@@ -3,11 +3,11 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "noImplicitAny": false,
-    "strictNullChecks": false,
     "types": ["node", "jest"]
   },
   "include": ["src/**/*"],
   "exclude": ["**/__tests__"],
-  "references": []
+  "references": [
+    { "path": "../gateway-js" }
+  ]
 }

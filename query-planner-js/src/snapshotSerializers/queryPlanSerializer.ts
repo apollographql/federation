@@ -1,5 +1,5 @@
 import { Config, Plugin, Refs } from 'pretty-format';
-import { PlanNode, QueryPlan } from '../QueryPlan';
+import { PlanNode, QueryPlan } from '../';
 import { parse, Kind, visit, DocumentNode } from 'graphql';
 
 export default {
@@ -48,7 +48,6 @@ function printNode(
         `Fetch(service: "${node.serviceName}")` +
         ' {' +
         config.spacingOuter +
-        indentationNext +
         (node.requires
           ? printer(
               // this is an array of selections, so we need to make it a proper
@@ -61,8 +60,7 @@ function printNode(
               printer,
             ) +
             ' =>' +
-            config.spacingOuter +
-            indentationNext
+            config.spacingOuter
           : '') +
         printer(
           flattenEntitiesField(parse(node.operation)),

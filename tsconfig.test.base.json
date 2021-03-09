@@ -2,9 +2,6 @@
   "extends": "./tsconfig.base",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["node", "jest", "apollo-server-env/dist/global"],
-    "paths": {
-      "__mocks__/*" : ["__mocks__/*"],
-    }
+    "types": ["node", "jest", "apollo-server-env/dist/global"]
   }
 }

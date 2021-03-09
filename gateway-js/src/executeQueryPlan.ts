@@ -14,16 +14,16 @@ import {
 import { Trace, google } from 'apollo-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
 import { GraphQLDataSource } from './datasources/types';
+import { OperationContext } from './';
 import {
   FetchNode,
   PlanNode,
   QueryPlan,
   ResponsePath,
-  OperationContext,
   QueryPlanSelectionNode,
   QueryPlanFieldNode,
   getResponseName
-} from './QueryPlan';
+} from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 
 export type ServiceMap = {
