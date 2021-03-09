@@ -1,5 +1,4 @@
 import gql from 'graphql-tag';
-import { createTestClient } from 'apollo-server-testing';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { buildFederatedSchema } from '@apollo/federation';
 
@@ -26,9 +25,8 @@ it('caches the query plan for a request', async () => {
   const server = new ApolloServer({ schema, executor });
 
   const upc = '1';
-  const call = createTestClient(server);
 
-  const query = gql`
+  const query = `#graphql
     query GetProduct($upc: String!) {
       product(upc: $upc) {
         name
@@ -36,7 +34,7 @@ it('caches the query plan for a request', async () => {
     }
   `;
 
-  const result = await call.query({
+  const result = await server.executeOperation({
     query,
     variables: { upc },
   });
@@ -47,7 +45,7 @@ it('caches the query plan for a request', async () => {
     },
   });
 
-  const secondResult = await call.query({
+  const secondResult = await server.executeOperation({
     query,
     variables: { upc },
   });
@@ -187,8 +185,6 @@ it('does not corrupt cached queryplan data across requests', async () => {
 
   const server = new ApolloServer({ schema, executor });
 
-  const call = createTestClient(server);
-
   const query1 = `#graphql
     query UserFavoriteColor {
       user {
@@ -206,13 +202,13 @@ it('does not corrupt cached queryplan data across requests', async () => {
     }
   `;
 
-  const result1 = await call.query({
+  const result1 = await server.executeOperation({
     query: query1,
   });
-  const result2 = await call.query({
+  const result2 = await server.executeOperation({
     query: query2,
   });
-  const result3 = await call.query({
+  const result3 = await server.executeOperation({
     query: query1,
   });
 
