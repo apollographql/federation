@@ -614,10 +614,10 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private serviceListFromCsdl(csdl?: DocumentNode) {
+  private serviceListFromCsdl(csdl: DocumentNode) {
     const serviceList: Omit<ServiceDefinition, 'typeDefs'>[] = [];
 
-    visit(csdl || this.parsedCsdl!, {
+    visit(csdl, {
       SchemaDefinition(node) {
         findDirectivesOnNode(node, 'graph').forEach((directive) => {
           const name = directive.arguments?.find(
@@ -647,7 +647,7 @@ export class ApolloGateway implements GraphQLService {
 
   private createSchemaFromCsdl(csdl: string) {
     this.parsedCsdl = gql(csdl);
-    const serviceList = this.serviceListFromCsdl();
+    const serviceList = this.serviceListFromCsdl(this.parsedCsdl);
 
     this.createServices(serviceList);
 
