@@ -65,6 +65,10 @@ enum FetchErrorCode {
   RETRY_LATER = 'RETRY_LATER',
 }
 
+const cloudConfigEndpoint =
+  process.env.APOLLO_CLOUD_CONFIG_ENDPOINT ??
+  'https://us-central1-mdg-services.cloudfunctions.net:443/cloudconfig-staging/';
+
 export async function loadCsdlFromStorage({
   graphId,
   graphVariant,
@@ -76,23 +80,20 @@ export async function loadCsdlFromStorage({
   apiKey: string;
   fetcher: typeof fetch;
 }) {
-  const result = await fetcher(
-    'https://us-central1-mdg-services.cloudfunctions.net:443/cloudconfig-staging/',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        query: CSDL_QUERY,
-        variables: {
-          ref: `${graphId}@${graphVariant}`,
-          apiKey,
-        },
-      }),
-      headers: {
-        'user-agent': `apollo-gateway/${require('../package.json').version}`,
-        'Content-Type': 'application/json',
+  const result = await fetcher(cloudConfigEndpoint, {
+    method: 'POST',
+    body: JSON.stringify({
+      query: CSDL_QUERY,
+      variables: {
+        ref: `${graphId}@${graphVariant}`,
+        apiKey,
       },
+    }),
+    headers: {
+      'user-agent': `apollo-gateway/${require('../package.json').version}`,
+      'Content-Type': 'application/json',
     },
-  );
+  });
 
 
 
