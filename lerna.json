@@ -3,6 +3,7 @@
     "federation-js",
     "federation-integration-testsuite-js",
     "gateway-js",
+    "query-planner-js",
     "query-planner-wasm"
   ],
   "version": "independent",
