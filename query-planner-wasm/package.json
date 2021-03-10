@@ -5,8 +5,8 @@
   "scripts": {
     "build-esm": "wasm-pack build --target bundler --out-dir module --out-name index --scope apollo",
     "build-cjs": "wasm-pack build --target nodejs --out-dir dist --out-name index --scope apollo",
-    "remove-pkg-jsons": "rm module/package.json && rm dist/package.json",
-    "monorepo-prepare": "npm run build-esm && npm run build-cjs && npm run remove-pkg-jsons"
+    "remove-pkg-cruft": "rm module/package.json dist/package.json dist/.gitignore module/.gitignore dist/README.md module/README.md",
+    "monorepo-prepare": "npm run build-esm && npm run build-cjs && npm run remove-pkg-cruft"
   },
   "author": "opensource@apollographql.com",
   "license": "MIT",
@@ -26,13 +26,20 @@
     "apollo"
   ],
   "files": [
-    "dist/*",
-    "module/*"
+    "module/index_bg.wasm",
+    "module/index.js",
+    "module/index.d.ts",
+    "dist/index_bg.wasm",
+    "dist/index.js",
+    "dist/index_bg.js",
+    "dist/index.d.ts"
   ],
   "main": "dist/index.js",
   "exports": {
     "require": "./dist/index.js",
     "import": "./module/index.js"
   },
+  "module": "module/index.js",
+  "sideEffects": "false",
   "types": "dist/index.d.ts"
 }
