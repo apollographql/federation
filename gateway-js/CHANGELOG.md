@@ -6,6 +6,10 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v0.21.1
+
+- Re-publish with adjustment to `lerna.json` to ensure that the newly-introduced `@apollo/query-planner` package (which wraps `@apollo/query-planner-wasm`) is published by the release pipeline.  This is important because `@apollo/gateway` now depends on `@apollo/query-planner` as of [PR #453](https://github.com/apollographql/federation/pull/453)
+
 ## v0.24.0
 
 - __BREAKING__: Make all `protected` gateway fields and methods `private` (except `loadServiceDefinitions`). If you currently depend on the ability to override any of these currently `protected` members of `ApolloGateway` _please let us know by opening or commenting on an existing an issue on this repository_. For additional context on why `loadServiceDefinitions` remains `protected` (for now) please read the associated PR description and linked issue. [PR #539](https://github.com/apollographql/federation/pull/539)
