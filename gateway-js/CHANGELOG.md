@@ -5,6 +5,7 @@
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
 - __BREAKING__: Make all `protected` gateway fields and methods `private` (except `loadServiceDefinitions`). If you currently depend on the ability to override any of these currently `protected` members of `ApolloGateway` please let us know. For additional context on why `loadServiceDefinitions` remains `protected` (for now) please read the associated PR description and linked issue. [PR #539](https://github.com/apollographql/federation/pull/539)
+- deps: `@apollo/query-planner-wasm`: This dependency has been bumped to a version that emits an ECMAScript module (ESM) in addition to the current CommonJS (CJS) bundle.  This may help facilitate interoperability with bundlers thwarted by the presence of the WASM module (`.wasm`) within in this dependency since its inception and included in `@apollo/gateway` since [`v0.20.1`](#v0201).  [PR #270](https://github.com/apollographql/federation/pull/270)  [Issue #255](https://github.com/apollographql/federation/issues/255)
 
 ## v0.23.2
 
