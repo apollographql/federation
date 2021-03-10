@@ -997,10 +997,10 @@ export class ApolloGateway implements GraphQLService {
   public async stop() {
     switch (this.state.phase) {
       case 'initialized':
-        throw Error(
-          'ApolloGateway.stop does not need to be called before ApolloGateway.load',
-        );
       case 'failed to load':
+        throw Error(
+          'ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully',
+        );
       case 'stopped':
         // Calls to stop() are idempotent.
         return;
