@@ -140,6 +140,12 @@ describe('CSDL update failures', () => {
     ).rejects.toThrowErrorMatchingInlineSnapshot(
       `"401: Unexpected failure while fetching updated CSDL"`,
     );
+
+    await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
+    );
+    // Special stop case is handled, null out gateway so the `afterEach` doesn't call `stop` on the gateway
+    gateway = null;
   });
 
   it('Handles arbitrary fetch failures (non 200 response)', async () => {
@@ -277,6 +283,12 @@ describe('Downstream service health checks', () => {
         "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
         [accounts]: 500: Internal Server Error"
       `);
+
+      await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
+      );
+      // Special stop case is handled, null out gateway so the `afterEach` doesn't call `stop` on the gateway
+      gateway = null;
     });
   });
 
@@ -325,6 +337,12 @@ describe('Downstream service health checks', () => {
         "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
         [accounts]: 500: Internal Server Error"
       `);
+
+      await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
+      );
+      // Special stop case is handled, null out gateway so the `afterEach` doesn't call `stop` on the gateway
+      gateway = null;
     });
 
     // This test has been flaky for a long time, and fails consistently after changes
