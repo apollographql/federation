@@ -6,9 +6,13 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v0.24.4
+
+- deps(@apollo/query-planner-wasm`): Adjust the packaging to ensure that `dist/` packages were published by the CI publishing pipeline. [PR #557](https://github.com/apollographql/federation/pull/557)
+
 ## v0.24.3
 
-- deps: `@apollo/query-planner-wasm`: Fix an error caused by a lacking relatively prefix on the items in `exports`, following up [PR #270](https://github.com/apollographql/federation/pull/270)
+- deps(`@apollo/query-planner-wasm`): Fix an error caused by a lacking relatively prefix on the items in `exports`, following up [PR #270](https://github.com/apollographql/federation/pull/270)
 
 ## v0.24.2
 ## v0.24.1
@@ -18,7 +22,7 @@
 ## v0.24.0
 
 - __BREAKING__: Make all `protected` gateway fields and methods `private` (except `loadServiceDefinitions`). If you currently depend on the ability to override any of these currently `protected` members of `ApolloGateway` _please let us know by opening or commenting on an existing an issue on this repository_. For additional context on why `loadServiceDefinitions` remains `protected` (for now) please read the associated PR description and linked issue. [PR #539](https://github.com/apollographql/federation/pull/539)
-- deps: `@apollo/query-planner-wasm`: This dependency has been bumped to a version that emits an ECMAScript module (ESM) in addition to the current CommonJS (CJS) bundle.  This may help facilitate interoperability with bundlers thwarted by the presence of the WASM module (`.wasm`) within in this dependency since its inception and included in `@apollo/gateway` since [`v0.20.1`](#v0201).  [PR #270](https://github.com/apollographql/federation/pull/270)  [Issue #255](https://github.com/apollographql/federation/issues/255)
+- deps(`@apollo/query-planner-wasm`): This dependency has been bumped to a version that emits an ECMAScript module (ESM) in addition to the current CommonJS (CJS) bundle.  This may help facilitate interoperability with bundlers thwarted by the presence of the WASM module (`.wasm`) within in this dependency since its inception and included in `@apollo/gateway` since [`v0.20.1`](#v0201).  [PR #270](https://github.com/apollographql/federation/pull/270)  [Issue #255](https://github.com/apollographql/federation/issues/255)
 
 ## v0.23.2
 

@@ -6,9 +6,13 @@
 
 -  _Nothing yet! Stay tuned!_
 
+## v0.2.3
+
+- Adjust the way that the packages are included in the distribution and prune files that are unnecessary or causing conflict with intentions (like `.gitignore`).  [PR #557](https://github.com/apollographql/federation/pull/557)
+
 ## v0.2.2
 
-- Fix an error caused by a lacking relatively prefix on the items in `exports`, following up [PR #270](https://github.com/ap      ollographql/federation/pull/270)
+- Fix an error caused by a lacking relatively prefix on the items in `exports`, following up [PR #270](https://github.com/apollographql/federation/pull/270)
 
 ## v0.2.0
 
