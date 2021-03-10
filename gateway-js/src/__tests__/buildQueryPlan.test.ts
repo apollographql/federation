@@ -1,22 +1,21 @@
-import { GraphQLError } from 'graphql';
+import { GraphQLSchema } from 'graphql';
 import gql from 'graphql-tag';
 import { buildQueryPlan, buildOperationContext } from '../buildQueryPlan';
-import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
+import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
-import { ComposedGraphQLSchema } from '@apollo/federation';
-import { WasmPointer } from '../QueryPlan';
+import { QueryPlannerPointer } from '@apollo/query-planner';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 describe('buildQueryPlan', () => {
-  let schema: ComposedGraphQLSchema;
-  let errors: GraphQLError[];
-  let queryPlannerPointer: WasmPointer;
+  let schema: GraphQLSchema;
+  let queryPlannerPointer: QueryPlannerPointer;
 
   beforeEach(() => {
-    ({ schema, errors, queryPlannerPointer } = getFederatedTestingSchema());
-    expect(errors).toHaveLength(0);
+    expect(
+      () => ({ schema, queryPlannerPointer } = getFederatedTestingSchema()),
+    ).not.toThrow();
   });
 
   it(`should not confuse union types with overlapping field names`, () => {
@@ -1080,6 +1079,7 @@ describe('buildQueryPlan', () => {
                   ...__QueryPlanFragment_1__
                 }
               }
+              
               fragment __QueryPlanFragment_0__ on Product {
                 __typename
                 ... on Book {
@@ -1091,6 +1091,7 @@ describe('buildQueryPlan', () => {
                   upc
                 }
               }
+              
               fragment __QueryPlanFragment_1__ on Review {
                 body
                 author
@@ -1239,6 +1240,7 @@ describe('buildQueryPlan', () => {
                 ...__QueryPlanFragment_0__
               }
             }
+            
             fragment __QueryPlanFragment_0__ on Review {
               id
               body
@@ -1287,6 +1289,7 @@ describe('buildQueryPlan', () => {
                   ...__QueryPlanFragment_1__
                 }
               }
+              
               fragment __QueryPlanFragment_0__ on Product {
                 __typename
                 ... on Book {
@@ -1298,6 +1301,7 @@ describe('buildQueryPlan', () => {
                   upc
                 }
               }
+              
               fragment __QueryPlanFragment_1__ on Review {
                 content: body
                 author

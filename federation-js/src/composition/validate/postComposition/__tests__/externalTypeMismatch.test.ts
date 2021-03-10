@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import { externalTypeMismatch as validateExternalTypeMismatch } from '../';
 import { composeServices } from '../../../compose';
-import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 

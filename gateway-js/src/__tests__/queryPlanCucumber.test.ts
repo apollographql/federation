@@ -1,9 +1,8 @@
 import gql from 'graphql-tag';
-import { GraphQLSchemaValidationError } from 'apollo-graphql';
 import { defineFeature, loadFeature } from 'jest-cucumber';
 import { DocumentNode } from 'graphql';
 
-import { QueryPlan } from '../..';
+import { QueryPlan } from '@apollo/query-planner';
 import { buildQueryPlan, buildOperationContext, BuildQueryPlanOptions } from '../buildQueryPlan';
 import { getFederatedTestingSchema } from './execution-utils';
 
@@ -25,11 +24,8 @@ features.forEach((feature) => {
         let queryPlan: QueryPlan;
         let options: BuildQueryPlanOptions = { autoFragmentization: false };
 
-        const { schema, errors, queryPlannerPointer } = getFederatedTestingSchema();
-
-        if (errors && errors.length > 0) {
-          throw new GraphQLSchemaValidationError(errors);
-        }
+        // throws on composition errors
+        const { schema, queryPlannerPointer } = getFederatedTestingSchema();
 
         const givenQuery = () => {
           given(/^query$/im, (operation: string) => {

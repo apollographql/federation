@@ -1,10 +1,9 @@
 import gql from 'graphql-tag';
+import { ApolloGateway } from '../..';
 import {
-  ApolloGateway,
-  GatewayConfig,
   Experimental_DidResolveQueryPlanCallback,
   Experimental_UpdateServiceDefinitions,
-} from '../../index';
+} from '../../config';
 import {
   product,
   reviews,
@@ -49,7 +48,7 @@ beforeEach(() => {
 describe('lifecycle hooks', () => {
   it('uses updateServiceDefinitions override', async () => {
     const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions = jest.fn(
-      async (_config: GatewayConfig) => {
+      async () => {
         return { serviceDefinitions, isNewSchema: true };
       },
     );
@@ -65,13 +64,14 @@ describe('lifecycle hooks', () => {
 
     expect(experimental_updateServiceDefinitions).toBeCalled();
     expect(gateway.schema!.getType('Furniture')).toBeDefined();
+    await gateway.stop();
   });
 
   it('calls experimental_didFailComposition with a bad config', async () => {
     const experimental_didFailComposition = jest.fn();
 
     const gateway = new ApolloGateway({
-      async experimental_updateServiceDefinitions(_config: GatewayConfig) {
+      async experimental_updateServiceDefinitions() {
         return {
           serviceDefinitions: [serviceDefinitions[0]],
           compositionMetadata: {
@@ -107,9 +107,7 @@ describe('lifecycle hooks', () => {
       schemaHash: 'hash1',
     };
 
-    const update: Experimental_UpdateServiceDefinitions = async (
-      _config: GatewayConfig,
-    ) => ({
+    const update: Experimental_UpdateServiceDefinitions = async () => ({
       serviceDefinitions,
       isNewSchema: true,
       compositionMetadata: {
@@ -124,7 +122,7 @@ describe('lifecycle hooks', () => {
 
     // We want to return a different composition across two ticks, so we mock it
     // slightly differenty
-    mockUpdate.mockImplementationOnce(async (_config: GatewayConfig) => {
+    mockUpdate.mockImplementationOnce(async () => {
       const services = serviceDefinitions.filter(s => s.name !== 'books');
       return {
         serviceDefinitions: [
@@ -184,6 +182,8 @@ describe('lifecycle hooks', () => {
     // second call should have previous info in the second arg
     expect(secondCall[1]!.schema).toBeDefined();
     expect(secondCall[1]!.compositionMetadata!.schemaHash).toEqual('hash1');
+
+    await gateway.stop();
   });
 
   it('uses default service definition updater', async () => {
@@ -199,6 +199,8 @@ describe('lifecycle hooks', () => {
     // updater, it has to use the default. If there's a valid schema, then
     // the loader had to have been called.
     expect(schema.getType('User')).toBeDefined();
+
+    await gateway.stop();
   });
 
   it('warns when polling on the default fetcher', async () => {
@@ -215,7 +217,7 @@ describe('lifecycle hooks', () => {
 
   it('registers schema change callbacks when experimental_pollInterval is set for unmanaged configs', async () => {
     const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions = jest.fn(
-      async (_config: GatewayConfig) => {
+      async (_config) => {
         return { serviceDefinitions, isNewSchema: true };
       },
     );
@@ -232,11 +234,12 @@ describe('lifecycle hooks', () => {
     const schemaChangeCallback = jest.fn(() => resolve());
 
     gateway.onSchemaChange(schemaChangeCallback);
-    gateway.load();
+    await gateway.load();
 
     await schemaChangeBlocker;
 
     expect(schemaChangeCallback).toBeCalledTimes(1);
+    await gateway.stop();
   });
 
   it('calls experimental_didResolveQueryPlan when executor is called', async () => {
@@ -255,6 +258,7 @@ describe('lifecycle hooks', () => {
       { book(isbn: "0262510871") { year } }
     `;
 
+     // @ts-ignore
     await executor({
       source,
       document: gql(source),
@@ -264,5 +268,6 @@ describe('lifecycle hooks', () => {
     });
 
     expect(experimental_didResolveQueryPlan).toBeCalled();
+    await gateway.stop();
   });
 });

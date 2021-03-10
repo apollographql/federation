@@ -11,7 +11,7 @@ import { buildMapsFromServiceList } from '../../../compose';
 import {
   typeSerializer,
   graphqlErrorSerializer,
-} from '../../../../snapshotSerializers';
+} from 'apollo-federation-integration-testsuite';
 import federationDirectives from '../../../../directives';
 import { ServiceDefinition } from '../../../types';
 import { PossibleTypeExtensions } from '../possibleTypeExtensions';

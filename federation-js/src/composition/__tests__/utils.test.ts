@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import deepFreeze from 'deep-freeze';
 import { stripExternalFieldsFromTypeDefs } from '../utils';
-import { astSerializer } from '../../snapshotSerializers';
+import { astSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(astSerializer);
 
@@ -79,7 +79,7 @@ describe('Composition utility functions', () => {
       deepFreeze(typeDefs);
 
       // Assert that mutation does, in fact, throw
-      expect(() => (typeDefs.blah = [])).toThrow();
+      expect(() => ((typeDefs as any).blah = [])).toThrow();
       expect(() =>
         stripExternalFieldsFromTypeDefs(typeDefs, 'serviceA'),
       ).not.toThrow();

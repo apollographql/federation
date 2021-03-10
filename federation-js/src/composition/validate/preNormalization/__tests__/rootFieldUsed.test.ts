@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
 import { rootFieldUsed as validateRootFieldUsed } from '../';
-import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -90,7 +90,7 @@ describe('rootFieldUsed', () => {
     const warnings = validateRootFieldUsed(serviceA);
 
     expect(warnings).toHaveLength(1);
-    expect(warnings[0].extensions.code).toEqual('ROOT_QUERY_USED');
+    expect(warnings[0].extensions?.code).toEqual('ROOT_QUERY_USED');
     expect(warnings).toMatchInlineSnapshot(`
       Array [
         Object {

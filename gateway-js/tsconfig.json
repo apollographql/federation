@@ -1,7 +1,6 @@
 {
   "extends": "../tsconfig.base",
   "compilerOptions": {
-    "target": "es2019",
     "rootDir": "./src",
     "outDir": "./dist"
   },
@@ -9,6 +8,6 @@
   "exclude": ["**/__tests__", "**/__mocks__"],
   "references": [
     { "path": "../federation-js" },
-    { "path": "../federation-integration-testsuite-js" },
+    { "path": "../query-planner-js" },
   ]
 }

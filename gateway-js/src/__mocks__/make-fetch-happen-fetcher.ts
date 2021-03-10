@@ -1,4 +1,8 @@
-/// <reference types="jest" />
+/// <reference path="../make-fetch-happen.d.ts" />
+// This explicit reference shouldn't be needed because the project references
+// the main project, which includes these type declarations. For some reason,
+// VS Code doesn't pick that up though.
+// (This may be related to https://github.com/microsoft/TypeScript/issues/36708.)
 
 import {
   fetch,
@@ -10,12 +14,12 @@ import {
 
 import fetcher from 'make-fetch-happen';
 
-interface MakeFetchHappenMock extends jest.Mock<typeof fetch> {
+interface MakeFetchHappenMock extends jest.MockedFunction<typeof fetch> {
   mockResponseOnce(data?: any, headers?: HeadersInit, status?: number): this;
   mockJSONResponseOnce(data?: object, headers?: HeadersInit): this;
 }
 
-const mockMakeFetchHappen = jest.fn<typeof fetch>(fetcher) as MakeFetchHappenMock;
+const mockMakeFetchHappen = jest.fn(fetcher) as unknown as MakeFetchHappenMock;
 
 mockMakeFetchHappen.mockResponseOnce = (
   data?: BodyInit,

@@ -7,5 +7,6 @@
   "references": [
     { "path": "./federation-js" },
     { "path": "./gateway-js" },
+    { "path": "./federation-integration-testsuite-js" },
   ]
 }

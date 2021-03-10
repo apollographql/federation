@@ -7,7 +7,7 @@ import {
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
 import gql from 'graphql-tag';
-import { typeSerializer } from '../../../../snapshotSerializers';
+import { typeSerializer } from 'apollo-federation-integration-testsuite';
 import { buildMapsFromServiceList } from '../../../compose';
 import federationDirectives from '../../../../directives';
 import { UniqueFieldDefinitionNames } from '..';
@@ -264,5 +264,60 @@ describe('UniqueFieldDefinitionNames', () => {
       ]);
       expect(errors).toHaveLength(0);
     });
+
+    it('object type definitions field and arguments with different type', () => {
+      const typeDefs = gql`
+        type Campaign implements Node {
+          identifier: String
+          event(identifier: String!): Event
+        }
+      `;
+
+      const [definitions] = createDocumentsForServices([
+        {
+          typeDefs,
+          name: 'serviceA',
+        },
+        {
+          typeDefs,
+          name: 'serviceB',
+        },
+      ]);
+
+      const errors = validateSDL(definitions, schema, [
+        UniqueFieldDefinitionNames,
+      ]);
+      expect(errors).toHaveLength(0);
+    });
+  });
+
+  it('object type definitions order does not impact diffing', () => {
+    const [definitions] = createDocumentsForServices([
+      {
+        typeDefs: gql`
+          type Order implements Node {
+            questions(answers: OrderAnswersInput): Questions
+            fees(answers: OrderAnswersInput): Fees
+            answers: [Answer]
+          }
+        `,
+        name: 'serviceA',
+      },
+      {
+        typeDefs: gql`
+          type Order implements Node {
+            questions(answers: OrderAnswersInput): Questions
+            answers: [Answer]
+            fees(answers: OrderAnswersInput): Fees
+          }
+        `,
+        name: 'serviceB',
+      },
+    ]);
+
+    const errors = validateSDL(definitions, schema, [
+      UniqueFieldDefinitionNames,
+    ]);
+    expect(errors).toHaveLength(0);
   });
 });

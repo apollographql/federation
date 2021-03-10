@@ -1,4 +1,3 @@
-import 'apollo-server-env';
 import {
   InterfaceTypeExtensionNode,
   FieldDefinitionNode,
@@ -32,6 +31,7 @@ import {
   OperationTypeNode,
   isDirective,
   isNamedType,
+  SchemaDefinitionNode,
 } from 'graphql';
 import {
   ExternalFieldDefinition,
@@ -58,8 +58,13 @@ export function mapFieldNamesToServiceName<Node extends { name: NameNode }>(
   }, Object.create(null));
 }
 
-export function findDirectivesOnTypeOrField(
-  node: Maybe<TypeDefinitionNode | TypeExtensionNode | FieldDefinitionNode>,
+export function findDirectivesOnNode(
+  node: Maybe<
+    | TypeDefinitionNode
+    | TypeExtensionNode
+    | FieldDefinitionNode
+    | SchemaDefinitionNode
+  >,
   directiveName: string,
 ) {
   return node && node.directives
@@ -122,10 +127,7 @@ function removeExternalFieldsFromExtensionVisitor<
     let fields = node.fields;
     if (fields) {
       fields = fields.filter(field => {
-        const externalDirectives = findDirectivesOnTypeOrField(
-          field,
-          'external',
-        );
+        const externalDirectives = findDirectivesOnNode(field, 'external');
 
         if (externalDirectives.length > 0) {
           collector.push({
@@ -384,6 +386,10 @@ export function diffTypeNodes(
     [fieldName: string]: string[];
   } = Object.create(null);
 
+  const inputValuesDiff: {
+    [inputName: string]: string[];
+  } = Object.create(null);
+
   const unionTypesDiff: {
     [typeName: string]: boolean;
   } = Object.create(null);
@@ -399,7 +405,7 @@ export function diffTypeNodes(
     definitions: [firstNode, secondNode],
   };
 
-  function fieldVisitor(node: FieldDefinitionNode | InputValueDefinitionNode) {
+  function fieldVisitor(node: FieldDefinitionNode) {
     const fieldName = node.name.value;
 
     const type = print(node.type);
@@ -419,9 +425,33 @@ export function diffTypeNodes(
     }
   }
 
+  /** Similar to fieldVisitor but specific for input values, so we don't store
+   * fields and arguments in the same place.
+   */
+
+  function inputValueVisitor(node: InputValueDefinitionNode) {
+    const fieldName = node.name.value;
+
+    const type = print(node.type);
+
+    if (!inputValuesDiff[fieldName]) {
+      inputValuesDiff[fieldName] = [type];
+      return;
+    }
+
+    // If we've seen this input value twice and the types are the same,
+    // remove it from the diff result
+    const inputValueTypes = inputValuesDiff[fieldName];
+    if (inputValueTypes[0] === type) {
+      delete inputValuesDiff[fieldName];
+    } else {
+      inputValueTypes.push(type);
+    }
+  }
+
   visit(document, {
     FieldDefinition: fieldVisitor,
-    InputValueDefinition: fieldVisitor,
+    InputValueDefinition: inputValueVisitor,
     UnionTypeDefinition(node) {
       if (!node.types) return BREAK;
       for (const namedTypeNode of node.types) {
@@ -481,6 +511,7 @@ export function diffTypeNodes(
     name: typeNameDiff,
     kind: kindDiff,
     fields: fieldsDiff,
+    inputValues: inputValuesDiff,
     unionTypes: unionTypesDiff,
     locations: Array.from(locationsDiff),
     args: argumentsDiff,
@@ -497,7 +528,7 @@ export function typeNodesAreEquivalent(
   firstNode: TypeDefinitionNode | TypeExtensionNode | DirectiveDefinitionNode,
   secondNode: TypeDefinitionNode | TypeExtensionNode | DirectiveDefinitionNode,
 ) {
-  const { name, kind, fields, unionTypes, locations, args } = diffTypeNodes(
+  const { name, kind, fields, inputValues, unionTypes, locations, args } = diffTypeNodes(
     firstNode,
     secondNode,
   );
@@ -506,6 +537,7 @@ export function typeNodesAreEquivalent(
     name.length === 0 &&
     kind.length === 0 &&
     Object.keys(fields).length === 0 &&
+    Object.keys(inputValues).length === 0 &&
     Object.keys(unionTypes).length === 0 &&
     locations.length === 0 &&
     Object.keys(args).length === 0
@@ -569,6 +601,54 @@ export const defaultRootOperationNameLookup: {
   mutation: 'Mutation',
   subscription: 'Subscription',
 };
+
+export type CompositionResult = CompositionFailure | CompositionSuccess;
+
+// Yes, it's a bit awkward that we still return a schema when errors occur.
+// This is old behavior that I'm choosing not to modify for now.
+export interface CompositionFailure {
+  /** @deprecated Use composedSdl instead */
+  schema: GraphQLSchema;
+  errors: GraphQLError[];
+  composedSdl?: undefined;
+}
+
+export interface CompositionSuccess {
+  /** @deprecated Use composedSdl instead */
+  schema: GraphQLSchema;
+  composedSdl: string;
+  errors?: undefined;
+}
+
+export function compositionHasErrors(
+  compositionResult: CompositionResult,
+): compositionResult is CompositionFailure {
+  return 'errors' in compositionResult && !!compositionResult.errors;
+}
+
+// This assertion function should be used for the sake of convenient type refinement.
+// It should not be depended on for causing a test to fail. If an error is thrown
+// from here, its use should be reconsidered.
+export function assertCompositionSuccess(
+  compositionResult: CompositionResult,
+  message?: string,
+): asserts compositionResult is CompositionSuccess {
+  if (compositionHasErrors(compositionResult)) {
+    throw new Error(message || 'Unexpected test failure');
+  }
+}
+
+// This assertion function should be used for the sake of convenient type refinement.
+// It should not be depended on for causing a test to fail. If an error is thrown
+// from here, its use should be reconsidered.
+export function assertCompositionFailure(
+  compositionResult: CompositionResult,
+  message?: string,
+): asserts compositionResult is CompositionFailure {
+  if (!compositionHasErrors(compositionResult)) {
+    throw new Error(message || 'Unexpected test failure');
+  }
+}
 
 // This function is overloaded for 3 different input types. Each input type
 // maps to a particular return type, hence the overload.

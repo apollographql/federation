@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
 import { keyFieldsMissingExternal as validateKeyFieldsMissingExternal } from '../';
-import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 

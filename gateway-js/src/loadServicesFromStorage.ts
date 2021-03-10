@@ -1,6 +1,6 @@
 import { fetch } from 'apollo-server-env';
 import { parse } from 'graphql';
-import { Experimental_UpdateServiceDefinitions } from '.';
+import { Experimental_UpdateServiceDefinitions } from './config';
 
 interface LinkFileResult {
   configPath: string;

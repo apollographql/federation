@@ -1,4 +1,3 @@
-import 'apollo-server-env';
 import {
   GraphQLSchema,
   extendSchema,
@@ -22,7 +21,7 @@ import {
 import { transformSchema } from 'apollo-graphql';
 import federationDirectives from '../directives';
 import {
-  findDirectivesOnTypeOrField,
+  findDirectivesOnNode,
   isStringValueNode,
   parseSelections,
   mapFieldNamesToServiceName,
@@ -34,6 +33,7 @@ import {
   stripTypeSystemDirectivesFromTypeDefs,
   defaultRootOperationNameLookup,
   getFederationMetadata,
+  CompositionResult
 } from './utils';
 import {
   ServiceDefinition,
@@ -45,6 +45,7 @@ import {
 } from './types';
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
+import { printComposedSdl } from '../service/printComposedSdl';
 
 const EmptyQueryDefinition = {
   kind: Kind.OBJECT_TYPE_DEFINITION,
@@ -120,9 +121,6 @@ export interface KeyDirectivesMap {
  */
 type ValueTypes = Set<string>;
 
-export type ComposedGraphQLSchema = GraphQLSchema & {
-  extensions: { serviceList: ServiceDefinition[] }
-};
 /**
  * Loop over each service and process its typeDefs (`definitions`)
  * - build up typeToServiceMap
@@ -161,10 +159,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
       ) {
         const typeName = definition.name.value;
 
-        for (const keyDirective of findDirectivesOnTypeOrField(
-          definition,
-          'key',
-        )) {
+        for (const keyDirective of findDirectivesOnNode(definition, 'key')) {
           if (
             keyDirective.arguments &&
             isStringValueNode(keyDirective.arguments[0].value)
@@ -175,7 +170,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
             keyDirectivesMap[typeName][serviceName] =
               keyDirectivesMap[typeName][serviceName] || [];
             // Add @key metadata to the array
-            keyDirectivesMap[typeName][serviceName].push(
+            keyDirectivesMap[typeName][serviceName]!.push(
               parseSelections(keyDirective.arguments[0].value.value),
             );
           }
@@ -410,7 +405,12 @@ export function buildSchemaFromDefinitionsAndExtensions({
   };
 
   errors = validateSDL(definitionsDocument, schema, compositionRules);
-  schema = extendSchema(schema, definitionsDocument, { assumeValidSDL: true });
+
+  try {
+    schema = extendSchema(schema, definitionsDocument, {
+      assumeValidSDL: true,
+    });
+  } catch (e) {}
 
   // Extend the schema with the extension definitions (as an AST node)
   const extensionsDocument: DocumentNode = {
@@ -420,7 +420,11 @@ export function buildSchemaFromDefinitionsAndExtensions({
 
   errors.push(...validateSDL(extensionsDocument, schema, compositionRules));
 
-  schema = extendSchema(schema, extensionsDocument, { assumeValidSDL: true });
+  try {
+    schema = extendSchema(schema, extensionsDocument, {
+      assumeValidSDL: true,
+    });
+  } catch {}
 
   // Remove federation directives from the final schema
   schema = new GraphQLSchema({
@@ -481,7 +485,7 @@ export function addFederationMetadataToSchemaNodes({
     // For object types, add metadata for all the @provides directives from its fields
     if (isObjectType(namedType)) {
       for (const field of Object.values(namedType.getFields())) {
-        const [providesDirective] = findDirectivesOnTypeOrField(
+        const [providesDirective] = findDirectivesOnNode(
           field.astNode,
           'provides',
         );
@@ -519,6 +523,7 @@ export function addFederationMetadataToSchemaNodes({
       // TODO: Why don't we need to check for non-object types here
       if (isObjectType(namedType)) {
         const field = namedType.getFields()[fieldName];
+        if (!field) continue;
 
         const fieldFederationMetadata: FederationField = {
           ...getFederationMetadata(field),
@@ -530,7 +535,7 @@ export function addFederationMetadataToSchemaNodes({
           federation: fieldFederationMetadata,
         };
 
-        const [requiresDirective] = findDirectivesOnTypeOrField(
+        const [requiresDirective] = findDirectivesOnNode(
           field.astNode,
           'requires',
         );
@@ -595,7 +600,7 @@ export function addFederationMetadataToSchemaNodes({
   }
 }
 
-export function composeServices(services: ServiceDefinition[]) {
+export function composeServices(services: ServiceDefinition[]): CompositionResult {
   const {
     typeToServiceMap,
     typeDefinitionsMap,
@@ -650,10 +655,12 @@ export function composeServices(services: ServiceDefinition[]) {
     directiveDefinitionsMap,
   });
 
-  /**
-   * At the end, we're left with a full GraphQLSchema that _also_ has `serviceName` fields for every type,
-   * and every field that was extended. Fields that were _not_ extended (added on the base type by the owner),
-   * there is no `serviceName`, and we should refer to the type's `serviceName`
-   */
-  return { schema: schema as ComposedGraphQLSchema, errors };
+  if (errors.length > 0) {
+    return { schema, errors };
+  } else {
+    return {
+      schema,
+      composedSdl: printComposedSdl(schema, services),
+    };
+  }
 }

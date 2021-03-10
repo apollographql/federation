@@ -1,7 +1,8 @@
 import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { providesFieldsSelectInvalidType as validateprovidesFieldsSelectInvalidType } from '../';
-import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { assertCompositionSuccess } from '../../../utils';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -34,8 +35,9 @@ describe('providesFieldsSelectInvalidType', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const warnings = validateprovidesFieldsSelectInvalidType({
       schema,
@@ -79,8 +81,9 @@ describe('providesFieldsSelectInvalidType', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const warnings = validateprovidesFieldsSelectInvalidType({
       schema,
@@ -131,8 +134,9 @@ describe('providesFieldsSelectInvalidType', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const warnings = validateprovidesFieldsSelectInvalidType({
       schema,
@@ -195,8 +199,9 @@ describe('providesFieldsSelectInvalidType', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const warnings = validateprovidesFieldsSelectInvalidType({
       schema,

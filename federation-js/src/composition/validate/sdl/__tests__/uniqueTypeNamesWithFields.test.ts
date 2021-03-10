@@ -9,7 +9,7 @@ import gql from 'graphql-tag';
 import {
   typeSerializer,
   graphqlErrorSerializer,
-} from '../../../../snapshotSerializers';
+} from 'apollo-federation-integration-testsuite';
 import federationDirectives from '../../../../directives';
 import { UniqueTypeNamesWithFields } from '..';
 import { ServiceDefinition } from '../../../types';
@@ -114,6 +114,40 @@ describe('UniqueTypeNamesWithFields', () => {
           Object {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
             "message": "[serviceA] Product.quantity -> A field was defined differently in different services. \`serviceA\` and \`serviceB\` define \`Product.quantity\` as a Int and Int! respectively. In order to define \`Product\` in multiple places, the fields and their types must be identical.",
+          },
+        ]
+      `);
+    });
+
+    it('object type definitions (non-identical, field input value types with type mismatch)', () => {
+      const [definitions] = createDocumentsForServices([
+        {
+          typeDefs: gql`
+            type Person {
+              age(relative: Boolean!): Int
+            }
+          `,
+          name: 'serviceA',
+        },
+        {
+          typeDefs: gql`
+            type Person {
+              age(relative: Boolean): Int
+            }
+          `,
+          name: 'serviceB',
+        },
+      ]);
+
+      const errors = validateSDL(definitions, schema, [
+        UniqueTypeNamesWithFields,
+      ]);
+      expect(errors).toHaveLength(1);
+      expect(errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "code": "VALUE_TYPE_INPUT_VALUE_MISMATCH",
+            "message": "[serviceA] Person -> A field's input type (\`relative\`) was defined differently in different services. \`serviceA\` and \`serviceB\` define \`relative\` as a Boolean! and Boolean respectively. In order to define \`Person\` in multiple places, the input values and their types must be identical.",
           },
         ]
       `);

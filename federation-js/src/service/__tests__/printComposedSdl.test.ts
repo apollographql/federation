@@ -1,22 +1,27 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { composeAndValidate } from '../../composition';
 import { parse, GraphQLError, visit, StringValueNode } from 'graphql';
+import { composeAndValidate, compositionHasErrors } from '../../composition';
 
 describe('printComposedSdl', () => {
-  let composedSdl: string | undefined, errors: GraphQLError[];
+  let composedSdl: string, errors: GraphQLError[];
 
   beforeAll(() => {
     // composeAndValidate calls `printComposedSdl` to return `composedSdl`
-    ({ composedSdl, errors } = composeAndValidate(fixtures));
+    const compositionResult = composeAndValidate(fixtures);
+    if (compositionHasErrors(compositionResult)) {
+      errors = compositionResult.errors;
+    } else {
+      composedSdl = compositionResult.composedSdl;
+    }
   });
 
   it('composes without errors', () => {
-    expect(errors).toHaveLength(0);
+    expect(errors).toBeUndefined();
   });
 
   it('produces a parseable output', () => {
     expect(() => parse(composedSdl!)).not.toThrow();
-  })
+  });
 
   it('prints a fully composed schema correctly', () => {
     expect(composedSdl).toMatchInlineSnapshot(`
@@ -35,11 +40,11 @@ describe('printComposedSdl', () => {
 
       directive @composedGraph(version: Int!) on SCHEMA
 
-      directive @graph(name: String!, url: String!) on SCHEMA
+      directive @graph(name: String!, url: String!) repeatable on SCHEMA
 
       directive @owner(graph: String!) on OBJECT
 
-      directive @key(fields: String!, graph: String!) on OBJECT
+      directive @key(fields: String!, graph: String!) repeatable on OBJECT
 
       directive @resolve(graph: String!) on FIELD_DEFINITION
 

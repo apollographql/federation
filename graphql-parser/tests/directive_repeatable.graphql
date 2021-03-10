@@ -1,0 +1,1 @@
+directive @key(fields: String!, graph: String!) repeatable on OBJECT

@@ -5,4 +5,4 @@ updates:
     schedule:
       interval: "weekly"
     reviewers:
-      - "apollographql/rustronauts"
+      - "apollographql/polaris"

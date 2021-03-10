@@ -21,12 +21,12 @@ import { serviceField, entitiesField, EntityType } from '../types';
 
 import { printSchema } from './printFederatedSchema';
 
-import 'apollo-server-env';
-
 type LegacySchemaModule = {
   typeDefs: DocumentNode | DocumentNode[];
   resolvers?: GraphQLResolverMap<any>;
 };
+
+export { GraphQLSchemaModule };
 
 export function buildFederatedSchema(
   modulesOrSDL:

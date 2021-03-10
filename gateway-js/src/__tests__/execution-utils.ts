@@ -8,19 +8,19 @@ import {
   composeAndValidate,
   buildFederatedSchema,
   ServiceDefinition,
+  compositionHasErrors,
 } from '@apollo/federation';
 
 import {
   buildQueryPlan,
   executeQueryPlan,
-  QueryPlan,
   buildOperationContext,
 } from '@apollo/gateway';
+import { QueryPlan } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from 'apollo-utilities';
 
-import queryPlanSerializer from '../snapshotSerializers/queryPlanSerializer';
-import astSerializer from '../snapshotSerializers/astSerializer';
+import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { getQueryPlanner } from '@apollo/query-planner-wasm';
@@ -70,6 +70,7 @@ export async function execute(
   const result = await executeQueryPlan(
     queryPlan,
     serviceMap,
+     // @ts-ignore
     {
       cache: undefined as any,
       context: {},
@@ -95,20 +96,28 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
     ]),
   );
 
-  const { schema, errors, composedSdl } = composeAndValidate(
+  const compositionResult = composeAndValidate(
     Object.entries(serviceMap).map(([serviceName, dataSource]) => ({
       name: serviceName,
       typeDefs: dataSource.sdl(),
     })),
   );
 
-  if (errors && errors.length > 0) {
-    throw new GraphQLSchemaValidationError(errors);
+  if (compositionHasErrors(compositionResult)) {
+    throw new GraphQLSchemaValidationError(compositionResult.errors);
   }
 
-  const queryPlannerPointer = getQueryPlanner(composedSdl!);
+  const queryPlannerPointer = getQueryPlanner(compositionResult.composedSdl);
 
-  return { serviceMap, schema, errors, queryPlannerPointer };
+  return { serviceMap, schema: compositionResult.schema, queryPlannerPointer };
+}
+
+export function getTestingCsdl() {
+  const compositionResult = composeAndValidate(fixtures);
+  if (!compositionHasErrors(compositionResult)) {
+    return compositionResult.composedSdl;
+  }
+  throw new Error("Testing fixtures don't compose properly!");
 }
 
 export function wait(ms: number) {

@@ -1,0 +1,78 @@
+# Unfortunately, GitHub Actions doesn't support YAML aliases OR depending
+# on an Action from another Action, like other CI providers do.
+#
+# See https://github.com/actions/runner/issues/646#issuecomment-777325191
+#
+# To reduce subtle nuances and simplify a future where these can converge,
+# please try to apply chances as equally as practical across these files!
+# (At the time of this writing, uniform blocks are indicated with comments)
+name: Rust Lint
+
+on:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check_format_and_lint:
+    name: Assert Format and Run Clippy
+    runs-on: ${{ matrix.os }}
+    # This matrix is not necessary for Linting, but this keeps
+    # the configuration more uniform across the three workflows.
+    strategy:
+      matrix:
+        build: [linux]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - build: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+    continue-on-error: true # we want to show this check failure in GH but to not prevent building.
+
+    steps:
+      ## Below this line to the designated comment is uniform across rust-test.yml, rust-slow-test.yml and lint.yml!
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      ### INSTALL RUST ###
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          toolchain: stable
+          profile: minimal
+          components: rustfmt, clippy
+          override: true
+
+
+      ### BUILD CACHE ###
+      - name: Cache Cargo registry, target, index
+        uses: actions/cache@v2
+        id: cache-cargo
+        env:
+          cache-name: cache-cargo
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/bin
+            ~/.cargo/git
+            target
+          key: ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+
+      ### UP FROM HERE TO "Checkout Code" is  uniform in rust-test.yml, rust-slow-test.yml, and lint.yml!
+
+      ### FORMATTING AND STYLE ###
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Check Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features

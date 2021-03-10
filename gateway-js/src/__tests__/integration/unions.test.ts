@@ -1,5 +1,5 @@
 import gql from 'graphql-tag';
-import { astSerializer, queryPlanSerializer } from '../../snapshotSerializers';
+import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { execute } from '../execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);

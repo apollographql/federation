@@ -1,7 +1,8 @@
 import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { providesFieldsMissingExternal as validateProdivesFieldsMissingExternal } from '../';
-import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { assertCompositionSuccess } from '../../../utils';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -51,8 +52,9 @@ describe('providesFieldsMissingExternal', () => {
     };
 
     const serviceList = [serviceA, serviceB, serviceC];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toEqual([]);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
     const warnings = validateProdivesFieldsMissingExternal({
       schema,
       serviceList,
@@ -88,8 +90,9 @@ describe('providesFieldsMissingExternal', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toEqual([]);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
     const warnings = validateProdivesFieldsMissingExternal({
       schema,
       serviceList,

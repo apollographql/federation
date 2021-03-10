@@ -1,7 +1,8 @@
 import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { keyFieldsSelectInvalidType as validateKeyFieldsSelectInvalidType } from '../';
-import { graphqlErrorSerializer } from '../../../../snapshotSerializers';
+import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { assertCompositionSuccess } from '../../../utils';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -36,8 +37,9 @@ describe('keyFieldsSelectInvalidType', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const warnings = validateKeyFieldsSelectInvalidType({
       schema,
@@ -72,8 +74,9 @@ describe('keyFieldsSelectInvalidType', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const warnings = validateKeyFieldsSelectInvalidType({
       schema,
@@ -113,8 +116,9 @@ describe('keyFieldsSelectInvalidType', () => {
     };
 
     const serviceList = [serviceA, serviceB];
-    const { schema, errors } = composeServices(serviceList);
-    expect(errors).toHaveLength(0);
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
 
     const warnings = validateKeyFieldsSelectInvalidType({
       schema,

@@ -11,17 +11,17 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 use tracing::instrument;
 
-pub struct ExecutionContext<'schema, 'request> {
+pub struct ExecutionContext<'schema, 'req> {
     service_map: &'schema HashMap<String, ServiceDefinition>,
     // errors: Vec<async_graphql::Error>,
-    request_context: &'request RequestContext,
+    request_context: &'req RequestContext<'req>,
 }
 
 #[instrument(skip(query_plan, service_map, request_context))]
-pub async fn execute_query_plan(
+pub async fn execute_query_plan<'req>(
     query_plan: &QueryPlan,
     service_map: &HashMap<String, ServiceDefinition>,
-    request_context: &RequestContext,
+    request_context: &'req RequestContext<'req>,
 ) -> Result<GraphQLResponse> {
     // let errors: Vec<async_graphql::Error> = vec![;
 
@@ -34,7 +34,7 @@ pub async fn execute_query_plan(
     let data_lock: RwLock<Value> = RwLock::new(json!({}));
 
     if let Some(ref node) = query_plan.node {
-        execute_node(&context, node, &data_lock, &vec![]).await;
+        execute_node(&context, node, &data_lock, &[]).await;
     } else {
         unimplemented!("Introspection not supported yet");
     };
@@ -47,7 +47,7 @@ fn execute_node<'schema, 'request>(
     context: &'request ExecutionContext<'schema, 'request>,
     node: &'request PlanNode,
     results: &'request RwLock<Value>,
-    path: &'request ResponsePath,
+    path: &'request [String],
 ) -> BoxFuture<'request, ()> {
     async move {
         match node {
@@ -71,7 +71,7 @@ fn execute_node<'schema, 'request>(
                 //   }
             }
             PlanNode::Flatten(flatten_node) => {
-                let mut flattend_path = Vec::from(path.as_slice());
+                let mut flattend_path = Vec::from(path);
                 flattend_path.extend_from_slice(flatten_node.path.as_slice());
 
                 let inner_lock: RwLock<Value> = RwLock::new(json!({}));
@@ -130,7 +130,7 @@ fn execute_node<'schema, 'request>(
     .boxed()
 }
 
-fn merge_flattend_results(parent_data: &mut Value, child_data: &Value, path: &ResponsePath) {
+fn merge_flattend_results(parent_data: &mut Value, child_data: &Value, path: &[String]) {
     if path.is_empty() || child_data.is_null() {
         merge(&mut *parent_data, &child_data);
         return;
@@ -157,7 +157,7 @@ fn merge_flattend_results(parent_data: &mut Value, child_data: &Value, path: &Re
 async fn execute_fetch<'schema, 'request>(
     context: &ExecutionContext<'schema, 'request>,
     fetch: &FetchNode,
-    results_lock: &'request RwLock<Value>,
+    results_lock: &RwLock<Value>,
 ) -> Result<()> {
     let service = &context.service_map[&fetch.service_name];
 
@@ -215,7 +215,7 @@ async fn execute_fetch<'schema, 'request>(
     }
 
     let data_received = service
-        .send_operation(context, fetch.operation.clone(), variables)
+        .send_operation(context.request_context, fetch.operation.clone(), variables)
         .await?;
 
     if let Some(_requires) = &fetch.requires {
@@ -249,7 +249,7 @@ async fn execute_fetch<'schema, 'request>(
 
 fn flatten_results_at_path<'request>(
     value: &'request mut Value,
-    path: &ResponsePath,
+    path: &[String],
 ) -> &'request Value {
     if path.is_empty() || value.is_null() {
         return value;
@@ -283,7 +283,7 @@ fn flatten_results_at_path<'request>(
     }
 }
 
-fn execute_selection_set(source: &Value, selections: &SelectionSet) -> Value {
+fn execute_selection_set(source: &Value, selections: &[Selection]) -> Value {
     if source.is_null() {
         return Value::default();
     }

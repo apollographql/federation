@@ -46,13 +46,38 @@ const gateway = new ApolloGateway({
 });
 ```
 
-###### Configuring the fetcher
+###### Configuring the implementing service fetcher
+
+If you provide a [`buildService` function](#the-buildservice-function) to the constructor of `ApolloGateway`, the function is called once for each of your graph's implementing services. This function can return a `RemoteGraphQLDataSource` with a custom `fetcher`, which is then used for all communication with implementing services:
+
+```js
+const gateway = new ApolloGateway({
+  buildService({ url, name }) {
+    return new (class extends RemoteGraphQLDataSource {
+      fetcher = require('make-fetch-happen').defaults({
+        onRetry() {
+          console.log('We will retry!')
+        },
+      });
+    })({
+      url,
+      name,
+    });
+  }
+});
+```
+
+###### Configuring the managed federation fetcher
+
+> This _only_ configures the fetcher that your gateway uses to fetch [managed federation](../managed-federation/overview/) configuration from Apollo.
+>
+> See also [Configuring the implementing service fetcher](#configuring-the-implementing-service-fetcher).
 
 ```js
 const gateway = new ApolloGateway({
   fetcher: require('make-fetch-happen').defaults({
     onRetry() {
-      console.log('we will retry!')
+      console.log('We will retry!')
     },
   }),
 });
@@ -152,7 +177,7 @@ This logger is automatically added to the `GraphQLRequestContext` object that's 
 </td>
 <td>
 
-Specifies which [Fetch API](https://fetch.spec.whatwg.org/#fetch-api) implementation to use when communicating with implementing services.
+Specifies which [Fetch API](https://fetch.spec.whatwg.org/#fetch-api) implementation to use with [managed federation](../managed-federation/overview/) when fetching service configuration from Apollo.
 
 By default, the gateway uses the default configuration of [`make-fetch-happen`](https://npm.im/make-fetch-happen). You can specify another valid implementation (such as [`node-fetch`](https://npm.im/node-fetch)) by setting this field's value to `require('node-fetch')`.
 
