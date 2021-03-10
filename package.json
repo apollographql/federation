@@ -18,7 +18,9 @@
     "test:watch": "jest --verbose --watchAll",
     "testonly": "npm test",
     "test:ci": "npm test -- --ci --maxWorkers=2  --reporters=default --reporters=jest-junit",
-    "ensure-prereqs": "node ensure-prereqs.js"
+    "ensure-prereqs": "node ensure-prereqs.js",
+    "codegen": "graphql-codegen --config codegen.yml",
+    "codegen:check": "npm run codegen && git diff --exit-code"
   },
   "engines": {
     "node": ">=6 <15",
@@ -33,6 +35,7 @@
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
+    "@graphql-codegen/cli": "1.21.2",
     "@types/bunyan": "1.8.6",
     "@types/deep-freeze": "0.1.2",
     "@types/jest": "26.0.20",
@@ -62,7 +65,9 @@
     "typescript": "4.2.3",
     "wasm-pack": "0.9.1",
     "winston": "3.3.3",
-    "winston-transport": "4.4.0"
+    "winston-transport": "4.4.0",
+    "@graphql-codegen/typescript": "1.21.1",
+    "@graphql-codegen/typescript-operations": "1.17.15"
   },
   "jest": {
     "projects": [

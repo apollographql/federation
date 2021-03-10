@@ -1,12 +1,10 @@
 import { fetch } from 'apollo-server-env';
 import { GraphQLError } from 'graphql';
+import { CsdlQuery } from './__generated__/graphqlTypes';
 
-export const CSDL_QUERY = `#graphql
+export const CSDL_QUERY = /* GraphQL */`#graphql
   query Csdl($apiKey: String!, $ref: String!) {
-    routerConfig(
-      ref: $ref
-      apiKey: $apiKey
-    ) {
+    routerConfig(ref: $ref, apiKey: $apiKey) {
       __typename
       ... on RouterConfigResult {
         id
@@ -23,46 +21,12 @@ export const CSDL_QUERY = `#graphql
 type CsdlQueryResult = CsdlQuerySuccess | CsdlQueryFailure;
 
 interface CsdlQuerySuccess {
-  data: { routerConfig: RouterConfigResponse };
+  data: CsdlQuery;
 }
 
 interface CsdlQueryFailure {
-  data?: { routerConfig: RouterConfigResponse };
+  data?: CsdlQuery;
   errors: GraphQLError[];
-}
-
-type RouterConfigResponse = RouterConfigResult | FetchError;
-
-interface RouterConfigResult {
-  __typename: 'RouterConfigResult';
-  id: string;
-  csdl: string;
-  messages: Message[];
-}
-
-interface Message {
-  __typename: 'Message';
-  body: string;
-  level: MessageLevel;
-}
-
-enum MessageLevel {
-  ERROR = 'ERROR',
-  WARN = 'WARN',
-  INFO = 'INFO',
-}
-
-interface FetchError {
-  __typename: 'FetchError';
-  code: FetchErrorCode;
-  message: string;
-}
-
-enum FetchErrorCode {
-  AUTHENTICATION_FAILED = 'AUTHENTICATION_FAILED',
-  ACCESS_DENIED = 'ACCESS_DENIED',
-  UNKNOWN_REF = 'UNKNOWN_REF',
-  RETRY_LATER = 'RETRY_LATER',
 }
 
 const cloudConfigEndpoint =
@@ -123,7 +87,9 @@ export async function loadCsdlFromStorage({
       csdl,
       // messages,
     } = routerConfig;
-    return { id, csdl };
+
+    // `csdl` should not be nullable in the schema, but it currently is
+    return { id, csdl: csdl! };
   } else if (routerConfig.__typename === 'FetchError') {
     // FetchError case
     const { code, message } = routerConfig;
