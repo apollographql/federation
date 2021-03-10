@@ -55,11 +55,13 @@ export function mockAllServicesHealthCheckSuccess() {
 
 // CSDL fetching mocks
 function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
+  const { name, version } = require('../../../package.json');
   return nock(url, {
     reqheaders: {
-      'user-agent': `apollo-gateway/${
-        require('../../../package.json').version
-      }`,
+      'apollographql-client-name': name,
+      'apollographql-client-version': version,
+      'user-agent': `${name}/${version}`,
+      'content-type': 'application/json',
     },
   });
 }

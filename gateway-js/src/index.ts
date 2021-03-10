@@ -98,13 +98,25 @@ type WarnedStates = {
 };
 
 export function getDefaultFetcher(): Fetcher {
+  const { name, version } = require('../package.json');
   return fetcher.defaults({
     cacheManager: new HttpRequestCache(),
     // All headers should be lower-cased here, as `make-fetch-happen`
     // treats differently cased headers as unique (unlike the `Headers` object).
     // @see: https://git.io/JvRUa
     headers: {
-      'user-agent': `apollo-gateway/${require('../package.json').version}`,
+      'apollographql-client-name': name,
+      'apollographql-client-version': version,
+      'user-agent': `${name}/${version}`,
+      'content-type': 'application/json',
+    },
+    retry: {
+      retries: 5,
+      // The default factor: expected attempts at 0, 1, 3, 7, 15, and 31 seconds elapsed
+      factor: 2,
+      // 1 second
+      minTimeout: 1000,
+      randomize: true,
     },
   });
 }

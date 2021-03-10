@@ -33,6 +33,8 @@ const cloudConfigEndpoint =
   process.env.APOLLO_CLOUD_CONFIG_ENDPOINT ??
   'https://us-central1-mdg-services.cloudfunctions.net:443/cloudconfig-staging/';
 
+const { name, version } = require('../package.json');
+
 export async function loadCsdlFromStorage({
   graphId,
   graphVariant,
@@ -54,8 +56,10 @@ export async function loadCsdlFromStorage({
       },
     }),
     headers: {
-      'user-agent': `apollo-gateway/${require('../package.json').version}`,
-      'Content-Type': 'application/json',
+      'apollographql-client-name': name,
+      'apollographql-client-version': version,
+      'user-agent': `${name}/${version}`,
+      'content-type': 'application/json',
     },
   });
 
