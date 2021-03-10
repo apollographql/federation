@@ -6,7 +6,12 @@
 
 - _Nothing yet! Stay tuned!_
 
-## v0.21.1
+## v0.24.3
+
+- deps: `@apollo/query-planner-wasm`: Fix an error caused by a lacking relatively prefix on the items in `exports`, following up [PR #270](https://github.com/apollographql/federation/pull/270)
+
+## v0.24.2
+## v0.24.1
 
 - Re-publish with adjustment to `lerna.json` to ensure that the newly-introduced `@apollo/query-planner` package (which wraps `@apollo/query-planner-wasm`) is published by the release pipeline.  This is important because `@apollo/gateway` now depends on `@apollo/query-planner` as of [PR #453](https://github.com/apollographql/federation/pull/453)
 
