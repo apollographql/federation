@@ -38,10 +38,8 @@ function parseTypedefs(source) {
   try {
     return composition.parseGraphqlDocument(source)
   } catch (err) {
-    print(err.message)
-    for (const line of err.stack.toString().split('\n')) {
-      print(line)
-    }
+    // Return the error in a way that we know how to handle it.
+    done({ Err: [err] });
   }
 }
 
