@@ -96,6 +96,14 @@ export function isServiceDefinitionUpdate(
  * composed schema may be identical but the `serviceDefinitions` would differ
  * since a type has moved from one service to another.
  */
+export type Experimental_UpdateServiceDefinitions = (
+  config: DynamicGatewayConfig,
+) => Promise<ServiceDefinitionUpdate>;
+
+export type Experimental_UpdateCsdl = (
+  config: DynamicGatewayConfig,
+) => Promise<CsdlUpdate>;
+
 export type Experimental_UpdateComposition = (
   config: DynamicGatewayConfig,
 ) => Promise<CompositionUpdate>;
@@ -146,9 +154,18 @@ export type ManagedGatewayConfig =
   | LegacyManagedGatewayConfig
   | PrecomposedManagedGatewayConfig;
 
-interface ManuallyManagedGatewayConfig extends GatewayConfigBase {
-  experimental_updateServiceDefinitions: Experimental_UpdateComposition;
+interface ManuallyManagedServiceDefsGatewayConfig extends GatewayConfigBase {
+  experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
 }
+
+interface ManuallyManagedCsdlGatewayConfig extends GatewayConfigBase {
+  experimental_updateCsdl: Experimental_UpdateCsdl
+}
+
+type ManuallyManagedGatewayConfig =
+  | ManuallyManagedServiceDefsGatewayConfig
+  | ManuallyManagedCsdlGatewayConfig;
+
 interface LocalGatewayConfig extends GatewayConfigBase {
   localServiceList: ServiceDefinition[];
 }
@@ -183,7 +200,10 @@ export function isCsdlConfig(config: GatewayConfig): config is CsdlGatewayConfig
 export function isManuallyManagedConfig(
   config: GatewayConfig,
 ): config is ManuallyManagedGatewayConfig {
-  return 'experimental_updateServiceDefinitions' in config;
+  return (
+    'experimental_updateServiceDefinitions' in config ||
+    'experimental_updateCsdl' in config
+  );
 }
 
 // Managed config strictly means managed by Studio

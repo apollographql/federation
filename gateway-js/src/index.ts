@@ -228,10 +228,20 @@ export class ApolloGateway implements GraphQLService {
         null;
     }
 
-    // Use the provided updater function if provided by the user, else default
-    this.updateServiceDefinitions = isManuallyManagedConfig(this.config)
-      ? this.config.experimental_updateServiceDefinitions
-      : this.loadServiceDefinitions;
+      // Use the provided updater function if provided by the user, else default
+    if (isManuallyManagedConfig(this.config)) {
+      if ('experimental_updateCsdl' in this.config) {
+        this.updateServiceDefinitions = this.config.experimental_updateCsdl;
+      } else if ('experimental_updateServiceDefinitions' in this.config) {
+        this.updateServiceDefinitions = this.config.experimental_updateServiceDefinitions;
+      } else {
+        throw Error(
+          'Programming error: unexpected manual configuration provided',
+        );
+      }
+    } else {
+      this.updateServiceDefinitions = this.loadServiceDefinitions;
+    }
 
     if (isDynamicConfig(this.config)) {
       this.issueDynamicWarningsIfApplicable();
@@ -294,6 +304,19 @@ export class ApolloGateway implements GraphQLService {
         'Polling running services is dangerous and not recommended in production. ' +
           'Polling should only be used against a registry. ' +
           'If you are polling running services, use with caution.',
+      );
+    }
+
+    if (
+      isManuallyManagedConfig(this.config) &&
+      'experimental_updateCsdl' in this.config &&
+      'experimental_updateServiceDefinitions' in this.config
+    ) {
+      this.logger.warn(
+        'Gateway found two manual update configurations when only one should be ' +
+          'provided. Gateway will default to using the provided `experimental_updateCsdl` ' +
+          'function when both `experimental_updateCsdl` and experimental_updateServiceDefinitions` ' +
+          'are provided.',
       );
     }
   }

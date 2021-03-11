@@ -66,6 +66,26 @@ describe('gateway configuration warnings', () => {
     );
   });
 
+  it('warns when both manual update configurations are provided', async () => {
+    gateway = new ApolloGateway({
+      // @ts-ignore
+      async experimental_updateCsdl() {},
+      async experimental_updateServiceDefinitions() {},
+      logger,
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Gateway found two manual update configurations when only one should be ' +
+        'provided. Gateway will default to using the provided `experimental_updateCsdl` ' +
+        'function when both `experimental_updateCsdl` and experimental_updateServiceDefinitions` ' +
+        'are provided.',
+    );
+
+    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+    // which triggers a different error that we're not testing for here.
+    gateway = null;
+  });
+
   it('conflicting configurations are warned about when present', async () => {
     mockSDLQuerySuccess(service);
 
