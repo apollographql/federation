@@ -135,10 +135,9 @@ pub struct CompositionErrorExtensions {
 impl CompositionError {
     /// Retrieve the error code from an error received during composition.
     pub fn code(&self) -> &str {
-        if let Some(ref ext) = self.extensions {
-            ext.code.as_str()
-        } else {
-            "UNKNOWN"
+        match self.extensions {
+            Some(ref ext) => &*ext.code,
+            None => "UNKNOWN",
         }
     }
 }
