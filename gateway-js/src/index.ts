@@ -371,9 +371,16 @@ export class ApolloGateway implements GraphQLService {
   // Synchronously load a statically configured schema, update class instance's
   // schema and query planner.
   private loadStatic(config: StaticGatewayConfig) {
-    const { schema, composedSdl } = isLocalConfig(config)
-      ? this.createSchemaFromServiceList(config.localServiceList)
-      : this.createSchemaFromCsdl(config.csdl);
+    let schema: GraphQLSchema;
+    let composedSdl: string;
+    try {
+      ({ schema, composedSdl } = isLocalConfig(config)
+        ? this.createSchemaFromServiceList(config.localServiceList)
+        : this.createSchemaFromCsdl(config.csdl));
+    } catch (e) {
+      this.state = { phase: 'failed to load' };
+      throw e;
+    }
 
     this.schema = schema;
     this.parsedCsdl = gql(composedSdl);
@@ -498,6 +505,12 @@ export class ApolloGateway implements GraphQLService {
       return;
     }
 
+    // This may throw, so we'll calculate early (specifically before making any updates)
+    // In the case that it throws, the gateway will:
+    //   * on initial load, throw the error
+    //   * on update, log the error and don't update
+    const parsedCsdl = gql(result.csdl);
+
     const previousSchema = this.schema;
     const previousCsdl = this.parsedCsdl;
     const previousCompositionId = this.compositionId;
@@ -509,7 +522,7 @@ export class ApolloGateway implements GraphQLService {
     await this.maybePerformServiceHealthCheck(result);
 
     this.compositionId = result.id;
-    this.parsedCsdl = gql(result.csdl);
+    this.parsedCsdl = parsedCsdl;
 
     if (this.queryPlanStore) this.queryPlanStore.flush();
 
@@ -560,7 +573,9 @@ export class ApolloGateway implements GraphQLService {
     // This is the last chance to bail out of a schema update.
     if (this.config.serviceHealthCheck) {
       const serviceList = isCsdlUpdate(update)
-        ? this.serviceListFromCsdl(gql(update.csdl))
+        ? // Parsing could technically fail and throw here, but parseability has
+          // already been confirmed slightly earlier in the code path
+          this.serviceListFromCsdl(gql(update.csdl))
         : // Existence of this is determined in advance with an early return otherwise
           update.serviceDefinitions!;
       // Here we need to construct new datasources based on the new schema info

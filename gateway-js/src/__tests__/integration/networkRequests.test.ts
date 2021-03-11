@@ -153,7 +153,8 @@ describe('CSDL update failures', () => {
     await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
       `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
     );
-    // Special stop case is handled, null out gateway so the `afterEach` doesn't call `stop` on the gateway
+    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+    // which triggers a different error that we're not testing for here.
     gateway = null;
   });
 
@@ -212,6 +213,76 @@ describe('CSDL update failures', () => {
     expect(logger.error).toHaveBeenCalledWith(
       'Cannot query field "fail" on type "Query".',
     );
+  });
+
+  it("Doesn't update and logs on receiving unparseable CSDL", async () => {
+    mockCsdlRequestSuccess();
+    mockCsdlRequest().reply(
+      200,
+      JSON.stringify({
+        data: {
+          routerConfig: {
+            __typename: 'RouterConfigResult',
+            id: 'failure',
+            csdl: 'Syntax Error - invalid SDL',
+          },
+        },
+      }),
+    );
+
+    // Spy on logger.error so we can just await once it's been called
+    let errorLogged: Function;
+    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
+    logger.error = jest.fn(() => errorLogged());
+
+    gateway = new ApolloGateway({
+      logger,
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    });
+    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway.experimental_pollInterval = 100;
+
+    await gateway.load(mockApolloConfig);
+    await errorLoggedPromise;
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Syntax Error: Unexpected Name "Syntax".',
+    );
+    expect(gateway.schema).toBeTruthy();
+  });
+
+  it('Throws on initial load when receiving unparseable CSDL', async () => {
+    mockCsdlRequest().reply(
+      200,
+      JSON.stringify({
+        data: {
+          routerConfig: {
+            __typename: 'RouterConfigResult',
+            id: 'failure',
+            csdl: 'Syntax Error - invalid SDL',
+          },
+        },
+      }),
+    );
+
+    gateway = new ApolloGateway({
+      logger,
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    });
+    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway.experimental_pollInterval = 100;
+
+    await expect(
+      gateway.load(mockApolloConfig),
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"Syntax Error: Unexpected Name \\"Syntax\\"."`,
+    );
+
+    expect(gateway['state'].phase).toEqual('failed to load');
+
+    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+    // which triggers a different error that we're not testing for here.
+    gateway = null;
   });
 });
 
@@ -305,7 +376,9 @@ describe('Downstream service health checks', () => {
       await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
         `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
       );
-      // Special stop case is handled, null out gateway so the `afterEach` doesn't call `stop` on the gateway
+
+      // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+      // which triggers a different error that we're not testing for here.
       gateway = null;
     });
   });
@@ -367,7 +440,9 @@ describe('Downstream service health checks', () => {
       await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
         `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
       );
-      // Special stop case is handled, null out gateway so the `afterEach` doesn't call `stop` on the gateway
+
+      // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+      // which triggers a different error that we're not testing for here.
       gateway = null;
     });
 
