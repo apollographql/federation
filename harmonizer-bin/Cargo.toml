@@ -1,5 +1,5 @@
 [package]
-name = "harmonizer-cli"
+name = "harmonizer-bin"
 version = "0.1.0"
 authors = ["Apollo Developers <opensource@apollographql.com>"]
 edition = "2018"
