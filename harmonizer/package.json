@@ -1,0 +1,27 @@
+{
+  "name": "@apollo/harmonizer",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Apollo Federation Harmonizer JS Entrypoint",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "rollup": "rollup -c ./rollup.config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollographql/federation.git",
+    "directory": "harmonizer-js/"
+  },
+  "author": "Apollo <opensource@apollographql.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=12.13.0 <15.0"
+  },
+  "dependencies": {
+    "@apollo/federation": "file:../federation-js"
+  },
+  "peerDependencies": {
+    "graphql": "^14.5.0 || ^15.0.0"
+  }
+}
