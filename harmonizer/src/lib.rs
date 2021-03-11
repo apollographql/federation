@@ -169,7 +169,8 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
 
             // Write the contents of every buffer to stdout
             for buf in zero_copy {
-                out.write_all(&buf).unwrap();
+                out.write_all(&buf)
+                    .expect("failure writing buffered output");
             }
 
             Op::Sync(Box::new([])) // No meaningful result
@@ -230,27 +231,28 @@ global = {};
 exports = {};
 "#,
         )
-        .unwrap();
+        .expect("unable to initialize composition runtime environment");
 
     // Load the composition library.
     runtime
         .execute("composition.js", include_str!("../dist/composition.js"))
-        .unwrap();
+        .expect("unable to evaluate composition module");
 
     // We literally just turn it into a JSON object that we'll execute within
     // the runtime.
     let service_list_javascript = format!(
         "serviceList = {}",
-        serde_json::to_string(&service_list).unwrap()
+        serde_json::to_string(&service_list)
+            .expect("unable to serialize service list into JavaScript runtime")
     );
 
     runtime
         .execute("<set_service_list>", &service_list_javascript)
-        .unwrap();
+        .expect("unable to evaluate service list in JavaScript runtime");
 
     runtime
         .execute("do_compose.js", include_str!("../js/do_compose.js"))
-        .unwrap();
+        .expect("unable to invoke composition in JavaScript runtime");
 
     rx.recv().expect("channel remains open")
 }
