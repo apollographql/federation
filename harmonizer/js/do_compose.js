@@ -3,7 +3,7 @@
 /**
  * This `composition` is defined as a global by the runtime we define in Rust.
  * We declare this as a `var` here only to allow the TSDoc type annotation to be
- * // applied to it. Running `var` multiple times has no effect.
+ * applied to it. Running `var` multiple times has no effect.
  * @type {{
  *   composeAndValidate: import('../../federation-js').composeAndValidate,
  *   parseGraphqlDocument: import('graphql').parse
