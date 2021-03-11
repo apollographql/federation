@@ -27,6 +27,7 @@ composition implementation while we work toward something else.
 */
 
 #![forbid(unsafe_code)]
+#![deny(missing_debug_implementations, nonstandard_style)]
 #![warn(missing_docs, future_incompatible, unreachable_pub, rust_2018_idioms)]
 use deno_core::Op;
 use deno_core::{json_op_sync, JsRuntime};
@@ -44,7 +45,7 @@ use thiserror::Error;
 /// will be serialized into camelCase, to match the JavaScript expectations.
 ///
 /// [`ServiceDefinition` in TypeScript]: https://github.com/apollographql/federation/blob/d2e34909/federation-js/src/composition/types.ts#L49-L53
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceDefinition {
     /// The name of the service (subgraph).  We use this name internally to
