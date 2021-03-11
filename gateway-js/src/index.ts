@@ -384,7 +384,6 @@ export class ApolloGateway implements GraphQLService {
   // Asynchronously load a dynamically configured schema. `this.updateSchema`
   // is responsible for updating the class instance's schema and query planner.
   private async loadDynamic(unrefTimer: boolean) {
-    // This may throw, but it's expected on initial load to do so
     try {
       await this.updateSchema();
     } catch (e) {
