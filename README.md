@@ -13,7 +13,7 @@ We'll be improving this `README` as soon as possible, but to learn about Apollo 
 
 ## Contributing
 
-If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://www.apollographql.com/docs/community/code-of-conduct/) and then head on over to the [contributing guide](./CONTRIBUTING.md) to learn how to work on this project.
+If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://github.com/apollographql/.github/blob/HEAD/CODE_OF_CONDUCT.md) and then head on over to the [contributing guide](./CONTRIBUTING.md) to learn how to work on this project.
 
 If you ever have any problems, questions, or ideas, the maintainers of this project are available to help.  Please open an issue for assistance!
 
