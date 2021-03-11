@@ -1,6 +1,7 @@
 import nock from 'nock';
 import gql from 'graphql-tag';
 import { DocumentNode, GraphQLObjectType, GraphQLSchema } from 'graphql';
+import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
 import { ApolloGateway } from '../..';
 import {
@@ -103,6 +104,40 @@ it('Fetches CSDL from remote storage', async () => {
   await gateway.load(mockApolloConfig);
   await gateway.stop();
   expect(gateway.schema?.getType('User')).toBeTruthy();
+});
+
+// TODO(trevor:cloudconfig): This test should evolve to demonstrate overriding the default in the future
+it('Fetches CSDL from remote storage using a configured env variable', async () => {
+  let cleanUp = mockedEnv({
+    APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: mockCloudConfigUrl,
+  });
+  mockCsdlRequestSuccess();
+
+  gateway = new ApolloGateway({
+    logger,
+  });
+
+  await gateway.load(mockApolloConfig);
+  await gateway.stop();
+  expect(gateway.schema?.getType('User')).toBeTruthy();
+
+  cleanUp();
+});
+
+it('A configured env variable overrides the code configuration', async () => {
+  let cleanUp = mockedEnv({
+    APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-override',
+  });
+
+  gateway = new ApolloGateway({
+    logger,
+    experimental_schemaConfigDeliveryEndpoint: 'code-config',
+  });
+
+  expect(gateway['experimental_schemaConfigDeliveryEndpoint']).toEqual('env-override');
+
+  gateway = null;
+  cleanUp();
 });
 
 it('Updates CSDL from remote storage', async () => {

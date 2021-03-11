@@ -188,7 +188,7 @@ export class ApolloGateway implements GraphQLService {
   // Configure the endpoint by which gateway will access its precomposed schema.
   // For now, `null` is default and means to continue using the legacy managed mode.
   // TODO(trevor:cloudconfig): `null` should be disallowed in the future.
-  private schemaConfigDeliveryEndpoint: string | null;
+  private experimental_schemaConfigDeliveryEndpoint: string | null;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -217,13 +217,13 @@ export class ApolloGateway implements GraphQLService {
 
 
     // Do not use this unless advised by Apollo staff to do so
-    this.schemaConfigDeliveryEndpoint =
+    this.experimental_schemaConfigDeliveryEndpoint =
       process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT ?? null;
 
     if (isPrecomposedManagedConfig(this.config)) {
       // If the env was already set, it will maintain precedence here.
-      this.schemaConfigDeliveryEndpoint =
-        this.schemaConfigDeliveryEndpoint ??
+      this.experimental_schemaConfigDeliveryEndpoint =
+        this.experimental_schemaConfigDeliveryEndpoint ??
         this.config.experimental_schemaConfigDeliveryEndpoint ??
         null;
     }
@@ -871,7 +871,10 @@ export class ApolloGateway implements GraphQLService {
     }
 
     // TODO(trevor:cloudconfig): This condition goes away completely
-    if (!isPrecomposedManagedConfig(config)) {
+    if (
+      !this.experimental_schemaConfigDeliveryEndpoint &&
+      !isPrecomposedManagedConfig(config)
+    ) {
       return getServiceDefinitionsFromStorage({
         graphId: this.apolloConfig!.graphId!,
         apiKeyHash: this.apolloConfig!.keyHash!,
@@ -885,7 +888,7 @@ export class ApolloGateway implements GraphQLService {
       graphId: this.apolloConfig!.graphId!,
       apiKey: this.apolloConfig!.key!,
       graphVariant: this.apolloConfig!.graphVariant,
-      endpoint: config.experimental_schemaConfigDeliveryEndpoint,
+      endpoint: this.experimental_schemaConfigDeliveryEndpoint!,
       fetcher: this.fetcher,
     });
   }
