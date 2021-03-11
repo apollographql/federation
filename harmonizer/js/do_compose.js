@@ -36,16 +36,19 @@ serviceList = serviceList.map(({ typeDefs, ...rest }) => ({
 
 function parseTypedefs(source) {
   try {
-    return composition.parseGraphqlDocument(source)
+    return composition.parseGraphqlDocument(source)    
   } catch (err) {
     // Return the error in a way that we know how to handle it.
     done({ Err: [err] });
   }
 }
 
-/**
- * @type {{ errors: Error[], composedSdl?: undefined } | { errors?: undefined, composedSdl: string; }}
- */
-const composed = composition.composeAndValidate(serviceList);
-
-done(composed.errors ? { Err: composed.errors } : { Ok: composed.composedSdl })
+try {
+  /**
+   * @type {{ errors: Error[], composedSdl?: undefined } | { errors?: undefined, composedSdl: string; }}
+   */
+  const composed = composition.composeAndValidate(serviceList);
+  done(composed.errors ? { Err: composed.errors } : { Ok: composed.composedSdl })
+} catch(err) {
+  done({ Err: [err] })
+}
