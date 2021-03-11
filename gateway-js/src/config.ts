@@ -132,6 +132,12 @@ export interface LegacyManagedGatewayConfig extends GatewayConfigBase {
 
 // TODO(trevor:cloudconfig): This type becomes the only managed config
 export interface PrecomposedManagedGatewayConfig extends GatewayConfigBase {
+  /**
+   * @deprecated This configuration option shouldn't be used unless by
+   *             recommendation from Apollo staff. This behavior will be
+   *             defaulted in a future release and this option will strictly be
+   *             used as an override.
+   */
   experimental_schemaConfigDeliveryEndpoint: string;
 }
 

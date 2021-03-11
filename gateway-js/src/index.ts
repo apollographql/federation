@@ -409,9 +409,9 @@ export class ApolloGateway implements GraphQLService {
     const result = await this.updateServiceDefinitions(this.config);
 
     if (isCsdlUpdate(result)) {
-      await this.updateCsdl(result);
+      await this.updateWithCsdl(result);
     } else if (isServiceDefinitionUpdate(result)) {
-      await this.updateComposition(result);
+      await this.updateByComposition(result);
     } else {
       throw new Error(
         'Programming error: unexpected result type from `updateServiceDefinitions`',
@@ -419,7 +419,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async updateComposition(
+  private async updateByComposition(
     result: ServiceDefinitionUpdate,
   ): Promise<void> {
     if (
@@ -493,7 +493,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async updateCsdl(result: CsdlUpdate): Promise<void> {
+  private async updateWithCsdl(result: CsdlUpdate): Promise<void> {
     if (result.id === this.compositionId) {
       this.logger.debug('No change in composition since last check.');
       return;
