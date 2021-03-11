@@ -29,24 +29,22 @@ interface CsdlQueryFailure {
   errors: GraphQLError[];
 }
 
-const cloudConfigEndpoint =
-  process.env.APOLLO_CLOUD_CONFIG_ENDPOINT ??
-  'https://us-central1-mdg-services.cloudfunctions.net:443/cloudconfig-staging/';
-
 const { name, version } = require('../package.json');
 
 export async function loadCsdlFromStorage({
   graphId,
   graphVariant,
   apiKey,
+  endpoint,
   fetcher,
 }: {
   graphId: string;
   graphVariant: string;
   apiKey: string;
+  endpoint: string;
   fetcher: typeof fetch;
 }) {
-  const result = await fetcher(cloudConfigEndpoint, {
+  const result = await fetcher(endpoint, {
     method: 'POST',
     body: JSON.stringify({
       query: CSDL_QUERY,

@@ -5,6 +5,7 @@ import {
   graphId,
   graphVariant,
   apiKey,
+  mockCloudConfigUrl,
 } from './integration/nockMocks';
 
 describe('loadCsdlFromStorage', () => {
@@ -15,6 +16,7 @@ describe('loadCsdlFromStorage', () => {
       graphId,
       graphVariant,
       apiKey,
+      endpoint: mockCloudConfigUrl,
       fetcher,
     });
 

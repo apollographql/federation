@@ -5,6 +5,7 @@ import {
   mockSDLQuerySuccess,
   mockCsdlRequestSuccess,
   mockApolloConfig,
+  mockCloudConfigUrl,
 } from './nockMocks';
 import { getTestingCsdl } from '../execution-utils';
 import { MockService } from './networkRequests.test';
@@ -87,6 +88,8 @@ describe('gateway configuration warnings', () => {
 
     gateway = new ApolloGateway({
       logger,
+      // TODO(trevor:cloudconfig): remove
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
     });
 
     await gateway.load(mockApolloConfig);
@@ -101,13 +104,17 @@ describe('gateway configuration warnings', () => {
   });
 
   it('throws when no configuration is provided', async () => {
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       logger,
     });
 
     expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(
       `"When a manual configuration is not provided, gateway requires an Apollo configuration. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ for more information. Manual configuration options include: \`serviceList\`, \`csdl\`, and \`experimental_updateServiceDefinitions\`."`,
     );
+
+    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+    // which triggers a different error that we're not testing for here.
+    gateway = null;
   });
 });
 

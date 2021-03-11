@@ -66,10 +66,11 @@ function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
   });
 }
 
+export const mockCloudConfigUrl =
+  'https://example.cloud-config-url.com/cloudconfig/';
+
 export function mockCsdlRequest() {
-  return gatewayNock(
-    'https://us-central1-mdg-services.cloudfunctions.net:443/cloudconfig-staging',
-  ).post('/', {
+  return gatewayNock(mockCloudConfigUrl).post('/', {
     query: CSDL_QUERY,
     variables: {
       ref: `${graphId}@${graphVariant}`,

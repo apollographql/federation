@@ -71,8 +71,10 @@ import {
   ServiceDefinitionUpdate,
   CsdlUpdate,
   CompositionUpdate,
+  isPrecomposedManagedConfig,
 } from './config';
 import { loadCsdlFromStorage } from './loadCsdlFromStorage';
+import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorage';
 
 type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
 
@@ -120,6 +122,17 @@ export function getDefaultFetcher(): Fetcher {
     },
   });
 }
+
+/**
+ * TODO(trevor:cloudconfig): Stop exporting this
+ * @deprecated This will be removed in a future version of @apollo/gateway
+*/
+export const getDefaultGcsFetcher = getDefaultFetcher;
+/**
+ * TODO(trevor:cloudconfig): Stop exporting this
+ * @deprecated This will be removed in a future version of @apollo/gateway
+*/
+export const GCS_RETRY_COUNT = 5;
 
 export const HEALTH_CHECK_QUERY =
   'query __ApolloServiceHealthCheck__ { __typename }';
@@ -172,6 +185,10 @@ export class ApolloGateway implements GraphQLService {
   private updateServiceDefinitions: Experimental_UpdateComposition;
   // how often service defs should be loaded/updated (in ms)
   private experimental_pollInterval?: number;
+  // Configure the endpoint by which gateway will access its precomposed schema.
+  // For now, `null` is default and means to continue using the legacy managed mode.
+  // TODO(trevor:cloudconfig): `null` should be disallowed in the future.
+  private schemaConfigDeliveryEndpoint: string | null;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -197,6 +214,19 @@ export class ApolloGateway implements GraphQLService {
       config?.experimental_didUpdateComposition;
 
     this.experimental_pollInterval = config?.experimental_pollInterval;
+
+
+    // Do not use this unless advised by Apollo staff to do so
+    this.schemaConfigDeliveryEndpoint =
+      process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT ?? null;
+
+    if (isPrecomposedManagedConfig(this.config)) {
+      // If the env was already set, it will maintain precedence here.
+      this.schemaConfigDeliveryEndpoint =
+        this.schemaConfigDeliveryEndpoint ??
+        this.config.experimental_schemaConfigDeliveryEndpoint ??
+        null;
+    }
 
     // Use the provided updater function if provided by the user, else default
     this.updateServiceDefinitions = isManuallyManagedConfig(this.config)
@@ -389,7 +419,9 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async updateComposition(result: ServiceDefinitionUpdate): Promise<void> {
+  private async updateComposition(
+    result: ServiceDefinitionUpdate,
+  ): Promise<void> {
     if (
       !result.serviceDefinitions ||
       JSON.stringify(this.serviceDefinitions) ===
@@ -824,10 +856,22 @@ export class ApolloGateway implements GraphQLService {
       );
     }
 
+    // TODO(trevor:cloudconfig): This condition goes away completely
+    if (!isPrecomposedManagedConfig(config)) {
+      return getServiceDefinitionsFromStorage({
+        graphId: this.apolloConfig!.graphId!,
+        apiKeyHash: this.apolloConfig!.keyHash!,
+        graphVariant: this.apolloConfig!.graphVariant,
+        federationVersion: config.federationVersion || 1,
+        fetcher: this.fetcher,
+      });
+    }
+
     return loadCsdlFromStorage({
       graphId: this.apolloConfig!.graphId!,
       apiKey: this.apolloConfig!.key!,
       graphVariant: this.apolloConfig!.graphVariant,
+      endpoint: config.experimental_schemaConfigDeliveryEndpoint,
       fetcher: this.fetcher,
     });
   }
@@ -957,12 +1001,12 @@ export class ApolloGateway implements GraphQLService {
     // 2) non-empty query plan and shouldShowQueryPlan === true
     const serializedQueryPlan =
       queryPlan.node && (this.config.debug || shouldShowQueryPlan)
-        // FIXME: I disabled printing the query plan because this lead to a
-        // circular dependency between the `@apollo/gateway` and
-        // `apollo-federation-integration-testsuite` packages.
-        // We should either solve that or switch Playground to
-        // the JSON serialization format.
-        ? prettyFormatQueryPlan(queryPlan)
+        ? // FIXME: I disabled printing the query plan because this lead to a
+          // circular dependency between the `@apollo/gateway` and
+          // `apollo-federation-integration-testsuite` packages.
+          // We should either solve that or switch Playground to
+          // the JSON serialization format.
+          prettyFormatQueryPlan(queryPlan)
         : null;
 
     if (this.config.debug && serializedQueryPlan) {

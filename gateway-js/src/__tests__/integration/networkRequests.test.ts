@@ -11,6 +11,7 @@ import {
   mockCsdlRequestSuccess,
   mockCsdlRequest,
   mockApolloConfig,
+  mockCloudConfigUrl,
 } from './nockMocks';
 import {
   accounts,
@@ -90,10 +91,14 @@ it('Queries remote endpoints for their SDLs', async () => {
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 });
 
+// TODO(trevor:cloudconfig): Remove all usages of the experimental config option
 it('Fetches CSDL from remote storage', async () => {
   mockCsdlRequestSuccess();
 
-  gateway = new ApolloGateway({ logger });
+  gateway = new ApolloGateway({
+    logger,
+    experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+  });
 
   await gateway.load(mockApolloConfig);
   await gateway.stop();
@@ -115,7 +120,10 @@ it('Updates CSDL from remote storage', async () => {
       secondUpdateResolve();
     });
 
-  gateway = new ApolloGateway({ logger });
+  gateway = new ApolloGateway({
+    logger,
+    experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+  });
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
   gateway.experimental_pollInterval = 100;
   gateway.onSchemaChange(schemaChangeCallback);
@@ -133,6 +141,7 @@ describe('CSDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
     });
 
     await expect(
@@ -157,7 +166,10 @@ describe('CSDL update failures', () => {
     const errorLoggedPromise = new Promise((r) => (errorLogged = r));
     logger.error = jest.fn(() => errorLogged());
 
-    gateway = new ApolloGateway({ logger });
+    gateway = new ApolloGateway({
+      logger,
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    });
 
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
@@ -187,7 +199,10 @@ describe('CSDL update failures', () => {
     const errorLoggedPromise = new Promise((r) => (errorLogged = r));
     logger.error = jest.fn(() => errorLogged());
 
-    gateway = new ApolloGateway({ logger });
+    gateway = new ApolloGateway({
+      logger,
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    });
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 
@@ -219,7 +234,10 @@ it('Rollsback to a previous schema when triggered', async () => {
     .mockImplementationOnce(() => secondResolve())
     .mockImplementationOnce(() => thirdResolve());
 
-  gateway = new ApolloGateway({ logger });
+  gateway = new ApolloGateway({
+    logger,
+    experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+  });
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
   gateway.experimental_pollInterval = 100;
 
@@ -297,7 +315,11 @@ describe('Downstream service health checks', () => {
       mockCsdlRequestSuccess();
       mockAllServicesHealthCheckSuccess();
 
-      gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
+      gateway = new ApolloGateway({
+        serviceHealthCheck: true,
+        logger,
+        experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
 
@@ -316,7 +338,11 @@ describe('Downstream service health checks', () => {
       mockServiceHealthCheckSuccess(reviews);
       mockServiceHealthCheckSuccess(documents);
 
-      gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
+      gateway = new ApolloGateway({
+        serviceHealthCheck: true,
+        logger,
+        experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      });
 
       // This is the ideal, but our version of Jest has a bug with printing error snapshots.
       // See: https://github.com/facebook/jest/pull/10217 (fixed in v26.2.0)
@@ -372,6 +398,7 @@ describe('Downstream service health checks', () => {
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
+        experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
       });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
@@ -410,7 +437,11 @@ describe('Downstream service health checks', () => {
       let resolve: Function;
       const schemaChangeBlocker = new Promise((res) => (resolve = res));
 
-      gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
+      gateway = new ApolloGateway({
+        serviceHealthCheck: true,
+        logger,
+        experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
 

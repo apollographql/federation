@@ -125,9 +125,20 @@ export interface RemoteGatewayConfig extends GatewayConfigBase {
   introspectionHeaders?: HeadersInit;
 }
 
-export interface ManagedGatewayConfig extends GatewayConfigBase {
+// TODO(trevor:cloudconfig): This type goes away
+export interface LegacyManagedGatewayConfig extends GatewayConfigBase {
   federationVersion?: number;
 }
+
+// TODO(trevor:cloudconfig): This type becomes the only managed config
+export interface PrecomposedManagedGatewayConfig extends GatewayConfigBase {
+  experimental_schemaConfigDeliveryEndpoint: string;
+}
+
+// TODO(trevor:cloudconfig): This union is no longer needed
+export type ManagedGatewayConfig =
+  | LegacyManagedGatewayConfig
+  | PrecomposedManagedGatewayConfig;
 
 interface ManuallyManagedGatewayConfig extends GatewayConfigBase {
   experimental_updateServiceDefinitions: Experimental_UpdateComposition;
@@ -174,11 +185,19 @@ export function isManagedConfig(
   config: GatewayConfig,
 ): config is ManagedGatewayConfig {
   return (
-    !isRemoteConfig(config) &&
-    !isLocalConfig(config) &&
-    !isCsdlConfig(config) &&
-    !isManuallyManagedConfig(config)
+    isPrecomposedManagedConfig(config) ||
+    (!isRemoteConfig(config) &&
+      !isLocalConfig(config) &&
+      !isCsdlConfig(config) &&
+      !isManuallyManagedConfig(config))
   );
+}
+
+// TODO(trevor:cloudconfig): This merges with `isManagedConfig`
+export function isPrecomposedManagedConfig(
+  config: GatewayConfig,
+): config is PrecomposedManagedGatewayConfig {
+  return 'experimental_schemaConfigDeliveryEndpoint' in config;
 }
 
 // A static config is one which loads synchronously on start and never updates
