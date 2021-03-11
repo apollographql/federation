@@ -185,7 +185,7 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
 
             Ok(serde_json::json!(null))
 
-            // Op::Sync(Box::new([])) // Don't return anything to JS
+            // Don't return anything to JS
         }),
     );
 
@@ -226,7 +226,7 @@ node_fetch_1 = {};
 // running in such a mode.
 process = { env: { "NODE_ENV": "production" }};
 // Some JS runtime implementation specific bits that we rely on that
-// need to be initialized as empty objects. 
+// need to be initialized as empty objects.
 global = {};
 exports = {};
 "#,
