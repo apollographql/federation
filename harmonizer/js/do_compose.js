@@ -16,7 +16,7 @@ var composition;
 var serviceList = serviceList;
 
 if (!serviceList || !Array.isArray(serviceList)) {
-  throw new Error("Error in JSRustland: serviceList missing or incorrect.");
+  throw new Error("Error in JS-Rust-land: serviceList missing or incorrect.");
 }
 
 serviceList.some((service) => {
