@@ -15,12 +15,6 @@ We'll be improving this `README` as soon as possible, but to learn about Apollo 
 
 If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://www.apollographql.com/docs/community/code-of-conduct/) and then head on over to the [contributing guide](./CONTRIBUTING.md) to learn how to work on this project.
 
-If you ever have any problems, questions, or ideas, the maintainers of this project are:
-
-- [@jakedawkins](https://github.com/jakedawkins)
-- [@jbaxleyiii](https://github.com/jbaxleyiii)
-- [@queerviolet](https://github.com/queerviolet)
-- [@trevor-scheer](https://github.com/trevor-scheer)
-- [@abernix](https://github.com/abernix)
+If you ever have any problems, questions, or ideas, the maintainers of this project are available to help.  Please open an issue for assistance!
 
 <img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/telescope.svg" width="100%" height="144">
