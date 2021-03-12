@@ -1,8 +1,14 @@
 [package]
 name = "harmonizer"
 version = "0.1.0"
-authors = ["Apollo Developers <opensource@apollographql.com>"]
+authors = ["Apollo Graph, Inc. <opensource@apollographql.com>"]
 edition = "2018"
+description = "Apollo Federation utility to compose a supergraph from subgraphs"
+homepage = "https://www.apollographql.com/apollo-federation/"
+documentation = "https://apollographql.com/docs/federation/"
+repository = "https://github.com/apollographql/federation/"
+license = "MIT"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
