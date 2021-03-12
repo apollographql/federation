@@ -4,7 +4,7 @@ use std::{env, fs::metadata};
 
 fn main() {
     let out_dir = env::var_os("OUT_DIR").unwrap();
-    let dest_path = Path::new(&out_dir).join("/dist/composition.js");
+    let dest_path = Path::new(&out_dir).join("dist").join("composition.js");
     if metadata(dest_path).is_err() {
         assert!(Command::new("npm")
             .current_dir("../")
