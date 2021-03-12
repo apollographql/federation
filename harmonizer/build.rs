@@ -8,6 +8,12 @@ fn main() {
     if metadata(dest_path).is_err() {
         assert!(Command::new("npm")
             .current_dir("../")
+            .arg("install")
+            .status()
+            .unwrap()
+            .success());
+        assert!(Command::new("npm")
+            .current_dir("../")
             .args(&["run", "compile:for-harmonizer-build-rs"])
             .env("APOLLO_HARMONIZER_ROLLUP_BASE_DIR", out_dir)
             .status()
