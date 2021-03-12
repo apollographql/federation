@@ -3,12 +3,14 @@ import commonjs from '@rollup/plugin-commonjs';
 import nodePolyfills from 'rollup-plugin-node-polyfills';
 import path from 'path';
 
+const outputDir = process.env['APOLLO_HARMONIZER_ROLLUP_BASE_DIR'] || __dirname;
+
 export default [
   {
     input: path.resolve(__dirname, './js/index.mjs'),
     output: {
       name: 'composition',
-      file: path.resolve(__dirname, './dist/composition.js'),
+      file: path.resolve(outputDir, './dist/composition.js'),
       format: 'iife',
       globals: {
         // This must be mocked in the runtime as an

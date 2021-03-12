@@ -235,7 +235,10 @@ exports = {};
 
     // Load the composition library.
     runtime
-        .execute("composition.js", include_str!("../dist/composition.js"))
+        .execute(
+            "composition.js",
+            include_str!(concat!(env!("OUT_DIR"), "/dist/composition.js")),
+        )
         .expect("unable to evaluate composition module");
 
     // We literally just turn it into a JSON object that we'll execute within
