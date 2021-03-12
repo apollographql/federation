@@ -72,7 +72,7 @@ jobs:
 
       ### UP FROM HERE TO "Checkout Code" is  uniform in rust-test.yml, rust-slow-test.yml, and lint.yml!
 
-     - name: Install npm dependencies
+      - name: Install npm dependencies
         run: npm install
 
       ### FORMATTING AND STYLE ###
