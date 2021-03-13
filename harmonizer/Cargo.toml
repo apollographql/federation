@@ -15,7 +15,7 @@ readme = "README.md"
 include = ["dist/**/*", "js/**/*", "src/**/*", "Cargo.toml"]
 
 [dependencies]
-anyhow = "1.0.35"
+anyhow = "1.0.38"
 deno_core = "0.73.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.60"
