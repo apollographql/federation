@@ -38,7 +38,7 @@
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "17.0.0",
+    "@rollup/plugin-commonjs": "17.1.0",
     "@rollup/plugin-node-resolve": "11.0.1",
     "@types/bunyan": "1.8.6",
     "@types/deep-freeze": "0.1.2",
