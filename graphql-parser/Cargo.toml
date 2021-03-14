@@ -24,4 +24,4 @@ thiserror = "1.0.24"
 [dev-dependencies]
 pretty_assertions = "0.7.0"
 insta = "1.7.0"
-paste = "1.0.4"
+paste = "1.0.5"
