@@ -100,8 +100,8 @@ extend type User @key(fields: "email") {
   email: String! @external
 }
 
-extend type Product @key(fields: "sku") {
-  sku: String! @external
+extend type Product @key(fields: "upc") {
+  upc: String! @external
 }
 ```
 

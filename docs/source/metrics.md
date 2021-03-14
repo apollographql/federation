@@ -3,16 +3,18 @@ title: Federated traces
 description: How federated tracing works
 ---
 
-One of the many benefits of using GraphQL as an API layer is that it enables fine-grained [tracing](https://www.apollographql.com/docs/platform/performance/#traces) of every API call. One of the features of the Apollo platform is support for consuming and aggregating those traces in order to provide detailed insights into your GraphQL layer's performance and usage. In order to support this same functionality, the Federation model includes support for sending a federated trace from the Apollo gateway, which is constructed from timing and error information that underlying services expose. These federated traces capture the service-level details in the shape of the query plan, which is sent to Apollo's [metrics ingress](https://www.apollographql.com/docs/studio/setup-analytics/#sending-metrics-to-the-reporting-endpoint) by default, and aggregated into query-level stats and field-level stats. The overall flow of a federated trace is as follows:
+One of the many benefits of using GraphQL as an API layer is that it enables fine-grained [tracing](https://www.apollographql.com/docs/platform/performance/#traces) of every API call. The Apollo platform supports consuming and aggregating these traces to provide detailed insights into your GraphQL layer's performance and usage.
 
-1. The Apollo gateway receives an operation from a client
-1. The Apollo gateway constructs a query plan for the operation, delegating sub-queries to underlying services
-1. For each [fetch](https://www.apollographql.com/docs/federation/federation-spec/#fetch-service-capabilities) to an implementing service, a response is received
-1. In the [`extensions`](https://www.apollographql.com/docs/resources/graphql-glossary/#extensions) of the response, a trace from the sub-query is exposed
-1. The gateway collects the set of sub-query traces from implementing services, and arranges them in the shape of the [query plan](https://www.apollographql.com/docs/federation/implementing/#inspecting-query-plans)
-1. The Federated trace is sent to the Apollo [metrics ingress](https://www.apollographql.com/docs/studio/setup-analytics/#sending-metrics-to-the-reporting-endpoint) for processing.
+Apollo Federation supports sending **federated traces** from the Apollo gateway, which are constructed from timing and error information provided by your implementing services. These federated traces capture the service-level details in the shape of the query plan, which is sent to Apollo's [metrics ingress](https://www.apollographql.com/docs/studio/setup-analytics/#sending-metrics-to-the-reporting-endpoint) by default, and aggregated into query-level stats and field-level stats. The overall flow of a federated trace is as follows:
 
-The model of federated metrics is that implementing services report timing and error information to the gateway, and the gateway is responsible for reporting those metrics.
+1. The gateway receives an operation from a client.
+2. The gateway constructs a query plan for the operation, delegating sub-queries to implementing services.
+3. For each [fetch](https://www.apollographql.com/docs/federation/federation-spec/#fetch-service-capabilities) to an implementing service, a response is received.
+4. The [`extensions`](https://www.apollographql.com/docs/resources/graphql-glossary/#extensions) of each response includes a trace from the sub-query.
+5. The gateway collects the set of sub-query traces from implementing services and arranges them in the shape of the query plan.
+6. The federated trace is sent to the Apollo [metrics ingress](https://www.apollographql.com/docs/studio/setup-analytics/#sending-metrics-to-the-reporting-endpoint) for processing.
+
+In summary, implementing services report timing and error information to the gateway, and the gateway is responsible for reporting those metrics to Apollo.
 
 ## Turning it on
 

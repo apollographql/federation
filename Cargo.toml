@@ -5,7 +5,7 @@ members = [
   "query-planner",
   "query-planner-wasm",
   "harmonizer",
-  "harmonizer-cli",
+  "harmonizer-bin",
   "stargate",
   "stargate/crates/stargate-lib",
 ]

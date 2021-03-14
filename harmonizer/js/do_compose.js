@@ -1,12 +1,22 @@
 /** @typedef {{typeDefs: string, name: string, url?: string;}} ServiceDefinition */
 
 /**
+ * This `composition` is defined as a global by the runtime we define in Rust.
+ * We declare this as a `var` here only to allow the TSDoc type annotation to be
+ * applied to it. Running `var` multiple times has no effect.
+ * @type {{
+ *   composeAndValidate: import('../../federation-js').composeAndValidate,
+ *   parseGraphqlDocument: import('graphql').parse
+ * }} */
+var composition;
+
+/**
  * @type {ServiceDefinition[]}
  */
 var serviceList = serviceList;
 
 if (!serviceList || !Array.isArray(serviceList)) {
-  throw new Error("Error in JSRustland: serviceList missing or incorrect.");
+  throw new Error("Error in JS-Rust-land: serviceList missing or incorrect.");
 }
 
 serviceList.some((service) => {
@@ -19,7 +29,6 @@ serviceList.some((service) => {
   }
 });
 
-
 serviceList = serviceList.map(({ typeDefs, ...rest }) => ({
   typeDefs: parseTypedefs(typeDefs),
   ...rest,
@@ -27,18 +36,19 @@ serviceList = serviceList.map(({ typeDefs, ...rest }) => ({
 
 function parseTypedefs(source) {
   try {
-    return composition.parseGraphqlDocument(source)
+    return composition.parseGraphqlDocument(source)    
   } catch (err) {
-    print(err.message)
-    for (const line of err.stack.toString().split('\n')) {
-      print(line)
-    }
+    // Return the error in a way that we know how to handle it.
+    done({ Err: [err] });
   }
 }
 
-/**
- * @type {{ errors: Error[], composedSdl?: undefined } | { errors?: undefined, composedSdl: string; }}
- */
-const composed = composition.composeAndValidate(serviceList);
-
-done(composed.errors ? { Err: composed.errors } : { Ok: composed.composedSdl })
+try {
+  /**
+   * @type {{ errors: Error[], composedSdl?: undefined } | { errors?: undefined, composedSdl: string; }}
+   */
+  const composed = composition.composeAndValidate(serviceList);
+  done(composed.errors ? { Err: composed.errors } : { Ok: composed.composedSdl })
+} catch(err) {
+  done({ Err: [err] })
+}
