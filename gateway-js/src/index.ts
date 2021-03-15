@@ -215,21 +215,19 @@ export class ApolloGateway implements GraphQLService {
 
     this.experimental_pollInterval = config?.experimental_pollInterval;
 
-
     // Do not use this unless advised by Apollo staff to do so
+    // 1. If config is explicitly set to a `string` or `null` in code, use it
+    // 2. Else, if the env var is set, use that
+    // 3. Else, default to `null`
     this.experimental_schemaConfigDeliveryEndpoint =
-      process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT ?? null;
+      isPrecomposedManagedConfig(this.config) ||
+      this.config.experimental_schemaConfigDeliveryEndpoint === null
+        ? // We know at this point the config is either string | null, but TS thinks it can also be undefined
+          (this.config.experimental_schemaConfigDeliveryEndpoint as string | null)
+        : process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT ?? null;
 
-    if (isPrecomposedManagedConfig(this.config)) {
-      // If the env was already set, it will maintain precedence here.
-      this.experimental_schemaConfigDeliveryEndpoint =
-        this.experimental_schemaConfigDeliveryEndpoint ??
-        this.config.experimental_schemaConfigDeliveryEndpoint ??
-        null;
-    }
-
-      // Use the provided updater function if provided by the user, else default
     if (isManuallyManagedConfig(this.config)) {
+      // Use the provided updater function if provided by the user, else default
       if ('experimental_updateCsdl' in this.config) {
         this.updateServiceDefinitions = this.config.experimental_updateCsdl;
       } else if ('experimental_updateServiceDefinitions' in this.config) {

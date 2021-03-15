@@ -1,4 +1,5 @@
 import gql from 'graphql-tag';
+import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
 import { ApolloGateway } from '../..';
 import {
@@ -187,3 +188,52 @@ describe('gateway startup errors', () => {
     `);
   });
 });
+
+describe('gateway config / env behavior', () => {
+  let gateway: ApolloGateway | null = null;
+  afterEach(async () => {
+    if (gateway) {
+      await gateway.stop();
+      gateway = null;
+    }
+  });
+
+  // TODO(trevor:cloudconfig): this behavior will be updated
+  describe('schema config delivery endpoint configuration', () => {
+    it('A code config overrides the env variable', async () => {
+      let cleanUp = mockedEnv({
+        APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
+      });
+
+      gateway = new ApolloGateway({
+        logger,
+        experimental_schemaConfigDeliveryEndpoint: 'code-config',
+      });
+
+      expect(gateway['experimental_schemaConfigDeliveryEndpoint']).toEqual(
+        'code-config',
+      );
+
+      gateway = null;
+      cleanUp();
+    });
+
+    it('A code config set to `null` takes precedence over an existing env variable', async () => {
+      let cleanUp = mockedEnv({
+        APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
+      });
+
+      gateway = new ApolloGateway({
+        logger,
+        experimental_schemaConfigDeliveryEndpoint: null,
+      });
+
+      expect(gateway['experimental_schemaConfigDeliveryEndpoint']).toEqual(
+        null,
+      );
+
+      gateway = null;
+      cleanUp();
+    });
+  });
+})

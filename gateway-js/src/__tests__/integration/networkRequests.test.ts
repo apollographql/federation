@@ -124,22 +124,6 @@ it('Fetches CSDL from remote storage using a configured env variable', async () 
   cleanUp();
 });
 
-it('A configured env variable overrides the code configuration', async () => {
-  let cleanUp = mockedEnv({
-    APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-override',
-  });
-
-  gateway = new ApolloGateway({
-    logger,
-    experimental_schemaConfigDeliveryEndpoint: 'code-config',
-  });
-
-  expect(gateway['experimental_schemaConfigDeliveryEndpoint']).toEqual('env-override');
-
-  gateway = null;
-  cleanUp();
-});
-
 it('Updates CSDL from remote storage', async () => {
   mockCsdlRequestSuccess();
   mockCsdlRequestSuccess(getTestingCsdl(fixturesWithUpdate), 'updatedId-5678');
