@@ -3,7 +3,6 @@ import {
   SchemaChangeCallback,
   Unsubscriber,
   GraphQLServiceEngineConfig,
-  gql,
 } from 'apollo-server-core';
 import {
   GraphQLExecutionResult,
@@ -22,6 +21,7 @@ import {
   print,
   FragmentDefinitionNode,
   OperationDefinitionNode,
+  parse,
 } from 'graphql';
 import {
   composeAndValidate,
@@ -404,7 +404,7 @@ export class ApolloGateway implements GraphQLService {
     }
 
     this.schema = schema;
-    this.parsedCsdl = gql(composedSdl);
+    this.parsedCsdl = parse(composedSdl);
     this.queryPlannerPointer = getQueryPlanner(composedSdl);
     this.state = { phase: 'loaded' };
   }
@@ -530,7 +530,7 @@ export class ApolloGateway implements GraphQLService {
     // In the case that it throws, the gateway will:
     //   * on initial load, throw the error
     //   * on update, log the error and don't update
-    const parsedCsdl = gql(result.csdl);
+    const parsedCsdl = parse(result.csdl);
 
     const previousSchema = this.schema;
     const previousCsdl = this.parsedCsdl;
@@ -596,7 +596,7 @@ export class ApolloGateway implements GraphQLService {
       const serviceList = isCsdlUpdate(update)
         ? // Parsing could technically fail and throw here, but parseability has
           // already been confirmed slightly earlier in the code path
-          this.serviceListFromCsdl(gql(update.csdl))
+          this.serviceListFromCsdl(parse(update.csdl))
         : // Existence of this is determined in advance with an early return otherwise
           update.serviceDefinitions!;
       // Here we need to construct new datasources based on the new schema info
@@ -725,7 +725,7 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private createSchemaFromCsdl(csdl: string) {
-    this.parsedCsdl = gql(csdl);
+    this.parsedCsdl = parse(csdl);
     const serviceList = this.serviceListFromCsdl(this.parsedCsdl);
 
     this.createServices(serviceList);
