@@ -61,8 +61,6 @@ export async function loadCsdlFromStorage({
     },
   });
 
-
-
   let response: CsdlQueryResult;
 
   try {
