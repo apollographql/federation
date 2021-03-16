@@ -71,8 +71,6 @@ export async function loadCsdlFromStorage({
       throw new Error(result.status + ': ' + e.message ?? e);
     }
 
-    // This happens before the 200 check below because the server returns a 400
-    // in the case of GraphQL errors (i.e. query validation)
     if ('errors' in response) {
       throw new Error(response.errors.map((error) => error.message).join('\n'));
     }
