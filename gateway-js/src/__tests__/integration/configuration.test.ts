@@ -191,17 +191,23 @@ describe('gateway startup errors', () => {
 
 describe('gateway config / env behavior', () => {
   let gateway: ApolloGateway | null = null;
+  let cleanUp: (() => void) | null = null;
   afterEach(async () => {
     if (gateway) {
       await gateway.stop();
       gateway = null;
+    }
+
+    if (cleanUp) {
+      cleanUp();
+      cleanUp = null;
     }
   });
 
   // TODO(trevor:cloudconfig): this behavior will be updated
   describe('schema config delivery endpoint configuration', () => {
     it('A code config overrides the env variable', async () => {
-      let cleanUp = mockedEnv({
+      cleanUp = mockedEnv({
         APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
       });
 
@@ -215,11 +221,10 @@ describe('gateway config / env behavior', () => {
       );
 
       gateway = null;
-      cleanUp();
     });
 
     it('A code config set to `null` takes precedence over an existing env variable', async () => {
-      let cleanUp = mockedEnv({
+      cleanUp = mockedEnv({
         APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
       });
 
@@ -233,7 +238,6 @@ describe('gateway config / env behavior', () => {
       );
 
       gateway = null;
-      cleanUp();
     });
   });
-})
+});

@@ -57,6 +57,7 @@ function getRootQueryFields(schema?: GraphQLSchema): string[] {
 
 let logger: Logger;
 let gateway: ApolloGateway | null = null;
+let cleanUp: (() => void) | null = null;
 
 beforeEach(() => {
   if (!nock.isActive()) nock.activate();
@@ -81,6 +82,11 @@ afterEach(async () => {
   if (gateway) {
     await gateway.stop();
     gateway = null;
+  }
+
+  if (cleanUp) {
+    cleanUp();
+    cleanUp = null;
   }
 });
 
@@ -108,7 +114,7 @@ it('Fetches CSDL from remote storage', async () => {
 
 // TODO(trevor:cloudconfig): This test should evolve to demonstrate overriding the default in the future
 it('Fetches CSDL from remote storage using a configured env variable', async () => {
-  let cleanUp = mockedEnv({
+  cleanUp = mockedEnv({
     APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: mockCloudConfigUrl,
   });
   mockCsdlRequestSuccess();
@@ -120,8 +126,6 @@ it('Fetches CSDL from remote storage using a configured env variable', async () 
   await gateway.load(mockApolloConfig);
   await gateway.stop();
   expect(gateway.schema?.getType('User')).toBeTruthy();
-
-  cleanUp();
 });
 
 it('Updates CSDL from remote storage', async () => {
