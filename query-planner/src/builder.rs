@@ -415,7 +415,10 @@ fn complete_field<'a, 'q: 'a>(
             for mut sub_group in sub_group_dependent_groups {
                 let existing_dependent_group = parent_group.other_dependent_groups
                     .iter_mut()
-                    .find(| x| x.service_name == sub_group.service_name);
+                    .find(| x| 
+                        x.service_name == sub_group.service_name &&
+                        x.merge_at == sub_group.merge_at
+                    );
 
                 match existing_dependent_group {
                     Some(existing_dependent_group) => {

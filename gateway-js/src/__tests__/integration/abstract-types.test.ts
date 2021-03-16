@@ -1278,6 +1278,252 @@ it("when including the same nested fields under different type conditions", asyn
     `);
   });
 
+it('when including multiple nested fields to the same service under different type conditions', async () => {
+  const query = `#graphql
+    query {
+      topProducts {
+        ... on Book {
+          name
+          price
+          reviews {
+            author {
+              name
+              username
+            }
+            editor {
+              name
+              username
+            }
+            body
+            id
+          }
+        }
+        ... on TV {
+          name
+          price
+          reviews {
+            author {
+              name
+              username
+            }
+            editor {
+              name
+              username
+            }
+            body
+            id
+          }
+        }
+      }
+    }
+  `;
+
+    const { queryPlan, errors } = await execute({ query }, [
+      {
+        name: 'accounts',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            name: String
+            username: String
+          }
+        `,
+      },
+      {
+        name: 'products',
+        typeDefs: gql`
+          type Book implements Product @key(fields: "isbn") {
+            isbn: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+
+          type TV implements Product @key(fields: "id") {
+            id: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+
+          type Computer implements Product @key(fields: "id") {
+            id: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+
+          type Furniture implements Product @key(fields: "sku") {
+            sku: String!
+            name: String
+            price: Int
+            weight: Int
+          }
+
+          interface Product {
+            name: String
+            price: Int
+          }
+
+          extend type Query {
+            topProducts: [Product]
+          }
+        `,
+      },
+      {
+        name: 'reviews',
+        typeDefs: gql`
+          extend type Book implements Product @key(fields: "isbn") {
+            isbn: String! @external
+            reviews: [Review]
+          }
+
+          extend type TV implements Product @key(fields: "id") {
+            id: String! @external
+            reviews: [Review]
+          }
+          extend type Computer implements Product @key(fields: "id") {
+            id: String! @external
+            reviews: [Review]
+          }
+
+          extend type Furniture implements Product @key(fields: "sku") {
+            sku: String! @external
+            reviews: [Review]
+          }
+
+          extend interface Product {
+            reviews: [Review]
+          }
+
+          type Review @key(fields: "id") {
+            id: ID!
+            body: String
+            author: User @provides(fields: "username")
+            editor: User @provides(fields: "username")
+            product: Product
+          }
+
+          extend type User @key(fields: "id") {
+            id: ID! @external
+            username: String @external
+            reviews: [Review]
+          }
+        `,
+      },
+    ]);
+
+    expect(errors).toBeUndefined();
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "products") {
+            {
+              topProducts {
+                __typename
+                ... on Book {
+                  name
+                  price
+                  __typename
+                  isbn
+                }
+                ... on TV {
+                  name
+                  price
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "topProducts.@") {
+            Fetch(service: "reviews") {
+              {
+                ... on Book {
+                  __typename
+                  isbn
+                }
+                ... on TV {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Book {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    editor {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
+                ... on TV {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    editor {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
+              }
+            },
+          },
+          Parallel {
+            Flatten(path: "topProducts.@.reviews.@.author") {
+              Fetch(service: "accounts") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on User {
+                    name
+                  }
+                }
+              },
+            },
+            Flatten(path: "topProducts.@.reviews.@.editor") {
+              Fetch(service: "accounts") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on User {
+                    name
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
+
   // This test case is more subtle, because you actually want to fetch the reviews (and the authors of reviews)
   // of books and TVs separately. The problem here is that these fetches act on on the same path,
   // so depending on the timing of the fetches, they either both fetch all reviews or all authors, or only the
