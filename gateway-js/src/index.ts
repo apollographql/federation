@@ -219,12 +219,13 @@ export class ApolloGateway implements GraphQLService {
     // 1. If config is explicitly set to a `string` or `null` in code, use it
     // 2. Else, if the env var is set, use that
     // 3. Else, default to `null`
-    this.experimental_schemaConfigDeliveryEndpoint =
-      isPrecomposedManagedConfig(this.config) ||
-      this.config.experimental_schemaConfigDeliveryEndpoint === null
-        ? // We know at this point the config is either string | null, but TS thinks it can also be undefined
-          (this.config.experimental_schemaConfigDeliveryEndpoint as string | null)
-        : process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT ?? null;
+    this.experimental_schemaConfigDeliveryEndpoint = isPrecomposedManagedConfig(
+      this.config,
+    )
+      ? this.config.experimental_schemaConfigDeliveryEndpoint
+      : this.config.experimental_schemaConfigDeliveryEndpoint === null
+      ? null
+      : process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT ?? null;
 
     if (isManuallyManagedConfig(this.config)) {
       // Use the provided updater function if provided by the user, else default

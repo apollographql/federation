@@ -132,7 +132,7 @@ interface GatewayConfigBase {
    *             defaulted in a future release and this option will strictly be
    *             used as an override.
    */
-  experimental_schemaConfigDeliveryEndpoint?: null;
+  experimental_schemaConfigDeliveryEndpoint?: null | string;
 }
 
 export interface RemoteGatewayConfig extends GatewayConfigBase {
@@ -145,10 +145,8 @@ export interface LegacyManagedGatewayConfig extends GatewayConfigBase {
   federationVersion?: number;
 }
 
-// This Omitted step is needed to "override"
-type Omitted = Omit<GatewayConfigBase, 'experimental_schemaConfigDeliveryEndpoint'>;
 // TODO(trevor:cloudconfig): This type becomes the only managed config
-export interface PrecomposedManagedGatewayConfig extends Omitted {
+export interface PrecomposedManagedGatewayConfig extends GatewayConfigBase {
   /**
    * @deprecated This configuration option shouldn't be used unless by
    *             recommendation from Apollo staff. This behavior will be
