@@ -63,21 +63,21 @@ export async function loadCsdlFromStorage({
 
   let response: CsdlQueryResult;
 
-  try {
-    response = await result.json();
-  } catch (e) {
-    // JSON parse error, bad response
-    throw new Error(result.status + ': Unexpected failure while fetching updated CSDL');
-  }
+  if (result.ok || result.status === 400) {
+    try {
+      response = await result.json();
+    } catch (e) {
+      // Bad response
+      throw new Error(result.status + ': ' + e.message ?? e);
+    }
 
-  // This happens before the 200 check below because the server returns a 400
-  // in the case of GraphQL errors (i.e. query validation)
-  if ('errors' in response) {
-    throw new Error(response.errors.map((error) => error.message).join('\n'));
-  }
-
-  if (!result.ok) {
-    throw new Error('Unexpected failure while fetching updated CSDL');
+    // This happens before the 200 check below because the server returns a 400
+    // in the case of GraphQL errors (i.e. query validation)
+    if ('errors' in response) {
+      throw new Error(response.errors.map((error) => error.message).join('\n'));
+    }
+  } else {
+    throw new Error(result.status + ': ' + result.statusText);
   }
 
   const { routerConfig } = response.data;

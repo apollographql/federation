@@ -165,9 +165,7 @@ describe('CSDL update failures', () => {
 
     await expect(
       gateway.load(mockApolloConfig),
-    ).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"401: Unexpected failure while fetching updated CSDL"`,
-    );
+    ).rejects.toThrowErrorMatchingInlineSnapshot(`"401: Unauthorized"`);
 
     await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
       `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
@@ -197,9 +195,7 @@ describe('CSDL update failures', () => {
     await gateway.load(mockApolloConfig);
     await errorLoggedPromise;
 
-    expect(logger.error).toHaveBeenCalledWith(
-      '500: Unexpected failure while fetching updated CSDL',
-    );
+    expect(logger.error).toHaveBeenCalledWith('500: Internal Server Error');
   });
 
   it('Handles GraphQL errors', async () => {

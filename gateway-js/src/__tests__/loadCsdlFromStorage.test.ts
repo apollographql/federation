@@ -6,6 +6,7 @@ import {
   graphVariant,
   apiKey,
   mockCloudConfigUrl,
+  mockCsdlRequest,
 } from './integration/nockMocks';
 
 describe('loadCsdlFromStorage', () => {
@@ -292,5 +293,62 @@ describe('loadCsdlFromStorage', () => {
         "id": "originalId-1234",
       }
     `);
+  });
+
+  describe('errors', () => {
+    it('throws on a malformed response', async () => {
+      mockCsdlRequest().reply(200, 'Invalid JSON');
+
+      const fetcher = getDefaultFetcher();
+      await expect(
+        loadCsdlFromStorage({
+          graphId,
+          graphVariant,
+          apiKey,
+          endpoint: mockCloudConfigUrl,
+          fetcher,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"200: invalid json response body at https://example.cloud-config-url.com/cloudconfig/ reason: Unexpected token I in JSON at position 0"`,
+      );
+    });
+
+    it('throws errors from JSON on 400', async () => {
+      const message = 'Query syntax error';
+      mockCsdlRequest().reply(
+        400,
+        JSON.stringify({
+          errors: [{ message }],
+        }),
+      );
+
+      const fetcher = getDefaultFetcher();
+      await expect(
+        loadCsdlFromStorage({
+          graphId,
+          graphVariant,
+          apiKey,
+          endpoint: mockCloudConfigUrl,
+          fetcher,
+        }),
+      ).rejects.toThrowError(message);
+    });
+
+    it("throws on non-OK status codes when `errors` isn't present in a JSON response", async () => {
+      mockCsdlRequest().reply(500);
+
+      const fetcher = getDefaultFetcher();
+      await expect(
+        loadCsdlFromStorage({
+          graphId,
+          graphVariant,
+          apiKey,
+          endpoint: mockCloudConfigUrl,
+          fetcher,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"500: Internal Server Error"`,
+      );
+    });
   });
 });
