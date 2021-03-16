@@ -309,7 +309,7 @@ describe('loadCsdlFromStorage', () => {
           fetcher,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"200: invalid json response body at https://example.cloud-config-url.com/cloudconfig/ reason: Unexpected token I in JSON at position 0"`,
+        `"An error occurred while fetching your schema from Apollo: 200 invalid json response body at https://example.cloud-config-url.com/cloudconfig/ reason: Unexpected token I in JSON at position 0"`,
       );
     });
 
@@ -347,7 +347,7 @@ describe('loadCsdlFromStorage', () => {
           fetcher,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"500: Internal Server Error"`,
+        `"An error occurred while fetching your schema from Apollo: 500 Internal Server Error"`,
       );
     });
   });

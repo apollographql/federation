@@ -1,4 +1,4 @@
-import { fetch } from 'apollo-server-env';
+import { fetch, Response } from 'apollo-server-env';
 import { GraphQLError } from 'graphql';
 import { CsdlQuery } from './__generated__/graphqlTypes';
 
@@ -31,6 +31,8 @@ interface CsdlQueryFailure {
 
 const { name, version } = require('../package.json');
 
+const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
+
 export async function loadCsdlFromStorage({
   graphId,
   graphVariant,
@@ -44,22 +46,27 @@ export async function loadCsdlFromStorage({
   endpoint: string;
   fetcher: typeof fetch;
 }) {
-  const result = await fetcher(endpoint, {
-    method: 'POST',
-    body: JSON.stringify({
-      query: CSDL_QUERY,
-      variables: {
-        ref: `${graphId}@${graphVariant}`,
-        apiKey,
+  let result: Response;
+  try {
+    result = await fetcher(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({
+        query: CSDL_QUERY,
+        variables: {
+          ref: `${graphId}@${graphVariant}`,
+          apiKey,
+        },
+      }),
+      headers: {
+        'apollographql-client-name': name,
+        'apollographql-client-version': version,
+        'user-agent': `${name}/${version}`,
+        'content-type': 'application/json',
       },
-    }),
-    headers: {
-      'apollographql-client-name': name,
-      'apollographql-client-version': version,
-      'user-agent': `${name}/${version}`,
-      'content-type': 'application/json',
-    },
-  });
+    });
+  } catch (e) {
+    throw new Error(fetchErrorMsg + (e.message ?? e));
+  }
 
   let response: CsdlQueryResult;
 
@@ -68,14 +75,18 @@ export async function loadCsdlFromStorage({
       response = await result.json();
     } catch (e) {
       // Bad response
-      throw new Error(result.status + ': ' + e.message ?? e);
+      throw new Error(fetchErrorMsg + result.status + ' ' + e.message ?? e);
     }
 
     if ('errors' in response) {
-      throw new Error(response.errors.map((error) => error.message).join('\n'));
+      throw new Error(
+        [fetchErrorMsg, ...response.errors.map((error) => error.message)].join(
+          '\n',
+        ),
+      );
     }
   } else {
-    throw new Error(result.status + ': ' + result.statusText);
+    throw new Error(fetchErrorMsg + result.status + ' ' + result.statusText);
   }
 
   const { routerConfig } = response.data;

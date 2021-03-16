@@ -169,7 +169,9 @@ describe('CSDL update failures', () => {
 
     await expect(
       gateway.load(mockApolloConfig),
-    ).rejects.toThrowErrorMatchingInlineSnapshot(`"401: Unauthorized"`);
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"An error occurred while fetching your schema from Apollo: 401 Unauthorized"`,
+    );
 
     await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
       `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
@@ -199,7 +201,9 @@ describe('CSDL update failures', () => {
     await gateway.load(mockApolloConfig);
     await errorLoggedPromise;
 
-    expect(logger.error).toHaveBeenCalledWith('500: Internal Server Error');
+    expect(logger.error).toHaveBeenCalledWith(
+      'An error occurred while fetching your schema from Apollo: 500 Internal Server Error',
+    );
   });
 
   it('Handles GraphQL errors', async () => {
@@ -230,7 +234,9 @@ describe('CSDL update failures', () => {
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      'Cannot query field "fail" on type "Query".',
+      'An error occurred while fetching your schema from Apollo: ' +
+        '\n' +
+        'Cannot query field "fail" on type "Query".',
     );
   });
 
