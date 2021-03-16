@@ -406,15 +406,26 @@ fn complete_field<'a, 'q: 'a>(
             let selection_set_ref =
                 selection_set_from_field_set(sub_group.fields, Some(return_type), context);
 
-            let mut sub_group_dependent_groups = {
+            let sub_group_dependent_groups = {
                 values!(iter sub_group.dependent_groups_by_service)
                     .chain(sub_group.other_dependent_groups.into_iter())
-                    .collect()
+                    .collect::<Vec<FetchGroup>>()
             };
 
-            parent_group
-                .other_dependent_groups
-                .append(&mut sub_group_dependent_groups);
+            for mut sub_group in sub_group_dependent_groups {
+                let existing_dependent_group = parent_group.other_dependent_groups
+                    .iter_mut()
+                    .find(| x| x.service_name == sub_group.service_name);
+
+                match existing_dependent_group {
+                    Some(existing_dependent_group) => {
+                        existing_dependent_group.fields.append(&mut sub_group.fields);
+                    }
+                    None => {
+                        parent_group.other_dependent_groups.push(sub_group);
+                    }
+                }
+            }
 
             response_field.field_node.selection_set = selection_set_ref;
             response_field
