@@ -405,6 +405,7 @@ export class ApolloGateway implements GraphQLService {
     }
 
     this.schema = schema;
+    // TODO(trevor): #580 redundant parse
     this.parsedCsdl = parse(composedSdl);
     this.queryPlannerPointer = getQueryPlanner(composedSdl);
     this.state = { phase: 'loaded' };
@@ -527,6 +528,7 @@ export class ApolloGateway implements GraphQLService {
       return;
     }
 
+    // TODO(trevor): #580 redundant parse
     // This may throw, so we'll calculate early (specifically before making any updates)
     // In the case that it throws, the gateway will:
     //   * on initial load, throw the error
@@ -595,7 +597,8 @@ export class ApolloGateway implements GraphQLService {
     // This is the last chance to bail out of a schema update.
     if (this.config.serviceHealthCheck) {
       const serviceList = isCsdlUpdate(update)
-        ? // Parsing could technically fail and throw here, but parseability has
+        ? // TODO(trevor): #580 redundant parse
+          // Parsing could technically fail and throw here, but parseability has
           // already been confirmed slightly earlier in the code path
           this.serviceListFromCsdl(parse(update.csdl))
         : // Existence of this is determined in advance with an early return otherwise
@@ -726,6 +729,7 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private createSchemaFromCsdl(csdl: string) {
+    // TODO(trevor): #580 redundant parse
     this.parsedCsdl = parse(csdl);
     const serviceList = this.serviceListFromCsdl(this.parsedCsdl);
 
