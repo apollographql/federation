@@ -1,0 +1,5 @@
+# This dist/ is also ignored by the root monorepo dist/
+dist/
+
+# This is unique to this package.
+module/

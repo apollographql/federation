@@ -3,7 +3,9 @@ title: Entities
 description: Reference and extend types across services
 ---
 
-In Apollo Federation, an **entity** is a type that you define canonically in _one_ implementing service and can then reference and extend in _other_ implementing services. Entities are the core building block of a federated graph.
+In Apollo Federation, an **entity** is an object type that you define canonically in _one_ implementing service and can then reference and extend in _other_ implementing services. Entities are the core building block of a federated graph.
+
+> Types _besides_ object types (unions, interfaces, etc.) _cannot_ be entities.
 
 ## Defining
 
@@ -19,7 +21,7 @@ type Product @key(fields: "upc") {
 
 The `@key` directive defines the entity's **primary key**, which consists of one or more of the type's `fields`. In the example above, the `Product` entity's primary key is its `upc` field. The gateway's query planner uses an entity's primary key to identify a given instance of the type.
 
-> An entity's `@key` cannot include fields that hold unions or interfaces.
+> An entity's `@key` cannot include fields that return a union or interface.
 
 ### Defining multiple primary keys
 
