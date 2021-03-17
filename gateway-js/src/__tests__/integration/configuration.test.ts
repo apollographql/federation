@@ -1,38 +1,34 @@
+import gql from 'graphql-tag';
+import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
 import { ApolloGateway } from '../..';
 import {
   mockSDLQuerySuccess,
-  mockStorageSecretSuccess,
-  mockCompositionConfigLinkSuccess,
-  mockCompositionConfigsSuccess,
-  mockImplementingServicesSuccess,
-  mockRawPartialSchemaSuccess,
-  apiKeyHash,
-  graphId,
+  mockCsdlRequestSuccess,
+  mockApolloConfig,
+  mockCloudConfigUrl,
 } from './nockMocks';
 import { getTestingCsdl } from '../execution-utils';
 import { MockService } from './networkRequests.test';
-import { parse } from 'graphql';
 
 let logger: Logger;
 
 const service: MockService = {
-  gcsDefinitionPath: 'service-definition.json',
-  partialSchemaPath: 'accounts-partial-schema.json',
+  name: 'accounts',
   url: 'http://localhost:4001',
-  sdl: `#graphql
-      extend type Query {
-        me: User
-        everyone: [User]
-      }
+  typeDefs: gql`
+    extend type Query {
+      me: User
+      everyone: [User]
+    }
 
-      "This is my User"
-      type User @key(fields: "id") {
-        id: ID!
-        name: String
-        username: String
-      }
-    `,
+    "This is my User"
+    type User @key(fields: "id") {
+      id: ID!
+      name: String
+      username: String
+    }
+  `,
 };
 
 beforeEach(() => {
@@ -63,14 +59,32 @@ describe('gateway configuration warnings', () => {
       logger,
     });
 
-    await gateway.load({
-      apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-    });
+    await gateway.load(mockApolloConfig);
 
     expect(logger.warn).toHaveBeenCalledWith(
       'A local gateway configuration is overriding a managed federation configuration.' +
         '  To use the managed configuration, do not specify a service list or csdl locally.',
     );
+  });
+
+  it('warns when both manual update configurations are provided', async () => {
+    gateway = new ApolloGateway({
+      // @ts-ignore
+      async experimental_updateCsdl() {},
+      async experimental_updateServiceDefinitions() {},
+      logger,
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Gateway found two manual update configurations when only one should be ' +
+        'provided. Gateway will default to using the provided `experimental_updateCsdl` ' +
+        'function when both `experimental_updateCsdl` and experimental_updateServiceDefinitions` ' +
+        'are provided.',
+    );
+
+    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+    // which triggers a different error that we're not testing for here.
+    gateway = null;
   });
 
   it('conflicting configurations are warned about when present', async () => {
@@ -81,9 +95,7 @@ describe('gateway configuration warnings', () => {
       logger,
     });
 
-    await gateway.load({
-      apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-    });
+    await gateway.load(mockApolloConfig);
 
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringMatching(
@@ -93,19 +105,17 @@ describe('gateway configuration warnings', () => {
   });
 
   it('conflicting configurations are not warned about when absent', async () => {
-    mockStorageSecretSuccess();
-    mockCompositionConfigLinkSuccess();
-    mockCompositionConfigsSuccess([service]);
-    mockImplementingServicesSuccess(service);
-    mockRawPartialSchemaSuccess(service);
+    mockCsdlRequestSuccess();
 
     gateway = new ApolloGateway({
       logger,
+      // TODO(trevor:cloudconfig): remove
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
     });
 
-    await gateway.load({
-      apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-    });
+    await gateway.load(mockApolloConfig);
+
+    await gateway.stop();
 
     expect(logger.warn).not.toHaveBeenCalledWith(
       expect.stringMatching(
@@ -115,19 +125,23 @@ describe('gateway configuration warnings', () => {
   });
 
   it('throws when no configuration is provided', async () => {
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       logger,
     });
 
     expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(
       `"When a manual configuration is not provided, gateway requires an Apollo configuration. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ for more information. Manual configuration options include: \`serviceList\`, \`csdl\`, and \`experimental_updateServiceDefinitions\`."`,
     );
+
+    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+    // which triggers a different error that we're not testing for here.
+    gateway = null;
   });
 });
 
 describe('gateway startup errors', () => {
   it("throws when static config can't be composed", async () => {
-    const uncomposableSdl = parse(`#graphql
+    const uncomposableSdl = gql`
       type Query {
         me: User
         everyone: [User]
@@ -143,7 +157,7 @@ describe('gateway startup errors', () => {
         name: String
         username: String
       }
-    `);
+    `;
 
     const gateway = new ApolloGateway({
       localServiceList: [
@@ -172,5 +186,58 @@ describe('gateway startup errors', () => {
       	[accounts] User -> A @key selects id, but User.id could not be found
       	[accounts] Account -> A @key selects id, but Account.id could not be found"
     `);
+  });
+});
+
+describe('gateway config / env behavior', () => {
+  let gateway: ApolloGateway | null = null;
+  let cleanUp: (() => void) | null = null;
+  afterEach(async () => {
+    if (gateway) {
+      await gateway.stop();
+      gateway = null;
+    }
+
+    if (cleanUp) {
+      cleanUp();
+      cleanUp = null;
+    }
+  });
+
+  // TODO(trevor:cloudconfig): this behavior will be updated
+  describe('schema config delivery endpoint configuration', () => {
+    it('A code config overrides the env variable', async () => {
+      cleanUp = mockedEnv({
+        APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
+      });
+
+      gateway = new ApolloGateway({
+        logger,
+        experimental_schemaConfigDeliveryEndpoint: 'code-config',
+      });
+
+      expect(gateway['experimental_schemaConfigDeliveryEndpoint']).toEqual(
+        'code-config',
+      );
+
+      gateway = null;
+    });
+
+    it('A code config set to `null` takes precedence over an existing env variable', async () => {
+      cleanUp = mockedEnv({
+        APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
+      });
+
+      gateway = new ApolloGateway({
+        logger,
+        experimental_schemaConfigDeliveryEndpoint: null,
+      });
+
+      expect(gateway['experimental_schemaConfigDeliveryEndpoint']).toEqual(
+        null,
+      );
+
+      gateway = null;
+    });
   });
 });

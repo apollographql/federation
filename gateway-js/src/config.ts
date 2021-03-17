@@ -7,9 +7,6 @@ import { GraphQLDataSource } from './datasources/types';
 import { QueryPlan } from '@apollo/query-planner';
 import { OperationContext } from './';
 import { ServiceMap } from './executeQueryPlan';
-import {
-  CompositionMetadata,
-} from './loadServicesFromStorage';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -27,6 +24,18 @@ export type Experimental_DidResolveQueryPlanCallback = ({
   >;
 }) => void;
 
+interface ImplementingServiceLocation {
+  name: string;
+  path: string;
+}
+
+export interface CompositionMetadata {
+  formatVersion: number;
+  id: string;
+  implementingServiceLocations: ImplementingServiceLocation[];
+  schemaHash: string;
+}
+
 export type Experimental_DidFailCompositionCallback = ({
   errors,
   serviceList,
@@ -37,16 +46,49 @@ export type Experimental_DidFailCompositionCallback = ({
   readonly compositionMetadata?: CompositionMetadata;
 }) => void;
 
-export interface Experimental_CompositionInfo {
+export interface ServiceDefinitionCompositionInfo {
   serviceDefinitions: ServiceDefinition[];
   schema: GraphQLSchema;
   compositionMetadata?: CompositionMetadata;
 }
 
+export interface CsdlCompositionInfo {
+  schema: GraphQLSchema;
+  compositionId: string;
+  csdl: string;
+}
+
+export type CompositionInfo =
+  | ServiceDefinitionCompositionInfo
+  | CsdlCompositionInfo;
+
 export type Experimental_DidUpdateCompositionCallback = (
-  currentConfig: Experimental_CompositionInfo,
-  previousConfig?: Experimental_CompositionInfo,
+  currentConfig: CompositionInfo,
+  previousConfig?: CompositionInfo,
 ) => void;
+
+export type CompositionUpdate = ServiceDefinitionUpdate | CsdlUpdate;
+
+export interface ServiceDefinitionUpdate {
+  serviceDefinitions?: ServiceDefinition[];
+  compositionMetadata?: CompositionMetadata;
+  isNewSchema: boolean;
+}
+
+export interface CsdlUpdate {
+  id: string;
+  csdl: string;
+}
+
+export function isCsdlUpdate(update: CompositionUpdate): update is CsdlUpdate {
+  return 'csdl' in update;
+}
+
+export function isServiceDefinitionUpdate(
+  update: CompositionUpdate,
+): update is ServiceDefinitionUpdate {
+  return 'isNewSchema' in update;
+}
 
 /**
  * **Note:** It's possible for a schema to be the same (`isNewSchema: false`) when
@@ -56,11 +98,15 @@ export type Experimental_DidUpdateCompositionCallback = (
  */
 export type Experimental_UpdateServiceDefinitions = (
   config: DynamicGatewayConfig,
-) => Promise<{
-  serviceDefinitions?: ServiceDefinition[];
-  compositionMetadata?: CompositionMetadata;
-  isNewSchema: boolean;
-}>;
+) => Promise<ServiceDefinitionUpdate>;
+
+export type Experimental_UpdateCsdl = (
+  config: DynamicGatewayConfig,
+) => Promise<CsdlUpdate>;
+
+export type Experimental_UpdateComposition = (
+  config: DynamicGatewayConfig,
+) => Promise<CompositionUpdate>;
 
 interface GatewayConfigBase {
   debug?: boolean;
@@ -80,6 +126,13 @@ interface GatewayConfigBase {
   experimental_autoFragmentization?: boolean;
   fetcher?: typeof fetch;
   serviceHealthCheck?: boolean;
+  /**
+   * @deprecated This configuration option shouldn't be used unless by
+   *             recommendation from Apollo staff. This behavior will be
+   *             defaulted in a future release and this option will strictly be
+   *             used as an override.
+   */
+  experimental_schemaConfigDeliveryEndpoint?: null | string;
 }
 
 export interface RemoteGatewayConfig extends GatewayConfigBase {
@@ -87,13 +140,39 @@ export interface RemoteGatewayConfig extends GatewayConfigBase {
   introspectionHeaders?: HeadersInit;
 }
 
-export interface ManagedGatewayConfig extends GatewayConfigBase {
+// TODO(trevor:cloudconfig): This type goes away
+export interface LegacyManagedGatewayConfig extends GatewayConfigBase {
   federationVersion?: number;
 }
 
-interface ManuallyManagedGatewayConfig extends GatewayConfigBase {
+// TODO(trevor:cloudconfig): This type becomes the only managed config
+export interface PrecomposedManagedGatewayConfig extends GatewayConfigBase {
+  /**
+   * @deprecated This configuration option shouldn't be used unless by
+   *             recommendation from Apollo staff. This behavior will be
+   *             defaulted in a future release and this option will strictly be
+   *             used as an override.
+   */
+  experimental_schemaConfigDeliveryEndpoint: string;
+}
+
+// TODO(trevor:cloudconfig): This union is no longer needed
+export type ManagedGatewayConfig =
+  | LegacyManagedGatewayConfig
+  | PrecomposedManagedGatewayConfig;
+
+interface ManuallyManagedServiceDefsGatewayConfig extends GatewayConfigBase {
   experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
 }
+
+interface ManuallyManagedCsdlGatewayConfig extends GatewayConfigBase {
+  experimental_updateCsdl: Experimental_UpdateCsdl
+}
+
+type ManuallyManagedGatewayConfig =
+  | ManuallyManagedServiceDefsGatewayConfig
+  | ManuallyManagedCsdlGatewayConfig;
+
 interface LocalGatewayConfig extends GatewayConfigBase {
   localServiceList: ServiceDefinition[];
 }
@@ -128,7 +207,10 @@ export function isCsdlConfig(config: GatewayConfig): config is CsdlGatewayConfig
 export function isManuallyManagedConfig(
   config: GatewayConfig,
 ): config is ManuallyManagedGatewayConfig {
-  return 'experimental_updateServiceDefinitions' in config;
+  return (
+    'experimental_updateServiceDefinitions' in config ||
+    'experimental_updateCsdl' in config
+  );
 }
 
 // Managed config strictly means managed by Studio
@@ -136,10 +218,21 @@ export function isManagedConfig(
   config: GatewayConfig,
 ): config is ManagedGatewayConfig {
   return (
-    !isRemoteConfig(config) &&
-    !isLocalConfig(config) &&
-    !isCsdlConfig(config) &&
-    !isManuallyManagedConfig(config)
+    isPrecomposedManagedConfig(config) ||
+    (!isRemoteConfig(config) &&
+      !isLocalConfig(config) &&
+      !isCsdlConfig(config) &&
+      !isManuallyManagedConfig(config))
+  );
+}
+
+// TODO(trevor:cloudconfig): This merges with `isManagedConfig`
+export function isPrecomposedManagedConfig(
+  config: GatewayConfig,
+): config is PrecomposedManagedGatewayConfig {
+  return (
+    'experimental_schemaConfigDeliveryEndpoint' in config &&
+    config.experimental_schemaConfigDeliveryEndpoint !== null
   );
 }
 

@@ -4,6 +4,7 @@ import * as documents from './documents';
 import * as inventory from './inventory';
 import * as product from './product';
 import * as reviews from './reviews';
+import * as reviewsWithUpdate from './reviewsWithUpdate'
 
 export {
   accounts,
@@ -12,6 +13,7 @@ export {
   inventory,
   product,
   reviews,
+  reviewsWithUpdate
 };
 
 export const fixtures = [
@@ -21,6 +23,15 @@ export const fixtures = [
   inventory,
   product,
   reviews,
+];
+
+export const fixturesWithUpdate = [
+  accounts,
+  books,
+  documents,
+  inventory,
+  product,
+  reviewsWithUpdate,
 ];
 
 export const fixtureNames = [

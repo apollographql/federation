@@ -1,37 +1,40 @@
 import nock from 'nock';
-import { fetch } from 'apollo-server-env';
+import gql from 'graphql-tag';
+import { DocumentNode, GraphQLObjectType, GraphQLSchema } from 'graphql';
+import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
-import { ApolloGateway, GCS_RETRY_COUNT, getDefaultGcsFetcher } from '../..';
+import { ApolloGateway } from '../..';
 import {
   mockSDLQuerySuccess,
   mockServiceHealthCheckSuccess,
+  mockAllServicesHealthCheckSuccess,
   mockServiceHealthCheck,
-  mockStorageSecretSuccess,
-  mockStorageSecret,
-  mockCompositionConfigLinkSuccess,
-  mockCompositionConfigLink,
-  mockCompositionConfigsSuccess,
-  mockCompositionConfigs,
-  mockImplementingServicesSuccess,
-  mockImplementingServices,
-  mockRawPartialSchemaSuccess,
-  mockRawPartialSchema,
-  apiKeyHash,
-  graphId,
+  mockCsdlRequestSuccess,
+  mockCsdlRequest,
+  mockApolloConfig,
+  mockCloudConfigUrl,
 } from './nockMocks';
+import {
+  accounts,
+  books,
+  documents,
+  fixturesWithUpdate,
+  inventory,
+  product,
+  reviews,
+} from 'apollo-federation-integration-testsuite';
+import { getTestingCsdl } from '../execution-utils';
 
 export interface MockService {
-  gcsDefinitionPath: string;
-  partialSchemaPath: string;
+  name: string;
   url: string;
-  sdl: string;
+  typeDefs: DocumentNode;
 }
 
-const service: MockService = {
-  gcsDefinitionPath: 'service-definition.json',
-  partialSchemaPath: 'accounts-partial-schema.json',
+const simpleService: MockService = {
+  name: 'accounts',
   url: 'http://localhost:4001',
-  sdl: `#graphql
+  typeDefs: gql`
     extend type Query {
       me: User
       everyone: [User]
@@ -46,39 +49,18 @@ const service: MockService = {
   `,
 };
 
-const updatedService: MockService = {
-  gcsDefinitionPath: 'updated-service-definition.json',
-  partialSchemaPath: 'updated-accounts-partial-schema.json',
-  url: 'http://localhost:4002',
-  sdl: `#graphql
-    extend type Query {
-      me: User
-      everyone: [User]
-    }
+function getRootQueryFields(schema?: GraphQLSchema): string[] {
+  return Object.keys(
+    (schema?.getType('Query') as GraphQLObjectType).getFields(),
+  );
+}
 
-    "This is my updated User"
-    type User @key(fields: "id") {
-      id: ID!
-      name: String
-      username: String
-    }
-  `,
-};
-
-let fetcher: typeof fetch;
 let logger: Logger;
 let gateway: ApolloGateway | null = null;
+let cleanUp: (() => void) | null = null;
 
 beforeEach(() => {
   if (!nock.isActive()) nock.activate();
-
-  fetcher = getDefaultGcsFetcher().defaults({
-    retry: {
-      retries: GCS_RETRY_COUNT,
-      minTimeout: 0,
-      maxTimeout: 0,
-    },
-  });
 
   const warn = jest.fn();
   const debug = jest.fn();
@@ -101,66 +83,246 @@ afterEach(async () => {
     await gateway.stop();
     gateway = null;
   }
+
+  if (cleanUp) {
+    cleanUp();
+    cleanUp = null;
+  }
 });
 
 it('Queries remote endpoints for their SDLs', async () => {
-  mockSDLQuerySuccess(service);
+  mockSDLQuerySuccess(simpleService);
 
-  gateway = new ApolloGateway({
-    serviceList: [{ name: 'accounts', url: service.url }],
-    logger,
-  });
+  gateway = new ApolloGateway({ serviceList: [simpleService] });
   await gateway.load();
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 });
 
-it('Extracts service definitions from remote storage', async () => {
-  mockStorageSecretSuccess();
-  mockCompositionConfigLinkSuccess();
-  mockCompositionConfigsSuccess([service]);
-  mockImplementingServicesSuccess(service);
-  mockRawPartialSchemaSuccess(service);
+// TODO(trevor:cloudconfig): Remove all usages of the experimental config option
+it('Fetches CSDL from remote storage', async () => {
+  mockCsdlRequestSuccess();
 
-  gateway = new ApolloGateway({ logger });
-
-  await gateway.load({
-    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+  gateway = new ApolloGateway({
+    logger,
+    experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
   });
-  expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
+
+  await gateway.load(mockApolloConfig);
+  await gateway.stop();
+  expect(gateway.schema?.getType('User')).toBeTruthy();
 });
 
-// This test has been flaky for a long time, and fails consistently after changes
-// introduced by https://github.com/apollographql/apollo-server/pull/4277.
-// I've decided to skip this test for now with hopes that we can one day
-// determine the root cause and test this behavior in a reliable manner.
-it.skip('Rollsback to a previous schema when triggered', async () => {
+// TODO(trevor:cloudconfig): This test should evolve to demonstrate overriding the default in the future
+it('Fetches CSDL from remote storage using a configured env variable', async () => {
+  cleanUp = mockedEnv({
+    APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: mockCloudConfigUrl,
+  });
+  mockCsdlRequestSuccess();
+
+  gateway = new ApolloGateway({
+    logger,
+  });
+
+  await gateway.load(mockApolloConfig);
+  await gateway.stop();
+  expect(gateway.schema?.getType('User')).toBeTruthy();
+});
+
+it('Updates CSDL from remote storage', async () => {
+  mockCsdlRequestSuccess();
+  mockCsdlRequestSuccess(getTestingCsdl(fixturesWithUpdate), 'updatedId-5678');
+
+  // This test is only interested in the second time the gateway notifies of an
+  // update, since the first happens on load.
+  let secondUpdateResolve: Function;
+  const secondUpdate = new Promise((res) => (secondUpdateResolve = res));
+  const schemaChangeCallback = jest
+    .fn()
+    .mockImplementationOnce(() => {})
+    .mockImplementationOnce(() => {
+      secondUpdateResolve();
+    });
+
+  gateway = new ApolloGateway({
+    logger,
+    experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+  });
+  // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
+  gateway.experimental_pollInterval = 100;
+  gateway.onSchemaChange(schemaChangeCallback);
+
+  await gateway.load(mockApolloConfig);
+  expect(gateway['compositionId']).toMatchInlineSnapshot(`"originalId-1234"`);
+
+  await secondUpdate;
+  expect(gateway['compositionId']).toMatchInlineSnapshot(`"updatedId-5678"`);
+});
+
+describe('CSDL update failures', () => {
+  it('Gateway throws on initial load failure', async () => {
+    mockCsdlRequest().reply(401);
+
+    gateway = new ApolloGateway({
+      logger,
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    });
+
+    await expect(
+      gateway.load(mockApolloConfig),
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"An error occurred while fetching your schema from Apollo: 401 Unauthorized"`,
+    );
+
+    await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
+    );
+    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+    // which triggers a different error that we're not testing for here.
+    gateway = null;
+  });
+
+  it('Handles arbitrary fetch failures (non 200 response)', async () => {
+    mockCsdlRequestSuccess();
+    mockCsdlRequest().reply(500);
+
+    // Spy on logger.error so we can just await once it's been called
+    let errorLogged: Function;
+    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
+    logger.error = jest.fn(() => errorLogged());
+
+    gateway = new ApolloGateway({
+      logger,
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    });
+
+    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway.experimental_pollInterval = 100;
+
+    await gateway.load(mockApolloConfig);
+    await errorLoggedPromise;
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'An error occurred while fetching your schema from Apollo: 500 Internal Server Error',
+    );
+  });
+
+  it('Handles GraphQL errors', async () => {
+    mockCsdlRequestSuccess();
+    mockCsdlRequest().reply(200, {
+      errors: [
+        {
+          message: 'Cannot query field "fail" on type "Query".',
+          locations: [{ line: 1, column: 3 }],
+          extensions: { code: 'GRAPHQL_VALIDATION_FAILED' },
+        },
+      ],
+    });
+
+    // Spy on logger.error so we can just await once it's been called
+    let errorLogged: Function;
+    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
+    logger.error = jest.fn(() => errorLogged());
+
+    gateway = new ApolloGateway({
+      logger,
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    });
+    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway.experimental_pollInterval = 100;
+
+    await gateway.load(mockApolloConfig);
+    await errorLoggedPromise;
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'An error occurred while fetching your schema from Apollo: ' +
+        '\n' +
+        'Cannot query field "fail" on type "Query".',
+    );
+  });
+
+  it("Doesn't update and logs on receiving unparseable CSDL", async () => {
+    mockCsdlRequestSuccess();
+    mockCsdlRequest().reply(
+      200,
+      JSON.stringify({
+        data: {
+          routerConfig: {
+            __typename: 'RouterConfigResult',
+            id: 'failure',
+            csdl: 'Syntax Error - invalid SDL',
+          },
+        },
+      }),
+    );
+
+    // Spy on logger.error so we can just await once it's been called
+    let errorLogged: Function;
+    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
+    logger.error = jest.fn(() => errorLogged());
+
+    gateway = new ApolloGateway({
+      logger,
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    });
+    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway.experimental_pollInterval = 100;
+
+    await gateway.load(mockApolloConfig);
+    await errorLoggedPromise;
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Syntax Error: Unexpected Name "Syntax".',
+    );
+    expect(gateway.schema).toBeTruthy();
+  });
+
+  it('Throws on initial load when receiving unparseable CSDL', async () => {
+    mockCsdlRequest().reply(
+      200,
+      JSON.stringify({
+        data: {
+          routerConfig: {
+            __typename: 'RouterConfigResult',
+            id: 'failure',
+            csdl: 'Syntax Error - invalid SDL',
+          },
+        },
+      }),
+    );
+
+    gateway = new ApolloGateway({
+      logger,
+      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    });
+    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway.experimental_pollInterval = 100;
+
+    await expect(
+      gateway.load(mockApolloConfig),
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"Syntax Error: Unexpected Name \\"Syntax\\"."`,
+    );
+
+    expect(gateway['state'].phase).toEqual('failed to load');
+
+    // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+    // which triggers a different error that we're not testing for here.
+    gateway = null;
+  });
+});
+
+it('Rollsback to a previous schema when triggered', async () => {
   // Init
-  mockStorageSecretSuccess();
-  mockCompositionConfigLinkSuccess();
-  mockCompositionConfigsSuccess([service]);
-  mockImplementingServicesSuccess(service);
-  mockRawPartialSchemaSuccess(service);
+  mockCsdlRequestSuccess();
+  mockCsdlRequestSuccess(getTestingCsdl(fixturesWithUpdate), 'updatedId-5678');
+  mockCsdlRequestSuccess();
 
-  // Update 1
-  mockStorageSecretSuccess();
-  mockCompositionConfigLinkSuccess();
-  mockCompositionConfigsSuccess([updatedService]);
-  mockImplementingServicesSuccess(updatedService);
-  mockRawPartialSchemaSuccess(updatedService);
-
-  // Rollback
-  mockStorageSecretSuccess();
-  mockCompositionConfigLinkSuccess();
-  mockCompositionConfigsSuccess([service]);
-  mockImplementingServices(service).reply(304);
-  mockRawPartialSchema(service).reply(304);
-
-  let firstResolve: () => void;
-  let secondResolve: () => void;
-  let thirdResolve: () => void;
-  const firstSchemaChangeBlocker = new Promise<void>((res) => (firstResolve = res));
-  const secondSchemaChangeBlocker = new Promise<void>((res) => (secondResolve = res));
-  const thirdSchemaChangeBlocker = new Promise<void>((res) => (thirdResolve = res));
+  let firstResolve: Function;
+  let secondResolve: Function;
+  let thirdResolve: Function;
+  const firstSchemaChangeBlocker = new Promise((res) => (firstResolve = res));
+  const secondSchemaChangeBlocker = new Promise((res) => (secondResolve = res));
+  const thirdSchemaChangeBlocker = new Promise((res) => (thirdResolve = res));
 
   const onChange = jest
     .fn()
@@ -168,14 +330,15 @@ it.skip('Rollsback to a previous schema when triggered', async () => {
     .mockImplementationOnce(() => secondResolve())
     .mockImplementationOnce(() => thirdResolve());
 
-  gateway = new ApolloGateway({ logger });
+  gateway = new ApolloGateway({
+    logger,
+    experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+  });
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
   gateway.experimental_pollInterval = 100;
 
   gateway.onSchemaChange(onChange);
-  await gateway.load({
-    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-  });
+  await gateway.load(mockApolloConfig);
 
   await firstSchemaChangeBlocker;
   expect(onChange).toHaveBeenCalledTimes(1);
@@ -187,82 +350,15 @@ it.skip('Rollsback to a previous schema when triggered', async () => {
   expect(onChange).toHaveBeenCalledTimes(3);
 });
 
-function failNTimes(n: number, fn: () => nock.Interceptor) {
-  for (let i = 0; i < n; i++) {
-    fn().reply(500);
-  }
-}
-
-it(`Retries GCS (up to ${GCS_RETRY_COUNT} times) on failure for each request and succeeds`, async () => {
-  failNTimes(GCS_RETRY_COUNT, mockStorageSecret);
-  mockStorageSecretSuccess();
-
-  failNTimes(GCS_RETRY_COUNT, mockCompositionConfigLink);
-  mockCompositionConfigLinkSuccess();
-
-  failNTimes(GCS_RETRY_COUNT, mockCompositionConfigs);
-  mockCompositionConfigsSuccess([service]);
-
-  failNTimes(GCS_RETRY_COUNT, () => mockImplementingServices(service));
-  mockImplementingServicesSuccess(service);
-
-  failNTimes(GCS_RETRY_COUNT, () => mockRawPartialSchema(service));
-  mockRawPartialSchemaSuccess(service);
-
-  gateway = new ApolloGateway({ fetcher, logger });
-
-  await gateway.load({
-    apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-  });
-  expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
-});
-
-// This test is reliably failing in its current form.  It's mostly testing that
-// `make-fetch-happen` is doing its retries properly and we have proof that,
-// generally speaking, retries are working, so we'll disable this until we can
-// re-visit it.
-it.skip(`Fails after the ${
-  GCS_RETRY_COUNT + 1
-}th attempt to reach GCS`, async () => {
-  failNTimes(GCS_RETRY_COUNT + 1, mockStorageSecret);
-
-  const gateway = new ApolloGateway({ fetcher, logger });
-  await expect(
-    gateway.load({
-      apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-    }),
-  ).rejects.toThrowErrorMatchingInlineSnapshot(
-    `"Could not communicate with Apollo storage: "`,
-  );
-});
-
-it(`Errors when the secret isn't hosted on GCS`, async () => {
-  mockStorageSecret().reply(
-    403,
-    `<Error><Code>AccessDenied</Code>
-    Anonymous caller does not have storage.objects.get`,
-    { 'content-type': 'application/xml' },
-  );
-
-  const gateway = new ApolloGateway({ fetcher, logger });
-  await expect(
-    gateway.load({
-      apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-    }),
-  ).rejects.toThrowErrorMatchingInlineSnapshot(
-    `"Unable to authenticate with Apollo storage while fetching https://storage-secrets.api.apollographql.com/federated-service/storage-secret/dd55a79d467976346d229a7b12b673ce.json.  Ensure that the API key is configured properly and that a federated service has been pushed.  For details, see https://go.apollo.dev/g/resolve-access-denied."`,
-  );
-});
-
 describe('Downstream service health checks', () => {
   describe('Unmanaged mode', () => {
     it(`Performs health checks to downstream services on load`, async () => {
-      mockSDLQuerySuccess(service);
-      mockServiceHealthCheckSuccess(service);
+      mockSDLQuerySuccess(simpleService);
+      mockServiceHealthCheckSuccess(simpleService);
 
       gateway = new ApolloGateway({
         logger,
-        serviceList: [{ name: 'accounts', url: service.url }],
+        serviceList: [simpleService],
         serviceHealthCheck: true,
       });
 
@@ -273,85 +369,127 @@ describe('Downstream service health checks', () => {
     });
 
     it(`Rejects on initial load when health check fails`, async () => {
-      mockSDLQuerySuccess(service);
-      mockServiceHealthCheck(service).reply(500);
+      mockSDLQuerySuccess(simpleService);
+      mockServiceHealthCheck(simpleService).reply(500);
 
-      const gateway = new ApolloGateway({
-        serviceList: [{ name: 'accounts', url: service.url }],
+      gateway = new ApolloGateway({
+        serviceList: [simpleService],
         serviceHealthCheck: true,
         logger,
       });
 
-      await expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"500: Internal Server Error"`,
+      // This is the ideal, but our version of Jest has a bug with printing error snapshots.
+      // See: https://github.com/facebook/jest/pull/10217 (fixed in v26.2.0)
+      //     expect(gateway.load(mockApolloConfig)).rejects.toThrowErrorMatchingInlineSnapshot(`
+      //       "A valid schema couldn't be composed. The following composition errors were found:
+      //         [accounts] User -> A @key selects id, but User.id could not be found
+      //         [accounts] Account -> A @key selects id, but Account.id could not be found"
+      //     `);
+      // Instead we'll just use the regular snapshot matcher...
+      try {
+        await gateway.load(mockApolloConfig);
+      } catch (e) {
+        var err = e;
+      }
+
+      // TODO: smell that we should be awaiting something else
+      expect(err.message).toMatchInlineSnapshot(`
+        "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+        [accounts]: 500: Internal Server Error"
+      `);
+
+      await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
       );
+
+      // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+      // which triggers a different error that we're not testing for here.
+      gateway = null;
     });
   });
 
   describe('Managed mode', () => {
     it('Performs health checks to downstream services on load', async () => {
-      mockStorageSecretSuccess();
-      mockCompositionConfigLinkSuccess();
-      mockCompositionConfigsSuccess([service]);
-      mockImplementingServicesSuccess(service);
-      mockRawPartialSchemaSuccess(service);
+      mockCsdlRequestSuccess();
+      mockAllServicesHealthCheckSuccess();
 
-      mockServiceHealthCheckSuccess(service);
-
-      gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
-
-      await gateway.load({
-        apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
+      gateway = new ApolloGateway({
+        serviceHealthCheck: true,
+        logger,
+        experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
       });
-      expect(gateway.schema!.getType('User')!.description).toBe(
-        'This is my User',
-      );
+      // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
+      gateway.experimental_pollInterval = 100;
+
+      await gateway.load(mockApolloConfig);
+      await gateway.stop();
+
+      expect(gateway.schema!.getType('User')!).toBeTruthy();
     });
 
     it('Rejects on initial load when health check fails', async () => {
-      mockStorageSecretSuccess();
-      mockCompositionConfigLinkSuccess();
-      mockCompositionConfigsSuccess([service]);
-      mockImplementingServicesSuccess(service);
-      mockRawPartialSchemaSuccess(service);
+      mockCsdlRequestSuccess();
+      mockServiceHealthCheck(accounts).reply(500);
+      mockServiceHealthCheckSuccess(books);
+      mockServiceHealthCheckSuccess(inventory);
+      mockServiceHealthCheckSuccess(product);
+      mockServiceHealthCheckSuccess(reviews);
+      mockServiceHealthCheckSuccess(documents);
 
-      mockServiceHealthCheck(service).reply(500);
+      gateway = new ApolloGateway({
+        serviceHealthCheck: true,
+        logger,
+        experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      });
 
-      const gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
+      // This is the ideal, but our version of Jest has a bug with printing error snapshots.
+      // See: https://github.com/facebook/jest/pull/10217 (fixed in v26.2.0)
+      //     expect(gateway.load(mockApolloConfig)).rejects.toThrowErrorMatchingInlineSnapshot(`
+      //       "A valid schema couldn't be composed. The following composition errors were found:
+      //         [accounts] User -> A @key selects id, but User.id could not be found
+      //         [accounts] Account -> A @key selects id, but Account.id could not be found"
+      //     `);
+      // Instead we'll just use the regular snapshot matcher...
+      try {
+        await gateway.load(mockApolloConfig);
+      } catch (e) {
+        var err = e;
+      }
 
-      await expect(
-        gateway.load({
-          apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-        }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"500: Internal Server Error"`,
+      // TODO: smell that we should be awaiting something else
+      expect(err.message).toMatchInlineSnapshot(`
+        "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+        [accounts]: 500: Internal Server Error"
+      `);
+
+      await expect(gateway.stop()).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"ApolloGateway.stop does not need to be called before ApolloGateway.load is called successfully"`,
       );
+
+      // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
+      // which triggers a different error that we're not testing for here.
+      gateway = null;
     });
 
     // This test has been flaky for a long time, and fails consistently after changes
     // introduced by https://github.com/apollographql/apollo-server/pull/4277.
     // I've decided to skip this test for now with hopes that we can one day
     // determine the root cause and test this behavior in a reliable manner.
-    it.skip('Rolls over to new schema when health check succeeds', async () => {
-      mockStorageSecretSuccess();
-      mockCompositionConfigLinkSuccess();
-      mockCompositionConfigsSuccess([service]);
-      mockImplementingServicesSuccess(service);
-      mockRawPartialSchemaSuccess(service);
-      mockServiceHealthCheckSuccess(service);
+    it('Rolls over to new schema when health check succeeds', async () => {
+      mockCsdlRequestSuccess();
+      mockAllServicesHealthCheckSuccess();
 
       // Update
-      mockStorageSecretSuccess();
-      mockCompositionConfigLinkSuccess();
-      mockCompositionConfigsSuccess([updatedService]);
-      mockImplementingServicesSuccess(updatedService);
-      mockRawPartialSchemaSuccess(updatedService);
-      mockServiceHealthCheckSuccess(updatedService);
+      mockCsdlRequestSuccess(
+        getTestingCsdl(fixturesWithUpdate),
+        'updatedId-5678',
+      );
+      mockAllServicesHealthCheckSuccess();
 
-      let resolve1: () => void;
-      let resolve2: () => void;
-      const schemaChangeBlocker1 = new Promise<void>((res) => (resolve1 = res));
-      const schemaChangeBlocker2 = new Promise<void>((res) => (resolve2 = res));
+      let resolve1: Function;
+      let resolve2: Function;
+      const schemaChangeBlocker1 = new Promise((res) => (resolve1 = res));
+      const schemaChangeBlocker2 = new Promise((res) => (resolve2 = res));
       const onChange = jest
         .fn()
         .mockImplementationOnce(() => resolve1())
@@ -360,59 +498,61 @@ describe('Downstream service health checks', () => {
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
+        experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
       });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
 
       gateway.onSchemaChange(onChange);
-      await gateway.load({
-        apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-      });
+      await gateway.load(mockApolloConfig);
 
+      // Basic testing schema doesn't contain a `review` field on `Query` type
       await schemaChangeBlocker1;
-      expect(gateway.schema!.getType('User')!.description).toBe(
-        'This is my User',
-      );
+      expect(getRootQueryFields(gateway.schema)).not.toContain('review');
       expect(onChange).toHaveBeenCalledTimes(1);
 
+      // "Updated" testing schema adds a `review` field on `Query` type
       await schemaChangeBlocker2;
-      expect(gateway.schema!.getType('User')!.description).toBe(
-        'This is my updated User',
-      );
+      expect(getRootQueryFields(gateway.schema)).toContain('review');
+
       expect(onChange).toHaveBeenCalledTimes(2);
     });
 
     it('Preserves original schema when health check fails', async () => {
-      mockStorageSecretSuccess();
-      mockCompositionConfigLinkSuccess();
-      mockCompositionConfigsSuccess([service]);
-      mockImplementingServicesSuccess(service);
-      mockRawPartialSchemaSuccess(service);
-      mockServiceHealthCheckSuccess(service);
+      mockCsdlRequestSuccess();
+      mockAllServicesHealthCheckSuccess();
 
-      // Update
-      mockStorageSecretSuccess();
-      mockCompositionConfigLinkSuccess();
-      mockCompositionConfigsSuccess([updatedService]);
-      mockImplementingServicesSuccess(updatedService);
-      mockRawPartialSchemaSuccess(updatedService);
-      mockServiceHealthCheck(updatedService).reply(500);
+      // Update (with one health check failure)
+      mockCsdlRequestSuccess(
+        getTestingCsdl(fixturesWithUpdate),
+        'updatedId-5678',
+      );
+      mockServiceHealthCheck(accounts).reply(500);
+      mockServiceHealthCheckSuccess(books);
+      mockServiceHealthCheckSuccess(inventory);
+      mockServiceHealthCheckSuccess(product);
+      mockServiceHealthCheckSuccess(reviews);
+      mockServiceHealthCheckSuccess(documents);
 
-      let resolve: () => void;
-      const schemaChangeBlocker = new Promise<void>((res) => (resolve = res));
+      let resolve: Function;
+      const schemaChangeBlocker = new Promise((res) => (resolve = res));
 
-      gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
+      gateway = new ApolloGateway({
+        serviceHealthCheck: true,
+        logger,
+        experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
 
-      // @ts-ignore for testing purposes, we'll call the original `updateComposition`
+      // @ts-ignore for testing purposes, we'll call the original `updateSchema`
       // function from our mock. The first call should mimic original behavior,
       // but the second call needs to handle the PromiseRejection. Typically for tests
       // like these we would leverage the `gateway.onSchemaChange` callback to drive
       // the test, but in this case, that callback isn't triggered when the update
       // fails (as expected) so we get creative with the second mock as seen below.
-      const original = gateway.updateComposition;
-      const mockUpdateComposition = jest
+      const original = gateway.updateSchema;
+      const mockUpdateSchema = jest
         .fn()
         .mockImplementationOnce(async () => {
           await original.apply(gateway);
@@ -420,36 +560,46 @@ describe('Downstream service health checks', () => {
         .mockImplementationOnce(async () => {
           // mock the first poll and handle the error which would otherwise be caught
           // and logged from within the `pollServices` class method
-          await expect(
-            original.apply(gateway),
-          ).rejects.toThrowErrorMatchingInlineSnapshot(
-            `"500: Internal Server Error"`,
-          );
+
+          // This is the ideal, but our version of Jest has a bug with printing error snapshots.
+          // See: https://github.com/facebook/jest/pull/10217 (fixed in v26.2.0)
+          //     expect(original.apply(gateway)).rejects.toThrowErrorMatchingInlineSnapshot(`
+          //       The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+          //         [accounts]: 500: Internal Server Error"
+          //     `);
+          // Instead we'll just use the regular snapshot matcher...
+          try {
+            await original.apply(gateway);
+          } catch (e) {
+            var err = e;
+          }
+
+          expect(err.message).toMatchInlineSnapshot(`
+            "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+            [accounts]: 500: Internal Server Error"
+          `);
           // finally resolve the promise which drives this test
           resolve();
         });
 
-      // @ts-ignore for testing purposes, replace the `updateComposition`
+      // @ts-ignore for testing purposes, replace the `updateSchema`
       // function on the gateway with our mock
-      gateway.updateComposition = mockUpdateComposition;
+      gateway.updateSchema = mockUpdateSchema;
 
       // load the gateway as usual
-      await gateway.load({
-        apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
-      });
+      await gateway.load(mockApolloConfig);
 
-      expect(gateway.schema!.getType('User')!.description).toBe(
-        'This is my User',
-      );
+      // Validate we have the original schema
+      expect(getRootQueryFields(gateway.schema)).toContain('topReviews');
+      expect(getRootQueryFields(gateway.schema)).not.toContain('review');
 
       await schemaChangeBlocker;
 
       // At this point, the mock update should have been called but the schema
-      // should not have updated to the new one.
-      expect(mockUpdateComposition.mock.calls.length).toBe(2);
-      expect(gateway.schema!.getType('User')!.description).toBe(
-        'This is my User',
-      );
+      // should still be the original.
+      expect(mockUpdateSchema).toHaveBeenCalledTimes(2);
+      expect(getRootQueryFields(gateway.schema)).toContain('topReviews');
+      expect(getRootQueryFields(gateway.schema)).not.toContain('review');
     });
   });
 });

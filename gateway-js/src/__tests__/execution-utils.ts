@@ -112,8 +112,8 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
   return { serviceMap, schema: compositionResult.schema, queryPlannerPointer };
 }
 
-export function getTestingCsdl() {
-  const compositionResult = composeAndValidate(fixtures);
+export function getTestingCsdl(services: typeof fixtures = fixtures) {
+  const compositionResult = composeAndValidate(services);
   if (!compositionHasErrors(compositionResult)) {
     return compositionResult.composedSdl;
   }

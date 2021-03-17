@@ -71,6 +71,30 @@ jobs:
     steps:
       - common_test_steps
 
+  GraphQL Types:
+    description: "Assert generated GraphQL types are up to date"
+    executor: { name: oss/node, tag: '14' }
+    steps:
+      - oss/install_specific_npm_version
+      - checkout
+      # Install Rust
+      - rust/install:
+          version: stable
+
+      # Setup the Cargo env in CircleCI's BASH_ENV file.
+      #
+      # It's unfortunate that the rust/install Orb doesn't do this since this
+      # is a CircleCI-ism.  I've opened a PR in hopes of avoiding this,
+      # though it's possible that it's out of scope (or I'm doing smth wrong):
+      #
+      #   => https://github.com/CircleCI-Public/rust-orb/pull/3
+      #   => https://circleci.com/docs/2.0/env-vars/#setting-an-environment-variable-in-a-shell-command
+      #
+      - run: echo 'source $HOME/.cargo/env' >> $BASH_ENV
+      - oss/npm_clean_install_with_caching
+      - run:
+          command: npm run codegen:check
+
 # XXX We used to use this filter to only run a "Docs" job on docs branches.
 #     Now we use it to disable all jobs. It's unclear if there's a simpler way
 #     to do this!
@@ -103,18 +127,23 @@ workflows:
       - NodeJS 14:
           name: "JS: Node 14"
           <<: *common_non_publish_filters
+      - GraphQL Types:
+          name: "GraphQL Types (up to date)"
+          <<: *common_non_publish_filters
       - oss/lerna_tarballs:
           name: "JS: Package tarballs"
           <<: *common_non_publish_filters
           requires:
             - "JS: Node 12"
             - "JS: Node 14"
+            - "GraphQL Types (up to date)"
       - oss/dry_run:
           name: "JS: Dry-run"
           <<: *common_publish_filters
           requires:
             - "JS: Node 12"
             - "JS: Node 14"
+            - "GraphQL Types (up to date)"
       - oss/confirmation:
           name: "JS: Confirmation"
           type: approval

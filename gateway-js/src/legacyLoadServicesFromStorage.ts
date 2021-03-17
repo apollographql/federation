@@ -1,6 +1,6 @@
 import { fetch } from 'apollo-server-env';
 import { parse } from 'graphql';
-import { Experimental_UpdateServiceDefinitions } from './config';
+import { ServiceDefinitionUpdate } from './config';
 
 interface LinkFileResult {
   configPath: string;
@@ -57,12 +57,11 @@ function fetchApolloGcs(
   const [input, init] = args;
 
   // Used in logging.
-  const url = typeof input === 'object' && input.url || input;
+  const url = (typeof input === 'object' && input.url) || input;
 
   return fetcher(input, init)
-    .catch(fetchError => {
-      throw new Error(
-      "Cannot access Apollo storage: " + fetchError)
+    .catch((fetchError) => {
+      throw new Error('Cannot access Apollo storage: ' + fetchError);
     })
     .then(async (response) => {
       // If the fetcher has a cache and has implemented ETag validation, then
@@ -80,23 +79,23 @@ function fetchApolloGcs(
       // Google Cloud Storage returns an `application/xml` error under error
       // conditions.  We'll special-case our known errors, and resort to
       // printing the body for others.
-      if (
-          response.status === 403 && body.includes("AccessDenied")
-      ) {
-          throw new Error(
-            "Unable to authenticate with Apollo storage " +
-            "while fetching " + url + ".  Ensure that the API key is " +
-            "configured properly and that a federated service has been " +
-            "pushed.  For details, see " +
-            "https://go.apollo.dev/g/resolve-access-denied.");
+      if (response.status === 403 && body.includes('AccessDenied')) {
+        throw new Error(
+          'Unable to authenticate with Apollo storage ' +
+            'while fetching ' +
+            url +
+            '.  Ensure that the API key is ' +
+            'configured properly and that a federated service has been ' +
+            'pushed.  For details, see ' +
+            'https://go.apollo.dev/g/resolve-access-denied.',
+        );
       }
 
       // Normally, we'll try to keep the logs clean with errors we expect.
       // If it's not a known error, reveal the full body for debugging.
-      throw new Error(
-        "Could not communicate with Apollo storage: " + body);
+      throw new Error('Could not communicate with Apollo storage: ' + body);
     });
-};
+}
 
 export async function getServiceDefinitionsFromStorage({
   graphId,
@@ -110,18 +109,22 @@ export async function getServiceDefinitionsFromStorage({
   graphVariant: string;
   federationVersion: number;
   fetcher: typeof fetch;
-}): ReturnType<Experimental_UpdateServiceDefinitions> {
+}): Promise<ServiceDefinitionUpdate> {
   // fetch the storage secret
   const storageSecretUrl = getStorageSecretUrl(graphId, apiKeyHash);
 
   // The storage secret is a JSON string (e.g. `"secret"`).
-  const secret: string =
-    await fetchApolloGcs(fetcher, storageSecretUrl).then(res => res.json());
+  const secret: string = await fetchApolloGcs(
+    fetcher,
+    storageSecretUrl,
+  ).then((res) => res.json());
 
   const baseUrl = `${urlPartialSchemaBase}/${secret}/${graphVariant}/v${federationVersion}`;
 
-  const compositionConfigResponse =
-    await fetchApolloGcs(fetcher, `${baseUrl}/composition-config-link`);
+  const compositionConfigResponse = await fetchApolloGcs(
+    fetcher,
+    `${baseUrl}/composition-config-link`,
+  );
 
   if (compositionConfigResponse.status === 304) {
     return { isNewSchema: false };
@@ -132,7 +135,7 @@ export async function getServiceDefinitionsFromStorage({
   const compositionMetadata: CompositionMetadata = await fetchApolloGcs(
     fetcher,
     `${urlPartialSchemaBase}/${linkFileResult.configPath}`,
-  ).then(res => res.json());
+  ).then((res) => res.json());
 
   // It's important to maintain the original order here
   const serviceDefinitions = await Promise.all(
@@ -140,11 +143,11 @@ export async function getServiceDefinitionsFromStorage({
       async ({ name, path }) => {
         const { url, partialSchemaPath }: ImplementingService = await fetcher(
           `${urlPartialSchemaBase}/${path}`,
-        ).then(response => response.json());
+        ).then((response) => response.json());
 
         const sdl = await fetcher(
           `${urlPartialSchemaBase}/${partialSchemaPath}`,
-        ).then(response => response.text());
+        ).then((response) => response.text());
 
         return { name, url, typeDefs: parse(sdl) };
       },
