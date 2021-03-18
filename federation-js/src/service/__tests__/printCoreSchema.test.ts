@@ -2,8 +2,8 @@ import { fixtures } from 'apollo-federation-integration-testsuite';
 import { parse, GraphQLError, visit, StringValueNode } from 'graphql';
 import { composeAndValidate, compositionHasErrors } from '../../composition';
 
-describe('printComposedSdl', () => {
-  let composedSdl: string, errors: GraphQLError[];
+describe('printCoreSchema', () => {
+  let coreSchema: string, errors: GraphQLError[];
 
   beforeAll(() => {
     // composeAndValidate calls `printComposedSdl` to return `composedSdl`
@@ -11,7 +11,7 @@ describe('printComposedSdl', () => {
     if (compositionHasErrors(compositionResult)) {
       errors = compositionResult.errors;
     } else {
-      composedSdl = compositionResult.composedSdl;
+      coreSchema = compositionResult.coreSchema;
     }
   });
 
@@ -20,37 +20,19 @@ describe('printComposedSdl', () => {
   });
 
   it('produces a parseable output', () => {
-    expect(() => parse(composedSdl!)).not.toThrow();
+    expect(() => parse(coreSchema!)).not.toThrow();
   });
 
   it('prints a fully composed schema correctly', () => {
-    expect(composedSdl).toMatchInlineSnapshot(`
+    expect(coreSchema).toMatchInlineSnapshot(`
       "schema
-        @graph(name: \\"accounts\\", url: \\"https://accounts.api.com\\")
-        @graph(name: \\"books\\", url: \\"https://books.api.com\\")
-        @graph(name: \\"documents\\", url: \\"https://documents.api.com\\")
-        @graph(name: \\"inventory\\", url: \\"https://inventory.api.com\\")
-        @graph(name: \\"product\\", url: \\"https://product.api.com\\")
-        @graph(name: \\"reviews\\", url: \\"https://reviews.api.com\\")
-        @composedGraph(version: 1)
+        @core(feature: \\"https://lib.apollo.dev/core/v0.1\\")
       {
         query: Query
         mutation: Mutation
       }
 
-      directive @composedGraph(version: Int!) on SCHEMA
-
-      directive @graph(name: String!, url: String!) repeatable on SCHEMA
-
-      directive @owner(graph: String!) on OBJECT
-
-      directive @key(fields: String!, graph: String!) repeatable on OBJECT
-
-      directive @resolve(graph: String!) on FIELD_DEFINITION
-
-      directive @provides(fields: String!) on FIELD_DEFINITION
-
-      directive @requires(fields: String!) on FIELD_DEFINITION
+      directive @core(feature: String!) repeatable on SCHEMA
 
       directive @stream on FIELD
 
@@ -296,7 +278,7 @@ describe('printComposedSdl', () => {
   });
 
   it('fieldsets are parseable', () => {
-    const parsedCsdl = parse(composedSdl!);
+    const parsedCsdl = parse(coreSchema!);
     const fieldSets: string[] = [];
 
     // Collect all args with the 'fields' name (from @key, @provides, @requires directives)

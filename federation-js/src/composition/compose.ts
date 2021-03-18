@@ -46,6 +46,7 @@ import {
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
 import { printComposedSdl } from '../service/printComposedSdl';
+import { printCoreSchema } from '../service/printCoreSchema';
 
 const EmptyQueryDefinition = {
   kind: Kind.OBJECT_TYPE_DEFINITION,
@@ -661,6 +662,7 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     return {
       schema,
       composedSdl: printComposedSdl(schema, services),
+      coreSchema: printCoreSchema(schema),
     };
   }
 }

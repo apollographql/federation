@@ -28,10 +28,10 @@ import {
   ASTNode,
   SelectionNode,
 } from 'graphql';
-import { Maybe, ServiceDefinition, FederationType, FederationField } from '../composition';
+import { Maybe, FederationType, FederationField } from '../composition';
 import { isFederationType } from '../types';
 import { isFederationDirective } from '../composition/utils';
-import csdlDirectives from '../csdlDirectives';
+import { CoreDirective } from '../coreDirective';
 
 type Options = {
   /**
@@ -52,15 +52,12 @@ type Options = {
  *        Provide true to use preceding comments as the description.
  *
  */
-export function printComposedSdl(
+export function printCoreSchema(
   schema: GraphQLSchema,
-  serviceList: ServiceDefinition[],
   options?: Options,
 ): string {
   return printFilteredSchema(
     schema,
-    // Federation change: we need service and url information for the @graph directives
-    serviceList,
     // Federation change: treat the directives defined by the federation spec
     // similarly to the directives defined by the GraphQL spec (ie, don't print
     // their definitions).
@@ -76,7 +73,6 @@ export function printIntrospectionSchema(
 ): string {
   return printFilteredSchema(
     schema,
-    [],
     isSpecifiedDirective,
     isIntrospectionType,
     options,
@@ -96,15 +92,13 @@ function isDefinedType(type: GraphQLNamedType): boolean {
 
 function printFilteredSchema(
   schema: GraphQLSchema,
-  // Federation change: we need service and url information for the @graph directives
-  serviceList: ServiceDefinition[],
   directiveFilter: (type: GraphQLDirective) => boolean,
   typeFilter: (type: GraphQLNamedType) => boolean,
   options?: Options,
 ): string {
-  // Federation change: include directive definitions for CSDL
+  // Core change: include directive definitions for core schema
   const directives = [
-    ...csdlDirectives,
+    CoreDirective,
     ...schema.getDirectives().filter(directiveFilter),
   ];
   const types = Object.values(schema.getTypeMap())
@@ -112,7 +106,7 @@ function printFilteredSchema(
     .filter(typeFilter);
 
   return (
-    [printSchemaDefinition(schema, serviceList)]
+    [printSchemaDefinition(schema)]
       .concat(
         directives.map(directive => printDirective(directive, options)),
         types.map(type => printType(type, options)),
@@ -122,10 +116,7 @@ function printFilteredSchema(
   );
 }
 
-function printSchemaDefinition(
-  schema: GraphQLSchema,
-  serviceList: ServiceDefinition[],
-): string | undefined {
+function printSchemaDefinition(schema: GraphQLSchema): string {
   const operationTypes = [];
 
   const queryType = schema.getQueryType();
@@ -145,17 +136,14 @@ function printSchemaDefinition(
 
   return (
     'schema' +
-    // Federation change: print @graph and @composedGraph schema directives
-    printFederationSchemaDirectives(serviceList) +
+    // Core change: print @core directive usages on schema node
+    printCoreDirectives() +
     `\n{\n${operationTypes.join('\n')}\n}`
   );
 }
 
-function printFederationSchemaDirectives(serviceList: ServiceDefinition[]) {
-  return (
-    serviceList.map(service => `\n  @graph(name: "${service.name}", url: "${service.url}")`).join('') +
-    `\n  @composedGraph(version: 1)`
-  );
+function printCoreDirectives() {
+  return '\n  @core(feature: "https://lib.apollo.dev/core/v0.1")'
 }
 
 export function printType(type: GraphQLNamedType, options?: Options): string {

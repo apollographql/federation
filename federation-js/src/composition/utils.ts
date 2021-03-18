@@ -611,12 +611,14 @@ export interface CompositionFailure {
   schema: GraphQLSchema;
   errors: GraphQLError[];
   composedSdl?: undefined;
+  coreSchema?: undefined;
 }
 
 export interface CompositionSuccess {
   /** @deprecated Use composedSdl instead */
   schema: GraphQLSchema;
   composedSdl: string;
+  coreSchema: string;
   errors?: undefined;
 }
 
