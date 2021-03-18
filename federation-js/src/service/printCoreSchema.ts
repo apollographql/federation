@@ -28,10 +28,9 @@ import {
   ASTNode,
   SelectionNode,
 } from 'graphql';
-import { Maybe, FederationType, FederationField } from '../composition';
-import { isFederationType } from '../types';
-import { isFederationDirective } from '../composition/utils';
-import { CoreDirective } from '../coreDirective';
+import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
+import { CoreDirective } from '../coreSpec';
+import { getJoins } from '../joinSpec';
 
 type Options = {
   /**
@@ -46,22 +45,43 @@ type Options = {
 };
 
 /**
- * Accepts options as a second argument:
+ * Accepts options as an optional third argument:
  *
  *    - commentDescriptions:
  *        Provide true to use preceding comments as the description.
  *
  */
+// Core change: we need service and url information for the join__Graph enum
 export function printCoreSchema(
   schema: GraphQLSchema,
+  serviceList: ServiceDefinition[],
   options?: Options,
 ): string {
+  const config = schema.toConfig();
+
+  const {
+    FieldSetScalar,
+    JoinFieldDirective,
+    JoinTypeDirective,
+    JoinOwnerDirective,
+    JoinGraphEnum,
+  } = getJoins(serviceList);
+
+  schema = new GraphQLSchema({
+    ...config,
+    directives: [
+      CoreDirective,
+      JoinFieldDirective,
+      JoinTypeDirective,
+      JoinOwnerDirective,
+      ...config.directives,
+    ],
+    types: [FieldSetScalar, JoinGraphEnum, ...config.types],
+  });
+
   return printFilteredSchema(
     schema,
-    // Federation change: treat the directives defined by the federation spec
-    // similarly to the directives defined by the GraphQL spec (ie, don't print
-    // their definitions).
-    (n) => !isSpecifiedDirective(n) && !isFederationDirective(n),
+    (n) => !isSpecifiedDirective(n),
     isDefinedType,
     options,
   );
@@ -79,28 +99,18 @@ export function printIntrospectionSchema(
   );
 }
 
-// Federation change: treat the types defined by the federation spec
-// similarly to the directives defined by the GraphQL spec (ie, don't print
-// their definitions).
 function isDefinedType(type: GraphQLNamedType): boolean {
-  return (
-    !isSpecifiedScalarType(type) &&
-    !isIntrospectionType(type) &&
-    !isFederationType(type)
-  );
+  return !isSpecifiedScalarType(type) && !isIntrospectionType(type);
 }
 
 function printFilteredSchema(
   schema: GraphQLSchema,
+  // serviceList: ServiceDefinition[],
   directiveFilter: (type: GraphQLDirective) => boolean,
   typeFilter: (type: GraphQLNamedType) => boolean,
   options?: Options,
 ): string {
-  // Core change: include directive definitions for core schema
-  const directives = [
-    CoreDirective,
-    ...schema.getDirectives().filter(directiveFilter),
-  ];
+  const directives = schema.getDirectives().filter(directiveFilter);
   const types = Object.values(schema.getTypeMap())
     .sort((type1, type2) => type1.name.localeCompare(type2.name))
     .filter(typeFilter);
@@ -143,7 +153,10 @@ function printSchemaDefinition(schema: GraphQLSchema): string {
 }
 
 function printCoreDirectives() {
-  return '\n  @core(feature: "https://lib.apollo.dev/core/v0.1")'
+  return [
+    'https://lib.apollo.dev/core/v0.1',
+    'https://lib.apollo.dev/join/v0.1',
+  ].map((feature) => `\n  @core(feature: "${feature}")`);
 }
 
 export function printType(type: GraphQLNamedType, options?: Options): string {
@@ -171,10 +184,14 @@ function printScalar(type: GraphQLScalarType, options?: Options): string {
 function printObject(type: GraphQLObjectType, options?: Options): string {
   const interfaces = type.getInterfaces();
   const implementedInterfaces = interfaces.length
-    ? ' implements ' + interfaces.map(i => i.name).join(' & ')
+    ? ' implements ' + interfaces.map((i) => i.name).join(' & ')
     : '';
 
-  // Federation change: print `extend` keyword on type extensions.
+  // TODO: I can't figure out why this is here. I wrote this 8 months ago. Nothing
+  // in the history explains the reason this is needed. When do we have an `extend type`
+  // in the final composed schema?
+  //
+  // Core change: print `extend` keyword on type extensions.
   //
   // The implementation assumes that an owned type will have fields defined
   // since that is required for a valid schema. Types that are *only*
@@ -190,14 +207,14 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
     (isExtension ? 'extend ' : '') +
     `type ${type.name}` +
     implementedInterfaces +
-    // Federation addition for printing @owner and @key usages
-    printFederationTypeDirectives(type) +
+    // Core addition for printing @join__owner and @join__type usages
+    printTypeJoinDirectives(type) +
     printFields(options, type)
   );
 }
 
-// Federation change: print usages of the @owner and @key directives.
-function printFederationTypeDirectives(type: GraphQLObjectType): string {
+// Core change: print @join__owner and @join__type usages
+function printTypeJoinDirectives(type: GraphQLObjectType): string {
   const metadata: FederationType = type.extensions?.federation;
   if (!metadata) return '';
 
@@ -211,15 +228,15 @@ function printFederationTypeDirectives(type: GraphQLObjectType): string {
   const restEntries = Object.entries(restKeys);
 
   return (
-    `\n  @owner(graph: "${ownerService}")` +
+    `\n  @join__owner(graph: ${ownerService.toUpperCase()})` +
     [ownerEntry, ...restEntries]
       .map(([service, keys = []]) =>
         keys
           .map(
             (selections) =>
-              `\n  @key(fields: "${printFieldSet(
+              `\n  @join__type(graph: ${service.toUpperCase()}, key: "${printFieldSet(
                 selections,
-              )}", graph: "${service}")`,
+              )}")`,
           )
           .join(''),
       )
@@ -228,7 +245,11 @@ function printFederationTypeDirectives(type: GraphQLObjectType): string {
 }
 
 function printInterface(type: GraphQLInterfaceType, options?: Options): string {
-  // Federation change: print `extend` keyword on type extensions.
+  // TODO: I can't figure out why this is here. I wrote this 8 months ago. Nothing
+  // in the history explains the reason this is needed. When do we have an `extend type`
+  // in the final composed schema?
+  //
+  // Core change: print `extend` keyword on type extensions.
   // See printObject for assumptions made.
   //
   // XXX revist extension checking
@@ -292,10 +313,10 @@ function printFields(
       ': ' +
       String(f.type) +
       printDeprecated(f) +
-      printFederationFieldDirectives(f, type),
+      printJoinFieldDirectives(f, type),
   );
 
-  // Federation change: for entities, we want to print the block on a new line.
+  // Core change: for entities, we want to print the block on a new line.
   // This is just a formatting nice-to-have.
   const isEntity = Boolean(type.extensions?.federation?.keys);
 
@@ -309,25 +330,33 @@ export function printWithReducedWhitespace(ast: ASTNode): string {
 }
 
 /**
- * Federation change: print fieldsets for @key, @requires, and @provides directives
+ * Core change: print fieldsets for @join__field's @key, @requires, and @provides args
  *
  * @param selections
  */
 function printFieldSet(selections: readonly SelectionNode[]): string {
-  return `{ ${selections.map(printWithReducedWhitespace).join(' ')} }`;
+  return `${selections.map(printWithReducedWhitespace).join(' ')}`;
 }
 
 /**
- * Federation change: print @resolve, @requires, and @provides directives
+ * Core change: print @join__field directives
  *
  * @param field
  * @param parentType
  */
-function printFederationFieldDirectives(
+function printJoinFieldDirectives(
   field: GraphQLField<any, any>,
   parentType: GraphQLObjectType | GraphQLInterfaceType,
 ): string {
-  if (!field.extensions?.federation) return '';
+  let printed = ' @join__field(graph: ';
+  // Fields on the owning service do not have any federation metadata applied
+  // TODO: maybe make this metadata available? Though I think this is intended and we may depend on that implicity.
+  if (!field.extensions?.federation) {
+    if (parentType.extensions?.federation?.serviceName) {
+      return printed + `${parentType.extensions?.federation.serviceName.toUpperCase()})`;
+    }
+    return '';
+  }
 
   const {
     serviceName,
@@ -335,28 +364,22 @@ function printFederationFieldDirectives(
     provides = [],
   }: FederationField = field.extensions.federation;
 
-  let printed = '';
-  // If a `serviceName` exists, we only want to print a `@resolve` directive
-  // if the `serviceName` differs from the `parentType`'s `serviceName`
-  if (
-    serviceName &&
-    serviceName !== parentType.extensions?.federation?.serviceName
-  ) {
-    printed += ` @resolve(graph: "${serviceName}")`;
+  if (serviceName) {
+    printed += serviceName.toUpperCase();
   }
 
   if (requires.length > 0) {
-    printed += ` @requires(fields: "${printFieldSet(requires)}")`;
+    printed += `, requires: "${printFieldSet(requires)}"`;
   }
 
   if (provides.length > 0) {
-    printed += ` @provides(fields: "${printFieldSet(provides)}")`;
+    printed += `, provides: "${printFieldSet(provides)}"`;
   }
 
-  return printed;
+  return (printed += ')');
 }
 
-// Federation change: `onNewLine` is a formatting nice-to-have for printing
+// Core change: `onNewLine` is a formatting nice-to-have for printing
 // types that have a list of directives attached, i.e. an entity.
 function printBlock(items: string[], onNewLine?: boolean) {
   return items.length !== 0

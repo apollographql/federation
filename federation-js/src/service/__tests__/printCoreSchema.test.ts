@@ -1,5 +1,5 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { parse, GraphQLError, visit, StringValueNode } from 'graphql';
+import { parse, GraphQLError } from 'graphql';
 import { composeAndValidate, compositionHasErrors } from '../../composition';
 
 describe('printCoreSchema', () => {
@@ -20,19 +20,31 @@ describe('printCoreSchema', () => {
   });
 
   it('produces a parseable output', () => {
+    try {
+      parse(coreSchema);
+    } catch (e) {
+      console.log(JSON.stringify(e));
+    }
     expect(() => parse(coreSchema!)).not.toThrow();
   });
 
   it('prints a fully composed schema correctly', () => {
     expect(coreSchema).toMatchInlineSnapshot(`
       "schema
-        @core(feature: \\"https://lib.apollo.dev/core/v0.1\\")
+        @core(feature: \\"https://lib.apollo.dev/core/v0.1\\"),
+        @core(feature: \\"https://lib.apollo.dev/join/v0.1\\")
       {
         query: Query
         mutation: Mutation
       }
 
       directive @core(feature: String!) repeatable on SCHEMA
+
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
+
+      directive @join__type(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on OBJECT | INTERFACE
+
+      directive @join__owner(graph: join__Graph) on OBJECT | INTERFACE
 
       directive @stream on FIELD
 
@@ -41,45 +53,45 @@ describe('printCoreSchema', () => {
       union AccountType = PasswordAccount | SMSAccount
 
       type Amazon {
-        referrer: String
+        referrer: String @join__field(graph: PRODUCT)
       }
 
       union Body = Image | Text
 
       type Book implements Product
-        @owner(graph: \\"books\\")
-        @key(fields: \\"{ isbn }\\", graph: \\"books\\")
-        @key(fields: \\"{ isbn }\\", graph: \\"inventory\\")
-        @key(fields: \\"{ isbn }\\", graph: \\"product\\")
-        @key(fields: \\"{ isbn }\\", graph: \\"reviews\\")
+        @join__owner(graph: BOOKS)
+        @join__type(graph: BOOKS, key: \\"isbn\\")
+        @join__type(graph: INVENTORY, key: \\"isbn\\")
+        @join__type(graph: PRODUCT, key: \\"isbn\\")
+        @join__type(graph: REVIEWS, key: \\"isbn\\")
       {
-        isbn: String!
-        title: String
-        year: Int
-        similarBooks: [Book]!
-        metadata: [MetadataOrError]
-        inStock: Boolean @resolve(graph: \\"inventory\\")
-        isCheckedOut: Boolean @resolve(graph: \\"inventory\\")
-        upc: String! @resolve(graph: \\"product\\")
-        sku: String! @resolve(graph: \\"product\\")
-        name(delimeter: String = \\" \\"): String @resolve(graph: \\"product\\") @requires(fields: \\"{ title year }\\")
-        price: String @resolve(graph: \\"product\\")
-        details: ProductDetailsBook @resolve(graph: \\"product\\")
-        reviews: [Review] @resolve(graph: \\"reviews\\")
-        relatedReviews: [Review!]! @resolve(graph: \\"reviews\\") @requires(fields: \\"{ similarBooks { isbn } }\\")
+        isbn: String! @join__field(graph: BOOKS)
+        title: String @join__field(graph: BOOKS)
+        year: Int @join__field(graph: BOOKS)
+        similarBooks: [Book]! @join__field(graph: BOOKS)
+        metadata: [MetadataOrError] @join__field(graph: BOOKS)
+        inStock: Boolean @join__field(graph: INVENTORY)
+        isCheckedOut: Boolean @join__field(graph: INVENTORY)
+        upc: String! @join__field(graph: PRODUCT)
+        sku: String! @join__field(graph: PRODUCT)
+        name(delimeter: String = \\" \\"): String @join__field(graph: PRODUCT, requires: \\"title year\\")
+        price: String @join__field(graph: PRODUCT)
+        details: ProductDetailsBook @join__field(graph: PRODUCT)
+        reviews: [Review] @join__field(graph: REVIEWS)
+        relatedReviews: [Review!]! @join__field(graph: REVIEWS, requires: \\"similarBooks { isbn }\\")
       }
 
       union Brand = Ikea | Amazon
 
       type Car implements Vehicle
-        @owner(graph: \\"product\\")
-        @key(fields: \\"{ id }\\", graph: \\"product\\")
-        @key(fields: \\"{ id }\\", graph: \\"reviews\\")
+        @join__owner(graph: PRODUCT)
+        @join__type(graph: PRODUCT, key: \\"id\\")
+        @join__type(graph: REVIEWS, key: \\"id\\")
       {
-        id: String!
-        description: String
-        price: String
-        retailPrice: String @resolve(graph: \\"reviews\\") @requires(fields: \\"{ price }\\")
+        id: String! @join__field(graph: PRODUCT)
+        description: String @join__field(graph: PRODUCT)
+        price: String @join__field(graph: PRODUCT)
+        retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
       }
 
       type Error {
@@ -88,35 +100,46 @@ describe('printCoreSchema', () => {
       }
 
       type Furniture implements Product
-        @owner(graph: \\"product\\")
-        @key(fields: \\"{ upc }\\", graph: \\"product\\")
-        @key(fields: \\"{ sku }\\", graph: \\"product\\")
-        @key(fields: \\"{ sku }\\", graph: \\"inventory\\")
-        @key(fields: \\"{ upc }\\", graph: \\"reviews\\")
+        @join__owner(graph: PRODUCT)
+        @join__type(graph: PRODUCT, key: \\"upc\\")
+        @join__type(graph: PRODUCT, key: \\"sku\\")
+        @join__type(graph: INVENTORY, key: \\"sku\\")
+        @join__type(graph: REVIEWS, key: \\"upc\\")
       {
-        upc: String!
-        sku: String!
-        name: String
-        price: String
-        brand: Brand
-        metadata: [MetadataOrError]
-        details: ProductDetailsFurniture
-        inStock: Boolean @resolve(graph: \\"inventory\\")
-        isHeavy: Boolean @resolve(graph: \\"inventory\\")
-        reviews: [Review] @resolve(graph: \\"reviews\\")
+        upc: String! @join__field(graph: PRODUCT)
+        sku: String! @join__field(graph: PRODUCT)
+        name: String @join__field(graph: PRODUCT)
+        price: String @join__field(graph: PRODUCT)
+        brand: Brand @join__field(graph: PRODUCT)
+        metadata: [MetadataOrError] @join__field(graph: PRODUCT)
+        details: ProductDetailsFurniture @join__field(graph: PRODUCT)
+        inStock: Boolean @join__field(graph: INVENTORY)
+        isHeavy: Boolean @join__field(graph: INVENTORY)
+        reviews: [Review] @join__field(graph: REVIEWS)
       }
 
       type Ikea {
-        asile: Int
+        asile: Int @join__field(graph: PRODUCT)
       }
 
       type Image {
-        name: String!
-        attributes: ImageAttributes!
+        name: String! @join__field(graph: DOCUMENTS)
+        attributes: ImageAttributes! @join__field(graph: DOCUMENTS)
       }
 
       type ImageAttributes {
-        url: String!
+        url: String! @join__field(graph: DOCUMENTS)
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        ACCOUNTS
+        BOOKS
+        DOCUMENTS
+        INVENTORY
+        PRODUCT
+        REVIEWS
       }
 
       type KeyValue {
@@ -125,100 +148,100 @@ describe('printCoreSchema', () => {
       }
 
       type Library
-        @owner(graph: \\"books\\")
-        @key(fields: \\"{ id }\\", graph: \\"books\\")
-        @key(fields: \\"{ id }\\", graph: \\"accounts\\")
+        @join__owner(graph: BOOKS)
+        @join__type(graph: BOOKS, key: \\"id\\")
+        @join__type(graph: ACCOUNTS, key: \\"id\\")
       {
-        id: ID!
-        name: String
-        userAccount(id: ID! = 1): User @resolve(graph: \\"accounts\\") @requires(fields: \\"{ name }\\")
+        id: ID! @join__field(graph: BOOKS)
+        name: String @join__field(graph: BOOKS)
+        userAccount(id: ID! = 1): User @join__field(graph: ACCOUNTS, requires: \\"name\\")
       }
 
       union MetadataOrError = KeyValue | Error
 
       type Mutation {
-        login(username: String!, password: String!): User @resolve(graph: \\"accounts\\")
-        reviewProduct(upc: String!, body: String!): Product @resolve(graph: \\"reviews\\")
-        updateReview(review: UpdateReviewInput!): Review @resolve(graph: \\"reviews\\")
-        deleteReview(id: ID!): Boolean @resolve(graph: \\"reviews\\")
+        login(username: String!, password: String!): User @join__field(graph: ACCOUNTS)
+        reviewProduct(upc: String!, body: String!): Product @join__field(graph: REVIEWS)
+        updateReview(review: UpdateReviewInput!): Review @join__field(graph: REVIEWS)
+        deleteReview(id: ID!): Boolean @join__field(graph: REVIEWS)
       }
 
       type Name {
-        first: String
-        last: String
+        first: String @join__field(graph: ACCOUNTS)
+        last: String @join__field(graph: ACCOUNTS)
       }
 
       type PasswordAccount
-        @owner(graph: \\"accounts\\")
-        @key(fields: \\"{ email }\\", graph: \\"accounts\\")
+        @join__owner(graph: ACCOUNTS)
+        @join__type(graph: ACCOUNTS, key: \\"email\\")
       {
-        email: String!
+        email: String! @join__field(graph: ACCOUNTS)
       }
 
       interface Product {
-        upc: String!
-        sku: String!
-        name: String
-        price: String
-        details: ProductDetails
-        inStock: Boolean
-        reviews: [Review]
+        upc: String! @join__field(graph: PRODUCT)
+        sku: String! @join__field(graph: PRODUCT)
+        name: String @join__field(graph: PRODUCT)
+        price: String @join__field(graph: PRODUCT)
+        details: ProductDetails @join__field(graph: PRODUCT)
+        inStock: Boolean @join__field(graph: PRODUCT)
+        reviews: [Review] @join__field(graph: PRODUCT)
       }
 
       interface ProductDetails {
-        country: String
+        country: String @join__field(graph: PRODUCT)
       }
 
       type ProductDetailsBook implements ProductDetails {
-        country: String
-        pages: Int
+        country: String @join__field(graph: PRODUCT)
+        pages: Int @join__field(graph: PRODUCT)
       }
 
       type ProductDetailsFurniture implements ProductDetails {
-        country: String
-        color: String
+        country: String @join__field(graph: PRODUCT)
+        color: String @join__field(graph: PRODUCT)
       }
 
       type Query {
-        user(id: ID!): User @resolve(graph: \\"accounts\\")
-        me: User @resolve(graph: \\"accounts\\")
-        book(isbn: String!): Book @resolve(graph: \\"books\\")
-        books: [Book] @resolve(graph: \\"books\\")
-        library(id: ID!): Library @resolve(graph: \\"books\\")
-        body: Body! @resolve(graph: \\"documents\\")
-        product(upc: String!): Product @resolve(graph: \\"product\\")
-        vehicle(id: String!): Vehicle @resolve(graph: \\"product\\")
-        topProducts(first: Int = 5): [Product] @resolve(graph: \\"product\\")
-        topCars(first: Int = 5): [Car] @resolve(graph: \\"product\\")
-        topReviews(first: Int = 5): [Review] @resolve(graph: \\"reviews\\")
+        user(id: ID!): User @join__field(graph: ACCOUNTS)
+        me: User @join__field(graph: ACCOUNTS)
+        book(isbn: String!): Book @join__field(graph: BOOKS)
+        books: [Book] @join__field(graph: BOOKS)
+        library(id: ID!): Library @join__field(graph: BOOKS)
+        body: Body! @join__field(graph: DOCUMENTS)
+        product(upc: String!): Product @join__field(graph: PRODUCT)
+        vehicle(id: String!): Vehicle @join__field(graph: PRODUCT)
+        topProducts(first: Int = 5): [Product] @join__field(graph: PRODUCT)
+        topCars(first: Int = 5): [Car] @join__field(graph: PRODUCT)
+        topReviews(first: Int = 5): [Review] @join__field(graph: REVIEWS)
       }
 
       type Review
-        @owner(graph: \\"reviews\\")
-        @key(fields: \\"{ id }\\", graph: \\"reviews\\")
+        @join__owner(graph: REVIEWS)
+        @join__type(graph: REVIEWS, key: \\"id\\")
       {
-        id: ID!
-        body(format: Boolean = false): String
-        author: User @provides(fields: \\"{ username }\\")
-        product: Product
-        metadata: [MetadataOrError]
+        id: ID! @join__field(graph: REVIEWS)
+        body(format: Boolean = false): String @join__field(graph: REVIEWS)
+        author: User @join__field(graph: REVIEWS, provides: \\"username\\")
+        product: Product @join__field(graph: REVIEWS)
+        metadata: [MetadataOrError] @join__field(graph: REVIEWS)
       }
 
       type SMSAccount
-        @owner(graph: \\"accounts\\")
-        @key(fields: \\"{ number }\\", graph: \\"accounts\\")
+        @join__owner(graph: ACCOUNTS)
+        @join__type(graph: ACCOUNTS, key: \\"number\\")
       {
-        number: String
+        number: String @join__field(graph: ACCOUNTS)
       }
 
       type Text {
-        name: String!
-        attributes: TextAttributes!
+        name: String! @join__field(graph: DOCUMENTS)
+        attributes: TextAttributes! @join__field(graph: DOCUMENTS)
       }
 
       type TextAttributes {
-        bold: Boolean
-        text: String
+        bold: Boolean @join__field(graph: DOCUMENTS)
+        text: String @join__field(graph: DOCUMENTS)
       }
 
       union Thing = Car | Ikea
@@ -229,70 +252,70 @@ describe('printCoreSchema', () => {
       }
 
       type User
-        @owner(graph: \\"accounts\\")
-        @key(fields: \\"{ id }\\", graph: \\"accounts\\")
-        @key(fields: \\"{ username name { first last } }\\", graph: \\"accounts\\")
-        @key(fields: \\"{ id }\\", graph: \\"inventory\\")
-        @key(fields: \\"{ id }\\", graph: \\"product\\")
-        @key(fields: \\"{ id }\\", graph: \\"reviews\\")
+        @join__owner(graph: ACCOUNTS)
+        @join__type(graph: ACCOUNTS, key: \\"id\\")
+        @join__type(graph: ACCOUNTS, key: \\"username name { first last }\\")
+        @join__type(graph: INVENTORY, key: \\"id\\")
+        @join__type(graph: PRODUCT, key: \\"id\\")
+        @join__type(graph: REVIEWS, key: \\"id\\")
       {
-        id: ID!
-        name: Name
-        username: String
-        birthDate(locale: String): String
-        account: AccountType
-        metadata: [UserMetadata]
-        goodDescription: Boolean @resolve(graph: \\"inventory\\") @requires(fields: \\"{ metadata { description } }\\")
-        vehicle: Vehicle @resolve(graph: \\"product\\")
-        thing: Thing @resolve(graph: \\"product\\")
-        reviews: [Review] @resolve(graph: \\"reviews\\")
-        numberOfReviews: Int! @resolve(graph: \\"reviews\\")
-        goodAddress: Boolean @resolve(graph: \\"reviews\\") @requires(fields: \\"{ metadata { address } }\\")
+        id: ID! @join__field(graph: ACCOUNTS)
+        name: Name @join__field(graph: ACCOUNTS)
+        username: String @join__field(graph: ACCOUNTS)
+        birthDate(locale: String): String @join__field(graph: ACCOUNTS)
+        account: AccountType @join__field(graph: ACCOUNTS)
+        metadata: [UserMetadata] @join__field(graph: ACCOUNTS)
+        goodDescription: Boolean @join__field(graph: INVENTORY, requires: \\"metadata { description }\\")
+        vehicle: Vehicle @join__field(graph: PRODUCT)
+        thing: Thing @join__field(graph: PRODUCT)
+        reviews: [Review] @join__field(graph: REVIEWS)
+        numberOfReviews: Int! @join__field(graph: REVIEWS)
+        goodAddress: Boolean @join__field(graph: REVIEWS, requires: \\"metadata { address }\\")
       }
 
       type UserMetadata {
-        name: String
-        address: String
-        description: String
+        name: String @join__field(graph: ACCOUNTS)
+        address: String @join__field(graph: ACCOUNTS)
+        description: String @join__field(graph: ACCOUNTS)
       }
 
       type Van implements Vehicle
-        @owner(graph: \\"product\\")
-        @key(fields: \\"{ id }\\", graph: \\"product\\")
-        @key(fields: \\"{ id }\\", graph: \\"reviews\\")
+        @join__owner(graph: PRODUCT)
+        @join__type(graph: PRODUCT, key: \\"id\\")
+        @join__type(graph: REVIEWS, key: \\"id\\")
       {
-        id: String!
-        description: String
-        price: String
-        retailPrice: String @resolve(graph: \\"reviews\\") @requires(fields: \\"{ price }\\")
+        id: String! @join__field(graph: PRODUCT)
+        description: String @join__field(graph: PRODUCT)
+        price: String @join__field(graph: PRODUCT)
+        retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
       }
 
       interface Vehicle {
-        id: String!
-        description: String
-        price: String
-        retailPrice: String
+        id: String! @join__field(graph: PRODUCT)
+        description: String @join__field(graph: PRODUCT)
+        price: String @join__field(graph: PRODUCT)
+        retailPrice: String @join__field(graph: PRODUCT)
       }
       "
     `);
   });
 
-  it('fieldsets are parseable', () => {
-    const parsedCsdl = parse(coreSchema!);
-    const fieldSets: string[] = [];
+  // xit('fieldsets are parseable', () => {
+  //   const parsedCsdl = parse(coreSchema!);
+  //   const fieldSets: string[] = [];
 
-    // Collect all args with the 'fields' name (from @key, @provides, @requires directives)
-    visit(parsedCsdl, {
-      Argument(node) {
-        if (node.name.value === 'fields') {
-          fieldSets.push((node.value as StringValueNode).value);
-        }
-      },
-    });
+  //   // Collect all args with the 'fields' name (from @key, @provides, @requires directives)
+  //   visit(parsedCsdl, {
+  //     Argument(node) {
+  //       if (node.name.value === 'fields') {
+  //         fieldSets.push((node.value as StringValueNode).value);
+  //       }
+  //     },
+  //   });
 
-    // Ensure each found 'fields' arg is graphql parseable
-    fieldSets.forEach((unparsed) => {
-      expect(() => parse(unparsed)).not.toThrow();
-    });
-  });
+  //   // Ensure each found 'fields' arg is graphql parseable
+  //   fieldSets.forEach((unparsed) => {
+  //     expect(() => parse(unparsed)).not.toThrow();
+  //   });
+  // });
 });

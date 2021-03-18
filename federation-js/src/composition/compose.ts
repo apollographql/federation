@@ -662,7 +662,7 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     return {
       schema,
       composedSdl: printComposedSdl(schema, services),
-      coreSchema: printCoreSchema(schema),
+      coreSchema: printCoreSchema(schema, services),
     };
   }
 }
