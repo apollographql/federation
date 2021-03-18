@@ -40,7 +40,7 @@ import { getServiceDefinitionsFromRemoteEndpoint } from './loadServicesFromRemot
 import { GraphQLDataSource } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
-import fetcher, { Fetcher } from 'make-fetch-happen';
+import fetcher from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
 import { getQueryPlanner, QueryPlannerPointer, QueryPlan, prettyFormatQueryPlan } from '@apollo/query-planner';
@@ -96,7 +96,7 @@ type WarnedStates = {
   remoteWithLocalConfig?: boolean;
 };
 
-export function getDefaultFetcher(): Fetcher {
+export function getDefaultFetcher() {
   const { name, version } = require('../package.json');
   return fetcher.defaults({
     cacheManager: new HttpRequestCache(),
