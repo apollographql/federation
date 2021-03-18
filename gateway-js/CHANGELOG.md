@@ -4,7 +4,8 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- Enable gateway to fetch CSDL / cloud config in managed mode. This feature is currently opt-in only and should have no effect for existing use cases. After some testing, this behavior will become the default (and should be nearly transparent / non-breaking for users when we do so). It's unintended for users to start using this feature for now unless instructed by Apollo to do so. [PR #458](https://github.com/apollographql/federation/pull/458) 
+- Enable gateway to fetch CSDL / cloud config in managed mode. This feature is currently opt-in only and should have no effect for existing use cases. After some testing, this behavior will become the default (and should be nearly transparent / non-breaking for users when we do so). It's unintended for users to start using this feature for now unless instructed by Apollo to do so. [PR #458](https://github.com/apollographql/federation/pull/458)
+- __FIX__: followup to #458. Fix typings of `getDefaultFetcher` - `make-fetch-happen` types were not being included in the gateway's compiled `index.d.ts` file. [PR #585](https://github.com/apollographql/federation/pull/585)
 
 ## v0.24.4
 
