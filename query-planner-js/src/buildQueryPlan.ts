@@ -1,4 +1,4 @@
-import { isNotNullOrUndefined } from 'apollo-env';
+import { isNotNullOrUndefined } from './utilities/predicates';
 import {
   DocumentNode,
   FieldNode,
