@@ -63,3 +63,27 @@ Scenario: does not remove __typename if that is all that is requested on a value
     }
   }
   """
+
+Scenario: does not remove __typename if that is all that is requested on a union type
+  Given query
+  """
+  query GetUser {
+    me {
+      accountType {
+        __typename
+      }
+    }
+  }
+  """
+  Then query plan
+  """
+  {
+    "kind": "QueryPlan",
+    "node": {
+      "kind": "Fetch",
+      "serviceName": "accounts",
+      "variableUsages": [],
+      "operation": "{me{accountType{__typename}}}"
+    }
+  }
+  """

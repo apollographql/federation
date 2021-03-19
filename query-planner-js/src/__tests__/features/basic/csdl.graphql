@@ -11,6 +11,10 @@ schema
     mutation: Mutation
 }
 
+type Account {
+    type: String
+}
+
 union AccountType = PasswordAccount | SMSAccount
 
 type Amazon {
@@ -214,7 +218,8 @@ type User
     name: Name
     username: String
     birthDate(locale: String): String
-    account: AccountType
+    account: Account
+    accountType: AccountType
     metadata: [UserMetadata]
     goodDescription: Boolean @resolve(graph: "inventory") @requires(fields: "{metadata { description }}")
     vehicle: Vehicle @resolve(graph: "product")
