@@ -134,12 +134,12 @@ describe('printCoreSchema', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        ACCOUNTS
-        BOOKS
-        DOCUMENTS
-        INVENTORY
-        PRODUCT
-        REVIEWS
+        ACCOUNTS @http(url: \\"https://accounts.api.com\\")
+        BOOKS @http(url: \\"https://books.api.com\\")
+        DOCUMENTS @http(url: \\"https://documents.api.com\\")
+        INVENTORY @http(url: \\"https://inventory.api.com\\")
+        PRODUCT @http(url: \\"https://product.api.com\\")
+        REVIEWS @http(url: \\"https://reviews.api.com\\")
       }
 
       type KeyValue {

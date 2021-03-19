@@ -278,12 +278,20 @@ function printEnum(type: GraphQLEnumType, options?: Options): string {
         printDescription(options, value, '  ', !i) +
         '  ' +
         value.name +
-        printDeprecated(value),
+        printDeprecated(value) +
+        printHttpDirective(type, value),
     );
 
   return (
     printDescription(options, type) + `enum ${type.name}` + printBlock(values)
   );
+}
+
+function printHttpDirective(type: GraphQLEnumType, value: GraphQLEnumValue) {
+  if (type.name === "join__Graph") {
+    return ` @http(url: "${value.value}")`
+  }
+  return '';
 }
 
 function printInputObject(
