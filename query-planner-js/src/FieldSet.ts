@@ -141,22 +141,17 @@ function mergeFieldNodeSelectionSets(
     (node): node is FieldNode => node.kind === Kind.FIELD,
   );
 
-  const [aliasedFieldNodes, nonAliasedFieldNodes] = partition(
-    fieldNodes,
-    node => !!node.alias,
-  );
-
   const mergedFieldNodes = Array.from(
-    groupBy((node: FieldNode) => node.name.value)(
-      nonAliasedFieldNodes,
+    groupBy((node: FieldNode) => node.alias?.value ?? node.name.value)(
+      fieldNodes,
     ).values(),
-  ).map((nodesWithSameName) => {
-    const node = { ...nodesWithSameName[0] };
+  ).map((nodesWithSameResponseName) => {
+    const node = { ...nodesWithSameResponseName[0] };
     if (node.selectionSet) {
       node.selectionSet = {
         ...node.selectionSet,
         selections: mergeFieldNodeSelectionSets(
-          nodesWithSameName.flatMap(
+          nodesWithSameResponseName.flatMap(
             (node) => node.selectionSet?.selections || [],
           ),
         ),
@@ -165,5 +160,5 @@ function mergeFieldNodeSelectionSets(
     return node;
   });
 
-  return [...mergedFieldNodes, ...aliasedFieldNodes, ...fragmentNodes];
+  return [...mergedFieldNodes, ...fragmentNodes];
 }
