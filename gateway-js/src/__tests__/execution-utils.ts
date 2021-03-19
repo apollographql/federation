@@ -23,7 +23,7 @@ import { mergeDeep } from 'apollo-utilities';
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { getQueryPlanner } from '@apollo/query-planner-wasm';
+import { getQueryPlanner } from '@apollo/query-planner';
 
 const prettyFormat = require('pretty-format');
 
