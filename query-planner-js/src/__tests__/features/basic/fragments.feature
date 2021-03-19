@@ -320,26 +320,26 @@ Scenario: supports root fragments
   }
   """
 
-Scenario: supports directives on inline fragments (https://github.com/apollographql/federation/issues/177)
-  Given query
-  """
-  query GetVehicle {
-    vehicle(id:"rav4") {
-      ... on Car @fragmentDirective {
-        price
-        thing {
-          ... on Ikea {
-            asile
-          }
-        }
-      }
-      ... on Van {
-        price @fieldDirective
-      }
-    }
-  }
-  """
-  Then query plan
-  """
-  {"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"product","variableUsages":[],"operation":"{vehicle(id:\"rav4\"){__typename ...on Car@fragmentDirective{price thing{__typename ...on Ikea{asile}}}...on Van{price@fieldDirective}}}"}}
-  """
+# Scenario: supports directives on inline fragments (https://github.com/apollographql/federation/issues/177)
+#   Given query
+#   """
+#   query GetVehicle {
+#     vehicle(id:"rav4") {
+#       ... on Car @fragmentDirective {
+#         price
+#         thing {
+#           ... on Ikea {
+#             asile
+#           }
+#         }
+#       }
+#       ... on Van {
+#         price @fieldDirective
+#       }
+#     }
+#   }
+#   """
+#   Then query plan
+#   """
+#   {"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"product","variableUsages":[],"operation":"{vehicle(id:\"rav4\"){__typename ...on Car@fragmentDirective{price thing{__typename ...on Ikea{asile}}}...on Van{price@fieldDirective}}}"}}
+#   """
