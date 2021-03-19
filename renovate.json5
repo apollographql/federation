@@ -2,15 +2,6 @@
   "extends": [
     "apollo-open-source"
   ],
-  "force": {
-    "constraints": {
-      // Until we bump everything to npm@7 and make sure our
-      // tooling and contribution guides know this is expected
-      // and enforced via tooling, otherwise we could end up with
-      // flapping.
-      "node": "< 15.0.0"
-    }
-  },
   "dependencyDashboard": true,
   "packageRules": [
     // We set this to the lowest supported Node.js version to ensure we don't
