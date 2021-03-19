@@ -398,10 +398,11 @@ function splitSubfields(
     const { scope, fieldNode, fieldDef } = field;
     const { parentType } = scope;
 
+    const parentIsValueType = !isObjectType(parentType) || getFederationMetadataForType(parentType)?.isValueType;
+
     let baseService, owningService;
 
-    const parentTypeFederationMetadata = getFederationMetadataForType(parentType);
-    if (parentTypeFederationMetadata?.isValueType) {
+    if (parentIsValueType) {
       baseService = parentGroup.serviceName;
       owningService = parentGroup.serviceName;
     } else {
@@ -575,7 +576,7 @@ function splitFields(
         // If none of the field defs have a federation property, this interface's
         // implementors can all be resolved within the same service.
         const hasNoExtendingFieldDefs = !possibleFieldDefs.some(
-          getFederationMetadataForField,
+          (field) => getFederationMetadataForField(field)?.serviceName,
         );
 
         // With no extending field definitions, we can engage the optimization
