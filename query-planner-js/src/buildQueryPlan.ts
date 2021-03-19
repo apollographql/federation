@@ -1057,14 +1057,14 @@ export class QueryPlanningContext {
     };
   }
 
-  getBaseService(parentType: GraphQLObjectType): string | null {
-    return (getFederationMetadataForType(parentType)?.serviceName) || null;
+  getBaseService(parentType: GraphQLObjectType): string | undefined {
+    return getFederationMetadataForType(parentType)?.serviceName;
   }
 
   getOwningService(
     parentType: GraphQLObjectType,
     fieldDef: GraphQLField<any, any>,
-  ): string | null {
+  ): string | undefined {
     return (
       getFederationMetadataForField(fieldDef)?.serviceName ??
       this.getBaseService(parentType)
