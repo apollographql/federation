@@ -189,7 +189,7 @@ describe('value types', () => {
     expect(queryPlan).toCallService('reviews');
   });
 
-  it('resolves @provides fields on value types correctly via contrived example', async () => {
+  it.skip('resolves @provides fields on value types correctly via contrived example', async () => {
     const firstService = {
       name: 'firstService',
       typeDefs: gql`

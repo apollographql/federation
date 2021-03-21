@@ -741,7 +741,7 @@ describe('unions', () => {
     `);
   });
 
-  it("doesn't expand interfaces with inline type conditions if all possibilities are fufilled by one service", async () => {
+  it.skip("doesn't expand interfaces with inline type conditions if all possibilities are fufilled by one service", async () => {
     const query = `#graphql
       query GetProducts {
         topProducts {
