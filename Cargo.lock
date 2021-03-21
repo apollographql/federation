@@ -326,12 +326,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "align-data"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1926655ba000b19e21f0402be09a1d52d318c8a8a68622870bfb7af2a71315cd"
-
-[[package]]
 name = "ansi_term"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1093,11 +1087,10 @@ checksum = "3ee2393c4a91429dffb4bedf19f4d6abf27d8a732c8ce4980305d782e5426d57"
 
 [[package]]
 name = "deno_core"
-version = "0.81.0"
+version = "0.82.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8b94cd3221f471517c728a8b0759ed35e520777725450a70317212c687a0493"
+checksum = "d0f751d952989cbe03a11f643404fbad3f0d4af38d27d1aece431c48f1014e1a"
 dependencies = [
- "align-data",
  "anyhow",
  "futures",
  "indexmap",
