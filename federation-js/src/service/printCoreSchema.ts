@@ -65,6 +65,7 @@ export function printCoreSchema(
     JoinTypeDirective,
     JoinOwnerDirective,
     JoinGraphEnum,
+    EndpointDirective
   } = getJoins(serviceList);
 
   schema = new GraphQLSchema({
@@ -74,6 +75,7 @@ export function printCoreSchema(
       JoinFieldDirective,
       JoinTypeDirective,
       JoinOwnerDirective,
+      EndpointDirective,
       ...config.directives,
     ],
     types: [FieldSetScalar, JoinGraphEnum, ...config.types],
@@ -279,7 +281,7 @@ function printEnum(type: GraphQLEnumType, options?: Options): string {
         '  ' +
         value.name +
         printDeprecated(value) +
-        printHttpDirective(type, value),
+        printEndpointDirective(type, value),
     );
 
   return (
@@ -287,9 +289,9 @@ function printEnum(type: GraphQLEnumType, options?: Options): string {
   );
 }
 
-function printHttpDirective(type: GraphQLEnumType, value: GraphQLEnumValue) {
+function printEndpointDirective(type: GraphQLEnumType, value: GraphQLEnumValue) {
   if (type.name === "join__Graph") {
-    return ` @http(url: "${value.value}")`
+    return ` @join__endpoint(serviceName: "${value.value.name}" url: "${value.value.url}")`
   }
   return '';
 }
@@ -372,9 +374,11 @@ function printJoinFieldDirectives(
     provides = [],
   }: FederationField = field.extensions.federation;
 
-  if (serviceName) {
-    printed += serviceName.toUpperCase();
+  if (!serviceName) {
+    return '';
   }
+
+  printed += serviceName.toUpperCase();
 
   if (requires.length > 0) {
     printed += `, requires: "${printFieldSet(requires)}"`;

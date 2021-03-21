@@ -42,9 +42,11 @@ describe('printCoreSchema', () => {
 
       directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
 
-      directive @join__type(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on OBJECT | INTERFACE
+      directive @join__type(graph: join__Graph, key: join__FieldSet) repeatable on OBJECT | INTERFACE
 
       directive @join__owner(graph: join__Graph) on OBJECT | INTERFACE
+
+      directive @join__endpoint(serviceName: String, url: String) on ENUM_VALUE
 
       directive @stream on FIELD
 
@@ -134,12 +136,12 @@ describe('printCoreSchema', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        ACCOUNTS @http(url: \\"https://accounts.api.com\\")
-        BOOKS @http(url: \\"https://books.api.com\\")
-        DOCUMENTS @http(url: \\"https://documents.api.com\\")
-        INVENTORY @http(url: \\"https://inventory.api.com\\")
-        PRODUCT @http(url: \\"https://product.api.com\\")
-        REVIEWS @http(url: \\"https://reviews.api.com\\")
+        ACCOUNTS @join__endpoint(serviceName: \\"accounts\\" url: \\"https://accounts.api.com\\")
+        BOOKS @join__endpoint(serviceName: \\"books\\" url: \\"https://books.api.com\\")
+        DOCUMENTS @join__endpoint(serviceName: \\"documents\\" url: \\"https://documents.api.com\\")
+        INVENTORY @join__endpoint(serviceName: \\"inventory\\" url: \\"https://inventory.api.com\\")
+        PRODUCT @join__endpoint(serviceName: \\"product\\" url: \\"https://product.api.com\\")
+        REVIEWS @join__endpoint(serviceName: \\"reviews\\" url: \\"https://reviews.api.com\\")
       }
 
       type KeyValue {
