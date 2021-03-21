@@ -3,11 +3,25 @@ import {
   DirectiveLocation,
   GraphQLEnumType,
   GraphQLScalarType,
+  GraphQLString,
 } from 'graphql';
 import { ServiceDefinition } from './composition';
 
 const FieldSetScalar = new GraphQLScalarType({
   name: 'join__FieldSet',
+});
+
+const EndpointDirective = new GraphQLDirective({
+  name: "join__endpoint",
+  locations: [DirectiveLocation.ENUM_VALUE],
+  args: {
+    serviceName: {
+      type: GraphQLString,
+    },
+    url: {
+      type: GraphQLString,
+    },
+  }
 });
 
 function getJoinGraphEnum(serviceList: ServiceDefinition[]) {
@@ -16,7 +30,7 @@ function getJoinGraphEnum(serviceList: ServiceDefinition[]) {
     values: Object.fromEntries(
       serviceList.map((service) => [
         service.name.toUpperCase(),
-        { value: service.url },
+        { value: service },
       ]),
     ),
   });
@@ -60,14 +74,12 @@ export function getJoins(serviceList: ServiceDefinition[]) {
   const JoinTypeDirective = new GraphQLDirective({
     name: 'join__type',
     locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE],
+    isRepeatable: true,
     args: {
       graph: {
         type: JoinGraphEnum,
       },
-      requires: {
-        type: FieldSetScalar,
-      },
-      provides: {
+      key: {
         type: FieldSetScalar,
       },
     },
@@ -79,5 +91,6 @@ export function getJoins(serviceList: ServiceDefinition[]) {
     JoinFieldDirective,
     JoinOwnerDirective,
     JoinGraphEnum,
+    EndpointDirective,
   }
 }
