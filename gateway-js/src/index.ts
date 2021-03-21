@@ -16,7 +16,6 @@ import {
   isIntrospectionType,
   GraphQLSchema,
   VariableDefinitionNode,
-  visit,
   DocumentNode,
   print,
   FragmentDefinitionNode,
@@ -27,8 +26,6 @@ import {
   composeAndValidate,
   compositionHasErrors,
   ServiceDefinition,
-  findDirectivesOnNode,
-  isStringValueNode,
 } from '@apollo/federation';
 import loglevel from 'loglevel';
 
@@ -47,7 +44,6 @@ import fetcher, { Fetcher } from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
 import { getQueryPlanner, QueryPlannerPointer, QueryPlan, prettyFormatQueryPlan } from '@apollo/query-planner';
-import { csdlToSchema } from './csdlToSchema';
 import {
   ServiceEndpointDefinition,
   Experimental_DidFailCompositionCallback,
@@ -75,6 +71,7 @@ import {
 } from './config';
 import { loadCsdlFromStorage } from './loadCsdlFromStorage';
 import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorage';
+import { buildComposedSchema } from '@apollo/query-planner';
 
 type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
 
@@ -679,8 +676,10 @@ export class ApolloGateway implements GraphQLService {
           errors.map((e) => '\t' + e.message).join('\n'),
       );
     } else {
-      const { composedSdl } = compositionResult;
+      const { coreSchema: composedSdl } = compositionResult;
       this.createServices(serviceList);
+
+      const schema = buildComposedSchema(parse(composedSdl));
 
       this.logger.debug('Schema loaded and ready for execution');
 
@@ -691,39 +690,27 @@ export class ApolloGateway implements GraphQLService {
       // the shape of the root value already contains the aliased fields as
       // responseNames
       return {
-        schema: wrapSchemaWithAliasResolver(csdlToSchema(composedSdl)),
+        schema: wrapSchemaWithAliasResolver(schema),
         composedSdl,
       };
     }
   }
 
-  private serviceListFromCsdl(csdl: DocumentNode) {
-    const serviceList: Omit<ServiceDefinition, 'typeDefs'>[] = [];
+  private serviceListFromCsdl(csdl: DocumentNode): Omit<ServiceDefinition, 'typeDefs'>[] {
+    const schema = buildComposedSchema(csdl);
+    return this.serviceListFromComposedSchema(schema);
+  }
 
-    visit(csdl, {
-      SchemaDefinition(node) {
-        findDirectivesOnNode(node, 'graph').forEach((directive) => {
-          const name = directive.arguments?.find(
-            (arg) => arg.name.value === 'name',
-          );
-          const url = directive.arguments?.find(
-            (arg) => arg.name.value === 'url',
-          );
+  private serviceListFromComposedSchema(schema: GraphQLSchema) {
+    const serviceMap = schema.extensions?.federation?.graphs;
+    if (!serviceMap) {
+      throw Error(`Couldn't find services in composed schema`);
+    }
 
-          if (
-            name &&
-            isStringValueNode(name.value) &&
-            url &&
-            isStringValueNode(url.value)
-          ) {
-            serviceList.push({
-              name: name.value.value,
-              url: url.value.value,
-            });
-          }
-        });
-      },
-    });
+    const serviceList = Object.values(serviceMap).map(service => ({
+      name: service.serviceName,
+      url: service.url
+    }))
 
     return serviceList;
   }
@@ -731,12 +718,15 @@ export class ApolloGateway implements GraphQLService {
   private createSchemaFromCsdl(csdl: string) {
     // TODO(trevor): #580 redundant parse
     this.parsedCsdl = parse(csdl);
-    const serviceList = this.serviceListFromCsdl(this.parsedCsdl);
+
+    const schema = buildComposedSchema(this.parsedCsdl);
+
+    const serviceList = this.serviceListFromComposedSchema(schema);
 
     this.createServices(serviceList);
 
     return {
-      schema: wrapSchemaWithAliasResolver(csdlToSchema(csdl)),
+      schema: wrapSchemaWithAliasResolver(schema),
       composedSdl: csdl,
     };
   }

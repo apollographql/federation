@@ -1,54 +1,56 @@
 schema
-  @graph(name: "users", url: "undefined")
-  @graph(name: "reviews", url: "undefined")
-  @graph(name: "actuary", url: "undefined")
-  @composedGraph(version: 1)
+  @core(feature: "https://lib.apollo.dev/core/v0.1"),
+  @core(feature: "https://lib.apollo.dev/join/v0.1")
 {
   query: Query
 }
 
-directive @composedGraph(version: Int!) on SCHEMA
+directive @core(feature: String!) repeatable on SCHEMA
 
-directive @graph(name: String!, url: String!) repeatable on SCHEMA
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
 
-directive @owner(graph: String!) on OBJECT
+directive @join__type(graph: join__Graph, key: join__FieldSet) repeatable on OBJECT | INTERFACE
 
-directive @key(fields: String!, graph: String!) repeatable on OBJECT
+directive @join__owner(graph: join__Graph) on OBJECT | INTERFACE
 
-directive @resolve(graph: String!) on FIELD_DEFINITION
-
-directive @provides(fields: String!) on FIELD_DEFINITION
-
-directive @requires(fields: String!) on FIELD_DEFINITION
+directive @join__endpoint(serviceName: String, url: String) on ENUM_VALUE
 
 type Group {
-  id: ID
-  name: String
+  id: ID @join__field(graph: USERS)
+  name: String @join__field(graph: USERS)
+}
+
+scalar join__FieldSet
+
+enum join__Graph {
+  USERS @join__endpoint(serviceName: "users" url: "undefined")
+  REVIEWS @join__endpoint(serviceName: "reviews" url: "undefined")
+  ACTUARY @join__endpoint(serviceName: "actuary" url: "undefined")
 }
 
 type Query {
-  users: [User!]! @resolve(graph: "users")
-  reviews: [Review!]! @resolve(graph: "reviews")
+  users: [User!]! @join__field(graph: USERS)
+  reviews: [Review!]! @join__field(graph: REVIEWS)
 }
 
 type Review {
-  id: ID!
-  author: User!
-  body: String!
+  id: ID! @join__field(graph: REVIEWS)
+  author: User! @join__field(graph: REVIEWS)
+  body: String! @join__field(graph: REVIEWS)
 }
 
 type User
-  @owner(graph: "users")
-  @key(fields: "{ ssn }", graph: "users")
-  @key(fields: "{ id }", graph: "users")
-  @key(fields: "{ group { id } }", graph: "users")
-  @key(fields: "{ id }", graph: "reviews")
-  @key(fields: "{ ssn }", graph: "actuary")
+  @join__owner(graph: USERS)
+  @join__type(graph: USERS, key: "ssn")
+  @join__type(graph: USERS, key: "id")
+  @join__type(graph: USERS, key: "group { id }")
+  @join__type(graph: REVIEWS, key: "id")
+  @join__type(graph: ACTUARY, key: "ssn")
 {
-  id: ID!
-  ssn: ID!
-  name: String!
-  group: Group
-  reviews: [Review!]! @resolve(graph: "reviews")
-  risk: Float @resolve(graph: "actuary")
+  id: ID! @join__field(graph: USERS)
+  ssn: ID! @join__field(graph: USERS)
+  name: String! @join__field(graph: USERS)
+  group: Group @join__field(graph: USERS)
+  reviews: [Review!]! @join__field(graph: REVIEWS)
+  risk: Float @join__field(graph: ACTUARY)
 }

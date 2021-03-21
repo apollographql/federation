@@ -1,4 +1,5 @@
 import {
+  ASTKindToNode,
   ASTNode,
   DirectiveNode,
   FieldNode,
@@ -147,4 +148,9 @@ export function getArgumentValuesForRepeatableDirective(
   return directiveNodes.map((directiveNode) =>
     getArgumentValues(directiveDef, directiveNode),
   );
+}
+
+export function isASTKind<K extends ASTNode['kind']>(...kinds: K[]) {
+  return (node: ASTNode): node is ASTKindToNode[K] =>
+    kinds.some((kind) => node.kind === kind);
 }

@@ -1,40 +1,87 @@
 import {
   buildASTSchema,
+  DocumentNode,
   GraphQLSchema,
+  isEnumType,
   isIntrospectionType,
   isObjectType,
-  parse,
-  Source,
 } from 'graphql';
 import { assert } from '../utilities/assert';
 import {
   getArgumentValuesForDirective,
   getArgumentValuesForRepeatableDirective,
-  parseSelectionSet,
+  isASTKind,
+  parseSelections,
 } from '../utilities/graphql';
 import { MultiMap } from '../utilities/MultiMap';
 import {
-  DetachDirective,
-  KeyDirective,
-  OwnerDirective,
-  ProvidesDirective,
-  RequiresDirective,
-  ResolveDirective,
-} from './csdlDirectives';
-import {
   FederationFieldMetadata,
   FederationTypeMetadata,
-  SelectionSet,
+  FieldSet,
+  GraphMap,
 } from './metadata';
 
-export function buildComposedSchema(source: string | Source): GraphQLSchema {
-  const document = parse(source);
+export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   const schema = buildASTSchema(document);
+
+  const coreDirective = schema.getDirective('core');
+  assert(coreDirective, `Expected core schema, but can't find @core directive`);
+
+  // TODO: We should follow the core schema spec here and `@core` directives
+  // on `schema` to validate feature versions and handle renames.
+
+  const joinSpecPrefix = 'join';
+
+  function getJoinDirective(name: string) {
+    const fullyQualifiedName = `${joinSpecPrefix}__${name}`;
+
+    const directive = schema.getDirective(fullyQualifiedName);
+    assert(
+      directive,
+      `Composed schema should define @${fullyQualifiedName} directive`
+    )
+    return directive;
+  }
+
+  const ownerDirective = getJoinDirective('owner');
+  const typeDirective = getJoinDirective('type');
+  const fieldDirective = getJoinDirective('field');
+  const endpointDirective = getJoinDirective('endpoint');
+
+  const graphEnumType = schema.getType(`${joinSpecPrefix}__Graph`);
+  assert(isEnumType(graphEnumType));
+
+  const graphMap: GraphMap = Object.create(null);
+
+  schema.extensions = {
+    ...schema.extensions,
+    federation: {
+      graphs: graphMap
+    },
+  };
+
+  for (const graphValue of graphEnumType.getValues()) {
+    const name = graphValue.name;
+
+    const endpointDirectiveArgs = getArgumentValuesForDirective(endpointDirective, graphValue.astNode!);
+    assert(
+      endpointDirectiveArgs,
+      `${graphEnumType.name} value ${name} in composed schema should have a @${endpointDirective.name} directive`,
+    );
+
+    const serviceName: string = endpointDirectiveArgs['serviceName'];
+    const url: string = endpointDirectiveArgs['url'];
+
+    graphMap[name] = {
+      serviceName,
+      url
+    }
+  }
 
   for (const type of Object.values(schema.getTypeMap())) {
     if (isIntrospectionType(type)) continue;
 
-    // We currently only allow @owner and @key directives on object types.
+    // We currently only allow join spec directives on object types.
     if (!isObjectType(type)) continue;
 
     assert(
@@ -43,13 +90,13 @@ export function buildComposedSchema(source: string | Source): GraphQLSchema {
     );
 
     const ownerDirectiveArgs = getArgumentValuesForDirective(
-      OwnerDirective,
+      ownerDirective,
       type.astNode,
     );
 
     const typeMetadata: FederationTypeMetadata = ownerDirectiveArgs
       ? {
-          serviceName: ownerDirectiveArgs['graph'],
+          serviceName: graphMap[ownerDirectiveArgs?.['graph']].serviceName,
           keys: new MultiMap(),
           isValueType: false,
         }
@@ -62,22 +109,23 @@ export function buildComposedSchema(source: string | Source): GraphQLSchema {
       federation: typeMetadata,
     };
 
-    const keyDirectivesArgs = getArgumentValuesForRepeatableDirective(
-      KeyDirective,
+    const typeDirectivesArgs = getArgumentValuesForRepeatableDirective(
+      typeDirective,
       type.astNode,
     );
 
     assert(
-      !(typeMetadata.isValueType && keyDirectivesArgs.length >= 1),
-      `GraphQL type "${type.name}" cannot have a @key directive without an @owner directive`,
+      !(typeMetadata.isValueType && typeDirectivesArgs.length >= 1),
+      `GraphQL type "${type.name}" cannot have a @${typeDirective.name} \
+directive without an $${ownerDirective.name} directive`,
     );
 
-    for (const keyDirectiveArgs of keyDirectivesArgs) {
-      const graphName: string = keyDirectiveArgs['graph'];
-      const fields: SelectionSet = parseSelectionSet(keyDirectiveArgs['fields'])
-        .selections;
+    for (const typeDirectiveArgs of typeDirectivesArgs) {
+      const serviceName = graphMap[typeDirectiveArgs['graph']].serviceName;
 
-      typeMetadata.keys?.add(graphName, fields);
+      const keyFields = parseFieldSet(typeDirectiveArgs['key']);
+
+      typeMetadata.keys?.add(serviceName, keyFields);
     }
 
     for (const fieldDef of Object.values(type.getFields())) {
@@ -86,14 +134,16 @@ export function buildComposedSchema(source: string | Source): GraphQLSchema {
         `Field "${type.name}.${fieldDef.name}" should contain AST nodes`,
       );
 
-      const resolveDirectiveArgs = getArgumentValuesForDirective(
-        ResolveDirective,
+      const fieldDirectiveArgs = getArgumentValuesForDirective(
+        fieldDirective,
         fieldDef.astNode,
       );
 
+      if (!fieldDirectiveArgs) continue;
+
       const fieldMetadata: FederationFieldMetadata = {
         serviceName:
-          resolveDirectiveArgs?.['graph'] ?? typeMetadata.serviceName,
+          graphMap[fieldDirectiveArgs?.['graph']]?.serviceName
       };
 
       fieldDef.extensions = {
@@ -101,38 +151,32 @@ export function buildComposedSchema(source: string | Source): GraphQLSchema {
         federation: fieldMetadata,
       };
 
-      const requiresDirectiveArgs = getArgumentValuesForDirective(
-        RequiresDirective,
-        fieldDef.astNode,
-      );
+      if (fieldDirectiveArgs) {
+        const { requires, provides } = fieldDirectiveArgs;
 
-      if (requiresDirectiveArgs) {
-        fieldMetadata.requires = parseSelectionSet(
-          requiresDirectiveArgs['fields'],
-        ).selections;
-      }
+        if (requires) {
+          fieldMetadata.requires = parseFieldSet(requires);
+        }
 
-      const providesDirectiveArgs = getArgumentValuesForDirective(
-        ProvidesDirective,
-        fieldDef.astNode,
-      );
-
-      if (providesDirectiveArgs) {
-        fieldMetadata.provides = parseSelectionSet(
-          providesDirectiveArgs['fields'],
-        ).selections;
-      }
-
-      const detachDirectiveArgs = getArgumentValuesForDirective(
-        DetachDirective,
-        fieldDef.astNode,
-      );
-
-      if (detachDirectiveArgs) {
-        fieldMetadata.shouldDetach = true;
+        if (provides) {
+          fieldMetadata.provides = parseFieldSet(provides);
+        }
       }
     }
   }
 
   return schema;
+}
+
+function parseFieldSet(source: string): FieldSet {
+  const selections = parseSelections(source);
+
+  assert(
+    selections.every(isASTKind('Field', 'InlineFragment')),
+    `Field sets may not contain fragments spreads, but found: "${source}"`,
+  );
+
+  assert(selections.length > 0, `Field sets may not be empty`);
+
+  return selections;
 }

@@ -1,7 +1,11 @@
-import { GraphQLField, GraphQLObjectType, SelectionNode } from 'graphql';
+import { FieldNode, InlineFragmentNode, GraphQLField, GraphQLObjectType } from 'graphql';
 import { MultiMap } from '../utilities/MultiMap';
 
 declare module 'graphql' {
+  interface GraphQLSchemaExtensions {
+    federation?: FederationSchemaMetadata;
+  }
+
   interface GraphQLObjectTypeExtensions {
     federation?: FederationTypeMetadata;
   }
@@ -28,17 +32,25 @@ export function getFederationMetadataForField(
 }
 
 export type ServiceName = string;
-export type SelectionSet = readonly SelectionNode[];
+export type FieldSet = readonly (FieldNode | InlineFragmentNode)[];
 
+export interface Endpoint {
+  serviceName: string;
+  url: string;
+}
+
+export type GraphMap = { [graphName: string]: Endpoint };
+export interface FederationSchemaMetadata {
+  graphs: GraphMap;
+}
 export interface FederationTypeMetadata {
   serviceName?: ServiceName;
-  keys?: MultiMap<ServiceName, SelectionSet>;
+  keys?: MultiMap<ServiceName, FieldSet>;
   isValueType: boolean;
 }
 
 export interface FederationFieldMetadata {
   serviceName?: ServiceName;
-  requires?: SelectionSet;
-  provides?: SelectionSet;
-  shouldDetach?: boolean;
+  requires?: FieldSet;
+  provides?: FieldSet;
 }

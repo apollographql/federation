@@ -39,7 +39,7 @@ for (const directory of directories) {
 
       beforeAll(() => {
         const csdl = fs.readFileSync(schemaPath, 'utf8');
-        schema = buildComposedSchema(csdl);
+        schema = buildComposedSchema(parse(csdl));
       });
 
       feature.scenarios.forEach((scenario) => {
