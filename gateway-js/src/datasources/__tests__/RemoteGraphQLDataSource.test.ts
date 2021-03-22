@@ -1,5 +1,5 @@
 import { fetch } from '../../__mocks__/apollo-server-env';
-import { makeFetchHappenFetcher} from '../../__mocks__/make-fetch-happen-fetcher';
+import { makeFetchHappenFetcher } from '../../__mocks__/make-fetch-happen-fetcher';
 
 import {
   ApolloError,
@@ -33,7 +33,7 @@ describe('constructing requests', () => {
       expect(data).toEqual({ me: 'james' });
       expect(fetch).toBeCalledTimes(1);
       expect(fetch).toHaveFetched('https://api.example.com/foo', {
-        body: { query: '{ me { name } }' }
+        body: { query: '{ me { name } }' },
       });
     });
 
@@ -67,21 +67,23 @@ describe('constructing requests', () => {
 
     // This is a SHA-256 hash of `query` above.
     const sha256Hash =
-      "b8d9506e34c83b0e53c2aa463624fcea354713bc38f95276e6f0bd893ffb5b88";
+      'b8d9506e34c83b0e53c2aa463624fcea354713bc38f95276e6f0bd893ffb5b88';
 
     describe('miss', () => {
       const apqNotFoundResponse = {
-        "errors": [
+        errors: [
           {
-            "message": "PersistedQueryNotFound",
-            "extensions": {
-              "code": "PERSISTED_QUERY_NOT_FOUND",
-              "exception": {
-                "stacktrace": ["PersistedQueryNotFoundError: PersistedQueryNotFound"]
-              }
-            }
-          }
-        ]
+            message: 'PersistedQueryNotFound',
+            extensions: {
+              code: 'PERSISTED_QUERY_NOT_FOUND',
+              exception: {
+                stacktrace: [
+                  'PersistedQueryNotFoundError: PersistedQueryNotFound',
+                ],
+              },
+            },
+          },
+        ],
       };
 
       it('stringifies a request with a query', async () => {
@@ -106,8 +108,8 @@ describe('constructing requests', () => {
               persistedQuery: {
                 version: 1,
                 sha256Hash,
-              }
-            }
+              },
+            },
           },
         });
         expect(fetch).toHaveFetchedNth(2, 'https://api.example.com/foo', {
@@ -117,8 +119,8 @@ describe('constructing requests', () => {
               persistedQuery: {
                 version: 1,
                 sha256Hash,
-              }
-            }
+              },
+            },
           },
         });
       });
@@ -149,8 +151,8 @@ describe('constructing requests', () => {
               persistedQuery: {
                 version: 1,
                 sha256Hash,
-              }
-            }
+              },
+            },
           },
         });
         expect(fetch).toHaveFetchedNth(2, 'https://api.example.com/foo', {
@@ -161,8 +163,8 @@ describe('constructing requests', () => {
               persistedQuery: {
                 version: 1,
                 sha256Hash,
-              }
-            }
+              },
+            },
           },
         });
       });
@@ -185,13 +187,13 @@ describe('constructing requests', () => {
         expect(data).toEqual({ me: 'james' });
         expect(fetch).toBeCalledTimes(1);
         expect(fetch).toHaveFetched('https://api.example.com/foo', {
-            body: {
+          body: {
             extensions: {
               persistedQuery: {
                 version: 1,
                 sha256Hash,
-              }
-            }
+              },
+            },
           },
         });
       });
@@ -221,8 +223,8 @@ describe('constructing requests', () => {
               persistedQuery: {
                 version: 1,
                 sha256Hash,
-              }
-            }
+              },
+            },
           },
         });
       });
@@ -232,7 +234,9 @@ describe('constructing requests', () => {
 
 describe('fetcher', () => {
   it('uses a custom provided `fetcher`', async () => {
-    const injectedFetch = fetch.mockJSONResponseOnce({ data: { injected: true } });
+    const injectedFetch = fetch.mockJSONResponseOnce({
+      data: { injected: true },
+    });
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
       fetcher: injectedFetch,
@@ -247,13 +251,13 @@ describe('fetcher', () => {
     });
 
     expect(injectedFetch).toHaveBeenCalled();
-    expect(data).toEqual({injected: true});
-
+    expect(data).toEqual({ injected: true });
   });
 
   it('supports a custom fetcher, like `make-fetch-happen`', async () => {
-    const injectedFetch =
-      makeFetchHappenFetcher.mockJSONResponseOnce({ data: { me: 'james' } });
+    const injectedFetch = makeFetchHappenFetcher.mockJSONResponseOnce({
+      data: { me: 'james' },
+    });
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
       fetcher: injectedFetch,
@@ -269,7 +273,7 @@ describe('fetcher', () => {
 
     expect(injectedFetch).toHaveBeenCalled();
     expect(data).toEqual({ me: 'james' });
-  })
+  });
 });
 
 describe('willSendRequest', () => {
@@ -343,10 +347,12 @@ describe('didReceiveResponse', () => {
       didReceiveResponse<MyContext>({
         request,
         response,
-      }: Required<Pick<
-        GraphQLRequestContext<MyContext>,
+      }: Required<
+        Pick<
+          GraphQLRequestContext<MyContext>,
           'request' | 'response' | 'context'
-      >>) {
+        >
+      >) {
         const surrogateKeys =
           request.http && request.http.headers.get('surrogate-keys');
         if (surrogateKeys) {
@@ -383,44 +389,12 @@ describe('didReceiveResponse', () => {
 
       didReceiveResponse<MyContext>({
         response,
-      }: Required<Pick<
-        GraphQLRequestContext<MyContext>,
+      }: Required<
+        Pick<
+          GraphQLRequestContext<MyContext>,
           'request' | 'response' | 'context'
-      >>) {
-        return response;
-      }
-    }
-
-    const DataSource = new MyDataSource();
-    const spyDidReceiveResponse =
-      jest.spyOn(DataSource, 'didReceiveResponse');
-
-    fetch.mockJSONResponseOnce({ data: { me: 'james' } });
-
-    await DataSource.process({
-      request: {
-        query: '{ me { name } }',
-        variables: { id: '1' },
-      },
-      context: {},
-    });
-
-    expect(spyDidReceiveResponse).toHaveBeenCalledTimes(1);
-
-  });
-
-  // APQ makes two requests, so make sure only one calls the response hook.
-  it('is only called once when apq is enabled', async () => {
-    class MyDataSource extends RemoteGraphQLDataSource {
-      url = 'https://api.example.com/foo';
-      apq = true;
-
-      didReceiveResponse<MyContext>({
-        response,
-      }: Required<Pick<
-        GraphQLRequestContext<MyContext>,
-          'request' | 'response' | 'context'
-      >>) {
+        >
+      >) {
         return response;
       }
     }
@@ -439,7 +413,79 @@ describe('didReceiveResponse', () => {
     });
 
     expect(spyDidReceiveResponse).toHaveBeenCalledTimes(1);
+  });
 
+  // APQ makes two requests, so make sure only one calls the response hook.
+  it('is only called once when apq is enabled', async () => {
+    class MyDataSource extends RemoteGraphQLDataSource {
+      url = 'https://api.example.com/foo';
+      apq = true;
+
+      didReceiveResponse<MyContext>({
+        response,
+      }: Required<
+        Pick<
+          GraphQLRequestContext<MyContext>,
+          'request' | 'response' | 'context'
+        >
+      >) {
+        return response;
+      }
+    }
+
+    const DataSource = new MyDataSource();
+    const spyDidReceiveResponse = jest.spyOn(DataSource, 'didReceiveResponse');
+
+    fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+
+    await DataSource.process({
+      request: {
+        query: '{ me { name } }',
+        variables: { id: '1' },
+      },
+      context: {},
+    });
+
+    expect(spyDidReceiveResponse).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('didEncounterError', () => {
+  it('can accept and modify context', async () => {
+    interface MyContext {
+      timingData: { time: number }[];
+    }
+
+    class MyDataSource extends RemoteGraphQLDataSource<MyContext> {
+      url = 'https://api.example.com/foo';
+
+      didEncounterError(
+        _error: Error,
+        _fetchRequest: Request,
+        _fetchResponse?: Response,
+        _context?: MyContext,
+      ) {
+        // a timestamp a la `Date.now()`
+        context.timingData.push({ time: 1616446845234 });
+      }
+    }
+
+    const DataSource = new MyDataSource();
+
+    fetch.mockResponseOnce('Invalid token', undefined, 401);
+
+    const context: MyContext = { timingData: [] };
+    const result = DataSource.process({
+      request: {
+        query: '{ me { name } }',
+      },
+      context,
+    });
+
+    await expect(result).rejects.toThrow(AuthenticationError);
+    expect(context).toMatchObject({
+      timingData: [{ time: 1616446845234 }]
+    });
   });
 });
 
