@@ -1,71 +1,51 @@
 ---
 title: Value types
+sidebar_title: Reusing types (value types)
 description: Define the exact same type in multiple services
 ---
 
-A natural overlap among identical types between services is not uncommon. Rather than having a single service "own" those types, all services that use them are expected to share ownership. This form of type "duplication" across services is supported for Scalars, Objects, Interfaces, Enums, Unions, and Inputs. The rule of thumb for any of these value types is that the types **must be identical** in name and contents.
-
-## Objects, Interfaces, and Inputs
-For types with field definitions, all fields _and their types_ must be identical.
-
-## Scalars
-For Scalar values, it's important that services **share the same serialization and parsing logic**, since there is no way to validate that logic from the schema level by federation tooling.
-
-## Enums
-For Enum types, all values must match across services. **Even if a service doesn't use all values in an Enum, they still must be defined in the schema**. Failure to include all enum values in all services that use the Enum will result in a validation error when building the federated schema.
-
-## Unions
-Union types must share the same types in the union, even if not all types are used by a service.
-
-In the following example, the Product and User services both use the same `ProductCategory` enum, `Date` scalar, `Error` type, and `ProductOrError` union.
+It's common to reuse a GraphQL type across multiple [implementing services](./implementing-services/). For example, you might define a generic `Error` interface and an `ErrorCode` enum:
 
 ```graphql
-# Product Service
-scalar Date
-
-union ProductOrError = Product | Error
-
-type Error {
-  code: Int!
+interface Error {
+  code: ErrorCode!
   message: String!
 }
 
-type Product @key(fields: "sku"){
-  sku: ID!
-  category: ProductCategory
-  dateCreated: Date
-}
-
-enum ProductCategory {
-  FURNITURE
-  BOOK
-  DIGITAL_DOWNLOAD
-}
-
-# User Service
-scalar Date
-
-union ProductOrError = Product | Error
-
-type Error {
-  code: Int!
-  message: String!
-}
-
-type User @key(fields: "id"){
-  id: ID!
-  dateCreated: Date
-  favoriteCategory: ProductCategory
-  favoriteProducts: [Product!]
-}
-
-enum ProductCategory {
-  FURNITURE
-  BOOK
-  DIGITAL_DOWNLOAD
-}
-
-extend type Product @key(fields: "sku"){
-  sku: ID! @external
+enum ErrorCode {
+  UNKNOWN_ERROR
+  NETWORK_ERROR
+  AUTHENTICATION_ERROR
+  SERVER_ERROR
 }
 ```
+
+These **value types** don't "originate" in a particular service. Instead, _all_ of the services that define a value type share ownership.
+
+Most importantly, a value type must be defined **identically** in every service that defines it. Otherwise, your federated schema will fail composition. Not every service needs to define a particular value type.
+
+Any of the following can be a value type:
+
+* Scalars
+* Objects
+* Interfaces
+* Inputs
+* Enums
+* Unions
+
+
+Considerations for each of these are listed below.
+
+## Scalars
+
+If you define a [custom scalar](https://www.apollographql.com/docs/apollo-server/schema/custom-scalars/) as a value type, make sure all of your implementing services use the exact same serialization and parsing logic for it. The schema composition process _does not_ verify this.
+
+## Objects, interfaces, and inputs
+
+For types with field definitions, all fields _and their types_ must be identical (including nullability).
+
+If an object type is an [entity](./entities/), it _cannot_ be a value type.
+
+## Enums and unions
+
+For enums and unions, **all possible values must match across all defining services**. Even if a particular service doesn't use a particular value, that value still must be defined in the schema. Otherwise, your federated schema will fail composition.
