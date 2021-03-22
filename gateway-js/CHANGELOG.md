@@ -6,6 +6,7 @@
 
 - Enable gateway to fetch CSDL / cloud config in managed mode. This feature is currently opt-in only and should have no effect for existing use cases. After some testing, this behavior will become the default (and should be nearly transparent / non-breaking for users when we do so). It's unintended for users to start using this feature for now unless instructed by Apollo to do so. [PR #458](https://github.com/apollographql/federation/pull/458)
 - __FIX__: followup to #458. Fix typings of `getDefaultFetcher` - `make-fetch-happen` types were not being included in the gateway's compiled `index.d.ts` file. [PR #585](https://github.com/apollographql/federation/pull/585)
+- Provide `context` as a fourth, optional argument to `RemoteGraphQLDataSource.didEncounterError`. This is a non-breaking change which allows implementors to read and modify the `context` object which is already similarly available in other hooks. [PR #600](https://github.com/apollographql/federation/pull/600)
 
 ## v0.24.4
 
