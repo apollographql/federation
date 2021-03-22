@@ -20,11 +20,6 @@ describe('printCoreSchema', () => {
   });
 
   it('produces a parseable output', () => {
-    try {
-      parse(coreSchema);
-    } catch (e) {
-      console.log(JSON.stringify(e));
-    }
     expect(() => parse(coreSchema!)).not.toThrow();
   });
 
