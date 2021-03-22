@@ -1,5 +1,5 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { parse, GraphQLError } from 'graphql';
+import { parse, GraphQLError, visit, StringValueNode } from 'graphql';
 import { composeAndValidate, compositionHasErrors } from '../../composition';
 
 describe('printCoreSchema', () => {
@@ -302,22 +302,29 @@ describe('printCoreSchema', () => {
     `);
   });
 
-  // xit('fieldsets are parseable', () => {
-  //   const parsedCsdl = parse(coreSchema!);
-  //   const fieldSets: string[] = [];
+  it('fieldsets are parseable', () => {
+    const parsedCsdl = parse(coreSchema!);
+    const fieldSets: string[] = [];
 
-  //   // Collect all args with the 'fields' name (from @key, @provides, @requires directives)
-  //   visit(parsedCsdl, {
-  //     Argument(node) {
-  //       if (node.name.value === 'fields') {
-  //         fieldSets.push((node.value as StringValueNode).value);
-  //       }
-  //     },
-  //   });
+    // Collect all args with the `key`, `provides`, and `requires` fields
+    // Note: if our testing schema ever begins to include a directive with args
+    // that use any of these names, this test will likely fail and will need to
+    // be a bit less heavy-handed by searching for the specific directives
+    // instead of by argument name.
+    const argNames = ['key', 'requires', 'provides'];
+    visit(parsedCsdl, {
+      Argument(node) {
+        if (argNames.includes(node.name.value)) {
+          fieldSets.push((node.value as StringValueNode).value);
+        }
+      },
+    });
 
-  //   // Ensure each found 'fields' arg is graphql parseable
-  //   fieldSets.forEach((unparsed) => {
-  //     expect(() => parse(unparsed)).not.toThrow();
-  //   });
-  // });
+    // Ensure we're actually finding fieldSets, else this will fail quietly
+    expect(fieldSets).not.toHaveLength(0);
+    // Ensure each fieldSet arg is graphql parseable (when wrapped in curlies, as we do elsewhere)
+    fieldSets.forEach((unparsed) => {
+      expect(() => parse('{' + unparsed + '}')).not.toThrow();
+    });
+  });
 });
