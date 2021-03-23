@@ -170,7 +170,7 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
         http: fetchResponse,
       };
     } catch (error) {
-      this.didEncounterError(error, fetchRequest, fetchResponse);
+      this.didEncounterError(error, fetchRequest, fetchResponse, context);
       throw error;
     }
   }
@@ -192,7 +192,8 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
   public didEncounterError(
     error: Error,
     _fetchRequest: Request,
-    _fetchResponse?: Response
+    _fetchResponse?: Response,
+    _context?: TContext,
   ) {
     throw error;
   }

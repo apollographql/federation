@@ -4,7 +4,11 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- Enable gateway to fetch CSDL / cloud config in managed mode. This feature is currently opt-in only and should have no effect for existing use cases. After some testing, this behavior will become the default (and should be nearly transparent / non-breaking for users when we do so). It's unintended for users to start using this feature for now unless instructed by Apollo to do so. [PR #458](https://github.com/apollographql/federation/pull/458) 
+- _Nothing yet! Stay tuned!_
+## v0.25.0
+
+- Add support for an upcoming mechanism for fetching a graph's schema and configuration when using managed federation. In this release, the new mechanism is opt-in, and users shouldn't use enable it unless instructed by Apollo to do so. [PR #458](https://github.com/apollographql/federation/pull/458) [PR #585](https://github.com/apollographql/federation/pull/585)
+- Provide `context` as a fourth, optional argument to `RemoteGraphQLDataSource.didEncounterError`. This is a non-breaking change which allows implementors to read and modify the `context` object which is already similarly available in other hooks. [PR #600](https://github.com/apollographql/federation/pull/600)
 
 ## v0.24.4
 
