@@ -189,24 +189,8 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
     ? ' implements ' + interfaces.map((i) => i.name).join(' & ')
     : '';
 
-  // TODO: I can't figure out why this is here. I wrote this 8 months ago. Nothing
-  // in the history explains the reason this is needed. When do we have an `extend type`
-  // in the final composed schema?
-  //
-  // Core change: print `extend` keyword on type extensions.
-  //
-  // The implementation assumes that an owned type will have fields defined
-  // since that is required for a valid schema. Types that are *only*
-  // extensions will not have fields on the astNode since that ast doesn't
-  // exist.
-  //
-  // XXX revist extension checking
-  const isExtension =
-    type.extensionASTNodes && type.astNode && !type.astNode.fields;
-
   return (
     printDescription(options, type) +
-    (isExtension ? 'extend ' : '') +
     `type ${type.name}` +
     implementedInterfaces +
     // Core addition for printing @join__owner and @join__type usages
@@ -247,20 +231,8 @@ function printTypeJoinDirectives(type: GraphQLObjectType): string {
 }
 
 function printInterface(type: GraphQLInterfaceType, options?: Options): string {
-  // TODO: I can't figure out why this is here. I wrote this 8 months ago. Nothing
-  // in the history explains the reason this is needed. When do we have an `extend type`
-  // in the final composed schema?
-  //
-  // Core change: print `extend` keyword on type extensions.
-  // See printObject for assumptions made.
-  //
-  // XXX revist extension checking
-  const isExtension =
-    type.extensionASTNodes && type.astNode && !type.astNode.fields;
-
   return (
     printDescription(options, type) +
-    (isExtension ? 'extend ' : '') +
     `interface ${type.name}` +
     printFields(options, type)
   );
