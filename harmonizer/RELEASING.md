@@ -30,5 +30,5 @@
    The reason this command is useful is that we're including JavaScript-built sources in this crate.  (See the [`README.md`](./README.md) for details.)  Therefore, it's critical that `dist/composition.js` and `js/do_compose.js` are included, in addition to `src/**/.rs` and `Cargo.toml` to ensure the package doesn't try to re-compile those sources in the consuming environment (which it will attempt to do with Node.js tooling which we don't want to push the burden of having onto the Rust consumers).
 
    **The `--allow-dirty` flag is required because** Cargo: will not `include` files that are `.gitignore`'d **and** Cargo refuses to publish packages that have untracked files in the working tree.  Since `dist/composition.js` is a larger, `rollup`'d bundle of the entire `@apollo/federation` package that is generated during a build (e.g., in CI, eventually), we don't check it into Git.  There might be another way to manage the inclusion/exception rules here, or we could just check the file into Git in a CI action, but that would seem to create a lot of unnecessary churn on the repository.
-7. Next, also optional, but should be already built if you ran the previous step: `cargo publish --dry-run --allow-dirty`
-8. Finally, `cargo publish --allow-dirty`.
+10. Next, also optional, but should be already built if you ran the previous step: `cargo publish --dry-run --allow-dirty`
+11. Finally, `cargo publish --allow-dirty`.
