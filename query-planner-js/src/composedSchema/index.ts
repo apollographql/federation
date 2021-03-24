@@ -1,2 +1,2 @@
-export * from './buildComposedSchema';
+export { buildComposedSchema } from './buildComposedSchema';
 export * from './metadata';

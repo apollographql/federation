@@ -1,6 +1,8 @@
 import {
   buildASTSchema,
   DocumentNode,
+  GraphQLDirective,
+  GraphQLNamedType,
   GraphQLSchema,
   isEnumType,
   isIntrospectionType,
@@ -24,22 +26,27 @@ import {
 export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   const schema = buildASTSchema(document);
 
-  const coreDirective = schema.getDirective('core');
+  // TODO: We should follow the Bootstrap algorithm from the Core Schema spec
+  // to handle renames of @core itself.
+  const coreName = 'core';
+
+  const coreDirective = schema.getDirective(coreName);
   assert(coreDirective, `Expected core schema, but can't find @core directive`);
 
-  // TODO: We should follow the core schema spec here and `@core` directives
-  // on `schema` to validate feature versions and handle renames.
+  // TODO: We should follow the CollectFeatures algorithm from the Core Schema
+  // spec here, and use th collected features to validate feature
+  // versions and handle renames.
 
-  const joinSpecPrefix = 'join';
+  const joinName = 'join';
 
   function getJoinDirective(name: string) {
-    const fullyQualifiedName = `${joinSpecPrefix}__${name}`;
+    const fullyQualifiedName = `${joinName}__${name}`;
 
     const directive = schema.getDirective(fullyQualifiedName);
     assert(
       directive,
-      `Composed schema should define @${fullyQualifiedName} directive`
-    )
+      `Composed schema should define @${fullyQualifiedName} directive`,
+    );
     return directive;
   }
 
@@ -48,7 +55,7 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   const fieldDirective = getJoinDirective('field');
   const endpointDirective = getJoinDirective('endpoint');
 
-  const graphEnumType = schema.getType(`${joinSpecPrefix}__Graph`);
+  const graphEnumType = schema.getType(`${joinName}__Graph`);
   assert(isEnumType(graphEnumType));
 
   const graphMap: GraphMap = Object.create(null);
@@ -56,14 +63,17 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   schema.extensions = {
     ...schema.extensions,
     federation: {
-      graphs: graphMap
+      graphs: graphMap,
     },
   };
 
   for (const graphValue of graphEnumType.getValues()) {
     const name = graphValue.name;
 
-    const endpointDirectiveArgs = getArgumentValuesForDirective(endpointDirective, graphValue.astNode!);
+    const endpointDirectiveArgs = getArgumentValuesForDirective(
+      endpointDirective,
+      graphValue.astNode!,
+    );
     assert(
       endpointDirectiveArgs,
       `${graphEnumType.name} value ${name} in composed schema should have a @${endpointDirective.name} directive`,
@@ -74,8 +84,8 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
 
     graphMap[name] = {
       serviceName,
-      url
-    }
+      url,
+    };
   }
 
   for (const type of Object.values(schema.getTypeMap())) {
@@ -142,8 +152,7 @@ directive without an $${ownerDirective.name} directive`,
       if (!fieldDirectiveArgs) continue;
 
       const fieldMetadata: FederationFieldMetadata = {
-        serviceName:
-          graphMap[fieldDirectiveArgs?.['graph']]?.serviceName
+        serviceName: graphMap[fieldDirectiveArgs?.['graph']]?.serviceName,
       };
 
       fieldDef.extensions = {
@@ -165,8 +174,34 @@ directive without an $${ownerDirective.name} directive`,
     }
   }
 
-  return schema;
+  // We filter out schema elements that should not be exported to get to the
+  // API schema.
+
+  const schemaConfig = schema.toConfig();
+
+  return new GraphQLSchema({
+    ...schemaConfig,
+    types: schemaConfig.types.filter(isExported),
+    directives: schemaConfig.directives.filter(isExported),
+  });
+
+  // TODO: Implement the IsExported algorithm from the Core Schema spec.
+  function isExported(element: NamedSchemaElement) {
+    return !(isAssociatedWithFeature(element, coreName) || isAssociatedWithFeature(element, joinName))
+  }
+
+  function isAssociatedWithFeature(
+    element: NamedSchemaElement,
+    featureName: string,
+  ) {
+    return (
+      element.name === `${featureName}` ||
+      element.name.startsWith(`${featureName}__`)
+    );
+  }
 }
+
+type NamedSchemaElement = GraphQLDirective | GraphQLNamedType;
 
 function parseFieldSet(source: string): FieldSet {
   const selections = parseSelections(source);
