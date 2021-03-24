@@ -44,6 +44,12 @@ type Options = {
   commentDescriptions?: boolean;
 };
 
+interface PrintingContext {
+  // Core addition: we need access to a map from serviceName to its corresponding
+  // sanitized / uniquified enum value `Name` from the `join__Graph` enum
+  sanitizedServiceNames: Record<string, string>;
+}
+
 /**
  * Accepts options as an optional third argument:
  *
@@ -65,7 +71,8 @@ export function printCoreSchema(
     JoinTypeDirective,
     JoinOwnerDirective,
     JoinGraphEnum,
-    JoinGraphDirective
+    JoinGraphDirective,
+    sanitizedServiceNames,
   } = getJoins(serviceList);
 
   schema = new GraphQLSchema({
@@ -81,11 +88,16 @@ export function printCoreSchema(
     types: [FieldSetScalar, JoinGraphEnum, ...config.types],
   });
 
+  const context: PrintingContext = {
+    sanitizedServiceNames,
+  }
+
   return printFilteredSchema(
     schema,
     (n) => !isSpecifiedDirective(n),
     isDefinedType,
     options,
+    context,
   );
 }
 
@@ -107,10 +119,11 @@ function isDefinedType(type: GraphQLNamedType): boolean {
 
 function printFilteredSchema(
   schema: GraphQLSchema,
-  // serviceList: ServiceDefinition[],
   directiveFilter: (type: GraphQLDirective) => boolean,
   typeFilter: (type: GraphQLNamedType) => boolean,
   options?: Options,
+  // Core addition - see `PrintingContext` type for details
+  context?: PrintingContext,
 ): string {
   const directives = schema.getDirectives().filter(directiveFilter);
   const types = Object.values(schema.getTypeMap())
@@ -120,8 +133,8 @@ function printFilteredSchema(
   return (
     [printSchemaDefinition(schema)]
       .concat(
-        directives.map(directive => printDirective(directive, options)),
-        types.map(type => printType(type, options)),
+        directives.map((directive) => printDirective(directive, options)),
+        types.map((type) => printType(type, options, context)),
       )
       .filter(Boolean)
       .join('\n\n') + '\n'
@@ -161,11 +174,16 @@ function printCoreDirectives() {
   ].map((feature) => `\n  @core(feature: "${feature}")`);
 }
 
-export function printType(type: GraphQLNamedType, options?: Options): string {
+export function printType(
+  type: GraphQLNamedType,
+  options?: Options,
+  // Core addition - see `PrintingContext` type for details
+  context?: PrintingContext,
+): string {
   if (isScalarType(type)) {
     return printScalar(type, options);
   } else if (isObjectType(type)) {
-    return printObject(type, options);
+    return printObject(type, options, context);
   } else if (isInterfaceType(type)) {
     return printInterface(type, options);
   } else if (isUnionType(type)) {
@@ -183,7 +201,12 @@ function printScalar(type: GraphQLScalarType, options?: Options): string {
   return printDescription(options, type) + `scalar ${type.name}`;
 }
 
-function printObject(type: GraphQLObjectType, options?: Options): string {
+function printObject(
+  type: GraphQLObjectType,
+  options?: Options,
+  // Core addition - see `PrintingContext` type for details
+  context?: PrintingContext,
+): string {
   const interfaces = type.getInterfaces();
   const implementedInterfaces = interfaces.length
     ? ' implements ' + interfaces.map((i) => i.name).join(' & ')
@@ -194,13 +217,17 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
     `type ${type.name}` +
     implementedInterfaces +
     // Core addition for printing @join__owner and @join__type usages
-    printTypeJoinDirectives(type) +
-    printFields(options, type)
+    printTypeJoinDirectives(type, context) +
+    printFields(options, type, context)
   );
 }
 
 // Core change: print @join__owner and @join__type usages
-function printTypeJoinDirectives(type: GraphQLObjectType): string {
+function printTypeJoinDirectives(
+  type: GraphQLObjectType,
+  // Core addition - see `PrintingContext` type for details
+  context?: PrintingContext,
+): string {
   const metadata: FederationType = type.extensions?.federation;
   if (!metadata) return '';
 
@@ -209,20 +236,25 @@ function printTypeJoinDirectives(type: GraphQLObjectType): string {
 
   // Separate owner @keys from the rest of the @keys so we can print them
   // adjacent to the @owner directive.
-  const { [ownerService]: ownerKeys = [], ...restKeys } = keys
-  const ownerEntry: [string, (readonly SelectionNode[])[]] = [ownerService, ownerKeys];
+  const { [ownerService]: ownerKeys = [], ...restKeys } = keys;
+  const ownerEntry: [string, (readonly SelectionNode[])[]] = [
+    ownerService,
+    ownerKeys,
+  ];
   const restEntries = Object.entries(restKeys);
 
   return (
-    `\n  @join__owner(graph: ${ownerService.toUpperCase()})` +
+    `\n  @join__owner(graph: ${
+      context?.sanitizedServiceNames[ownerService] ?? ownerService
+    })` +
     [ownerEntry, ...restEntries]
       .map(([service, keys = []]) =>
         keys
           .map(
             (selections) =>
-              `\n  @join__type(graph: ${service.toUpperCase()}, key: "${printFieldSet(
-                selections,
-              )}")`,
+              `\n  @join__type(graph: ${
+                context?.sanitizedServiceNames[service] ?? service
+              }, key: "${printFieldSet(selections)}")`,
           )
           .join(''),
       )
@@ -230,11 +262,16 @@ function printTypeJoinDirectives(type: GraphQLObjectType): string {
   );
 }
 
-function printInterface(type: GraphQLInterfaceType, options?: Options): string {
+function printInterface(
+  type: GraphQLInterfaceType,
+  options?: Options,
+  // Core addition - see `PrintingContext` type for details
+  context?: PrintingContext,
+): string {
   return (
     printDescription(options, type) +
     `interface ${type.name}` +
-    printFields(options, type)
+    printFields(options, type, context)
   );
 }
 
@@ -284,8 +321,9 @@ function printInputObject(
 function printFields(
   options: Options | undefined,
   type: GraphQLObjectType | GraphQLInterfaceType,
+  // Core addition - see `PrintingContext` type for details
+  context?: PrintingContext,
 ) {
-
   const fields = Object.values(type.getFields()).map(
     (f, i) =>
       printDescription(options, f, '  ', !i) +
@@ -295,7 +333,7 @@ function printFields(
       ': ' +
       String(f.type) +
       printDeprecated(f) +
-      printJoinFieldDirectives(f, type),
+      printJoinFieldDirectives(f, type, context),
   );
 
   // Core change: for entities, we want to print the block on a new line.
@@ -329,6 +367,8 @@ function printFieldSet(selections: readonly SelectionNode[]): string {
 function printJoinFieldDirectives(
   field: GraphQLField<any, any>,
   parentType: GraphQLObjectType | GraphQLInterfaceType,
+  // Core addition - see `PrintingContext` type for details
+  context?: PrintingContext,
 ): string {
   let printed = ' @join__field(';
   // Fields on the owning service do not have any federation metadata applied
@@ -341,8 +381,18 @@ function printJoinFieldDirectives(
     // Because we print `@join__type` directives based on the keys, but only used to
     // look at the owning service here, that meant we would print `@join__field`
     // without a corresponding `@join__type`, which is invalid according to the spec.
-    if (parentType.extensions?.federation?.serviceName && parentType.extensions?.federation?.keys) {
-      return printed + `graph: ${parentType.extensions?.federation.serviceName.toUpperCase()})`;
+    if (
+      parentType.extensions?.federation?.serviceName &&
+      parentType.extensions?.federation?.keys
+    ) {
+      return (
+        printed +
+        `graph: ${
+          context?.sanitizedServiceNames[
+            parentType.extensions?.federation.serviceName
+          ] ?? parentType.extensions?.federation.serviceName
+        })`
+      );
     }
     return '';
   }
@@ -356,7 +406,9 @@ function printJoinFieldDirectives(
   let directiveArgs: string[] = [];
 
   if (serviceName && serviceName.length > 0) {
-    directiveArgs.push(`graph: ${serviceName.toUpperCase()}`);
+    directiveArgs.push(
+      `graph: ${context?.sanitizedServiceNames[serviceName] ?? serviceName}`,
+    );
   }
 
   if (requires.length > 0) {
