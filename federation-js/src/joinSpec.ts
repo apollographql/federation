@@ -12,15 +12,15 @@ const FieldSetScalar = new GraphQLScalarType({
   name: 'join__FieldSet',
 });
 
-const EndpointDirective = new GraphQLDirective({
-  name: "join__endpoint",
+const JoinGraphDirective = new GraphQLDirective({
+  name: "join__graph",
   locations: [DirectiveLocation.ENUM_VALUE],
   args: {
-    serviceName: {
-      type: GraphQLString,
+    name: {
+      type: new GraphQLNonNull(GraphQLString),
     },
     url: {
-      type: GraphQLString,
+      type: new GraphQLNonNull(GraphQLString),
     },
   }
 });
@@ -92,6 +92,6 @@ export function getJoins(serviceList: ServiceDefinition[]) {
     JoinFieldDirective,
     JoinOwnerDirective,
     JoinGraphEnum,
-    EndpointDirective,
+    JoinGraphDirective,
   }
 }

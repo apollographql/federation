@@ -53,7 +53,7 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   const ownerDirective = getJoinDirective('owner');
   const typeDirective = getJoinDirective('type');
   const fieldDirective = getJoinDirective('field');
-  const endpointDirective = getJoinDirective('endpoint');
+  const graphDirective = getJoinDirective('graph');
 
   const graphEnumType = schema.getType(`${joinName}__Graph`);
   assert(isEnumType(graphEnumType));
@@ -71,15 +71,15 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
     const name = graphValue.name;
 
     const endpointDirectiveArgs = getArgumentValuesForDirective(
-      endpointDirective,
+      graphDirective,
       graphValue.astNode!,
     );
     assert(
       endpointDirectiveArgs,
-      `${graphEnumType.name} value ${name} in composed schema should have a @${endpointDirective.name} directive`,
+      `${graphEnumType.name} value ${name} in composed schema should have a @${graphDirective.name} directive`,
     );
 
-    const serviceName: string = endpointDirectiveArgs['serviceName'];
+    const serviceName: string = endpointDirectiveArgs['name'];
     const url: string = endpointDirectiveArgs['url'];
 
     graphMap[name] = {

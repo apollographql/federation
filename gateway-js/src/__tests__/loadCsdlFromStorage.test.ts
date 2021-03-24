@@ -39,7 +39,7 @@ describe('loadCsdlFromStorage', () => {
 
       directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
 
-      directive @join__endpoint(serviceName: String, url: String) on ENUM_VALUE
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
       directive @stream on FIELD
 
@@ -129,12 +129,12 @@ describe('loadCsdlFromStorage', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        ACCOUNTS @join__endpoint(serviceName: \\"accounts\\" url: \\"https://accounts.api.com\\")
-        BOOKS @join__endpoint(serviceName: \\"books\\" url: \\"https://books.api.com\\")
-        DOCUMENTS @join__endpoint(serviceName: \\"documents\\" url: \\"https://documents.api.com\\")
-        INVENTORY @join__endpoint(serviceName: \\"inventory\\" url: \\"https://inventory.api.com\\")
-        PRODUCT @join__endpoint(serviceName: \\"product\\" url: \\"https://product.api.com\\")
-        REVIEWS @join__endpoint(serviceName: \\"reviews\\" url: \\"https://reviews.api.com\\")
+        ACCOUNTS @join__graph(name: \\"accounts\\" url: \\"https://accounts.api.com\\")
+        BOOKS @join__graph(name: \\"books\\" url: \\"https://books.api.com\\")
+        DOCUMENTS @join__graph(name: \\"documents\\" url: \\"https://documents.api.com\\")
+        INVENTORY @join__graph(name: \\"inventory\\" url: \\"https://inventory.api.com\\")
+        PRODUCT @join__graph(name: \\"product\\" url: \\"https://product.api.com\\")
+        REVIEWS @join__graph(name: \\"reviews\\" url: \\"https://reviews.api.com\\")
       }
 
       type KeyValue {

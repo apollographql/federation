@@ -65,7 +65,7 @@ export function printCoreSchema(
     JoinTypeDirective,
     JoinOwnerDirective,
     JoinGraphEnum,
-    EndpointDirective
+    JoinGraphDirective
   } = getJoins(serviceList);
 
   schema = new GraphQLSchema({
@@ -75,7 +75,7 @@ export function printCoreSchema(
       JoinFieldDirective,
       JoinTypeDirective,
       JoinOwnerDirective,
-      EndpointDirective,
+      JoinGraphDirective,
       ...config.directives,
     ],
     types: [FieldSetScalar, JoinGraphEnum, ...config.types],
@@ -263,7 +263,7 @@ function printEnum(type: GraphQLEnumType, options?: Options): string {
 
 function printEndpointDirective(type: GraphQLEnumType, value: GraphQLEnumValue) {
   if (type.name === "join__Graph") {
-    return ` @join__endpoint(serviceName: "${value.value.name}" url: "${value.value.url}")`
+    return ` @join__graph(name: "${value.value.name}" url: "${value.value.url}")`
   }
   return '';
 }
