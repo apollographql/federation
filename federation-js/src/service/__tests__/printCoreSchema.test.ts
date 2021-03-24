@@ -50,7 +50,7 @@ describe('printCoreSchema', () => {
       union AccountType = PasswordAccount | SMSAccount
 
       type Amazon {
-        referrer: String @join__field(graph: PRODUCT)
+        referrer: String
       }
 
       union Body = Image | Text
@@ -116,16 +116,16 @@ describe('printCoreSchema', () => {
       }
 
       type Ikea {
-        asile: Int @join__field(graph: PRODUCT)
+        asile: Int
       }
 
       type Image {
-        name: String! @join__field(graph: DOCUMENTS)
-        attributes: ImageAttributes! @join__field(graph: DOCUMENTS)
+        name: String!
+        attributes: ImageAttributes!
       }
 
       type ImageAttributes {
-        url: String! @join__field(graph: DOCUMENTS)
+        url: String!
       }
 
       scalar join__FieldSet
@@ -164,8 +164,8 @@ describe('printCoreSchema', () => {
       }
 
       type Name {
-        first: String @join__field(graph: ACCOUNTS)
-        last: String @join__field(graph: ACCOUNTS)
+        first: String
+        last: String
       }
 
       type PasswordAccount
@@ -176,27 +176,27 @@ describe('printCoreSchema', () => {
       }
 
       interface Product {
-        upc: String! @join__field(graph: PRODUCT)
-        sku: String! @join__field(graph: PRODUCT)
-        name: String @join__field(graph: PRODUCT)
-        price: String @join__field(graph: PRODUCT)
-        details: ProductDetails @join__field(graph: PRODUCT)
-        inStock: Boolean @join__field(graph: PRODUCT)
-        reviews: [Review] @join__field(graph: PRODUCT)
+        upc: String!
+        sku: String!
+        name: String
+        price: String
+        details: ProductDetails
+        inStock: Boolean
+        reviews: [Review]
       }
 
       interface ProductDetails {
-        country: String @join__field(graph: PRODUCT)
+        country: String
       }
 
       type ProductDetailsBook implements ProductDetails {
-        country: String @join__field(graph: PRODUCT)
-        pages: Int @join__field(graph: PRODUCT)
+        country: String
+        pages: Int
       }
 
       type ProductDetailsFurniture implements ProductDetails {
-        country: String @join__field(graph: PRODUCT)
-        color: String @join__field(graph: PRODUCT)
+        country: String
+        color: String
       }
 
       type Query {
@@ -232,13 +232,13 @@ describe('printCoreSchema', () => {
       }
 
       type Text {
-        name: String! @join__field(graph: DOCUMENTS)
-        attributes: TextAttributes! @join__field(graph: DOCUMENTS)
+        name: String!
+        attributes: TextAttributes!
       }
 
       type TextAttributes {
-        bold: Boolean @join__field(graph: DOCUMENTS)
-        text: String @join__field(graph: DOCUMENTS)
+        bold: Boolean
+        text: String
       }
 
       union Thing = Car | Ikea
@@ -271,9 +271,9 @@ describe('printCoreSchema', () => {
       }
 
       type UserMetadata {
-        name: String @join__field(graph: ACCOUNTS)
-        address: String @join__field(graph: ACCOUNTS)
-        description: String @join__field(graph: ACCOUNTS)
+        name: String
+        address: String
+        description: String
       }
 
       type Van implements Vehicle
@@ -288,10 +288,10 @@ describe('printCoreSchema', () => {
       }
 
       interface Vehicle {
-        id: String! @join__field(graph: PRODUCT)
-        description: String @join__field(graph: PRODUCT)
-        price: String @join__field(graph: PRODUCT)
-        retailPrice: String @join__field(graph: PRODUCT)
+        id: String!
+        description: String
+        price: String
+        retailPrice: String
       }
       "
     `);

@@ -333,8 +333,15 @@ function printJoinFieldDirectives(
   let printed = ' @join__field(';
   // Fields on the owning service do not have any federation metadata applied
   // TODO: maybe make this metadata available? Though I think this is intended and we may depend on that implicity.
+
   if (!field.extensions?.federation) {
-    if (parentType.extensions?.federation?.serviceName) {
+    // FIXME: We should change the way we detect value types. If a type is
+    // defined in only one service, we currently don't consider it a value type
+    // even if it doesn't specify any keys.
+    // Because we print `@join__type` directives based on the keys, but only used to
+    // look at the owning service here, that meant we would print `@join__field`
+    // without a corresponding `@join__type`, which is invalid according to the spec.
+    if (parentType.extensions?.federation?.serviceName && parentType.extensions?.federation?.keys) {
       return printed + `graph: ${parentType.extensions?.federation.serviceName.toUpperCase()})`;
     }
     return '';

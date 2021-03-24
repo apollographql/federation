@@ -16,8 +16,8 @@ directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
 directive @join__endpoint(serviceName: String, url: String) on ENUM_VALUE
 
 type Group {
-  id: ID @join__field(graph: USERS)
-  name: String @join__field(graph: USERS)
+  id: ID
+  name: String
 }
 
 scalar join__FieldSet
@@ -34,9 +34,9 @@ type Query {
 }
 
 type Review {
-  id: ID! @join__field(graph: REVIEWS)
-  author: User! @join__field(graph: REVIEWS)
-  body: String! @join__field(graph: REVIEWS)
+  id: ID!
+  author: User!
+  body: String!
 }
 
 type User
