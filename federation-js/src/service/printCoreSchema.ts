@@ -330,12 +330,12 @@ function printJoinFieldDirectives(
   field: GraphQLField<any, any>,
   parentType: GraphQLObjectType | GraphQLInterfaceType,
 ): string {
-  let printed = ' @join__field(graph: ';
+  let printed = ' @join__field(';
   // Fields on the owning service do not have any federation metadata applied
   // TODO: maybe make this metadata available? Though I think this is intended and we may depend on that implicity.
   if (!field.extensions?.federation) {
     if (parentType.extensions?.federation?.serviceName) {
-      return printed + `${parentType.extensions?.federation.serviceName.toUpperCase()})`;
+      return printed + `graph: ${parentType.extensions?.federation.serviceName.toUpperCase()})`;
     }
     return '';
   }
@@ -346,19 +346,21 @@ function printJoinFieldDirectives(
     provides = [],
   }: FederationField = field.extensions.federation;
 
-  if (!serviceName) {
-    return '';
+  let directiveArgs: string[] = [];
+
+  if (serviceName && serviceName.length > 0) {
+    directiveArgs.push(`graph: ${serviceName.toUpperCase()}`);
   }
 
-  printed += serviceName.toUpperCase();
-
   if (requires.length > 0) {
-    printed += `, requires: "${printFieldSet(requires)}"`;
+    directiveArgs.push(`requires: "${printFieldSet(requires)}"`);
   }
 
   if (provides.length > 0) {
-    printed += `, provides: "${printFieldSet(provides)}"`;
+    directiveArgs.push(`provides: "${printFieldSet(provides)}"`);
   }
+
+  printed += directiveArgs.join(', ');
 
   return (printed += ')');
 }
