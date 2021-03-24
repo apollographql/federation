@@ -4,6 +4,7 @@ import {
   GraphQLEnumType,
   GraphQLScalarType,
   GraphQLString,
+  GraphQLNonNull,
 } from 'graphql';
 import { ServiceDefinition } from './composition';
 
@@ -60,7 +61,7 @@ function getJoinOwnerDirective(JoinGraphEnum: GraphQLEnumType) {
     locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE],
     args: {
       graph: {
-        type: JoinGraphEnum,
+        type: new GraphQLNonNull(JoinGraphEnum),
       },
     },
   });
@@ -77,7 +78,7 @@ export function getJoins(serviceList: ServiceDefinition[]) {
     isRepeatable: true,
     args: {
       graph: {
-        type: JoinGraphEnum,
+        type: new GraphQLNonNull(JoinGraphEnum),
       },
       key: {
         type: FieldSetScalar,

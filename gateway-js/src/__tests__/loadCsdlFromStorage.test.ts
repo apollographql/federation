@@ -35,9 +35,9 @@ describe('loadCsdlFromStorage', () => {
 
       directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
 
-      directive @join__type(graph: join__Graph, key: join__FieldSet) repeatable on OBJECT | INTERFACE
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on OBJECT | INTERFACE
 
-      directive @join__owner(graph: join__Graph) on OBJECT | INTERFACE
+      directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
 
       directive @join__endpoint(serviceName: String, url: String) on ENUM_VALUE
 
