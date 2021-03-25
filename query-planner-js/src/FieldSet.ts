@@ -8,6 +8,7 @@ import {
   SelectionNode,
   SelectionSetNode,
   GraphQLObjectType,
+  DirectiveNode,
 } from 'graphql';
 import { getResponseName } from './utilities/graphql';
 import { partition, groupBy } from './utilities/array';
@@ -23,6 +24,7 @@ export interface Field<
 export interface Scope<TParent extends GraphQLCompositeType> {
   parentType: TParent;
   possibleTypes: ReadonlyArray<GraphQLObjectType>;
+  directives?: ReadonlyArray<DirectiveNode>
   enclosingScope?: Scope<GraphQLCompositeType>;
 }
 
@@ -61,17 +63,23 @@ export function selectionSetFromFieldSet(
   return {
     kind: Kind.SELECTION_SET,
     selections: Array.from(groupByParentType(fields)).flatMap(
-      ([typeCondition, fieldsByParentType]: [GraphQLCompositeType, FieldSet]) =>
-        wrapInInlineFragmentIfNeeded(
+      ([typeCondition, fieldsByParentType]: [
+        GraphQLCompositeType,
+        FieldSet,
+      ]) => {
+        const directives = fieldsByParentType[0].scope.directives;
+
+        return wrapInInlineFragmentIfNeeded(
           Array.from(groupByResponseName(fieldsByParentType).values()).map(
-            fieldsByResponseName => {
-              return combineFields(fieldsByResponseName)
-                .fieldNode;
+            (fieldsByResponseName) => {
+              return combineFields(fieldsByResponseName).fieldNode;
             },
           ),
           typeCondition,
           parentType,
-        ),
+          directives,
+        );
+      },
     ),
   };
 }
@@ -80,6 +88,7 @@ function wrapInInlineFragmentIfNeeded(
   selections: SelectionNode[],
   typeCondition: GraphQLCompositeType,
   parentType?: GraphQLCompositeType,
+  directives?: ReadonlyArray<DirectiveNode>
 ): SelectionNode[] {
   return typeCondition === parentType
     ? selections
@@ -93,7 +102,8 @@ function wrapInInlineFragmentIfNeeded(
               value: typeCondition.name,
             },
           },
-          selectionSet: { kind: Kind.SELECTION_SET, selections },
+        selectionSet: { kind: Kind.SELECTION_SET, selections },
+        directives
         },
       ];
 }

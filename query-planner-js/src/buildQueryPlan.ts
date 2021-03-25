@@ -781,9 +781,11 @@ function collectFields(
           break;
         }
 
+        newScope.directives = selection.directives;
+
         collectFields(
           context,
-          context.newScope(getFragmentCondition(selection), scope),
+          newScope,
           selection.selectionSet,
           fields,
           visitedFragmentNames,

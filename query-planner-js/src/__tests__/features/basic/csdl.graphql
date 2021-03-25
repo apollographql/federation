@@ -66,6 +66,7 @@ type Car implements Vehicle
     description: String @join__field(graph: PRODUCT)
     price: String @join__field(graph: PRODUCT)
     retailPrice: String @join__field(graph: REVIEWS, requires: "price")
+    thing: Thing
 }
 
 type Error {
