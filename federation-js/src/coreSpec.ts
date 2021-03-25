@@ -10,7 +10,7 @@ export const CoreDirective = new GraphQLDirective({
   locations: [DirectiveLocation.SCHEMA],
   args: {
     feature: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
   isRepeatable: true,

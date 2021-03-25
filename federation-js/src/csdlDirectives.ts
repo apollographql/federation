@@ -11,7 +11,7 @@ export const ComposedGraphDirective = new GraphQLDirective({
   locations: [DirectiveLocation.SCHEMA],
   args: {
     version: {
-      type: GraphQLNonNull(GraphQLInt),
+      type: new GraphQLNonNull(GraphQLInt),
     },
   },
 });
@@ -21,10 +21,10 @@ export const GraphDirective = new GraphQLDirective({
   locations: [DirectiveLocation.SCHEMA],
   args: {
     name: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
     url: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
   isRepeatable: true,
@@ -35,7 +35,7 @@ export const OwnerDirective = new GraphQLDirective({
   locations: [DirectiveLocation.OBJECT],
   args: {
     graph: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
 });
@@ -45,10 +45,10 @@ export const KeyDirective = new GraphQLDirective({
   locations: [DirectiveLocation.OBJECT],
   args: {
     fields: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
     graph: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
   isRepeatable: true,
@@ -59,7 +59,7 @@ export const ResolveDirective = new GraphQLDirective({
   locations: [DirectiveLocation.FIELD_DEFINITION],
   args: {
     graph: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
 });
@@ -69,7 +69,7 @@ export const ProvidesDirective = new GraphQLDirective({
   locations: [DirectiveLocation.FIELD_DEFINITION],
   args: {
     fields: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
 });
@@ -79,7 +79,7 @@ export const RequiresDirective = new GraphQLDirective({
   locations: [DirectiveLocation.FIELD_DEFINITION],
   args: {
     fields: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
 });
