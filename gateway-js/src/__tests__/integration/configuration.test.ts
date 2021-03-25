@@ -1,4 +1,3 @@
-import { print } from 'graphql';
 import gql from 'graphql-tag';
 import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
@@ -8,7 +7,6 @@ import {
   mockCsdlRequestSuccess,
   mockApolloConfig,
   mockCloudConfigUrl,
-  mockSDLQueryFn,
 } from './nockMocks';
 import { getTestingCsdl } from '../execution-utils';
 import { MockService } from './networkRequests.test';
@@ -208,16 +206,8 @@ describe('gateway config / env behavior', () => {
 
   describe('introspection headers', () => {
     test('should allow not passing introspectionHeaders', async () => {
-      let receivedHeaders;
-      mockSDLQueryFn(service, function reply() {
-        receivedHeaders = this.req.headers;
-        return [
-          200,
-          {
-            data: { _service: { sdl: print(service.typeDefs) } },
-          },
-        ];
-      });
+      const requestCapture = jest.fn();
+      mockSDLQuerySuccess(service, requestCapture);
 
       gateway = new ApolloGateway({
         serviceList: [{ name: 'accounts', url: service.url }],
@@ -225,22 +215,16 @@ describe('gateway config / env behavior', () => {
 
       await gateway.load(mockApolloConfig);
 
-      expect(receivedHeaders).toMatchObject({
-        host: 'localhost:4001',
+      expect(requestCapture.mock.calls[0][0]).toMatchObject({
+        headers: {
+          host: 'localhost:4001',
+        },
       });
     });
 
     test('should use static headers', async () => {
-      let receivedHeaders;
-      mockSDLQueryFn(service, function reply() {
-        receivedHeaders = this.req.headers;
-        return [
-          200,
-          {
-            data: { _service: { sdl: print(service.typeDefs) } },
-          },
-        ];
-      });
+      const requestCapture = jest.fn();
+      mockSDLQuerySuccess(service, requestCapture);
 
       gateway = new ApolloGateway({
         serviceList: [{ name: 'accounts', url: service.url }],
@@ -251,22 +235,16 @@ describe('gateway config / env behavior', () => {
 
       await gateway.load(mockApolloConfig);
 
-      expect(receivedHeaders).toMatchObject({
-        authorization: ['Bearer static'],
+      expect(requestCapture.mock.calls[0][0]).toMatchObject({
+        headers: {
+          authorization: ['Bearer static'],
+        },
       });
     });
 
     test('should use dynamic headers', async () => {
-      let receivedHeaders;
-      mockSDLQueryFn(service, function reply() {
-        receivedHeaders = this.req.headers;
-        return [
-          200,
-          {
-            data: { _service: { sdl: print(service.typeDefs) } },
-          },
-        ];
-      });
+      const requestCapture = jest.fn();
+      mockSDLQuerySuccess(service, requestCapture);
 
       gateway = new ApolloGateway({
         serviceList: [{ name: 'accounts', url: service.url }],
@@ -278,9 +256,11 @@ describe('gateway config / env behavior', () => {
 
       await gateway.load(mockApolloConfig);
 
-      expect(receivedHeaders).toMatchObject({
-        authorization: ['Bearer dynamic'],
-        'x-service-name': ['accounts'],
+      expect(requestCapture.mock.calls[0][0]).toMatchObject({
+        headers: {
+          authorization: ['Bearer dynamic'],
+          'x-service-name': ['accounts'],
+        },
       });
     });
   });

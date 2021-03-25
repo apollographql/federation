@@ -1,4 +1,4 @@
-import nock, { ReplyFnContext, ReplyFnResult } from 'nock';
+import nock from 'nock';
 import { MockService } from './networkRequests.test';
 import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
 import { CSDL_QUERY } from '../../loadCsdlFromStorage';
@@ -27,21 +27,24 @@ function mockSDLQuery({ url }: MockService) {
   });
 }
 
-export function mockSDLQuerySuccess(service: MockService) {
-  mockSDLQuery(service).reply(200, {
-    data: { _service: { sdl: print(service.typeDefs) } },
-  });
-}
-
-export function mockSDLQueryFn(
+export function mockSDLQuerySuccess(
   service: MockService,
-  replyFn: (
-    this: ReplyFnContext,
-    uri: string,
-    body: Body,
-  ) => ReplyFnResult | Promise<ReplyFnResult>,
+  capture?: jest.Mock<
+    void,
+    [{ headers: Record<string, any>; body: nock.Body; uri: string }]
+  >,
 ) {
-  mockSDLQuery(service).reply(replyFn);
+  mockSDLQuery(service).reply(200, function reply(uri, body, callback) {
+    capture?.({
+      uri,
+      body,
+      headers: this.req.headers,
+    });
+
+    callback(null, {
+      data: { _service: { sdl: print(service.typeDefs) } },
+    });
+  });
 }
 
 export function mockServiceHealthCheck({ url }: MockService) {
