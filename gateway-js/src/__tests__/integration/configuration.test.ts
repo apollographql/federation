@@ -207,6 +207,29 @@ describe('gateway config / env behavior', () => {
   });
 
   describe('introspection headers', () => {
+    test('should allow not passing introspectionHeaders', async () => {
+      let receivedHeaders;
+      mockSDLQueryFn(service, function reply() {
+        receivedHeaders = this.req.headers;
+        return [
+          200,
+          {
+            data: { _service: { sdl: print(service.typeDefs) } },
+          },
+        ];
+      });
+
+      gateway = new ApolloGateway({
+        serviceList: [{ name: 'accounts', url: service.url }],
+      });
+
+      await gateway.load(mockApolloConfig);
+
+      expect(receivedHeaders).toMatchObject({
+        host: 'localhost:4001',
+      });
+    });
+
     test('should use static headers', async () => {
       let receivedHeaders;
       mockSDLQueryFn(service, function reply() {
