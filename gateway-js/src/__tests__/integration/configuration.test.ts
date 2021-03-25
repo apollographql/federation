@@ -1,3 +1,4 @@
+import { print } from 'graphql';
 import gql from 'graphql-tag';
 import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
@@ -7,6 +8,7 @@ import {
   mockCsdlRequestSuccess,
   mockApolloConfig,
   mockCloudConfigUrl,
+  mockSDLQueryFn,
 } from './nockMocks';
 import { getTestingCsdl } from '../execution-utils';
 import { MockService } from './networkRequests.test';
@@ -202,6 +204,62 @@ describe('gateway config / env behavior', () => {
       cleanUp();
       cleanUp = null;
     }
+  });
+
+  describe('introspection headers', () => {
+    test('should use static headers', async () => {
+      let receivedHeaders;
+      mockSDLQueryFn(service, function reply() {
+        receivedHeaders = this.req.headers;
+        return [
+          200,
+          {
+            data: { _service: { sdl: print(service.typeDefs) } },
+          },
+        ];
+      });
+
+      gateway = new ApolloGateway({
+        serviceList: [{ name: 'accounts', url: service.url }],
+        introspectionHeaders: {
+          Authorization: 'Bearer static',
+        },
+      });
+
+      await gateway.load(mockApolloConfig);
+
+      expect(receivedHeaders).toMatchObject({
+        authorization: ['Bearer static'],
+      });
+    });
+
+    test('should use dynamic headers', async () => {
+      let receivedHeaders;
+      mockSDLQueryFn(service, function reply() {
+        receivedHeaders = this.req.headers;
+        return [
+          200,
+          {
+            data: { _service: { sdl: print(service.typeDefs) } },
+          },
+        ];
+      });
+
+      gateway = new ApolloGateway({
+        serviceList: [{ name: 'accounts', url: service.url }],
+        introspectionHeaders: ({ name }) => ({
+          Authorization: 'Bearer dynamic',
+          'X-Service-Name': name,
+        }),
+      });
+
+      await gateway.load(mockApolloConfig);
+
+      expect(receivedHeaders).toMatchObject({
+        authorization: ['Bearer dynamic'],
+        'x-service-name': ['accounts'],
+      });
+    });
   });
 
   // TODO(trevor:cloudconfig): this behavior will be updated

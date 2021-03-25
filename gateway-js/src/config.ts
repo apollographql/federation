@@ -137,7 +137,9 @@ interface GatewayConfigBase {
 
 export interface RemoteGatewayConfig extends GatewayConfigBase {
   serviceList: ServiceEndpointDefinition[];
-  introspectionHeaders?: HeadersInit;
+  introspectionHeaders?:
+    | HeadersInit
+    | ((service: ServiceEndpointDefinition) => HeadersInit);
 }
 
 // TODO(trevor:cloudconfig): This type goes away

@@ -878,9 +878,11 @@ export class ApolloGateway implements GraphQLService {
 
       return getServiceDefinitionsFromRemoteEndpoint({
         serviceList,
-        ...(config.introspectionHeaders
-          ? { headers: config.introspectionHeaders }
-          : {}),
+        getServiceIntrospectionHeaders(service) {
+          return typeof config.introspectionHeaders === 'function'
+            ? config.introspectionHeaders(service)
+            : config.introspectionHeaders;
+        },
         serviceSdlCache: this.serviceSdlCache,
       });
     }

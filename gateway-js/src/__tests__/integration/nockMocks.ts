@@ -1,4 +1,4 @@
-import nock from 'nock';
+import nock, { ReplyFnContext, ReplyFnResult } from 'nock';
 import { MockService } from './networkRequests.test';
 import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
 import { CSDL_QUERY } from '../../loadCsdlFromStorage';
@@ -31,6 +31,17 @@ export function mockSDLQuerySuccess(service: MockService) {
   mockSDLQuery(service).reply(200, {
     data: { _service: { sdl: print(service.typeDefs) } },
   });
+}
+
+export function mockSDLQueryFn(
+  service: MockService,
+  replyFn: (
+    this: ReplyFnContext,
+    uri: string,
+    body: Body,
+  ) => ReplyFnResult | Promise<ReplyFnResult>,
+) {
+  mockSDLQuery(service).reply(replyFn);
 }
 
 export function mockServiceHealthCheck({ url }: MockService) {

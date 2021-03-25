@@ -3,20 +3,22 @@ import { parse } from 'graphql';
 import { Headers, HeadersInit } from 'node-fetch';
 import { GraphQLDataSource } from './datasources/types';
 import { SERVICE_DEFINITION_QUERY } from './';
-import { CompositionUpdate } from './config';
+import { CompositionUpdate, ServiceEndpointDefinition } from './config';
 import { ServiceDefinition } from '@apollo/federation';
+
+type Service = ServiceEndpointDefinition & {
+  dataSource: GraphQLDataSource;
+};
 
 export async function getServiceDefinitionsFromRemoteEndpoint({
   serviceList,
-  headers = {},
+  getServiceIntrospectionHeaders,
   serviceSdlCache,
 }: {
-  serviceList: {
-    name: string;
-    url?: string;
-    dataSource: GraphQLDataSource;
-  }[];
-  headers?: HeadersInit;
+  serviceList: Service[];
+  getServiceIntrospectionHeaders?: (
+    service: ServiceEndpointDefinition,
+  ) => HeadersInit | undefined;
   serviceSdlCache: Map<string, string>;
 }): Promise<CompositionUpdate> {
   if (!serviceList || !serviceList.length) {
@@ -38,7 +40,7 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
       http: {
         url,
         method: 'POST',
-        headers: new Headers(headers),
+        headers: new Headers(getServiceIntrospectionHeaders?.({ name, url })),
       },
     };
 
