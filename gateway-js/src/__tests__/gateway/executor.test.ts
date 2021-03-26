@@ -98,14 +98,6 @@ describe('ApolloGateway executor', () => {
       logger,
     });
 
-    // Mock implementation of process.exit with another () => never function.
-    // This is because the gateway doesn't just throw in this scenario, it crashes.
-    const mockExit = jest
-      .spyOn(process, 'exit')
-      .mockImplementation((code) => {
-        throw new Error(code?.toString());
-      });
-
     const server = new ApolloServer({
       gateway,
       subscriptions: false,
@@ -114,15 +106,25 @@ describe('ApolloGateway executor', () => {
 
     // Ensure the throw happens to maintain the correctness of this test.
     await expect(
-      server.executeOperation({ query: '{ __typename }' })).rejects.toThrow();
+      server.executeOperation({ query: '{ __typename }' }),
+    ).rejects.toThrow(
+      'This data graph is missing a valid configuration. More details may be available in the server logs.',
+    );
 
+    // Note: the original point of this test was to ensure that this field is
+    // set correctly even on schema load error, just in case the schema gets
+    // loaded properly later. But ApolloGateway has never managed to recover
+    // from a failure to load the schema, and Apollo Server v2.22 explicitly
+    // considers a server that failed to load the schema to have failed to start
+    // and there's no way to start it. So maybe this test doesn't matter any
+    // more. That said, perhaps it's nice to test the error handling.
     expect(server.requestOptions.executor).toBe(gateway.executor);
 
     expect(logger.error).toHaveBeenCalledTimes(1);
     expect(logger.error).toHaveBeenCalledWith(
-      "This data graph is missing a valid configuration. Tried to load services from remote endpoints but none provided"
+      expect.stringMatching(
+        /Apollo Server was started implicitly.*Tried to load services from remote endpoints but none provided/,
+      ),
     );
-
-    mockExit.mockRestore();
   });
 });
