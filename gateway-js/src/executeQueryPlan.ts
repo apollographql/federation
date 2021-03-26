@@ -79,23 +79,27 @@ export async function executeQueryPlan<TContext>(
   // only explicitly requested fields are included and field ordering follows
   // the original query.
   // It is also used to allow execution of introspection queries though.
-  try {
-    ({ data } = await execute({
-      schema: operationContext.schema,
-      document: {
-        kind: Kind.DOCUMENT,
-        definitions: [
-          operationContext.operation,
-          ...Object.values(operationContext.fragments),
-        ],
-      },
-      rootValue: data,
-      variableValues: requestContext.request.variables,
-      // See also `wrapSchemaWithAliasResolver` in `gateway-js/src/index.ts`.
-      fieldResolver: defaultFieldResolverWithAliasSupport,
-    }));
-  } catch (error) {
-    return { errors: [error] };
+  if(queryPlan.node && queryPlan.node.kind != "Fetch") {
+    //Single fetch queryplan
+  } else {
+    try {
+      ({ data } = await execute({
+        schema: operationContext.schema,
+        document: {
+          kind: Kind.DOCUMENT,
+          definitions: [
+            operationContext.operation,
+            ...Object.values(operationContext.fragments),
+          ],
+        },
+        rootValue: data,
+        variableValues: requestContext.request.variables,
+        // See also `wrapSchemaWithAliasResolver` in `gateway-js/src/index.ts`.
+        fieldResolver: defaultFieldResolverWithAliasSupport,
+      }));
+    } catch (error) {
+      return { errors: [error] };
+    }
   }
 
   return errors.length === 0 ? { data } : { errors, data };
