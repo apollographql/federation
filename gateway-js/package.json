@@ -34,7 +34,7 @@
     "apollo-server-core": "^2.21.0",
     "apollo-server-env": "^3.0.0",
     "apollo-server-errors": "^2.4.2",
-    "apollo-server-types": "^0.6.3",
+    "apollo-server-types": "^0.7.0",
     "loglevel": "^1.6.1",
     "make-fetch-happen": "^8.0.0",
     "pretty-format": "^26.0.0"
