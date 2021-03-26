@@ -21,7 +21,7 @@ describe('Using csdl configuration', () => {
     const server = await getCsdlGatewayServer();
 
     fetch.mockJSONResponseOnce({
-      data: { me: { id: 1, username: '@jbaxleyiii' } },
+      data: { me: { id: "1", username: '@jbaxleyiii' } },
     });
 
     const result = await server.executeOperation({
