@@ -27,23 +27,9 @@ function mockSDLQuery({ url }: MockService) {
   });
 }
 
-export function mockSDLQuerySuccess(
-  service: MockService,
-  capture?: jest.Mock<
-    void,
-    [{ headers: Record<string, any>; body: nock.Body; uri: string }]
-  >,
-) {
-  mockSDLQuery(service).reply(200, function reply(uri, body, callback) {
-    capture?.({
-      uri,
-      body,
-      headers: this.req.headers,
-    });
-
-    callback(null, {
-      data: { _service: { sdl: print(service.typeDefs) } },
-    });
+export function mockSDLQuerySuccess(service: MockService) {
+  return mockSDLQuery(service).reply(200, {
+    data: { _service: { sdl: print(service.typeDefs) } },
   });
 }
 

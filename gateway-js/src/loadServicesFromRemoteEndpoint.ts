@@ -16,7 +16,7 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
   serviceSdlCache,
 }: {
   serviceList: Service[];
-  getServiceIntrospectionHeaders?: (
+  getServiceIntrospectionHeaders: (
     service: ServiceEndpointDefinition,
   ) => HeadersInit | undefined;
   serviceSdlCache: Map<string, string>;
@@ -40,7 +40,7 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
       http: {
         url,
         method: 'POST',
-        headers: new Headers(getServiceIntrospectionHeaders?.({ name, url })),
+        headers: new Headers(getServiceIntrospectionHeaders({ name, url })),
       },
     };
 
