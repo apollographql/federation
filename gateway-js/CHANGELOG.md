@@ -4,7 +4,8 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- _Nothing yet! Stay tuned!_
+- Allow passing a function to the `introspectionHeaders` field when constructing an `ApolloGateway` instance. This allows for producing introspection headers per request. [PR #607](https://github.com/apollographql/federation/pull/607)
+
 ## v0.25.0
 
 - Add support for an upcoming mechanism for fetching a graph's schema and configuration when using managed federation. In this release, the new mechanism is opt-in, and users shouldn't use enable it unless instructed by Apollo to do so. [PR #458](https://github.com/apollographql/federation/pull/458) [PR #585](https://github.com/apollographql/federation/pull/585)
