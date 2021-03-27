@@ -18,7 +18,7 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
   serviceList: Service[];
   getServiceIntrospectionHeaders: (
     service: ServiceEndpointDefinition,
-  ) => HeadersInit | undefined;
+  ) => Promise<HeadersInit | undefined>;
   serviceSdlCache: Map<string, string>;
 }): Promise<CompositionUpdate> {
   if (!serviceList || !serviceList.length) {
@@ -29,7 +29,7 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
 
   let isNewSchema = false;
   // for each service, fetch its introspection schema
-  const promiseOfServiceList = serviceList.map(({ name, url, dataSource }) => {
+  const promiseOfServiceList = serviceList.map(async ({ name, url, dataSource }) => {
     if (!url) {
       throw new Error(
         `Tried to load schema for '${name}' but no 'url' was specified.`);
@@ -40,7 +40,7 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
       http: {
         url,
         method: 'POST',
-        headers: new Headers(getServiceIntrospectionHeaders({ name, url })),
+        headers: new Headers(await getServiceIntrospectionHeaders({ name, url })),
       },
     };
 

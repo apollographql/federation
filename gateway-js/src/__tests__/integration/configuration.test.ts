@@ -258,7 +258,7 @@ describe('gateway config / env behavior', () => {
 
       gateway = new ApolloGateway({
         serviceList: [{ name: 'accounts', url: service.url }],
-        introspectionHeaders: ({ name }) => ({
+        introspectionHeaders: async ({ name }) => ({
           Authorization: 'Bearer dynamic',
           'X-Service-Name': name,
         }),
