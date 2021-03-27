@@ -216,10 +216,12 @@ describe('gateway config / env behavior', () => {
 
       await gateway.load(mockApolloConfig);
 
-      expect(requestCapture).toHaveBeenCalledWith(
+      expect(requestCapture.mock.instances).toContainEqual(
         expect.objectContaining({
-          headers: {
-            host: 'localhost:4001',
+          req: {
+            headers: {
+              host: 'localhost:4001',
+            },
           },
         }),
       );
@@ -239,10 +241,12 @@ describe('gateway config / env behavior', () => {
 
       await gateway.load(mockApolloConfig);
 
-      expect(requestCapture).toHaveBeenCalledWith(
+      expect(requestCapture.mock.instances).toContainEqual(
         expect.objectContaining({
-          headers: {
-            authorization: ['Bearer static'],
+          req: {
+            headers: {
+              authorization: ['Bearer static'],
+            },
           },
         }),
       );
@@ -263,11 +267,13 @@ describe('gateway config / env behavior', () => {
 
       await gateway.load(mockApolloConfig);
 
-      expect(requestCapture).toHaveBeenCalledWith(
+      expect(requestCapture.mock.instances).toContainEqual(
         expect.objectContaining({
-          headers: {
-            authorization: ['Bearer dynamic'],
-            'x-service-name': ['accounts'],
+          req: {
+            headers: {
+              authorization: ['Bearer dynamic'],
+              'x-service-name': ['accounts'],
+            },
           },
         }),
       );
