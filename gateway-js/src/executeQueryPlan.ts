@@ -189,19 +189,6 @@ async function executeNode<TContext>(
   }
 }
 
-function removeUndefinedEntities(entities: Record<string, any>[]): void {
-  let j = 0;
-  for (let i = 0; i < entities.length; i++) {
-    const item = entities[i];
-    if (item !== undefined) {
-      entities[j] = item;
-        j++;
-    }
-  }
-
-  entities.length = j;
-}
-
 async function executeFetch<TContext>(
   context: ExecutionContext<TContext>,
   fetch: FetchNode,
@@ -216,7 +203,7 @@ async function executeFetch<TContext>(
   }
 
   const entities = Array.isArray(results) ? results : [results];
-  removeUndefinedEntities(entities);
+  if(entities.filter(entity => entity).length < 1) return;
   if (entities.length < 1) return;
 
   let variables = Object.create(null);
