@@ -99,7 +99,7 @@ const gateway = new ApolloGateway({
 
 ###### `serviceList`
 
-`Array<ServiceDefinition>`
+`Array<ServiceEndpointDefinition>`
 </td>
 <td>
 
@@ -121,11 +121,11 @@ You can specify any string value for the `name` field, which is used for identif
 
 ###### `introspectionHeaders`
 
-`Object`
+`Object | (service: ServiceEndpointDefinition) => Promise<Object>`
 </td>
 <td>
 
-An object containing the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your implementing services.
+An object, or an async function returning an object, containing the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your implementing services.
 
 **If you are using managed federation,** do not provide this field.
 
