@@ -22,4 +22,4 @@ serde_json = "1.0.60"
 thiserror = "1.0.23"
 
 [dev-dependencies]
-insta = "1.5.2"
+insta = "1.7.1"
