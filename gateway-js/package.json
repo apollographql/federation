@@ -30,7 +30,7 @@
     "@types/node-fetch": "2.5.8",
     "apollo-graphql": "^0.6.0",
     "apollo-reporting-protobuf": "^0.6.0",
-    "apollo-server-caching": "^0.5.3",
+    "apollo-server-caching": "^0.6.0",
     "apollo-server-core": "^2.21.0",
     "apollo-server-env": "^3.0.0",
     "apollo-server-errors": "^2.4.2",
