@@ -171,7 +171,7 @@ function printCoreDirectives() {
   return [
     'https://lib.apollo.dev/core/v0.1',
     'https://lib.apollo.dev/join/v0.1',
-  ].map((feature) => `\n  @core(feature: "${feature}")`);
+  ].map((feature) => `\n  @core(feature: ${printStringLiteral(feature)})`);
 }
 
 export function printType(
@@ -254,7 +254,7 @@ function printTypeJoinDirectives(
             (selections) =>
               `\n  @join__type(graph: ${
                 context?.sanitizedServiceNames[service] ?? service
-              }, key: "${printFieldSet(selections)}")`,
+              }, key: ${printStringLiteral(printFieldSet(selections))})`,
           )
           .join(''),
       )
@@ -290,7 +290,7 @@ function printEnum(type: GraphQLEnumType, options?: Options): string {
         '  ' +
         value.name +
         printDeprecated(value) +
-        printEndpointDirective(type, value),
+        printDirectivesOnEnumValue(type, value),
     );
 
   return (
@@ -298,9 +298,9 @@ function printEnum(type: GraphQLEnumType, options?: Options): string {
   );
 }
 
-function printEndpointDirective(type: GraphQLEnumType, value: GraphQLEnumValue) {
+function printDirectivesOnEnumValue(type: GraphQLEnumType, value: GraphQLEnumValue) {
   if (type.name === "join__Graph") {
-    return ` @join__graph(name: "${value.value.name}" url: "${value.value.url}")`
+    return ` @join__graph(name: ${printStringLiteral((value.value.name))} url: ${printStringLiteral(value.value.url ?? '')})`
   }
   return '';
 }
@@ -412,11 +412,11 @@ function printJoinFieldDirectives(
   }
 
   if (requires.length > 0) {
-    directiveArgs.push(`requires: "${printFieldSet(requires)}"`);
+    directiveArgs.push(`requires: ${printStringLiteral(printFieldSet(requires))}`);
   }
 
   if (provides.length > 0) {
-    directiveArgs.push(`provides: "${printFieldSet(provides)}"`);
+    directiveArgs.push(`provides: ${printStringLiteral(printFieldSet(provides))}`);
   }
 
   printed += directiveArgs.join(', ');
@@ -535,6 +535,14 @@ function printDescriptionWithComments(
     .join('\n');
 
   return prefix + comment + '\n';
+}
+
+// Using JSON.stringify ensures that we will generate a valid string literal,
+// escaping quote marks, backslashes, etc. when needed.
+// The `graphql-js` printer also does this when printing out a `StringValue`:
+// https://github.com/graphql/graphql-js/blob/d4bcde8d3e7a7cb8462044ff21122a3996af8655/src/language/printer.js#L109-L112
+function printStringLiteral(value: string) {
+  return JSON.stringify(value);
 }
 
 /**
