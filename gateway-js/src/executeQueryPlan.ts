@@ -25,7 +25,7 @@ import {
   getResponseName
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
-import { isNotNullOrUndefined } from '@apollographql/apollo-tools';
+import { isNotNullOrUndefined } from './utilities/array';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
