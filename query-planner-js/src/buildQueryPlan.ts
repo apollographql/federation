@@ -583,7 +583,7 @@ function splitFields(
         if (hasNoExtendingFieldDefs) {
           const group = groupForField(field as Field<GraphQLObjectType>);
           group.fields.push(
-            completeField(context, scope, group, path, fieldsForResponseName)
+            completeField(context, scope, group, path, fieldsForParentType)
           );
           continue;
         }
