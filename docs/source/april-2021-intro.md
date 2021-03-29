@@ -183,7 +183,19 @@ Trace reporting enables you to visualize:
 
 Apollo Server has built-in support for pushing traces to Apollo Studio. To set it up, you provide it a **graph API key** from Studio.
 
-**TODO: add information on getting an API key (obtainapikey)**
+> **API keys are secret credentials.** Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
+
+1. Go to [studio.apollographql.com](https://studio.apollographql.com/) and click the graph you want to obtain an API key for.
+
+2. **If a "Publish your Schema" dialog appears**, select the **From Apollo Server** tab. Copy the value that appears after `APOLLO_KEY=` in the instructions (it begins with `service:`), and you're all set.
+
+    **Otherwise**, proceed to the next step.
+
+2. Open your graph's Settings page and scroll down to the API Keys section. Either copy an existing key or click **Create New Key**.
+
+3. Optionally click the `…` button to the right of the API key to give it a name, such as `Production`. This helps you keep track of each API key's use.
+
+4. Copy the key's value.
 
 After you obtain a graph API key, assign it to the `APOLLO_KEY` environment variable (`ENGINE_API_KEY` prior to version 2.13.0 of Apollo Server) in your production server's environment.
 
