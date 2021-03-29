@@ -10,8 +10,6 @@
 
 If you don’t have an Apollo Studio account please create one now. If you already have an account, just log in to the account you’d like to use.
 
-[[Docs] Create your account](https://www.apollographql.com/docs/studio/getting-started/#1-create-your-account)
-
 1. Go to [studio.apollographql.com](https://studio.apollographql.com/) and click **Create an account**.
 
     _You can sign up with either your GitHub identity or a username and password._
@@ -22,11 +20,9 @@ If you don’t have an Apollo Studio account please create one now. If you alrea
 
     * [Selecting a plan](https://www.apollographql.com/pricing/) for your organization (the Free plan is always free, and the Team plan provides a free trial of paid features)
 
-
+[*See more: Create your account*](https://www.apollographql.com/docs/studio/getting-started/#1-create-your-account)
 
 ### Step 2: Create a graph in Studio.
-
-[[Docs] Create your first graph](https://www.apollographql.com/docs/studio/getting-started/#2-create-your-first-graph)
 
 In Studio, each **graph** corresponds to a data graph and its associated GraphQL schema. Your first graph will use your GraphQL server's schema.
 
@@ -44,6 +40,7 @@ In Studio, each **graph** corresponds to a data graph and its associated GraphQL
 
 4. Studio displays instructions for registering your schema, which is also described in the next step.
 
+[*See more: Create your first graph*](https://www.apollographql.com/docs/studio/getting-started/#2-create-your-first-graph)
 
 ### Step 3: Install Rover, your new best friend.
 
@@ -57,14 +54,13 @@ curl -sSL https://raw.githubusercontent.com/apollographql/rover/v0.0.4/installer
 
 Once you’ve installed Rover, restart your terminal to make sure the CLI is available.
 
+[*See more: Rover installation*](https://www.apollographql.com/docs/rover/getting-started/)
 
 ### Step 4: Register your subgraphs.
 
-Federation is all about combining multiple GraphQL services together. We call these distinct services “subgraphs”, which all get composed together to form a “supergraph”.
+Federation is all about combining multiple GraphQL services together. We call these distinct services **subgraphs**, which all get composed together to form a single **supergraph**.
 
-For this composition to work you first have to register your subgraphs with Apollo. 
-
-Rover makes this easy.
+For this composition to work you first have to register your subgraphs with Apollo. Rover makes this easy.
 
 
 ```
@@ -74,13 +70,10 @@ rover subgraph publish <GRAPH_REF> --profile <profile-name> --routing-url <routi
 
 Repeat this for each subgraph you want to include in your supergraph.
 
-[https://www.apollographql.com/docs/federation/managed-federation/setup/#2-register-all-implementing-service-schemas](https://www.apollographql.com/docs/federation/managed-federation/setup/#2-register-all-implementing-service-schemas)
-
-Each time you add a subgraph you can run a Composition Check.
-
+[*See more: Register subgraph schemas*](https://www.apollographql.com/docs/federation/managed-federation/setup/#2-register-all-implementing-service-schemas)
 
 ### Step 5: Configure and deploy your gateway.
-
+**TODO: we need to consolidate the substeps here.**
 
 First, let's install the necessary packages:
 
@@ -204,32 +197,35 @@ You can also push trace data from environments besides production, such as a sta
 
 For advanced configuration options, see [Metrics and logging](https://www.apollographql.com/docs/apollo-server/features/metrics/).
 
-
-
-
 ### Step 7: Test your graph with Explorer!
-TODO
+The Apollo Studio Explorer is a powerful web IDE for creating, running, and managing GraphQL operations.
+
+https://www.youtube.com/watch?v=j8b0Bda_TIw
+
+[*See more: Get started with Explorer*](https://www.apollographql.com/docs/studio/explorer/)
 
 ### Step 8: Test a change against actual traffic with Checks!
 
 Now that your graph is live and serving traffic, you want to be careful about any changes you make - you don’t want to make a breaking change! This is why we offer Operation Checks.
 
-TODO
+**TODO: we need docs for running Checks via Rover**
 
 
 ### Step 9: Set up CI/CD integration
 
-[https://www.apollographql.com/docs/studio/schema-checks/#using-with-continuous-integration](https://www.apollographql.com/docs/studio/schema-checks/#using-with-continuous-integration)
+Schema checks is especially useful when you add it to your continuous integration pipeline (such as Jenkins or CircleCI). By doing so, you can obtain results and display them directly on your team's pull requests.
+
+We recommend defining a separate CI job for each variant of your schema (production, staging, etc.) you want to validate your changes against. The `rover subgraph:check` command returns a non-zero exit code when it detects a breaking change, meaning the job will fail when the check fails.
+
+[CircleCI](https://www.apollographql.com/docs/studio/schema-checks/#example-configuration)
 
 
-    CircleCI: [https://www.apollographql.com/docs/studio/schema-checks/#example-configuration](https://www.apollographql.com/docs/studio/schema-checks/#example-configuration)
+[GitHub](https://www.apollographql.com/docs/studio/schema-checks/#integrating-with-github)
 
 
-    GitHub: [https://www.apollographql.com/docs/studio/schema-checks/#integrating-with-github](https://www.apollographql.com/docs/studio/schema-checks/#integrating-with-github)
+[Other](https://www.apollographql.com/docs/studio/schema-checks/#integrating-with-other-version-control-services)
 
-
-    Other svc: [https://www.apollographql.com/docs/studio/schema-checks/#integrating-with-other-version-control-services](https://www.apollographql.com/docs/studio/schema-checks/#integrating-with-other-version-control-services)
-
+[*See more: Set up CI/CD integration*](https://www.apollographql.com/docs/studio/schema-checks/#using-with-continuous-integration)
 
 ### Step 10: Set up Checks
 
