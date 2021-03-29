@@ -2,6 +2,7 @@ import {
   buildASTSchema,
   DocumentNode,
   GraphQLDirective,
+  GraphQLError,
   GraphQLNamedType,
   GraphQLSchema,
   isEnumType,
@@ -31,11 +32,33 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   const coreName = 'core';
 
   const coreDirective = schema.getDirective(coreName);
+
   assert(coreDirective, `Expected core schema, but can't find @core directive`);
 
   // TODO: We should follow the CollectFeatures algorithm from the Core Schema
-  // spec here, and use th collected features to validate feature
+  // spec here, and use the collected features to validate feature
   // versions and handle renames.
+
+  const coreDirectivesArgs = getArgumentValuesForRepeatableDirective(
+    coreDirective,
+    schema.astNode!,
+  );
+
+  for (const coreDirectiveArgs of coreDirectivesArgs) {
+    const feature: string = coreDirectiveArgs['feature'];
+
+    if (
+      !(
+        feature === 'https://lib.apollo.dev/core/v0.1' ||
+        feature === 'https://lib.apollo.dev/join/v0.1'
+      )
+    ) {
+      throw new GraphQLError(
+        `Unsupported core schema feature and/or version: ${feature}`,
+        schema.astNode!,
+      );
+    }
+  }
 
   const joinName = 'join';
 
