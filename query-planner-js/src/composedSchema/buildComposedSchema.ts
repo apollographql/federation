@@ -70,17 +70,17 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   for (const graphValue of graphEnumType.getValues()) {
     const name = graphValue.name;
 
-    const endpointDirectiveArgs = getArgumentValuesForDirective(
+    const graphDirectiveArgs = getArgumentValuesForDirective(
       graphDirective,
       graphValue.astNode!,
     );
     assert(
-      endpointDirectiveArgs,
+      graphDirectiveArgs,
       `${graphEnumType.name} value ${name} in composed schema should have a @${graphDirective.name} directive`,
     );
 
-    const serviceName: string = endpointDirectiveArgs['name'];
-    const url: string = endpointDirectiveArgs['url'];
+    const serviceName: string = graphDirectiveArgs['name'];
+    const url: string = graphDirectiveArgs['url'];
 
     graphMap[name] = {
       serviceName,
