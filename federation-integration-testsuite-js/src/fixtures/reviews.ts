@@ -95,7 +95,7 @@ const usernames = [
   { id: '1', username: '@ada' },
   { id: '2', username: '@complete' },
 ];
-const reviews = [
+export const reviewsData = [
   {
     id: '1',
     authorID: '1',
@@ -148,13 +148,13 @@ export const resolvers: GraphQLResolverMap<any> = {
       return { id: args.id };
     },
     topReviews(_, args) {
-      return reviews.slice(0, args.first);
+      return reviewsData.slice(0, args.first);
     },
   },
   Mutation: {
     reviewProduct(_, { upc, body }) {
-      const id = `${Number(reviews[reviews.length - 1].id) + 1}`;
-      reviews.push({
+      const id = `${Number(reviewsData[reviewsData.length - 1].id) + 1}`;
+      reviewsData.push({
         id,
         authorID: '1',
         product: { __typename: 'Furniture', upc },
@@ -163,7 +163,7 @@ export const resolvers: GraphQLResolverMap<any> = {
       return { upc, __typename: 'Furniture' };
     },
     updateReview(_, { review: { id }, review: updatedReview }) {
-      let review = reviews.find(review => review.id === id);
+      let review = reviewsData.find(review => review.id === id);
 
       if (!review) {
         return null;
@@ -177,8 +177,8 @@ export const resolvers: GraphQLResolverMap<any> = {
       return review;
     },
     deleteReview(_, { id }) {
-      const deleted = reviews.splice(
-        reviews.findIndex(review => review.id === id),
+      const deleted = reviewsData.splice(
+        reviewsData.findIndex(review => review.id === id),
         1,
       );
       return Boolean(deleted);
@@ -191,10 +191,10 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   User: {
     reviews(user) {
-      return reviews.filter(review => review.authorID === user.id);
+      return reviewsData.filter(review => review.authorID === user.id);
     },
     numberOfReviews(user) {
-      return reviews.filter(review => review.authorID === user.id).length;
+      return reviewsData.filter(review => review.authorID === user.id).length;
     },
     username(user) {
       const found = usernames.find(username => username.id === user.id);
@@ -206,18 +206,18 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   Furniture: {
     reviews(product) {
-      return reviews.filter(review => review.product.upc === product.upc);
+      return reviewsData.filter(review => review.product.upc === product.upc);
     },
   },
   Book: {
     reviews(product) {
-      return reviews.filter(review => review.product.isbn === product.isbn);
+      return reviewsData.filter(review => review.product.isbn === product.isbn);
     },
     relatedReviews(book) {
       return book.similarBooks
         ? book.similarBooks
             .map(({ isbn }: any) =>
-              reviews.filter(review => review.product.isbn === isbn),
+              reviewsData.filter(review => review.product.isbn === isbn),
             )
             .flat()
         : [];

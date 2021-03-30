@@ -6,7 +6,7 @@ import { AuthenticationError } from 'apollo-server-core';
 import { buildQueryPlan, buildOperationContext } from '../buildQueryPlan';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import { astSerializer, queryPlanSerializer, reviews } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
 import { QueryPlannerPointer } from '@apollo/query-planner';
 
@@ -143,14 +143,15 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {
-	  const reviews = jest.fn(() => ([
-	    { id: 1, body: 'Love it!', product: undefined },
-	    { id: 1, body: 'Love it!', product: { __typename: 'Furniture', upc: '1'} }
-	  ]);
-	  
+      const reviewsData = reviews.reviewsData;
+      const reviewsResolver = jest.fn(() => ([
+        { ...reviewsData[0], product: undefined },
+        { ...reviewsData[1], }
+      ]));
+
       overrideResolversInService('reviews', {
         User: {
-          reviews,
+          reviews: reviewsResolver,
         },
       });
 
@@ -197,11 +198,11 @@ describe('executeQueryPlan', () => {
                 "product": null,
               },
               Object {
-                "body": "Love it!",
+                "body": "Too expensive.",
                 "product": Object {
-                  "name": "Table",
-                  "sku": "TABLE1",
-                  "upc": "1",
+                  "name": "Couch",
+                  "sku": "COUCH1",
+                  "upc": "2",
                 },
               },
             ],
