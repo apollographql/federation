@@ -143,11 +143,14 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {
+	  const reviews = jest.fn(() => ([
+	    { id: 1, body: 'Love it!', product: undefined },
+	    { id: 1, body: 'Love it!', product: { __typename: 'Furniture', upc: '1'} }
+	  ]);
+	  
       overrideResolversInService('reviews', {
         User: {
-          reviews() {//We are using an example where a past product was removed from the system
-            return [{id:1,body: 'Love it!', product: undefined}, {id:1,body: 'Love it!', product: { __typename: 'Furniture', upc: '1'}}];
-          },
+          reviews,
         },
       });
 
