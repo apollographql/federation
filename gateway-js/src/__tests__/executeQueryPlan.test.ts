@@ -206,7 +206,6 @@ describe('executeQueryPlan', () => {
         },
       }
   `);
-      expect(response).toHaveProperty('data.me.reviews', expect.any(Array));
     });
 
     it(`should still include other root-level results if one root-level field errors out`, async () => {
