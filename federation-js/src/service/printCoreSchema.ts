@@ -225,7 +225,7 @@ function printObject(
 
 // Core change: print @join__owner and @join__type usages
 function printTypeJoinDirectives(
-  type: GraphQLObjectType,
+  type: GraphQLObjectType | GraphQLInterfaceType,
   // Core addition - see `PrintingContext` type for details
   context: PrintingContext,
 ): string {
@@ -244,10 +244,16 @@ function printTypeJoinDirectives(
   ];
   const restEntries = Object.entries(restKeys);
 
+  // We don't want to print an owner for interface types
+  const shouldPrintOwner = isObjectType(type);
+  const joinOwnerString = shouldPrintOwner
+    ? `\n  @join__owner(graph: ${
+        context.sanitizedServiceNames?.[ownerService] ?? ownerService
+      })`
+    : '';
+
   return (
-    `\n  @join__owner(graph: ${
-      context.sanitizedServiceNames?.[ownerService] ?? ownerService
-    })` +
+    joinOwnerString +
     [ownerEntry, ...restEntries]
       .map(([service, keys = []]) =>
         keys
@@ -272,6 +278,8 @@ function printInterface(
   return (
     printDescription(options, type) +
     `interface ${type.name}` +
+    // Core addition for printing @join__owner and @join__type usages
+    printTypeJoinDirectives(type, context) +
     printFields(options, type, context)
   );
 }
@@ -334,7 +342,8 @@ function printFields(
       ': ' +
       String(f.type) +
       printDeprecated(f) +
-      printJoinFieldDirectives(f, type, context),
+      // We don't want to print field owner directives on fields belonging to an interface type
+      (isObjectType(type) ? printJoinFieldDirectives(f, type, context) : ''),
   );
 
   // Core change: for entities, we want to print the block on a new line.

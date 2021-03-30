@@ -157,6 +157,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
       if (
         definition.kind === Kind.OBJECT_TYPE_DEFINITION ||
         definition.kind === Kind.OBJECT_TYPE_EXTENSION
+        // || definition.kind === Kind.INTERFACE_TYPE_DEFINITION
       ) {
         const typeName = definition.name.value;
 
