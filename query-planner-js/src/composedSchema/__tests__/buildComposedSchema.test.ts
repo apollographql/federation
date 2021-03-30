@@ -15,11 +15,11 @@ describe('buildComposedSchema', () => {
     const schemaPath = path.join(
       __dirname,
       '../../__tests__/features/basic/',
-      'csdl.graphql',
+      'supergraphSdl.graphql',
     );
-    const coreSchemaSDL = fs.readFileSync(schemaPath, 'utf8');
+    const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
 
-    schema = buildComposedSchema(parse(coreSchemaSDL));
+    schema = buildComposedSchema(parse(supergraphSdl));
   });
 
   it(`doesn't include core directives`, () => {

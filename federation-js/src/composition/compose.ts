@@ -45,8 +45,7 @@ import {
 } from './types';
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
-import { printComposedSdl } from '../service/printComposedSdl';
-import { printCoreSchema } from '../service/printCoreSchema';
+import { printSupergraphSdl } from '../service/printSupergraphSdl';
 
 const EmptyQueryDefinition = {
   kind: Kind.OBJECT_TYPE_DEFINITION,
@@ -662,8 +661,7 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
   } else {
     return {
       schema,
-      composedSdl: printComposedSdl(schema, services),
-      coreSchema: printCoreSchema(schema, services),
+      supergraphSdl: printSupergraphSdl(schema, services),
     };
   }
 }

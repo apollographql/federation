@@ -607,18 +607,16 @@ export type CompositionResult = CompositionFailure | CompositionSuccess;
 // Yes, it's a bit awkward that we still return a schema when errors occur.
 // This is old behavior that I'm choosing not to modify for now.
 export interface CompositionFailure {
-  /** @deprecated Use composedSdl instead */
+  /** @deprecated Use supergraphSdl instead */
   schema: GraphQLSchema;
   errors: GraphQLError[];
-  composedSdl?: undefined;
-  coreSchema?: undefined;
+  supergraphSdl?: undefined;
 }
 
 export interface CompositionSuccess {
-  /** @deprecated Use composedSdl instead */
+  /** @deprecated Use supergraphSdl instead */
   schema: GraphQLSchema;
-  composedSdl: string;
-  coreSchema: string;
+  supergraphSdl: string;
   errors?: undefined;
 }
 

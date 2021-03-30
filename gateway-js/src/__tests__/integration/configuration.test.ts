@@ -3,12 +3,12 @@ import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
 import { ApolloGateway } from '../..';
 import {
-  mockSDLQuerySuccess,
-  mockCsdlRequestSuccess,
+  mockSdlQuerySuccess,
+  mockSupergraphSdlRequestSuccess,
   mockApolloConfig,
   mockCloudConfigUrl,
 } from './nockMocks';
-import { getTestingCsdl } from '../execution-utils';
+import { getTestingSupergraphSdl } from '../execution-utils';
 import { MockService } from './networkRequests.test';
 
 let logger: Logger;
@@ -53,9 +53,9 @@ describe('gateway configuration warnings', () => {
       gateway = null;
     }
   });
-  it('warns when both csdl and studio configuration are provided', async () => {
+  it('warns when both supergraphSdl and studio configuration are provided', async () => {
     gateway = new ApolloGateway({
-      csdl: getTestingCsdl(),
+      supergraphSdl: getTestingSupergraphSdl(),
       logger,
     });
 
@@ -63,22 +63,22 @@ describe('gateway configuration warnings', () => {
 
     expect(logger.warn).toHaveBeenCalledWith(
       'A local gateway configuration is overriding a managed federation configuration.' +
-        '  To use the managed configuration, do not specify a service list or csdl locally.',
+        '  To use the managed configuration, do not specify a service list or supergraphSdl locally.',
     );
   });
 
   it('warns when both manual update configurations are provided', async () => {
     gateway = new ApolloGateway({
       // @ts-ignore
-      async experimental_updateCsdl() {},
+      async experimental_updateSupergraphSdl() {},
       async experimental_updateServiceDefinitions() {},
       logger,
     });
 
     expect(logger.warn).toHaveBeenCalledWith(
       'Gateway found two manual update configurations when only one should be ' +
-        'provided. Gateway will default to using the provided `experimental_updateCsdl` ' +
-        'function when both `experimental_updateCsdl` and experimental_updateServiceDefinitions` ' +
+        'provided. Gateway will default to using the provided `experimental_updateSupergraphSdl` ' +
+        'function when both `experimental_updateSupergraphSdl` and experimental_updateServiceDefinitions` ' +
         'are provided.',
     );
 
@@ -88,7 +88,7 @@ describe('gateway configuration warnings', () => {
   });
 
   it('conflicting configurations are warned about when present', async () => {
-    mockSDLQuerySuccess(service);
+    mockSdlQuerySuccess(service);
 
     gateway = new ApolloGateway({
       serviceList: [{ name: 'accounts', url: service.url }],
@@ -105,7 +105,7 @@ describe('gateway configuration warnings', () => {
   });
 
   it('conflicting configurations are not warned about when absent', async () => {
-    mockCsdlRequestSuccess();
+    mockSupergraphSdlRequestSuccess();
 
     gateway = new ApolloGateway({
       logger,
@@ -130,7 +130,7 @@ describe('gateway configuration warnings', () => {
     });
 
     expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"When a manual configuration is not provided, gateway requires an Apollo configuration. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ for more information. Manual configuration options include: \`serviceList\`, \`csdl\`, and \`experimental_updateServiceDefinitions\`."`,
+      `"When a manual configuration is not provided, gateway requires an Apollo configuration. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ for more information. Manual configuration options include: \`serviceList\`, \`supergraphSdl\`, and \`experimental_updateServiceDefinitions\`."`,
     );
 
     // Set to `null` so we don't try to call `stop` on it in the `afterEach`,

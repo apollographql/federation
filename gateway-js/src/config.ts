@@ -52,22 +52,22 @@ export interface ServiceDefinitionCompositionInfo {
   compositionMetadata?: CompositionMetadata;
 }
 
-export interface CsdlCompositionInfo {
+export interface SupergraphSdlCompositionInfo {
   schema: GraphQLSchema;
   compositionId: string;
-  csdl: string;
+  supergraphSdl: string;
 }
 
 export type CompositionInfo =
   | ServiceDefinitionCompositionInfo
-  | CsdlCompositionInfo;
+  | SupergraphSdlCompositionInfo;
 
 export type Experimental_DidUpdateCompositionCallback = (
   currentConfig: CompositionInfo,
   previousConfig?: CompositionInfo,
 ) => void;
 
-export type CompositionUpdate = ServiceDefinitionUpdate | CsdlUpdate;
+export type CompositionUpdate = ServiceDefinitionUpdate | SupergraphSdlUpdate;
 
 export interface ServiceDefinitionUpdate {
   serviceDefinitions?: ServiceDefinition[];
@@ -75,13 +75,13 @@ export interface ServiceDefinitionUpdate {
   isNewSchema: boolean;
 }
 
-export interface CsdlUpdate {
+export interface SupergraphSdlUpdate {
   id: string;
-  csdl: string;
+  supergraphSdl: string;
 }
 
-export function isCsdlUpdate(update: CompositionUpdate): update is CsdlUpdate {
-  return 'csdl' in update;
+export function isSupergraphSdlUpdate(update: CompositionUpdate): update is SupergraphSdlUpdate {
+  return 'supergraphSdl' in update;
 }
 
 export function isServiceDefinitionUpdate(
@@ -100,9 +100,9 @@ export type Experimental_UpdateServiceDefinitions = (
   config: DynamicGatewayConfig,
 ) => Promise<ServiceDefinitionUpdate>;
 
-export type Experimental_UpdateCsdl = (
+export type Experimental_UpdateSupergraphSdl = (
   config: DynamicGatewayConfig,
-) => Promise<CsdlUpdate>;
+) => Promise<SupergraphSdlUpdate>;
 
 export type Experimental_UpdateComposition = (
   config: DynamicGatewayConfig,
@@ -165,23 +165,23 @@ interface ManuallyManagedServiceDefsGatewayConfig extends GatewayConfigBase {
   experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
 }
 
-interface ManuallyManagedCsdlGatewayConfig extends GatewayConfigBase {
-  experimental_updateCsdl: Experimental_UpdateCsdl
+interface ManuallyManagedSupergraphSdlGatewayConfig extends GatewayConfigBase {
+  experimental_updateSupergraphSdl: Experimental_UpdateSupergraphSdl
 }
 
 type ManuallyManagedGatewayConfig =
   | ManuallyManagedServiceDefsGatewayConfig
-  | ManuallyManagedCsdlGatewayConfig;
+  | ManuallyManagedSupergraphSdlGatewayConfig;
 
 interface LocalGatewayConfig extends GatewayConfigBase {
   localServiceList: ServiceDefinition[];
 }
 
-interface CsdlGatewayConfig extends GatewayConfigBase {
-  csdl: string;
+interface SupergraphSdlGatewayConfig extends GatewayConfigBase {
+  supergraphSdl: string;
 }
 
-export type StaticGatewayConfig = LocalGatewayConfig | CsdlGatewayConfig;
+export type StaticGatewayConfig = LocalGatewayConfig | SupergraphSdlGatewayConfig;
 
 type DynamicGatewayConfig =
 | ManagedGatewayConfig
@@ -198,8 +198,8 @@ export function isRemoteConfig(config: GatewayConfig): config is RemoteGatewayCo
   return 'serviceList' in config;
 }
 
-export function isCsdlConfig(config: GatewayConfig): config is CsdlGatewayConfig {
-  return 'csdl' in config;
+export function isSupergraphSdlConfig(config: GatewayConfig): config is SupergraphSdlGatewayConfig {
+  return 'supergraphSdl' in config;
 }
 
 // A manually managed config means the user has provided a function which
@@ -209,7 +209,7 @@ export function isManuallyManagedConfig(
 ): config is ManuallyManagedGatewayConfig {
   return (
     'experimental_updateServiceDefinitions' in config ||
-    'experimental_updateCsdl' in config
+    'experimental_updateSupergraphSdl' in config
   );
 }
 
@@ -221,7 +221,7 @@ export function isManagedConfig(
     isPrecomposedManagedConfig(config) ||
     (!isRemoteConfig(config) &&
       !isLocalConfig(config) &&
-      !isCsdlConfig(config) &&
+      !isSupergraphSdlConfig(config) &&
       !isManuallyManagedConfig(config))
   );
 }
@@ -238,7 +238,7 @@ export function isPrecomposedManagedConfig(
 
 // A static config is one which loads synchronously on start and never updates
 export function isStaticConfig(config: GatewayConfig): config is StaticGatewayConfig {
-  return isLocalConfig(config) || isCsdlConfig(config);
+  return isLocalConfig(config) || isSupergraphSdlConfig(config);
 }
 
 // A dynamic config is one which loads asynchronously and (can) update via polling

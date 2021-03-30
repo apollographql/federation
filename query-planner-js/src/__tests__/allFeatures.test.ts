@@ -13,7 +13,7 @@ import {
   buildQueryPlan,
 } from '../buildQueryPlan';
 
-// This test looks over all directories under tests/features and finds "csdl.graphql" in
+// This test looks over all directories under tests/features and finds "supergraphSdl.graphql" in
 // each of those directories. It runs all of the .feature cases in that directory against that schema.
 // To add test cases against new schemas, create a sub directory under "features" with the new schema
 // and new .feature files.
@@ -29,7 +29,7 @@ const directories = fs
   );
 
 for (const directory of directories) {
-  const schemaPath = path.join(directory, 'csdl.graphql');
+  const schemaPath = path.join(directory, 'supergraphSdl.graphql');
 
   const features = loadFeatures(path.join(directory, '*.feature'));
 
@@ -38,8 +38,8 @@ for (const directory of directories) {
       let schema: GraphQLSchema;
 
       beforeAll(() => {
-        const csdl = fs.readFileSync(schemaPath, 'utf8');
-        schema = buildComposedSchema(parse(csdl));
+        const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
+        schema = buildComposedSchema(parse(supergraphSdl));
       });
 
       feature.scenarios.forEach((scenario) => {

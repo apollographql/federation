@@ -107,15 +107,15 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
     throw new GraphQLSchemaValidationError(compositionResult.errors);
   }
 
-  const queryPlannerPointer = getQueryPlanner(compositionResult.coreSchema);
+  const queryPlannerPointer = getQueryPlanner(compositionResult.supergraphSdl);
 
   return { serviceMap, schema: compositionResult.schema, queryPlannerPointer };
 }
 
-export function getTestingCsdl(services: typeof fixtures = fixtures) {
+export function getTestingSupergraphSdl(services: typeof fixtures = fixtures) {
   const compositionResult = composeAndValidate(services);
   if (!compositionHasErrors(compositionResult)) {
-    return compositionResult.coreSchema;
+    return compositionResult.supergraphSdl;
   }
   throw new Error("Testing fixtures don't compose properly!");
 }

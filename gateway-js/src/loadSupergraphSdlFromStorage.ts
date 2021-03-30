@@ -1,14 +1,14 @@
 import { fetch, Response } from 'apollo-server-env';
 import { GraphQLError } from 'graphql';
-import { CsdlQuery } from './__generated__/graphqlTypes';
+import { SupergraphSdlQuery } from './__generated__/graphqlTypes';
 
-export const CSDL_QUERY = /* GraphQL */`#graphql
-  query Csdl($apiKey: String!, $ref: String!) {
+export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql
+  query SupergraphSdl($apiKey: String!, $ref: String!) {
     routerConfig(ref: $ref, apiKey: $apiKey) {
       __typename
       ... on RouterConfigResult {
         id
-        csdl
+        supergraphSdl: csdl
       }
       ... on FetchError {
         code
@@ -18,14 +18,16 @@ export const CSDL_QUERY = /* GraphQL */`#graphql
   }
 `;
 
-type CsdlQueryResult = CsdlQuerySuccess | CsdlQueryFailure;
+type SupergraphSdlQueryResult =
+  | SupergraphSdlQuerySuccess
+  | SupergraphSdlQueryFailure;
 
-interface CsdlQuerySuccess {
-  data: CsdlQuery;
+interface SupergraphSdlQuerySuccess {
+  data: SupergraphSdlQuery;
 }
 
-interface CsdlQueryFailure {
-  data?: CsdlQuery;
+interface SupergraphSdlQueryFailure {
+  data?: SupergraphSdlQuery;
   errors: GraphQLError[];
 }
 
@@ -33,7 +35,7 @@ const { name, version } = require('../package.json');
 
 const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
 
-export async function loadCsdlFromStorage({
+export async function loadSupergraphSdlFromStorage({
   graphId,
   graphVariant,
   apiKey,
@@ -51,7 +53,7 @@ export async function loadCsdlFromStorage({
     result = await fetcher(endpoint, {
       method: 'POST',
       body: JSON.stringify({
-        query: CSDL_QUERY,
+        query: SUPERGRAPH_SDL_QUERY,
         variables: {
           ref: `${graphId}@${graphVariant}`,
           apiKey,
@@ -68,7 +70,7 @@ export async function loadCsdlFromStorage({
     throw new Error(fetchErrorMsg + (e.message ?? e));
   }
 
-  let response: CsdlQueryResult;
+  let response: SupergraphSdlQueryResult;
 
   if (result.ok || result.status === 400) {
     try {
@@ -93,12 +95,12 @@ export async function loadCsdlFromStorage({
   if (routerConfig.__typename === 'RouterConfigResult') {
     const {
       id,
-      csdl,
+      supergraphSdl,
       // messages,
     } = routerConfig;
 
-    // `csdl` should not be nullable in the schema, but it currently is
-    return { id, csdl: csdl! };
+    // `supergraphSdl` should not be nullable in the schema, but it currently is
+    return { id, supergraphSdl: supergraphSdl! };
   } else if (routerConfig.__typename === 'FetchError') {
     // FetchError case
     const { code, message } = routerConfig;

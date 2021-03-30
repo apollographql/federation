@@ -1,7 +1,7 @@
 overwrite: true
 schema: "https://us-central1-mdg-services.cloudfunctions.net:443/cloudconfig-staging/"
 documents:
-  - gateway-js/src/loadCsdlFromStorage.ts
+  - gateway-js/src/loadSupergraphSdlFromStorage.ts
 generates:
   gateway-js/src/__generated__/graphqlTypes.ts:
     plugins:

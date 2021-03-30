@@ -28,10 +28,9 @@ import {
   ASTNode,
   SelectionNode,
 } from 'graphql';
-import { Maybe, ServiceDefinition, FederationType, FederationField } from '../composition';
-import { isFederationType } from '../types';
-import { isFederationDirective } from '../composition/utils';
-import csdlDirectives from '../csdlDirectives';
+import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
+import { CoreDirective } from '../coreSpec';
+import { getJoins } from '../joinSpec';
 
 type Options = {
   /**
@@ -45,27 +44,59 @@ type Options = {
   commentDescriptions?: boolean;
 };
 
+interface PrintingContext {
+  // Core addition: we need access to a map from serviceName to its corresponding
+  // sanitized / uniquified enum value `Name` from the `join__Graph` enum
+  sanitizedServiceNames?: Record<string, string>;
+}
+
 /**
- * Accepts options as a second argument:
+ * Accepts options as an optional third argument:
  *
  *    - commentDescriptions:
  *        Provide true to use preceding comments as the description.
  *
  */
-export function printComposedSdl(
+// Core change: we need service and url information for the join__Graph enum
+export function printSupergraphSdl(
   schema: GraphQLSchema,
   serviceList: ServiceDefinition[],
   options?: Options,
 ): string {
+  const config = schema.toConfig();
+
+  const {
+    FieldSetScalar,
+    JoinFieldDirective,
+    JoinTypeDirective,
+    JoinOwnerDirective,
+    JoinGraphEnum,
+    JoinGraphDirective,
+    sanitizedServiceNames,
+  } = getJoins(serviceList);
+
+  schema = new GraphQLSchema({
+    ...config,
+    directives: [
+      CoreDirective,
+      JoinFieldDirective,
+      JoinTypeDirective,
+      JoinOwnerDirective,
+      JoinGraphDirective,
+      ...config.directives,
+    ],
+    types: [FieldSetScalar, JoinGraphEnum, ...config.types],
+  });
+
+  const context: PrintingContext = {
+    sanitizedServiceNames,
+  }
+
   return printFilteredSchema(
     schema,
-    // Federation change: we need service and url information for the @graph directives
-    serviceList,
-    // Federation change: treat the directives defined by the federation spec
-    // similarly to the directives defined by the GraphQL spec (ie, don't print
-    // their definitions).
-    (n) => !isSpecifiedDirective(n) && !isFederationDirective(n),
+    (n) => !isSpecifiedDirective(n),
     isDefinedType,
+    context,
     options,
   );
 }
@@ -76,56 +107,42 @@ export function printIntrospectionSchema(
 ): string {
   return printFilteredSchema(
     schema,
-    [],
     isSpecifiedDirective,
     isIntrospectionType,
+    {},
     options,
   );
 }
 
-// Federation change: treat the types defined by the federation spec
-// similarly to the directives defined by the GraphQL spec (ie, don't print
-// their definitions).
 function isDefinedType(type: GraphQLNamedType): boolean {
-  return (
-    !isSpecifiedScalarType(type) &&
-    !isIntrospectionType(type) &&
-    !isFederationType(type)
-  );
+  return !isSpecifiedScalarType(type) && !isIntrospectionType(type);
 }
 
 function printFilteredSchema(
   schema: GraphQLSchema,
-  // Federation change: we need service and url information for the @graph directives
-  serviceList: ServiceDefinition[],
   directiveFilter: (type: GraphQLDirective) => boolean,
   typeFilter: (type: GraphQLNamedType) => boolean,
+  // Core addition - see `PrintingContext` type for details
+  context: PrintingContext,
   options?: Options,
 ): string {
-  // Federation change: include directive definitions for CSDL
-  const directives = [
-    ...csdlDirectives,
-    ...schema.getDirectives().filter(directiveFilter),
-  ];
+  const directives = schema.getDirectives().filter(directiveFilter);
   const types = Object.values(schema.getTypeMap())
     .sort((type1, type2) => type1.name.localeCompare(type2.name))
     .filter(typeFilter);
 
   return (
-    [printSchemaDefinition(schema, serviceList)]
+    [printSchemaDefinition(schema)]
       .concat(
-        directives.map(directive => printDirective(directive, options)),
-        types.map(type => printType(type, options)),
+        directives.map((directive) => printDirective(directive, options)),
+        types.map((type) => printType(type, context, options)),
       )
       .filter(Boolean)
       .join('\n\n') + '\n'
   );
 }
 
-function printSchemaDefinition(
-  schema: GraphQLSchema,
-  serviceList: ServiceDefinition[],
-): string | undefined {
+function printSchemaDefinition(schema: GraphQLSchema): string {
   const operationTypes = [];
 
   const queryType = schema.getQueryType();
@@ -145,26 +162,31 @@ function printSchemaDefinition(
 
   return (
     'schema' +
-    // Federation change: print @graph and @composedGraph schema directives
-    printFederationSchemaDirectives(serviceList) +
+    // Core change: print @core directive usages on schema node
+    printCoreDirectives() +
     `\n{\n${operationTypes.join('\n')}\n}`
   );
 }
 
-function printFederationSchemaDirectives(serviceList: ServiceDefinition[]) {
-  return (
-    serviceList.map(service => `\n  @graph(name: "${service.name}", url: "${service.url}")`).join('') +
-    `\n  @composedGraph(version: 1)`
-  );
+function printCoreDirectives() {
+  return [
+    'https://lib.apollo.dev/core/v0.1',
+    'https://lib.apollo.dev/join/v0.1',
+  ].map((feature) => `\n  @core(feature: ${printStringLiteral(feature)})`);
 }
 
-export function printType(type: GraphQLNamedType, options?: Options): string {
+export function printType(
+  type: GraphQLNamedType,
+  // Core addition - see `PrintingContext` type for details
+  context: PrintingContext,
+  options?: Options,
+): string {
   if (isScalarType(type)) {
     return printScalar(type, options);
   } else if (isObjectType(type)) {
-    return printObject(type, options);
+    return printObject(type, context, options);
   } else if (isInterfaceType(type)) {
-    return printInterface(type, options);
+    return printInterface(type, context, options);
   } else if (isUnionType(type)) {
     return printUnion(type, options);
   } else if (isEnumType(type)) {
@@ -180,24 +202,33 @@ function printScalar(type: GraphQLScalarType, options?: Options): string {
   return printDescription(options, type) + `scalar ${type.name}`;
 }
 
-function printObject(type: GraphQLObjectType, options?: Options): string {
+function printObject(
+  type: GraphQLObjectType,
+  // Core addition - see `PrintingContext` type for details
+  context: PrintingContext,
+  options?: Options,
+): string {
   const interfaces = type.getInterfaces();
   const implementedInterfaces = interfaces.length
-    ? ' implements ' + interfaces.map(i => i.name).join(' & ')
+    ? ' implements ' + interfaces.map((i) => i.name).join(' & ')
     : '';
 
   return (
     printDescription(options, type) +
     `type ${type.name}` +
     implementedInterfaces +
-    // Federation addition for printing @owner and @key usages
-    printFederationTypeDirectives(type) +
-    printFields(options, type)
+    // Core addition for printing @join__owner and @join__type usages
+    printTypeJoinDirectives(type, context) +
+    printFields(options, type, context)
   );
 }
 
-// Federation change: print usages of the @owner and @key directives.
-function printFederationTypeDirectives(type: GraphQLObjectType): string {
+// Core change: print @join__owner and @join__type usages
+function printTypeJoinDirectives(
+  type: GraphQLObjectType | GraphQLInterfaceType,
+  // Core addition - see `PrintingContext` type for details
+  context: PrintingContext,
+): string {
   const metadata: FederationType = type.extensions?.federation;
   if (!metadata) return '';
 
@@ -206,20 +237,31 @@ function printFederationTypeDirectives(type: GraphQLObjectType): string {
 
   // Separate owner @keys from the rest of the @keys so we can print them
   // adjacent to the @owner directive.
-  const { [ownerService]: ownerKeys = [], ...restKeys } = keys
-  const ownerEntry: [string, (readonly SelectionNode[])[]] = [ownerService, ownerKeys];
+  const { [ownerService]: ownerKeys = [], ...restKeys } = keys;
+  const ownerEntry: [string, (readonly SelectionNode[])[]] = [
+    ownerService,
+    ownerKeys,
+  ];
   const restEntries = Object.entries(restKeys);
 
+  // We don't want to print an owner for interface types
+  const shouldPrintOwner = isObjectType(type);
+  const joinOwnerString = shouldPrintOwner
+    ? `\n  @join__owner(graph: ${
+        context.sanitizedServiceNames?.[ownerService] ?? ownerService
+      })`
+    : '';
+
   return (
-    `\n  @owner(graph: "${ownerService}")` +
+    joinOwnerString +
     [ownerEntry, ...restEntries]
       .map(([service, keys = []]) =>
         keys
           .map(
             (selections) =>
-              `\n  @key(fields: "${printFieldSet(
-                selections,
-              )}", graph: "${service}")`,
+              `\n  @join__type(graph: ${
+                context.sanitizedServiceNames?.[service] ?? service
+              }, key: ${printStringLiteral(printFieldSet(selections))})`,
           )
           .join(''),
       )
@@ -227,11 +269,18 @@ function printFederationTypeDirectives(type: GraphQLObjectType): string {
   );
 }
 
-function printInterface(type: GraphQLInterfaceType, options?: Options): string {
+function printInterface(
+  type: GraphQLInterfaceType,
+  // Core addition - see `PrintingContext` type for details
+  context: PrintingContext,
+  options?: Options,
+): string {
   return (
     printDescription(options, type) +
     `interface ${type.name}` +
-    printFields(options, type)
+    // Core addition for printing @join__owner and @join__type usages
+    printTypeJoinDirectives(type, context) +
+    printFields(options, type, context)
   );
 }
 
@@ -249,12 +298,20 @@ function printEnum(type: GraphQLEnumType, options?: Options): string {
         printDescription(options, value, '  ', !i) +
         '  ' +
         value.name +
-        printDeprecated(value),
+        printDeprecated(value) +
+        printDirectivesOnEnumValue(type, value),
     );
 
   return (
     printDescription(options, type) + `enum ${type.name}` + printBlock(values)
   );
+}
+
+function printDirectivesOnEnumValue(type: GraphQLEnumType, value: GraphQLEnumValue) {
+  if (type.name === "join__Graph") {
+    return ` @join__graph(name: ${printStringLiteral((value.value.name))} url: ${printStringLiteral(value.value.url ?? '')})`
+  }
+  return '';
 }
 
 function printInputObject(
@@ -273,8 +330,9 @@ function printInputObject(
 function printFields(
   options: Options | undefined,
   type: GraphQLObjectType | GraphQLInterfaceType,
+  // Core addition - see `PrintingContext` type for details
+  context: PrintingContext,
 ) {
-
   const fields = Object.values(type.getFields()).map(
     (f, i) =>
       printDescription(options, f, '  ', !i) +
@@ -284,10 +342,11 @@ function printFields(
       ': ' +
       String(f.type) +
       printDeprecated(f) +
-      printFederationFieldDirectives(f, type),
+      // We don't want to print field owner directives on fields belonging to an interface type
+      (isObjectType(type) ? printJoinFieldDirectives(f, type, context) : ''),
   );
 
-  // Federation change: for entities, we want to print the block on a new line.
+  // Core change: for entities, we want to print the block on a new line.
   // This is just a formatting nice-to-have.
   const isEntity = Boolean(type.extensions?.federation?.keys);
 
@@ -301,25 +360,52 @@ export function printWithReducedWhitespace(ast: ASTNode): string {
 }
 
 /**
- * Federation change: print fieldsets for @key, @requires, and @provides directives
+ * Core change: print fieldsets for @join__field's @key, @requires, and @provides args
  *
  * @param selections
  */
 function printFieldSet(selections: readonly SelectionNode[]): string {
-  return `{ ${selections.map(printWithReducedWhitespace).join(' ')} }`;
+  return `${selections.map(printWithReducedWhitespace).join(' ')}`;
 }
 
 /**
- * Federation change: print @resolve, @requires, and @provides directives
+ * Core change: print @join__field directives
  *
  * @param field
  * @param parentType
  */
-function printFederationFieldDirectives(
+function printJoinFieldDirectives(
   field: GraphQLField<any, any>,
   parentType: GraphQLObjectType | GraphQLInterfaceType,
+  // Core addition - see `PrintingContext` type for details
+  context: PrintingContext,
 ): string {
-  if (!field.extensions?.federation) return '';
+  let printed = ' @join__field(';
+  // Fields on the owning service do not have any federation metadata applied
+  // TODO: maybe make this metadata available? Though I think this is intended and we may depend on that implicity.
+
+  if (!field.extensions?.federation) {
+    // FIXME: We should change the way we detect value types. If a type is
+    // defined in only one service, we currently don't consider it a value type
+    // even if it doesn't specify any keys.
+    // Because we print `@join__type` directives based on the keys, but only used to
+    // look at the owning service here, that meant we would print `@join__field`
+    // without a corresponding `@join__type`, which is invalid according to the spec.
+    if (
+      parentType.extensions?.federation?.serviceName &&
+      parentType.extensions?.federation?.keys
+    ) {
+      return (
+        printed +
+        `graph: ${
+          context.sanitizedServiceNames?.[
+            parentType.extensions?.federation.serviceName
+          ] ?? parentType.extensions?.federation.serviceName
+        })`
+      );
+    }
+    return '';
+  }
 
   const {
     serviceName,
@@ -327,28 +413,28 @@ function printFederationFieldDirectives(
     provides = [],
   }: FederationField = field.extensions.federation;
 
-  let printed = '';
-  // If a `serviceName` exists, we only want to print a `@resolve` directive
-  // if the `serviceName` differs from the `parentType`'s `serviceName`
-  if (
-    serviceName &&
-    serviceName !== parentType.extensions?.federation?.serviceName
-  ) {
-    printed += ` @resolve(graph: "${serviceName}")`;
+  let directiveArgs: string[] = [];
+
+  if (serviceName && serviceName.length > 0) {
+    directiveArgs.push(
+      `graph: ${context.sanitizedServiceNames?.[serviceName] ?? serviceName}`,
+    );
   }
 
   if (requires.length > 0) {
-    printed += ` @requires(fields: "${printFieldSet(requires)}")`;
+    directiveArgs.push(`requires: ${printStringLiteral(printFieldSet(requires))}`);
   }
 
   if (provides.length > 0) {
-    printed += ` @provides(fields: "${printFieldSet(provides)}")`;
+    directiveArgs.push(`provides: ${printStringLiteral(printFieldSet(provides))}`);
   }
 
-  return printed;
+  printed += directiveArgs.join(', ');
+
+  return (printed += ')');
 }
 
-// Federation change: `onNewLine` is a formatting nice-to-have for printing
+// Core change: `onNewLine` is a formatting nice-to-have for printing
 // types that have a list of directives attached, i.e. an entity.
 function printBlock(items: string[], onNewLine?: boolean) {
   return items.length !== 0
@@ -459,6 +545,14 @@ function printDescriptionWithComments(
     .join('\n');
 
   return prefix + comment + '\n';
+}
+
+// Using JSON.stringify ensures that we will generate a valid string literal,
+// escaping quote marks, backslashes, etc. when needed.
+// The `graphql-js` printer also does this when printing out a `StringValue`:
+// https://github.com/graphql/graphql-js/blob/d4bcde8d3e7a7cb8462044ff21122a3996af8655/src/language/printer.js#L109-L112
+function printStringLiteral(value: string) {
+  return JSON.stringify(value);
 }
 
 /**

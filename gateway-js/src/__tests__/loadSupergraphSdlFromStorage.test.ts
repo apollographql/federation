@@ -1,19 +1,19 @@
-import { loadCsdlFromStorage } from '../loadCsdlFromStorage';
+import { loadSupergraphSdlFromStorage } from '../loadSupergraphSdlFromStorage';
 import { getDefaultFetcher } from '../..';
 import {
-  mockCsdlRequestSuccess,
+  mockSupergraphSdlRequestSuccess,
   graphId,
   graphVariant,
   apiKey,
   mockCloudConfigUrl,
-  mockCsdlRequest,
+  mockSupergraphSdlRequest,
 } from './integration/nockMocks';
 
-describe('loadCsdlFromStorage', () => {
-  it('fetches CSDL as expected', async () => {
-    mockCsdlRequestSuccess();
+describe('loadSupergraphSdlFromStorage', () => {
+  it('fetches Supergraph SDL as expected', async () => {
+    mockSupergraphSdlRequestSuccess();
     const fetcher = getDefaultFetcher();
-    const result = await loadCsdlFromStorage({
+    const result = await loadSupergraphSdlFromStorage({
       graphId,
       graphVariant,
       apiKey,
@@ -23,7 +23,8 @@ describe('loadCsdlFromStorage', () => {
 
     expect(result).toMatchInlineSnapshot(`
       Object {
-        "csdl": "schema
+        "id": "originalId-1234",
+        "supergraphSdl": "schema
         @core(feature: \\"https://lib.apollo.dev/core/v0.1\\"),
         @core(feature: \\"https://lib.apollo.dev/join/v0.1\\")
       {
@@ -292,18 +293,17 @@ describe('loadCsdlFromStorage', () => {
         retailPrice: String
       }
       ",
-        "id": "originalId-1234",
       }
     `);
   });
 
   describe('errors', () => {
     it('throws on a malformed response', async () => {
-      mockCsdlRequest().reply(200, 'Invalid JSON');
+      mockSupergraphSdlRequest().reply(200, 'Invalid JSON');
 
       const fetcher = getDefaultFetcher();
       await expect(
-        loadCsdlFromStorage({
+        loadSupergraphSdlFromStorage({
           graphId,
           graphVariant,
           apiKey,
@@ -317,7 +317,7 @@ describe('loadCsdlFromStorage', () => {
 
     it('throws errors from JSON on 400', async () => {
       const message = 'Query syntax error';
-      mockCsdlRequest().reply(
+      mockSupergraphSdlRequest().reply(
         400,
         JSON.stringify({
           errors: [{ message }],
@@ -326,7 +326,7 @@ describe('loadCsdlFromStorage', () => {
 
       const fetcher = getDefaultFetcher();
       await expect(
-        loadCsdlFromStorage({
+        loadSupergraphSdlFromStorage({
           graphId,
           graphVariant,
           apiKey,
@@ -337,11 +337,11 @@ describe('loadCsdlFromStorage', () => {
     });
 
     it("throws on non-OK status codes when `errors` isn't present in a JSON response", async () => {
-      mockCsdlRequest().reply(500);
+      mockSupergraphSdlRequest().reply(500);
 
       const fetcher = getDefaultFetcher();
       await expect(
-        loadCsdlFromStorage({
+        loadSupergraphSdlFromStorage({
           graphId,
           graphVariant,
           apiKey,

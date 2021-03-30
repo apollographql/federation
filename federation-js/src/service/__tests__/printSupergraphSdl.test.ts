@@ -2,16 +2,16 @@ import { fixtures } from 'apollo-federation-integration-testsuite';
 import { parse, GraphQLError, visit, StringValueNode } from 'graphql';
 import { composeAndValidate, compositionHasErrors } from '../../composition';
 
-describe('printCoreSchema', () => {
-  let coreSchema: string, errors: GraphQLError[];
+describe('printSupergraphSdl', () => {
+  let supergraphSdl: string, errors: GraphQLError[];
 
   beforeAll(() => {
-    // composeAndValidate calls `printComposedSdl` to return `composedSdl`
+    // composeAndValidate calls `printSupergraphSdl` to return `supergraphSdl`
     const compositionResult = composeAndValidate(fixtures);
     if (compositionHasErrors(compositionResult)) {
       errors = compositionResult.errors;
     } else {
-      coreSchema = compositionResult.coreSchema;
+      supergraphSdl = compositionResult.supergraphSdl;
     }
   });
 
@@ -20,11 +20,11 @@ describe('printCoreSchema', () => {
   });
 
   it('produces a parseable output', () => {
-    expect(() => parse(coreSchema!)).not.toThrow();
+    expect(() => parse(supergraphSdl!)).not.toThrow();
   });
 
   it('prints a fully composed schema correctly', () => {
-    expect(coreSchema).toMatchInlineSnapshot(`
+    expect(supergraphSdl).toMatchInlineSnapshot(`
       "schema
         @core(feature: \\"https://lib.apollo.dev/core/v0.1\\"),
         @core(feature: \\"https://lib.apollo.dev/join/v0.1\\")
@@ -298,7 +298,7 @@ describe('printCoreSchema', () => {
   });
 
   it('fieldsets are parseable', () => {
-    const parsedCsdl = parse(coreSchema!);
+    const parsedSupergraphSdl = parse(supergraphSdl!);
     const fieldSets: string[] = [];
 
     // Collect all args with the `key`, `provides`, and `requires` fields
@@ -307,7 +307,7 @@ describe('printCoreSchema', () => {
     // be a bit less heavy-handed by searching for the specific directives
     // instead of by argument name.
     const argNames = ['key', 'requires', 'provides'];
-    visit(parsedCsdl, {
+    visit(parsedSupergraphSdl, {
       Argument(node) {
         if (argNames.includes(node.name.value)) {
           fieldSets.push((node.value as StringValueNode).value);
