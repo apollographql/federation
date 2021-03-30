@@ -55,7 +55,7 @@
     "@types/node-fetch": "2.5.8",
     "apollo-link": "1.2.14",
     "apollo-link-http": "1.5.17",
-    "apollo-server": "2.22.1",
+    "apollo-server": "2.22.2",
     "apollo-server-env": "3.0.0",
     "bunyan": "1.8.15",
     "deep-freeze": "0.0.1",
