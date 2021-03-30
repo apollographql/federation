@@ -142,6 +142,73 @@ describe('executeQueryPlan', () => {
       expect(response).toHaveProperty('errors.0.extensions.variables', {});
     });
 
+    it(`should not send request to downstream services when all entities are undefined`, async () => {
+      overrideResolversInService('reviews', {
+        User: {
+          reviews() {//We are using an example where a past product was removed from the system
+            return [{id:1,body: 'Love it!', product: undefined}, {id:1,body: 'Love it!', product: { __typename: 'Furniture', upc: '1'}}];
+          },
+        },
+      });
+
+      const operationString = `#graphql
+        query {
+          me {
+            reviews {
+              body
+              product {
+                upc
+                sku
+                name
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+        operationString,
+        queryPlannerPointer,
+      });
+
+      const queryPlan = buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(response).toMatchInlineSnapshot(`
+      Object {
+        "data": Object {
+          "me": Object {
+            "reviews": Array [
+              Object {
+                "body": "Love it!",
+                "product": null,
+              },
+              Object {
+                "body": "Love it!",
+                "product": Object {
+                  "name": "Table",
+                  "sku": "TABLE1",
+                  "upc": "1",
+                },
+              },
+            ],
+          },
+        },
+      }
+  `);
+      expect(response).toHaveProperty('data.me.reviews', expect.any(Array));
+    });
+
     it(`should still include other root-level results if one root-level field errors out`, async () => {
       overrideResolversInService('accounts', {
         RootQuery: {
