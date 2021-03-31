@@ -25,6 +25,13 @@ describe('executeQueryPlan', () => {
     addResolversToSchema(serviceMap[serviceName].schema, resolvers);
   }
 
+  function spyOnEntitiesResolverInService(serviceName: string) {
+    const entitiesField = serviceMap[serviceName].schema
+      .getQueryType()!
+      .getFields()['_entities'];
+    return jest.spyOn(entitiesField, 'resolve');
+  }
+
   let schema: GraphQLSchema;
   let queryPlannerPointer: QueryPlannerPointer;
 
@@ -143,27 +150,25 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {
-      const reviewsData = reviews.reviewsData;
-      const reviewsResolver = jest.fn(() => ([
-        { ...reviewsData[0], product: undefined },
-        { ...reviewsData[1], }
-      ]));
-
-      overrideResolversInService('reviews', {
-        User: {
-          reviews: reviewsResolver,
-        },
-      });
+      const accountsEntitiesResolverSpy = spyOnEntitiesResolverInService(
+        'accounts',
+      );
 
       const operationString = `#graphql
         query {
-          me {
+          # The first 3 products are all Furniture
+          topProducts(first: 3) {
             reviews {
               body
-              product {
-                upc
-                sku
-                name
+            }
+            ... on Book {
+              reviews {
+                author {
+                  name {
+                    first
+                    last
+                  }
+                }
               }
             }
           }
@@ -188,28 +193,153 @@ describe('executeQueryPlan', () => {
         operationContext,
       );
 
+      expect(accountsEntitiesResolverSpy).not.toHaveBeenCalled();
+
       expect(response).toMatchInlineSnapshot(`
-      Object {
-        "data": Object {
-          "me": Object {
-            "reviews": Array [
+        Object {
+          "data": Object {
+            "topProducts": Array [
               Object {
-                "body": "Love it!",
-                "product": null,
+                "reviews": Array [
+                  Object {
+                    "body": "Love it!",
+                  },
+                  Object {
+                    "body": "Prefer something else.",
+                  },
+                ],
               },
               Object {
-                "body": "Too expensive.",
-                "product": Object {
-                  "name": "Couch",
-                  "sku": "COUCH1",
-                  "upc": "2",
-                },
+                "reviews": Array [
+                  Object {
+                    "body": "Too expensive.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Could be better.",
+                  },
+                ],
               },
             ],
           },
-        },
-      }
-  `);
+        }
+      `);
+    });
+
+    it(`should send a request to downstream services for the remaining entities when some entities are undefined`, async () => {
+      const accountsEntitiesResolverSpy = spyOnEntitiesResolverInService(
+        'accounts',
+      );
+
+      const operationString = `#graphql
+        query {
+          # The first 3 products are all Furniture, but the next 2 are Books
+          topProducts(first: 5) {
+            reviews {
+              body
+            }
+            ... on Book {
+              reviews {
+                author {
+                  name {
+                    first
+                    last
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+        operationString,
+        queryPlannerPointer,
+      });
+
+      const queryPlan = buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(accountsEntitiesResolverSpy).toHaveBeenCalledTimes(1);
+      expect(accountsEntitiesResolverSpy.mock.calls[0][1]).toEqual({
+        representations: [
+          { __typename: 'User', id: '2' },
+          { __typename: 'User', id: '2' },
+        ],
+      });
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "topProducts": Array [
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Love it!",
+                  },
+                  Object {
+                    "body": "Prefer something else.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Too expensive.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Could be better.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "author": Object {
+                      "name": Object {
+                        "first": "Alan",
+                        "last": "Turing",
+                      },
+                    },
+                    "body": "Wish I had read this before.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "author": Object {
+                      "name": Object {
+                        "first": "Alan",
+                        "last": "Turing",
+                      },
+                    },
+                    "body": "A bit outdated.",
+                  },
+                ],
+              },
+            ],
+          },
+        }
+      `);
+    });
     });
 
     it(`should still include other root-level results if one root-level field errors out`, async () => {
