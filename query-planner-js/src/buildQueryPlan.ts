@@ -576,7 +576,7 @@ function splitFields(
         // If none of the field defs have a federation property, this interface's
         // implementors can all be resolved within the same service.
         const hasNoExtendingFieldDefs = !possibleFieldDefs.some(
-          (field) => getFederationMetadataForField(field)?.serviceName,
+          (field) => getFederationMetadataForField(field)?.graphName,
         );
 
         // With no extending field definitions, we can engage the optimization
@@ -1061,7 +1061,7 @@ export class QueryPlanningContext {
   }
 
   getBaseService(parentType: GraphQLObjectType): string | undefined {
-    return getFederationMetadataForType(parentType)?.serviceName;
+    return getFederationMetadataForType(parentType)?.graphName;
   }
 
   getOwningService(
@@ -1069,7 +1069,7 @@ export class QueryPlanningContext {
     fieldDef: GraphQLField<any, any>,
   ): string | undefined {
     return (
-      getFederationMetadataForField(fieldDef)?.serviceName ??
+      getFederationMetadataForField(fieldDef)?.graphName ??
       this.getBaseService(parentType)
     );
   }

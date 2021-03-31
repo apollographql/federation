@@ -31,26 +31,26 @@ export function getFederationMetadataForField(
   return field.extensions?.federation;
 }
 
-export type ServiceName = string;
+export type GraphName = string;
 export type FieldSet = readonly (FieldNode | InlineFragmentNode)[];
 
-export interface Endpoint {
-  serviceName: string;
+export interface Graph {
+  name: string;
   url: string;
 }
 
-export type GraphMap = { [graphName: string]: Endpoint };
+export type GraphMap = { [graphName: string]: Graph };
 export interface FederationSchemaMetadata {
   graphs: GraphMap;
 }
 export interface FederationTypeMetadata {
-  serviceName?: ServiceName;
-  keys?: MultiMap<ServiceName, FieldSet>;
+  graphName?: GraphName;
+  keys?: MultiMap<GraphName, FieldSet>;
   isValueType: boolean;
 }
 
 export interface FederationFieldMetadata {
-  serviceName?: ServiceName;
+  graphName?: GraphName;
   requires?: FieldSet;
   provides?: FieldSet;
 }

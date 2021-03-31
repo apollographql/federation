@@ -103,11 +103,11 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
       `${graphEnumType.name} value ${name} in composed schema should have a @${graphDirective.name} directive`,
     );
 
-    const serviceName: string = graphDirectiveArgs['name'];
+    const graphName: string = graphDirectiveArgs['name'];
     const url: string = graphDirectiveArgs['url'];
 
     graphMap[name] = {
-      serviceName,
+      name: graphName,
       url,
     };
   }
@@ -130,7 +130,7 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
 
     const typeMetadata: FederationTypeMetadata = ownerDirectiveArgs
       ? {
-          serviceName: graphMap[ownerDirectiveArgs?.['graph']].serviceName,
+          graphName: graphMap[ownerDirectiveArgs?.['graph']].name,
           keys: new MultiMap(),
           isValueType: false,
         }
@@ -155,11 +155,11 @@ directive without an @${ownerDirective.name} directive`,
     );
 
     for (const typeDirectiveArgs of typeDirectivesArgs) {
-      const serviceName = graphMap[typeDirectiveArgs['graph']].serviceName;
+      const graphName = graphMap[typeDirectiveArgs['graph']].name;
 
       const keyFields = parseFieldSet(typeDirectiveArgs['key']);
 
-      typeMetadata.keys?.add(serviceName, keyFields);
+      typeMetadata.keys?.add(graphName, keyFields);
     }
 
     for (const fieldDef of Object.values(type.getFields())) {
@@ -176,7 +176,7 @@ directive without an @${ownerDirective.name} directive`,
       if (!fieldDirectiveArgs) continue;
 
       const fieldMetadata: FederationFieldMetadata = {
-        serviceName: graphMap[fieldDirectiveArgs?.['graph']]?.serviceName,
+        graphName: graphMap[fieldDirectiveArgs?.['graph']]?.name,
       };
 
       fieldDef.extensions = {

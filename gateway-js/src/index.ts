@@ -702,14 +702,14 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private serviceListFromComposedSchema(schema: GraphQLSchema) {
-    const serviceMap = schema.extensions?.federation?.graphs;
-    if (!serviceMap) {
-      throw Error(`Couldn't find services in composed schema`);
+    const graphMap = schema.extensions?.federation?.graphs;
+    if (!graphMap) {
+      throw Error(`Couldn't find graph map in composed schema`);
     }
 
-    const serviceList = Object.values(serviceMap).map(service => ({
-      name: service.serviceName,
-      url: service.url
+    const serviceList = Object.values(graphMap).map(graph => ({
+      name: graph.name,
+      url: graph.url
     }))
 
     return serviceList;
