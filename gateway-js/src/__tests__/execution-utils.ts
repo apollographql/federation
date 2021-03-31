@@ -23,7 +23,7 @@ import { mergeDeep } from 'apollo-utilities';
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { getQueryPlanner } from '@apollo/query-planner-wasm';
+import { getQueryPlanner } from '@apollo/query-planner';
 
 const prettyFormat = require('pretty-format');
 
@@ -107,15 +107,15 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
     throw new GraphQLSchemaValidationError(compositionResult.errors);
   }
 
-  const queryPlannerPointer = getQueryPlanner(compositionResult.composedSdl);
+  const queryPlannerPointer = getQueryPlanner(compositionResult.supergraphSdl);
 
   return { serviceMap, schema: compositionResult.schema, queryPlannerPointer };
 }
 
-export function getTestingCsdl(services: typeof fixtures = fixtures) {
+export function getTestingSupergraphSdl(services: typeof fixtures = fixtures) {
   const compositionResult = composeAndValidate(services);
   if (!compositionHasErrors(compositionResult)) {
-    return compositionResult.composedSdl;
+    return compositionResult.supergraphSdl;
   }
   throw new Error("Testing fixtures don't compose properly!");
 }
