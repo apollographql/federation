@@ -250,6 +250,10 @@ async function executeFetch<TContext>(
       }
     });
 
+    // If there are no representations, that means the type conditions in
+    // the requires don't match any entities.
+    if (representations.length < 1) return;
+
     if ('representations' in variables) {
       throw new Error(`Variables cannot contain key "representations"`);
     }

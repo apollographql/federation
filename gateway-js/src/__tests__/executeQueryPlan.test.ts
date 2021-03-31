@@ -340,6 +340,127 @@ describe('executeQueryPlan', () => {
         }
       `);
     });
+
+    it(`should not send request to downstream service when entities don't match type conditions`, async () => {
+      const reviewsEntitiesResolverSpy = spyOnEntitiesResolverInService(
+        'reviews',
+      );
+
+      const operationString = `#graphql
+        query {
+          # The first 3 products are all Furniture
+          topProducts(first: 3) {
+            ... on Book {
+              reviews {
+                body
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+        operationString,
+        queryPlannerPointer,
+      });
+
+      const queryPlan = buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(reviewsEntitiesResolverSpy).not.toHaveBeenCalled();
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "topProducts": Array [
+              Object {},
+              Object {},
+              Object {},
+            ],
+          },
+        }
+      `);
+    });
+
+    it(`should send a request to downstream services for the remaining entities when some entities don't match type conditions`, async () => {
+      const reviewsEntitiesResolverSpy = spyOnEntitiesResolverInService(
+        'reviews',
+      );
+
+      const operationString = `#graphql
+        query {
+          # The first 3 products are all Furniture, but the next 2 are Books
+          topProducts(first: 5) {
+            ... on Book {
+              reviews {
+                body
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+        operationString,
+        queryPlannerPointer,
+      });
+
+      const queryPlan = buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(reviewsEntitiesResolverSpy).toHaveBeenCalledTimes(1);
+      expect(reviewsEntitiesResolverSpy.mock.calls[0][1]).toEqual({
+        representations: [
+          { __typename: 'Book', isbn: '0262510871' },
+          { __typename: 'Book', isbn: '0136291554' },
+        ],
+      });
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "topProducts": Array [
+              Object {},
+              Object {},
+              Object {},
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Wish I had read this before.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "A bit outdated.",
+                  },
+                ],
+              },
+            ],
+          },
+        }
+      `);
     });
 
     it(`should still include other root-level results if one root-level field errors out`, async () => {
