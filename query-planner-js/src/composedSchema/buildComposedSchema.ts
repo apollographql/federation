@@ -5,6 +5,7 @@ import {
   GraphQLError,
   GraphQLNamedType,
   GraphQLSchema,
+  isDirective,
   isEnumType,
   isIntrospectionType,
   isObjectType,
@@ -218,7 +219,8 @@ directive without an $${ownerDirective.name} directive`,
     featureName: string,
   ) {
     return (
-      element.name === `${featureName}` ||
+      // Only directives can use the unprefixed feature name
+      isDirective(element) && element.name === featureName ||
       element.name.startsWith(`${featureName}__`)
     );
   }
