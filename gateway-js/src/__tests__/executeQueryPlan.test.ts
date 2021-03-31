@@ -25,6 +25,13 @@ describe('executeQueryPlan', () => {
     addResolversToSchema(serviceMap[serviceName].schema, resolvers);
   }
 
+  function spyOnEntitiesResolverInService(serviceName: string) {
+    const entitiesField = serviceMap[serviceName].schema
+      .getQueryType()!
+      .getFields()['_entities'];
+    return jest.spyOn(entitiesField, 'resolve');
+  }
+
   let schema: GraphQLSchema;
   let queryPlannerPointer: QueryPlannerPointer;
 
@@ -140,6 +147,320 @@ describe('executeQueryPlan', () => {
         '{me{name{first last}}}',
       );
       expect(response).toHaveProperty('errors.0.extensions.variables', {});
+    });
+
+    it(`should not send request to downstream services when all entities are undefined`, async () => {
+      const accountsEntitiesResolverSpy = spyOnEntitiesResolverInService(
+        'accounts',
+      );
+
+      const operationString = `#graphql
+        query {
+          # The first 3 products are all Furniture
+          topProducts(first: 3) {
+            reviews {
+              body
+            }
+            ... on Book {
+              reviews {
+                author {
+                  name {
+                    first
+                    last
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+        operationString,
+        queryPlannerPointer,
+      });
+
+      const queryPlan = buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(accountsEntitiesResolverSpy).not.toHaveBeenCalled();
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "topProducts": Array [
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Love it!",
+                  },
+                  Object {
+                    "body": "Prefer something else.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Too expensive.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Could be better.",
+                  },
+                ],
+              },
+            ],
+          },
+        }
+      `);
+    });
+
+    it(`should send a request to downstream services for the remaining entities when some entities are undefined`, async () => {
+      const accountsEntitiesResolverSpy = spyOnEntitiesResolverInService(
+        'accounts',
+      );
+
+      const operationString = `#graphql
+        query {
+          # The first 3 products are all Furniture, but the next 2 are Books
+          topProducts(first: 5) {
+            reviews {
+              body
+            }
+            ... on Book {
+              reviews {
+                author {
+                  name {
+                    first
+                    last
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+        operationString,
+        queryPlannerPointer,
+      });
+
+      const queryPlan = buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(accountsEntitiesResolverSpy).toHaveBeenCalledTimes(1);
+      expect(accountsEntitiesResolverSpy.mock.calls[0][1]).toEqual({
+        representations: [
+          { __typename: 'User', id: '2' },
+          { __typename: 'User', id: '2' },
+        ],
+      });
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "topProducts": Array [
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Love it!",
+                  },
+                  Object {
+                    "body": "Prefer something else.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Too expensive.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Could be better.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "author": Object {
+                      "name": Object {
+                        "first": "Alan",
+                        "last": "Turing",
+                      },
+                    },
+                    "body": "Wish I had read this before.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "author": Object {
+                      "name": Object {
+                        "first": "Alan",
+                        "last": "Turing",
+                      },
+                    },
+                    "body": "A bit outdated.",
+                  },
+                ],
+              },
+            ],
+          },
+        }
+      `);
+    });
+
+    it(`should not send request to downstream service when entities don't match type conditions`, async () => {
+      const reviewsEntitiesResolverSpy = spyOnEntitiesResolverInService(
+        'reviews',
+      );
+
+      const operationString = `#graphql
+        query {
+          # The first 3 products are all Furniture
+          topProducts(first: 3) {
+            ... on Book {
+              reviews {
+                body
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+        operationString,
+        queryPlannerPointer,
+      });
+
+      const queryPlan = buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(reviewsEntitiesResolverSpy).not.toHaveBeenCalled();
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "topProducts": Array [
+              Object {},
+              Object {},
+              Object {},
+            ],
+          },
+        }
+      `);
+    });
+
+    it(`should send a request to downstream services for the remaining entities when some entities don't match type conditions`, async () => {
+      const reviewsEntitiesResolverSpy = spyOnEntitiesResolverInService(
+        'reviews',
+      );
+
+      const operationString = `#graphql
+        query {
+          # The first 3 products are all Furniture, but the next 2 are Books
+          topProducts(first: 5) {
+            ... on Book {
+              reviews {
+                body
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+        operationString,
+        queryPlannerPointer,
+      });
+
+      const queryPlan = buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(reviewsEntitiesResolverSpy).toHaveBeenCalledTimes(1);
+      expect(reviewsEntitiesResolverSpy.mock.calls[0][1]).toEqual({
+        representations: [
+          { __typename: 'Book', isbn: '0262510871' },
+          { __typename: 'Book', isbn: '0136291554' },
+        ],
+      });
+
+      expect(response).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "topProducts": Array [
+              Object {},
+              Object {},
+              Object {},
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "Wish I had read this before.",
+                  },
+                ],
+              },
+              Object {
+                "reviews": Array [
+                  Object {
+                    "body": "A bit outdated.",
+                  },
+                ],
+              },
+            ],
+          },
+        }
+      `);
     });
 
     it(`should still include other root-level results if one root-level field errors out`, async () => {
