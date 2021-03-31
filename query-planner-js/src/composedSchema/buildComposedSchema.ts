@@ -80,7 +80,7 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   const graphDirective = getJoinDirective('graph');
 
   const graphEnumType = schema.getType(`${joinName}__Graph`);
-  assert(isEnumType(graphEnumType));
+  assert(isEnumType(graphEnumType), `${joinName}__Graph should be an enum`);
 
   const graphMap: GraphMap = Object.create(null);
 
@@ -151,7 +151,7 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
     assert(
       !(typeMetadata.isValueType && typeDirectivesArgs.length >= 1),
       `GraphQL type "${type.name}" cannot have a @${typeDirective.name} \
-directive without an $${ownerDirective.name} directive`,
+directive without an @${ownerDirective.name} directive`,
     );
 
     for (const typeDirectiveArgs of typeDirectivesArgs) {
@@ -233,7 +233,7 @@ function parseFieldSet(source: string): FieldSet {
 
   assert(
     selections.every(isASTKind('Field', 'InlineFragment')),
-    `Field sets may not contain fragments spreads, but found: "${source}"`,
+    `Field sets may not contain fragment spreads, but found: "${source}"`,
   );
 
   assert(selections.length > 0, `Field sets may not be empty`);
