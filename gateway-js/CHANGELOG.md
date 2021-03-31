@@ -4,6 +4,10 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- _Nothing yet! Stay tuned!_
+
+## v0.25.1
+
 - Improved query plan execution by pruning entities which are `undefined` or didn't match specified type conditions after a prior `FetchNode` execution.  After pruning, only the remaining entities will be fetched in the dependent `FetchNode` execution.  If NO entities remain, the request will not be made.  [PR #612](https://github.com/apollographql/federation/pull/612)
 
 ## v0.25.0
