@@ -184,16 +184,14 @@ directive without an @${ownerDirective.name} directive`,
         federation: fieldMetadata,
       };
 
-      if (fieldDirectiveArgs) {
-        const { requires, provides } = fieldDirectiveArgs;
+      const { requires, provides } = fieldDirectiveArgs;
 
-        if (requires) {
-          fieldMetadata.requires = parseFieldSet(requires);
-        }
+      if (requires) {
+        fieldMetadata.requires = parseFieldSet(requires);
+      }
 
-        if (provides) {
-          fieldMetadata.provides = parseFieldSet(provides);
-        }
+      if (provides) {
+        fieldMetadata.provides = parseFieldSet(provides);
       }
     }
   }
