@@ -34,7 +34,7 @@ export const typeDefs = gql`
   }
 `;
 
-const inventory = [
+export const inventoryData = [
   { sku: 'TABLE1', inStock: true, isHeavy: false },
   { sku: 'COUCH1', inStock: false, isHeavy: true },
   { sku: 'CHAIR1', inStock: true, isHeavy: false },
@@ -46,12 +46,12 @@ const inventory = [
 export const resolvers: GraphQLResolverMap<any> = {
   Furniture: {
     __resolveReference(object) {
-      return inventory.find(product => product.sku === object.sku);
+      return inventoryData.find(product => product.sku === object.sku);
     },
   },
   Book: {
     __resolveReference(object) {
-      return inventory.find(product => product.isbn === object.isbn);
+      return inventoryData.find(product => product.isbn === object.isbn);
     },
   },
   User: {

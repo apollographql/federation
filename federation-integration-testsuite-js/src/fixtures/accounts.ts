@@ -58,7 +58,7 @@ export const typeDefs = gql`
   }
 `;
 
-const users = [
+export const usersData = [
   {
     id: '1',
     name: {
@@ -110,10 +110,10 @@ export const resolvers: GraphQLResolverMap<any> = {
     __resolveObject(object) {
       // Nested key example for @key(fields: "username name { first last }")
       if (object.username && object.name.first && object.name.last) {
-        users.find(user => user.username === object.username);
+        usersData.find(user => user.username === object.username);
       }
 
-      return users.find(user => user.id === object.id);
+      return usersData.find(user => user.id === object.id);
     },
     birthDate(user, args) {
       return args.locale
@@ -152,7 +152,7 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   Mutation: {
     login(_, args) {
-      return users.find(user => user.username === args.username);
+      return usersData.find(user => user.username === args.username);
     },
   },
 };
