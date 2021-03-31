@@ -6,7 +6,7 @@ import { AuthenticationError } from 'apollo-server-core';
 import { buildQueryPlan, buildOperationContext } from '../buildQueryPlan';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
-import { astSerializer, queryPlanSerializer, reviews } from 'apollo-federation-integration-testsuite';
+import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
 import { QueryPlannerPointer } from '@apollo/query-planner';
 

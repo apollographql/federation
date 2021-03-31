@@ -109,7 +109,7 @@ export const typeDefs = gql`
   union MetadataOrError = KeyValue | Error
 `;
 
-export const productsData = [
+const products = [
   {
     __typename: 'Furniture',
     upc: '1',
@@ -178,7 +178,7 @@ const vehicles = [
 export const resolvers: GraphQLResolverMap<any> = {
   Furniture: {
     __resolveReference(object) {
-      return productsData.find(
+      return products.find(
         product => product.upc === object.upc || product.sku === object.sku,
       );
     },
@@ -186,7 +186,7 @@ export const resolvers: GraphQLResolverMap<any> = {
   Book: {
     __resolveReference(object) {
       if (object.isbn) {
-        const fetchedObject = productsData.find(
+        const fetchedObject = products.find(
           product => product.isbn === object.isbn,
         );
         if (fetchedObject) {
@@ -230,13 +230,13 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   Query: {
     product(_, args) {
-      return productsData.find(product => product.upc === args.upc);
+      return products.find(product => product.upc === args.upc);
     },
     vehicle(_, args) {
       return vehicles.find(vehicles => vehicles.id === args.id);
     },
     topProducts(_, args) {
-      return productsData.slice(0, args.first);
+      return products.slice(0, args.first);
     },
   },
   MetadataOrError: {

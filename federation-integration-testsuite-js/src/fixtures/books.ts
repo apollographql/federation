@@ -51,7 +51,7 @@ export const typeDefs = gql`
 `;
 
 const libraries = [{ id: '1', name: 'NYC Public Library' }];
-export const booksData = [
+const books = [
   {
     isbn: '0262510871',
     title: 'Structure and Interpretation of Computer Programs',
@@ -95,12 +95,12 @@ export const booksData = [
 export const resolvers: GraphQLResolverMap<any> = {
   Book: {
     __resolveObject(object) {
-      return booksData.find(book => book.isbn === object.isbn);
+      return books.find(book => book.isbn === object.isbn);
     },
     similarBooks(object) {
       return object.similarBooks
         ? object.similarBooks
-            .map((isbn: string) => booksData.find(book => book.isbn === isbn))
+            .map((isbn: string) => books.find(book => book.isbn === isbn))
             .filter(Boolean)
         : [];
     },
@@ -115,7 +115,7 @@ export const resolvers: GraphQLResolverMap<any> = {
       return { isbn: args.isbn };
     },
     books() {
-      return booksData;
+      return books;
     },
     library(_, { id }) {
       return libraries.find(library => library.id === id);
