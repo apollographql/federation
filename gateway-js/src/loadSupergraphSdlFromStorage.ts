@@ -2,13 +2,14 @@ import { fetch, Response } from 'apollo-server-env';
 import { GraphQLError } from 'graphql';
 import { SupergraphSdlQuery } from './__generated__/graphqlTypes';
 
+// Magic /* GraphQL */ comment below is for codegen, do not remove
 export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql
   query SupergraphSdl($apiKey: String!, $ref: String!) {
     routerConfig(ref: $ref, apiKey: $apiKey) {
       __typename
       ... on RouterConfigResult {
         id
-        supergraphSdl: csdl
+        supergraphSdl: supergraphSDL
       }
       ... on FetchError {
         code

@@ -1,5 +1,5 @@
 overwrite: true
-schema: "https://us-central1-mdg-services.cloudfunctions.net:443/cloudconfig-staging/"
+schema: "https://uplink.api.apollographql.com/"
 documents:
   - gateway-js/src/loadSupergraphSdlFromStorage.ts
 generates:

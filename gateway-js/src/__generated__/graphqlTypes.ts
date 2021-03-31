@@ -11,6 +11,34 @@ export type Scalars = {
   Float: number;
 };
 
+export type FetchError = {
+  __typename?: 'FetchError';
+  code: FetchErrorCode;
+  message: Scalars['String'];
+};
+
+export enum FetchErrorCode {
+  /** This token provided is not a valid graph token. Do not retry */
+  AuthenticationFailed = 'AUTHENTICATION_FAILED',
+  /** This token does not have access to fetch the schema for this ref. Do not retry. */
+  AccessDenied = 'ACCESS_DENIED',
+  /** The graphRef passed is not a valid ref or no configuration for that ref is found. Do not retry */
+  UnknownRef = 'UNKNOWN_REF',
+  /** An internal server error occurred. Please retry with some backoff */
+  RetryLater = 'RETRY_LATER'
+}
+
+export type Message = {
+  __typename?: 'Message';
+  level: MessageLevel;
+  body: Scalars['String'];
+};
+
+export enum MessageLevel {
+  Error = 'ERROR',
+  Warn = 'WARN',
+  Info = 'INFO'
+}
 
 export type Query = {
   __typename?: 'Query';
@@ -30,43 +58,11 @@ export type RouterConfigResponse = RouterConfigResult | FetchError;
 export type RouterConfigResult = {
   __typename?: 'RouterConfigResult';
   id: Scalars['ID'];
-  /** The configuration as cSDL, if available. */
-  csdl?: Maybe<Scalars['String']>;
+  /** The configuration as core schema */
+  supergraphSDL: Scalars['String'];
   /** Messages that should be reported back to the operators of this router, eg through logs and/or monitoring. */
   messages: Array<Message>;
 };
-
-export enum FetchErrorCode {
-  AuthenticationFailed = 'AUTHENTICATION_FAILED',
-  AccessDenied = 'ACCESS_DENIED',
-  UnknownRef = 'UNKNOWN_REF',
-  RetryLater = 'RETRY_LATER'
-}
-
-export type FetchError = {
-  __typename?: 'FetchError';
-  /** A general category for the error */
-  code: FetchErrorCode;
-  /** A detailed human-readable message only complementing the error code. */
-  message: Scalars['String'];
-};
-
-export type Message = {
-  __typename?: 'Message';
-  level: MessageLevel;
-  body: Scalars['String'];
-};
-
-export enum MessageLevel {
-  Error = 'ERROR',
-  Warn = 'WARN',
-  Info = 'INFO'
-}
-
-export enum CacheControlScope {
-  Public = 'PUBLIC',
-  Private = 'PRIVATE'
-}
 
 export type SupergraphSdlQueryVariables = Exact<{
   apiKey: Scalars['String'];
@@ -79,7 +75,7 @@ export type SupergraphSdlQuery = (
   & { routerConfig: (
     { __typename: 'RouterConfigResult' }
     & Pick<RouterConfigResult, 'id'>
-    & { supergraphSdl: RouterConfigResult['csdl'] }
+    & { supergraphSdl: RouterConfigResult['supergraphSDL'] }
   ) | (
     { __typename: 'FetchError' }
     & Pick<FetchError, 'code' | 'message'>
