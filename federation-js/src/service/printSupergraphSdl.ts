@@ -170,8 +170,8 @@ function printSchemaDefinition(schema: GraphQLSchema): string {
 
 function printCoreDirectives() {
   return [
-    'https://lib.apollo.dev/core/v0.1',
-    'https://lib.apollo.dev/join/v0.1',
+    'https://specs.apollo.dev/core/v0.1',
+    'https://specs.apollo.dev/join/v0.1',
   ].map((feature) => `\n  @core(feature: ${printStringLiteral(feature)})`);
 }
 

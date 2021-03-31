@@ -26,8 +26,8 @@ describe('printSupergraphSdl', () => {
   it('prints a fully composed schema correctly', () => {
     expect(supergraphSdl).toMatchInlineSnapshot(`
       "schema
-        @core(feature: \\"https://lib.apollo.dev/core/v0.1\\"),
-        @core(feature: \\"https://lib.apollo.dev/join/v0.1\\")
+        @core(feature: \\"https://specs.apollo.dev/core/v0.1\\"),
+        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\")
       {
         query: Query
         mutation: Mutation

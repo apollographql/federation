@@ -25,8 +25,8 @@ describe('loadSupergraphSdlFromStorage', () => {
       Object {
         "id": "originalId-1234",
         "supergraphSdl": "schema
-        @core(feature: \\"https://lib.apollo.dev/core/v0.1\\"),
-        @core(feature: \\"https://lib.apollo.dev/join/v0.1\\")
+        @core(feature: \\"https://specs.apollo.dev/core/v0.1\\"),
+        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\")
       {
         query: Query
         mutation: Mutation
