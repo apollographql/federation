@@ -127,10 +127,10 @@ interface GatewayConfigBase {
   fetcher?: typeof fetch;
   serviceHealthCheck?: boolean;
   /**
-   * @deprecated This configuration option shouldn't be used unless by
-   *             recommendation from Apollo staff. This behavior will be
-   *             defaulted in a future release and this option will strictly be
-   *             used as an override.
+   * Enable an upcoming mechanism for fetching a graph’s schema and
+   * configuration when using managed federation. This mechanism is currently in
+   * a preview state and should not be used in production graphs.
+   * See https://go.apollo.dev/g/supergraph-preview for details.
    */
   experimental_schemaConfigDeliveryEndpoint?: null | string;
 }
