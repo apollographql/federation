@@ -15,14 +15,13 @@ import {
   executeQueryPlan,
   buildOperationContext,
 } from '@apollo/gateway';
-import { buildComposedSchema, QueryPlan } from '@apollo/query-planner';
+import { buildComposedSchema, QueryPlanner, QueryPlan } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from 'apollo-utilities';
 
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { QueryPlanner } from '@apollo/query-planner';
 import { parse } from 'graphql';
 
 const prettyFormat = require('pretty-format');
