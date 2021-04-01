@@ -80,6 +80,8 @@ jobs:
           key: ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+            ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-
+            ${{ matrix.build }}-${{ env.cache-name }}-
 
       - name: Cache npm
         uses: actions/cache@v2
