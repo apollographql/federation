@@ -1,7 +1,5 @@
 import fs from 'fs';
 import {
-  GraphQLDirective,
-  GraphQLNamedType,
   GraphQLSchema,
   parse,
 } from 'graphql';
@@ -23,31 +21,34 @@ describe('buildComposedSchema', () => {
   });
 
   it(`doesn't include core directives`, () => {
-    const directives = schema
+    const directiveNames = schema
       .getDirectives()
-      .filter((directive) => isAssociatedWithFeature(directive, 'core'));
-    expect(directives).toEqual([]);
-  });
+      .map((directive) => directive.name);
 
-  it(`doesn't include core types`, () => {
-    const types = Object.values(schema.getTypeMap()).filter((type) =>
-      isAssociatedWithFeature(type, 'core'),
-    );
-    expect(types).toEqual([]);
+    expect(directiveNames).toEqual(expect.not.arrayContaining(['core']));
   });
 
   it(`doesn't include join directives`, () => {
-    const directives = schema
+    const directiveNames = schema
       .getDirectives()
-      .filter((directive) => isAssociatedWithFeature(directive, 'join'));
-    expect(directives).toEqual([]);
+      .map((directive) => directive.name);
+
+    expect(directiveNames).toEqual(
+      expect.not.arrayContaining([
+        'join__graph',
+        'join__type',
+        'join__owner',
+        'join__field',
+      ]),
+    );
   });
 
   it(`doesn't include join types`, () => {
-    const types = Object.values(schema.getTypeMap()).filter((type) =>
-      isAssociatedWithFeature(type, 'join'),
+    const typeNames = Object.keys(schema.getTypeMap());
+
+    expect(typeNames).toEqual(
+      expect.not.arrayContaining(['join__FieldSet', 'join__Graph']),
     );
-    expect(types).toEqual([]);
   });
 
   it(`does pass through other custom directives`, () => {
@@ -59,15 +60,3 @@ describe('buildComposedSchema', () => {
     );
   });
 });
-
-type NamedSchemaElement = GraphQLDirective | GraphQLNamedType;
-
-function isAssociatedWithFeature(
-  element: NamedSchemaElement,
-  featureName: string,
-) {
-  return (
-    element.name === `${featureName}` ||
-    element.name.startsWith(`${featureName}__`)
-  );
-}
