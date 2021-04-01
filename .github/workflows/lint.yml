@@ -59,9 +59,9 @@ jobs:
       ### BUILD CACHE ###
       - name: Cache Cargo registry, target, index
         uses: actions/cache@v2
-        id: cache-cargo-v2
+        id: cache-cargo-v3
         env:
-          cache-name: cache-cargo-v2
+          cache-name: cache-cargo-v3
         with:
           path: |
             ~/.cargo/registry
