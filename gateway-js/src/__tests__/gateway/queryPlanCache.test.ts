@@ -5,12 +5,9 @@ import { buildFederatedSchema } from '@apollo/federation';
 import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-
+import { QueryPlanner } from '@apollo/query-planner';
 it('caches the query plan for a request', async () => {
-  const planner = require('../../buildQueryPlan');
-  const originalPlanner = planner.buildQueryPlan;
-
-  planner.buildQueryPlan = jest.fn(originalPlanner);
+  const buildQueryPlanSpy = jest.spyOn(QueryPlanner.prototype, 'buildQueryPlan');
 
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
@@ -51,7 +48,7 @@ it('caches the query plan for a request', async () => {
   });
 
   expect(result.data).toEqual(secondResult.data);
-  expect(planner.buildQueryPlan).toHaveBeenCalledTimes(1);
+  expect(buildQueryPlanSpy).toHaveBeenCalledTimes(1);
 });
 
 it('supports multiple operations and operationName', async () => {

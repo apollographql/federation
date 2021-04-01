@@ -46,9 +46,7 @@ import {
   SequenceNode,
   QueryPlan,
   ResponsePath,
-  OperationContext,
   trimSelectionNodes,
-  FragmentMap,
 } from './QueryPlan';
 import { getFieldDef, getResponseName } from './utilities/graphql';
 import { MultiMap } from './utilities/MultiMap';
@@ -61,6 +59,14 @@ const typenameField = {
     value: TypeNameMetaFieldDef.name,
   },
 };
+
+export type OperationContext = {
+  schema: GraphQLSchema;
+  operation: OperationDefinitionNode;
+  fragments: FragmentMap;
+};
+
+export type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
 
 export interface BuildQueryPlanOptions {
   autoFragmentization: boolean;

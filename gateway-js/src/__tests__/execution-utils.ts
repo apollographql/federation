@@ -12,18 +12,18 @@ import {
 } from '@apollo/federation';
 
 import {
-  buildQueryPlan,
   executeQueryPlan,
   buildOperationContext,
 } from '@apollo/gateway';
-import { QueryPlan } from '@apollo/query-planner';
+import { buildComposedSchema, QueryPlan } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from 'apollo-utilities';
 
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { getQueryPlanner } from '@apollo/query-planner';
+import { QueryPlanner } from '@apollo/query-planner';
+import { parse } from 'graphql';
 
 const prettyFormat = require('pretty-format');
 
@@ -56,16 +56,14 @@ export async function execute(
     }),
   );
 
-  const { schema, queryPlannerPointer } = getFederatedTestingSchema(services);
+  const { schema, queryPlanner } = getFederatedTestingSchema(services);
 
   const operationContext = buildOperationContext({
     schema,
     operationDocument: gql`${request.query}`,
-    operationString: request.query!,
-    queryPlannerPointer,
   });
 
-  const queryPlan = buildQueryPlan(operationContext);
+  const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
   const result = await executeQueryPlan(
     queryPlan,
@@ -107,9 +105,11 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
     throw new GraphQLSchemaValidationError(compositionResult.errors);
   }
 
-  const queryPlannerPointer = getQueryPlanner(compositionResult.supergraphSdl);
+  const schema = buildComposedSchema(parse(compositionResult.supergraphSdl))
 
-  return { serviceMap, schema: compositionResult.schema, queryPlannerPointer };
+  const queryPlanner = new QueryPlanner(schema);
+
+  return { serviceMap, schema, queryPlanner };
 }
 
 export function getTestingSupergraphSdl(services: typeof fixtures = fixtures) {

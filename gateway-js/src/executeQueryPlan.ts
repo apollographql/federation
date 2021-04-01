@@ -14,7 +14,7 @@ import {
 import { Trace, google } from 'apollo-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
 import { GraphQLDataSource } from './datasources/types';
-import { OperationContext } from './';
+import { OperationContext } from './operationContext';
 import {
   FetchNode,
   PlanNode,

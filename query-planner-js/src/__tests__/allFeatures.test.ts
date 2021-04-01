@@ -3,14 +3,13 @@ import { DocumentNode, GraphQLSchema, parse, validate } from 'graphql';
 import { defineFeature, loadFeatures } from 'jest-cucumber';
 import path from 'path';
 import {
-  QueryPlan
+  QueryPlan, QueryPlanner
 } from '..';
 import {
   buildComposedSchema
 } from '../composedSchema';
 import {
   buildOperationContext,
-  buildQueryPlan,
 } from '../buildQueryPlan';
 
 // This test looks over all directories under tests/features and finds "supergraphSdl.graphql" in
@@ -36,10 +35,12 @@ for (const directory of directories) {
   features.forEach((feature) => {
     defineFeature(feature, (test) => {
       let schema: GraphQLSchema;
+      let queryPlanner: QueryPlanner;
 
       beforeAll(() => {
         const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
         schema = buildComposedSchema(parse(supergraphSdl));
+        queryPlanner = new QueryPlanner(schema);
       });
 
       feature.scenarios.forEach((scenario) => {
@@ -62,7 +63,7 @@ for (const directory of directories) {
 
           const thenQueryPlanShouldBe = () => {
             then(/^query plan$/i, (expectedQueryPlanString: string) => {
-              queryPlan = buildQueryPlan(
+              queryPlan = queryPlanner.buildQueryPlan(
                 buildOperationContext(schema, queryDocument),
               );
 

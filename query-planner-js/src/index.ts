@@ -5,33 +5,30 @@ export * from './QueryPlan';
 import { QueryPlan } from './QueryPlan';
 
 export * from './composedSchema';
-import { buildComposedSchema } from './composedSchema';
-import { GraphQLSchema, parse } from 'graphql';
-import { buildOperationContext, buildQueryPlan } from './buildQueryPlan';
+import { buildQueryPlan, BuildQueryPlanOptions, OperationContext } from './buildQueryPlan';
+import { GraphQLSchema } from 'graphql';
+export { BuildQueryPlanOptions };
 
-// We temporarily export the same API we used for the wasm query planner,
-// but implemented as a facade on top of the TypeScript one. This is ugly
-// and inefficient (we shouldn't be parsing the schema and/or query again),
-// but the goal is to get things working first without making changes to
-// the gateway code.
+// There isn't much in this class yet, and I didn't want to make too many
+// changes at once, but since we were already storing a pointer to a
+// Rust query planner instance in the gateway, I think it makes sense to retain
+// that structure. I suspect having a class instead of a stand-alone function
+// will come in handy to encapsulate schema-derived data that is used during
+// planning but isn't operation specific. The next step is likely to be to
+// convert `buildQueryPlan` into a method.
+export class QueryPlanner {
+  constructor(public readonly schema: GraphQLSchema) {}
 
-export type QueryPlannerPointer = {
-  composedSchema: GraphQLSchema
-};
-
-export function getQueryPlanner(schema: string): QueryPlannerPointer {
-  return {
-    composedSchema: buildComposedSchema(parse(schema)),
-  };
-}
-
-export function getQueryPlan(
-  planner_ptr: QueryPlannerPointer,
-  query: string,
-  options: any,
-): QueryPlan {
-  return buildQueryPlan(
-    buildOperationContext(planner_ptr.composedSchema, parse(query)),
-    options,
-  );
+  // TODO: We should change the API to avoid confusion, because
+  // taking an operationContext with a schema on it isn't consistent
+  // with a QueryPlanner instance being bound to a single schema.
+  buildQueryPlan(
+    operationContext: OperationContext,
+    options?: BuildQueryPlanOptions,
+  ): QueryPlan {
+    return buildQueryPlan(
+      { ...operationContext, schema: this.schema },
+      options,
+    );
+  }
 }
