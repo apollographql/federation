@@ -77,6 +77,8 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Cache npm
         uses: actions/cache@v2
@@ -87,6 +89,7 @@ jobs:
           path: ~/.npm
           key: ${{ matrix.build }}-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
+            ${{ matrix.build }}-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
             ${{ matrix.build }}-${{ env.cache-name }}-
             ${{ matrix.build }}-
 
