@@ -68,17 +68,18 @@ export enum CacheControlScope {
   Private = 'PRIVATE'
 }
 
-export type CsdlQueryVariables = Exact<{
+export type SupergraphSdlQueryVariables = Exact<{
   apiKey: Scalars['String'];
   ref: Scalars['String'];
 }>;
 
 
-export type CsdlQuery = (
+export type SupergraphSdlQuery = (
   { __typename?: 'Query' }
   & { routerConfig: (
     { __typename: 'RouterConfigResult' }
-    & Pick<RouterConfigResult, 'id' | 'csdl'>
+    & Pick<RouterConfigResult, 'id'>
+    & { supergraphSdl: RouterConfigResult['csdl'] }
   ) | (
     { __typename: 'FetchError' }
     & Pick<FetchError, 'code' | 'message'>

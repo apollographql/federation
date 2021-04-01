@@ -8,14 +8,14 @@ const storageSecret = 'my-storage-secret';
 const accountsService = 'accounts';
 
 // Service mocks
-function mockSDLQuery({ url }: MockService) {
+function mockSdlQuery({ url }: MockService) {
   return nock(url).post('/', {
     query: SERVICE_DEFINITION_QUERY,
   });
 }
 
-export function mockSDLQuerySuccess(service: MockService) {
-  mockSDLQuery(service).reply(200, {
+export function mockSdlQuerySuccess(service: MockService) {
+  mockSdlQuery(service).reply(200, {
     data: { _service: { sdl: service.sdl } },
   });
 }

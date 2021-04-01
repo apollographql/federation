@@ -1,12 +1,12 @@
 import { ApolloGateway } from '@apollo/gateway';
 import { ApolloServer } from 'apollo-server';
 import { fetch } from '../../__mocks__/apollo-server-env';
-import { getTestingCsdl } from '../execution-utils';
+import { getTestingSupergraphSdl } from '../execution-utils';
 
-async function getCsdlGatewayServer() {
+async function getSupergraphSdlGatewayServer() {
   const server = new ApolloServer({
     gateway: new ApolloGateway({
-      csdl: getTestingCsdl(),
+      supergraphSdl: getTestingSupergraphSdl(),
     }),
     subscriptions: false,
     engine: false,
@@ -16,9 +16,9 @@ async function getCsdlGatewayServer() {
   return server;
 }
 
-describe('Using csdl configuration', () => {
+describe('Using supergraphSdl configuration', () => {
   it('successfully starts and serves requests to the proper services', async () => {
-    const server = await getCsdlGatewayServer();
+    const server = await getSupergraphSdlGatewayServer();
 
     fetch.mockJSONResponseOnce({
       data: { me: { id: 1, username: '@jbaxleyiii' } },

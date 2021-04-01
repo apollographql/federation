@@ -83,7 +83,8 @@
     "projects": [
       "<rootDir>/federation-js",
       "<rootDir>/federation-integration-testsuite-js",
-      "<rootDir>/gateway-js"
+      "<rootDir>/gateway-js",
+      "<rootDir>/query-planner-js"
     ]
   }
 }

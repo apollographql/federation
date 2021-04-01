@@ -45,10 +45,12 @@ function parseTypedefs(source) {
 
 try {
   /**
-   * @type {{ errors: Error[], composedSdl?: undefined } | { errors?: undefined, composedSdl: string; }}
+   * @type {{ errors: Error[], supergraphSdl?: undefined } | { errors?: undefined, supergraphSdl: string; }}
    */
   const composed = composition.composeAndValidate(serviceList);
-  done(composed.errors ? { Err: composed.errors } : { Ok: composed.composedSdl })
-} catch(err) {
-  done({ Err: [err] })
+  done(
+    composed.errors ? { Err: composed.errors } : { Ok: composed.supergraphSdl },
+  );
+} catch (err) {
+  done({ Err: [err] });
 }

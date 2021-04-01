@@ -1080,6 +1080,14 @@ describe('buildQueryPlan', () => {
                 }
               }
               
+              fragment __QueryPlanFragment_1__ on Review {
+                body
+                author
+                product {
+                  ...__QueryPlanFragment_0__
+                }
+              }
+              
               fragment __QueryPlanFragment_0__ on Product {
                 __typename
                 ... on Book {
@@ -1089,14 +1097,6 @@ describe('buildQueryPlan', () => {
                 ... on Furniture {
                   __typename
                   upc
-                }
-              }
-              
-              fragment __QueryPlanFragment_1__ on Review {
-                body
-                author
-                product {
-                  ...__QueryPlanFragment_0__
                 }
               }
             },
@@ -1290,6 +1290,14 @@ describe('buildQueryPlan', () => {
                 }
               }
               
+              fragment __QueryPlanFragment_1__ on Review {
+                content: body
+                author
+                product {
+                  ...__QueryPlanFragment_0__
+                }
+              }
+              
               fragment __QueryPlanFragment_0__ on Product {
                 __typename
                 ... on Book {
@@ -1299,14 +1307,6 @@ describe('buildQueryPlan', () => {
                 ... on Furniture {
                   __typename
                   upc
-                }
-              }
-              
-              fragment __QueryPlanFragment_1__ on Review {
-                content: body
-                author
-                product {
-                  ...__QueryPlanFragment_0__
                 }
               }
             },
