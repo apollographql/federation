@@ -18,8 +18,6 @@ import {
   VariableDefinitionNode,
   DocumentNode,
   print,
-  FragmentDefinitionNode,
-  OperationDefinitionNode,
   parse,
 } from 'graphql';
 import {
@@ -29,7 +27,7 @@ import {
 } from '@apollo/federation';
 import loglevel from 'loglevel';
 
-import { buildQueryPlan, buildOperationContext } from './buildQueryPlan';
+import { buildOperationContext, OperationContext } from './operationContext';
 import {
   executeQueryPlan,
   ServiceMap,
@@ -43,7 +41,7 @@ import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
-import { getQueryPlanner, QueryPlannerPointer, QueryPlan, prettyFormatQueryPlan } from '@apollo/query-planner';
+import { QueryPlanner, QueryPlan, prettyFormatQueryPlan } from '@apollo/query-planner';
 import {
   ServiceEndpointDefinition,
   Experimental_DidFailCompositionCallback,
@@ -72,16 +70,6 @@ import {
 import { loadSupergraphSdlFromStorage } from './loadSupergraphSdlFromStorage';
 import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorage';
 import { buildComposedSchema } from '@apollo/query-planner';
-
-type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
-
-export type OperationContext = {
-  schema: GraphQLSchema;
-  operation: OperationDefinitionNode;
-  fragments: FragmentMap;
-  queryPlannerPointer: QueryPlannerPointer;
-  operationString: string;
-};
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -160,7 +148,7 @@ export class ApolloGateway implements GraphQLService {
   private compositionMetadata?: CompositionMetadata;
   private serviceSdlCache = new Map<string, string>();
   private warnedStates: WarnedStates = Object.create(null);
-  private queryPlannerPointer?: QueryPlannerPointer;
+  private queryPlanner?: QueryPlanner;
   private parsedSupergraphSdl?: DocumentNode;
   private fetcher: typeof fetch;
   private compositionId?: string;
@@ -367,7 +355,7 @@ export class ApolloGateway implements GraphQLService {
 
     this.maybeWarnOnConflictingConfig();
 
-    // Handles initial assignment of `this.schema`, `this.queryPlannerPointer`
+    // Handles initial assignment of `this.schema`, `this.queryPlanner`
     isStaticConfig(this.config)
       ? this.loadStatic(this.config)
       : await this.loadDynamic(unrefTimer);
@@ -404,7 +392,7 @@ export class ApolloGateway implements GraphQLService {
     this.schema = schema;
     // TODO(trevor): #580 redundant parse
     this.parsedSupergraphSdl = parse(supergraphSdl);
-    this.queryPlannerPointer = getQueryPlanner(supergraphSdl);
+    this.queryPlanner = new QueryPlanner(schema);
     this.state = { phase: 'loaded' };
   }
 
@@ -482,7 +470,7 @@ export class ApolloGateway implements GraphQLService {
       );
     } else {
       this.schema = schema;
-      this.queryPlannerPointer = getQueryPlanner(supergraphSdl);
+      this.queryPlanner = new QueryPlanner(schema);
 
       // Notify the schema listeners of the updated schema
       try {
@@ -555,7 +543,7 @@ export class ApolloGateway implements GraphQLService {
       );
     } else {
       this.schema = schema;
-      this.queryPlannerPointer = getQueryPlanner(supergraphSdl);
+      this.queryPlanner = new QueryPlanner(schema);
 
       // Notify the schema listeners of the updated schema
       try {
@@ -943,13 +931,11 @@ export class ApolloGateway implements GraphQLService {
   public executor = async <TContext>(
     requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
   ): Promise<GraphQLExecutionResult> => {
-    const { request, document, queryHash, source } = requestContext;
+    const { request, document, queryHash } = requestContext;
     const queryPlanStoreKey = queryHash + (request.operationName || '');
     const operationContext = buildOperationContext({
       schema: this.schema!,
       operationDocument: document,
-      operationString: source,
-      queryPlannerPointer: this.queryPlannerPointer!,
       operationName: request.operationName,
     });
 
@@ -970,7 +956,8 @@ export class ApolloGateway implements GraphQLService {
     }
 
     if (!queryPlan) {
-      queryPlan = buildQueryPlan(operationContext, {
+      // TODO(#631): Can we be sure the query planner has been initialized here?
+      queryPlan = this.queryPlanner!.buildQueryPlan(operationContext, {
         autoFragmentization: Boolean(
           this.config.experimental_autoFragmentization,
         ),
@@ -1175,7 +1162,6 @@ class UnreachableCaseError extends Error {
 }
 
 export {
-  buildQueryPlan,
   executeQueryPlan,
   buildOperationContext,
   ServiceMap,

@@ -1,7 +1,4 @@
 import {
-  FragmentDefinitionNode,
-  GraphQLSchema,
-  OperationDefinitionNode,
   Kind,
   SelectionNode as GraphQLJSSelectionNode,
 } from 'graphql';
@@ -9,14 +6,6 @@ import prettyFormat from 'pretty-format';
 import { queryPlanSerializer, astSerializer } from './snapshotSerializers';
 
 export type ResponsePath = (string | number)[];
-
-export type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
-
-export type OperationContext = {
-  schema: GraphQLSchema;
-  operation: OperationDefinitionNode;
-  fragments: FragmentMap;
-};
 
 export interface QueryPlan {
   kind: 'QueryPlan';

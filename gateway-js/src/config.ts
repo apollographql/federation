@@ -5,7 +5,7 @@ import { GraphQLRequestContextExecutionDidStart, Logger } from "apollo-server-ty
 import { ServiceDefinition } from "@apollo/federation";
 import { GraphQLDataSource } from './datasources/types';
 import { QueryPlan } from '@apollo/query-planner';
-import { OperationContext } from './';
+import { OperationContext } from './operationContext';
 import { ServiceMap } from './executeQueryPlan';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;

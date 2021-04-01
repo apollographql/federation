@@ -2,8 +2,8 @@ import gql from 'graphql-tag';
 import { defineFeature, loadFeature } from 'jest-cucumber';
 import { DocumentNode } from 'graphql';
 
-import { QueryPlan } from '@apollo/query-planner';
-import { buildQueryPlan, buildOperationContext, BuildQueryPlanOptions } from '../buildQueryPlan';
+import { QueryPlan, BuildQueryPlanOptions } from '@apollo/query-planner';
+import { buildOperationContext } from '../operationContext';
 import { getFederatedTestingSchema } from './execution-utils';
 
 const buildQueryPlanFeature = loadFeature(
@@ -20,17 +20,15 @@ features.forEach((feature) => {
     feature.scenarios.forEach((scenario) => {
       test(scenario.title, async ({ given, when, then }) => {
         let operationDocument: DocumentNode;
-        let operationString: string;
         let queryPlan: QueryPlan;
         let options: BuildQueryPlanOptions = { autoFragmentization: false };
 
         // throws on composition errors
-        const { schema, queryPlannerPointer } = getFederatedTestingSchema();
+        const { schema, queryPlanner } = getFederatedTestingSchema();
 
         const givenQuery = () => {
           given(/^query$/im, (operation: string) => {
             operationDocument = gql(operation);
-            operationString = operation;
           })
         }
 
@@ -42,12 +40,10 @@ features.forEach((feature) => {
 
         const thenQueryPlanShouldBe = () => {
           then(/^query plan$/i, (expectedQueryPlan: string) => {
-            queryPlan = buildQueryPlan(
+            queryPlan = queryPlanner.buildQueryPlan(
               buildOperationContext({
                 schema,
                 operationDocument,
-                operationString,
-                queryPlannerPointer,
               }),
               options
             );

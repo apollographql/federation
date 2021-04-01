@@ -3,12 +3,12 @@ import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { GraphQLRequestContext } from 'apollo-server-types';
 import { AuthenticationError } from 'apollo-server-core';
-import { buildQueryPlan, buildOperationContext } from '../buildQueryPlan';
+import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
-import { QueryPlannerPointer } from '@apollo/query-planner';
+import { QueryPlanner } from '@apollo/query-planner';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -33,7 +33,7 @@ describe('executeQueryPlan', () => {
   }
 
   let schema: GraphQLSchema;
-  let queryPlannerPointer: QueryPlannerPointer;
+  let queryPlanner: QueryPlanner;
 
   beforeEach(() => {
     expect(
@@ -41,7 +41,7 @@ describe('executeQueryPlan', () => {
         ({
           serviceMap,
           schema,
-          queryPlannerPointer,
+          queryPlanner,
         } = getFederatedTestingSchema()),
     ).not.toThrow();
   });
@@ -75,11 +75,9 @@ describe('executeQueryPlan', () => {
       const operationContext = buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       });
 
-      const queryPlan = buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
       const response = await executeQueryPlan(
         queryPlan,
@@ -116,11 +114,9 @@ describe('executeQueryPlan', () => {
       const operationContext = buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       });
 
-      const queryPlan = buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
       const response = await executeQueryPlan(
         queryPlan,
@@ -180,11 +176,9 @@ describe('executeQueryPlan', () => {
       const operationContext = buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       });
 
-      const queryPlan = buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
       const response = await executeQueryPlan(
         queryPlan,
@@ -260,11 +254,9 @@ describe('executeQueryPlan', () => {
       const operationContext = buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       });
 
-      const queryPlan = buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
       const response = await executeQueryPlan(
         queryPlan,
@@ -364,11 +356,9 @@ describe('executeQueryPlan', () => {
       const operationContext = buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       });
 
-      const queryPlan = buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
       const response = await executeQueryPlan(
         queryPlan,
@@ -415,11 +405,9 @@ describe('executeQueryPlan', () => {
       const operationContext = buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       });
 
-      const queryPlan = buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
       const response = await executeQueryPlan(
         queryPlan,
@@ -491,11 +479,9 @@ describe('executeQueryPlan', () => {
       const operationContext = buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       });
 
-      const queryPlan = buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
       const response = await executeQueryPlan(
         queryPlan,
@@ -530,11 +516,9 @@ describe('executeQueryPlan', () => {
       const operationContext = buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       });
 
-      const queryPlan = buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
       const response = await executeQueryPlan(
         queryPlan,
@@ -568,11 +552,9 @@ describe('executeQueryPlan', () => {
     const operationContext = buildOperationContext({
       schema,
       operationDocument,
-      operationString,
-      queryPlannerPointer,
     });
 
-    const queryPlan = buildQueryPlan(operationContext);
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
     const response = await executeQueryPlan(
       queryPlan,
@@ -663,11 +645,9 @@ describe('executeQueryPlan', () => {
     const operationContext = buildOperationContext({
       schema,
       operationDocument,
-      operationString,
-      queryPlannerPointer,
     });
 
-    const queryPlan = buildQueryPlan(operationContext);
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
     const requestContext = buildRequestContext();
     requestContext.request.variables = { first: 3 };
@@ -764,11 +744,9 @@ describe('executeQueryPlan', () => {
     const operationContext = buildOperationContext({
       schema,
       operationDocument,
-      operationString,
-      queryPlannerPointer,
     });
 
-    const queryPlan = buildQueryPlan(operationContext);
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
     const requestContext = buildRequestContext();
     requestContext.request.variables = { locale: 'en-US' };
@@ -844,10 +822,8 @@ describe('executeQueryPlan', () => {
       operationDocument: gql`
         ${getIntrospectionQuery()}
       `,
-      operationString: getIntrospectionQuery(),
-      queryPlannerPointer,
     });
-    const queryPlan = buildQueryPlan(operationContext);
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
     const response = await executeQueryPlan(
       queryPlan,
@@ -876,11 +852,9 @@ describe('executeQueryPlan', () => {
     const operationContext = buildOperationContext({
       schema,
       operationDocument,
-      operationString,
-      queryPlannerPointer,
     });
 
-    const queryPlan = buildQueryPlan(operationContext);
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
     const response = await executeQueryPlan(
       queryPlan,
@@ -922,11 +896,9 @@ describe('executeQueryPlan', () => {
     const operationContext = buildOperationContext({
       schema,
       operationDocument,
-      operationString,
-      queryPlannerPointer,
     });
 
-    const queryPlan = buildQueryPlan(operationContext);
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
     const response = await executeQueryPlan(
       queryPlan,
@@ -979,11 +951,9 @@ describe('executeQueryPlan', () => {
     const operationContext = buildOperationContext({
       schema,
       operationDocument,
-      operationString,
-      queryPlannerPointer,
     });
 
-    const queryPlan = buildQueryPlan(operationContext);
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
     const response = await executeQueryPlan(
       queryPlan,
@@ -1023,11 +993,9 @@ describe('executeQueryPlan', () => {
     const operationContext = buildOperationContext({
       schema,
       operationDocument,
-      operationString,
-      queryPlannerPointer,
     });
 
-    const queryPlan = buildQueryPlan(operationContext);
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
     const response = await executeQueryPlan(
       queryPlan,
@@ -1080,11 +1048,9 @@ describe('executeQueryPlan', () => {
     const operationContext = buildOperationContext({
       schema,
       operationDocument,
-      operationString,
-      queryPlannerPointer,
     });
 
-    const queryPlan = buildQueryPlan(operationContext);
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
     const response = await executeQueryPlan(
       queryPlan,
@@ -1131,11 +1097,9 @@ describe('executeQueryPlan', () => {
     const operationContext = buildOperationContext({
       schema,
       operationDocument,
-      operationString,
-      queryPlannerPointer,
     });
 
-    const queryPlan = buildQueryPlan(operationContext);
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
     const response = await executeQueryPlan(
       queryPlan,

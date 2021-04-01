@@ -6,7 +6,7 @@
 
 - Re-introduce TypeScript query planner to the gateway. This change should effectively be an implementation detail - it's undergone extensive testing to ensure compatibility with current query plans. [PR #622](https://github.com/apollographql/federation/pull/622)
 - __BREAKING__ - All references to CSDL within the gateway have been updated to its latest iteration `Supergraph SDL` which is very similar in spirit, but implements the currently-being-introduced core and join specs. This includes changes to recent external API additions like the `csdl` and `experimental_updateCsdl` gateway constructor options. [PR #622](https://github.com/apollographql/federation/pull/622)
-
+- Update query planner API. With the query planner back in TypeScript, we can modify the QP API in such a way that prevents double parsing and schema building. [PR #628](https://github.com/apollographql/federation/pull/628)
 ## v0.25.1
 
 - Improved query plan execution by pruning entities which are `undefined` or didn't match specified type conditions after a prior `FetchNode` execution.  After pruning, only the remaining entities will be fetched in the dependent `FetchNode` execution.  If NO entities remain, the request will not be made.  [PR #612](https://github.com/apollographql/federation/pull/612)
