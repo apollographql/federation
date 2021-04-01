@@ -1,7 +1,70 @@
 ---
-title: "Preview: Try new federation features"
-sidebar_title: "Supergraph preview"
+title: "Federation quickstart (PREVIEW)"
+sidebar_title: "Quickstart (PREVIEW)"
 ---
+
+import {Button} from '@apollo/space-kit/Button';
+import {Link} from 'gatsby';
+
+Hello! This tutorial gets you up and running with Apollo Federation. It uses some Apollo tools and terminology that are still in **preview**, and therefore this content is not yet recommended for use in a production environment. We expect these tools to leave preview soon, so this tutorial is a great way to begin learning about federation using upcoming best practices.
+
+## Preface: Federated architecture
+
+In a federated architecture, multiple GraphQL APIs are **composed** into a single federated data graph. The individual APIs are called **subgraphs**, and they're composed into a **supergraph**:
+
+```mermaid
+graph BT;
+  gateway(["Supergraph (A + B + C)"]);
+  serviceA[Subgraph A];
+  serviceB[Subgraph B];
+  serviceC[Subgraph C];
+  gateway --- serviceA & serviceB & serviceC;
+```
+
+Usually, a subgraph corresponds to a particular service in your backend. The supergraph is then represented by a **gateway**, which routes each incoming query to the appropriate combination of subgraphs.
+
+The supergraph's schema is the combination of each subgraph's schema. This architecture enables clients to query data from multiple subgraphs simultaneously, just by querying the supergraph.
+
+## 1. Install the Rover CLI
+
+**Rover** is Apollo's new CLI for managing data graphs, including federated ones 🐶. It is currently in preview.
+
+<p><a href="https://www.apollographql.com/docs/rover/getting-started/#installation-methods" target="_blank">Install Rover</a></p>
+
+After installing, run `rover` in your terminal with no arguments to make sure it installed successfully. We'll cover some of its commands in later steps.
+
+## 2. Create a gateway
+
+As mentioned in the [preface](#preface-federated-architecture), your federated supergraph is represented by a **gateway** that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted services as our subgraphs, but we'll put  our own gateway in front of them.
+
+With the help of the `@apollo/gateway` library, Apollo Server can act as a federated gateway.
+
+
+### Authenticate Rover with Apollo Studio
+
+After you install Rover, you need to authenticate it with Apollo Studio. To do this, you need an **API key**.
+
+#### Obtain an API key
+
+All Rover commands that communicate with [Apollo Studio](https://www.apollographql.com/docs/studio/) require an API key to do so. Studio supports two types of API keys: **personal API keys** and **graph API keys**.
+
+* **On your local development machine,** use a personal API key.
+* **In shared environments like CI,** use a graph API key.
+
+> [Learn how to obtain an API key](https://www.apollographql.com/docs/studio/api-keys/)
+
+#### Provide the API key to Rover
+
+Run the following command:
+
+```shell
+rover config auth
+```
+
+Provide your API key to the command when prompted.
+
+
+
 
 ## 1. Sign in to Apollo Studio
 
@@ -33,34 +96,6 @@ In Studio, each **graph** corresponds to a data graph and its associated GraphQL
 
 4. Studio displays instructions for registering your schema, which is also covered in a later step. 
 
-## 3. Install the new Rover CLI
-
-**Rover** is the helpful new CLI for managing your Apollo Studio graphs 🐶
-
-Install it with your preferred method on <a href="https://www.apollographql.com/docs/rover/getting-started/#installation-methods" target="_blank">this page</a>.
-
-### Authenticate Rover with Apollo Studio
-
-After you install Rover, you need to authenticate it with Apollo Studio. To do this, you need an **API key**.
-
-#### Obtain an API key
-
-All Rover commands that communicate with [Apollo Studio](https://www.apollographql.com/docs/studio/) require an API key to do so. Studio supports two types of API keys: **personal API keys** and **graph API keys**.
-
-* **On your local development machine,** use a personal API key.
-* **In shared environments like CI,** use a graph API key.
-
-> [Learn how to obtain an API key](https://www.apollographql.com/docs/studio/api-keys/)
-
-#### Provide the API key to Rover
-
-Run the following command:
-
-```shell
-rover config auth
-```
-
-Provide your API key to the command when prompted.
 
 
 ## 4. Register your subgraphs
