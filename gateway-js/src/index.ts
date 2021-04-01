@@ -956,7 +956,7 @@ export class ApolloGateway implements GraphQLService {
     }
 
     if (!queryPlan) {
-      // TODO: Can we be sure the query planner has been initialized here?
+      // TODO(#631): Can we be sure the query planner has been initialized here?
       queryPlan = this.queryPlanner!.buildQueryPlan(operationContext, {
         autoFragmentization: Boolean(
           this.config.experimental_autoFragmentization,

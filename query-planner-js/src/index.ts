@@ -19,7 +19,7 @@ export { BuildQueryPlanOptions };
 export class QueryPlanner {
   constructor(public readonly schema: GraphQLSchema) {}
 
-  // TODO: We should change the API to avoid confusion, because
+  // TODO(#632): We should change the API to avoid confusion, because
   // taking an operationContext with a schema on it isn't consistent
   // with a QueryPlanner instance being bound to a single schema.
   buildQueryPlan(
