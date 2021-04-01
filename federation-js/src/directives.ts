@@ -26,7 +26,7 @@ export const KeyDirective = new GraphQLDirective({
   locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE],
   args: {
     fields: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
 });
@@ -46,7 +46,7 @@ export const RequiresDirective = new GraphQLDirective({
   locations: [DirectiveLocation.FIELD_DEFINITION],
   args: {
     fields: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
 });
@@ -56,7 +56,7 @@ export const ProvidesDirective = new GraphQLDirective({
   locations: [DirectiveLocation.FIELD_DEFINITION],
   args: {
     fields: {
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     },
   },
 });

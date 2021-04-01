@@ -1,0 +1,56 @@
+schema
+  @core(feature: "https://specs.apollo.dev/core/v0.1"),
+  @core(feature: "https://specs.apollo.dev/join/v0.1")
+{
+  query: Query
+}
+
+directive @core(feature: String!) repeatable on SCHEMA
+
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
+
+directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on OBJECT | INTERFACE
+
+directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+type Group {
+  id: ID
+  name: String
+}
+
+scalar join__FieldSet
+
+enum join__Graph {
+  USERS @join__graph(name: "users" url: "undefined")
+  REVIEWS @join__graph(name: "reviews" url: "undefined")
+  ACTUARY @join__graph(name: "actuary" url: "undefined")
+}
+
+type Query {
+  users: [User!]! @join__field(graph: USERS)
+  reviews: [Review!]! @join__field(graph: REVIEWS)
+}
+
+type Review {
+  id: ID!
+  author: User!
+  body: String!
+}
+
+type User
+  @join__owner(graph: USERS)
+  @join__type(graph: USERS, key: "ssn")
+  @join__type(graph: USERS, key: "id")
+  @join__type(graph: USERS, key: "group { id }")
+  @join__type(graph: REVIEWS, key: "id")
+  @join__type(graph: ACTUARY, key: "ssn")
+{
+  id: ID! @join__field(graph: USERS)
+  ssn: ID! @join__field(graph: USERS)
+  name: String! @join__field(graph: USERS)
+  group: Group @join__field(graph: USERS)
+  reviews: [Review!]! @join__field(graph: REVIEWS)
+  risk: Float @join__field(graph: ACTUARY)
+}

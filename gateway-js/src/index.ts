@@ -16,23 +16,18 @@ import {
   isIntrospectionType,
   GraphQLSchema,
   VariableDefinitionNode,
-  visit,
   DocumentNode,
   print,
-  FragmentDefinitionNode,
-  OperationDefinitionNode,
   parse,
 } from 'graphql';
 import {
   composeAndValidate,
   compositionHasErrors,
   ServiceDefinition,
-  findDirectivesOnNode,
-  isStringValueNode,
 } from '@apollo/federation';
 import loglevel from 'loglevel';
 
-import { buildQueryPlan, buildOperationContext } from './buildQueryPlan';
+import { buildOperationContext, OperationContext } from './operationContext';
 import {
   executeQueryPlan,
   ServiceMap,
@@ -46,8 +41,7 @@ import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
-import { getQueryPlanner, QueryPlannerPointer, QueryPlan, prettyFormatQueryPlan } from '@apollo/query-planner';
-import { csdlToSchema } from './csdlToSchema';
+import { QueryPlanner, QueryPlan, prettyFormatQueryPlan } from '@apollo/query-planner';
 import {
   ServiceEndpointDefinition,
   Experimental_DidFailCompositionCallback,
@@ -66,25 +60,16 @@ import {
   isDynamicConfig,
   isStaticConfig,
   CompositionMetadata,
-  isCsdlUpdate,
+  isSupergraphSdlUpdate,
   isServiceDefinitionUpdate,
   ServiceDefinitionUpdate,
-  CsdlUpdate,
+  SupergraphSdlUpdate,
   CompositionUpdate,
   isPrecomposedManagedConfig,
 } from './config';
-import { loadCsdlFromStorage } from './loadCsdlFromStorage';
+import { loadSupergraphSdlFromStorage } from './loadSupergraphSdlFromStorage';
 import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorage';
-
-type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
-
-export type OperationContext = {
-  schema: GraphQLSchema;
-  operation: OperationDefinitionNode;
-  fragments: FragmentMap;
-  queryPlannerPointer: QueryPlannerPointer;
-  operationString: string;
-};
+import { buildComposedSchema } from '@apollo/query-planner';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -163,8 +148,8 @@ export class ApolloGateway implements GraphQLService {
   private compositionMetadata?: CompositionMetadata;
   private serviceSdlCache = new Map<string, string>();
   private warnedStates: WarnedStates = Object.create(null);
-  private queryPlannerPointer?: QueryPlannerPointer;
-  private parsedCsdl?: DocumentNode;
+  private queryPlanner?: QueryPlanner;
+  private parsedSupergraphSdl?: DocumentNode;
   private fetcher: typeof fetch;
   private compositionId?: string;
   private state: GatewayState;
@@ -229,8 +214,8 @@ export class ApolloGateway implements GraphQLService {
 
     if (isManuallyManagedConfig(this.config)) {
       // Use the provided updater function if provided by the user, else default
-      if ('experimental_updateCsdl' in this.config) {
-        this.updateServiceDefinitions = this.config.experimental_updateCsdl;
+      if ('experimental_updateSupergraphSdl' in this.config) {
+        this.updateServiceDefinitions = this.config.experimental_updateSupergraphSdl;
       } else if ('experimental_updateServiceDefinitions' in this.config) {
         this.updateServiceDefinitions = this.config.experimental_updateServiceDefinitions;
       } else {
@@ -308,13 +293,13 @@ export class ApolloGateway implements GraphQLService {
 
     if (
       isManuallyManagedConfig(this.config) &&
-      'experimental_updateCsdl' in this.config &&
+      'experimental_updateSupergraphSdl' in this.config &&
       'experimental_updateServiceDefinitions' in this.config
     ) {
       this.logger.warn(
         'Gateway found two manual update configurations when only one should be ' +
-          'provided. Gateway will default to using the provided `experimental_updateCsdl` ' +
-          'function when both `experimental_updateCsdl` and experimental_updateServiceDefinitions` ' +
+          'provided. Gateway will default to using the provided `experimental_updateSupergraphSdl` ' +
+          'function when both `experimental_updateSupergraphSdl` and experimental_updateServiceDefinitions` ' +
           'are provided.',
       );
     }
@@ -370,7 +355,7 @@ export class ApolloGateway implements GraphQLService {
 
     this.maybeWarnOnConflictingConfig();
 
-    // Handles initial assignment of `this.schema`, `this.queryPlannerPointer`
+    // Handles initial assignment of `this.schema`, `this.queryPlanner`
     isStaticConfig(this.config)
       ? this.loadStatic(this.config)
       : await this.loadDynamic(unrefTimer);
@@ -394,11 +379,11 @@ export class ApolloGateway implements GraphQLService {
   // schema and query planner.
   private loadStatic(config: StaticGatewayConfig) {
     let schema: GraphQLSchema;
-    let composedSdl: string;
+    let supergraphSdl: string;
     try {
-      ({ schema, composedSdl } = isLocalConfig(config)
+      ({ schema, supergraphSdl } = isLocalConfig(config)
         ? this.createSchemaFromServiceList(config.localServiceList)
-        : this.createSchemaFromCsdl(config.csdl));
+        : this.createSchemaFromSupergraphSdl(config.supergraphSdl));
     } catch (e) {
       this.state = { phase: 'failed to load' };
       throw e;
@@ -406,8 +391,8 @@ export class ApolloGateway implements GraphQLService {
 
     this.schema = schema;
     // TODO(trevor): #580 redundant parse
-    this.parsedCsdl = parse(composedSdl);
-    this.queryPlannerPointer = getQueryPlanner(composedSdl);
+    this.parsedSupergraphSdl = parse(supergraphSdl);
+    this.queryPlanner = new QueryPlanner(schema);
     this.state = { phase: 'loaded' };
   }
 
@@ -437,8 +422,8 @@ export class ApolloGateway implements GraphQLService {
     // This may throw, but an error here is caught and logged upstream
     const result = await this.updateServiceDefinitions(this.config);
 
-    if (isCsdlUpdate(result)) {
-      await this.updateWithCsdl(result);
+    if (isSupergraphSdlUpdate(result)) {
+      await this.updateWithSupergraphSdl(result);
     } else if (isServiceDefinitionUpdate(result)) {
       await this.updateByComposition(result);
     } else {
@@ -475,17 +460,17 @@ export class ApolloGateway implements GraphQLService {
 
     if (this.queryPlanStore) this.queryPlanStore.flush();
 
-    const { schema, composedSdl } = this.createSchemaFromServiceList(
+    const { schema, supergraphSdl } = this.createSchemaFromServiceList(
       result.serviceDefinitions,
     );
 
-    if (!composedSdl) {
+    if (!supergraphSdl) {
       this.logger.error(
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
       this.schema = schema;
-      this.queryPlannerPointer = getQueryPlanner(composedSdl);
+      this.queryPlanner = new QueryPlanner(schema);
 
       // Notify the schema listeners of the updated schema
       try {
@@ -522,7 +507,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async updateWithCsdl(result: CsdlUpdate): Promise<void> {
+  private async updateWithSupergraphSdl(result: SupergraphSdlUpdate): Promise<void> {
     if (result.id === this.compositionId) {
       this.logger.debug('No change in composition since last check.');
       return;
@@ -533,32 +518,32 @@ export class ApolloGateway implements GraphQLService {
     // In the case that it throws, the gateway will:
     //   * on initial load, throw the error
     //   * on update, log the error and don't update
-    const parsedCsdl = parse(result.csdl);
+    const parsedSupergraphSdl = parse(result.supergraphSdl);
 
     const previousSchema = this.schema;
-    const previousCsdl = this.parsedCsdl;
+    const previousSupergraphSdl = this.parsedSupergraphSdl;
     const previousCompositionId = this.compositionId;
 
     if (previousSchema) {
-      this.logger.info('Updated CSDL was found.');
+      this.logger.info('Updated Supergraph SDL was found.');
     }
 
     await this.maybePerformServiceHealthCheck(result);
 
     this.compositionId = result.id;
-    this.parsedCsdl = parsedCsdl;
+    this.parsedSupergraphSdl = parsedSupergraphSdl;
 
     if (this.queryPlanStore) this.queryPlanStore.flush();
 
-    const { schema, composedSdl } = this.createSchemaFromCsdl(result.csdl);
+    const { schema, supergraphSdl } = this.createSchemaFromSupergraphSdl(result.supergraphSdl);
 
-    if (!composedSdl) {
+    if (!supergraphSdl) {
       this.logger.error(
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
       this.schema = schema;
-      this.queryPlannerPointer = getQueryPlanner(composedSdl);
+      this.queryPlanner = new QueryPlanner(schema);
 
       // Notify the schema listeners of the updated schema
       try {
@@ -577,13 +562,13 @@ export class ApolloGateway implements GraphQLService {
         this.experimental_didUpdateComposition(
           {
             compositionId: result.id,
-            csdl: result.csdl,
+            supergraphSdl: result.supergraphSdl,
             schema: this.schema,
           },
-          previousCompositionId && previousCsdl && previousSchema
+          previousCompositionId && previousSupergraphSdl && previousSchema
             ? {
                 compositionId: previousCompositionId,
-                csdl: print(previousCsdl),
+                supergraphSdl: print(previousSupergraphSdl),
                 schema: previousSchema,
               }
             : undefined,
@@ -596,11 +581,11 @@ export class ApolloGateway implements GraphQLService {
     // Run service health checks before we commit and update the new schema.
     // This is the last chance to bail out of a schema update.
     if (this.config.serviceHealthCheck) {
-      const serviceList = isCsdlUpdate(update)
+      const serviceList = isSupergraphSdlUpdate(update)
         ? // TODO(trevor): #580 redundant parse
           // Parsing could technically fail and throw here, but parseability has
           // already been confirmed slightly earlier in the code path
-          this.serviceListFromCsdl(parse(update.csdl))
+          this.serviceListFromSupergraphSdl(parse(update.supergraphSdl))
         : // Existence of this is determined in advance with an early return otherwise
           update.serviceDefinitions!;
       // Here we need to construct new datasources based on the new schema info
@@ -679,8 +664,10 @@ export class ApolloGateway implements GraphQLService {
           errors.map((e) => '\t' + e.message).join('\n'),
       );
     } else {
-      const { composedSdl } = compositionResult;
+      const { supergraphSdl } = compositionResult;
       this.createServices(serviceList);
+
+      const schema = buildComposedSchema(parse(supergraphSdl));
 
       this.logger.debug('Schema loaded and ready for execution');
 
@@ -691,53 +678,44 @@ export class ApolloGateway implements GraphQLService {
       // the shape of the root value already contains the aliased fields as
       // responseNames
       return {
-        schema: wrapSchemaWithAliasResolver(csdlToSchema(composedSdl)),
-        composedSdl,
+        schema: wrapSchemaWithAliasResolver(schema),
+        supergraphSdl,
       };
     }
   }
 
-  private serviceListFromCsdl(csdl: DocumentNode) {
-    const serviceList: Omit<ServiceDefinition, 'typeDefs'>[] = [];
+  private serviceListFromSupergraphSdl(supergraphSdl: DocumentNode): Omit<ServiceDefinition, 'typeDefs'>[] {
+    const schema = buildComposedSchema(supergraphSdl);
+    return this.serviceListFromComposedSchema(schema);
+  }
 
-    visit(csdl, {
-      SchemaDefinition(node) {
-        findDirectivesOnNode(node, 'graph').forEach((directive) => {
-          const name = directive.arguments?.find(
-            (arg) => arg.name.value === 'name',
-          );
-          const url = directive.arguments?.find(
-            (arg) => arg.name.value === 'url',
-          );
+  private serviceListFromComposedSchema(schema: GraphQLSchema) {
+    const graphMap = schema.extensions?.federation?.graphs;
+    if (!graphMap) {
+      throw Error(`Couldn't find graph map in composed schema`);
+    }
 
-          if (
-            name &&
-            isStringValueNode(name.value) &&
-            url &&
-            isStringValueNode(url.value)
-          ) {
-            serviceList.push({
-              name: name.value.value,
-              url: url.value.value,
-            });
-          }
-        });
-      },
-    });
+    const serviceList = Object.values(graphMap).map(graph => ({
+      name: graph.name,
+      url: graph.url
+    }))
 
     return serviceList;
   }
 
-  private createSchemaFromCsdl(csdl: string) {
+  private createSchemaFromSupergraphSdl(supergraphSdl: string) {
     // TODO(trevor): #580 redundant parse
-    this.parsedCsdl = parse(csdl);
-    const serviceList = this.serviceListFromCsdl(this.parsedCsdl);
+    this.parsedSupergraphSdl = parse(supergraphSdl);
+
+    const schema = buildComposedSchema(this.parsedSupergraphSdl);
+
+    const serviceList = this.serviceListFromComposedSchema(schema);
 
     this.createServices(serviceList);
 
     return {
-      schema: wrapSchemaWithAliasResolver(csdlToSchema(csdl)),
-      composedSdl: csdl,
+      schema: wrapSchemaWithAliasResolver(schema),
+      supergraphSdl,
     };
   }
 
@@ -892,7 +870,7 @@ export class ApolloGateway implements GraphQLService {
         'When a manual configuration is not provided, gateway requires an Apollo ' +
           'configuration. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ ' +
           'for more information. Manual configuration options include: ' +
-          '`serviceList`, `csdl`, and `experimental_updateServiceDefinitions`.',
+          '`serviceList`, `supergraphSdl`, and `experimental_updateServiceDefinitions`.',
       );
     }
 
@@ -910,7 +888,7 @@ export class ApolloGateway implements GraphQLService {
       });
     }
 
-    return loadCsdlFromStorage({
+    return loadSupergraphSdlFromStorage({
       graphId: this.apolloConfig!.graphId!,
       apiKey: this.apolloConfig!.key!,
       graphVariant: this.apolloConfig!.graphVariant,
@@ -940,7 +918,7 @@ export class ApolloGateway implements GraphQLService {
       this.logger.warn(
         'A local gateway configuration is overriding a managed federation ' +
           'configuration.  To use the managed ' +
-          'configuration, do not specify a service list or csdl locally.',
+          'configuration, do not specify a service list or supergraphSdl locally.',
       );
     }
   }
@@ -953,13 +931,11 @@ export class ApolloGateway implements GraphQLService {
   public executor = async <TContext>(
     requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
   ): Promise<GraphQLExecutionResult> => {
-    const { request, document, queryHash, source } = requestContext;
+    const { request, document, queryHash } = requestContext;
     const queryPlanStoreKey = queryHash + (request.operationName || '');
     const operationContext = buildOperationContext({
       schema: this.schema!,
       operationDocument: document,
-      operationString: source,
-      queryPlannerPointer: this.queryPlannerPointer!,
       operationName: request.operationName,
     });
 
@@ -980,7 +956,8 @@ export class ApolloGateway implements GraphQLService {
     }
 
     if (!queryPlan) {
-      queryPlan = buildQueryPlan(operationContext, {
+      // TODO(#631): Can we be sure the query planner has been initialized here?
+      queryPlan = this.queryPlanner!.buildQueryPlan(operationContext, {
         autoFragmentization: Boolean(
           this.config.experimental_autoFragmentization,
         ),
@@ -1185,7 +1162,6 @@ class UnreachableCaseError extends Error {
 }
 
 export {
-  buildQueryPlan,
   executeQueryPlan,
   buildOperationContext,
   ServiceMap,

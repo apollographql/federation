@@ -1,0 +1,68 @@
+schema
+  @graph(name: "users", url: "undefined")
+  @composedGraph(version: 1)
+{
+  query: Query
+}
+
+scalar Location
+
+type Query {
+  sender: SendingUser @resolve(graph: "users")
+  receiver: ReceivingUser @resolve(graph: "users")
+  field: SomeField @resolve(graph: "users")
+}
+
+type SendingUser
+  @owner(graph: "users")
+  @key(fields: "{ id }", graph: "users")
+{
+  id: ID!
+  name: String
+  address: String
+  location: Location
+}
+
+type ReceivingUser
+  @owner(graph: "users")
+  @key(fields: "{ id }", graph: "users")
+{
+  id: ID!
+  name: String
+  address: String
+  location: Location
+}
+
+interface IFace {
+  x: Int
+}
+
+type IFaceImpl1 implements IFace { x: Int }
+type IFaceImpl2 implements IFace { x: Int }
+
+type SomeField {
+  a: A
+  b: B
+  iface: IFace
+}
+
+type A {
+  b: B
+}
+
+type B {
+  f1: String
+  f2: String
+  f3: String
+  f4: String
+  f5: String
+  f6: String
+}
+
+directive @composedGraph(version: Int!) on SCHEMA
+directive @graph(name: String!, url: String!) repeatable on SCHEMA
+directive @owner(graph: String!) on OBJECT
+directive @key(fields: String!, graph: String!) repeatable on OBJECT
+directive @resolve(graph: String!) on FIELD_DEFINITION
+directive @provides(fields: String!) on FIELD_DEFINITION
+directive @requires(fields: String!) on FIELD_DEFINITION

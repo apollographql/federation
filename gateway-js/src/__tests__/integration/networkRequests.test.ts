@@ -5,12 +5,12 @@ import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
 import { ApolloGateway } from '../..';
 import {
-  mockSDLQuerySuccess,
+  mockSdlQuerySuccess,
   mockServiceHealthCheckSuccess,
   mockAllServicesHealthCheckSuccess,
   mockServiceHealthCheck,
-  mockCsdlRequestSuccess,
-  mockCsdlRequest,
+  mockSupergraphSdlRequestSuccess,
+  mockSupergraphSdlRequest,
   mockApolloConfig,
   mockCloudConfigUrl,
 } from './nockMocks';
@@ -23,7 +23,7 @@ import {
   product,
   reviews,
 } from 'apollo-federation-integration-testsuite';
-import { getTestingCsdl } from '../execution-utils';
+import { getTestingSupergraphSdl } from '../execution-utils';
 
 export interface MockService {
   name: string;
@@ -91,7 +91,7 @@ afterEach(async () => {
 });
 
 it('Queries remote endpoints for their SDLs', async () => {
-  mockSDLQuerySuccess(simpleService);
+  mockSdlQuerySuccess(simpleService);
 
   gateway = new ApolloGateway({ serviceList: [simpleService] });
   await gateway.load();
@@ -99,8 +99,8 @@ it('Queries remote endpoints for their SDLs', async () => {
 });
 
 // TODO(trevor:cloudconfig): Remove all usages of the experimental config option
-it('Fetches CSDL from remote storage', async () => {
-  mockCsdlRequestSuccess();
+it('Fetches Supergraph SDL from remote storage', async () => {
+  mockSupergraphSdlRequestSuccess();
 
   gateway = new ApolloGateway({
     logger,
@@ -113,11 +113,11 @@ it('Fetches CSDL from remote storage', async () => {
 });
 
 // TODO(trevor:cloudconfig): This test should evolve to demonstrate overriding the default in the future
-it('Fetches CSDL from remote storage using a configured env variable', async () => {
+it('Fetches Supergraph SDL from remote storage using a configured env variable', async () => {
   cleanUp = mockedEnv({
     APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: mockCloudConfigUrl,
   });
-  mockCsdlRequestSuccess();
+  mockSupergraphSdlRequestSuccess();
 
   gateway = new ApolloGateway({
     logger,
@@ -128,9 +128,9 @@ it('Fetches CSDL from remote storage using a configured env variable', async () 
   expect(gateway.schema?.getType('User')).toBeTruthy();
 });
 
-it('Updates CSDL from remote storage', async () => {
-  mockCsdlRequestSuccess();
-  mockCsdlRequestSuccess(getTestingCsdl(fixturesWithUpdate), 'updatedId-5678');
+it('Updates Supergraph SDL from remote storage', async () => {
+  mockSupergraphSdlRequestSuccess();
+  mockSupergraphSdlRequestSuccess(getTestingSupergraphSdl(fixturesWithUpdate), 'updatedId-5678');
 
   // This test is only interested in the second time the gateway notifies of an
   // update, since the first happens on load.
@@ -158,9 +158,9 @@ it('Updates CSDL from remote storage', async () => {
   expect(gateway['compositionId']).toMatchInlineSnapshot(`"updatedId-5678"`);
 });
 
-describe('CSDL update failures', () => {
+describe('Supergraph SDL update failures', () => {
   it('Gateway throws on initial load failure', async () => {
-    mockCsdlRequest().reply(401);
+    mockSupergraphSdlRequest().reply(401);
 
     gateway = new ApolloGateway({
       logger,
@@ -182,8 +182,8 @@ describe('CSDL update failures', () => {
   });
 
   it('Handles arbitrary fetch failures (non 200 response)', async () => {
-    mockCsdlRequestSuccess();
-    mockCsdlRequest().reply(500);
+    mockSupergraphSdlRequestSuccess();
+    mockSupergraphSdlRequest().reply(500);
 
     // Spy on logger.error so we can just await once it's been called
     let errorLogged: Function;
@@ -207,8 +207,8 @@ describe('CSDL update failures', () => {
   });
 
   it('Handles GraphQL errors', async () => {
-    mockCsdlRequestSuccess();
-    mockCsdlRequest().reply(200, {
+    mockSupergraphSdlRequestSuccess();
+    mockSupergraphSdlRequest().reply(200, {
       errors: [
         {
           message: 'Cannot query field "fail" on type "Query".',
@@ -240,16 +240,16 @@ describe('CSDL update failures', () => {
     );
   });
 
-  it("Doesn't update and logs on receiving unparseable CSDL", async () => {
-    mockCsdlRequestSuccess();
-    mockCsdlRequest().reply(
+  it("Doesn't update and logs on receiving unparseable Supergraph SDL", async () => {
+    mockSupergraphSdlRequestSuccess();
+    mockSupergraphSdlRequest().reply(
       200,
       JSON.stringify({
         data: {
           routerConfig: {
             __typename: 'RouterConfigResult',
             id: 'failure',
-            csdl: 'Syntax Error - invalid SDL',
+            supergraphSdl: 'Syntax Error - invalid SDL',
           },
         },
       }),
@@ -276,15 +276,15 @@ describe('CSDL update failures', () => {
     expect(gateway.schema).toBeTruthy();
   });
 
-  it('Throws on initial load when receiving unparseable CSDL', async () => {
-    mockCsdlRequest().reply(
+  it('Throws on initial load when receiving unparseable Supergraph SDL', async () => {
+    mockSupergraphSdlRequest().reply(
       200,
       JSON.stringify({
         data: {
           routerConfig: {
             __typename: 'RouterConfigResult',
             id: 'failure',
-            csdl: 'Syntax Error - invalid SDL',
+            supergraphSdl: 'Syntax Error - invalid SDL',
           },
         },
       }),
@@ -313,9 +313,9 @@ describe('CSDL update failures', () => {
 
 it('Rollsback to a previous schema when triggered', async () => {
   // Init
-  mockCsdlRequestSuccess();
-  mockCsdlRequestSuccess(getTestingCsdl(fixturesWithUpdate), 'updatedId-5678');
-  mockCsdlRequestSuccess();
+  mockSupergraphSdlRequestSuccess();
+  mockSupergraphSdlRequestSuccess(getTestingSupergraphSdl(fixturesWithUpdate), 'updatedId-5678');
+  mockSupergraphSdlRequestSuccess();
 
   let firstResolve: Function;
   let secondResolve: Function;
@@ -353,7 +353,7 @@ it('Rollsback to a previous schema when triggered', async () => {
 describe('Downstream service health checks', () => {
   describe('Unmanaged mode', () => {
     it(`Performs health checks to downstream services on load`, async () => {
-      mockSDLQuerySuccess(simpleService);
+      mockSdlQuerySuccess(simpleService);
       mockServiceHealthCheckSuccess(simpleService);
 
       gateway = new ApolloGateway({
@@ -369,7 +369,7 @@ describe('Downstream service health checks', () => {
     });
 
     it(`Rejects on initial load when health check fails`, async () => {
-      mockSDLQuerySuccess(simpleService);
+      mockSdlQuerySuccess(simpleService);
       mockServiceHealthCheck(simpleService).reply(500);
 
       gateway = new ApolloGateway({
@@ -410,7 +410,7 @@ describe('Downstream service health checks', () => {
 
   describe('Managed mode', () => {
     it('Performs health checks to downstream services on load', async () => {
-      mockCsdlRequestSuccess();
+      mockSupergraphSdlRequestSuccess();
       mockAllServicesHealthCheckSuccess();
 
       gateway = new ApolloGateway({
@@ -428,7 +428,7 @@ describe('Downstream service health checks', () => {
     });
 
     it('Rejects on initial load when health check fails', async () => {
-      mockCsdlRequestSuccess();
+      mockSupergraphSdlRequestSuccess();
       mockServiceHealthCheck(accounts).reply(500);
       mockServiceHealthCheckSuccess(books);
       mockServiceHealthCheckSuccess(inventory);
@@ -476,12 +476,12 @@ describe('Downstream service health checks', () => {
     // I've decided to skip this test for now with hopes that we can one day
     // determine the root cause and test this behavior in a reliable manner.
     it('Rolls over to new schema when health check succeeds', async () => {
-      mockCsdlRequestSuccess();
+      mockSupergraphSdlRequestSuccess();
       mockAllServicesHealthCheckSuccess();
 
       // Update
-      mockCsdlRequestSuccess(
-        getTestingCsdl(fixturesWithUpdate),
+      mockSupergraphSdlRequestSuccess(
+        getTestingSupergraphSdl(fixturesWithUpdate),
         'updatedId-5678',
       );
       mockAllServicesHealthCheckSuccess();
@@ -519,12 +519,12 @@ describe('Downstream service health checks', () => {
     });
 
     it('Preserves original schema when health check fails', async () => {
-      mockCsdlRequestSuccess();
+      mockSupergraphSdlRequestSuccess();
       mockAllServicesHealthCheckSuccess();
 
       // Update (with one health check failure)
-      mockCsdlRequestSuccess(
-        getTestingCsdl(fixturesWithUpdate),
+      mockSupergraphSdlRequestSuccess(
+        getTestingSupergraphSdl(fixturesWithUpdate),
         'updatedId-5678',
       );
       mockServiceHealthCheck(accounts).reply(500);
