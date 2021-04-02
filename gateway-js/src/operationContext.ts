@@ -5,41 +5,26 @@ import {
   GraphQLSchema,
   Kind,
   OperationDefinitionNode,
-  print,
 } from 'graphql';
-import { OperationContext } from './';
-import { getQueryPlan, QueryPlan, QueryPlannerPointer } from '@apollo/query-planner';
 
-export interface BuildQueryPlanOptions {
-  autoFragmentization: boolean;
-}
+type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
 
-export function buildQueryPlan(
-  operationContext: OperationContext,
-  options: BuildQueryPlanOptions = { autoFragmentization: false },
-): QueryPlan {
-
-  return getQueryPlan(
-    operationContext.queryPlannerPointer,
-    operationContext.operationString,
-    options
-  );
-}
+export type OperationContext = {
+  schema: GraphQLSchema;
+  operation: OperationDefinitionNode;
+  fragments: FragmentMap;
+};
 
 // Adapted from buildExecutionContext in graphql-js
 interface BuildOperationContextOptions {
   schema: GraphQLSchema;
   operationDocument: DocumentNode;
-  operationString: string;
-  queryPlannerPointer: QueryPlannerPointer;
   operationName?: string;
 };
 
 export function buildOperationContext({
   schema,
   operationDocument,
-  operationString,
-  queryPlannerPointer,
   operationName,
 }: BuildOperationContextOptions): OperationContext {
   let operation: OperationDefinitionNode | undefined;
@@ -77,23 +62,9 @@ export function buildOperationContext({
     }
   }
 
-  // In the case of multiple operations specified (operationName presence validated above),
-  // `operation` === the operation specified by `operationName`
-  const trimmedOperationString = operationCount > 1
-    ? print({
-      kind: Kind.DOCUMENT,
-      definitions: [
-        operation,
-        ...Object.values(fragments),
-      ],
-    })
-    : operationString;
-
   return {
     schema,
     operation,
     fragments,
-    queryPlannerPointer,
-    operationString: trimmedOperationString
   };
 }

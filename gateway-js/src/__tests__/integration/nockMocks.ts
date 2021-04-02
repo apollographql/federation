@@ -1,8 +1,8 @@
 import nock from 'nock';
 import { MockService } from './networkRequests.test';
 import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
-import { CSDL_QUERY } from '../../loadCsdlFromStorage';
-import { getTestingCsdl } from '../../__tests__/execution-utils';
+import { SUPERGRAPH_SDL_QUERY } from '../../loadSupergraphSdlFromStorage';
+import { getTestingSupergraphSdl } from '../../__tests__/execution-utils';
 import { print } from 'graphql';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 
@@ -21,14 +21,14 @@ export const mockApolloConfig = {
 };
 
 // Service mocks
-function mockSDLQuery({ url }: MockService) {
+function mockSdlQuery({ url }: MockService) {
   return nock(url).post('/', {
     query: SERVICE_DEFINITION_QUERY,
   });
 }
 
-export function mockSDLQuerySuccess(service: MockService) {
-  return mockSDLQuery(service).reply(200, {
+export function mockSdlQuerySuccess(service: MockService) {
+  mockSdlQuery(service).reply(200, {
     data: { _service: { sdl: print(service.typeDefs) } },
   });
 }
@@ -53,7 +53,7 @@ export function mockAllServicesHealthCheckSuccess() {
   );
 }
 
-// CSDL fetching mocks
+// Supergraph SDL fetching mocks
 function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
   const { name, version } = require('../../../package.json');
   return nock(url, {
@@ -69,9 +69,9 @@ function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
 export const mockCloudConfigUrl =
   'https://example.cloud-config-url.com/cloudconfig/';
 
-export function mockCsdlRequest() {
+export function mockSupergraphSdlRequest() {
   return gatewayNock(mockCloudConfigUrl).post('/', {
-    query: CSDL_QUERY,
+    query: SUPERGRAPH_SDL_QUERY,
     variables: {
       ref: `${graphId}@${graphVariant}`,
       apiKey: apiKey,
@@ -79,18 +79,18 @@ export function mockCsdlRequest() {
   });
 }
 
-export function mockCsdlRequestSuccess(
-  csdl = getTestingCsdl(),
+export function mockSupergraphSdlRequestSuccess(
+  supergraphSdl = getTestingSupergraphSdl(),
   id = 'originalId-1234',
 ) {
-  return mockCsdlRequest().reply(
+  return mockSupergraphSdlRequest().reply(
     200,
     JSON.stringify({
       data: {
         routerConfig: {
           __typename: 'RouterConfigResult',
           id,
-          csdl,
+          supergraphSdl,
         },
       },
     }),

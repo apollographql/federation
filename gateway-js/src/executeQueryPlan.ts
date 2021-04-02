@@ -14,7 +14,7 @@ import {
 import { Trace, google } from 'apollo-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
 import { GraphQLDataSource } from './datasources/types';
-import { OperationContext } from './';
+import { OperationContext } from './operationContext';
 import {
   FetchNode,
   PlanNode,
@@ -25,6 +25,7 @@ import {
   getResponseName
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
+import { isNotNullOrUndefined } from './utilities/array';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -192,7 +193,7 @@ async function executeNode<TContext>(
 async function executeFetch<TContext>(
   context: ExecutionContext<TContext>,
   fetch: FetchNode,
-  results: ResultMap | ResultMap[],
+  results: ResultMap | (ResultMap | null | undefined)[],
   _path: ResponsePath,
   traceNode: Trace.QueryPlanNode.FetchNode | null,
 ): Promise<void> {
@@ -202,7 +203,14 @@ async function executeFetch<TContext>(
     throw new Error(`Couldn't find service with name "${fetch.serviceName}"`);
   }
 
-  const entities = Array.isArray(results) ? results : [results];
+  let entities: ResultMap[];
+  if (Array.isArray(results)) {
+    // Remove null or undefined entities from the list
+    entities = results.filter(isNotNullOrUndefined);
+  } else {
+    entities = [results];
+  }
+
   if (entities.length < 1) return;
 
   let variables = Object.create(null);
@@ -241,6 +249,10 @@ async function executeFetch<TContext>(
         representationToEntity.push(index);
       }
     });
+
+    // If there are no representations, that means the type conditions in
+    // the requires don't match any entities.
+    if (representations.length < 1) return;
 
     if ('representations' in variables) {
       throw new Error(`Variables cannot contain key "representations"`);

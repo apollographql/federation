@@ -1,12 +1,12 @@
 {
   "name": "@apollo/query-planner-wasm",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "description": "Bridge code written in Rust to Javascript/Typescript, to be internally used by Apollo Gateway. This package is not meant to be independently consumed.",
   "scripts": {
     "build-esm": "wasm-pack build --target bundler --out-dir module --out-name index --scope apollo",
     "build-cjs": "wasm-pack build --target nodejs --out-dir dist --out-name index --scope apollo",
     "remove-pkg-cruft": "rm module/package.json dist/package.json dist/.gitignore module/.gitignore dist/README.md module/README.md",
-    "monorepo-prepare": "npm run build-esm && npm run build-cjs && npm run remove-pkg-cruft"
+    "_monorepo-prepare": "npm run build-esm && npm run build-cjs && npm run remove-pkg-cruft"
   },
   "author": "opensource@apollographql.com",
   "license": "MIT",

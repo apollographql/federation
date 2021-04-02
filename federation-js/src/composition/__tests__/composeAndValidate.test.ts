@@ -689,7 +689,7 @@ describe('composition of value types', () => {
     ]);
 
     assertCompositionSuccess(compositionResult);
-    const { schema, composedSdl } = compositionResult;
+    const { schema, supergraphSdl } = compositionResult;
     expect(
       (schema.getType('Product') as GraphQLObjectType).getInterfaces(),
     ).toHaveLength(2);
@@ -697,7 +697,7 @@ describe('composition of value types', () => {
     expect(printSchema(schema)).toContain(
       'type Product implements Named & Node',
     );
-    expect(composedSdl).toContain('type Product implements Named & Node');
+    expect(supergraphSdl).toContain('type Product implements Named & Node');
   });
 });
 

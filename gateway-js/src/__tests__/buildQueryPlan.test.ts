@@ -1,20 +1,20 @@
 import { GraphQLSchema } from 'graphql';
 import gql from 'graphql-tag';
-import { buildQueryPlan, buildOperationContext } from '../buildQueryPlan';
+import { buildOperationContext } from '../operationContext';
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
-import { QueryPlannerPointer } from '@apollo/query-planner';
+import { QueryPlanner } from '@apollo/query-planner';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 describe('buildQueryPlan', () => {
   let schema: GraphQLSchema;
-  let queryPlannerPointer: QueryPlannerPointer;
+  let queryPlanner: QueryPlanner;
 
   beforeEach(() => {
     expect(
-      () => ({ schema, queryPlannerPointer } = getFederatedTestingSchema()),
+      () => ({ schema, queryPlanner } = getFederatedTestingSchema()),
     ).not.toThrow();
   });
 
@@ -39,12 +39,10 @@ describe('buildQueryPlan', () => {
 
     const operationDocument = gql(operationString);
 
-    const queryPlan = buildQueryPlan(
+    const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       }),
     );
 
@@ -83,12 +81,10 @@ describe('buildQueryPlan', () => {
 
     const operationDocument = gql(operationString);
 
-    const queryPlan = buildQueryPlan(
+    const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       })
     );
 
@@ -119,12 +115,10 @@ describe('buildQueryPlan', () => {
 
     const operationDocument = gql(operationString);
 
-    const queryPlan = buildQueryPlan(
+    const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       })
     );
 
@@ -208,12 +202,10 @@ describe('buildQueryPlan', () => {
 
     const operationDocument = gql(operationString);
 
-    const queryPlan = buildQueryPlan(
+    const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       })
     );
 
@@ -341,12 +333,10 @@ describe('buildQueryPlan', () => {
 
     const operationDocument = gql(operationString);
 
-    const queryPlan = buildQueryPlan(
+    const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       })
     );
 
@@ -385,12 +375,10 @@ describe('buildQueryPlan', () => {
 
     const operationDocument = gql(operationString);
 
-    const queryPlan = buildQueryPlan(
+    const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       })
     );
 
@@ -428,12 +416,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         })
       );
 
@@ -485,12 +471,10 @@ describe('buildQueryPlan', () => {
 
         const operationDocument = gql(operationString);
 
-        const queryPlan = buildQueryPlan(
+        const queryPlan = queryPlanner.buildQueryPlan(
           buildOperationContext({
             schema,
             operationDocument,
-            operationString,
-            queryPlannerPointer,
           })
         );
 
@@ -543,12 +527,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         })
       );
 
@@ -602,12 +584,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         })
       );
 
@@ -657,12 +637,10 @@ describe('buildQueryPlan', () => {
 
         const operationDocument = gql(operationString);
 
-        const queryPlan = buildQueryPlan(
+        const queryPlan = queryPlanner.buildQueryPlan(
           buildOperationContext({
             schema,
             operationDocument,
-            operationString,
-            queryPlannerPointer,
           })
         );
 
@@ -714,12 +692,10 @@ describe('buildQueryPlan', () => {
 
         const operationDocument = gql(operationString);
 
-        const queryPlan = buildQueryPlan(
+        const queryPlan = queryPlanner.buildQueryPlan(
           buildOperationContext({
             schema,
             operationDocument,
-            operationString,
-            queryPlannerPointer,
           })
         );
 
@@ -771,12 +747,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         })
       );
 
@@ -829,12 +803,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         })
       );
 
@@ -875,12 +847,10 @@ describe('buildQueryPlan', () => {
 
     const operationDocument = gql(operationString);
 
-    const queryPlan = buildQueryPlan(
+    const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       })
     );
 
@@ -951,12 +921,10 @@ describe('buildQueryPlan', () => {
 
     const operationDocument = gql(operationString);
 
-    const queryPlan = buildQueryPlan(
+    const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       })
     );
 
@@ -1008,12 +976,10 @@ describe('buildQueryPlan', () => {
 
     const operationDocument = gql(operationString);
 
-    const queryPlan = buildQueryPlan(
+    const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       })
     );
 
@@ -1060,12 +1026,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         }),
         { autoFragmentization: true },
       );
@@ -1080,6 +1044,14 @@ describe('buildQueryPlan', () => {
                 }
               }
               
+              fragment __QueryPlanFragment_1__ on Review {
+                body
+                author
+                product {
+                  ...__QueryPlanFragment_0__
+                }
+              }
+              
               fragment __QueryPlanFragment_0__ on Product {
                 __typename
                 ... on Book {
@@ -1089,14 +1061,6 @@ describe('buildQueryPlan', () => {
                 ... on Furniture {
                   __typename
                   upc
-                }
-              }
-              
-              fragment __QueryPlanFragment_1__ on Review {
-                body
-                author
-                product {
-                  ...__QueryPlanFragment_0__
                 }
               }
             },
@@ -1185,12 +1149,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         }),
         { autoFragmentization: true },
       );
@@ -1222,12 +1184,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         }),
         { autoFragmentization: true },
       );
@@ -1270,12 +1230,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         }),
         { autoFragmentization: true },
       );
@@ -1290,6 +1248,14 @@ describe('buildQueryPlan', () => {
                 }
               }
               
+              fragment __QueryPlanFragment_1__ on Review {
+                content: body
+                author
+                product {
+                  ...__QueryPlanFragment_0__
+                }
+              }
+              
               fragment __QueryPlanFragment_0__ on Product {
                 __typename
                 ... on Book {
@@ -1299,14 +1265,6 @@ describe('buildQueryPlan', () => {
                 ... on Furniture {
                   __typename
                   upc
-                }
-              }
-              
-              fragment __QueryPlanFragment_1__ on Review {
-                content: body
-                author
-                product {
-                  ...__QueryPlanFragment_0__
                 }
               }
             },
@@ -1414,12 +1372,10 @@ describe('buildQueryPlan', () => {
 
     const operationDocument = gql(operationString);
 
-    const queryPlan = buildQueryPlan(
+    const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
         schema,
         operationDocument,
-        operationString,
-        queryPlannerPointer,
       })
     );
 
@@ -1478,12 +1434,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         })
       );
 
@@ -1530,12 +1484,10 @@ describe('buildQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
-      const queryPlan = buildQueryPlan(
+      const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
           schema,
           operationDocument,
-          operationString,
-          queryPlannerPointer,
         })
       );
 
