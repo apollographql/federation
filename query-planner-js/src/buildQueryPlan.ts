@@ -66,7 +66,9 @@ export type OperationContext = {
   fragments: FragmentMap;
 };
 
-export type FragmentMap = { [fragmentName: string]: FragmentDefinitionNode };
+export type FragmentMap = {
+  [fragmentName: string]: FragmentDefinitionNode | undefined;
+};
 
 export interface BuildQueryPlanOptions {
   autoFragmentization: boolean;
