@@ -16,7 +16,7 @@ import {
 import { SDLValidationContext } from 'graphql/validation/ValidationContext';
 import { TypeMap } from 'graphql/type/schema';
 import { Maybe } from '../../types';
-import { diffTypeNodes, logServiceAndType } from '../../utils';
+import { diffTypeNodes, getOrSetRecord, logServiceAndType } from '../../utils';
 
 type TypeNodeWithFields = TypeDefinitionWithFields | TypeExtensionWithFields;
 
@@ -87,26 +87,29 @@ export function UniqueFieldDefinitionNames(
   function checkFieldUniqueness(node: TypeExtensionWithFields) {
     const typeName = node.name.value;
 
-    if (!knownFieldNames[typeName]) {
-      knownFieldNames[typeName] = Object.create(null);
-    }
+    const fieldNames = getOrSetRecord(
+      knownFieldNames,
+      typeName,
+      Object.create(null),
+    );
 
     if (!node.fields) {
       return false;
     }
 
-    const fieldNames = knownFieldNames[typeName];
-
     for (const fieldDef of node.fields) {
       const fieldName = fieldDef.name.value;
 
-      if (hasField(existingTypeMap[typeName], fieldName)) {
+      // FIXME I'm not sure how to justify this exclamation point.
+      // Should we report an error instead?
+      const existingType = existingTypeMap[typeName]!;
+      if (hasField(existingType, fieldName)) {
         context.reportError(
           new GraphQLError(
             existedFieldDefinitionNameMessage(
               typeName,
               fieldName,
-              existingTypeMap[typeName].astNode!.serviceName!,
+              existingType.astNode!.serviceName!,
             ),
             fieldDef.name,
           ),
@@ -115,7 +118,7 @@ export function UniqueFieldDefinitionNames(
         context.reportError(
           new GraphQLError(
             duplicateFieldDefinitionNameMessage(typeName, fieldName),
-            [fieldNames[fieldName], fieldDef.name],
+            [fieldNames[fieldName]!, fieldDef.name],
           ),
         );
       } else {
@@ -141,9 +144,8 @@ export function UniqueFieldDefinitionNames(
   ) {
     const typeName = node.name.value;
 
-    const valueTypeFromSchema =
-      existingTypeMap[typeName] &&
-      (existingTypeMap[typeName].astNode as Maybe<TypeDefinitionWithFields>);
+    const valueTypeFromSchema = existingTypeMap[typeName]
+      ?.astNode as Maybe<TypeDefinitionWithFields>;
     const duplicateTypeNode =
       valueTypeFromSchema || possibleValueTypes[node.name.value];
 
@@ -171,25 +173,28 @@ export function UniqueFieldDefinitionNames(
       possibleValueTypes[node.name.value] = node;
     }
 
-    if (!knownFieldNames[typeName]) {
-      knownFieldNames[typeName] = Object.create(null);
-    }
+    const fieldNames = getOrSetRecord(
+      knownFieldNames,
+      typeName,
+      Object.create(null),
+    );
 
     if (!node.fields) {
       return false;
     }
 
-    const fieldNames = knownFieldNames[typeName];
-
     for (const fieldDef of node.fields) {
       const fieldName = fieldDef.name.value;
-      if (hasField(existingTypeMap[typeName], fieldName)) {
+      // FIXME I'm not sure how to justify this exclamation point.
+      // Should we report an error instead?
+      const existingType = existingTypeMap[typeName]!;
+      if (hasField(existingType, fieldName)) {
         context.reportError(
           new GraphQLError(
             existedFieldDefinitionNameMessage(
               typeName,
               fieldName,
-              existingTypeMap[typeName].astNode!.serviceName!,
+              existingType.astNode!.serviceName!,
             ),
             fieldDef.name,
           ),
@@ -198,7 +203,7 @@ export function UniqueFieldDefinitionNames(
         context.reportError(
           new GraphQLError(
             duplicateFieldDefinitionNameMessage(typeName, fieldName),
-            [fieldNames[fieldName], fieldDef.name],
+            [fieldNames[fieldName]!, fieldDef.name],
           ),
         );
       } else {

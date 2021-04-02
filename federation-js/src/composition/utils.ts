@@ -166,7 +166,7 @@ export function hasMatchingFieldInDirectives({
       directives
         // for each key directive, get the fields arg
         .map(keyDirective =>
-          keyDirective.arguments &&
+          keyDirective.arguments?.[0] &&
           isStringValueNode(keyDirective.arguments[0].value)
             ? {
                 typeName: namedType.astNode!.name.value,
@@ -313,15 +313,12 @@ export function selectionIncludesField({
     // if the field selection has a subselection, check each field recursively
 
     // check to make sure the parent type contains the field
-    const typeIncludesField =
-      selectionName &&
-      Object.keys(selectionSetType.getFields()).includes(selectionName);
-    if (!selectionName || !typeIncludesField) continue;
+    if (!selectionName) continue;
+    const field = selectionSetType.getFields()[selectionName];
+    if (!field) continue;
 
     // get the return type of the selection
-    const returnType = getNamedType(
-      selectionSetType.getFields()[selectionName].type,
-    );
+    const returnType = getNamedType(field.type);
     if (!returnType || !isObjectType(returnType)) continue;
     const subselections =
       selection.selectionSet && selection.selectionSet.selections;
@@ -383,11 +380,11 @@ export function diffTypeNodes(
   secondNode: TypeDefinitionNode | TypeExtensionNode | DirectiveDefinitionNode,
 ) {
   const fieldsDiff: {
-    [fieldName: string]: string[];
+    [fieldName: string]: [string, ...string[]];
   } = Object.create(null);
 
   const inputValuesDiff: {
-    [inputName: string]: string[];
+    [inputName: string]: [string, ...string[]];
   } = Object.create(null);
 
   const unionTypesDiff: {
@@ -397,7 +394,7 @@ export function diffTypeNodes(
   const locationsDiff: Set<string> = new Set();
 
   const argumentsDiff: {
-    [argumentName: string]: string[];
+    [argumentName: string]: [string, ...string[]];
   } = Object.create(null);
 
   const document: DocumentNode = {
@@ -410,14 +407,14 @@ export function diffTypeNodes(
 
     const type = print(node.type);
 
-    if (!fieldsDiff[fieldName]) {
+    const fieldTypes = fieldsDiff[fieldName];
+    if (!fieldTypes) {
       fieldsDiff[fieldName] = [type];
       return;
     }
 
     // If we've seen this field twice and the types are the same, remove this
     // field from the diff result
-    const fieldTypes = fieldsDiff[fieldName];
     if (fieldTypes[0] === type) {
       delete fieldsDiff[fieldName];
     } else {
@@ -434,14 +431,14 @@ export function diffTypeNodes(
 
     const type = print(node.type);
 
-    if (!inputValuesDiff[fieldName]) {
+    const inputValueTypes = inputValuesDiff[fieldName];
+    if (!inputValueTypes) {
       inputValuesDiff[fieldName] = [type];
       return;
     }
 
     // If we've seen this input value twice and the types are the same,
     // remove it from the diff result
-    const inputValueTypes = inputValuesDiff[fieldName];
     if (inputValueTypes[0] === type) {
       delete inputValuesDiff[fieldName];
     } else {
@@ -484,13 +481,14 @@ export function diffTypeNodes(
       node.arguments.forEach(argument => {
         const argumentName = argument.name.value;
         const printedType = print(argument.type);
-        if (argumentsDiff[argumentName]) {
-          if (printedType === argumentsDiff[argumentName][0]) {
+        const argumentTypes = argumentsDiff[argumentName];
+        if (argumentTypes) {
+          if (printedType === argumentTypes[0]) {
             // If the existing entry is equal to printedType, it means there's no
             // diff, so we can remove the entry from the diff object
             delete argumentsDiff[argumentName];
           } else {
-            argumentsDiff[argumentName].push(printedType);
+            argumentTypes.push(printedType);
           }
         } else {
           argumentsDiff[argumentName] = [printedType];
@@ -660,4 +658,17 @@ export function getFederationMetadata(obj: any) {
   else if (isNamedType(obj)) return obj.extensions?.federation as FederationType | undefined;
   else if (isDirective(obj)) return obj.extensions?.federation as FederationDirective | undefined;
   else return obj.extensions?.federation as FederationField | undefined;
+}
+
+export function getOrSetRecord<V, D extends V>(
+  record: Record<string, V>,
+  key: string,
+  defaultValue: D,
+): V {
+  const alreadyThere = record[key];
+  if (alreadyThere) {
+    return alreadyThere;
+  }
+  record[key] = defaultValue;
+  return defaultValue;
 }

@@ -59,7 +59,7 @@ export function findAndExtract<T>(
 
 export function groupBy<T, U>(keyFunction: (element: T) => U) {
   return (iterable: Iterable<T>) => {
-    const result = new Map<U, T[]>();
+    const result = new Map<U, [T, ...T[]]>();
 
     for (const element of iterable) {
       const key = keyFunction(element);

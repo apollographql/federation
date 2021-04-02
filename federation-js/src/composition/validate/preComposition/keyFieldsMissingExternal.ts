@@ -41,7 +41,7 @@ export const keyFieldsMissingExternal = ({
 
       const keyDirectivesInfo = keyDirectivesOnTypeExtension
         .map(keyDirective =>
-          keyDirective.arguments &&
+          keyDirective.arguments?.[0] &&
           isStringValueNode(keyDirective.arguments[0].value)
             ? {
                 typeName: node.name.value,

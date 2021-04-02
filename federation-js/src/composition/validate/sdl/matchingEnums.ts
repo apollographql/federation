@@ -6,7 +6,7 @@ import {
   EnumValueDefinitionNode,
   TypeDefinitionNode,
 } from 'graphql';
-import { errorWithCode, logServiceAndType } from '../../utils';
+import { errorWithCode, getOrSetRecord, logServiceAndType } from '../../utils';
 import { isString } from 'util';
 
 function isEnumDefinition(node: TypeDefinitionNode) {
@@ -26,12 +26,7 @@ export function MatchingEnums(context: SDLValidationContext): ASTVisitor {
     [typeName: string]: TypeDefinitionNode[];
   } = (definitions as TypeDefinitionNode[]).reduce(
     (typeToDefinitionsMap: TypeToDefinitionsMap, node) => {
-      const name = node.name.value;
-      if (typeToDefinitionsMap[name]) {
-        typeToDefinitionsMap[name].push(node);
-      } else {
-        typeToDefinitionsMap[name] = [node];
-      }
+      getOrSetRecord(typeToDefinitionsMap, node.name.value, []).push(node);
       return typeToDefinitionsMap;
     },
     {},
@@ -71,12 +66,9 @@ export function MatchingEnums(context: SDLValidationContext): ASTVisitor {
 
       // build matchingEnumDefs
       for (const definition of simpleEnumDefs) {
-        const key = definition.values.join();
-        if (matchingEnumGroups[key]) {
-          matchingEnumGroups[key].push(definition.serviceName);
-        } else {
-          matchingEnumGroups[key] = [definition.serviceName];
-        }
+        getOrSetRecord(matchingEnumGroups, definition.values.join(), []).push(
+          definition.serviceName,
+        );
       }
 
       if (Object.keys(matchingEnumGroups).length > 1) {
@@ -109,7 +101,12 @@ export function MatchingEnums(context: SDLValidationContext): ASTVisitor {
       context.reportError(
         errorWithCode(
           'ENUM_MISMATCH_TYPE',
-          logServiceAndType(servicesWithEnum[0], name) +
+          // FIXME this isn't quite valid (due to the filter(isString)) but the
+          // impact of a bug here is just a harder to understand error message...
+          // and hopefully we'll be reworking cross-subgraph enum matching soon
+          // anyway? definitions without serviceName are filtered out
+          // when building simpleEnumDefs for some reason in the other branch.
+          logServiceAndType(servicesWithEnum[0]!, name) +
             `${name} is an enum in [${servicesWithEnum.join(
               ', ',
             )}], but not in [${servicesWithoutEnum.join(', ')}]`,

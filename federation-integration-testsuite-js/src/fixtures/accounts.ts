@@ -123,22 +123,21 @@ export const resolvers: GraphQLResolverMap<any> = {
         : user.birthDate;
     },
     metadata(object) {
-      const metaIndex = metadata.findIndex(m => m.id === object.id);
-      return metadata[metaIndex].metadata.map(obj => ({ name: obj.name }));
+      return metadata
+        .find((m) => m.id === object.id)
+        ?.metadata.map((obj) => ({ name: obj.name }));
     },
   },
   UserMetadata: {
     address(object) {
-      const metaIndex = metadata.findIndex(m =>
-        m.metadata.find(o => o.name === object.name),
-      );
-      return metadata[metaIndex].metadata[0].address;
+      return metadata.find((m) =>
+        m.metadata.find((o) => o.name === object.name),
+      )?.metadata[0]?.address;
     },
     description(object) {
-      const metaIndex = metadata.findIndex(m =>
-        m.metadata.find(o => o.name === object.name),
-      );
-      return metadata[metaIndex].metadata[0].description;
+      return metadata.find((m) =>
+        m.metadata.find((o) => o.name === object.name),
+      )?.metadata[0]?.description;
     },
   },
   Library: {

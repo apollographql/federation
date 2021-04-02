@@ -203,98 +203,11 @@ async function executeFetch<TContext>(
     throw new Error(`Couldn't find service with name "${fetch.serviceName}"`);
   }
 
-  let entities: ResultMap[];
-  if (Array.isArray(results)) {
-    // Remove null or undefined entities from the list
-    entities = results.filter(isNotNullOrUndefined);
-  } else {
-    entities = [results];
-  }
-
-  if (entities.length < 1) return;
-
-  let variables = Object.create(null);
-  if (fetch.variableUsages) {
-    for (const variableName of fetch.variableUsages) {
-      const providedVariables = context.requestContext.request.variables;
-      if (
-        providedVariables &&
-        typeof providedVariables[variableName] !== 'undefined'
-      ) {
-        variables[variableName] = providedVariables[variableName];
-      }
-    }
-  }
-
-  if (!fetch.requires) {
-    const dataReceivedFromService = await sendOperation(
-      context,
-      fetch.operation,
-      variables,
-    );
-
-    for (const entity of entities) {
-      deepMerge(entity, dataReceivedFromService);
-    }
-  } else {
-    const requires = fetch.requires;
-
-    const representations: ResultMap[] = [];
-    const representationToEntity: number[] = [];
-
-    entities.forEach((entity, index) => {
-      const representation = executeSelectionSet(entity, requires);
-      if (representation && representation[TypeNameMetaFieldDef.name]) {
-        representations.push(representation);
-        representationToEntity.push(index);
-      }
-    });
-
-    // If there are no representations, that means the type conditions in
-    // the requires don't match any entities.
-    if (representations.length < 1) return;
-
-    if ('representations' in variables) {
-      throw new Error(`Variables cannot contain key "representations"`);
-    }
-
-    const dataReceivedFromService = await sendOperation(
-      context,
-      fetch.operation,
-      { ...variables, representations },
-    );
-
-    if (!dataReceivedFromService) {
-      return;
-    }
-
-    if (
-      !(
-        dataReceivedFromService._entities &&
-        Array.isArray(dataReceivedFromService._entities)
-      )
-    ) {
-      throw new Error(`Expected "data._entities" in response to be an array`);
-    }
-
-    const receivedEntities = dataReceivedFromService._entities;
-
-    if (receivedEntities.length !== representations.length) {
-      throw new Error(
-        `Expected "data._entities" to contain ${representations.length} elements`,
-      );
-    }
-
-    for (let i = 0; i < entities.length; i++) {
-      deepMerge(entities[representationToEntity[i]], receivedEntities[i]);
-    }
-  }
-
-  async function sendOperation(
+  const sendOperation = async (
     context: ExecutionContext<TContext>,
     source: string,
     variables: Record<string, any>,
-  ): Promise<ResultMap | void | null> {
+  ): Promise<ResultMap | void | null> => {
     // We declare this as 'any' because it is missing url and method, which
     // GraphQLRequest.http is supposed to have if it exists.
     let http: any;
@@ -389,6 +302,102 @@ async function executeFetch<TContext>(
 
     return response.data;
   }
+
+  let entities: ResultMap[];
+  if (Array.isArray(results)) {
+    // Remove null or undefined entities from the list
+    entities = results.filter(isNotNullOrUndefined);
+  } else {
+    entities = [results];
+  }
+
+  if (entities.length < 1) return;
+
+  let variables = Object.create(null);
+  if (fetch.variableUsages) {
+    for (const variableName of fetch.variableUsages) {
+      const providedVariables = context.requestContext.request.variables;
+      if (
+        providedVariables &&
+        typeof providedVariables[variableName] !== 'undefined'
+      ) {
+        variables[variableName] = providedVariables[variableName];
+      }
+    }
+  }
+
+  if (!fetch.requires) {
+    const dataReceivedFromService = await sendOperation(
+      context,
+      fetch.operation,
+      variables,
+    );
+
+    for (const entity of entities) {
+      deepMerge(entity, dataReceivedFromService);
+    }
+  } else {
+    const requires = fetch.requires;
+
+    const representationsWithEntityIndex: {
+      representation: ResultMap;
+      index: number;
+    }[] = [];
+
+    entities.forEach((entity, index) => {
+      const representation = executeSelectionSet(entity, requires);
+      if (representation && representation[TypeNameMetaFieldDef.name]) {
+        representationsWithEntityIndex.push({representation, index})
+      }
+    });
+
+    // If there are no representations, that means the type conditions in
+    // the requires don't match any entities.
+    if (representationsWithEntityIndex.length < 1) return;
+
+    if ('representations' in variables) {
+      throw new Error(`Variables cannot contain key "representations"`);
+    }
+
+    const dataReceivedFromService = await sendOperation(
+      context,
+      fetch.operation,
+      {
+        ...variables,
+        representations: representationsWithEntityIndex.map(
+          ({ representation }) => representation,
+        ),
+      },
+    );
+
+    if (!dataReceivedFromService) {
+      return;
+    }
+
+    if (
+      !(
+        dataReceivedFromService._entities &&
+        Array.isArray(dataReceivedFromService._entities)
+      )
+    ) {
+      throw new Error(`Expected "data._entities" in response to be an array`);
+    }
+
+    const receivedEntities = dataReceivedFromService._entities;
+
+    if (receivedEntities.length !== representationsWithEntityIndex.length) {
+      throw new Error(
+        `Expected "data._entities" to contain ${representationsWithEntityIndex.length} elements`,
+      );
+    }
+
+    // FIXME This previously looped up to entities.length rather than
+    // receivedEntities.length which I think was a bug?
+    for (const [i, receivedEntity] of receivedEntities.entries()) {
+      // The ! is justified by the length check above.
+      deepMerge(entities[representationsWithEntityIndex[i]!.index], receivedEntity);
+    }
+  }
 }
 
 /**
@@ -458,7 +467,8 @@ function flattenResultsAtPath(value: any, path: ResponsePath): any {
   if (current === '@') {
     return value.flatMap((element: any) => flattenResultsAtPath(element, rest));
   } else {
-    return flattenResultsAtPath(value[current], rest);
+    // The ! is justified by the `path.length` check.
+    return flattenResultsAtPath(value[current!], rest);
   }
 }
 

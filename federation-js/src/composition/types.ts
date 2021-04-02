@@ -21,7 +21,7 @@ export interface ExternalFieldDefinition {
 }
 
 export interface ServiceNameToKeyDirectivesMap {
-  [serviceName: string]: ReadonlyArray<SelectionNode>[] | undefined;
+  [serviceName: string]: ReadonlyArray<SelectionNode>[];
 }
 
 export interface FederationType {

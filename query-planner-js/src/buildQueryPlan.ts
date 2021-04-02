@@ -40,6 +40,7 @@ import {
   Scope,
   debugPrintField,
   debugPrintFields,
+  NonemptyFieldSet,
 } from './FieldSet';
 import {
   FetchNode,
@@ -321,7 +322,7 @@ function flatWrap(
     throw Error('programming error: should always be called with nodes');
   }
   if (nodes.length === 1) {
-    return nodes[0];
+    return nodes[0]!;
   }
   return {
     kind,
@@ -475,7 +476,7 @@ function splitSubfields(
         if (
           keyFields.length === 0 ||
           (keyFields.length === 1 &&
-            keyFields[0].fieldDef.name === '__typename')
+            keyFields[0]!.fieldDef.name === '__typename')
         ) {
           // Only __typename key found.
           // In some cases, the parent group does not have any @key directives.
@@ -675,10 +676,14 @@ function splitFields(
               field.fieldNode,
             );
 
-            const fieldsWithRuntimeParentType = fieldsForParentType.map(field => ({
+            const addRuntimeParentType = (field: Field<GraphQLCompositeType>): Field => ({
               ...field,
               fieldDef,
-            }));
+            });
+            const fieldsWithRuntimeParentType: NonemptyFieldSet = [
+              addRuntimeParentType(fieldsForParentType[0]),
+              ...fieldsForParentType.slice(1).map(addRuntimeParentType),
+            ];
 
             group.fields.push(
               completeField(
@@ -706,7 +711,7 @@ function completeField(
   scope: Scope<GraphQLCompositeType>,
   parentGroup: FetchGroup,
   path: ResponsePath,
-  fields: FieldSet,
+  fields: NonemptyFieldSet,
 ): Field {
   const { fieldNode, fieldDef } = fields[0];
   const returnType = getNamedType(fieldDef.type);
@@ -930,7 +935,7 @@ class FetchGroup {
   constructor(
     public readonly serviceName: string,
     public readonly fields: FieldSet = [],
-    public readonly internalFragments: Set<FragmentDefinitionNode> = new Set()
+    public readonly internalFragments: Set<FragmentDefinitionNode> = new Set(),
   ) {}
 
   requiredFields: FieldSet = [];
@@ -943,7 +948,10 @@ class FetchGroup {
   } = Object.create(null);
   public otherDependentGroups: FetchGroup[] = [];
 
-  dependentGroupForService(serviceName: string, requiredFields: FieldSet) {
+  dependentGroupForService(
+    serviceName: string,
+    requiredFields: NonemptyFieldSet,
+  ) {
     let group = this.dependentGroupsByService[serviceName];
 
     if (!group) {
@@ -952,14 +960,12 @@ class FetchGroup {
       this.dependentGroupsByService[serviceName] = group;
     }
 
-    if (requiredFields) {
-      if (group.requiredFields) {
-        group.requiredFields.push(...requiredFields);
-      } else {
-        group.requiredFields = requiredFields;
-      }
-      this.fields.push(...requiredFields);
+    if (group.requiredFields) {
+      group.requiredFields.push(...requiredFields);
+    } else {
+      group.requiredFields = requiredFields;
     }
+    this.fields.push(...requiredFields);
 
     return group;
   }
@@ -1113,7 +1119,14 @@ export class QueryPlanningContext {
 
     visit(document, {
       Variable: (node) => {
-        usages[node.name.value] = this.variableDefinitions[node.name.value];
+        const variableDefinition = this.variableDefinitions[node.name.value];
+        // This shouldn't happen in a validated operation.
+        if (!variableDefinition) {
+          throw new GraphQLError(
+            `Variable $${node.name.value} referenced without definition`,
+          );
+        }
+        usages[node.name.value] = variableDefinition;
       },
     });
 
@@ -1157,17 +1170,15 @@ export class QueryPlanningContext {
     parentType: GraphQLCompositeType;
     serviceName: string;
     fetchAll?: boolean;
-  }): FieldSet {
-    const keyFields: FieldSet = [];
-
-    keyFields.push({
+  }): NonemptyFieldSet {
+    const keyFields: NonemptyFieldSet = [{
       scope: {
         parentType,
         possibleTypes: this.getPossibleTypes(parentType),
       },
       fieldNode: typenameField,
       fieldDef: TypeNameMetaFieldDef,
-    });
+    }];
 
     for (const possibleType of this.getPossibleTypes(parentType)) {
       const keys = getFederationMetadataForType(possibleType)?.keys?.get(serviceName);
@@ -1187,7 +1198,7 @@ export class QueryPlanningContext {
         keyFields.push(
           ...collectFields(this, this.newScope(possibleType), {
             kind: Kind.SELECTION_SET,
-            selections: keys[0],
+            selections: keys[0]!,
           }),
         );
       }
@@ -1200,10 +1211,10 @@ export class QueryPlanningContext {
     parentType: GraphQLCompositeType,
     fieldDef: GraphQLField<any, any>,
     serviceName: string,
-  ): FieldSet {
-    const requiredFields: FieldSet = [];
-
-    requiredFields.push(...this.getKeyFields({ parentType, serviceName }));
+  ): NonemptyFieldSet {
+    const requiredFields: NonemptyFieldSet = [
+      ...this.getKeyFields({ parentType, serviceName }),
+    ];
 
     const fieldFederationMetadata = getFederationMetadataForField(fieldDef);
     if (fieldFederationMetadata?.requires) {

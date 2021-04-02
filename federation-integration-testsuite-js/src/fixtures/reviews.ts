@@ -153,7 +153,7 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   Mutation: {
     reviewProduct(_, { upc, body }) {
-      const id = `${Number(reviews[reviews.length - 1].id) + 1}`;
+      const id = `${Number(reviews[reviews.length - 1]!.id) + 1}`;
       reviews.push({
         id,
         authorID: '1',

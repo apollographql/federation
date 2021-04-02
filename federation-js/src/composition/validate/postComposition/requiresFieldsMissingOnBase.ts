@@ -34,6 +34,8 @@ export const requiresFieldsMissingOnBase: PostCompositionValidator = ({
           const matchingFieldOnType = namedType.getFields()[
             selection.name.value
           ];
+          // FIXME is this correct, or is this a different error case?
+          if (!matchingFieldOnType) continue;
           const typeFederationMetadata = getFederationMetadata(matchingFieldOnType);
 
           if (typeFederationMetadata?.serviceName) {

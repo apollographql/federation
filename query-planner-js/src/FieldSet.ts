@@ -65,6 +65,7 @@ export function debugPrintScope<TParent extends GraphQLCompositeType>(
 }
 
 export type FieldSet = Field[];
+export type NonemptyFieldSet = [Field, ...FieldSet];
 
 export function printFields(fields?: FieldSet) {
   if (!fields) return '[]';
@@ -105,6 +106,12 @@ export const groupByParentType = groupBy<Field, GraphQLCompositeType>(
   field => field.scope.parentType,
 );
 
+// FIXME This function should probably take in a NonEmptyFieldSet because
+// selection sets aren't allowed to have no selections. (Or perhaps we should
+// keep going until we can just make `type FieldSet = [Field, ...Field[]]`.) But
+// trying this exposes a bunch of hard for me to follow logic around whether or
+// not FetchGroup.fields always ends up non-empty by certain points in the
+// logic. There might be some real bugs masked there, or maybe not.
 export function selectionSetFromFieldSet(
   fields: FieldSet,
   parentType?: GraphQLCompositeType,
@@ -112,10 +119,7 @@ export function selectionSetFromFieldSet(
   return {
     kind: Kind.SELECTION_SET,
     selections: Array.from(groupByParentType(fields)).flatMap(
-      ([typeCondition, fieldsByParentType]: [
-        GraphQLCompositeType,
-        FieldSet,
-      ]) => {
+      ([typeCondition, fieldsByParentType]) => {
         const directives = fieldsByParentType[0].scope.directives;
 
         return wrapInInlineFragmentIfNeeded(
@@ -158,7 +162,7 @@ function wrapInInlineFragmentIfNeeded(
 }
 
 function combineFields(
-  fields: FieldSet,
+  fields: NonemptyFieldSet,
 ): Field {
   const { scope, fieldNode, fieldDef } = fields[0];
   const returnType = getNamedType(fieldDef.type);

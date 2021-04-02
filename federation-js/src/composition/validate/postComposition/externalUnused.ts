@@ -78,7 +78,7 @@ export const externalUnused: PostCompositionValidator = ({ schema }) => {
           }).some(field =>
             findDirectivesOnNode(field.astNode, 'provides').some(
               directive => {
-                if (!directive.arguments) return false;
+                if (!directive.arguments?.[0]) return false;
                 const selections =
                   isStringValueNode(directive.arguments[0].value) &&
                   parseSelections(directive.arguments[0].value.value);
@@ -129,7 +129,7 @@ export const externalUnused: PostCompositionValidator = ({ schema }) => {
             return Object.values(namedType.getFields()).some(field =>
               findDirectivesOnNode(field.astNode, 'requires').some(
                 directive => {
-                  if (!directive.arguments) return false;
+                  if (!directive.arguments?.[0]) return false;
                   const selections =
                     isStringValueNode(directive.arguments[0].value) &&
                     parseSelections(directive.arguments[0].value.value);

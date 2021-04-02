@@ -22,6 +22,7 @@ import {
   FederationFieldMetadata,
   FederationTypeMetadata,
   FieldSet,
+  Graph,
   GraphMap,
 } from './metadata';
 
@@ -112,6 +113,29 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
     };
   }
 
+  // Because we don't explicitly validate that the owner and type directives are
+  // defined appropriately in the schema, we need to do a bunch of error-checking
+  // here. If we added that validation, this function could just be
+  //    return graphMap[directiveArgs['graph']]!
+  const getGraphFromDirective = (
+    directive: GraphQLDirective,
+    directiveArgs: Record<string, any>,
+  ): Graph => {
+    const graphName = directiveArgs['graph'];
+    assert(
+      typeof graphName === 'string',
+      `Directive @${directive.name} must be invoked with a non-null ` +
+        `${graphEnumType.name} argument named 'graph'`,
+    );
+    const graph = graphMap[graphName];
+    assert(
+      graph,
+      `The 'graph' argument to @${directive.name} must be invoked with a value ` +
+        `from the ${graphEnumType.name} enum`,
+    );
+    return graph;
+  };
+
   for (const type of Object.values(schema.getTypeMap())) {
     if (isIntrospectionType(type)) continue;
 
@@ -130,7 +154,8 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
 
     const typeMetadata: FederationTypeMetadata = ownerDirectiveArgs
       ? {
-          graphName: graphMap[ownerDirectiveArgs?.['graph']].name,
+          graphName: getGraphFromDirective(ownerDirective, ownerDirectiveArgs)
+            .name,
           keys: new MultiMap(),
           isValueType: false,
         }
@@ -155,7 +180,8 @@ directive without an @${ownerDirective.name} directive`,
     );
 
     for (const typeDirectiveArgs of typeDirectivesArgs) {
-      const graphName = graphMap[typeDirectiveArgs['graph']].name;
+      const graphName = getGraphFromDirective(typeDirective, typeDirectiveArgs)
+        .name;
 
       const keyFields = parseFieldSet(typeDirectiveArgs['key']);
 

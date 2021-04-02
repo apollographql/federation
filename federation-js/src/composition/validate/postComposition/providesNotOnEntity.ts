@@ -57,7 +57,8 @@ export const providesNotOnEntity: PostCompositionValidator = ({ schema }) => {
           continue;
         }
 
-        const fieldType = types[baseType.name];
+        // FIXME not sure if this ! is justified
+        const fieldType = types[baseType.name]!;
         const selectedFieldIsEntity = getFederationMetadata(fieldType)?.keys;
 
         if (!selectedFieldIsEntity) {
