@@ -28,7 +28,7 @@ function mockSdlQuery({ url }: MockService) {
 }
 
 export function mockSdlQuerySuccess(service: MockService) {
-  mockSdlQuery(service).reply(200, {
+  return mockSdlQuery(service).reply(200, {
     data: { _service: { sdl: print(service.typeDefs) } },
   });
 }

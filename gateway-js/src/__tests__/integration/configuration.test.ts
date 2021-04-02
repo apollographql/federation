@@ -208,7 +208,7 @@ describe('gateway config / env behavior', () => {
   describe('introspection headers', () => {
     it('should allow not passing introspectionHeaders', async () => {
       const receivedHeaders = jest.fn();
-      const nock = mockSDLQuerySuccess(service);
+      const nock = mockSdlQuerySuccess(service);
       nock.on('request', (req: http.ClientRequest) =>
         receivedHeaders(req.getHeaders()),
       );
@@ -228,7 +228,7 @@ describe('gateway config / env behavior', () => {
 
     it('should use static headers', async () => {
       const receivedHeaders = jest.fn();
-      const nock = mockSDLQuerySuccess(service);
+      const nock = mockSdlQuerySuccess(service);
       nock.on('request', (req: http.ClientRequest) =>
         receivedHeaders(req.getHeaders()),
       );
@@ -249,9 +249,9 @@ describe('gateway config / env behavior', () => {
       );
     });
 
-    it('should use dynamic headers', async () => {
+    it('should use dynamic async headers', async () => {
       const receivedHeaders = jest.fn();
-      const nock = mockSDLQuerySuccess(service);
+      const nock = mockSdlQuerySuccess(service);
       nock.on('request', (req: http.ClientRequest) =>
         receivedHeaders(req.getHeaders()),
       );
@@ -259,7 +259,7 @@ describe('gateway config / env behavior', () => {
       gateway = new ApolloGateway({
         serviceList: [{ name: 'accounts', url: service.url }],
         introspectionHeaders: async ({ name }) => ({
-          Authorization: 'Bearer dynamic',
+          Authorization: 'Bearer dynamic-async',
           'X-Service-Name': name,
         }),
       });
@@ -268,7 +268,32 @@ describe('gateway config / env behavior', () => {
 
       expect(receivedHeaders).toHaveBeenCalledWith(
         expect.objectContaining({
-          authorization: ['Bearer dynamic'],
+          authorization: ['Bearer dynamic-async'],
+          'x-service-name': ['accounts'],
+        }),
+      );
+    });
+
+    it('should use dynamic non-async headers', async () => {
+      const receivedHeaders = jest.fn();
+      const nock = mockSdlQuerySuccess(service);
+      nock.on('request', (req: http.ClientRequest) =>
+        receivedHeaders(req.getHeaders()),
+      );
+
+      gateway = new ApolloGateway({
+        serviceList: [{ name: 'accounts', url: service.url }],
+        introspectionHeaders: ({ name }) => ({
+          Authorization: 'Bearer dynamic-sync',
+          'X-Service-Name': name,
+        }),
+      });
+
+      await gateway.load(mockApolloConfig);
+
+      expect(receivedHeaders).toHaveBeenCalledWith(
+        expect.objectContaining({
+          authorization: ['Bearer dynamic-sync'],
           'x-service-name': ['accounts'],
         }),
       );
