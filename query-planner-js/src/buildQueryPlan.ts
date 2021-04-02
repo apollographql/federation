@@ -154,7 +154,7 @@ function executionNodeForGroup(
     kind: 'Fetch',
     serviceName,
     requires: requires ? trimSelectionNodes(requires?.selections) : undefined,
-    variableUsages: Object.keys(variableUsages),
+    variableUsages: [...variableUsages.keys()],
     operation: stripIgnoredCharacters(print(operation)),
   };
 
@@ -178,14 +178,12 @@ function executionNodeForGroup(
   }
 }
 
-interface VariableUsages {
-  [name: string]: VariableDefinitionNode
-}
+type VariableUsages = Map<string, VariableDefinitionNode>;
 
 function mapFetchNodeToVariableDefinitions(
   variableUsages: VariableUsages,
 ): VariableDefinitionNode[] {
-  return variableUsages ? Object.values(variableUsages) : [];
+  return variableUsages ? [...variableUsages.values()] : [];
 }
 
 function operationForRootFetch({
@@ -984,7 +982,7 @@ export class QueryPlanningContext {
   public internalFragmentCount = 0;
 
   protected variableDefinitions: {
-    [name: string]: VariableDefinitionNode;
+    [name: string]: VariableDefinitionNode | undefined;
   };
 
   constructor(
@@ -1027,10 +1025,8 @@ export class QueryPlanningContext {
   getVariableUsages(
     selectionSet: SelectionSetNode,
     fragments: Set<FragmentDefinitionNode>,
-  ) {
-    const usages: {
-      [name: string]: VariableDefinitionNode;
-    } = Object.create(null);
+  ): VariableUsages {
+    const usages = new Map<string, VariableDefinitionNode>();
 
     // Construct a document of the selection set and fragment definitions so we
     // can visit them, adding all variable usages to the `usages` object.
@@ -1044,7 +1040,12 @@ export class QueryPlanningContext {
 
     visit(document, {
       Variable: (node) => {
-        usages[node.name.value] = this.variableDefinitions[node.name.value];
+        const variableDefinition = this.variableDefinitions[node.name.value];
+        // This shouldn't happen in a valid operation.
+        if (!variableDefinition) {
+          throw new GraphQLError(`Variable $${node.name.value} referenced without definition`);
+        }
+        usages.set(node.name.value, variableDefinition);
       },
     });
 
