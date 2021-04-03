@@ -1459,11 +1459,16 @@ dependencies = [
 
 [[package]]
 name = "gherkin_rust"
-version = "0.8.3"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebdbe052fa0b6bf539bed8e72e99af2e0d96d6605ff54d9144885ad77ae43bdf"
+checksum = "68ff71b5e012707c7c18bdb710e07736898aba0451f6ffbd435c892dd993053c"
 dependencies = [
+ "heck",
  "peg",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
  "textwrap 0.12.1",
  "thiserror",
  "typed-builder",
