@@ -76,6 +76,8 @@ rover subgraph publish <GRAPH_NAME> \
   --name products
 ```
 
+> Technically, you don't provide the graph's _name_, but rather its **graph ref**. [Learn more.](https://www.apollographql.com/docs/rover/essentials/#graph-refs)
+
 If the command is successful, you'll see output like the following:
 
 ```
@@ -157,12 +159,14 @@ So now, how do we connect and authenticate our gateway with Apollo Studio? With 
     Apollo usage reporting starting! See your graph at https://studio.apollographql.com/graph/docs-example-graph/?variant=current
     ```
 
+> By providing an API key to your gateway, you also automatically enable **federated trace reporting** to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](./metrics/)
+
 Now, open up GraphQL Playground in your browser again at `localhost:4000`. Sure enough, your supergraph schema's types and fields are all available, and you can execute test queries as before. But now, all of this information is coming from Apollo Studio.
 
 ## Moving forward
 
-Nice work! We've got two **subgraphs** registering their schemas with Apollo, and we've got a **federated gateway** that then fetches the composed **supergraph schema**.
+Nice work! We have two **subgraphs** registering their schemas with Apollo, and we have a **federated gateway** that then fetches the composed **supergraph schema**.
 
-If we were now to register changes to one of our subgraph schemas, our running gateway would automatically fetch the corresponding changes to the supergraph schema.
+If we were now to register changes to one of our subgraph schemas, our running gateway would automatically fetch the corresponding changes to the supergraph schema. However, because we're currently using Apollo-hosted services that we can't modify, it doesn't make sense to register changes to our subgraph schemas.
 
-There are many more powerful features in Apollo Federation and Apollo Studio that we have yet to cover. For those, [let's head to part 3!](./quickstart-pt-3/)
+Next, let's look at how to apply what we've learned to our own services. [Go to part 3.](./quickstart-pt-3/)
