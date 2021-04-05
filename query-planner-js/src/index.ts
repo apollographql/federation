@@ -5,9 +5,14 @@ export * from './QueryPlan';
 import { QueryPlan } from './QueryPlan';
 
 export * from './composedSchema';
-import { buildQueryPlan, BuildQueryPlanOptions, OperationContext } from './buildQueryPlan';
+import {
+  buildQueryPlan,
+  BuildQueryPlanOptions,
+  buildOperationContext,
+  OperationContext,
+} from './buildQueryPlan';
 import { GraphQLSchema } from 'graphql';
-export { BuildQueryPlanOptions };
+export { BuildQueryPlanOptions, buildOperationContext };
 
 // There isn't much in this class yet, and I didn't want to make too many
 // changes at once, but since we were already storing a pointer to a
