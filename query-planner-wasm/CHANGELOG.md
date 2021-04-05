@@ -6,6 +6,18 @@
 
 -  _Nothing yet! Stay tuned!_
 
+## v0.2.6
+
+- Same contents as v0.2.4 (corrected the publishing error that caused v0.2.5 to be empty).
+
+## v0.2.5
+
+- This version was accidentally published with no contents and does not work.
+
+## v0.2.4
+
+- No major changes
+
 ## v0.2.3
 
 - Adjust the way that the packages are included in the distribution and prune files that are unnecessary or causing conflict with intentions (like `.gitignore`).  [PR #557](https://github.com/apollographql/federation/pull/557)

@@ -1,13 +1,3 @@
-# Apollo WASM Query Planner
+# Apollo WASM Query Planner (deprecated)
 
-## How to make this work
-
-```shell script
-cd query-planner-wasm
-npx wasm-pack build -t nodejs --scope apollo
-```
-
-## How to test:
-```shell script
-npx wasm-pack test --node
-```
+This was an experimental query planner used by Apollo Gateway starting with `@apollo/gateway@0.20.1` up through `@apollo/gateway@0.25.1`. It is no longer in active development.
