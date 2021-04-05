@@ -32,14 +32,24 @@ flowchart BT;
   class registry secondary;
 ```
 
-Meanwhile, our gateway regularly polls Apollo for changes to its supergraph schema:
+Whenever composition succeeds, Apollo pushes an updated supergraph schema to the **uplink**, a special endpoint that gateways use to fetch their configuration:
+
+```mermaid
+flowchart LR;
+  registry{{Apollo Schema Registry}};
+  uplink{{Apollo Uplink}};
+  registry --Updates config--> uplink;
+  class registry,uplink secondary;
+```
+
+Meanwhile, our gateway regularly polls the uplink for changes to its supergraph schema:
 
 ```mermaid
 flowchart BT;
   subgraph " "
   gateway[Gateway];
   end  
-  registry{{Apollo Schema Registry}};
+  registry{{Apollo Uplink}};
   gateway -. Polls for changes .-> registry;
   registry -. Downloads changes .-> gateway;
   class registry secondary;
@@ -110,7 +120,7 @@ Replace the contents of `index.js` with the following:
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 
-const gateway = new ApolloGateway({});
+const gateway = new ApolloGateway();
 
 const server = new ApolloServer({
   gateway,
@@ -129,12 +139,15 @@ So now, how do we connect and authenticate our gateway with Apollo Studio? With 
 
 1. Obtain a graph API key for your Studio graph by <a href="https://www.apollographql.com/docs/studio/api-keys/#graph-api-keys" target="_blank">following these steps</a>.  Copy its value.
 
+    _If you have an Enterprise plan, set the API key's role to `Contributor`._
+
 2. Create a new file named `.env` in your Node.js project folder.
 
 3. Paste the following into `.env` and replace `YOUR_API_KEY` with your graph API key:
 
     ```shell
     APOLLO_KEY=YOUR_API_KEY
+    APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://uplink.api.apollographql.com/
     ```
 
 4. Add the `dotenv` Node.js library to your project:
@@ -167,6 +180,6 @@ Now, open up GraphQL Playground in your browser again at `localhost:4000`. Sure 
 
 Nice work! We have two **subgraphs** registering their schemas with Apollo, and we have a **federated gateway** that then fetches the composed **supergraph schema**.
 
-If we were now to register changes to one of our subgraph schemas, our running gateway would automatically fetch the corresponding changes to the supergraph schema. However, because we're currently using Apollo-hosted services that we can't modify, it doesn't make sense to register changes to our subgraph schemas.
+If we were now to register changes to one of our subgraph schemas, our running gateway would automatically fetch the corresponding changes to the supergraph schema.
 
 Next, let's look at how to apply what we've learned to our own services. [Go to part 3.](./quickstart-pt-3/)

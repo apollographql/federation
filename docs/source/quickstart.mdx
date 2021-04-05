@@ -8,13 +8,13 @@ import {Button} from '@apollo/space-kit/Button';
 import {Link} from 'gatsby';
 import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
-> Instead of or in addition to completing this tutorial, you can [clone our example gateway on GitHub](https://github.com/apollographql/supergraph-demo). The GitHub example is **not** identical to the gateway you create in this tutorial, but it demonstrates many of the same concepts.
+> In addition to completing this tutorial, you can [clone our example gateway on GitHub](https://github.com/apollographql/supergraph-demo). The GitHub example is **not** identical to the gateway you create in this tutorial, but it demonstrates many of the same concepts.
 
-Hello! This tutorial gets you up and running with Apollo Federation. Unlike other articles in this documentation, this article uses some Apollo tools and terminology that are still in **preview**, and therefore this content is not yet recommended for use in a production environment.
+Hello! This tutorial gets you up and running with Apollo Federation. Unlike other articles in this documentation, this tutorial uses some Apollo tools and terminology that are still in **preview**.
 
-We expect these tools to leave preview soon, so this tutorial is a great way to begin learning about federation using upcoming best practices.
+**This content is not yet recommended for use in a production environment.** However, we expect these tools to leave preview soon, so this tutorial is a great way to begin learning about federation using upcoming best practices.
 
-> **This tutorial requires Node.js version 12 or later.** 
+> This tutorial requires Node.js version 12 or later. 
 
 ## Federation concepts
 
@@ -31,7 +31,9 @@ graph BT;
 
 Usually, each subgraph corresponds to a different service in your backend. The supergraph is then represented by a **gateway**, which routes each incoming query to the appropriate combination of subgraphs and returns the combined result.
 
-The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives. This architecture enables clients to query data from multiple subgraphs simultaneously, just by querying the supergraph.
+The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives. Each subgraph's schema can even reference and extend types that originate in a _different_ subgraph. (<a href="../entities" target="_blank">Learn more</a>)
+
+This architecture enables clients to query data from multiple services simultaneously, just by querying the gateway.
 
 Now that we have a high-level understanding of federation concepts, let's jump in.
 
@@ -39,7 +41,11 @@ Now that we have a high-level understanding of federation concepts, let's jump i
 
 **Rover** is Apollo's new CLI for managing data graphs, including federated ones. It's currently in preview.
 
-<p><a href="https://www.apollographql.com/docs/rover/getting-started/#installation-methods" target="_blank">Install Rover</a></p>
+Install it like so:
+
+```shell
+npm install -g @apollo/rover
+```
 
 After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully. We'll use various Rover commands in later steps.
 
@@ -122,7 +128,7 @@ We'll start with just two subgraphs. Because we're using Apollo-hosted example s
 
 We can fetch a running subgraph's schema by executing an enhanced introspection query on it. The Rover CLI provides a command to do exactly that.
 
-Run the following command in your terminal:
+From your project directory, run the following command in your terminal:
 
 ```shell
 rover subgraph introspect https://7bssbnldib.execute-api.us-east-1.amazonaws.com/Prod/graphql
@@ -193,7 +199,13 @@ extend type Query {
 
 </ExpansionPanel>
 
-Now from your project directory, run that same command, but this time append ` > products.graphql`. This writes the subgraph's schema to a file instead of printing it to your terminal.
+Now run that same command, but this time append ` > products.graphql`:
+
+```shell
+rover subgraph introspect https://7bssbnldib.execute-api.us-east-1.amazonaws.com/Prod/graphql > products.graphql
+```
+
+This writes the subgraph's schema to a file instead of printing it to your terminal.
 
 Next, do the same thing for the _second_ subgraph (`reviews`), this time writing it to `reviews.graphql`:
 
@@ -209,7 +221,7 @@ After we obtain our subgraph schemas and URLs, we need to provide them to the Ro
 
 Create a file called `supergraph.yaml` and paste the following into it:
 
-```yaml
+```yaml:title=supergraph.yaml
 subgraphs:
   products:
     routing_url: https://7bssbnldib.execute-api.us-east-1.amazonaws.com/Prod/graphql
@@ -225,7 +237,7 @@ subgraphs:
 
 Now that we have all of the information we need, we can compose our supergraph schema. To do that, we'll use another Rover command: `supergraph compose`.
 
-Run the following from your project directory:
+From your project directory, run the following command in your terminal:
 
 ```shell
 rover supergraph compose --config ./supergraph.yaml
@@ -346,7 +358,11 @@ type ReviewSummary {
 
 As you can see, this composed schema includes all of the types and fields from our subgraph schemas, along with many additional directives that the gateway uses to support our federated architecture.
 
-Similar to what we did with our subgraph schemas, now append ` > supergraph.graphql` to the above command to write the composed schema to a file.
+Similar to what we did with our subgraph schemas, now append ` > supergraph.graphql` to the above command to write the composed schema to a file:
+
+```shell
+rover supergraph compose --config ./supergraph.yaml > supergraph.graphql
+```
 
 ## 4. Start the gateway
 
