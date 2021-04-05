@@ -4,7 +4,10 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+## v0.26.1
+
 - Allow passing a function to the `introspectionHeaders` field when constructing an `ApolloGateway` instance. This allows for producing dynamic introspection headers per request. [PR #607](https://github.com/apollographql/federation/pull/607)
+- Updates `@apollo/query-planner` dependency to v0.1.1, which no longer depends on `@apollo/query-planner-wasm`. [PR #643](https://github.com/apollographql/federation/pull/643)
 
 ## v0.26.0
 
