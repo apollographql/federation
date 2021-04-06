@@ -14,7 +14,7 @@ Hello! This tutorial gets you up and running with Apollo Federation. Unlike othe
 
 **This content is not yet recommended for use in a production environment.** However, we expect these tools to leave preview soon, so this tutorial is a great way to begin learning about federation using upcoming best practices.
 
-> This tutorial requires Node.js version 12 or later. 
+> This tutorial currently requires [Node.js version 12 or 14](https://nodejs.org/en/download/).
 
 ## Federation concepts
 
@@ -57,13 +57,19 @@ As mentioned in the [preface](#preface-federated-architecture), your federated s
 
 With the help of the `@apollo/gateway` library, [Apollo Server](https://www.apollographql.com/docs/apollo-server/) can act as our federated gateway.
 
-In a new Node.js project, first install the required libraries:
+On your development machine, first create a new project directory for your Node.js gateway. Then inside that directory, run the following to create a `package.json` file:
 
+```shell
+npm init
 ```
+
+Next, install the following required libraries:
+
+```shell
 npm install apollo-server @apollo/gateway
 ```
 
-Then paste the following into an `index.js` file as a minimal (not-yet-functional) gateway implementation:
+Finally, create a file named `index.js` and paste the following into it as a minimal (not-yet-functional) gateway implementation:
 
 ```js{4,7}:title=index.js
 const { ApolloServer } = require('apollo-server');
@@ -111,7 +117,7 @@ As a best practice, your gateway should _not_ be responsible for composing its o
 There are multiple ways to compose a supergraph schema from our subgraph schemas:
 
 * On our local machine using the Rover CLI (we'll start with this)
-* Via managed federation in Apollo Studio (we'll switch to this in a later section)
+* Via managed federation in Apollo Studio (we'll switch to this in [Part 2](./quickstart-pt-2/))
 
 Using managed federation is strongly recommended for production environments. We'll start with local composition just to get up and running.
 
@@ -219,9 +225,9 @@ Great! We now have the schemas for our two subgraphs.
 
 After we obtain our subgraph schemas and URLs, we need to provide them to the Rover CLI. To do that, we add them to a YAML file in our project directory.
 
-Create a file called `supergraph.yaml` and paste the following into it:
+Create a file called `supergraph-config.yaml` and paste the following into it:
 
-```yaml:title=supergraph.yaml
+```yaml:title=supergraph-config.yaml
 subgraphs:
   products:
     routing_url: https://7bssbnldib.execute-api.us-east-1.amazonaws.com/Prod/graphql
@@ -240,7 +246,7 @@ Now that we have all of the information we need, we can compose our supergraph s
 From your project directory, run the following command in your terminal:
 
 ```shell
-rover supergraph compose --config ./supergraph.yaml
+rover supergraph compose --config ./supergraph-config.yaml
 ```
 
 This time, Rover outputs the following schema:
@@ -361,7 +367,7 @@ As you can see, this composed schema includes all of the types and fields from o
 Similar to what we did with our subgraph schemas, now append ` > supergraph.graphql` to the above command to write the composed schema to a file:
 
 ```shell
-rover supergraph compose --config ./supergraph.yaml > supergraph.graphql
+rover supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
 ```
 
 ## 4. Start the gateway
