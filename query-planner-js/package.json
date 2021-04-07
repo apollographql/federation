@@ -25,6 +25,7 @@
     "access": "public"
   },
   "dependencies": {
+    "chalk": "^4.1.0",
     "pretty-format": "^26.0.0"
   },
   "peerDependencies": {
