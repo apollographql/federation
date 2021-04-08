@@ -43,10 +43,25 @@ export type GraphMap = { [graphName: string]: Graph };
 export interface FederationSchemaMetadata {
   graphs: GraphMap;
 }
-export interface FederationTypeMetadata {
-  graphName?: GraphName;
-  keys?: MultiMap<GraphName, FieldSet>;
-  isValueType: boolean;
+
+export type FederationTypeMetadata =
+  | FederationEntityTypeMetadata
+  | FederationValueTypeMetadata;
+
+export interface FederationEntityTypeMetadata {
+  graphName: GraphName;
+  keys: MultiMap<GraphName, FieldSet>,
+  isValueType: false;
+}
+
+interface FederationValueTypeMetadata {
+  isValueType: true;
+}
+
+export function isValueTypeMetadata(
+  metadata: FederationTypeMetadata,
+): metadata is FederationValueTypeMetadata {
+  return metadata.isValueType;
 }
 
 export interface FederationFieldMetadata {

@@ -21,8 +21,10 @@ import { MultiMap } from '../utilities/MultiMap';
 import {
   FederationFieldMetadata,
   FederationTypeMetadata,
+  FederationEntityTypeMetadata,
   FieldSet,
   GraphMap,
+  isValueTypeMetadata,
 } from './metadata';
 
 export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
@@ -148,8 +150,11 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
       type.astNode,
     );
 
+    // The assertion here guarantees the safety of the type cast below
+    // (typeMetadata as FederationEntityTypeMetadata). Adjustments to this assertion
+    // should account for this dependency.
     assert(
-      !(typeMetadata.isValueType && typeDirectivesArgs.length >= 1),
+      !(isValueTypeMetadata(typeMetadata) && typeDirectivesArgs.length >= 1),
       `GraphQL type "${type.name}" cannot have a @${typeDirective.name} \
 directive without an @${ownerDirective.name} directive`,
     );
@@ -159,7 +164,12 @@ directive without an @${ownerDirective.name} directive`,
 
       const keyFields = parseFieldSet(typeDirectiveArgs['key']);
 
-      typeMetadata.keys?.add(graphName, keyFields);
+      // We know we won't actually be looping here in the case of a value type
+      // based on the assertion above, but TS is not able to infer that.
+      (typeMetadata as FederationEntityTypeMetadata).keys.add(
+        graphName,
+        keyFields,
+      );
     }
 
     for (const fieldDef of Object.values(type.getFields())) {

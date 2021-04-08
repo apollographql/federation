@@ -52,7 +52,11 @@ import {
 } from './QueryPlan';
 import { getFieldDef, getResponseName } from './utilities/graphql';
 import { MultiMap } from './utilities/MultiMap';
-import { getFederationMetadataForType, getFederationMetadataForField } from './composedSchema';
+import {
+  getFederationMetadataForType,
+  getFederationMetadataForField,
+  isValueTypeMetadata,
+} from './composedSchema';
 import { DebugLogger } from './utilities/debug';
 
 
@@ -1136,7 +1140,8 @@ export class QueryPlanningContext {
   }
 
   getBaseService(parentType: GraphQLObjectType): string | undefined {
-    return getFederationMetadataForType(parentType)?.graphName;
+    const type = getFederationMetadataForType(parentType);
+    return (type && !isValueTypeMetadata(type)) ? type.graphName : undefined;
   }
 
   getOwningService(
@@ -1170,7 +1175,11 @@ export class QueryPlanningContext {
     });
 
     for (const possibleType of this.getPossibleTypes(parentType)) {
-      const keys = getFederationMetadataForType(possibleType)?.keys?.get(serviceName);
+      const type = getFederationMetadataForType(possibleType);
+      const keys =
+        type && !isValueTypeMetadata(type)
+          ? type.keys.get(serviceName)
+          : undefined;
 
       if (!(keys && keys.length > 0)) continue;
 
