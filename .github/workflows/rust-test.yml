@@ -1,14 +1,9 @@
-# Unfortunately, GitHub Actions doesn't support YAML aliases OR depending
-# on an Action from another Action, like other CI providers do.
-#
-# See https://github.com/actions/runner/issues/646#issuecomment-777325191
-#
-# To reduce subtle nuances and simplify a future where these can converge,
-# please try to apply chances as equally as practical across these files!
-# (At the time of this writing, uniform blocks are indicated with comments)
 name: Rust Tests
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
 
 env:
@@ -22,7 +17,7 @@ jobs:
     # the configuration more uniform across the three workflows.
     strategy:
       matrix:
-        build: [linux]
+        build: [linux, macos, windows]
         include:
           - build: linux
             os: ubuntu-latest
@@ -35,7 +30,7 @@ jobs:
             target: x86_64-pc-windows-msvc
 
     steps:
-      ## Below this line to the designated comment is uniform across rust-test.yml, rust-slow-test.yml and lint.yml!
+      ## Below this line to the designated comment is uniform across rust-test.yml and lint.yml!
       - name: Checkout Code
         uses: actions/checkout@v2
 
@@ -74,6 +69,7 @@ jobs:
             ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
             ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-
             ${{ matrix.build }}-${{ env.cache-name }}-
+            ${{ matrix.build }}-
 
       - name: Cache npm
         uses: actions/cache@v2
@@ -87,19 +83,7 @@ jobs:
             ${{ matrix.build }}-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
             ${{ matrix.build }}-${{ env.cache-name }}-
 
-      ### UP FROM HERE TO "Checkout Code" is  uniform in rust-test.yml, rust-slow-test.yml, and lint.yml!
-
-      # Install wasm-pack
-      - name: Install wasm-pack (unix)
-        if: matrix.build != 'windows'
-        shell: bash
-        run: which wasm-pack || curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      - name: Install wasm-pack (windows)
-        if: matrix.build == 'windows'
-        run: npm install -g wasm-pack
-
-      ### BELOW THIS LINE IS UNIFORM IN rust-test.yml
+      ### UP FROM HERE TO "Checkout Code" is  uniform in rust-test.yml and lint.yml!
 
       - name: Install npm dependencies
         run: npm install
@@ -113,6 +97,3 @@ jobs:
         env:
           RUST_LOG: debug
           RUST_BACKTRACE: 1
-      - name: Test (wasm-pack test --node)
-        working-directory: query-planner-wasm
-        run: wasm-pack test --node
