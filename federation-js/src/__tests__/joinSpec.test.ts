@@ -17,7 +17,7 @@ const fixturesWithQuestionableServiceNames = fixtures.map((service) => ({
 
 describe('join__Graph enum', () => {
   it('correctly uniquifies and sanitizes service names', () => {
-    const { sanitizedServiceNames } = getJoinDefinitions(
+    const { graphNameToEnumValueName } = getJoinDefinitions(
       fixturesWithQuestionableServiceNames,
     );
 
@@ -33,7 +33,7 @@ describe('join__Graph enum', () => {
      * (serviceA) tests the edge case of colliding with a name we generated
      * (servicea_2_) tests a collision against (documents) post-transformation
      */
-    expect(sanitizedServiceNames).toMatchObject({
+    expect(graphNameToEnumValueName).toMatchObject({
       '9product*!': '_9PRODUCT__',
       ServiceA: 'SERVICEA',
       reviews_9: 'REVIEWS_9_',

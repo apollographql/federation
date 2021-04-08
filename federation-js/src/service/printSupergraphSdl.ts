@@ -47,7 +47,7 @@ type Options = {
 interface PrintingContext {
   // Core addition: we need access to a map from serviceName to its corresponding
   // sanitized / uniquified enum value `Name` from the `join__Graph` enum
-  sanitizedServiceNames?: Record<string, string>;
+  graphNameToEnumValueName?: Record<string, string>;
 }
 
 /**
@@ -72,7 +72,7 @@ export function printSupergraphSdl(
     JoinOwnerDirective,
     JoinGraphEnum,
     JoinGraphDirective,
-    sanitizedServiceNames,
+    graphNameToEnumValueName,
   } = getJoinDefinitions(serviceList);
 
   schema = new GraphQLSchema({
@@ -89,7 +89,7 @@ export function printSupergraphSdl(
   });
 
   const context: PrintingContext = {
-    sanitizedServiceNames,
+    graphNameToEnumValueName,
   }
 
   return printFilteredSchema(
@@ -248,7 +248,7 @@ function printTypeJoinDirectives(
   const shouldPrintOwner = isObjectType(type);
   const joinOwnerString = shouldPrintOwner
     ? `\n  @join__owner(graph: ${
-        context.sanitizedServiceNames?.[ownerService] ?? ownerService
+        context.graphNameToEnumValueName?.[ownerService] ?? ownerService
       })`
     : '';
 
@@ -260,7 +260,7 @@ function printTypeJoinDirectives(
           .map(
             (selections) =>
               `\n  @join__type(graph: ${
-                context.sanitizedServiceNames?.[service] ?? service
+                context.graphNameToEnumValueName?.[service] ?? service
               }, key: ${printStringLiteral(printFieldSet(selections))})`,
           )
           .join(''),
@@ -398,7 +398,7 @@ function printJoinFieldDirectives(
       return (
         printed +
         `graph: ${
-          context.sanitizedServiceNames?.[
+          context.graphNameToEnumValueName?.[
             parentType.extensions?.federation.serviceName
           ] ?? parentType.extensions?.federation.serviceName
         })`
@@ -417,7 +417,7 @@ function printJoinFieldDirectives(
 
   if (serviceName && serviceName.length > 0) {
     directiveArgs.push(
-      `graph: ${context.sanitizedServiceNames?.[serviceName] ?? serviceName}`,
+      `graph: ${context.graphNameToEnumValueName?.[serviceName] ?? serviceName}`,
     );
   }
 

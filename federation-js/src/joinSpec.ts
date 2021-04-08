@@ -39,7 +39,7 @@ function getJoinGraphEnum(serviceList: ServiceDefinition[]) {
   // Track whether we've seen a name and how many times
   const nameMap: Map<string, number> = new Map();
   // Build a map of original service name to generated name
-  const sanitizedServiceNames: Record<string, string> = Object.create(null);
+  const graphNameToEnumValueName: Record<string, string> = Object.create(null);
 
   function uniquifyAndSanitizeGraphQLName(name: string) {
     // Transforms to ensure valid graphql `Name`
@@ -62,17 +62,17 @@ function getJoinGraphEnum(serviceList: ServiceDefinition[]) {
       const uniquified = `${toUpper}_${nameCount + 1}`;
       // We also now need another entry for the name we just generated
       nameMap.set(uniquified, 1);
-      sanitizedServiceNames[name] = uniquified;
+      graphNameToEnumValueName[name] = uniquified;
       return uniquified;
     } else {
       nameMap.set(toUpper, 1);
-      sanitizedServiceNames[name] = toUpper;
+      graphNameToEnumValueName[name] = toUpper;
       return toUpper;
     }
   }
 
   return {
-    sanitizedServiceNames,
+    graphNameToEnumValueName,
     JoinGraphEnum: new GraphQLEnumType({
       name: 'join__Graph',
       values: Object.fromEntries(
@@ -116,7 +116,7 @@ function getJoinOwnerDirective(JoinGraphEnum: GraphQLEnumType) {
 }
 
 export function getJoinDefinitions(serviceList: ServiceDefinition[]) {
-  const { sanitizedServiceNames, JoinGraphEnum } = getJoinGraphEnum(serviceList);
+  const { graphNameToEnumValueName, JoinGraphEnum } = getJoinGraphEnum(serviceList);
   const JoinFieldDirective = getJoinFieldDirective(JoinGraphEnum);
   const JoinOwnerDirective = getJoinOwnerDirective(JoinGraphEnum);
 
@@ -135,7 +135,7 @@ export function getJoinDefinitions(serviceList: ServiceDefinition[]) {
   });
 
   return {
-    sanitizedServiceNames,
+    graphNameToEnumValueName,
     FieldSetScalar,
     JoinTypeDirective,
     JoinFieldDirective,
