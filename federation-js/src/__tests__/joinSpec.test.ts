@@ -1,5 +1,5 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { getJoins } from "../joinSpec";
+import { getJoinDefinitions } from "../joinSpec";
 
 const questionableNamesRemap = {
   accounts: 'ServiceA',
@@ -17,7 +17,7 @@ const fixturesWithQuestionableServiceNames = fixtures.map((service) => ({
 
 describe('join__Graph enum', () => {
   it('correctly uniquifies and sanitizes service names', () => {
-    const { sanitizedServiceNames } = getJoins(
+    const { sanitizedServiceNames } = getJoinDefinitions(
       fixturesWithQuestionableServiceNames,
     );
 

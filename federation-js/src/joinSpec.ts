@@ -115,7 +115,7 @@ function getJoinOwnerDirective(JoinGraphEnum: GraphQLEnumType) {
   });
 }
 
-export function getJoins(serviceList: ServiceDefinition[]) {
+export function getJoinDefinitions(serviceList: ServiceDefinition[]) {
   const { sanitizedServiceNames, JoinGraphEnum } = getJoinGraphEnum(serviceList);
   const JoinFieldDirective = getJoinFieldDirective(JoinGraphEnum);
   const JoinOwnerDirective = getJoinOwnerDirective(JoinGraphEnum);

@@ -30,7 +30,7 @@ import {
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
 import { CoreDirective } from '../coreSpec';
-import { getJoins } from '../joinSpec';
+import { getJoinDefinitions } from '../joinSpec';
 
 type Options = {
   /**
@@ -73,7 +73,7 @@ export function printSupergraphSdl(
     JoinGraphEnum,
     JoinGraphDirective,
     sanitizedServiceNames,
-  } = getJoins(serviceList);
+  } = getJoinDefinitions(serviceList);
 
   schema = new GraphQLSchema({
     ...config,
