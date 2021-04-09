@@ -922,6 +922,86 @@ describe('buildQueryPlan', () => {
                 }
             `);
     });
+
+    it(`should preserve type conditions for value types`, () => {
+      const operationString = `#graphql
+        query {
+          body {
+            ... on Image {
+              ... on NamedObject {
+                name
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const queryPlan = queryPlanner.buildQueryPlan(
+        buildOperationContext({
+          schema,
+          operationDocument,
+        })
+      );
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+                QueryPlan {
+                  Fetch(service: "documents") {
+                    {
+                      body {
+                        __typename
+                        ... on Image {
+                          ... on NamedObject {
+                            name
+                          }
+                        }
+                      }
+                    }
+                  },
+                }
+            `);
+    });
+
+    it(`should preserve directives on inline fragments even if the fragment is otherwise useless`, () => {
+      const operationString = `#graphql
+        query myQuery($b: Boolean) {
+          body {
+            ... on Image {
+              ... on NamedObject @include(if: $b) {
+                name
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const queryPlan = queryPlanner.buildQueryPlan(
+        buildOperationContext({
+          schema,
+          operationDocument,
+        })
+      );
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+                QueryPlan {
+                  Fetch(service: "documents") {
+                    {
+                      body {
+                        __typename
+                        ... on Image {
+                          ... on NamedObject @include(if: $b) {
+                            name
+                          }
+                        }
+                      }
+                    }
+                  },
+                }
+            `);
+    });
   });
 
   // GraphQLError: Cannot query field "isbn" on type "Book"

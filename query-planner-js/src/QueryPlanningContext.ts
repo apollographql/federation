@@ -278,7 +278,6 @@ export class QueryPlanningContext {
     scope: Scope,
     selectionSet: SelectionSetNode,
     fields: FieldSet = [],
-    visitedFragmentNames: { [fragmentName: string]: boolean } = Object.create(null)
   ): FieldSet {
     for (const selection of selectionSet.selections) {
       switch (selection.kind) {
@@ -289,7 +288,7 @@ export class QueryPlanningContext {
         case Kind.INLINE_FRAGMENT: {
           const newScope = this.scopeForFragment(scope, selection, selection.directives);
           if (newScope) {
-            this.collectFields(newScope, selection.selectionSet, fields, visitedFragmentNames);
+            this.collectFields(newScope, selection.selectionSet, fields);
           }
           break;
         }
@@ -301,14 +300,9 @@ export class QueryPlanningContext {
             continue;
           }
 
-          if (visitedFragmentNames[fragmentName]) {
-            continue;
-          }
-          visitedFragmentNames[fragmentName] = true;
-
           const newScope = this.scopeForFragment(scope, fragment, selection.directives);
           if (newScope) {
-            this.collectFields(newScope, fragment.selectionSet, fields, visitedFragmentNames);
+            this.collectFields(newScope, fragment.selectionSet, fields);
           }
           break;
       }

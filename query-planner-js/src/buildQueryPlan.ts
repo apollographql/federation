@@ -817,7 +817,6 @@ export function collectSubfields(
   fields: FieldSet,
 ): FieldSet {
   let subfields: FieldSet = [];
-  const visitedFragmentNames = Object.create(null);
 
   for (const field of fields) {
     const selectionSet = field.fieldNode.selectionSet;
@@ -827,7 +826,6 @@ export function collectSubfields(
         Scope.create(context, returnType),
         selectionSet,
         subfields,
-        visitedFragmentNames,
       );
     }
   }
