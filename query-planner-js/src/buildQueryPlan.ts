@@ -38,6 +38,8 @@ import {
   matchesField,
   selectionSetFromFieldSet,
   Scope,
+  debugPrintField,
+  debugPrintFields,
 } from './FieldSet';
 import {
   FetchNode,
@@ -51,6 +53,24 @@ import {
 import { getFieldDef, getResponseName } from './utilities/graphql';
 import { MultiMap } from './utilities/MultiMap';
 import { getFederationMetadataForType, getFederationMetadataForField } from './composedSchema';
+import { DebugLogger } from './utilities/debug';
+
+
+function stringIsTrue(str?: string) : boolean {
+  if (!str) {
+    return false;
+  }
+  switch (str.toLocaleLowerCase()) {
+    case "true":
+    case "yes":
+    case "1":
+      return true;
+    default:
+      return false;
+  }
+}
+
+const debug = new DebugLogger(stringIsTrue(process.env.APOLLO_QP_DEBUG));
 
 const typenameField = {
   kind: Kind.FIELD,
@@ -89,17 +109,25 @@ export function buildQueryPlan(
 
   const isMutation = context.operation.operation === 'mutation';
 
+  debug.log(() => `Building plan for ${isMutation ? "mutation" : "query"} "${rootType}" (fragments: [${Object.keys(context.fragments)}], autoFragmentization: ${context.autoFragmentization})`);
+
+  debug.group(`Collecting root fields:`);
   const fields = collectFields(
     context,
     context.newScope(rootType),
     context.operation.selectionSet,
   );
+  debug.groupEnd(`Collected root fields:`);
+  debug.groupedValues(fields, debugPrintField);
 
+  debug.group('Splitting root fields:');
   // Mutations are a bit more specific in how FetchGroups can be built, as some
   // calls to the same service may need to be executed serially.
   const groups = isMutation
     ? splitRootFieldsSerially(context, fields)
     : splitRootFields(context, fields);
+  debug.groupEnd('Computed groups:');
+  debug.groupedValues(groups, debugPrintGroup);
 
   const nodes = groups.map(group =>
     executionNodeForGroup(context, group, rootType),
@@ -530,6 +558,8 @@ function splitFields(
       // merging selection sets, to take node-specific subfields and directives
       // into account.
 
+      debug.group(() => debugPrintFields(fieldsForParentType));
+
       const field = fieldsForParentType[0];
       const { scope, fieldDef } = field;
 
@@ -543,18 +573,24 @@ function splitFields(
         ]
           .filter(isNotNullOrUndefined)
           .map(type => type.name);
-        if (roots.indexOf(parentType.name) > -1) continue;
+        if (roots.indexOf(parentType.name) > -1) {
+          debug.groupEnd("Skipping __typename for root types");
+          continue;
+        }
       }
 
       // We skip introspection fields like `__schema` and `__type`.
       if (isIntrospectionType(getNamedType(fieldDef.type))) {
+        debug.groupEnd(`Skipping introspection type ${fieldDef.type}`);
         continue;
       }
 
       if (isObjectType(parentType) && scope.possibleTypes.includes(parentType)) {
         // If parent type is an object type, we can directly look for the right
         // group.
+        debug.log(() => `${parentType} = object and ${parentType} ∈ [${scope.possibleTypes}]`);
         const group = groupForField(field as Field<GraphQLObjectType>);
+        debug.log(() => `Initial fetch group for fields: ${debugPrintGroup(group)}`);
         group.fields.push(
           completeField(
             context,
@@ -564,7 +600,9 @@ function splitFields(
             fieldsForParentType,
           ),
         );
+        debug.groupEnd(() => `Updated fetch group: ${debugPrintGroup(group)}`);
       } else {
+        debug.log(() => `${parentType} ≠ object or ${parentType} ∉ [${scope.possibleTypes}]`);
         // For interfaces however, we need to look at all possible runtime types.
 
         /**
@@ -587,10 +625,13 @@ function splitFields(
 
         // With no extending field definitions, we can engage the optimization
         if (hasNoExtendingFieldDefs) {
+          debug.group(() => `No field of ${scope.possibleTypes} have federation directives, avoid type explosion.`);
           const group = groupForField(field as Field<GraphQLObjectType>);
+          debug.groupEnd(() => `Initial fetch group for fields: ${debugPrintGroup(group)}`);
           group.fields.push(
             completeField(context, scope, group, path, fieldsForParentType)
           );
+          debug.groupEnd(() => `Updated fetch group: ${debugPrintGroup(group)}`);
           continue;
         }
 
@@ -601,6 +642,7 @@ function splitFields(
           GraphQLObjectType
         >();
 
+        debug.group('Computing fetch groups by runtime parent types');
         for (const runtimeParentType of scope.possibleTypes) {
           const fieldDef = context.getFieldDef(
             runtimeParentType,
@@ -615,14 +657,20 @@ function splitFields(
             runtimeParentType,
           );
         }
+        debug.groupEnd(`Fetch groups to resolvable runtime types:`);
+        debug.groupedEntries(groupsByRuntimeParentTypes, debugPrintGroup, (v) => v.toString());
 
+        debug.group('Iterating on fetch groups');
         // We add the field separately for each runtime parent type.
         for (const [group, runtimeParentTypes] of groupsByRuntimeParentTypes) {
+          debug.group(() => `For initial fetch group ${debugPrintGroup(group)}:`);
           for (const runtimeParentType of runtimeParentTypes) {
             // We need to adjust the fields to contain the right fieldDef for
             // their runtime parent type.
+            debug.group(`For runtime parent type ${runtimeParentType}:`);
 
             const fieldDef = context.getFieldDef(
+
               runtimeParentType,
               field.fieldNode,
             );
@@ -641,8 +689,13 @@ function splitFields(
                 fieldsWithRuntimeParentType,
               ),
             );
+            debug.groupEnd(() => `Updated fetch group: ${debugPrintGroup(group)}`);
           }
+          debug.groupEnd();
         }
+        debug.groupEnd(); // Group started before the immediate for loop
+
+        debug.groupEnd(); // Group started at the beginning of this 'top-level' iteration.
       }
     }
   }
@@ -685,7 +738,9 @@ function completeField(
     }
 
     const subfields = collectSubfields(context, returnType, fields);
+    debug.group(() => `Splitting collected sub-fields (${debugPrintFields(subfields)})`);
     splitSubfields(context, fieldPath, subfields, subGroup);
+    debug.groupEnd();
 
     parentGroup.otherDependentGroups.push(...subGroup.dependentGroups);
 
@@ -915,6 +970,20 @@ class FetchGroup {
       ...this.otherDependentGroups,
     ];
   }
+}
+
+// Provides a string representation of a `FetchGroup` suitable for debugging.
+function debugPrintGroup(group: FetchGroup): string {
+  let str = `Fetch(${group.serviceName}, ${debugPrintFields(group.fields)}`;
+  if (group.dependentGroups.length !== 0) {
+    str += `, deps: ${debugPrintGroups(group.dependentGroups)}`
+  }
+  return str + ')';
+}
+
+// Provides a string representation of an array of `FetchGroup` suitable for debugging.
+function debugPrintGroups(groups: FetchGroup[]): string {
+  return '[' +  groups.map(debugPrintGroup).join(', ') + ']'
 }
 
 // Adapted from buildExecutionContext in graphql-js
