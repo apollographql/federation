@@ -70,6 +70,7 @@ import {
 import { loadSupergraphSdlFromStorage } from './loadSupergraphSdlFromStorage';
 import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorage';
 import { buildComposedSchema } from '@apollo/query-planner';
+import { removeInternalFields } from './utilities/removeInternalFields';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -369,8 +370,11 @@ export class ApolloGateway implements GraphQLService {
       }`,
     );
 
+    // TODO: @internal
+    const publicSchema = removeInternalFields(this.schema!);
+
     return {
-      schema: this.schema!,
+      schema: publicSchema,
       executor: this.executor,
     };
   }
@@ -472,10 +476,12 @@ export class ApolloGateway implements GraphQLService {
       this.schema = schema;
       this.queryPlanner = new QueryPlanner(schema);
 
+      const publicSchema = removeInternalFields(this.schema);
+
       // Notify the schema listeners of the updated schema
       try {
         this.onSchemaChangeListeners.forEach((listener) =>
-          listener(this.schema!),
+          listener(publicSchema),
         );
       } catch (e) {
         this.logger.error(
@@ -545,10 +551,12 @@ export class ApolloGateway implements GraphQLService {
       this.schema = schema;
       this.queryPlanner = new QueryPlanner(schema);
 
+      const publicSchema = removeInternalFields(this.schema);
+
       // Notify the schema listeners of the updated schema
       try {
         this.onSchemaChangeListeners.forEach((listener) =>
-          listener(this.schema!),
+          listener(publicSchema),
         );
       } catch (e) {
         this.logger.error(

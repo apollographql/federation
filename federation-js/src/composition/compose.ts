@@ -431,7 +431,7 @@ export function buildSchemaFromDefinitionsAndExtensions({
   schema = new GraphQLSchema({
     ...schema.toConfig(),
     directives: [
-      ...schema.getDirectives().filter(x => !isFederationDirective(x)),
+      ...schema.getDirectives().filter(x => !isFederationDirective(x) || x.name === 'internal'),
     ],
   });
 
