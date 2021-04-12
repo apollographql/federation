@@ -35,10 +35,10 @@ describe('join__Graph enum', () => {
      */
     expect(graphNameToEnumValueName).toMatchObject({
       '9product*!': '_9PRODUCT__',
-      ServiceA: 'SERVICEA',
+      ServiceA: 'SERVICEA_2',
       reviews_9: 'REVIEWS_9_',
-      serviceA: 'SERVICEA_2',
-      servicea_2: 'SERVICEA_2_',
+      serviceA: 'SERVICEA_1',
+      servicea_2: 'SERVICEA_2__1',
       servicea_2_: 'SERVICEA_2__2',
     });
   })

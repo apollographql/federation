@@ -27,59 +27,83 @@ const JoinGraphDirective = new GraphQLDirective({
 
 /**
  * Expectations
- * 1. Non-Alphanumeric characters are replaced with _ (alphaNumericUnderscoreOnly)
- * 2. Numeric first characters are prefixed with _ (noNumericFirstChar)
- * 3. Names ending in an underscore followed by numbers `_\d+` are suffixed with _ (noUnderscoreNumericEnding)
- * 4. Names are uppercased (toUpper)
- * 5. After transformations 1-4, duplicates are suffixed with _{n} where {n} is number of times we've seen the dupe
+ * 1. The input is first sorted using `String.localeCompare`, so the output is deterministic
+ * 2. Non-Alphanumeric characters are replaced with _ (alphaNumericUnderscoreOnly)
+ * 3. Numeric first characters are prefixed with _ (noNumericFirstChar)
+ * 4. Names ending in an underscore followed by numbers `_\d+` are suffixed with _ (noUnderscoreNumericEnding)
+ * 5. Names are uppercased (toUpper)
+ * 6. After transformations 1-4, duplicates are suffixed with _{n} where {n} is number of times we've seen the dupe
  *
  * Note: Collisions with name's we've generated are also accounted for
  */
 function getJoinGraphEnum(serviceList: ServiceDefinition[]) {
-  // Track whether we've seen a name and how many times
-  const nameMap: Map<string, number> = new Map();
-  // Build a map of original service name to generated name
-  const graphNameToEnumValueName: Record<string, string> = Object.create(null);
+  const sortedServiceList = serviceList
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  function uniquifyAndSanitizeGraphQLName(name: string) {
-    // Transforms to ensure valid graphql `Name`
-    const alphaNumericUnderscoreOnly = name.replace(/[^_a-zA-Z0-9]/g, '_');
-    const noNumericFirstChar = alphaNumericUnderscoreOnly.match(/^[0-9]/)
+  function sanitizeGraphQLName(name: string) {
+    // replace all non-word characters (\W). Word chars are _a-zA-Z0-9
+    const alphaNumericUnderscoreOnly = name.replace(/[\W]/g, '_');
+    // prefix a digit in the first position with an _
+    const noNumericFirstChar = alphaNumericUnderscoreOnly.match(/^\d/)
       ? '_' + alphaNumericUnderscoreOnly
       : alphaNumericUnderscoreOnly;
-    const noUnderscoreNumericEnding = noNumericFirstChar.match(/_[0-9]+$/)
+    // suffix an underscore + digit in the last position with an _
+    const noUnderscoreNumericEnding = noNumericFirstChar.match(/_\d+$/)
       ? noNumericFirstChar + '_'
       : noNumericFirstChar;
 
     // toUpper not really necessary but follows convention of enum values
     const toUpper = noUnderscoreNumericEnding.toLocaleUpperCase();
+    return toUpper;
+  }
 
-    // Uniquifying post-transform
-    const nameCount = nameMap.get(toUpper);
-    if (nameCount) {
-      // Collision - bump counter by one
-      nameMap.set(toUpper, nameCount + 1);
-      const uniquified = `${toUpper}_${nameCount + 1}`;
-      // We also now need another entry for the name we just generated
-      nameMap.set(uniquified, 1);
-      graphNameToEnumValueName[name] = uniquified;
-      return uniquified;
+  // duplicate enum values can occur due to sanitization and must be accounted for
+  // collect the duplicates in an array so we can uniquify them in a second pass.
+  const sanitizedNameToServiceDefinitions: Map<
+    string,
+    ServiceDefinition[]
+  > = new Map();
+  for (const service of sortedServiceList) {
+    const { name } = service;
+    const sanitized = sanitizeGraphQLName(name);
+
+    const existingEntry = sanitizedNameToServiceDefinitions.get(sanitized);
+    if (existingEntry) {
+      sanitizedNameToServiceDefinitions.set(sanitized, [
+        ...existingEntry,
+        service,
+      ]);
     } else {
-      nameMap.set(toUpper, 1);
-      graphNameToEnumValueName[name] = toUpper;
-      return toUpper;
+      sanitizedNameToServiceDefinitions.set(sanitized, [service]);
     }
   }
 
+  // if no duplicates for a given name, add it as is
+  // if duplicates exist, append _{n} (index-1) to each duplicate in the array
+  const generatedNameToServiceDefinition: Record<
+    string,
+    ServiceDefinition
+  > = Object.create(null);
+  for (const [name, services] of sanitizedNameToServiceDefinitions) {
+    if (services.length === 1) {
+      generatedNameToServiceDefinition[name] = services[0];
+    } else {
+      for (const [index, service] of services.entries()) {
+        generatedNameToServiceDefinition[`${name}_${index + 1}`] = service;
+      }
+    }
+  }
+
+  const entries = Object.entries(generatedNameToServiceDefinition);
   return {
-    graphNameToEnumValueName,
+    graphNameToEnumValueName: Object.fromEntries(
+      entries.map(([name, service]) => [service.name, name]),
+    ),
     JoinGraphEnum: new GraphQLEnumType({
       name: 'join__Graph',
       values: Object.fromEntries(
-        serviceList.map((service) => [
-          uniquifyAndSanitizeGraphQLName(service.name),
-          { value: service },
-        ]),
+        entries.map(([name, service]) => [name, { value: service }]),
       ),
     }),
   };
