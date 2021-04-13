@@ -695,12 +695,7 @@ export class ApolloGateway implements GraphQLService {
       throw Error(`Couldn't find graph map in composed schema`);
     }
 
-    const serviceList = Object.values(graphMap).map(graph => ({
-      name: graph.name,
-      url: graph.url
-    }))
-
-    return serviceList;
+    return Array.from(graphMap.values());
   }
 
   private createSchemaFromSupergraphSdl(supergraphSdl: string) {

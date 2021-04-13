@@ -39,7 +39,7 @@ export interface Graph {
   url: string;
 }
 
-export type GraphMap = { [graphName: string]: Graph };
+export type GraphMap = Map<string, Graph>;
 export interface FederationSchemaMetadata {
   graphs: GraphMap;
 }

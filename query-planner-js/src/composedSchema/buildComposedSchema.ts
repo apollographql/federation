@@ -84,7 +84,7 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   const graphEnumType = schema.getType(`${joinName}__Graph`);
   assert(isEnumType(graphEnumType), `${joinName}__Graph should be an enum`);
 
-  const graphMap: GraphMap = Object.create(null);
+  const graphMap: GraphMap = new Map();
 
   schema.extensions = {
     ...schema.extensions,
@@ -108,10 +108,10 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
     const graphName: string = graphDirectiveArgs['name'];
     const url: string = graphDirectiveArgs['url'];
 
-    graphMap[name] = {
+    graphMap.set(name, {
       name: graphName,
       url,
-    };
+    });
   }
 
   for (const type of Object.values(schema.getTypeMap())) {
@@ -130,15 +130,24 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
       type.astNode,
     );
 
-    const typeMetadata: FederationTypeMetadata = ownerDirectiveArgs
-      ? {
-          graphName: graphMap[ownerDirectiveArgs?.['graph']].name,
-          keys: new MultiMap(),
-          isValueType: false,
-        }
-      : {
-          isValueType: true,
-        };
+    let typeMetadata: FederationTypeMetadata;
+    if (ownerDirectiveArgs) {
+      const graph = graphMap.get(ownerDirectiveArgs.graph);
+      assert(
+        graph,
+        `@${ownerDirective.name} directive requires a \`graph\` argument`,
+      );
+
+      typeMetadata = {
+        graphName: graph.name,
+        keys: new MultiMap(),
+        isValueType: false,
+      };
+    } else {
+      typeMetadata = {
+        isValueType: true,
+      };
+    }
 
     type.extensions = {
       ...type.extensions,
@@ -160,14 +169,19 @@ directive without an @${ownerDirective.name} directive`,
     );
 
     for (const typeDirectiveArgs of typeDirectivesArgs) {
-      const graphName = graphMap[typeDirectiveArgs['graph']].name;
+      const graph = graphMap.get(typeDirectiveArgs.graph);
+
+      assert(
+        graph,
+        `GraphQL type "${type.name}" must provide a \`graph\` argument to the @${typeDirective.name} directive`,
+      );
 
       const keyFields = parseFieldSet(typeDirectiveArgs['key']);
 
       // We know we won't actually be looping here in the case of a value type
       // based on the assertion above, but TS is not able to infer that.
       (typeMetadata as FederationEntityTypeMetadata).keys.add(
-        graphName,
+        graph.name,
         keyFields,
       );
     }
@@ -186,7 +200,7 @@ directive without an @${ownerDirective.name} directive`,
       if (!fieldDirectiveArgs) continue;
 
       const fieldMetadata: FederationFieldMetadata = {
-        graphName: graphMap[fieldDirectiveArgs?.['graph']]?.name,
+        graphName: graphMap.get(fieldDirectiveArgs.graph)?.name,
       };
 
       fieldDef.extensions = {
