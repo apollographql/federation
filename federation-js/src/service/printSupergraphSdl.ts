@@ -25,8 +25,8 @@ import {
   GraphQLEnumValue,
   GraphQLString,
   DEFAULT_DEPRECATION_REASON,
-  ASTNode,
   SelectionNode,
+  stripIgnoredCharacters,
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
 import { CoreDirective } from '../coreSpec';
@@ -353,19 +353,15 @@ function printFields(
   return printBlock(fields, isEntity);
 }
 
-export function printWithReducedWhitespace(ast: ASTNode): string {
-  return print(ast)
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 /**
  * Core change: print fieldsets for @join__field's @key, @requires, and @provides args
  *
  * @param selections
  */
 function printFieldSet(selections: readonly SelectionNode[]): string {
-  return `${selections.map(printWithReducedWhitespace).join(' ')}`;
+  return selections
+    .map((selection) => stripIgnoredCharacters(print(selection)))
+    .join(' ');
 }
 
 /**

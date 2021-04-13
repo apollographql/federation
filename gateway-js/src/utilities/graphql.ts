@@ -10,7 +10,6 @@ import {
   NamedTypeNode,
   OperationDefinitionNode,
   parse,
-  print,
   SelectionNode,
   TypeNode,
 } from 'graphql';
@@ -40,12 +39,6 @@ export function astFromType(type: GraphQLType): TypeNode {
       name: { kind: Kind.NAME, value: type.name },
     };
   }
-}
-
-export function printWithReducedWhitespace(ast: ASTNode): string {
-  return print(ast)
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 export function parseSelections(source: string): ReadonlyArray<SelectionNode> {

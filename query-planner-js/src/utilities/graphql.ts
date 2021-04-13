@@ -19,7 +19,6 @@ import {
   NamedTypeNode,
   OperationDefinitionNode,
   parse,
-  print,
   SchemaMetaFieldDef,
   SelectionNode,
   SelectionSetNode,
@@ -95,12 +94,6 @@ export function astFromType(type: GraphQLType): TypeNode {
       name: { kind: Kind.NAME, value: type.name },
     };
   }
-}
-
-export function printWithReducedWhitespace(ast: ASTNode): string {
-  return print(ast)
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 export function parseSelectionSet(source: string): SelectionSetNode {
