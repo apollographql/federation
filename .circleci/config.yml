@@ -7,7 +7,7 @@ orbs:
   # be found at http://github.com/apollographql/CircleCI-Orbs/.
   # We could use Renovate to bump this version via PR, but that's not set up now.
   oss: apollo/oss-ci-cd-tooling@0.0.16
-  rust: circleci/rust@1.2.0
+  rust: circleci/rust@1.3.0
   win: circleci/windows@2.3.0
 
 commands:
@@ -124,10 +124,6 @@ jobs:
           steps:
             - rust/install:
                 version: stable
-            # This can be removed after the release of a new version of this Orb
-            - run:
-                name: Special-case shell install for CircleCI (temporary!)
-                command: echo '. ~/.cargo/env' >> $BASH_ENV
             - run:
                 name: Install nvm
                 command: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
