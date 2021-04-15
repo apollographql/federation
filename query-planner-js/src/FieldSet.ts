@@ -21,11 +21,47 @@ export interface Field<
   fieldDef: GraphQLField<any, any>;
 }
 
+/**
+ * Provides a string representation of a field suitable for debugging.
+ *
+ * The format looks like '(a: Int)<A [A1, A2]>' where 'a' is the field name, 'Int' is its type, and '<...>' is its
+ * scope (@see debugScope for details).
+ *
+ * @param field - the field object to convert.
+ * @return a string representation of the field.
+ */
+export function debugPrintField(field: Field) : string {
+  const def = field.fieldDef;
+  return `(${def.name}: ${def.type})${debugPrintScope(field.scope)}`;
+}
+
 export interface Scope<TParent extends GraphQLCompositeType> {
   parentType: TParent;
   possibleTypes: ReadonlyArray<GraphQLObjectType>;
   directives?: ReadonlyArray<DirectiveNode>
   enclosingScope?: Scope<GraphQLCompositeType>;
+}
+
+/**
+ * Provides a string representation of a field suitable for debugging.
+ *
+ * The format looks like '<A [A1, A2]>' where 'A' is the scope 'parentType' and '[A1, A2]' are the 'possibleTypes'.
+ *
+ * @param scope - the scope object to convert.
+ * @param deepDebug - whether to also display enclosed scopes.
+ * @return a string representation of the scope.
+ */
+export function debugPrintScope<TParent extends GraphQLCompositeType>(
+  scope: Scope<TParent>, deepDebug: boolean = false) : string {
+  let enclosingStr = '';
+  if (scope.enclosingScope) {
+    if (deepDebug) {
+      enclosingStr = ' -> ' + debugPrintScope(scope.enclosingScope);
+    } else {
+      enclosingStr = ' ⋯'; // show an elipsis so we know there is an enclosing scope, but it's just not displayed.
+    }
+  }
+  return`<${scope.parentType} [${scope.possibleTypes}]${enclosingStr}>`;
 }
 
 export type FieldSet = Field[];
@@ -39,6 +75,19 @@ export function printFields(fields?: FieldSet) {
       .join(', ') +
     ']'
   );
+}
+
+/**
+ * Provides a string representation of a field set for debugging.
+ *
+ * The format is the list of fields as displayed by `debugField` within square brackets.
+ *
+ * @param fields - the field set object to convert.
+ * @return a string representation of the field.
+ */
+export function debugPrintFields(fields?: FieldSet) : string {
+  if (!fields) return '[]';
+  return '[' + fields.map(debugPrintField).join(', ') + ']'
 }
 
 export function matchesField(field: Field) {

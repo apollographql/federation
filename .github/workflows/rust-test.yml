@@ -52,24 +52,25 @@ jobs:
         with:
           node-version: '14'
 
-      ### BUILD CACHE ###
-      - name: Cache cargo registry, target, index
+      - name: Cache Cargo registry
         uses: actions/cache@v2
-        id: cache-cargo-v3
         env:
-          cache-name: cache-cargo-v3
+          cache-name: cache-cargo-registry
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/bin
-            ~/.cargo/git
-            target
-          key: ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
+          path: ~/.cargo/registry
+          key: ${{ matrix.build }}-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-rust-${{ hashFiles('**/Cargo.lock') }}
-            ${{ matrix.build }}-${{ env.cache-name }}-${{ steps.toolchain.outputs.rustc_hash }}-
             ${{ matrix.build }}-${{ env.cache-name }}-
-            ${{ matrix.build }}-
+
+      - name: Cache Cargo index
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-cargo-index
+        with:
+          path: ~/.cargo/git
+          key: ${{ matrix.build }}-${{ env.cache-name }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.build }}-${{ env.cache-name }}-
 
       - name: Cache npm
         uses: actions/cache@v2
