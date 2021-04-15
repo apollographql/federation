@@ -199,7 +199,8 @@ jobs:
 #
 # I've opened https://github.com/CircleCI-Public/rust-orb/issues/10 to capture
 # this bug, and I've opened https://github.com/CircleCI-Public/rust-orb/pull/11
-# to hopefully fix it.  Once this lands, each cache above
+# to hopefully fix it.  Once this lands, each `with_cache: false` line above
+# can be removed.
 
 # XXX We used to use this filter to only run a "Docs" job on docs branches.
 #     Now we use it to disable all jobs. It's unclear if there's a simpler way
