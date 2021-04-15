@@ -29,6 +29,7 @@ import {
   stripIgnoredCharacters,
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
+import { assert } from '../composition/utils';
 import { CoreDirective } from '../coreSpec';
 import { getJoinDefinitions } from '../joinSpec';
 
@@ -246,10 +247,14 @@ function printTypeJoinDirectives(
 
   // We don't want to print an owner for interface types
   const shouldPrintOwner = isObjectType(type);
+
+  const enumValue = context.graphNameToEnumValueName?.[ownerService];
+  assert(
+    enumValue,
+    `Unexpected enum value missing for subgraph ${ownerService}`,
+  );
   const joinOwnerString = shouldPrintOwner
-    ? `\n  @join__owner(graph: ${
-        context.graphNameToEnumValueName?.[ownerService] ?? ownerService
-      })`
+    ? `\n  @join__owner(graph: ${enumValue})`
     : '';
 
   return (
