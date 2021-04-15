@@ -14,15 +14,13 @@ import { assert } from '../utilities/assert';
 import {
   getArgumentValuesForDirective,
   getArgumentValuesForRepeatableDirective,
-  isASTKind,
-  parseSelections,
+  parseFieldSet,
 } from '../utilities/graphql';
 import { MultiMap } from '../utilities/MultiMap';
 import {
   FederationFieldMetadata,
   FederationTypeMetadata,
   FederationEntityTypeMetadata,
-  FieldSet,
   GraphMap,
   isValueTypeMetadata,
 } from './metadata';
@@ -249,16 +247,3 @@ directive without an @${ownerDirective.name} directive`,
 }
 
 type NamedSchemaElement = GraphQLDirective | GraphQLNamedType;
-
-function parseFieldSet(source: string): FieldSet {
-  const selections = parseSelections(source);
-
-  assert(
-    selections.every(isASTKind('Field', 'InlineFragment')),
-    `Field sets may not contain fragment spreads, but found: "${source}"`,
-  );
-
-  assert(selections.length > 0, `Field sets may not be empty`);
-
-  return selections;
-}

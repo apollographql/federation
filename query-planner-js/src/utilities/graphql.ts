@@ -12,6 +12,7 @@ import {
   GraphQLSchema,
   GraphQLType,
   GraphQLUnionType,
+  InlineFragmentNode,
   isListType,
   isNonNullType,
   Kind,
@@ -24,8 +25,10 @@ import {
   TypeMetaFieldDef,
   TypeNameMetaFieldDef,
   TypeNode,
+  visit,
 } from 'graphql';
 import { getArgumentValues } from 'graphql/execution/values';
+import { FieldSet } from '../composedSchema';
 import { assert } from './assert';
 
 /**
@@ -112,6 +115,33 @@ export function parseSelections(source: string): ReadonlyArray<SelectionNode> {
   return (parsed.definitions[0] as OperationDefinitionNode).selectionSet
     .selections;
 }
+
+// TODO: should we be using this everywhere we're using `parseSelections`?
+export function parseFieldSet(source: string): FieldSet {
+  const selections = parseSelections(source);
+
+  const selectionSetNode = {
+    kind: Kind.SELECTION_SET,
+    selections,
+  };
+
+  visit(selectionSetNode, {
+    FragmentSpread() {
+      throw Error(
+        `Field sets may not contain fragment spreads, but found: "${source}"`,
+      );
+    },
+  });
+
+  // I'm not sure this case is possible - an empty string will first throw a
+  // graphql syntax error. Can you get 0 selections any other way?
+  assert(selections.length > 0, `Field sets may not be empty`);
+
+  // This cast is asserted above by the visitor, ensuring that both `selections`
+  // and any recursive `selections` are not `FragmentSpreadNode`s
+  return selections as readonly (FieldNode | InlineFragmentNode)[];
+}
+
 
 // Using `getArgumentValues` from `graphql-js` ensures that arguments are of the right type,
 // and that required arguments are present.
