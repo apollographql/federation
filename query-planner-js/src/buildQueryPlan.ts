@@ -436,6 +436,12 @@ function splitSubfields(
     const { scope, fieldNode, fieldDef } = field;
     const { parentType } = scope;
 
+    // Committed by @trevor-scheer but authored by @martijnwalraven
+    // Treat abstract types as value types to replicate type explosion fix
+    // XXX: this replicates the behavior of the Rust query planner implementation,
+    // in order to get the tests passing before making further changes. But the
+    // type explosion fix this depends on is fundamentally flawed and needs to
+    // be replaced.
     const parentIsValueType = !isObjectType(parentType) || getFederationMetadataForType(parentType)?.isValueType;
 
     let baseService, owningService;
@@ -846,6 +852,21 @@ function collectFields(
           break;
         }
 
+        // Committed by @trevor-scheer but authored by @martijnwalraven
+        // This replicates the behavior added to the Rust query planner in #178.
+        // Unfortunately, the logic in there is seriously flawed, and may lead to
+        // unexpected results. The assumption seems to be that fields with the
+        // same parent type are always nested in the same inline fragment. That
+        // is not necessarily true however, and because we take the directives
+        // from the scope of the first field with a particular parent type,
+        // those directives will be applied to all other fields that have the
+        // same parent type even if the directives aren't meant to apply to them
+        // because they were nested in a different inline fragment. (That also
+        // means that if the scope of the first field doesn't have directives,
+        // directives that would have applied to other fields will be lost.)
+        // Note that this also applies to `@skip` and `@include`, which could
+        // lead to invalid query plans that fail at runtime because expected
+        // fields are missing from a subgraph response.
         newScope.directives = selection.directives;
 
         collectFields(
