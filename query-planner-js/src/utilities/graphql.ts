@@ -21,7 +21,6 @@ import {
   parse,
   SchemaMetaFieldDef,
   SelectionNode,
-  SelectionSetNode,
   TypeMetaFieldDef,
   TypeNameMetaFieldDef,
   TypeNode,
@@ -96,14 +95,22 @@ export function astFromType(type: GraphQLType): TypeNode {
   }
 }
 
-export function parseSelectionSet(source: string): SelectionSetNode {
-  return (parse(`query ${source}`)
-    .definitions[0] as OperationDefinitionNode).selectionSet;
-}
-
+/**
+ * For lack of a "home of federation utilities", this function is copy/pasted
+ * verbatim across the federation, gateway, and query-planner packages. Any changes
+ * made here should be reflected in the other two locations as well.
+ *
+ * @param source A string representing a FieldSet
+ * @returns A parsed FieldSet
+ */
 export function parseSelections(source: string): ReadonlyArray<SelectionNode> {
-  return (parse(`query { ${source} }`)
-    .definitions[0] as OperationDefinitionNode).selectionSet.selections;
+  const parsed = parse(`{${source}}`);
+  assert(
+    parsed.definitions.length === 1,
+    `Invalid FieldSet provided: '${source}'. FieldSets may not contain operations within them.`,
+  );
+  return (parsed.definitions[0] as OperationDefinitionNode).selectionSet
+    .selections;
 }
 
 // Using `getArgumentValues` from `graphql-js` ensures that arguments are of the right type,

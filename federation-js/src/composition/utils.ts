@@ -147,9 +147,37 @@ function removeExternalFieldsFromExtensionVisitor<
   };
 }
 
-export function parseSelections(source: string) {
-  return (parse(`query { ${source} }`)
-    .definitions[0] as OperationDefinitionNode).selectionSet.selections;
+/**
+ * For lack of a "home of federation utilities", this function is copy/pasted
+ * verbatim across the federation, gateway, and query-planner packages. Any changes
+ * made here should be reflected in the other two locations as well.
+ *
+ * @param condition
+ * @param message
+ * @throws
+ */
+export function assert(condition: any, message: string): asserts condition {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+/**
+ * For lack of a "home of federation utilities", this function is copy/pasted
+ * verbatim across the federation, gateway, and query-planner packages. Any changes
+ * made here should be reflected in the other two locations as well.
+ *
+ * @param source A string representing a FieldSet
+ * @returns A parsed FieldSet
+ */
+export function parseSelections(source: string): ReadonlyArray<SelectionNode> {
+  const parsed = parse(`{${source}}`);
+  assert(
+    parsed.definitions.length === 1,
+    `Invalid FieldSet provided: '${source}'. FieldSets may not contain operations within them.`,
+  );
+  return (parsed.definitions[0] as OperationDefinitionNode).selectionSet
+    .selections;
 }
 
 export function hasMatchingFieldInDirectives({

@@ -13,6 +13,7 @@ import {
   SelectionNode,
   TypeNode,
 } from 'graphql';
+import { assert } from './assert';
 
 export function getResponseName(node: FieldNode): string {
   return node.alias ? node.alias.value : node.name.value;
@@ -41,7 +42,20 @@ export function astFromType(type: GraphQLType): TypeNode {
   }
 }
 
+/**
+ * For lack of a "home of federation utilities", this function is copy/pasted
+ * verbatim across the federation, gateway, and query-planner packages. Any changes
+ * made here should be reflected in the other two locations as well.
+ *
+ * @param source A string representing a FieldSet
+ * @returns A parsed FieldSet
+ */
 export function parseSelections(source: string): ReadonlyArray<SelectionNode> {
-  return (parse(`query { ${source} }`)
-    .definitions[0] as OperationDefinitionNode).selectionSet.selections;
+  const parsed = parse(`{${source}}`);
+  assert(
+    parsed.definitions.length === 1,
+    `Invalid FieldSet provided: '${source}'. FieldSets may not contain operations within them.`,
+  );
+  return (parsed.definitions[0] as OperationDefinitionNode).selectionSet
+    .selections;
 }
