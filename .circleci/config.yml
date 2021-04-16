@@ -259,7 +259,6 @@ workflows:
           requires:
             - "JS: Node 12"
             - "JS: Node 14"
-            - Rust
             - "GraphQL Types (up to date)"
       - oss/dry_run:
           name: "JS: Dry-run"
