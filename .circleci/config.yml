@@ -115,11 +115,12 @@ jobs:
                   echo 'npm version:'
                   npm --version
             - run: npm install
-            - rust/format:
-                cache_version: v1-macos
-            - rust/clippy:
-                with_cache: false # Only the first needs to restore cache.
             - rust/test:
+                # This is prefixed in the orb with 'cargo-'
+                cache_version: v2-macos
+            - rust/format:
+                with_cache: false # Only the first needs to restore cache.
+            - rust/clippy:
                 with_cache: false # Only the first needs to restore cache.
             - save_cache:
                 key: rust-target-v1-macos-{{ checksum "Cargo.lock" }}
@@ -147,11 +148,12 @@ jobs:
                   echo 'npm version:'
                   npm --version
             - run: npm install
-            - rust/format:
-                cache_version: v1-linux
-            - rust/clippy:
-                with_cache: false # Only the first needs to restore cache.
             - rust/test:
+                # This is prefixed in the orb with 'cargo-'
+                cache_version: v2-linux
+            - rust/format:
+                with_cache: false # Only the first needs to restore cache.
+            - rust/clippy:
                 with_cache: false # Only the first needs to restore cache.
             - save_cache:
                 key: rust-target-v1-linux-{{ checksum "Cargo.lock" }}
@@ -196,11 +198,12 @@ jobs:
                   echo 'npm version:'
                   npm --version
             - run: npm install
-            - rust/format:
-                cache_version: v1-windows
-            - rust/clippy:
-                with_cache: false # Only the first needs to restore cache.
             - rust/test:
+                # This is prefixed in the orb with 'cargo-'
+                cache_version: v2-windows
+            - rust/format:
+                with_cache: false # Only the first needs to restore cache.
+            - rust/clippy:
                 with_cache: false # Only the first needs to restore cache.
             - save_cache:
                 key: rust-target-v1-windows-{{ checksum "Cargo.lock" }}
