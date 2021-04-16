@@ -11,8 +11,7 @@ orbs:
   # defined in this orb. For reference, the orb can be found here:
   # https://github.com/CircleCI-Public/rust-orb
   rust: circleci/rust@1.5.0
-  win: circleci/windows@2.3.0
-
+  
 commands:
   # These are the steps used for each version of Node which we're testing
   # against.  Thanks to YAMLs inability to merge arrays (though it is able
