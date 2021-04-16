@@ -7,7 +7,7 @@ orbs:
   # be found at http://github.com/apollographql/CircleCI-Orbs/.
   # We could use Renovate to bump this version via PR, but that's not set up now.
   oss: apollo/oss-ci-cd-tooling@0.0.16
-  rust: circleci/rust@1.3.0
+  rust: circleci/rust@1.5.0
   win: circleci/windows@2.3.0
 
 commands:
@@ -113,11 +113,11 @@ jobs:
                   npm --version
             - run: npm install
             - rust/format:
-                with_cache: false # See CACHE_FALSE below for why
+                cache_version: v1-macos
             - rust/clippy:
-                with_cache: false # See CACHE_FALSE below for why
+                with_cache: false # Only the first needs to restore cache.
             - rust/test:
-                with_cache: false # See CACHE_FALSE below for why
+                with_cache: false # Only the first needs to restore cache.
       - when:
           condition:
             equal: [ *rust_linux_executor, << parameters.platform >> ]
@@ -138,11 +138,11 @@ jobs:
                   npm --version
             - run: npm install
             - rust/format:
-                with_cache: false # See CACHE_FALSE below for why
+                cache_version: v1-linux
             - rust/clippy:
-                with_cache: false # See CACHE_FALSE below for why
+                with_cache: false # Only the first needs to restore cache.
             - rust/test:
-                with_cache: false # See CACHE_FALSE below for why
+                with_cache: false # Only the first needs to restore cache.
       - when:
           condition:
             equal: [ *rust_windows_executor, << parameters.platform >> ]
@@ -180,31 +180,11 @@ jobs:
                   npm --version
             - run: npm install
             - rust/format:
-                with_cache: false # See CACHE_FALSE below for why
+                cache_version: v1-windows
             - rust/clippy:
-                with_cache: false # See CACHE_FALSE below for why
+                with_cache: false # Only the first needs to restore cache.
             - rust/test:
-                with_cache: false # See CACHE_FALSE below for why
-
-# CACHE_FALSE: A special case
-#
-# The caches above on the Rust orb jobs are all disabled intentionally because
-# the `cache_version` they are offering in their keys is, I think, misplaced.
-# The misplacement is resulting in caches being restored to hosts of differing
-# architectures than the host that created the cache. While this might work for
-# some common-foundation architectures (e.g. Unix vs Linux, with the same
-# usernames), it breaks down with even the slightest variation (e.g., macOS has
-# different home directory) structures, so the cache is attempted to be
-# restored to $HOME paths with different user, which fails.
-#
-# I've opened https://github.com/CircleCI-Public/rust-orb/issues/10 to capture
-# this bug, and I've opened https://github.com/CircleCI-Public/rust-orb/pull/11
-# to hopefully fix it.  Once this lands, each `with_cache: false` line above
-# can be changed:
-#   - Only the first job in the list needs caching enabled
-#     (otherwise, we'll pay the cost of restore for already-restored content)
-#   - They should have 'cache_version' parameters passed with the platform:
-#     e.g. 'cache_version: v1-mac'
+                with_cache: false # Only the first needs to restore cache.
 
 # XXX We used to use this filter to only run a "Docs" job on docs branches.
 #     Now we use it to disable all jobs. It's unclear if there's a simpler way
