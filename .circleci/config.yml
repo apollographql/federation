@@ -21,7 +21,8 @@ commands:
   common_test_steps:
     description: "Commands run on each Node.js job (not for Rust jobs)"
     steps:
-      - oss/install_specific_npm_version
+      - oss/install_specific_npm_version:
+          version: '7'
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
@@ -76,7 +77,8 @@ jobs:
     description: "Assert generated GraphQL types are up to date"
     executor: { name: oss/node, tag: '14' }
     steps:
-      - oss/install_specific_npm_version
+      - oss/install_specific_npm_version:
+          version: '7'
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
@@ -88,7 +90,7 @@ jobs:
     executor: << parameters.platform >>
     environment:
       NODE_VERSION: 14.16.1
-      NPM_VERSION: 6.14.13
+      NPM_VERSION: 7.10.0
     steps:
       - checkout
       - when:
