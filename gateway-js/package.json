@@ -33,7 +33,7 @@
     "apollo-server-caching": "^0.6.0",
     "apollo-server-core": "^2.23.0",
     "apollo-server-env": "^3.0.0",
-    "apollo-server-errors": "^2.4.2",
+    "apollo-server-errors": "^2.5.0",
     "apollo-server-types": "^0.7.0",
     "loglevel": "^1.6.1",
     "make-fetch-happen": "^8.0.0",
