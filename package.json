@@ -31,10 +31,11 @@
   "dependencies": {
     "@apollo/federation": "file:federation-js",
     "@apollo/gateway": "file:gateway-js",
-    "@apollo/query-planner": "file:query-planner-js",
     "@apollo/harmonizer": "file:harmonizer",
     "@apollographql/apollo-tools": "0.4.14",
-    "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
+    "@apollo/query-planner": "file:query-planner-js",
+    "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js",
+    "deep-equal": "^2.0.5"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "1.21.4",
@@ -43,6 +44,7 @@
     "@rollup/plugin-commonjs": "18.0.0",
     "@rollup/plugin-node-resolve": "11.2.1",
     "@types/bunyan": "1.8.6",
+    "@types/deep-equal": "^1.0.1",
     "@types/deep-freeze": "0.1.2",
     "@types/jest": "26.0.22",
     "@types/lodash.xorby": "4.7.6",

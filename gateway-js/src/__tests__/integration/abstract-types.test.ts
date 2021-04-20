@@ -828,3 +828,917 @@ describe('unions', () => {
   //   expect(queryPlan).toCallService('books');
   // });
 });
+
+describe("doesn't result in duplicate fetches", () => {
+  it("when exploding types", async () => {
+    const query = `#graphql
+      query {
+        topProducts {
+          name
+          price
+          reviews {
+            author {
+              name
+              username
+            }
+            body
+            id
+          }
+        }
+      }
+    `;
+
+    const { queryPlan, errors } = await execute({ query }, [
+      {
+        name: 'accounts',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            name: String
+            username: String
+          }
+        `,
+      },
+      {
+        name: 'products',
+        typeDefs: gql`
+          type Book implements Product @key(fields: "isbn") {
+            isbn: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          type TV implements Product @key(fields: "id") {
+            id: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          type Computer implements Product @key(fields: "id") {
+            id: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          type Furniture implements Product @key(fields: "sku") {
+            sku: String!
+            name: String
+            price: Int
+            weight: Int
+          }
+          interface Product {
+            name: String
+            price: Int
+          }
+          extend type Query {
+            topProducts: [Product]
+          }
+        `,
+      },
+      {
+        name: 'reviews',
+        typeDefs: gql`
+          extend type Book implements Product @key(fields: "isbn") {
+            isbn: String! @external
+            reviews: [Review]
+          }
+          extend type TV implements Product @key(fields: "id") {
+            id: String! @external
+            reviews: [Review]
+          }
+          extend type Computer implements Product @key(fields: "id") {
+            id: String! @external
+            reviews: [Review]
+          }
+          extend type Furniture implements Product @key(fields: "sku") {
+            sku: String! @external
+            reviews: [Review]
+          }
+          extend interface Product {
+            reviews: [Review]
+          }
+          type Review @key(fields: "id") {
+            id: ID!
+            body: String
+            author: User @provides(fields: "username")
+            product: Product
+          }
+          extend type User @key(fields: "id") {
+            id: ID! @external
+            username: String @external
+            reviews: [Review]
+          }
+        `,
+      },
+    ]);
+
+    expect(errors).toBeUndefined();
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "products") {
+            {
+              topProducts {
+                __typename
+                ... on Book {
+                  name
+                  price
+                  __typename
+                  isbn
+                }
+                ... on Computer {
+                  name
+                  price
+                  __typename
+                  id
+                }
+                ... on Furniture {
+                  name
+                  price
+                  __typename
+                  sku
+                }
+                ... on TV {
+                  name
+                  price
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "topProducts.@") {
+            Fetch(service: "reviews") {
+              {
+                ... on Book {
+                  __typename
+                  isbn
+                }
+                ... on Computer {
+                  __typename
+                  id
+                }
+                ... on Furniture {
+                  __typename
+                  sku
+                }
+                ... on TV {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Book {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
+                ... on Computer {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
+                ... on Furniture {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
+                ... on TV {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
+              }
+            },
+          },
+          Flatten(path: "topProducts.@.reviews.@.author") {
+            Fetch(service: "accounts") {
+              {
+                ... on User {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on User {
+                  name
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+
+it("when including the same nested fields under different type conditions", async () => {
+    const query = `#graphql
+      query {
+        topProducts {
+          ... on Book {
+            name
+            price
+            reviews {
+              author {
+                name
+                username
+              }
+              body
+              id
+            }
+          }
+          ... on TV {
+            name
+            price
+            reviews {
+              author {
+                name
+                username
+              }
+              body
+              id
+            }
+          }
+        }
+      }
+    `;
+
+    const { queryPlan, errors } = await execute({ query }, [
+      {
+        name: 'accounts',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            name: String
+            username: String
+          }
+        `,
+      },
+      {
+        name: 'products',
+        typeDefs: gql`
+          type Book implements Product @key(fields: "isbn") {
+            isbn: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          type TV implements Product @key(fields: "id") {
+            id: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          type Computer implements Product @key(fields: "id") {
+            id: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          type Furniture implements Product @key(fields: "sku") {
+            sku: String!
+            name: String
+            price: Int
+            weight: Int
+          }
+          interface Product {
+            name: String
+            price: Int
+          }
+          extend type Query {
+            topProducts: [Product]
+          }
+        `,
+      },
+      {
+        name: 'reviews',
+        typeDefs: gql`
+          extend type Book implements Product @key(fields: "isbn") {
+            isbn: String! @external
+            reviews: [Review]
+          }
+          extend type TV implements Product @key(fields: "id") {
+            id: String! @external
+            reviews: [Review]
+          }
+          extend type Computer implements Product @key(fields: "id") {
+            id: String! @external
+            reviews: [Review]
+          }
+          extend type Furniture implements Product @key(fields: "sku") {
+            sku: String! @external
+            reviews: [Review]
+          }
+          extend interface Product {
+            reviews: [Review]
+          }
+          type Review @key(fields: "id") {
+            id: ID!
+            body: String
+            author: User @provides(fields: "username")
+            product: Product
+          }
+          extend type User @key(fields: "id") {
+            id: ID! @external
+            username: String @external
+            reviews: [Review]
+          }
+        `,
+      },
+    ]);
+
+    expect(errors).toBeUndefined();
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "products") {
+            {
+              topProducts {
+                __typename
+                ... on Book {
+                  name
+                  price
+                  __typename
+                  isbn
+                }
+                ... on TV {
+                  name
+                  price
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "topProducts.@") {
+            Fetch(service: "reviews") {
+              {
+                ... on Book {
+                  __typename
+                  isbn
+                }
+                ... on TV {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Book {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
+                ... on TV {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
+              }
+            },
+          },
+          Flatten(path: "topProducts.@.reviews.@.author") {
+            Fetch(service: "accounts") {
+              {
+                ... on User {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on User {
+                  name
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+
+it('when including multiple nested fields to the same service under different type conditions', async () => {
+  const query = `#graphql
+    query {
+      topProducts {
+        ... on Book {
+          name
+          price
+          reviews {
+            author {
+              name
+              username
+            }
+            editor {
+              name
+              username
+            }
+            body
+            id
+          }
+        }
+        ... on TV {
+          name
+          price
+          reviews {
+            author {
+              name
+              username
+            }
+            editor {
+              name
+              username
+            }
+            body
+            id
+          }
+        }
+      }
+    }
+  `;
+
+    const { queryPlan, errors } = await execute({ query }, [
+      {
+        name: 'accounts',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            name: String
+            username: String
+          }
+        `,
+      },
+      {
+        name: 'products',
+        typeDefs: gql`
+          type Book implements Product @key(fields: "isbn") {
+            isbn: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          type TV implements Product @key(fields: "id") {
+            id: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          type Computer implements Product @key(fields: "id") {
+            id: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          type Furniture implements Product @key(fields: "sku") {
+            sku: String!
+            name: String
+            price: Int
+            weight: Int
+          }
+          interface Product {
+            name: String
+            price: Int
+          }
+          extend type Query {
+            topProducts: [Product]
+          }
+        `,
+      },
+      {
+        name: 'reviews',
+        typeDefs: gql`
+          extend type Book implements Product @key(fields: "isbn") {
+            isbn: String! @external
+            reviews: [Review]
+          }
+          extend type TV implements Product @key(fields: "id") {
+            id: String! @external
+            reviews: [Review]
+          }
+          extend type Computer implements Product @key(fields: "id") {
+            id: String! @external
+            reviews: [Review]
+          }
+          extend type Furniture implements Product @key(fields: "sku") {
+            sku: String! @external
+            reviews: [Review]
+          }
+          extend interface Product {
+            reviews: [Review]
+          }
+          type Review @key(fields: "id") {
+            id: ID!
+            body: String
+            author: User @provides(fields: "username")
+            editor: User @provides(fields: "username")
+            product: Product
+          }
+          extend type User @key(fields: "id") {
+            id: ID! @external
+            username: String @external
+            reviews: [Review]
+          }
+        `,
+      },
+    ]);
+
+    expect(errors).toBeUndefined();
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "products") {
+            {
+              topProducts {
+                __typename
+                ... on Book {
+                  name
+                  price
+                  __typename
+                  isbn
+                }
+                ... on TV {
+                  name
+                  price
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "topProducts.@") {
+            Fetch(service: "reviews") {
+              {
+                ... on Book {
+                  __typename
+                  isbn
+                }
+                ... on TV {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Book {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    editor {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
+                ... on TV {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    editor {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
+              }
+            },
+          },
+          Parallel {
+            Flatten(path: "topProducts.@.reviews.@.author") {
+              Fetch(service: "accounts") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on User {
+                    name
+                  }
+                }
+              },
+            },
+            Flatten(path: "topProducts.@.reviews.@.editor") {
+              Fetch(service: "accounts") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on User {
+                    name
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  // This test case describes a situation that isn't fixed by the deduplication
+  // workaround. It is here to remind us to look into this, but it doesn't
+  // actually test for the failing behavior so the test still succeeds.
+  //
+  // In cases where different possible types live in different
+  // services, you can't just merge the dependent fetches because they don't
+  // have the same parent. What you want here is to have these dependent fetches
+  // execute separately, but only take the objects fetched by its parent as input.
+  // The problem currently is that these fetches act on on the same path, so
+  // depending on the timing either one (or both) will end up fetching the same
+  // data just fetched by the other.
+  //
+  // To make this more concrete, in this case that means we'll fetch all of the
+  // reviews and authors twice.
+  //
+  // Solving this requires us to filter on the types of response objects as
+  // opposed to just collecting all objects in the path.
+it("when including the same nested fields under different type conditions that are split between services", async () => {
+    const query = `#graphql
+      query {
+        topProducts {
+          ... on Book {
+            name
+            price
+            reviews {
+              author {
+                name
+                username
+              }
+              body
+              id
+            }
+          }
+          ... on TV {
+            name
+            price
+            reviews {
+              author {
+                name
+                username
+              }
+              body
+              id
+            }
+          }
+        }
+      }
+    `;
+
+    const { queryPlan, errors } = await execute({ query }, [
+      {
+        name: 'accounts',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            name: String
+            username: String
+          }
+        `,
+      },
+      {
+        name: 'products',
+        typeDefs: gql`
+          type Book implements Product @key(fields: "isbn") {
+            isbn: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          type TV implements Product @key(fields: "id") {
+            id: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
+          interface Product {
+            name: String
+            price: Int
+          }
+          extend type Query {
+            topProducts: [Product]
+          }
+        `,
+      },
+      {
+        name: 'reviews',
+        typeDefs: gql`
+          extend type TV implements Product @key(fields: "id") {
+            id: String! @external
+            reviews: [Review]
+          }
+          extend interface Product {
+            reviews: [Review]
+          }
+          type Review @key(fields: "id") {
+            id: ID!
+            body: String
+            author: User @provides(fields: "username")
+            product: Product
+          }
+          extend type User @key(fields: "id") {
+            id: ID! @external
+            username: String @external
+            reviews: [Review]
+          }
+        `,
+      },
+      {
+        name: 'books',
+        typeDefs: gql`
+          extend type Book @key(fields: "isbn") {
+            isbn: String! @external
+            reviews: [Review]
+          }
+          extend type Review @key(fields: "id") {
+            id: ID! @external
+          }
+        `,
+      },
+    ]);
+
+    expect(errors).toBeUndefined();
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "products") {
+            {
+              topProducts {
+                __typename
+                ... on Book {
+                  name
+                  price
+                  __typename
+                  isbn
+                }
+                ... on TV {
+                  name
+                  price
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Parallel {
+            Sequence {
+              Flatten(path: "topProducts.@") {
+                Fetch(service: "books") {
+                  {
+                    ... on Book {
+                      __typename
+                      isbn
+                    }
+                  } =>
+                  {
+                    ... on Book {
+                      reviews {
+                        __typename
+                        id
+                      }
+                    }
+                  }
+                },
+              },
+              Flatten(path: "topProducts.@.reviews.@") {
+                Fetch(service: "reviews") {
+                  {
+                    ... on Review {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on Review {
+                      author {
+                        __typename
+                        id
+                        username
+                      }
+                      body
+                    }
+                  }
+                },
+              },
+              Flatten(path: "topProducts.@.reviews.@.author") {
+                Fetch(service: "accounts") {
+                  {
+                    ... on User {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on User {
+                      name
+                    }
+                  }
+                },
+              },
+            },
+            Sequence {
+              Flatten(path: "topProducts.@") {
+                Fetch(service: "reviews") {
+                  {
+                    ... on TV {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on TV {
+                      reviews {
+                        author {
+                          __typename
+                          id
+                          username
+                        }
+                        body
+                        id
+                      }
+                    }
+                  }
+                },
+              },
+              Flatten(path: "topProducts.@.reviews.@.author") {
+                Fetch(service: "accounts") {
+                  {
+                    ... on User {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on User {
+                      name
+                    }
+                  }
+                },
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
+});

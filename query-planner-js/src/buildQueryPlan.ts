@@ -53,6 +53,7 @@ import { DebugLogger } from './utilities/debug';
 import { QueryPlanningContext } from './QueryPlanningContext';
 import { Scope } from './Scope';
 
+import deepEqual from 'deep-equal';
 
 function stringIsTrue(str?: string) : boolean {
   if (!str) {
@@ -728,7 +729,21 @@ function completeField(
     splitSubfields(context, fieldPath, subfields, subGroup);
     debug.groupEnd();
 
-    parentGroup.otherDependentGroups.push(...subGroup.dependentGroups);
+    // We need to hoist dependent groups of the subgroup to the parent group.
+    // In order to avoid duplicate fetches, we try to find existing dependent
+    // groups with the same service and merge path first.
+    for (const dependentGroup of subGroup.dependentGroups) {
+      const existingDependentGroup = parentGroup.otherDependentGroups.find(
+        (group) =>
+          group.serviceName === dependentGroup.serviceName &&
+          deepEqual(group.mergeAt, dependentGroup.mergeAt),
+      );
+      if (existingDependentGroup) {
+        existingDependentGroup.fields.push(...dependentGroup.fields);
+      } else {
+        parentGroup.otherDependentGroups.push(dependentGroup);
+      }
+    }
 
     let definition: FragmentDefinitionNode;
     let selectionSet = selectionSetFromFieldSet(subGroup.fields, returnType);
