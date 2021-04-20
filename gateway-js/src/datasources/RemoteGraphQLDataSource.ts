@@ -78,10 +78,6 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
       throw new Error("Missing query");
     }
 
-    const apqHash = createSHA('sha256')
-       .update(request.query)
-       .digest('hex');
-
     const { query, ...requestWithoutQuery } = request;
 
     const respond = (response: GraphQLResponse, request: GraphQLRequest) =>
@@ -90,6 +86,10 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
         : response;
 
     if (this.apq) {
+      const apqHash = createSHA('sha256')
+        .update(request.query)
+        .digest('hex');
+
       // Take the original extensions and extend them with
       // the necessary "extensions" for APQ handshaking.
       requestWithoutQuery.extensions = {
