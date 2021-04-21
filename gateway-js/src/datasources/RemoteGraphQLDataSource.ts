@@ -18,6 +18,7 @@ import {
 import { isObject } from '../utilities/predicates';
 import { GraphQLDataSource } from './types';
 import createSHA from 'apollo-server-core/dist/utils/createSHA';
+import { rewriteURIForGET } from '../utilities/http';
 
 export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Record<string, any>> implements GraphQLDataSource<TContext> {
   fetcher: typeof fetch = fetch;
@@ -54,6 +55,15 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
    */
   apq: boolean = false;
 
+  /**
+   * Whether the downstream request made with automated persisted
+   * query should use HTTP GET method.
+   *
+   * @remarks This enables support for CDNs that do not cache respones for
+   * POST requests.
+   */
+  useGETForHashedQueries: boolean = false;
+
   async process({
     request,
     context,
@@ -89,6 +99,12 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
         ? this.didReceiveResponse({ response, request, context })
         : response;
 
+    const httpRequest = request.http;
+
+    if (!httpRequest) {
+        throw new Error("Missing http on GraphQL request");
+    }
+
     if (this.apq) {
       // Take the original extensions and extend them with
       // the necessary "extensions" for APQ handshaking.
@@ -100,8 +116,39 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
         },
       };
 
-      const apqOptimisticResponse =
-        await this.sendRequest(requestWithoutQuery, context);
+      if (this.useGETForHashedQueries) {
+        const {
+          parseError,
+          newURI: optimisticPersistedQueryUrl,
+        } = rewriteURIForGET(this.url, requestWithoutQuery);
+
+        if (parseError) {
+          throw parseError;
+        }
+
+        if (!optimisticPersistedQueryUrl) {
+          throw new Error(
+              "Failed to generate persisted query URI from request."
+          );
+        }
+
+        const optimisticApqHttpGet = { ...httpRequest };
+        optimisticApqHttpGet.method = "GET";
+        optimisticApqHttpGet.url = optimisticPersistedQueryUrl;
+
+        requestWithoutQuery.http = optimisticApqHttpGet;
+      } else {
+        const optimisticApqHttpPost = { ...httpRequest };
+        optimisticApqHttpPost.method = "GET";
+        optimisticApqHttpPost.url = this.url;
+
+        requestWithoutQuery.http = optimisticApqHttpPost;
+      }
+
+      const apqOptimisticResponse = await this.sendRequest(
+        requestWithoutQuery,
+        context
+      );
 
       // If we didn't receive notice to retry with APQ, then let's
       // assume this is the best result we'll get and return it!
@@ -112,11 +159,48 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
       ) {
         return respond(apqOptimisticResponse, requestWithoutQuery);
       }
+
+      // We'll run the same request again, but add in the
+      // previously omitted `query`.
+      const requestWithQuery: GraphQLRequest = {
+        query,
+        ...requestWithoutQuery,
+      };
+
+      if (this.useGETForHashedQueries) {
+        const {
+          parseError,
+          newURI: persistedQueryUrlWithQuery,
+        } = rewriteURIForGET(this.url, requestWithQuery);
+
+        if (parseError) {
+          throw parseError;
+        }
+
+        if (!persistedQueryUrlWithQuery) {
+          throw new Error(
+            "Failed to generate persisted query URI from request."
+          );
+        }
+
+        const apqWithQueryHttpGet = { ...httpRequest };
+        apqWithQueryHttpGet.method = "GET";
+        apqWithQueryHttpGet.url = persistedQueryUrlWithQuery;
+
+        requestWithQuery.http = apqWithQueryHttpGet;
+      } else {
+        const queryHttpPost = { ...httpRequest };
+        queryHttpPost.method = "POST";
+        queryHttpPost.url = this.url;
+
+        requestWithQuery.http = queryHttpPost;
+      }
+
+      const response = await this.sendRequest(requestWithQuery, context);
+      return respond(response, requestWithQuery);
     }
 
-    // If APQ was enabled, we'll run the same request again, but add in the
-    // previously omitted `query`.  If APQ was NOT enabled, this is the first
-    // request (non-APQ, all the way).
+    // APQ was NOT enabled, this is the first request (non-APQ, all the way).
     const requestWithQuery: GraphQLRequest = {
       query,
       ...requestWithoutQuery,
@@ -140,9 +224,13 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
     // being transmitted.  Instead, we want those to be used to indicate what
     // we're accessing (e.g. url) and what we access it with (e.g. headers).
     const { http, ...requestWithoutHttp } = request;
+    const requestBody =
+      request.http.method === "POST"
+        ? JSON.stringify(requestWithoutHttp)
+        : undefined;
     const fetchRequest = new Request(http.url, {
       ...http,
-      body: JSON.stringify(requestWithoutHttp),
+      body: requestBody,
     });
 
     let fetchResponse: Response | undefined;
@@ -152,21 +240,21 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
       // Use the fetcher's `Request` implementation for compatibility
       fetchResponse = await this.fetcher(http.url, {
         ...http,
-        body: JSON.stringify(requestWithoutHttp)
+        body: requestBody
       });
 
       if (!fetchResponse.ok) {
         throw await this.errorFromResponse(fetchResponse);
       }
 
-      const body = await this.parseBody(fetchResponse, fetchRequest, context);
+      const responseBody = await this.parseBody(fetchResponse, fetchRequest, context);
 
-      if (!isObject(body)) {
-        throw new Error(`Expected JSON response body, but received: ${body}`);
+      if (!isObject(responseBody)) {
+        throw new Error(`Expected JSON response body, but received: ${responseBody}`);
       }
 
       return {
-        ...body,
+        ...responseBody,
         http: fetchResponse,
       };
     } catch (error) {
