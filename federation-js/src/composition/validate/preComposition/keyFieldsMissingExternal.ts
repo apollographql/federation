@@ -15,8 +15,8 @@ import {
   isStringValueNode,
   logServiceAndType,
   errorWithCode,
-  isNotNullOrUndefined
 } from '../../utils';
+import { isNotNullOrUndefined } from '../../../utilities';
 
 /**
  *  For every @key directive, it must reference a field marked as @external

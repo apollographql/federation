@@ -7,6 +7,7 @@ import {
   GraphQLNonNull,
 } from 'graphql';
 import { ServiceDefinition } from './composition';
+import { mapGetOrSet } from './utilities/mapGetOrSet';
 
 const FieldSetScalar = new GraphQLScalarType({
   name: 'join__FieldSet',
@@ -68,15 +69,7 @@ function getJoinGraphEnum(serviceList: ServiceDefinition[]) {
     const { name } = service;
     const sanitized = sanitizeGraphQLName(name);
 
-    const existingEntry = sanitizedNameToServiceDefinitions.get(sanitized);
-    if (existingEntry) {
-      sanitizedNameToServiceDefinitions.set(sanitized, [
-        ...existingEntry,
-        service,
-      ]);
-    } else {
-      sanitizedNameToServiceDefinitions.set(sanitized, [service]);
-    }
+    mapGetOrSet(sanitizedNameToServiceDefinitions, sanitized, [service]);
   }
 
   // if no duplicates for a given name, add it as is

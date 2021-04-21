@@ -42,6 +42,7 @@ import {
   FederationField,
 } from './types';
 import federationDirectives from '../directives';
+import { assert, isNotNullOrUndefined } from '../utilities';
 
 export function isStringValueNode(node: any): node is StringValueNode {
   return node.kind === Kind.STRING;
@@ -145,21 +146,6 @@ function removeExternalFieldsFromExtensionVisitor<
       fields,
     };
   };
-}
-
-/**
- * For lack of a "home of federation utilities", this function is copy/pasted
- * verbatim across the federation, gateway, and query-planner packages. Any changes
- * made here should be reflected in the other two locations as well.
- *
- * @param condition
- * @param message
- * @throws
- */
-export function assert(condition: any, message: string): asserts condition {
-  if (!condition) {
-    throw new Error(message);
-  }
 }
 
 /**
@@ -583,26 +569,6 @@ export const defKindToExtKind: { [kind: string]: string } = {
   [Kind.ENUM_TYPE_DEFINITION]: Kind.ENUM_TYPE_EXTENSION,
   [Kind.INPUT_OBJECT_TYPE_DEFINITION]: Kind.INPUT_OBJECT_TYPE_EXTENSION,
 };
-
-// Transform an object's values via a callback function
-export function mapValues<T, U = T>(
-  object: Record<string, T>,
-  callback: (value: T) => U,
-): Record<string, U> {
-  const result: Record<string, U> = Object.create(null);
-
-  for (const [key, value] of Object.entries(object)) {
-    result[key] = callback(value);
-  }
-
-  return result;
-}
-
-export function isNotNullOrUndefined<T>(
-  value: T | null | undefined,
-): value is T {
-  return value !== null && typeof value !== 'undefined';
-}
 
 export const executableDirectiveLocations = [
   'QUERY',

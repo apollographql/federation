@@ -29,7 +29,7 @@ import {
   stripIgnoredCharacters,
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
-import { assert } from '../composition/utils';
+import { assert } from '../utilities';
 import { CoreDirective } from '../coreSpec';
 import { getJoinDefinitions } from '../joinSpec';
 
