@@ -248,13 +248,13 @@ function printTypeJoinDirectives(
   // We don't want to print an owner for interface types
   const shouldPrintOwner = isObjectType(type);
 
-  const enumValue = context.graphNameToEnumValueName?.[ownerService];
+  const ownerGraphEnumValue = context.graphNameToEnumValueName?.[ownerService];
   assert(
-    enumValue,
+    ownerGraphEnumValue,
     `Unexpected enum value missing for subgraph ${ownerService}`,
   );
   const joinOwnerString = shouldPrintOwner
-    ? `\n  @join__owner(graph: ${enumValue})`
+    ? `\n  @join__owner(graph: ${ownerGraphEnumValue})`
     : '';
 
   return (
@@ -262,12 +262,17 @@ function printTypeJoinDirectives(
     [ownerEntry, ...restEntries]
       .map(([service, keys = []]) =>
         keys
-          .map(
-            (selections) =>
-              `\n  @join__type(graph: ${
-                context.graphNameToEnumValueName?.[service] ?? service
-              }, key: ${printStringLiteral(printFieldSet(selections))})`,
-          )
+          .map((selections) => {
+            const typeGraphEnumValue =
+              context.graphNameToEnumValueName?.[service];
+            assert(
+              typeGraphEnumValue,
+              `Unexpected enum value missing for subgraph ${service}`,
+            );
+            return `\n  @join__type(graph: ${typeGraphEnumValue}, key: ${printStringLiteral(
+              printFieldSet(selections),
+            )})`;
+          })
           .join(''),
       )
       .join('')
@@ -392,18 +397,14 @@ function printJoinFieldDirectives(
     // Because we print `@join__type` directives based on the keys, but only used to
     // look at the owning service here, that meant we would print `@join__field`
     // without a corresponding `@join__type`, which is invalid according to the spec.
-    if (
-      parentType.extensions?.federation?.serviceName &&
-      parentType.extensions?.federation?.keys
-    ) {
-      return (
-        printed +
-        `graph: ${
-          context.graphNameToEnumValueName?.[
-            parentType.extensions?.federation.serviceName
-          ] ?? parentType.extensions?.federation.serviceName
-        })`
+    const { serviceName, keys } = parentType.extensions?.federation;
+    if (serviceName && keys) {
+      const enumValue = context.graphNameToEnumValueName?.[serviceName];
+      assert(
+        enumValue,
+        `Unexpected enum value missing for subgraph ${serviceName}`,
       );
+      return printed + `graph: ${enumValue})`;
     }
     return '';
   }
