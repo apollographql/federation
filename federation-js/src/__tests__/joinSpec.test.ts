@@ -27,7 +27,7 @@ describe('join__Graph enum', () => {
      * 2. Numeric first characters are prefixed with _ (9product*!)
      * 3. Names ending in an underscore followed by numbers `_\d+` are suffixed with _ (reviews_9, servicea_2)
      * 4. Names are uppercased (all)
-     * 5. After transformations 1-4, duplicates are suffixed with _{n} where {n} is number of times we've seen the dupe (ServiceA + serviceA, servicea_2 + servicea_2_)
+     * 5. After transformations 1-5, duplicates are suffixed with _{n} where {n} is number of times we've seen the dupe (ServiceA + serviceA, servicea_2 + servicea_2_)
      *
      * Miscellany
      * (serviceA) tests the edge case of colliding with a name we generated

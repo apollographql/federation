@@ -32,7 +32,7 @@ const JoinGraphDirective = new GraphQLDirective({
  * 3. Numeric first characters are prefixed with _ (noNumericFirstChar)
  * 4. Names ending in an underscore followed by numbers `_\d+` are suffixed with _ (noUnderscoreNumericEnding)
  * 5. Names are uppercased (toUpper)
- * 6. After transformations 1-4, duplicates are suffixed with _{n} where {n} is number of times we've seen the dupe
+ * 6. After transformations 1-5, duplicates are suffixed with _{n} where {n} is number of times we've seen the dupe
  *
  * Note: Collisions with name's we've generated are also accounted for
  */
