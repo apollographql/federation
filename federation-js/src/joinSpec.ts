@@ -73,29 +73,34 @@ function getJoinGraphEnum(serviceList: ServiceDefinition[]) {
 
   // if no duplicates for a given name, add it as is
   // if duplicates exist, append _{n} (index-1) to each duplicate in the array
-  const generatedNameToServiceDefinition: Record<
+  const enumValueNameToServiceDefinition: Record<
     string,
     ServiceDefinition
   > = Object.create(null);
-  for (const [name, services] of sanitizedNameToServiceDefinitions) {
+  for (const [sanitizedName, services] of sanitizedNameToServiceDefinitions) {
     if (services.length === 1) {
-      generatedNameToServiceDefinition[name] = services[0];
+      enumValueNameToServiceDefinition[sanitizedName] = services[0];
     } else {
       for (const [index, service] of services.entries()) {
-        generatedNameToServiceDefinition[`${name}_${index + 1}`] = service;
+        enumValueNameToServiceDefinition[
+          `${sanitizedName}_${index + 1}`
+        ] = service;
       }
     }
   }
 
-  const entries = Object.entries(generatedNameToServiceDefinition);
+  const entries = Object.entries(enumValueNameToServiceDefinition);
   return {
     graphNameToEnumValueName: Object.fromEntries(
-      entries.map(([name, service]) => [service.name, name]),
+      entries.map(([enumValueName, service]) => [service.name, enumValueName]),
     ),
     JoinGraphEnum: new GraphQLEnumType({
       name: 'join__Graph',
       values: Object.fromEntries(
-        entries.map(([name, service]) => [name, { value: service }]),
+        entries.map(([enumValueName, service]) => [
+          enumValueName,
+          { value: service },
+        ]),
       ),
     }),
   };
