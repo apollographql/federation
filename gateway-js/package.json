@@ -28,7 +28,7 @@
     "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner": "file:../query-planner-js",
     "@types/node-fetch": "2.5.10",
-    "apollo-graphql": "^0.6.0",
+    "apollo-graphql": "^0.9.0",
     "apollo-reporting-protobuf": "^0.6.0",
     "apollo-server-caching": "^0.6.0",
     "apollo-server-core": "^2.23.0",
