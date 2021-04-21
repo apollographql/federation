@@ -158,10 +158,7 @@ function removeExternalFieldsFromExtensionVisitor<
  */
 export function parseSelections(source: string): ReadonlyArray<SelectionNode> {
   const parsed = parse(`{${source}}`);
-  assert(
-    parsed.definitions.length === 1,
-    `Invalid FieldSet provided: '${source}'. FieldSets may not contain operations within them.`,
-  );
+  assert(parsed.definitions.length === 1, `Unexpected } found in FieldSet`);
   return (parsed.definitions[0] as OperationDefinitionNode).selectionSet
     .selections;
 }
