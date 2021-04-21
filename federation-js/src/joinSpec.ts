@@ -68,8 +68,7 @@ function getJoinGraphEnum(serviceList: ServiceDefinition[]) {
   for (const service of sortedServiceList) {
     const { name } = service;
     const sanitized = sanitizeGraphQLName(name);
-
-    mapGetOrSet(sanitizedNameToServiceDefinitions, sanitized, [service]);
+    mapGetOrSet(sanitizedNameToServiceDefinitions, sanitized, []).push(service);
   }
 
   // if no duplicates for a given name, add it as is
