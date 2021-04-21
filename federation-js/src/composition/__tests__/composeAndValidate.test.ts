@@ -6,6 +6,7 @@ import {
   GraphQLScalarType,
   specifiedDirectives,
   printSchema,
+  parse,
 } from 'graphql';
 import {
   astSerializer,
@@ -115,49 +116,6 @@ it('composes and validates all (24) permutations without error', () => {
     const compositionResult = composeAndValidate(config);
     expect(!compositionHasErrors(compositionResult));
   });
-});
-
-it('errors when a type extension has no base', () => {
-  const serviceA = {
-    typeDefs: gql`
-      schema {
-        query: MyRoot
-      }
-
-      type MyRoot {
-        products: [Product]!
-      }
-
-      type Product @key(fields: "sku") {
-        sku: String!
-        upc: String!
-      }
-    `,
-    name: 'serviceA',
-  };
-
-  const serviceB = {
-    typeDefs: gql`
-      extend type Location {
-        id: ID
-      }
-    `,
-    name: 'serviceB',
-  };
-
-  const compositionResult = composeAndValidate([serviceA, serviceB]);
-
-  assertCompositionFailure(compositionResult);
-
-  expect(compositionResult.errors).toHaveLength(1);
-  expect(compositionResult.errors).toMatchInlineSnapshot(`
-    Array [
-      Object {
-        "code": "EXTENSION_WITH_NO_BASE",
-        "message": "[serviceB] Location -> \`Location\` is an extension type, but \`Location\` is not defined in any service",
-      },
-    ]
-  `);
 });
 
 it("doesn't throw errors when a type is unknown, but captures them instead", () => {
@@ -280,56 +238,6 @@ it('treats interfaces with @extends as interface extensions', () => {
   `);
 });
 
-it('errors on invalid usages of default operation names', () => {
-  const serviceA = {
-    typeDefs: gql`
-      schema {
-        query: RootQuery
-      }
-
-      type RootQuery {
-        product: Product
-      }
-
-      type Product @key(fields: "id") {
-        id: ID!
-        query: Query
-      }
-
-      type Query {
-        invalidUseOfQuery: Boolean
-      }
-    `,
-    name: 'serviceA',
-  };
-
-  const serviceB = {
-    typeDefs: gql`
-      type Query {
-        validUseOfQuery: Boolean
-      }
-
-      extend type Product @key(fields: "id") {
-        id: ID! @external
-        sku: String
-      }
-    `,
-    name: 'serviceB',
-  };
-
-  const compositionResult = composeAndValidate([serviceA, serviceB]);
-
-  assertCompositionFailure(compositionResult);
-  expect(compositionResult.errors).toMatchInlineSnapshot(`
-    Array [
-      Object {
-        "code": "ROOT_QUERY_USED",
-        "message": "[serviceA] Query -> Found invalid use of default root operation name \`Query\`. \`Query\` is disallowed when \`Schema.query\` is set to a type other than \`Query\`.",
-      },
-    ]
-  `);
-});
-
 describe('composition of value types', () => {
   function getSchemaWithValueType(valueType: DocumentNode) {
     const serviceA = {
@@ -447,9 +355,103 @@ describe('composition of value types', () => {
   });
 
   describe('errors', () => {
+
+    it('on invalid usages of default operation names', () => {
+      const serviceA = {
+        typeDefs: parse(`
+          schema {
+            query: RootQuery
+          }
+
+          type RootQuery {
+            product: Product
+          }
+
+          type Product @key(fields: "id") {
+            id: ID!
+            query: Query
+          }
+
+          type Query {
+            invalidUseOfQuery: Boolean
+          }
+        `),
+        name: 'serviceA',
+      };
+
+      const serviceB = {
+        typeDefs: parse(`
+          type Query {
+            validUseOfQuery: Boolean
+          }
+
+          extend type Product @key(fields: "id") {
+            id: ID! @external
+            sku: String
+          }
+        `),
+        name: 'serviceB',
+      };
+
+      const compositionResult = composeAndValidate([serviceA, serviceB]);
+
+      assertCompositionFailure(compositionResult);
+      expect(compositionResult.errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "code": "ROOT_QUERY_USED",
+            "message": "[serviceA] Query -> Found invalid use of default root operation name \`Query\`. \`Query\` is disallowed when \`Schema.query\` is set to a type other than \`Query\`.",
+          },
+        ]
+      `);
+    });
+
+    it('when a type extension has no base', () => {
+      const serviceA = {
+        typeDefs: parse(`
+          schema {
+            query: MyRoot
+          }
+
+          type MyRoot {
+            products: [Product]!
+          }
+
+          type Product @key(fields: "sku") {
+            sku: String!
+            upc: String!
+          }
+        `),
+        name: 'serviceA',
+      };
+
+      const serviceB = {
+        typeDefs: parse(`
+          extend type Location {
+            id: ID
+          }
+        `),
+        name: 'serviceB',
+      };
+
+      const compositionResult = composeAndValidate([serviceA, serviceB]);
+
+      assertCompositionFailure(compositionResult);
+
+      expect(compositionResult.errors).toHaveLength(1);
+      expect(compositionResult.errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "code": "EXTENSION_WITH_NO_BASE",
+            "message": "[serviceB] Location -> \`Location\` is an extension type, but \`Location\` is not defined in any service",
+          },
+        ]
+      `);
+    });
+
     it('when used as an entity', () => {
       const serviceA = {
-        typeDefs: gql`
+        typeDefs: parse(`
           type Query {
             product: Product
           }
@@ -458,12 +460,12 @@ describe('composition of value types', () => {
             sku: ID!
             color: String!
           }
-        `,
+        `),
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: gql`
+        typeDefs: parse(`
           type Query {
             topProducts: [Product]
           }
@@ -472,7 +474,7 @@ describe('composition of value types', () => {
             sku: ID!
             color: String!
           }
-        `,
+        `),
         name: 'serviceB',
       };
 
@@ -490,7 +492,7 @@ describe('composition of value types', () => {
 
     it('on field type mismatch', () => {
       const serviceA = {
-        typeDefs: gql`
+        typeDefs: parse(`
           type Query {
             product: Product
           }
@@ -499,12 +501,12 @@ describe('composition of value types', () => {
             sku: ID!
             color: String!
           }
-        `,
+        `),
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: gql`
+        typeDefs: parse(`
           type Query {
             topProducts: [Product]
           }
@@ -513,7 +515,7 @@ describe('composition of value types', () => {
             sku: ID!
             color: String
           }
-        `,
+        `),
         name: 'serviceB',
       };
 
@@ -531,7 +533,7 @@ describe('composition of value types', () => {
 
     it('on kind mismatch', () => {
       const serviceA = {
-        typeDefs: gql`
+        typeDefs: parse(`
           type Query {
             product: Product
           }
@@ -540,12 +542,12 @@ describe('composition of value types', () => {
             sku: ID!
             color: String!
           }
-        `,
+        `),
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: gql`
+        typeDefs: parse(`
           type Query {
             topProducts: [Product]
           }
@@ -554,7 +556,7 @@ describe('composition of value types', () => {
             sku: ID!
             color: String!
           }
-        `,
+        `),
         name: 'serviceB',
       };
 
@@ -571,7 +573,7 @@ describe('composition of value types', () => {
 
     it('on union types mismatch', () => {
       const serviceA = {
-        typeDefs: gql`
+        typeDefs: parse(`
           type Query {
             product: Product
           }
@@ -585,12 +587,12 @@ describe('composition of value types', () => {
           }
 
           union Product = Couch | Mattress
-        `,
+        `),
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: gql`
+        typeDefs: parse(`
           type Query {
             topProducts: [Product]
           }
@@ -604,7 +606,7 @@ describe('composition of value types', () => {
           }
 
           union Product = Couch | Cabinet
-        `,
+        `),
         name: 'serviceB',
       };
 
