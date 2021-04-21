@@ -185,9 +185,6 @@ jobs:
                 keys:
                   - rust-target-v1-windows-{{ checksum "Cargo.lock" }}
             - run:
-                name: Install nvm (with choco)
-                command: choco install nvm
-            - run:
                 name: Install desired Node.js version with nvm
                 command: |
                   nvm install ${Env:NODE_VERSION}
