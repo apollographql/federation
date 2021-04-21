@@ -23,6 +23,7 @@ import {
   FederationEntityTypeMetadata,
   GraphMap,
   isEntityTypeMetadata,
+  Graph,
 } from './metadata';
 
 export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
@@ -130,11 +131,12 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
 
     let typeMetadata: FederationTypeMetadata;
     if (ownerDirectiveArgs) {
-      const graph = graphMap.get(ownerDirectiveArgs.graph);
       assert(
-        graph,
+        ownerDirectiveArgs.graph,
         `@${ownerDirective.name} directive requires a \`graph\` argument`,
       );
+      const graph = graphMap.get(ownerDirectiveArgs.graph);
+      assertGraphFound(graph, ownerDirectiveArgs.graph, ownerDirective.name);
 
       typeMetadata = {
         graphName: graph.name,
@@ -167,12 +169,12 @@ directive without an @${ownerDirective.name} directive`,
     );
 
     for (const typeDirectiveArgs of typeDirectivesArgs) {
-      const graph = graphMap.get(typeDirectiveArgs.graph);
-
       assert(
-        graph,
+        typeDirectiveArgs.graph,
         `GraphQL type "${type.name}" must provide a \`graph\` argument to the @${typeDirective.name} directive`,
       );
+      const graph = graphMap.get(typeDirectiveArgs.graph);
+      assertGraphFound(graph, typeDirectiveArgs.graph, typeDirective.name);
 
       const keyFields = parseFieldSet(typeDirectiveArgs['key']);
 
@@ -197,9 +199,15 @@ directive without an @${ownerDirective.name} directive`,
 
       if (!fieldDirectiveArgs) continue;
 
-      const fieldMetadata: FederationFieldMetadata = {
-        graphName: graphMap.get(fieldDirectiveArgs.graph)?.name,
-      };
+      let fieldMetadata: FederationFieldMetadata;
+      if (fieldDirectiveArgs.graph) {
+        const graph = graphMap.get(fieldDirectiveArgs.graph);
+        // This should never happen, but the assertion guarantees the existence of `graph`
+        assertGraphFound(graph, fieldDirectiveArgs.graph, fieldDirective.name);
+        fieldMetadata = { graphName: graph.name };
+      } else {
+        fieldMetadata = { graphName: undefined };
+      }
 
       fieldDef.extensions = {
         ...fieldDef.extensions,
@@ -247,3 +255,12 @@ directive without an @${ownerDirective.name} directive`,
 }
 
 type NamedSchemaElement = GraphQLDirective | GraphQLNamedType;
+
+// This should never happen, hence 'programming error', but this assertion
+// guarantees the existence of `graph`.
+function assertGraphFound(graph: Graph | undefined, graphName: string, directiveName: string): asserts graph {
+  assert(
+    graph,
+    `Programming error: found unexpected \`graph\` argument value "${graphName}" in @${directiveName} directive`,
+  );
+}
