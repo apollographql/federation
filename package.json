@@ -40,7 +40,7 @@
     "@graphql-codegen/cli": "1.21.3",
     "@graphql-codegen/typescript": "1.21.1",
     "@graphql-codegen/typescript-operations": "1.17.15",
-    "@rollup/plugin-commonjs": "17.1.0",
+    "@rollup/plugin-commonjs": "18.0.0",
     "@rollup/plugin-node-resolve": "11.2.1",
     "@types/bunyan": "1.8.6",
     "@types/deep-freeze": "0.1.2",
