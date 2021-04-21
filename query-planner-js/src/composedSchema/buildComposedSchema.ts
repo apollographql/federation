@@ -22,7 +22,7 @@ import {
   FederationTypeMetadata,
   FederationEntityTypeMetadata,
   GraphMap,
-  isValueTypeMetadata,
+  isEntityTypeMetadata,
 } from './metadata';
 
 export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
@@ -161,7 +161,7 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
     // (typeMetadata as FederationEntityTypeMetadata). Adjustments to this assertion
     // should account for this dependency.
     assert(
-      !(isValueTypeMetadata(typeMetadata) && typeDirectivesArgs.length >= 1),
+      isEntityTypeMetadata(typeMetadata) || typeDirectivesArgs.length === 0,
       `GraphQL type "${type.name}" cannot have a @${typeDirective.name} \
 directive without an @${ownerDirective.name} directive`,
     );

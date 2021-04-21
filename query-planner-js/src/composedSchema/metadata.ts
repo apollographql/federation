@@ -63,10 +63,10 @@ interface FederationValueTypeMetadata {
   isValueType: true;
 }
 
-export function isValueTypeMetadata(
+export function isEntityTypeMetadata(
   metadata: FederationTypeMetadata,
-): metadata is FederationValueTypeMetadata {
-  return metadata.isValueType;
+): metadata is FederationEntityTypeMetadata {
+  return !metadata.isValueType;
 }
 
 export interface FederationFieldMetadata {
