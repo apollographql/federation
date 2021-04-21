@@ -33,7 +33,7 @@
     "@apollo/gateway": "file:gateway-js",
     "@apollo/query-planner": "file:query-planner-js",
     "@apollo/harmonizer": "file:harmonizer",
-    "@apollographql/apollo-tools": "0.4.9",
+    "@apollographql/apollo-tools": "0.4.12",
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
