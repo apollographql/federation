@@ -4,6 +4,10 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+-  _Nothing yet! Stay tuned!_
+
+## v0.23.1
+
 - This change is mostly a set of follow-up changes for PR #622. Most of these changes are internal (renaming, etc.). Some noteworthy changes worth mentioning are: a switch to graphql-js's `stripIgnoredCharacters` during field set printing, an update to the `join__Enum` generation algorithm, and some additional assertions. [PR #656](https://github.com/apollographql/federation/pull/656)
 
 ## v0.23.0
