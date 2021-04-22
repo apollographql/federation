@@ -3,6 +3,7 @@ import { composeServices } from '../../../compose';
 import { keyFieldsMissingOnBase as validateKeyFieldsMissingOnBase } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -46,23 +47,23 @@ describe('keyFieldsMissingOnBase', () => {
 
   it('warns if @key references a field added by another service', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku uid") {
           sku: String!
           upc: String!
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product {
           uid: String!
           sku: String! @external
           price: Int! @requires(fields: "sku")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -76,6 +77,12 @@ describe('keyFieldsMissingOnBase', () => {
       Array [
         Object {
           "code": "KEY_FIELDS_MISSING_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 13,
+              "line": 1,
+            },
+          ],
           "message": "[serviceA] Product -> A @key selects uid, but Product.uid was either created or overwritten by serviceB, not serviceA",
         },
       ]
