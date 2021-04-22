@@ -14,15 +14,16 @@ import { assert } from '../utilities/assert';
 import {
   getArgumentValuesForDirective,
   getArgumentValuesForRepeatableDirective,
-  isASTKind,
-  parseSelections,
+  parseFieldSet,
 } from '../utilities/graphql';
 import { MultiMap } from '../utilities/MultiMap';
 import {
   FederationFieldMetadata,
   FederationTypeMetadata,
-  FieldSet,
+  FederationEntityTypeMetadata,
   GraphMap,
+  isEntityTypeMetadata,
+  Graph,
 } from './metadata';
 
 export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
@@ -82,7 +83,7 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   const graphEnumType = schema.getType(`${joinName}__Graph`);
   assert(isEnumType(graphEnumType), `${joinName}__Graph should be an enum`);
 
-  const graphMap: GraphMap = Object.create(null);
+  const graphMap: GraphMap = new Map();
 
   schema.extensions = {
     ...schema.extensions,
@@ -106,10 +107,10 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
     const graphName: string = graphDirectiveArgs['name'];
     const url: string = graphDirectiveArgs['url'];
 
-    graphMap[name] = {
+    graphMap.set(name, {
       name: graphName,
       url,
-    };
+    });
   }
 
   for (const type of Object.values(schema.getTypeMap())) {
@@ -128,15 +129,25 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
       type.astNode,
     );
 
-    const typeMetadata: FederationTypeMetadata = ownerDirectiveArgs
-      ? {
-          graphName: graphMap[ownerDirectiveArgs?.['graph']].name,
-          keys: new MultiMap(),
-          isValueType: false,
-        }
-      : {
-          isValueType: true,
-        };
+    let typeMetadata: FederationTypeMetadata;
+    if (ownerDirectiveArgs) {
+      assert(
+        ownerDirectiveArgs.graph,
+        `@${ownerDirective.name} directive requires a \`graph\` argument`,
+      );
+      const graph = graphMap.get(ownerDirectiveArgs.graph);
+      assertGraphFound(graph, ownerDirectiveArgs.graph, ownerDirective.name);
+
+      typeMetadata = {
+        graphName: graph.name,
+        keys: new MultiMap(),
+        isValueType: false,
+      };
+    } else {
+      typeMetadata = {
+        isValueType: true,
+      };
+    }
 
     type.extensions = {
       ...type.extensions,
@@ -148,18 +159,31 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
       type.astNode,
     );
 
+    // The assertion here guarantees the safety of the type cast below
+    // (typeMetadata as FederationEntityTypeMetadata). Adjustments to this assertion
+    // should account for this dependency.
     assert(
-      !(typeMetadata.isValueType && typeDirectivesArgs.length >= 1),
+      isEntityTypeMetadata(typeMetadata) || typeDirectivesArgs.length === 0,
       `GraphQL type "${type.name}" cannot have a @${typeDirective.name} \
 directive without an @${ownerDirective.name} directive`,
     );
 
     for (const typeDirectiveArgs of typeDirectivesArgs) {
-      const graphName = graphMap[typeDirectiveArgs['graph']].name;
+      assert(
+        typeDirectiveArgs.graph,
+        `GraphQL type "${type.name}" must provide a \`graph\` argument to the @${typeDirective.name} directive`,
+      );
+      const graph = graphMap.get(typeDirectiveArgs.graph);
+      assertGraphFound(graph, typeDirectiveArgs.graph, typeDirective.name);
 
       const keyFields = parseFieldSet(typeDirectiveArgs['key']);
 
-      typeMetadata.keys?.add(graphName, keyFields);
+      // We know we won't actually be looping here in the case of a value type
+      // based on the assertion above, but TS is not able to infer that.
+      (typeMetadata as FederationEntityTypeMetadata).keys.add(
+        graph.name,
+        keyFields,
+      );
     }
 
     for (const fieldDef of Object.values(type.getFields())) {
@@ -175,9 +199,15 @@ directive without an @${ownerDirective.name} directive`,
 
       if (!fieldDirectiveArgs) continue;
 
-      const fieldMetadata: FederationFieldMetadata = {
-        graphName: graphMap[fieldDirectiveArgs?.['graph']]?.name,
-      };
+      let fieldMetadata: FederationFieldMetadata;
+      if (fieldDirectiveArgs.graph) {
+        const graph = graphMap.get(fieldDirectiveArgs.graph);
+        // This should never happen, but the assertion guarantees the existence of `graph`
+        assertGraphFound(graph, fieldDirectiveArgs.graph, fieldDirective.name);
+        fieldMetadata = { graphName: graph.name };
+      } else {
+        fieldMetadata = { graphName: undefined };
+      }
 
       fieldDef.extensions = {
         ...fieldDef.extensions,
@@ -226,15 +256,11 @@ directive without an @${ownerDirective.name} directive`,
 
 type NamedSchemaElement = GraphQLDirective | GraphQLNamedType;
 
-function parseFieldSet(source: string): FieldSet {
-  const selections = parseSelections(source);
-
+// This should never happen, hence 'programming error', but this assertion
+// guarantees the existence of `graph`.
+function assertGraphFound(graph: Graph | undefined, graphName: string, directiveName: string): asserts graph {
   assert(
-    selections.every(isASTKind('Field', 'InlineFragment')),
-    `Field sets may not contain fragment spreads, but found: "${source}"`,
+    graph,
+    `Programming error: found unexpected \`graph\` argument value "${graphName}" in @${directiveName} directive`,
   );
-
-  assert(selections.length > 0, `Field sets may not be empty`);
-
-  return selections;
 }

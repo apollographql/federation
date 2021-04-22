@@ -31,7 +31,6 @@ import {
   GraphQLEnumValue,
   GraphQLString,
   DEFAULT_DEPRECATION_REASON,
-  ASTNode,
 } from 'graphql';
 import { Maybe } from '../composition';
 import { isFederationType } from '../types';
@@ -303,12 +302,6 @@ function printFederationDirectives(
   const dedupedDirectives = [...new Set(allDirectives)];
 
   return dedupedDirectives.length > 0 ? ' ' + dedupedDirectives.join(' ') : '';
-}
-
-export function printWithReducedWhitespace(ast: ASTNode): string {
-  return print(ast)
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 function printBlock(items: string[]) {

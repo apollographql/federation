@@ -27,7 +27,6 @@ import {
   mapFieldNamesToServiceName,
   stripExternalFieldsFromTypeDefs,
   typeNodesAreEquivalent,
-  mapValues,
   isFederationDirective,
   executableDirectiveLocations,
   stripTypeSystemDirectivesFromTypeDefs,
@@ -46,6 +45,7 @@ import {
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
 import { printSupergraphSdl } from '../service/printSupergraphSdl';
+import { mapValues } from '../utilities';
 
 const EmptyQueryDefinition = {
   kind: Kind.OBJECT_TYPE_DEFINITION,

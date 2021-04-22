@@ -200,6 +200,10 @@ function mergeFieldNodeSelectionSets(
     (node): node is FieldNode => node.kind === Kind.FIELD,
   );
 
+  // Committed by @trevor-scheer but authored by @martijnwalraven
+  // XXX: This code has more problems and should be replaced by proper recursive
+  // selection set merging, but removing the unnecessary distinction between
+  // aliased fields and non-aliased fields at least fixes the test.
   const mergedFieldNodes = Array.from(
     groupBy((node: FieldNode) => node.alias?.value ?? node.name.value)(
       fieldNodes,
