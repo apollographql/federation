@@ -81,6 +81,7 @@ export function PossibleTypeExtensions(
           'EXTENSION_WITH_NO_BASE',
           logServiceAndType(serviceName, typeName) +
             `\`${typeName}\` is an extension type, but \`${typeName}\` is not defined in any service`,
+          node,
         ),
       );
     }

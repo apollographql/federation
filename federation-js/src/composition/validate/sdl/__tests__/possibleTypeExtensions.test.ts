@@ -86,11 +86,11 @@ describe('PossibleTypeExtensionsType', () => {
   it('errors when there is an extension with no base', () => {
     const serviceList = [
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           extend type Product {
             id: ID!
           }
-        `,
+        `),
         name: 'serviceA',
       },
     ];
@@ -107,6 +107,12 @@ describe('PossibleTypeExtensionsType', () => {
       Array [
         Object {
           "code": "EXTENSION_WITH_NO_BASE",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] Product -> \`Product\` is an extension type, but \`Product\` is not defined in any service",
         },
       ]

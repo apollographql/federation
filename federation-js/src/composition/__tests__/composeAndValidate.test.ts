@@ -120,7 +120,7 @@ it('composes and validates all (24) permutations without error', () => {
 
 it("doesn't throw errors when a type is unknown, but captures them instead", () => {
   const serviceA = {
-    typeDefs: gql`
+    typeDefs: parse(`
       type Query {
         foo: Bar!
       }
@@ -129,7 +129,7 @@ it("doesn't throw errors when a type is unknown, but captures them instead", () 
         id: ID! @external
         thing: String
       }
-    `,
+    `),
     name: 'serviceA',
   };
 
@@ -148,6 +148,12 @@ it("doesn't throw errors when a type is unknown, but captures them instead", () 
       },
       Object {
         "code": "EXTENSION_WITH_NO_BASE",
+        "locations": Array [
+          Object {
+            "column": 7,
+            "line": 6,
+          },
+        ],
         "message": "[serviceA] Bar -> \`Bar\` is an extension type, but \`Bar\` is not defined in any service",
       },
       Object {
@@ -443,6 +449,12 @@ describe('composition of value types', () => {
         Array [
           Object {
             "code": "EXTENSION_WITH_NO_BASE",
+            "locations": Array [
+              Object {
+                "column": 11,
+                "line": 2,
+              },
+            ],
             "message": "[serviceB] Location -> \`Location\` is an extension type, but \`Location\` is not defined in any service",
           },
         ]
