@@ -808,12 +808,11 @@ export class ApolloGateway implements GraphQLService {
   private createAndCacheDataSource(
     serviceDef: ServiceEndpointDefinition,
   ): GraphQLDataSource {
-    // If the DataSource has already been created, early return
-    if (
-      this.serviceMap[serviceDef.name] &&
-      serviceDef.url === this.serviceMap[serviceDef.name].url
-    )
-      return this.serviceMap[serviceDef.name].dataSource;
+    // If the DataSource has already been created, early return.
+    const existing = this.serviceMap[serviceDef.name];
+    if (existing && serviceDef.url === existing.url) {
+      return existing.dataSource;
+    }
 
     const dataSource = this.createDataSource(serviceDef);
 
@@ -1145,10 +1144,9 @@ function wrapSchemaWithAliasResolver(schema: GraphQLSchema): GraphQLSchema {
 
     if (isObjectType(type) && !isIntrospectionType(type)) {
       const fields = type.getFields();
-      Object.keys(fields).forEach((fieldName) => {
-        const field = fields[fieldName];
+      for (const field of Object.values(fields)) {
         field.resolve = defaultFieldResolverWithAliasSupport;
-      });
+      }
     }
   });
   return schema;

@@ -37,7 +37,7 @@ export const executableDirectivesIdentical: PostCompositionValidator = ({
     const shouldError = definitions.some(([, definition], index) => {
       // Skip the non-comparison step
       if (index === 0) return;
-      const [, previousDefinition] = definitions[index - 1];
+      const [, previousDefinition] = definitions[index - 1]!;
       return !typeNodesAreEquivalent(definition, previousDefinition);
     });
 

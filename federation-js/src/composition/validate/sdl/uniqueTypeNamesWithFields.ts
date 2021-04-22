@@ -184,10 +184,11 @@ export function UniqueTypeNamesWithFields(
       return;
     }
 
-    if (knownTypes[typeName]) {
+    const existingNode = knownTypes[typeName];
+    if (existingNode) {
       context.reportError(
         new GraphQLError(duplicateTypeNameMessage(typeName), [
-          knownTypes[typeName],
+          existingNode,
           node.name,
         ]),
       );

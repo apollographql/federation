@@ -27,7 +27,7 @@ export default {
     if (lines.length === 0) {
       return '';
     } else if (lines.length === 1) {
-      return lines[0];
+      return lines[0]!;
     }
 
     return lines.map(line => {
@@ -50,7 +50,7 @@ export default {
 // From https://github.com/facebook/jest/blob/32aaff83f02c347ccd591727544002490fb4ee9a/packages/jest-snapshot/src/dedentLines.ts#L8
 function getIndentationLength(line: string): number {
   const result = /^( {2})+/.exec(line);
-  return result === null ? 0 : result[0].length;
+  return result === null ? 0 : result[0]!.length;
 };
 
 /**

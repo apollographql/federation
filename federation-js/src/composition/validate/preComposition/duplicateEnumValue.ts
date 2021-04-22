@@ -1,7 +1,7 @@
 import { visit, GraphQLError } from 'graphql';
 import { ServiceDefinition } from '../../types';
 
-import { logServiceAndType, errorWithCode } from '../../utils';
+import { logServiceAndType, errorWithCode, getOrSetRecord } from '../../utils';
 
 export const duplicateEnumValue = ({
   name: serviceName,
@@ -19,23 +19,20 @@ export const duplicateEnumValue = ({
 
       if (!enumValues) return definition;
 
-      if (enums[name] && enums[name].length) {
-        enumValues.map(valueName => {
-          if (enums[name].includes(valueName)) {
-            errors.push(
-              errorWithCode(
-                'DUPLICATE_ENUM_VALUE',
-                logServiceAndType(serviceName, name, valueName) +
-                  `The enum, \`${name}\` has multiple definitions of the \`${valueName}\` value.`,
-              ),
-            );
-            return;
-          }
-          enums[name].push(valueName);
-        });
-      } else {
-        enums[name] = enumValues;
-      }
+      const allEnumValues = getOrSetRecord(enums, name, []);
+      enumValues.forEach((valueName) => {
+        if (allEnumValues.includes(valueName)) {
+          errors.push(
+            errorWithCode(
+              'DUPLICATE_ENUM_VALUE',
+              logServiceAndType(serviceName, name, valueName) +
+                `The enum, \`${name}\` has multiple definitions of the \`${valueName}\` value.`,
+            ),
+          );
+        } else {
+          allEnumValues.push(valueName);
+        }
+      });
 
       return definition;
     },
@@ -46,23 +43,20 @@ export const duplicateEnumValue = ({
 
       if (!enumValues) return definition;
 
-      if (enums[name] && enums[name].length) {
-        enumValues.map(valueName => {
-          if (enums[name].includes(valueName)) {
-            errors.push(
-              errorWithCode(
-                'DUPLICATE_ENUM_VALUE',
-                logServiceAndType(serviceName, name, valueName) +
-                  `The enum, \`${name}\` has multiple definitions of the \`${valueName}\` value.`,
-              ),
-            );
-            return;
-          }
-          enums[name].push(valueName);
-        });
-      } else {
-        enums[name] = enumValues;
-      }
+      const allEnumValues = getOrSetRecord(enums, name, []);
+      enumValues.forEach((valueName) => {
+        if (allEnumValues.includes(valueName)) {
+          errors.push(
+            errorWithCode(
+              'DUPLICATE_ENUM_VALUE',
+              logServiceAndType(serviceName, name, valueName) +
+                `The enum, \`${name}\` has multiple definitions of the \`${valueName}\` value.`,
+            ),
+          );
+        } else {
+          allEnumValues.push(valueName);
+        }
+      });
 
       return definition;
     },

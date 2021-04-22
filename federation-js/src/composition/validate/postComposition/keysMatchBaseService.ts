@@ -59,7 +59,9 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
             // limitation of the query planner that we want to validate against for now.
             // In the future, `@key`s just need to be "reachable" through a number of
             // services which can link one key to another via "joins".
-            const extensionKey = printFieldSet(keyFields[0]);
+            // FIXME there's literally a `keyFields = []` above, so this exclamation
+            // point isn't legit! What do we do on empty keyFields?
+            const extensionKey = printFieldSet(keyFields[0]!);
             if (!availableKeys.includes(extensionKey)) {
               errors.push(
                 errorWithCode(

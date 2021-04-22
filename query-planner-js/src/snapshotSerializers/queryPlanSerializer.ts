@@ -135,7 +135,9 @@ function printNodes(
 function flattenEntitiesField(node: DocumentNode) {
   return visit(node, {
     OperationDefinition: ({ operation, selectionSet }) => {
-      const firstSelection = selectionSet.selections[0];
+      // GraphQL syntax requires selection sets to be non-empty, but the TS
+      // types don't enforce that.
+      const firstSelection = selectionSet.selections[0]!;
       if (
         operation === 'query' &&
         firstSelection.kind === Kind.FIELD &&

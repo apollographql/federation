@@ -76,7 +76,7 @@ export function UniqueUnionTypes(context: SDLValidationContext): ASTVisitor {
     if (knownTypes[typeName]) {
       context.reportError(
         new GraphQLError(duplicateTypeNameMessage(typeName), [
-          knownTypes[typeName],
+          knownTypes[typeName]!,
           node.name,
         ]),
       );
