@@ -2,6 +2,7 @@ import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { requiresFieldsMissingOnBase as validateRequiresFieldsMissingOnBase } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -37,28 +38,28 @@ describe('requiresFieldsMissingOnBase', () => {
 
   it('warns when requires selects a field not found on the base type', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku") {
           sku: String!
         }
-      `,
+      `),
       name: 'serviceA',
     };
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product @key(fields: "sku") {
           id: ID!
         }
-      `,
+      `),
       name: 'serviceB',
     };
     const serviceC = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product @key(fields: "sku") {
           id: ID! @external
           weight: Float! @requires(fields: "id")
         }
-      `,
+      `),
       name: 'serviceC',
     };
     const serviceList = [serviceA, serviceB, serviceC];
@@ -71,6 +72,12 @@ describe('requiresFieldsMissingOnBase', () => {
       Array [
         Object {
           "code": "REQUIRES_FIELDS_MISSING_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceC] Product.weight -> requires the field \`id\` to be @external. @external fields must exist on the base type, not an extension.",
         },
       ]
