@@ -2,30 +2,31 @@ import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { externalUnused as validateExternalUnused } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
 describe('externalUnused', () => {
   it('warns when there is an unused @external field', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "id") {
           sku: String!
           upc: String!
           id: ID!
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product {
           sku: String! @external
           id: ID! @external
           price: Int! @requires(fields: "id")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -36,6 +37,12 @@ describe('externalUnused', () => {
       Array [
         Object {
           "code": "EXTERNAL_UNUSED",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 3,
+            },
+          ],
           "message": "[serviceB] Product.sku -> is marked as @external but is not used by a @requires, @key, or @provides directive.",
         },
       ]
@@ -338,7 +345,7 @@ describe('externalUnused', () => {
 
   it('does error when @external is used on a field of a concrete type is not shared by its implemented interface', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Car implements Vehicle @key(fields: "id") {
           id: ID!
           speed: Int
@@ -348,11 +355,11 @@ describe('externalUnused', () => {
           id: ID!
           speed: Int
         }
-      `,
+      `),
       name: 'serviceA',
     };
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Car implements Vehicle @key(fields: "id") {
           id: ID! @external
           speed: Int @external
@@ -362,7 +369,7 @@ describe('externalUnused', () => {
           id: ID!
           speed: Int
         }
-      `,
+      `),
       name: 'serviceB',
     };
     const serviceList = [serviceA, serviceB];
@@ -372,6 +379,12 @@ describe('externalUnused', () => {
       Array [
         Object {
           "code": "EXTERNAL_UNUSED",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 5,
+            },
+          ],
           "message": "[serviceB] Car.wheelSize -> is marked as @external but is not used by a @requires, @key, or @provides directive.",
         },
       ]

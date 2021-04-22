@@ -226,6 +226,7 @@ export const externalUnused: PostCompositionValidator = ({ schema }) => {
                 externalFieldName,
               ) +
                 `is marked as @external but is not used by a @requires, @key, or @provides directive.`,
+              externalField,
             ),
           );
         }
