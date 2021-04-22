@@ -1,6 +1,7 @@
 import gql from 'graphql-tag';
 import { duplicateEnumValue as validateDuplicateEnumValue } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -36,7 +37,7 @@ describe('duplicateEnumValue', () => {
   });
   it('errors when there are duplicate enum values in a single service', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "color { id value }") {
           sku: String!
           upc: String!
@@ -57,7 +58,7 @@ describe('duplicateEnumValue', () => {
           DIGITAL
           BOOK
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
@@ -66,6 +67,12 @@ describe('duplicateEnumValue', () => {
       Array [
         Object {
           "code": "DUPLICATE_ENUM_VALUE",
+          "locations": Array [
+            Object {
+              "column": 9,
+              "line": 18,
+            },
+          ],
           "message": "[serviceA] ProductType.BOOK -> The enum, \`ProductType\` has multiple definitions of the \`BOOK\` value.",
         },
       ]
