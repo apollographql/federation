@@ -3,6 +3,7 @@ import {
   specifiedDirectives,
   Kind,
   DocumentNode,
+  parse,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
 import gql from 'graphql-tag';
@@ -80,23 +81,23 @@ describe('UniqueTypeNamesWithFields', () => {
     it('object type definitions (non-identical, value types with type mismatch)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type Product {
               sku: ID!
               color: String
               quantity: Int
             }
-          `,
+          `),
           name: 'serviceA',
         },
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type Product {
               sku: String!
               color: String
               quantity: Int!
             }
-          `,
+          `),
           name: 'serviceB',
         },
       ]);
@@ -109,10 +110,30 @@ describe('UniqueTypeNamesWithFields', () => {
         Array [
           Object {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
+            "locations": Array [
+              Object {
+                "column": 13,
+                "line": 2,
+              },
+              Object {
+                "column": 13,
+                "line": 2,
+              },
+            ],
             "message": "[serviceA] Product.sku -> A field was defined differently in different services. \`serviceA\` and \`serviceB\` define \`Product.sku\` as a ID! and String! respectively. In order to define \`Product\` in multiple places, the fields and their types must be identical.",
           },
           Object {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
+            "locations": Array [
+              Object {
+                "column": 13,
+                "line": 2,
+              },
+              Object {
+                "column": 13,
+                "line": 2,
+              },
+            ],
             "message": "[serviceA] Product.quantity -> A field was defined differently in different services. \`serviceA\` and \`serviceB\` define \`Product.quantity\` as a Int and Int! respectively. In order to define \`Product\` in multiple places, the fields and their types must be identical.",
           },
         ]

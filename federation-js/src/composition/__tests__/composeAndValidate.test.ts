@@ -544,6 +544,16 @@ describe('composition of value types', () => {
       expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 6,
+            },
+            Object {
+              "column": 11,
+              "line": 6,
+            },
+          ],
           "message": "[serviceA] Product.color -> A field was defined differently in different services. \`serviceA\` and \`serviceB\` define \`Product.color\` as a String! and String respectively. In order to define \`Product\` in multiple places, the fields and their types must be identical.",
         }
       `);
