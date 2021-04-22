@@ -35,7 +35,7 @@ describe('duplicateEnumOrScalar', () => {
   });
   it('errors when there are multiple definitions of the same enum', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "color { id value }") {
           sku: String!
           upc: String!
@@ -55,7 +55,7 @@ describe('duplicateEnumOrScalar', () => {
         enum ProductType {
           DIGITAL
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
@@ -64,6 +64,12 @@ describe('duplicateEnumOrScalar', () => {
             Array [
               Object {
                 "code": "DUPLICATE_ENUM_DEFINITION",
+                "locations": Array [
+                  Object {
+                    "column": 9,
+                    "line": 18,
+                  },
+                ],
                 "message": "[serviceA] ProductType -> The enum, \`ProductType\` was defined multiple times in this service. Remove one of the definitions for \`ProductType\`",
               },
             ]
