@@ -37,6 +37,7 @@ export const duplicateEnumOrScalar = ({
             'DUPLICATE_SCALAR_DEFINITION',
             logServiceAndType(serviceName, name) +
               `The scalar, \`${name}\` was defined multiple times in this service. Remove one of the definitions for \`${name}\``,
+            definition,
           ),
         );
         return definition;

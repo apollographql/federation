@@ -1,6 +1,7 @@
 import gql from 'graphql-tag';
 import { duplicateEnumOrScalar as validateDuplicateEnumOrScalar } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -71,7 +72,7 @@ describe('duplicateEnumOrScalar', () => {
 
   it('errors when there are multiple definitions of the same scalar', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         scalar Date
         type Product @key(fields: "color { id value }") {
           sku: String!
@@ -80,7 +81,7 @@ describe('duplicateEnumOrScalar', () => {
         }
 
         scalar Date
-      `,
+      `),
       name: 'serviceA',
     };
 
@@ -89,6 +90,12 @@ describe('duplicateEnumOrScalar', () => {
       Array [
         Object {
           "code": "DUPLICATE_SCALAR_DEFINITION",
+          "locations": Array [
+            Object {
+              "column": 9,
+              "line": 9,
+            },
+          ],
           "message": "[serviceA] Date -> The scalar, \`Date\` was defined multiple times in this service. Remove one of the definitions for \`Date\`",
         },
       ]
