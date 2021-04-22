@@ -36,6 +36,7 @@ export const reservedFieldUsed = ({
                 'RESERVED_FIELD_USED',
                 logServiceAndType(serviceName, rootQueryName, fieldName) +
                   `${fieldName} is a field reserved for federation and can\'t be used at the Query root.`,
+                field,
               ),
             );
           }

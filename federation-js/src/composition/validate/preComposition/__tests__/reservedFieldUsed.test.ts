@@ -1,6 +1,7 @@
 import gql from 'graphql-tag';
 import { reservedFieldUsed as validateReservedFieldUsed } from '..';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -25,7 +26,7 @@ describe('reservedFieldUsed', () => {
 
   it('warns when _service or _entities is used at the query root', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Query {
           product: Product
           _service: String!
@@ -35,7 +36,7 @@ describe('reservedFieldUsed', () => {
         type Product {
           sku: String
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
@@ -44,10 +45,22 @@ describe('reservedFieldUsed', () => {
       Array [
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceA] Query._service -> _service is a field reserved for federation and can't be used at the Query root.",
         },
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 5,
+            },
+          ],
           "message": "[serviceA] Query._entities -> _entities is a field reserved for federation and can't be used at the Query root.",
         },
       ]
@@ -56,7 +69,7 @@ describe('reservedFieldUsed', () => {
 
   it('warns when _service or _entities is used in a schema extension', () => {
     const schemaDefinition = {
-      typeDefs: gql`
+      typeDefs: parse(`
         schema {
           query: RootQuery
         }
@@ -69,12 +82,12 @@ describe('reservedFieldUsed', () => {
         type Product {
           sku: String
         }
-      `,
+      `),
       name: 'schemaDefinition',
     };
 
     const schemaExtension = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend schema {
           query: RootQuery
         }
@@ -87,7 +100,7 @@ describe('reservedFieldUsed', () => {
         type Product {
           sku: String
         }
-      `,
+      `),
       name: 'schemaExtension',
     };
 
@@ -100,6 +113,12 @@ describe('reservedFieldUsed', () => {
       Array [
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 8,
+            },
+          ],
           "message": "[schemaDefinition] RootQuery._entities -> _entities is a field reserved for federation and can't be used at the Query root.",
         },
       ]
@@ -108,6 +127,12 @@ describe('reservedFieldUsed', () => {
       Array [
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 7,
+            },
+          ],
           "message": "[schemaExtension] RootQuery._service -> _service is a field reserved for federation and can't be used at the Query root.",
         },
       ]
@@ -116,7 +141,7 @@ describe('reservedFieldUsed', () => {
 
   it('warns when reserved fields are used on custom Query types', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         schema {
           query: RootQuery
         }
@@ -130,7 +155,7 @@ describe('reservedFieldUsed', () => {
         type Product {
           sku: String
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
@@ -141,10 +166,22 @@ describe('reservedFieldUsed', () => {
       Array [
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 8,
+            },
+          ],
           "message": "[serviceA] RootQuery._service -> _service is a field reserved for federation and can't be used at the Query root.",
         },
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 9,
+            },
+          ],
           "message": "[serviceA] RootQuery._entities -> _entities is a field reserved for federation and can't be used at the Query root.",
         },
       ]
