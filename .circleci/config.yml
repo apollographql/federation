@@ -87,10 +87,8 @@ jobs:
         type: executor
     executor: << parameters.platform >>
     environment:
-      # Because it's QUITE difficult to change the npm version on Windows,
-      # we'll use the version of npm that comes with this version of Node.js
-      # These versions can be found at https://nodejs.org/en/download/releases/.
       NODE_VERSION: 14.16.1
+      NPM_VERSION: 6.14.13
     steps:
       - checkout
       - when:
@@ -109,6 +107,10 @@ jobs:
                 name: Installing Node.js with a .pkg.
                 command: |
                   curl "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg" > "$HOME/Downloads/node.pkg" && sudo installer -store -pkg "$HOME/Downloads/node.pkg" -target "/"
+            - run:
+                name: Install specific version of npm
+                command: |
+                  sudo npm install --global npm@${NPM_VERSION}
             - run:
                 name: Debug output of Node.js and npm versions
                 command: |
@@ -141,7 +143,12 @@ jobs:
                 name: Install nvm
                 command: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
             - run: echo '. ~/.nvm/nvm.sh' >> $BASH_ENV
-            - run: nvm install $NODE_VERSION && nvm alias default $NODE_VERSION
+            - run:
+                name: Install desired Node.js version
+                command: |
+                  nvm install $NODE_VERSION
+                  nvm alias default $NODE_VERSION
+                  npm install --global npm@${NPM_VERSION}
             - run:
                 name: Debug output of Node.js and npm versions
                 command: |
@@ -189,6 +196,23 @@ jobs:
                 command: |
                   nvm install ${Env:NODE_VERSION}
                   nvm on
+            - run:
+                # https://github.com/coreybutler/nvm-windows/issues/300
+                # Have to move the command out of the way because it can't
+                # overwrite itself otherwise.   This is madness, but apparently
+                # accepted.  Other things I tried: using yarn to install npm,
+                # using http://npm.im/npm-windows-upgrade and even shouting.
+                name: Install specific version of npm in a crazy Windows way
+                command: |
+                  $node_dir = (get-item (get-command npm).source).directory.fullname
+                  foreach ($cmd in @("npm", "npx")) {
+                    foreach ($ext in @(".ps1", ".cmd", "")) {
+                      if (Test-Path "$node_dir/$cmd$ext") {
+                        rename-item -path (join-path -path $node_dir -childpath "$cmd$ext") "${cmd}-orig${ext}"
+                      }
+                    }
+                  }
+                  npm-orig install --global "npm@${Env:NPM_VERSION}"
             - run:
                 name: Debug output of Node.js and npm versions
                 command: |
