@@ -654,6 +654,16 @@ describe('composition of value types', () => {
       expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_UNION_TYPES_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 14,
+            },
+            Object {
+              "column": 11,
+              "line": 14,
+            },
+          ],
           "message": "[serviceA] Product -> The union \`Product\` is defined in services \`serviceA\` and \`serviceB\`, however their types do not match. Union types with the same name must also consist of identical types. The types Cabinet, Mattress are mismatched.",
         }
       `);

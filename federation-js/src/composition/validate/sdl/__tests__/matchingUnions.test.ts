@@ -3,6 +3,7 @@ import {
   specifiedDirectives,
   Kind,
   DocumentNode,
+  parse,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
 import gql from 'graphql-tag';
@@ -50,7 +51,7 @@ describe('MatchingUnions', () => {
   it('enforces unique union names on non-identical union types', () => {
     const [definitions] = createDocumentsForServices([
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           union ProductOrError = Product | Error
 
           type Error {
@@ -61,11 +62,11 @@ describe('MatchingUnions', () => {
           type Product @key(fields: "sku") {
             sku: ID!
           }
-        `,
+        `),
         name: 'serviceA',
       },
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           union ProductOrError = Product
 
           type Error {
@@ -77,7 +78,7 @@ describe('MatchingUnions', () => {
             sku: ID! @external
             colors: [String]
           }
-        `,
+        `),
         name: 'serviceB',
       },
     ]);
@@ -87,6 +88,16 @@ describe('MatchingUnions', () => {
     expect(errors[0]).toMatchInlineSnapshot(`
       Object {
         "code": "VALUE_TYPE_UNION_TYPES_MISMATCH",
+        "locations": Array [
+          Object {
+            "column": 11,
+            "line": 2,
+          },
+          Object {
+            "column": 11,
+            "line": 2,
+          },
+        ],
         "message": "[serviceA] ProductOrError -> The union \`ProductOrError\` is defined in services \`serviceA\` and \`serviceB\`, however their types do not match. Union types with the same name must also consist of identical types. The type Error is mismatched.",
       }
     `);
