@@ -503,6 +503,16 @@ describe('composition of value types', () => {
       expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_NO_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 6,
+            },
+            Object {
+              "column": 11,
+              "line": 6,
+            },
+          ],
           "message": "[serviceB] Product -> Value types cannot be entities (using the \`@key\` directive). Please ensure that the \`Product\` type is extended properly or remove the \`@key\` directive if this is not an entity.",
         }
       `);

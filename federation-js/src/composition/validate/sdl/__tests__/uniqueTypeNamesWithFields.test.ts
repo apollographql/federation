@@ -516,19 +516,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types cannot be entities (part 1)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type Product @key(fields: "sku") {
               sku: ID
             }
-          `,
+          `),
           name: 'serviceA',
         },
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type Product {
               sku: ID
             }
-          `,
+          `),
           name: 'serviceB',
         },
       ]);
@@ -540,6 +540,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_NO_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] Product -> Value types cannot be entities (using the \`@key\` directive). Please ensure that the \`Product\` type is extended properly or remove the \`@key\` directive if this is not an entity.",
         }
       `);
@@ -548,19 +558,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types cannot be entities (part 2)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type Product {
               sku: ID
             }
-          `,
+          `),
           name: 'serviceA',
         },
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type Product @key(fields: "sku") {
               sku: ID
             }
-          `,
+          `),
           name: 'serviceB',
         },
       ]);
@@ -572,6 +582,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_NO_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+          ],
           "message": "[serviceB] Product -> Value types cannot be entities (using the \`@key\` directive). Please ensure that the \`Product\` type is extended properly or remove the \`@key\` directive if this is not an entity.",
         }
       `);
