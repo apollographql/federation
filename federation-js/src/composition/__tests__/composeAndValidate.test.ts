@@ -406,6 +406,12 @@ describe('composition of value types', () => {
         Array [
           Object {
             "code": "ROOT_QUERY_USED",
+            "locations": Array [
+              Object {
+                "column": 11,
+                "line": 15,
+              },
+            ],
             "message": "[serviceA] Query -> Found invalid use of default root operation name \`Query\`. \`Query\` is disallowed when \`Schema.query\` is set to a type other than \`Query\`.",
           },
         ]

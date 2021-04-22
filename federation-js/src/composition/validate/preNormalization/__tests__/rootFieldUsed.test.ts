@@ -1,6 +1,7 @@
 import gql from 'graphql-tag';
 import { rootFieldUsed as validateRootFieldUsed } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -67,7 +68,7 @@ describe('rootFieldUsed', () => {
 
   it('warns when a schema definition / extension is provided, as well as a default root type or extension', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         schema {
           query: RootQuery
         }
@@ -83,7 +84,7 @@ describe('rootFieldUsed', () => {
         type Query {
           invalidUseOfQuery: Boolean
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
@@ -95,6 +96,12 @@ describe('rootFieldUsed', () => {
       Array [
         Object {
           "code": "ROOT_QUERY_USED",
+          "locations": Array [
+            Object {
+              "column": 9,
+              "line": 14,
+            },
+          ],
           "message": "[serviceA] Query -> Found invalid use of default root operation name \`Query\`. \`Query\` is disallowed when \`Schema.query\` is set to a type other than \`Query\`.",
         },
       ]
@@ -103,7 +110,7 @@ describe('rootFieldUsed', () => {
 
   it('warns against using default operation type names (Query, Mutation, Subscription) when a non-default operation type name is provided in the schema definition', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         schema {
           mutation: RootMutation
         }
@@ -115,7 +122,7 @@ describe('rootFieldUsed', () => {
         type Mutation {
           invalidUseOfMutation: Boolean
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
@@ -126,6 +133,12 @@ describe('rootFieldUsed', () => {
       Array [
         Object {
           "code": "ROOT_MUTATION_USED",
+          "locations": Array [
+            Object {
+              "column": 9,
+              "line": 10,
+            },
+          ],
           "message": "[serviceA] Mutation -> Found invalid use of default root operation name \`Mutation\`. \`Mutation\` is disallowed when \`Schema.mutation\` is set to a type other than \`Mutation\`.",
         },
       ]
