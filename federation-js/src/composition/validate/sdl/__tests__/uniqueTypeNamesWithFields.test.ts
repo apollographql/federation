@@ -143,19 +143,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('object type definitions (non-identical, field input value types with type mismatch)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type Person {
               age(relative: Boolean!): Int
             }
-          `,
+          `),
           name: 'serviceA',
         },
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type Person {
               age(relative: Boolean): Int
             }
-          `,
+          `),
           name: 'serviceB',
         },
       ]);
@@ -168,6 +168,16 @@ describe('UniqueTypeNamesWithFields', () => {
         Array [
           Object {
             "code": "VALUE_TYPE_INPUT_VALUE_MISMATCH",
+            "locations": Array [
+              Object {
+                "column": 13,
+                "line": 2,
+              },
+              Object {
+                "column": 13,
+                "line": 2,
+              },
+            ],
             "message": "[serviceA] Person -> A field's input type (\`relative\`) was defined differently in different services. \`serviceA\` and \`serviceB\` define \`relative\` as a Boolean! and Boolean respectively. In order to define \`Person\` in multiple places, the input values and their types must be identical.",
           },
         ]
