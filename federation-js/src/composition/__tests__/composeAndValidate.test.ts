@@ -144,6 +144,12 @@ it("doesn't throw errors when a type is unknown, but captures them instead", () 
     Array [
       Object {
         "code": "MISSING_ERROR",
+        "locations": Array [
+          Object {
+            "column": 14,
+            "line": 3,
+          },
+        ],
         "message": "Unknown type \\"Bar\\".",
       },
       Object {
@@ -158,6 +164,7 @@ it("doesn't throw errors when a type is unknown, but captures them instead", () 
       },
       Object {
         "code": "MISSING_ERROR",
+        "locations": Array [],
         "message": "Type Query must define one or more fields.",
       },
     ]
