@@ -4,6 +4,7 @@ import {
   GraphQLSchema,
   specifiedDirectives,
   extendSchema,
+  parse,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
 import gql from 'graphql-tag';
@@ -115,20 +116,20 @@ describe('PossibleTypeExtensionsType', () => {
   it('errors when trying to extend a type with a different `Kind`', () => {
     const serviceList = [
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           extend type Product {
             sku: ID
           }
-        `,
+        `),
         name: 'serviceA',
       },
 
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           input Product {
             id: ID!
           }
-        `,
+        `),
         name: 'serviceB',
       },
     ];
@@ -143,6 +144,12 @@ describe('PossibleTypeExtensionsType', () => {
             Array [
               Object {
                 "code": "EXTENSION_OF_WRONG_KIND",
+                "locations": Array [
+                  Object {
+                    "column": 11,
+                    "line": 2,
+                  },
+                ],
                 "message": "[serviceA] Product -> \`Product\` was originally defined as a InputObjectTypeDefinition and can only be extended by a InputObjectTypeExtension. serviceA defines Product as a ObjectTypeExtension",
               },
             ]
