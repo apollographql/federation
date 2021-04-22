@@ -51,6 +51,7 @@ export const executableDirectivesIdentical: PostCompositionValidator = ({
                 return `\t${serviceName}: ${print(definition)}`;
               })
               .join('\n')}`,
+          directive.astNode || undefined,
         ),
       );
     }

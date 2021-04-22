@@ -2,6 +2,7 @@ import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { executableDirectivesIdentical } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -54,23 +55,23 @@ describe('executableDirectivesIdentical', () => {
 
   it("throws errors when custom, executable directives aren't defined with the same locations in every service", () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         directive @stream on FIELD
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         directive @stream on FIELD | QUERY
-      `,
+      `),
       name: 'serviceB',
     };
 
     const serviceC = {
-      typeDefs: gql`
+      typeDefs: parse(`
         directive @stream on INLINE_FRAGMENT
-      `,
+      `),
       name: 'serviceC',
     };
 
@@ -81,6 +82,12 @@ describe('executableDirectivesIdentical', () => {
       Array [
         Object {
           "code": "EXECUTABLE_DIRECTIVES_IDENTICAL",
+          "locations": Array [
+            Object {
+              "column": 9,
+              "line": 2,
+            },
+          ],
           "message": "[@stream] -> custom directives must be defined identically across all services. See below for a list of current implementations:
       	serviceA: directive @stream on FIELD
       	serviceB: directive @stream on FIELD | QUERY
@@ -92,16 +99,16 @@ describe('executableDirectivesIdentical', () => {
 
   it("throws errors when custom, executable directives aren't defined with the same arguments in every service", () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         directive @instrument(tag: String!) on FIELD
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         directive @instrument(tag: Boolean) on FIELD
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -112,6 +119,12 @@ describe('executableDirectivesIdentical', () => {
       Array [
         Object {
           "code": "EXECUTABLE_DIRECTIVES_IDENTICAL",
+          "locations": Array [
+            Object {
+              "column": 9,
+              "line": 2,
+            },
+          ],
           "message": "[@instrument] -> custom directives must be defined identically across all services. See below for a list of current implementations:
       	serviceA: directive @instrument(tag: String!) on FIELD
       	serviceB: directive @instrument(tag: Boolean) on FIELD",
