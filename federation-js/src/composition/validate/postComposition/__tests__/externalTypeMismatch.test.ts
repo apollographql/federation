@@ -1,31 +1,31 @@
-import gql from 'graphql-tag';
 import { externalTypeMismatch as validateExternalTypeMismatch } from '../';
 import { composeServices } from '../../../compose';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
 describe('validateExternalDirectivesOnSchema', () => {
   it('warns when the type of an @external field doesnt match the base', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku skew") {
           sku: String!
           skew: String
           upc: String!
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product {
           sku: String @external
           skew: String! @external
           price: Int! @requires(fields: "sku skew")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -36,10 +36,22 @@ describe('validateExternalDirectivesOnSchema', () => {
       Array [
         Object {
           "code": "EXTERNAL_TYPE_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 3,
+            },
+          ],
           "message": "[serviceB] Product.sku -> Type \`String\` does not match the type of the original field in serviceA (\`String!\`)",
         },
         Object {
           "code": "EXTERNAL_TYPE_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.skew -> Type \`String!\` does not match the type of the original field in serviceA (\`String\`)",
         },
       ]
@@ -48,22 +60,22 @@ describe('validateExternalDirectivesOnSchema', () => {
 
   it("warns when an @external field's type does not exist in the composed schema", () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product {
           sku: NonExistentType! @external
           id: String! @requires(fields: "sku")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -74,6 +86,12 @@ describe('validateExternalDirectivesOnSchema', () => {
       Array [
         Object {
           "code": "EXTERNAL_TYPE_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 3,
+            },
+          ],
           "message": "[serviceB] Product.sku -> the type of the @external field does not exist in the resulting composed schema",
         },
       ]
