@@ -118,7 +118,7 @@ jobs:
                   node --version
                   echo 'npm version:'
                   npm --version
-            - run: npm install
+            - run: npm clean-install
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
                 cache_version: v2-macos
@@ -156,7 +156,7 @@ jobs:
                   node --version
                   echo 'npm version:'
                   npm --version
-            - run: npm install
+            - run: npm clean-install
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
                 cache_version: v2-linux
@@ -220,7 +220,7 @@ jobs:
                   node --version
                   echo 'npm version:'
                   npm --version
-            - run: npm install
+            - run: npm clean-install
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
                 cache_version: v2-windows
