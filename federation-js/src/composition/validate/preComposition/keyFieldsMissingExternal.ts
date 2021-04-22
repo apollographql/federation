@@ -76,7 +76,7 @@ export const keyFieldsMissingExternal = ({
     visit(
       keyDirectiveSelectionSet,
       visitWithTypeInfo(typeInfo, {
-        Field() {
+        Field(node) {
           const fieldDef = typeInfo.getFieldDef();
           const parentType = typeInfo.getParentType();
           if (parentType) {
@@ -87,6 +87,7 @@ export const keyFieldsMissingExternal = ({
                   'KEY_FIELDS_MISSING_EXTERNAL',
                   logServiceAndType(serviceName, parentType.name) +
                     `A @key directive specifies a field which is not found in this service. Add a field to this type with @external.`,
+                  node,
                 ),
               );
               return;
@@ -102,6 +103,7 @@ export const keyFieldsMissingExternal = ({
                   'KEY_FIELDS_MISSING_EXTERNAL',
                   logServiceAndType(serviceName, parentType.name) +
                     `A @key directive specifies the \`${fieldDef.name}\` field which has no matching @external field.`,
+                  fieldDef.astNode || undefined,
                 ),
               );
             }
