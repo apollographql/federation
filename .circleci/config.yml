@@ -112,12 +112,11 @@ jobs:
                 command: |
                   sudo npm install --global npm@${NPM_VERSION}
             - run:
-                name: Debug output of Node.js and npm versions
-                command: |
-                  echo 'Node.js version:'
-                  node --version
-                  echo 'npm version:'
-                  npm --version
+                name: Assert Node.js version
+                command: test "$(node --version)" = "v${NODE_VERSION}"
+            - run:
+                name: Assert npm version
+                command: test "$(npm --version)" = "${NPM_VERSION}"
             - run: npm clean-install
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
@@ -150,12 +149,11 @@ jobs:
                   nvm alias default $NODE_VERSION
                   npm install --global npm@${NPM_VERSION}
             - run:
-                name: Debug output of Node.js and npm versions
-                command: |
-                  echo 'Node.js version:'
-                  node --version
-                  echo 'npm version:'
-                  npm --version
+                name: Assert Node.js version
+                command: test "$(node --version)" = "v${NODE_VERSION}"
+            - run:
+                name: Assert npm version
+                command: test "$(npm --version)" = "${NPM_VERSION}"
             - run: npm clean-install
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
@@ -214,12 +212,13 @@ jobs:
                   }
                   npm-orig install --global "npm@${Env:NPM_VERSION}"
             - run:
-                name: Debug output of Node.js and npm versions
+                name: Assert Node.js version
                 command: |
-                  echo 'Node.js version:'
-                  node --version
-                  echo 'npm version:'
-                  npm --version
+                  if ((node --version) -Ne "v${Env:NODE_VERSION}") { exit 1 }
+            - run:
+                name: Assert npm version
+                command: |
+                  if ((npm --version) -Ne "${Env:NPM_VERSION}") { exit 1 }
             - run: npm clean-install
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
