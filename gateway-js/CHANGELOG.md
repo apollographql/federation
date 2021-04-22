@@ -4,7 +4,9 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- Avoid _small_ potential performamce concern/observation introduced in v0.21.0 which unnecessarily `JSON.stringify`'d the same object twice during requests to upstream subgraphs. [PR #673](https://github.com/apollographql/federation/pull/673)
 - Allow passing a function to the `introspectionHeaders` field when constructing an `ApolloGateway` instance. This allows for producing dynamic introspection headers per request. [PR #607](https://github.com/apollographql/federation/pull/607)
+- Will no longer calculate the automated persisted query (APQ) hash when `apq` is not set to `true` on the `RemoteGraphQLDataSource`. [PR #672](https://github.com/apollographql/federation/pull/672)
 
 ## v0.26.0
 

@@ -21,7 +21,7 @@
     "node": ">=12"
   },
   "dependencies": {
-    "apollo-graphql": "^0.6.0",
+    "apollo-graphql": "^0.9.0",
     "graphql-tag": "^2.10.4"
   }
 }

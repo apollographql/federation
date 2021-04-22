@@ -6,7 +6,7 @@ orbs:
   # `oss` is a local reference to the package.  The source for Apollo Orbs can
   # be found at http://github.com/apollographql/CircleCI-Orbs/.
   # We could use Renovate to bump this version via PR, but that's not set up now.
-  oss: apollo/oss-ci-cd-tooling@0.0.16
+  oss: apollo/oss-ci-cd-tooling@0.0.17
   # Rust steps which are used below (like `rust/install`, `rust/test`) are
   # defined in this orb. For reference, the orb can be found here:
   # https://github.com/CircleCI-Public/rust-orb
@@ -184,9 +184,6 @@ jobs:
             - restore_cache:
                 keys:
                   - rust-target-v1-windows-{{ checksum "Cargo.lock" }}
-            - run:
-                name: Install nvm (with choco)
-                command: choco install nvm
             - run:
                 name: Install desired Node.js version with nvm
                 command: |

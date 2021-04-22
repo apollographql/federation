@@ -78,10 +78,6 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
       throw new Error("Missing query");
     }
 
-    const apqHash = createSHA('sha256')
-       .update(request.query)
-       .digest('hex');
-
     const { query, ...requestWithoutQuery } = request;
 
     const respond = (response: GraphQLResponse, request: GraphQLRequest) =>
@@ -90,6 +86,10 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
         : response;
 
     if (this.apq) {
+      const apqHash = createSHA('sha256')
+        .update(request.query)
+        .digest('hex');
+
       // Take the original extensions and extend them with
       // the necessary "extensions" for APQ handshaking.
       requestWithoutQuery.extensions = {
@@ -140,9 +140,10 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
     // being transmitted.  Instead, we want those to be used to indicate what
     // we're accessing (e.g. url) and what we access it with (e.g. headers).
     const { http, ...requestWithoutHttp } = request;
+    const stringifiedRequestWithoutHttp = JSON.stringify(requestWithoutHttp);
     const fetchRequest = new Request(http.url, {
       ...http,
-      body: JSON.stringify(requestWithoutHttp),
+      body: stringifiedRequestWithoutHttp,
     });
 
     let fetchResponse: Response | undefined;
@@ -152,7 +153,7 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
       // Use the fetcher's `Request` implementation for compatibility
       fetchResponse = await this.fetcher(http.url, {
         ...http,
-        body: JSON.stringify(requestWithoutHttp)
+        body: stringifiedRequestWithoutHttp,
       });
 
       if (!fetchResponse.ok) {
