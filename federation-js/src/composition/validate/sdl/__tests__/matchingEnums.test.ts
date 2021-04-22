@@ -3,6 +3,7 @@ import {
   DocumentNode,
   GraphQLSchema,
   specifiedDirectives,
+  parse,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
 import gql from 'graphql-tag';
@@ -11,6 +12,7 @@ import {
   astSerializer,
   typeSerializer,
   selectionSetSerializer,
+  graphqlErrorSerializer,
 } from 'apollo-federation-integration-testsuite';
 import federationDirectives from '../../../../directives';
 import { ServiceDefinition } from '../../../types';
@@ -19,6 +21,7 @@ import { MatchingEnums } from '../matchingEnums';
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(typeSerializer);
 expect.addSnapshotSerializer(selectionSetSerializer);
+expect.addSnapshotSerializer(graphqlErrorSerializer);
 
 // simulate the first half of the composition process
 const createDefinitionsDocumentForServices = (
@@ -75,20 +78,20 @@ describe('matchingEnums', () => {
   it('errors when enums in separate services dont match', () => {
     const serviceList = [
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           enum ProductCategory {
             BED
             BATH
           }
-        `,
+        `),
         name: 'serviceA',
       },
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           enum ProductCategory {
             BEYOND
           }
-        `,
+        `),
         name: 'serviceB',
       },
     ];
@@ -99,7 +102,16 @@ describe('matchingEnums', () => {
     const errors = validateSDL(definitionsDocument, schema, [MatchingEnums]);
     expect(errors).toMatchInlineSnapshot(`
       Array [
-        [GraphQLError: The \`ProductCategory\` enum does not have identical values in all services. Groups of services with identical values are: [serviceA], [serviceB]],
+        Object {
+          "code": "ENUM_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 2,
+            },
+          ],
+          "message": "The \`ProductCategory\` enum does not have identical values in all services. Groups of services with identical values are: [serviceA], [serviceB]",
+        },
       ]
     `);
   });
@@ -107,7 +119,7 @@ describe('matchingEnums', () => {
   it('errors when enums in separate services dont match', () => {
     const serviceList = [
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           type Query {
             products: [Product]!
           }
@@ -122,27 +134,27 @@ describe('matchingEnums', () => {
             BOOK
             FURNITURE
           }
-        `,
+        `),
         name: 'serviceA',
       },
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           enum ProductType {
             FURNITURE
             BOOK
             DIGITAL
           }
-        `,
+        `),
         name: 'serviceB',
       },
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           enum ProductType {
             FURNITURE
             BOOK
             DIGITAL
           }
-        `,
+        `),
         name: 'serviceC',
       },
     ];
@@ -153,38 +165,48 @@ describe('matchingEnums', () => {
     const errors = validateSDL(definitionsDocument, schema, [MatchingEnums]);
     expect(errors).toMatchInlineSnapshot(`
       Array [
-        [GraphQLError: The \`ProductType\` enum does not have identical values in all services. Groups of services with identical values are: [serviceA], [serviceB, serviceC]],
+        Object {
+          "code": "ENUM_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 12,
+            },
+          ],
+          "message": "The \`ProductType\` enum does not have identical values in all services. Groups of services with identical values are: [serviceA], [serviceB, serviceC]",
+        },
       ]
-    `);
+    `,
+    );
   });
 
   it('errors when an enum name is defined as another type in a service', () => {
     const serviceList = [
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           enum ProductType {
             BOOK
             FURNITURE
           }
-        `,
+        `),
         name: 'serviceA',
       },
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           type ProductType {
             id: String
           }
-        `,
+        `),
         name: 'serviceB',
       },
       {
-        typeDefs: gql`
+        typeDefs: parse(`
           enum ProductType {
             FURNITURE
             BOOK
             DIGITAL
           }
-        `,
+        `),
         name: 'serviceC',
       },
     ];
@@ -195,7 +217,16 @@ describe('matchingEnums', () => {
     const errors = validateSDL(definitionsDocument, schema, [MatchingEnums]);
     expect(errors).toMatchInlineSnapshot(`
       Array [
-        [GraphQLError: [serviceA] ProductType -> ProductType is an enum in [serviceA, serviceC], but not in [serviceB]],
+        Object {
+          "code": "ENUM_MISMATCH_TYPE",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 2,
+            },
+          ],
+          "message": "[serviceA] ProductType -> ProductType is an enum in [serviceA, serviceC], but not in [serviceB]",
+        },
       ]
     `);
   });
