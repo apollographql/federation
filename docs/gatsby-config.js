@@ -33,6 +33,7 @@ module.exports = {
             'managed-federation/federated-schema-checks',
             'managed-federation/deployment',
             'managed-federation/monitoring',
+            '[Studio features](https://www.apollographql.com/docs/studio/federated-graphs/)',
           ],
           'Debugging': [
             'errors',
