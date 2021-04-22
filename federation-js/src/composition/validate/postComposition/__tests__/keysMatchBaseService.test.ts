@@ -86,6 +86,52 @@ describe('keysMatchBaseService', () => {
     `);
   });
 
+  it('requires an extending service use only one @key specified on the originating type', () => {
+    const serviceA = {
+      typeDefs: parse(`
+        type Product @key(fields: "sku") @key(fields: "upc") {
+          sku: String!
+          upc: String!
+        }
+      `),
+      name: 'serviceA',
+    };
+
+    const serviceB = {
+      typeDefs: parse(`
+        extend type Product @key(fields: "sku") @key(fields: "upc") {
+          sku: String! @external
+          upc: String! @external
+          price: Int!
+        }
+      `),
+      name: 'serviceB',
+    };
+
+    const serviceList = [serviceA, serviceB];
+    const compositionResult = composeServices(serviceList);
+    assertCompositionSuccess(compositionResult);
+    const { schema } = compositionResult;
+
+    const validationErrors = validateKeysMatchBaseService({
+      schema,
+      serviceList,
+    });
+    expect(validationErrors).toHaveLength(1);
+    expect(validationErrors[0]).toMatchInlineSnapshot(`
+      Object {
+        "code": "MULTIPLE_KEYS_ON_EXTENSION",
+        "locations": Array [
+          Object {
+            "column": 9,
+            "line": 2,
+          },
+        ],
+        "message": "[serviceB] Product -> is extended from service serviceA but specifies multiple @key directives. Extensions may only specify one @key.",
+      }
+    `);
+  });
+
   it('requires extending services to use a @key specified by the originating type', () => {
     const serviceA = {
       typeDefs: gql`

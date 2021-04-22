@@ -51,6 +51,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
                   'MULTIPLE_KEYS_ON_EXTENSION',
                   logServiceAndType(extendingService, parentTypeName) +
                     `is extended from service ${serviceName} but specifies multiple @key directives. Extensions may only specify one @key.`,
+                  parentType.astNode || undefined,
                 ),
               );
               return;
