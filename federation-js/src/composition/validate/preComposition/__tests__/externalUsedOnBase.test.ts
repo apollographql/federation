@@ -1,6 +1,7 @@
 import gql from 'graphql-tag';
 import { externalUsedOnBase as validateExternalUsedOnBase } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -28,13 +29,13 @@ describe('externalUsedOnBase', () => {
 
   it('warns when there is a @external field on a base type', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String! @external
           id: ID!
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
@@ -43,6 +44,12 @@ describe('externalUsedOnBase', () => {
       Array [
         Object {
           "code": "EXTERNAL_USED_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceA] Product.upc -> Found extraneous @external directive. @external cannot be used on base types.",
         },
       ]
