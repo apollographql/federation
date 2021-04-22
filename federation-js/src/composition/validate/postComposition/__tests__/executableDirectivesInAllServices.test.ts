@@ -2,6 +2,7 @@ import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { executableDirectivesInAllServices } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -52,27 +53,27 @@ describe('executableDirectivesInAllServices', () => {
 
   it("throws errors when custom, executable directives aren't defined in every service", () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         directive @stream on FIELD
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Query {
           thing: String
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
     const serviceC = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Query {
           otherThing: String
         }
-      `,
+      `),
       name: 'serviceC',
     };
 
@@ -83,6 +84,12 @@ describe('executableDirectivesInAllServices', () => {
       Array [
         Object {
           "code": "EXECUTABLE_DIRECTIVES_IN_ALL_SERVICES",
+          "locations": Array [
+            Object {
+              "column": 9,
+              "line": 2,
+            },
+          ],
           "message": "[@stream] -> Custom directives must be implemented in every service. The following services do not implement the @stream directive: serviceB, serviceC.",
         },
       ]
