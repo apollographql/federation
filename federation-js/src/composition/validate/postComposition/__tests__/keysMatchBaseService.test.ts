@@ -3,6 +3,7 @@ import { composeServices } from '../../../compose';
 import { keysMatchBaseService as validateKeysMatchBaseService } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -42,22 +43,22 @@ describe('keysMatchBaseService', () => {
 
   it('requires a @key to be specified on the originating type', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product {
           sku: String!
           upc: String!
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           price: Int!
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -74,6 +75,12 @@ describe('keysMatchBaseService', () => {
     expect(validationErrors[0]).toMatchInlineSnapshot(`
       Object {
         "code": "KEY_MISSING_ON_BASE",
+        "locations": Array [
+          Object {
+            "column": 9,
+            "line": 2,
+          },
+        ],
         "message": "[serviceA] Product -> appears to be an entity but no @key directives are specified on the originating type.",
       }
     `);

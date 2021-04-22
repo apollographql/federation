@@ -33,6 +33,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
               'KEY_MISSING_ON_BASE',
               logServiceAndType(serviceName, parentTypeName) +
                 `appears to be an entity but no @key directives are specified on the originating type.`,
+              parentType.astNode || undefined,
             ),
           );
           continue;
