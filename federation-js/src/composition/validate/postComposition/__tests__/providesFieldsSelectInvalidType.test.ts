@@ -3,6 +3,7 @@ import { composeServices } from '../../../compose';
 import { providesFieldsSelectInvalidType as validateprovidesFieldsSelectInvalidType } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -48,7 +49,7 @@ describe('providesFieldsSelectInvalidType', () => {
 
   it('warns if @provides references fields of a list type', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Review @key(fields: "id") {
           id: ID!
           author: User @provides(fields: "wishLists")
@@ -62,12 +63,12 @@ describe('providesFieldsSelectInvalidType', () => {
         extend type WishList @key(fields: "id") {
           id: ID! @external
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type User @key(fields: "id") {
           id: ID!
           wishLists: [WishList]
@@ -76,7 +77,7 @@ describe('providesFieldsSelectInvalidType', () => {
         type WishList @key(fields: "id") {
           id: ID!
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -93,6 +94,12 @@ describe('providesFieldsSelectInvalidType', () => {
       Array [
         Object {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceA] Review.author -> A @provides selects User.wishLists, which is a list type. A field cannot @provide lists.",
         },
       ]
@@ -101,7 +108,7 @@ describe('providesFieldsSelectInvalidType', () => {
 
   it('warns if @provides references fields of an interface type', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Review @key(fields: "id") {
           id: ID!
           author: User @provides(fields: "account")
@@ -115,12 +122,12 @@ describe('providesFieldsSelectInvalidType', () => {
         extend interface Account {
           username: String @external
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type User @key(fields: "id") {
           id: ID!
           account: Account
@@ -129,7 +136,7 @@ describe('providesFieldsSelectInvalidType', () => {
         interface Account {
           username: String
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -146,6 +153,12 @@ describe('providesFieldsSelectInvalidType', () => {
       Array [
         Object {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceA] Review.author -> A @provides selects User.account, which is an interface type. A field cannot @provide interfaces.",
         },
       ]
@@ -154,7 +167,7 @@ describe('providesFieldsSelectInvalidType', () => {
 
   it('warns if @provides references fields of a union type', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Review @key(fields: "id") {
           id: ID!
           author: User @provides(fields: "account")
@@ -174,12 +187,12 @@ describe('providesFieldsSelectInvalidType', () => {
         extend type SMSAccount @key(fields: "phone") {
           phone: String! @external
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type User @key(fields: "id") {
           id: ID!
           account: Account
@@ -194,7 +207,7 @@ describe('providesFieldsSelectInvalidType', () => {
         type SMSAccount @key(fields: "phone") {
           phone: String!
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -211,6 +224,12 @@ describe('providesFieldsSelectInvalidType', () => {
       Array [
         Object {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceA] Review.author -> A @provides selects User.account, which is a union type. A field cannot @provide union types.",
         },
       ]
