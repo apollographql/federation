@@ -3,6 +3,7 @@ import { composeServices } from '../../../compose';
 import { keyFieldsSelectInvalidType as validateKeyFieldsSelectInvalidType } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -64,12 +65,12 @@ describe('keyFieldsSelectInvalidType', () => {
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product {
           sku: String! @external
           price: Int! @requires(fields: "sku")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -86,6 +87,12 @@ describe('keyFieldsSelectInvalidType', () => {
       Array [
         Object {
           "code": "KEY_FIELDS_SELECT_INVALID_TYPE",
+          "locations": Array [
+            Object {
+              "column": 9,
+              "line": 1,
+            },
+          ],
           "message": "[serviceA] Product -> A @key selects Product.featuredItem, which is an interface type. Keys cannot select interfaces.",
         },
       ]
@@ -106,12 +113,12 @@ describe('keyFieldsSelectInvalidType', () => {
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product {
           sku: String! @external
           name: String!
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -128,6 +135,12 @@ describe('keyFieldsSelectInvalidType', () => {
       Array [
         Object {
           "code": "KEY_FIELDS_SELECT_INVALID_TYPE",
+          "locations": Array [
+            Object {
+              "column": 9,
+              "line": 1,
+            },
+          ],
           "message": "[serviceA] Product -> A @key selects Product.price, which is a union type. Keys cannot select union types.",
         },
       ]
