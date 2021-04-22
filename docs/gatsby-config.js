@@ -15,6 +15,11 @@ module.exports = {
           null: [
             'index',
           ],
+          'Quickstart (Preview)': [
+            'quickstart',
+            'quickstart-pt-2',
+            'quickstart-pt-3',
+          ],
           'Core Concepts': [
             'implementing-services',
             'gateway',
@@ -28,6 +33,7 @@ module.exports = {
             'managed-federation/federated-schema-checks',
             'managed-federation/deployment',
             'managed-federation/monitoring',
+            '[Studio features](https://www.apollographql.com/docs/studio/federated-graphs/)',
           ],
           'Debugging': [
             'errors',

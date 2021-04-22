@@ -75,7 +75,7 @@ describe('printSupergraphSdl', () => {
         price: String @join__field(graph: PRODUCT)
         details: ProductDetailsBook @join__field(graph: PRODUCT)
         reviews: [Review] @join__field(graph: REVIEWS)
-        relatedReviews: [Review!]! @join__field(graph: REVIEWS, requires: \\"similarBooks { isbn }\\")
+        relatedReviews: [Review!]! @join__field(graph: REVIEWS, requires: \\"similarBooks{isbn}\\")
       }
 
       union Brand = Ikea | Amazon
@@ -251,7 +251,7 @@ describe('printSupergraphSdl', () => {
       type User
         @join__owner(graph: ACCOUNTS)
         @join__type(graph: ACCOUNTS, key: \\"id\\")
-        @join__type(graph: ACCOUNTS, key: \\"username name { first last }\\")
+        @join__type(graph: ACCOUNTS, key: \\"username name{first last}\\")
         @join__type(graph: INVENTORY, key: \\"id\\")
         @join__type(graph: PRODUCT, key: \\"id\\")
         @join__type(graph: REVIEWS, key: \\"id\\")
@@ -262,12 +262,12 @@ describe('printSupergraphSdl', () => {
         birthDate(locale: String): String @join__field(graph: ACCOUNTS)
         account: AccountType @join__field(graph: ACCOUNTS)
         metadata: [UserMetadata] @join__field(graph: ACCOUNTS)
-        goodDescription: Boolean @join__field(graph: INVENTORY, requires: \\"metadata { description }\\")
+        goodDescription: Boolean @join__field(graph: INVENTORY, requires: \\"metadata{description}\\")
         vehicle: Vehicle @join__field(graph: PRODUCT)
         thing: Thing @join__field(graph: PRODUCT)
         reviews: [Review] @join__field(graph: REVIEWS)
         numberOfReviews: Int! @join__field(graph: REVIEWS)
-        goodAddress: Boolean @join__field(graph: REVIEWS, requires: \\"metadata { address }\\")
+        goodAddress: Boolean @join__field(graph: REVIEWS, requires: \\"metadata{address}\\")
       }
 
       type UserMetadata {

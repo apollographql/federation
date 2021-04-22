@@ -1,11 +1,16 @@
-import { isObjectType, GraphQLError, SelectionNode } from 'graphql';
+import {
+  isObjectType,
+  GraphQLError,
+  SelectionNode,
+  stripIgnoredCharacters,
+  print,
+} from 'graphql';
 import {
   logServiceAndType,
   errorWithCode,
   getFederationMetadata,
 } from '../../utils';
 import { PostCompositionValidator } from '.';
-import { printWithReducedWhitespace } from '../../../service';
 
 /**
  *  1. KEY_MISSING_ON_BASE - Originating types must specify at least 1 @key directive
@@ -82,5 +87,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
 };
 
 function printFieldSet(selections: readonly SelectionNode[]): string {
-  return selections.map(printWithReducedWhitespace).join(' ');
+  return selections
+    .map((selection) => stripIgnoredCharacters(print(selection)))
+    .join(' ');
 }

@@ -1,0 +1,87 @@
+---
+title: "Federation quickstart (preview)"
+sidebar_title: "Part 3 - Working with subgraphs"
+description: "Part 3 - Working with subgraphs"
+---
+
+import {Button} from '@apollo/space-kit/Button';
+import {Link} from 'gatsby';
+import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
+import { VideoFrame } from 'gatsby-theme-apollo-docs';
+
+> **Reminder:** This tutorial uses some Apollo tools and terminology that are still in **preview**, and therefore this content is not yet recommended for use in a production environment.
+
+In [Part 1](./quickstart/) and [Part 2](./quickstart-pt-2/), we used Apollo-hosted services for our subgraphs. Now, let's see what we can do with our _own_ subgraphs.
+
+A service that you want to act as a subgraph can use any GraphQL server that supports Apollo Federation. This includes Apollo Server, along with the servers listed in [Supported libraries](./other-servers/).
+
+## 1. Configure Apollo Server
+
+> If you're using a GraphQL server besides Apollo Server, consult its documentation to learn how to configure it for use as a federated service.
+
+If you have an existing GraphQL API that uses Apollo Server, you can use that server as a subgraph with the `@apollo/federation` library. You can get started with [this example server](https://github.com/apollographql/docs-examples/tree/main/server-getting-started) (which is not yet federated).
+
+First, install the `@apollo/federation` library in your project:
+
+```shell
+npm install @apollo/federation
+```
+
+Next, import the `buildFederatedSchema` function in the file where you initialize `ApolloServer`:
+
+```js:title=index.js
+const { buildFederatedSchema } = require('@apollo/federation');
+```
+
+Finally, modify your `ApolloServer` constructor by passing it a `schema` option instead of `typeDefs` and `resolvers`, like so:
+
+```js:title=index.js
+const server = new ApolloServer({ 
+  schema: buildFederatedSchema([{ typeDefs, resolvers }])
+});
+```
+
+(As shown, you now pass your `typeDefs` and `resolvers` to `buildFederatedSchema`.)
+
+And that's it! You can now perform all of the same subgraph setup on your _own_ service (introspection, schema registration, etc.) that you did with the Apollo-hosted services we used in the first two parts. Refer to those parts for guidance.
+
+## 2. Learn about federated entities
+
+In a federated graph, each subgraph's schema can refer to types and fields in _another_ subgraph's schema.
+
+Consider the `Product` type in our composed supergraph schema from [Part 1](./quickstart/#performing-composition). This type includes the following fields:
+
+```graphql
+type Product {
+  id: ID! @join__field(graph: PRODUCTS)
+  title: String @join__field(graph: PRODUCTS)
+  # ...more fields...
+  reviews: [Review] @join__field(graph: REVIEWS)
+}
+```
+
+As the federation-specific `@join__field` directive suggests, these three fields of the same type are defined across two _different_ subgraphs!
+
+This is possible because our `products` subgraph schema defines the `Product` object type as an **entity**. Entities are objects that _other_ subgraphs can **extend** with additional fields.
+
+It makes logical sense that the `reviews` field of a `Product` should be resolved by the `reviews` subgraph instead of the `products` subgraph. This reflects the design principle of [separation of concerns](./#separation-of-concerns).
+
+[Learn how to define and extend entities.](./entities/)
+
+## 3. Try out schema checks
+
+After you've registered your first subgraph schema, you can try out one of Apollo Studio's most powerful features: **schema checks**.
+
+> Schema checks are a **paid feature** of Apollo Studio. You can try them out with a free trial of a Team plan.
+
+With schema checks, you can check whether some changes you want to make to your schema will affect any of the clients that use your graph. This feature is at its most powerful in your CI/CD environment, where you can automatically detect breaking schema changes before they're deployed to production.
+
+> The official docs for schema checks still use `apollo` CLI commands instead of `rover`. Wherever those docs use `apollo service:check`, you can use `rover subgraph check` instead. For details, [see the Rover docs](https://www.apollographql.com/docs/rover/subgraphs/#checking-subgraph-schema-changes).
+
+1. [Learn about the basics of schema checks](https://www.apollographql.com/docs/studio/schema-checks/)
+2. [Learn about using schema checks with Apollo Federation](./managed-federation/federated-schema-checks/)
+3. [Learn how to use Rover in a CI/CD environment](https://www.apollographql.com/docs/rover/ci-cd/)
+
+---
+
+Congratulations, you've completed the federation quickstart! If you have any feedback or suggestions for this tutorial, please click **Rate article** on the right.
