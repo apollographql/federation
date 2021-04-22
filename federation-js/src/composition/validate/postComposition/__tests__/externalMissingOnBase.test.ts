@@ -2,6 +2,7 @@ import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { externalMissingOnBase as validateExternalMissingOnBase } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -18,24 +19,24 @@ describe('externalMissingOnBase', () => {
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           id: String! @external
           price: Int! @requires(fields: "sku id")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
     const serviceC = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           id: String!
           test: Int @external
         }
-      `,
+      `),
       name: 'serviceC',
     };
 
@@ -46,10 +47,22 @@ describe('externalMissingOnBase', () => {
       Array [
         Object {
           "code": "EXTERNAL_MISSING_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.id -> marked @external but id was defined in serviceC, not in the service that owns Product (serviceA)",
         },
         Object {
           "code": "EXTERNAL_MISSING_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 5,
+            },
+          ],
           "message": "[serviceC] Product.test -> marked @external but test is not defined on the base service of Product (serviceA)",
         },
       ]
@@ -58,22 +71,22 @@ describe('externalMissingOnBase', () => {
 
   it("warns when an @external field isn't defined anywhere else", () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product {
           specialId: String! @external
           id: String! @requires(fields: "specialId")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -84,6 +97,12 @@ describe('externalMissingOnBase', () => {
       Array [
         Object {
           "code": "EXTERNAL_MISSING_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 3,
+            },
+          ],
           "message": "[serviceB] Product.specialId -> marked @external but specialId is not defined on the base service of Product (serviceA)",
         },
       ]
