@@ -604,6 +604,16 @@ describe('composition of value types', () => {
       expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_KIND_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 6,
+            },
+            Object {
+              "column": 11,
+              "line": 6,
+            },
+          ],
           "message": "[serviceA] Product -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`Product\` is defined as both a \`ObjectTypeDefinition\` and a \`InterfaceTypeDefinition\`. In order to define \`Product\` in multiple places, the kinds must be identical.",
         }
       `);

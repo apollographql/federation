@@ -381,19 +381,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types must be of the same kind', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             input Product {
               sku: ID
             }
-          `,
+          `),
           name: 'serviceA',
         },
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type Product {
               sku: ID
             }
-          `,
+          `),
           name: 'serviceB',
         },
       ]);
@@ -406,6 +406,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_KIND_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] Product -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`Product\` is defined as both a \`ObjectTypeDefinition\` and a \`InputObjectTypeDefinition\`. In order to define \`Product\` in multiple places, the kinds must be identical.",
         }
       `);
@@ -414,19 +424,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types must be of the same kind (scalar)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             scalar DateTime
-          `,
+          `),
           name: 'serviceA',
         },
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type DateTime {
               day: Int
               formatted: String
               # ...
             }
-          `,
+          `),
           name: 'serviceB',
         },
       ]);
@@ -439,6 +449,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_KIND_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] DateTime -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`DateTime\` is defined as both a \`ObjectTypeDefinition\` and a \`ScalarTypeDefinition\`. In order to define \`DateTime\` in multiple places, the kinds must be identical.",
         }
       `);
@@ -447,19 +467,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types must be of the same kind (union)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             union DateTime = Date | Time
-          `,
+          `),
           name: 'serviceA',
         },
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type DateTime {
               day: Int
               formatted: String
               # ...
             }
-          `,
+          `),
           name: 'serviceB',
         },
       ]);
@@ -472,6 +492,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_KIND_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] DateTime -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`DateTime\` is defined as both a \`ObjectTypeDefinition\` and a \`UnionTypeDefinition\`. In order to define \`DateTime\` in multiple places, the kinds must be identical.",
         }
       `);
@@ -480,22 +510,22 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types must be of the same kind (enum)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             enum DateTime {
               DATE
               TIME
             }
-          `,
+          `),
           name: 'serviceA',
         },
         {
-          typeDefs: gql`
+          typeDefs: parse(`
             type DateTime {
               day: Int
               formatted: String
               # ...
             }
-          `,
+          `),
           name: 'serviceB',
         },
       ]);
@@ -508,6 +538,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_KIND_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+            Object {
+              "column": 13,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] DateTime -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`DateTime\` is defined as both a \`ObjectTypeDefinition\` and a \`EnumTypeDefinition\`. In order to define \`DateTime\` in multiple places, the kinds must be identical.",
         }
       `);
