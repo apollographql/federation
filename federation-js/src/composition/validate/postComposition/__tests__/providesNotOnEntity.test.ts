@@ -2,6 +2,7 @@ import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { providesNotOnEntity as validateProvidesNotOnEntity } from '../';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -95,7 +96,7 @@ describe('providesNotOnEntity', () => {
 
   it('warns when there is a @provides on a type that is not an entity', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
@@ -106,17 +107,17 @@ describe('providesNotOnEntity', () => {
           sku: String!
           quantity: Int!
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           lineItem: LineItem @provides(fields: "quantity")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -127,6 +128,12 @@ describe('providesNotOnEntity', () => {
       Array [
         Object {
           "code": "PROVIDES_NOT_ON_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.lineItem -> uses the @provides directive but \`Product.lineItem\` does not return a type that has a @key. Try adding a @key to the \`LineItem\` type.",
         },
       ]
@@ -135,7 +142,7 @@ describe('providesNotOnEntity', () => {
 
   it('warns when there is a @provides on a type that is not a list of entity', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
@@ -146,17 +153,17 @@ describe('providesNotOnEntity', () => {
           sku: String!
           quantity: Int!
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           lineItems: [LineItem] @provides(fields: "quantity")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -167,6 +174,12 @@ describe('providesNotOnEntity', () => {
       Array [
         Object {
           "code": "PROVIDES_NOT_ON_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.lineItems -> uses the @provides directive but \`Product.lineItems\` does not return a type that has a @key. Try adding a @key to the \`LineItem\` type.",
         },
       ]
@@ -175,7 +188,7 @@ describe('providesNotOnEntity', () => {
 
   it('warns when there is a @provides on a non-object type', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
@@ -188,17 +201,17 @@ describe('providesNotOnEntity', () => {
           SONG
           ALBUM
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           category: Category @provides(fields: "id")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -209,6 +222,12 @@ describe('providesNotOnEntity', () => {
       Array [
         Object {
           "code": "PROVIDES_NOT_ON_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.category -> uses the @provides directive but \`Product.category\` returns \`Category\`, which is not an Object or List type. @provides can only be used on Object types with at least one @key, or Lists of such Objects.",
         },
       ]
@@ -217,7 +236,7 @@ describe('providesNotOnEntity', () => {
 
   it('warns when there is a @provides on a list of non-object type', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
@@ -230,17 +249,17 @@ describe('providesNotOnEntity', () => {
           SONG
           ALBUM
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           categories: [Category] @provides(fields: "id")
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -251,6 +270,12 @@ describe('providesNotOnEntity', () => {
       Array [
         Object {
           "code": "PROVIDES_NOT_ON_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 11,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.categories -> uses the @provides directive but \`Product.categories\` returns \`[Category]\`, which is not an Object or List type. @provides can only be used on Object types with at least one @key, or Lists of such Objects.",
         },
       ]
