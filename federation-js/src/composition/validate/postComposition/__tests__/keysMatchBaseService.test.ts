@@ -134,22 +134,22 @@ describe('keysMatchBaseService', () => {
 
   it('requires extending services to use a @key specified by the originating type', () => {
     const serviceA = {
-      typeDefs: gql`
+      typeDefs: parse(`
         type Product @key(fields: "sku upc") {
           sku: String!
           upc: String!
         }
-      `,
+      `),
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: gql`
+      typeDefs: parse(`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           price: Int!
         }
-      `,
+      `),
       name: 'serviceB',
     };
 
@@ -166,6 +166,12 @@ describe('keysMatchBaseService', () => {
     expect(validationErrors[0]).toMatchInlineSnapshot(`
       Object {
         "code": "KEY_NOT_SPECIFIED",
+        "locations": Array [
+          Object {
+            "column": 9,
+            "line": 2,
+          },
+        ],
         "message": "[serviceB] Product -> extends from serviceA but specifies an invalid @key directive. Valid @key directives are specified by the originating type. Available @key directives for this type are:
       	@key(fields: \\"sku upc\\")",
       }

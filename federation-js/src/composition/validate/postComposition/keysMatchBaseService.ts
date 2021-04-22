@@ -71,6 +71,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
                     `\t${availableKeys
                       .map((fieldSet) => `@key(fields: "${fieldSet}")`)
                       .join('\n\t')}`,
+                  parentType.astNode || undefined
                 ),
               );
               return;
