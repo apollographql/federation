@@ -1492,7 +1492,169 @@ it('when including multiple nested fields to the same service under different ty
         },
       }
     `);
-  });
+});
+
+it('when exploding types through multiple levels', async () => {
+  const query = `#graphql
+    query {
+      productsByCategory {
+        name
+        ... on BookCategory {
+          items {
+            ...ProductReviews
+          }
+        }
+        ... on FurnitureCategory {
+          items {
+            ...ProductReviews
+          }
+        }
+      }
+    }
+
+    fragment ProductReviews on Product {
+      reviews {
+        body
+      }
+    }
+  `;
+
+  const { queryPlan, errors } = await execute({ query }, [
+    {
+      name: 'accounts',
+      typeDefs: gql`
+        type User @key(fields: "id") {
+          id: ID!
+          name: String
+          username: String
+        }
+      `,
+    },
+    {
+      name: 'products',
+      typeDefs: gql`
+        type Book implements Product @key(fields: "isbn") {
+          isbn: String!
+          title: String
+          year: Int
+          name: String
+          price: Int
+        }
+
+        type Furniture implements Product @key(fields: "sku") {
+          sku: String!
+          name: String
+          price: Int
+          weight: Int
+        }
+
+        interface Product {
+          name: String
+          price: Int
+        }
+
+        extend type Query {
+          productsByCategory: [ProductCategory]
+        }
+
+        interface ProductCategory {
+          name: String!
+        }
+
+        type BookCategory implements ProductCategory {
+          name: String!
+          items: [Book]
+        }
+
+        type FurnitureCategory implements ProductCategory {
+          name: String!
+          items: [Furniture]
+        }
+      `,
+    },
+    {
+      name: 'reviews',
+      typeDefs: gql`
+        extend type Book implements Product @key(fields: "isbn") {
+          isbn: String! @external
+          reviews: [Review]
+        }
+        extend type Furniture implements Product @key(fields: "sku") {
+          sku: String! @external
+          reviews: [Review]
+        }
+        extend interface Product {
+          reviews: [Review]
+        }
+        type Review @key(fields: "id") {
+          id: ID!
+          body: String
+          author: User @provides(fields: "username")
+          product: Product
+        }
+        extend type User @key(fields: "id") {
+          id: ID! @external
+          username: String @external
+          reviews: [Review]
+        }
+      `,
+    },
+  ]);
+
+  expect(errors).toBeUndefined();
+  expect(queryPlan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "products") {
+          {
+            productsByCategory {
+              __typename
+              name
+              ... on BookCategory {
+                items {
+                  __typename
+                  isbn
+                }
+              }
+              ... on FurnitureCategory {
+                items {
+                  __typename
+                  sku
+                }
+              }
+            }
+          }
+        },
+        Flatten(path: "productsByCategory.@.items.@") {
+          Fetch(service: "reviews") {
+            {
+              ... on Book {
+                __typename
+                isbn
+              }
+              ... on Furniture {
+                __typename
+                sku
+              }
+            } =>
+            {
+              ... on Book {
+                reviews {
+                  body
+                }
+              }
+              ... on Furniture {
+                reviews {
+                  body
+                }
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
+});
 
   // This test case describes a situation that isn't fixed by the deduplication
   // workaround. It is here to remind us to look into this, but it doesn't

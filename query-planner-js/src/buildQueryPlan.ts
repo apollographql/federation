@@ -729,21 +729,8 @@ function completeField(
     splitSubfields(context, fieldPath, subfields, subGroup);
     debug.groupEnd();
 
-    // We need to hoist dependent groups of the subgroup to the parent group.
-    // In order to avoid duplicate fetches, we try to find existing dependent
-    // groups with the same service and merge path first.
-    for (const dependentGroup of subGroup.dependentGroups) {
-      const existingDependentGroup = parentGroup.otherDependentGroups.find(
-        (group) =>
-          group.serviceName === dependentGroup.serviceName &&
-          deepEqual(group.mergeAt, dependentGroup.mergeAt),
-      );
-      if (existingDependentGroup) {
-        existingDependentGroup.fields.push(...dependentGroup.fields);
-      } else {
-        parentGroup.otherDependentGroups.push(dependentGroup);
-      }
-    }
+    // We need to merge in dependent groups of the subgroup to the parent group.
+    parentGroup.mergeDependentGroups(subGroup.dependentGroups);
 
     let definition: FragmentDefinitionNode;
     let selectionSet = selectionSetFromFieldSet(subGroup.fields, returnType);
@@ -891,6 +878,30 @@ class FetchGroup {
       ...Object.values(this.dependentGroupsByService),
       ...this.otherDependentGroups,
     ];
+  }
+
+  mergeDependentGroups(otherDependentGroups: FetchGroup[]) {
+    for (const dependentGroup of otherDependentGroups) {
+      // In order to avoid duplicate fetches, we try to find existing dependent
+      // groups with the same service and merge path first.
+      const existingDependentGroup = this.dependentGroups.find(
+        (group) =>
+          group.serviceName === dependentGroup.serviceName &&
+          deepEqual(group.mergeAt, dependentGroup.mergeAt),
+      );
+      if (existingDependentGroup) {
+        existingDependentGroup.merge(dependentGroup);
+      } else {
+        this.otherDependentGroups.push(dependentGroup);
+      }
+    }
+  }
+
+  merge(otherGroup: FetchGroup) {
+    this.fields.push(...otherGroup.fields);
+    this.requiredFields.push(...otherGroup.requiredFields);
+    this.providedFields.push(...otherGroup.providedFields);
+    this.mergeDependentGroups(otherGroup.dependentGroups);
   }
 }
 
