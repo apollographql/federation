@@ -29,10 +29,13 @@ Depending on the size of the release, it may be ideal to have a staging PR which
 
 ### Step 1: Update the appropriate CHANGELOG.md files
 
-There is not a root `CHANGELOG.md` on this monorepo.  Instead, there are two main `CHANGELOG.md` files:
-
+There is not a root `CHANGELOG.md` on this monorepo.  Instead, there are `CHANGELOG.md` files for specific packages:
+ 
 - `./federation-js/CHANGELOG.md` for `@apollo/federation`
-- `./gateway-js/CHANGELOG.md` for `@apollo/gateway`.  __This is also the target CHANGELOG for changes to the `@apollo/query-planner` since that package is nottypically consumed/upgraded directly by our typical user.__
+- `./query-planner-js/CHANGELOG.md` for `@apollo/query-planner`
+
+  > Since this is not a direct dependency of our _primary_ consumers, it is best to *also* surface important changes in `@apollo/gateway`'s `CHANGELOG.md`.
+- `./gateway-js/CHANGELOG.md` for `@apollo/gateway`.
 
 Ensure that the appropriate CHANGELOG.md (using the guide above) within affected packages are up to date prior to bumping the version.  Additionally, it's best to go ahead and predict what the version is going to be published as in the next step and commit that in the CHANGELOG.  This allows the Git tags that will be created in Step 2 to include the changes.
 
