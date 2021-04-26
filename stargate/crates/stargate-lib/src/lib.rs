@@ -1,11 +1,11 @@
 use crate::request_pipeline::executor::execute_query_plan;
 use crate::request_pipeline::service_definition::ServiceDefinition;
 use crate::transports::http::{GraphQLResponse, RequestContext};
-use apollo_query_planner::helpers::directive_args_as_map;
+use apollo_query_planner::{helpers::directive_args_as_map, model::QueryPlan};
 use apollo_query_planner::{QueryPlanner, QueryPlanningOptionsBuilder};
 use graphql_parser::schema;
 use reqwest::Client;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Mutex};
 use tracing::instrument;
 
 pub mod common;
@@ -16,6 +16,7 @@ mod utilities;
 #[derive(Debug)]
 pub struct Stargate<'app> {
     service_list: HashMap<String, ServiceDefinition>,
+    pub plan_cache: Mutex<HashMap<String, QueryPlan>>,
     pub planner: QueryPlanner<'app>,
     pub options: StargateOptions,
 }
@@ -32,13 +33,14 @@ impl Default for StargateOptions {
         }
     }
 }
-
 impl<'app> Stargate<'app> {
     pub fn new(schema: &'app str, options: StargateOptions) -> Stargate<'app> {
         // TODO(ran) FIXME: gql validation on schema
         let planner = QueryPlanner::new(schema);
+        let plan_cache = Mutex::new(HashMap::new());
         let service_list = get_service_list(&planner.schema);
         Stargate {
+            plan_cache,
             planner,
             service_list,
             options,
@@ -53,10 +55,30 @@ impl<'app> Stargate<'app> {
         // TODO(ran) FIXME: gql validation on query
         // TODO(james) actual request pipeline here
         let options = QueryPlanningOptionsBuilder::default().build().unwrap();
-        let plan = self
-            .planner
-            .plan(&request_context.graphql_request.query, options)
-            .unwrap_or_else(|_| todo!("convert QueryPlanError to generic error"));
+
+        let query = &request_context.graphql_request.query;
+
+        let (plan, was_cached): (QueryPlan, bool) =
+            match &self.plan_cache.lock().unwrap().get(&query.to_string()) {
+                Some(plan) => (plan.to_owned().to_owned(), true),
+                None => {
+                    let plan = self
+                        .planner
+                        .plan(&query, options)
+                        .unwrap_or_else(|_| todo!("convert QueryPlanError to generic error"));
+                    (plan, false)
+                }
+            };
+
+        if !was_cached {
+            println!("No cached query plan for this operation");
+            self.plan_cache
+                .lock()
+                .unwrap()
+                .insert(query.to_string(), plan.clone());
+        } else {
+            println!("Using a cached query plan for this operation");
+        }
 
         execute_query_plan(&plan, &self.service_list, &request_context).await
     }
