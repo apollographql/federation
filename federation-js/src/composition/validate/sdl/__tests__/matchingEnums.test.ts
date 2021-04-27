@@ -3,16 +3,15 @@ import {
   DocumentNode,
   GraphQLSchema,
   specifiedDirectives,
-  parse,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
-import gql from 'graphql-tag';
 import { buildMapsFromServiceList } from '../../../compose';
 import {
   astSerializer,
   typeSerializer,
   selectionSetSerializer,
   graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import federationDirectives from '../../../../directives';
 import { ServiceDefinition } from '../../../types';
@@ -78,20 +77,20 @@ describe('matchingEnums', () => {
   it('errors when enums in separate services dont match', () => {
     const serviceList = [
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           enum ProductCategory {
             BED
             BATH
           }
-        `),
+        `,
         name: 'serviceA',
       },
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           enum ProductCategory {
             BEYOND
           }
-        `),
+        `,
         name: 'serviceB',
       },
     ];
@@ -106,7 +105,11 @@ describe('matchingEnums', () => {
           "code": "ENUM_MISMATCH",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
               "line": 2,
             },
           ],
@@ -119,7 +122,7 @@ describe('matchingEnums', () => {
   it('errors when enums in separate services dont match', () => {
     const serviceList = [
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Query {
             products: [Product]!
           }
@@ -134,27 +137,27 @@ describe('matchingEnums', () => {
             BOOK
             FURNITURE
           }
-        `),
+        `,
         name: 'serviceA',
       },
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           enum ProductType {
             FURNITURE
             BOOK
             DIGITAL
           }
-        `),
+        `,
         name: 'serviceB',
       },
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           enum ProductType {
             FURNITURE
             BOOK
             DIGITAL
           }
-        `),
+        `,
         name: 'serviceC',
       },
     ];
@@ -169,44 +172,51 @@ describe('matchingEnums', () => {
           "code": "ENUM_MISMATCH",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 1,
               "line": 12,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
             },
           ],
           "message": "The \`ProductType\` enum does not have identical values in all services. Groups of services with identical values are: [serviceA], [serviceB, serviceC]",
         },
       ]
-    `,
-    );
+    `);
   });
 
   it('errors when an enum name is defined as another type in a service', () => {
     const serviceList = [
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           enum ProductType {
             BOOK
             FURNITURE
           }
-        `),
+        `,
         name: 'serviceA',
       },
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           type ProductType {
             id: String
           }
-        `),
+        `,
         name: 'serviceB',
       },
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           enum ProductType {
             FURNITURE
             BOOK
             DIGITAL
           }
-        `),
+        `,
         name: 'serviceC',
       },
     ];
@@ -221,7 +231,15 @@ describe('matchingEnums', () => {
           "code": "ENUM_MISMATCH_TYPE",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
               "line": 2,
             },
           ],
