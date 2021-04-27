@@ -1,7 +1,8 @@
-import gql from 'graphql-tag';
 import { rootFieldUsed as validateRootFieldUsed } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -68,7 +69,7 @@ describe('rootFieldUsed', () => {
 
   it('warns when a schema definition / extension is provided, as well as a default root type or extension', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         schema {
           query: RootQuery
         }
@@ -84,7 +85,7 @@ describe('rootFieldUsed', () => {
         type Query {
           invalidUseOfQuery: Boolean
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
@@ -98,7 +99,7 @@ describe('rootFieldUsed', () => {
           "code": "ROOT_QUERY_USED",
           "locations": Array [
             Object {
-              "column": 9,
+              "column": 1,
               "line": 14,
             },
           ],
@@ -110,7 +111,7 @@ describe('rootFieldUsed', () => {
 
   it('warns against using default operation type names (Query, Mutation, Subscription) when a non-default operation type name is provided in the schema definition', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         schema {
           mutation: RootMutation
         }
@@ -122,7 +123,7 @@ describe('rootFieldUsed', () => {
         type Mutation {
           invalidUseOfMutation: Boolean
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
@@ -135,7 +136,7 @@ describe('rootFieldUsed', () => {
           "code": "ROOT_MUTATION_USED",
           "locations": Array [
             Object {
-              "column": 9,
+              "column": 1,
               "line": 10,
             },
           ],
