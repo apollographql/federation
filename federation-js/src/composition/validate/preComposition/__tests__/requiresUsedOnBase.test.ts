@@ -1,7 +1,8 @@
-import gql from 'graphql-tag';
 import { requiresUsedOnBase as validateRequiresUsedOnBase } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -29,13 +30,13 @@ describe('requiresUsedOnBase', () => {
 
   it('warns when there is a @requires field on a base type', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String! @requires(fields: "sku")
           id: ID!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
@@ -46,7 +47,7 @@ describe('requiresUsedOnBase', () => {
           "code": "REQUIRES_USED_ON_BASE",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
