@@ -1,7 +1,8 @@
-import gql from 'graphql-tag';
 import { duplicateEnumOrScalar as validateDuplicateEnumOrScalar } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -35,7 +36,7 @@ describe('duplicateEnumOrScalar', () => {
   });
   it('errors when there are multiple definitions of the same enum', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "color { id value }") {
           sku: String!
           upc: String!
@@ -55,30 +56,30 @@ describe('duplicateEnumOrScalar', () => {
         enum ProductType {
           DIGITAL
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const warnings = validateDuplicateEnumOrScalar(serviceA);
     expect(warnings).toMatchInlineSnapshot(`
-            Array [
-              Object {
-                "code": "DUPLICATE_ENUM_DEFINITION",
-                "locations": Array [
-                  Object {
-                    "column": 9,
-                    "line": 18,
-                  },
-                ],
-                "message": "[serviceA] ProductType -> The enum, \`ProductType\` was defined multiple times in this service. Remove one of the definitions for \`ProductType\`",
-              },
-            ]
-        `);
+      Array [
+        Object {
+          "code": "DUPLICATE_ENUM_DEFINITION",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 18,
+            },
+          ],
+          "message": "[serviceA] ProductType -> The enum, \`ProductType\` was defined multiple times in this service. Remove one of the definitions for \`ProductType\`",
+        },
+      ]
+    `);
   });
 
   it('errors when there are multiple definitions of the same scalar', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         scalar Date
         type Product @key(fields: "color { id value }") {
           sku: String!
@@ -87,7 +88,7 @@ describe('duplicateEnumOrScalar', () => {
         }
 
         scalar Date
-      `),
+      `,
       name: 'serviceA',
     };
 
@@ -98,7 +99,7 @@ describe('duplicateEnumOrScalar', () => {
           "code": "DUPLICATE_SCALAR_DEFINITION",
           "locations": Array [
             Object {
-              "column": 9,
+              "column": 1,
               "line": 9,
             },
           ],
