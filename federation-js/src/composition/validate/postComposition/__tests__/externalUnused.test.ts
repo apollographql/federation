@@ -1,32 +1,33 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { externalUnused as validateExternalUnused } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
 describe('externalUnused', () => {
   it('warns when there is an unused @external field', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "id") {
           sku: String!
           upc: String!
           id: ID!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product {
           sku: String! @external
           id: ID! @external
           price: Int! @requires(fields: "id")
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -39,7 +40,7 @@ describe('externalUnused', () => {
           "code": "EXTERNAL_UNUSED",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 3,
             },
           ],
@@ -345,7 +346,7 @@ describe('externalUnused', () => {
 
   it('does error when @external is used on a field of a concrete type is not shared by its implemented interface', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Car implements Vehicle @key(fields: "id") {
           id: ID!
           speed: Int
@@ -355,11 +356,11 @@ describe('externalUnused', () => {
           id: ID!
           speed: Int
         }
-      `),
+      `,
       name: 'serviceA',
     };
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Car implements Vehicle @key(fields: "id") {
           id: ID! @external
           speed: Int @external
@@ -369,7 +370,7 @@ describe('externalUnused', () => {
           id: ID!
           speed: Int
         }
-      `),
+      `,
       name: 'serviceB',
     };
     const serviceList = [serviceA, serviceB];
@@ -381,7 +382,7 @@ describe('externalUnused', () => {
           "code": "EXTERNAL_UNUSED",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 5,
             },
           ],
