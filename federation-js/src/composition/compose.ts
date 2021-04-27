@@ -17,6 +17,7 @@ import {
   TypeExtensionNode,
   ObjectTypeDefinitionNode,
   NamedTypeNode,
+  InterfaceTypeDefinitionNode,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
 import federationDirectives from '../directives';
@@ -350,16 +351,9 @@ export function buildSchemaFromDefinitionsAndExtensions({
     directives: [...specifiedDirectives, ...federationDirectives],
   });
 
-  // This interface and predicate is a TS / graphql-js workaround for now while
-  // we're using a local graphql version < v15. This predicate _could_ be:
-  // `node is ObjectTypeDefinitionNode | InterfaceTypeDefinitionNode` in the
-  // future to be more semantic. However this gives us type safety and flexibility
-  // for now.
-  interface HasInterfaces {
-    interfaces?: ObjectTypeDefinitionNode['interfaces'];
-  }
-
-  function nodeHasInterfaces(node: any): node is HasInterfaces {
+  function nodeHasInterfaces(
+    node: any,
+  ): node is ObjectTypeDefinitionNode | InterfaceTypeDefinitionNode {
     return 'interfaces' in node;
   }
 
@@ -375,15 +369,15 @@ export function buildSchemaFromDefinitionsAndExtensions({
         const uniqueInterfaces: Map<
           string,
           NamedTypeNode
-        > = (typeDefinitions as HasInterfaces[]).reduce(
-          (map, objectTypeDef) => {
-            objectTypeDef.interfaces?.forEach((iface) =>
-              map.set(iface.name.value, iface),
-            );
-            return map;
-          },
-          new Map(),
-        );
+        > = (typeDefinitions as (
+          | ObjectTypeDefinitionNode
+          | InterfaceTypeDefinitionNode
+        )[]).reduce((map, objectTypeDef) => {
+          objectTypeDef.interfaces?.forEach((iface) =>
+            map.set(iface.name.value, iface),
+          );
+          return map;
+        }, new Map());
 
         // No interfaces, no aggregation - just return what we got.
         if (uniqueInterfaces.size === 0) return typeDefinitions;
