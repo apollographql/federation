@@ -1,9 +1,10 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { providesFieldsSelectInvalidType as validateprovidesFieldsSelectInvalidType } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
-import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -49,7 +50,7 @@ describe('providesFieldsSelectInvalidType', () => {
 
   it('warns if @provides references fields of a list type', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Review @key(fields: "id") {
           id: ID!
           author: User @provides(fields: "wishLists")
@@ -63,12 +64,12 @@ describe('providesFieldsSelectInvalidType', () => {
         extend type WishList @key(fields: "id") {
           id: ID! @external
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type User @key(fields: "id") {
           id: ID!
           wishLists: [WishList]
@@ -77,7 +78,7 @@ describe('providesFieldsSelectInvalidType', () => {
         type WishList @key(fields: "id") {
           id: ID!
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -96,7 +97,7 @@ describe('providesFieldsSelectInvalidType', () => {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
@@ -108,7 +109,7 @@ describe('providesFieldsSelectInvalidType', () => {
 
   it('warns if @provides references fields of an interface type', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Review @key(fields: "id") {
           id: ID!
           author: User @provides(fields: "account")
@@ -122,12 +123,12 @@ describe('providesFieldsSelectInvalidType', () => {
         extend interface Account {
           username: String @external
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type User @key(fields: "id") {
           id: ID!
           account: Account
@@ -136,7 +137,7 @@ describe('providesFieldsSelectInvalidType', () => {
         interface Account {
           username: String
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -155,7 +156,7 @@ describe('providesFieldsSelectInvalidType', () => {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
@@ -167,7 +168,7 @@ describe('providesFieldsSelectInvalidType', () => {
 
   it('warns if @provides references fields of a union type', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Review @key(fields: "id") {
           id: ID!
           author: User @provides(fields: "account")
@@ -187,12 +188,12 @@ describe('providesFieldsSelectInvalidType', () => {
         extend type SMSAccount @key(fields: "phone") {
           phone: String! @external
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type User @key(fields: "id") {
           id: ID!
           account: Account
@@ -207,7 +208,7 @@ describe('providesFieldsSelectInvalidType', () => {
         type SMSAccount @key(fields: "phone") {
           phone: String!
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -226,7 +227,7 @@ describe('providesFieldsSelectInvalidType', () => {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
