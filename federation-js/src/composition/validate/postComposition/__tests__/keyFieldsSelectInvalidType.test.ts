@@ -1,9 +1,7 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { keyFieldsSelectInvalidType as validateKeyFieldsSelectInvalidType } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { gql, graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
-import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -65,12 +63,12 @@ describe('keyFieldsSelectInvalidType', () => {
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product {
           sku: String! @external
           price: Int! @requires(fields: "sku")
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -113,12 +111,12 @@ describe('keyFieldsSelectInvalidType', () => {
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product {
           sku: String! @external
           name: String!
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
