@@ -3,13 +3,12 @@ import {
   specifiedDirectives,
   Kind,
   DocumentNode,
-  parse,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
-import gql from 'graphql-tag';
 import {
   typeSerializer,
   graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import federationDirectives from '../../../../directives';
 import { UniqueTypeNamesWithFields } from '..';
@@ -81,23 +80,23 @@ describe('UniqueTypeNamesWithFields', () => {
     it('object type definitions (non-identical, value types with type mismatch)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Product {
               sku: ID!
               color: String
               quantity: Int
             }
-          `),
+          `,
           name: 'serviceA',
         },
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Product {
               sku: String!
               color: String
               quantity: Int!
             }
-          `),
+          `,
           name: 'serviceB',
         },
       ]);
@@ -112,11 +111,11 @@ describe('UniqueTypeNamesWithFields', () => {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
             "locations": Array [
               Object {
-                "column": 13,
+                "column": 1,
                 "line": 2,
               },
               Object {
-                "column": 13,
+                "column": 1,
                 "line": 2,
               },
             ],
@@ -126,11 +125,11 @@ describe('UniqueTypeNamesWithFields', () => {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
             "locations": Array [
               Object {
-                "column": 13,
+                "column": 1,
                 "line": 2,
               },
               Object {
-                "column": 13,
+                "column": 1,
                 "line": 2,
               },
             ],
@@ -143,19 +142,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('object type definitions (non-identical, field input value types with type mismatch)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Person {
               age(relative: Boolean!): Int
             }
-          `),
+          `,
           name: 'serviceA',
         },
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Person {
               age(relative: Boolean): Int
             }
-          `),
+          `,
           name: 'serviceB',
         },
       ]);
@@ -170,11 +169,11 @@ describe('UniqueTypeNamesWithFields', () => {
             "code": "VALUE_TYPE_INPUT_VALUE_MISMATCH",
             "locations": Array [
               Object {
-                "column": 13,
+                "column": 1,
                 "line": 2,
               },
               Object {
-                "column": 13,
+                "column": 1,
                 "line": 2,
               },
             ],
@@ -381,19 +380,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types must be of the same kind', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             input Product {
               sku: ID
             }
-          `),
+          `,
           name: 'serviceA',
         },
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Product {
               sku: ID
             }
-          `),
+          `,
           name: 'serviceB',
         },
       ]);
@@ -408,11 +407,11 @@ describe('UniqueTypeNamesWithFields', () => {
           "code": "VALUE_TYPE_KIND_MISMATCH",
           "locations": Array [
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
           ],
@@ -424,19 +423,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types must be of the same kind (scalar)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             scalar DateTime
-          `),
+          `,
           name: 'serviceA',
         },
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type DateTime {
               day: Int
               formatted: String
               # ...
             }
-          `),
+          `,
           name: 'serviceB',
         },
       ]);
@@ -451,11 +450,11 @@ describe('UniqueTypeNamesWithFields', () => {
           "code": "VALUE_TYPE_KIND_MISMATCH",
           "locations": Array [
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
           ],
@@ -467,19 +466,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types must be of the same kind (union)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             union DateTime = Date | Time
-          `),
+          `,
           name: 'serviceA',
         },
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type DateTime {
               day: Int
               formatted: String
               # ...
             }
-          `),
+          `,
           name: 'serviceB',
         },
       ]);
@@ -494,11 +493,11 @@ describe('UniqueTypeNamesWithFields', () => {
           "code": "VALUE_TYPE_KIND_MISMATCH",
           "locations": Array [
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
           ],
@@ -510,22 +509,22 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types must be of the same kind (enum)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             enum DateTime {
               DATE
               TIME
             }
-          `),
+          `,
           name: 'serviceA',
         },
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type DateTime {
               day: Int
               formatted: String
               # ...
             }
-          `),
+          `,
           name: 'serviceB',
         },
       ]);
@@ -540,11 +539,11 @@ describe('UniqueTypeNamesWithFields', () => {
           "code": "VALUE_TYPE_KIND_MISMATCH",
           "locations": Array [
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
           ],
@@ -556,19 +555,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types cannot be entities (part 1)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Product @key(fields: "sku") {
               sku: ID
             }
-          `),
+          `,
           name: 'serviceA',
         },
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Product {
               sku: ID
             }
-          `),
+          `,
           name: 'serviceB',
         },
       ]);
@@ -582,11 +581,11 @@ describe('UniqueTypeNamesWithFields', () => {
           "code": "VALUE_TYPE_NO_ENTITY",
           "locations": Array [
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
           ],
@@ -598,19 +597,19 @@ describe('UniqueTypeNamesWithFields', () => {
     it('value types cannot be entities (part 2)', () => {
       const [definitions] = createDocumentsForServices([
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Product {
               sku: ID
             }
-          `),
+          `,
           name: 'serviceA',
         },
         {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Product @key(fields: "sku") {
               sku: ID
             }
-          `),
+          `,
           name: 'serviceB',
         },
       ]);
@@ -624,11 +623,11 @@ describe('UniqueTypeNamesWithFields', () => {
           "code": "VALUE_TYPE_NO_ENTITY",
           "locations": Array [
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
             Object {
-              "column": 13,
+              "column": 1,
               "line": 2,
             },
           ],
