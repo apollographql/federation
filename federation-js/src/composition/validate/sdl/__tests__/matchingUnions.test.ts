@@ -3,13 +3,12 @@ import {
   specifiedDirectives,
   Kind,
   DocumentNode,
-  parse,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
-import gql from 'graphql-tag';
 import {
   typeSerializer,
   graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import { UniqueUnionTypes } from '..';
 import { ServiceDefinition } from '../../../types';
@@ -51,7 +50,7 @@ describe('MatchingUnions', () => {
   it('enforces unique union names on non-identical union types', () => {
     const [definitions] = createDocumentsForServices([
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           union ProductOrError = Product | Error
 
           type Error {
@@ -62,11 +61,11 @@ describe('MatchingUnions', () => {
           type Product @key(fields: "sku") {
             sku: ID!
           }
-        `),
+        `,
         name: 'serviceA',
       },
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           union ProductOrError = Product
 
           type Error {
@@ -78,7 +77,7 @@ describe('MatchingUnions', () => {
             sku: ID! @external
             colors: [String]
           }
-        `),
+        `,
         name: 'serviceB',
       },
     ]);
@@ -90,11 +89,11 @@ describe('MatchingUnions', () => {
         "code": "VALUE_TYPE_UNION_TYPES_MISMATCH",
         "locations": Array [
           Object {
-            "column": 11,
+            "column": 1,
             "line": 2,
           },
           Object {
-            "column": 11,
+            "column": 1,
             "line": 2,
           },
         ],
