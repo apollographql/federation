@@ -1,9 +1,10 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { keysMatchBaseService as validateKeysMatchBaseService } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
-import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -43,22 +44,22 @@ describe('keysMatchBaseService', () => {
 
   it('requires a @key to be specified on the originating type', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product {
           sku: String!
           upc: String!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           price: Int!
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -77,7 +78,7 @@ describe('keysMatchBaseService', () => {
         "code": "KEY_MISSING_ON_BASE",
         "locations": Array [
           Object {
-            "column": 9,
+            "column": 1,
             "line": 2,
           },
         ],
@@ -88,23 +89,23 @@ describe('keysMatchBaseService', () => {
 
   it('requires an extending service use only one @key specified on the originating type', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "sku") @key(fields: "upc") {
           sku: String!
           upc: String!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") @key(fields: "upc") {
           sku: String! @external
           upc: String! @external
           price: Int!
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -123,7 +124,7 @@ describe('keysMatchBaseService', () => {
         "code": "MULTIPLE_KEYS_ON_EXTENSION",
         "locations": Array [
           Object {
-            "column": 9,
+            "column": 1,
             "line": 2,
           },
         ],
@@ -134,22 +135,22 @@ describe('keysMatchBaseService', () => {
 
   it('requires extending services to use a @key specified by the originating type', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "sku upc") {
           sku: String!
           upc: String!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           price: Int!
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -168,7 +169,7 @@ describe('keysMatchBaseService', () => {
         "code": "KEY_NOT_SPECIFIED",
         "locations": Array [
           Object {
-            "column": 9,
+            "column": 1,
             "line": 2,
           },
         ],
