@@ -6,6 +6,10 @@
 
 -  _Nothing yet! Stay tuned!_
 
+## v0.24.0
+
+- Composition errors now include `location` corresponding to the line number & column in the subgraph sdl. [PR #686](https://github.com/apollographql/federation/pull/686/files)
+
 ## v0.23.0
 
 - __BREAKING__ - Update CSDL to the new core schema format, implementing the currently-being-introduced core and join specs. `composeAndValidate` now returns `supergraphSdl` in the new format instead of `composedSdl` in the previous CSDL format. [PR #622](https://github.com/apollographql/federation/pull/622)
