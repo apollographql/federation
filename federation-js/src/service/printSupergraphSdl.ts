@@ -28,7 +28,13 @@ import {
   SelectionNode,
   stripIgnoredCharacters,
 } from 'graphql';
-import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
+import {
+  Maybe,
+  FederationType,
+  FederationInterface,
+  FederationField,
+  ServiceDefinition,
+} from '../composition';
 import { assert } from '../utilities';
 import { CoreDirective } from '../coreSpec';
 import { getJoinDefinitions } from '../joinSpec';
@@ -219,15 +225,14 @@ function printObject(
     `type ${type.name}` +
     implementedInterfaces +
     // Core addition for printing @join__owner and @join__type usages
-    printTypeJoinDirectives(type, context) +
+    printObjectTypeJoinDirectives(type, context) +
     printFields(options, type, context)
   );
 }
 
 // Core change: print @join__owner and @join__type usages
-function printTypeJoinDirectives(
-  type: GraphQLObjectType | GraphQLInterfaceType,
-  // Core addition - see `PrintingContext` type for details
+function printObjectTypeJoinDirectives(
+  type: GraphQLObjectType,
   context: PrintingContext,
 ): string {
   const metadata: FederationType = type.extensions?.federation;
@@ -288,10 +293,30 @@ function printInterface(
   return (
     printDescription(options, type) +
     `interface ${type.name}` +
-    // Core addition for printing @join__owner and @join__type usages
-    printTypeJoinDirectives(type, context) +
+    // Core addition for printing @join__type usages
+    printInterfaceTypeJoinDirectives(type, context) +
     printFields(options, type, context)
   );
+}
+
+// Core change: print @join__type usages on interface types
+function printInterfaceTypeJoinDirectives(
+  type: GraphQLInterfaceType,
+  context: PrintingContext,
+): string {
+  const metadata: FederationInterface = type.extensions?.federation;
+  if (!metadata) return '';
+  return metadata.graphNames
+    .map((graphName) => {
+      // Not actually sure the ServiceName type is appropriate here (it's just string | null)
+      const typeGraphEnumValue = context.graphNameToEnumValueName?.[graphName!];
+      assert(
+        typeGraphEnumValue,
+        `Unexpected enum value missing for subgraph ${graphName}`,
+      );
+      return `\n  @join__type(graph: ${typeGraphEnumValue}, key: "")`;
+    })
+    .join('');
 }
 
 function printUnion(type: GraphQLUnionType, options?: Options): string {
@@ -382,7 +407,7 @@ function printFieldSet(selections: readonly SelectionNode[]): string {
  */
 function printJoinFieldDirectives(
   field: GraphQLField<any, any>,
-  parentType: GraphQLObjectType | GraphQLInterfaceType,
+  parentType: GraphQLObjectType,
   // Core addition - see `PrintingContext` type for details
   context: PrintingContext,
 ): string {

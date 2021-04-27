@@ -174,7 +174,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         email: String! @join__field(graph: ACCOUNTS)
       }
 
-      interface Product {
+      interface Product
+        @join__type(graph: PRODUCT, key: \\"\\")
+        @join__type(graph: INVENTORY, key: \\"\\")
+        @join__type(graph: REVIEWS, key: \\"\\") {
         upc: String!
         sku: String!
         name: String
@@ -184,7 +187,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         reviews: [Review]
       }
 
-      interface ProductDetails {
+      interface ProductDetails
+        @join__type(graph: PRODUCT, key: \\"\\") {
         country: String
       }
 
@@ -286,7 +290,9 @@ describe('loadSupergraphSdlFromStorage', () => {
         retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
       }
 
-      interface Vehicle {
+      interface Vehicle
+        @join__type(graph: PRODUCT, key: \\"\\")
+        @join__type(graph: REVIEWS, key: \\"\\") {
         id: String!
         description: String
         price: String
