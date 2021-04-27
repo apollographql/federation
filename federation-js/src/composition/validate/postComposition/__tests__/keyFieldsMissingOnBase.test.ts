@@ -1,9 +1,7 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { keyFieldsMissingOnBase as validateKeyFieldsMissingOnBase } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { gql, graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
-import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -47,23 +45,23 @@ describe('keyFieldsMissingOnBase', () => {
 
   it('warns if @key references a field added by another service', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "sku uid") {
           sku: String!
           upc: String!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product {
           uid: String!
           sku: String! @external
           price: Int! @requires(fields: "sku")
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
