@@ -1,8 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { providesNotOnEntity as validateProvidesNotOnEntity } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -96,7 +97,7 @@ describe('providesNotOnEntity', () => {
 
   it('warns when there is a @provides on a type that is not an entity', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
@@ -107,17 +108,17 @@ describe('providesNotOnEntity', () => {
           sku: String!
           quantity: Int!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           lineItem: LineItem @provides(fields: "quantity")
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -130,7 +131,7 @@ describe('providesNotOnEntity', () => {
           "code": "PROVIDES_NOT_ON_ENTITY",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
@@ -142,7 +143,7 @@ describe('providesNotOnEntity', () => {
 
   it('warns when there is a @provides on a type that is not a list of entity', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
@@ -153,17 +154,17 @@ describe('providesNotOnEntity', () => {
           sku: String!
           quantity: Int!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           lineItems: [LineItem] @provides(fields: "quantity")
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -176,7 +177,7 @@ describe('providesNotOnEntity', () => {
           "code": "PROVIDES_NOT_ON_ENTITY",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
@@ -188,7 +189,7 @@ describe('providesNotOnEntity', () => {
 
   it('warns when there is a @provides on a non-object type', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
@@ -201,17 +202,17 @@ describe('providesNotOnEntity', () => {
           SONG
           ALBUM
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           category: Category @provides(fields: "id")
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -224,7 +225,7 @@ describe('providesNotOnEntity', () => {
           "code": "PROVIDES_NOT_ON_ENTITY",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
@@ -236,7 +237,7 @@ describe('providesNotOnEntity', () => {
 
   it('warns when there is a @provides on a list of non-object type', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
@@ -249,17 +250,17 @@ describe('providesNotOnEntity', () => {
           SONG
           ALBUM
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") {
           sku: String! @external
           categories: [Category] @provides(fields: "id")
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -272,7 +273,7 @@ describe('providesNotOnEntity', () => {
           "code": "PROVIDES_NOT_ON_ENTITY",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
