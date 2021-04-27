@@ -1,7 +1,8 @@
-import gql from 'graphql-tag';
 import { keyFieldsMissingExternal as validateKeyFieldsMissingExternal } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -85,7 +86,7 @@ describe('keyFieldsMissingExternal', () => {
 
   it("warns when a @key argument doesn't reference an @external field", () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") {
           sku: String!
           upc: String!
@@ -96,7 +97,7 @@ describe('keyFieldsMissingExternal', () => {
           id: ID!
           value: String!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
@@ -108,7 +109,7 @@ describe('keyFieldsMissingExternal', () => {
           "code": "KEY_FIELDS_MISSING_EXTERNAL",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 3,
             },
           ],
@@ -120,7 +121,7 @@ describe('keyFieldsMissingExternal', () => {
 
   it("warns when a @key argument references a field that isn't known", () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") {
           upc: String! @external
           color: Color!
@@ -130,7 +131,7 @@ describe('keyFieldsMissingExternal', () => {
           id: ID!
           value: String!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
@@ -154,7 +155,7 @@ describe('keyFieldsMissingExternal', () => {
 
   it("warns when a @key argument doesn't reference an @external field", () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Car @key(fields: "model { name kit { upc } } year") {
           model: Model! @external
           year: String! @external
@@ -168,7 +169,7 @@ describe('keyFieldsMissingExternal', () => {
         type Kit {
           upc: String!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
@@ -180,7 +181,7 @@ describe('keyFieldsMissingExternal', () => {
           "code": "KEY_FIELDS_MISSING_EXTERNAL",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 8,
             },
           ],
@@ -190,7 +191,7 @@ describe('keyFieldsMissingExternal', () => {
           "code": "KEY_FIELDS_MISSING_EXTERNAL",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 9,
             },
           ],
@@ -200,7 +201,7 @@ describe('keyFieldsMissingExternal', () => {
           "code": "KEY_FIELDS_MISSING_EXTERNAL",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 13,
             },
           ],
