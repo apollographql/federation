@@ -88,8 +88,8 @@ export function MatchingEnums(context: SDLValidationContext): ASTVisitor {
             )
               .map(serviceNames => `[${serviceNames.join(', ')}]`)
               .join(', ')}`,
-            // the location on this error will be the first definition of this enum
-            definitions[0],
+            // the locations on this error will correspond to the index in the service list
+            definitions,
           ),
         );
       }
@@ -115,8 +115,8 @@ export function MatchingEnums(context: SDLValidationContext): ASTVisitor {
             `${name} is an enum in [${servicesWithEnum.join(
               ', ',
             )}], but not in [${servicesWithoutEnum.join(', ')}]`,
-            // the location on this error will be the first definition of this enum
-            definitions[0],
+            // the locations on this error will correspond to the index of the service list
+            definitions,
         ),
       );
     }
