@@ -114,19 +114,19 @@ describe('composeServices', () => {
       expect(schema).toBeDefined();
 
       expect(schema.getType('Product')).toMatchInlineSnapshot(`
-                        type Product {
-                          sku: String!
-                          name: String!
-                          price: Int!
-                        }
-                  `);
+        type Product {
+          sku: String!
+          name: String!
+          price: Int!
+        }
+      `);
 
       const product = schema.getType('Product') as GraphQLObjectType;
 
       expect(getFederationMetadata(product)?.serviceName).toEqual('serviceA');
-      expect(getFederationMetadata(product.getFields()['price'])?.serviceName).toEqual(
-        'serviceB',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['price'])?.serviceName,
+      ).toEqual('serviceB');
     });
 
     it('works when extension service is first', () => {
@@ -154,19 +154,19 @@ describe('composeServices', () => {
       expect(schema).toBeDefined();
 
       expect(schema.getType('Product')).toMatchInlineSnapshot(`
-                        type Product {
-                          sku: String!
-                          name: String!
-                          price: Int!
-                        }
-                  `);
+        type Product {
+          sku: String!
+          name: String!
+          price: Int!
+        }
+      `);
 
       const product = schema.getType('Product') as GraphQLObjectType;
 
       expect(getFederationMetadata(product)?.serviceName).toEqual('serviceB');
-      expect(getFederationMetadata(product.getFields()['price'])?.serviceName).toEqual(
-        'serviceA',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['price'])?.serviceName,
+      ).toEqual('serviceA');
     });
 
     it('works with multiple extensions on the same type', () => {
@@ -204,23 +204,23 @@ describe('composeServices', () => {
       expect(schema).toBeDefined();
 
       expect(schema.getType('Product')).toMatchInlineSnapshot(`
-                        type Product {
-                          sku: String!
-                          name: String!
-                          price: Int!
-                          color: String!
-                        }
-                  `);
+        type Product {
+          sku: String!
+          name: String!
+          price: Int!
+          color: String!
+        }
+      `);
 
       const product = schema.getType('Product') as GraphQLObjectType;
 
       expect(getFederationMetadata(product)?.serviceName).toEqual('serviceB');
-      expect(getFederationMetadata(product.getFields()['price'])?.serviceName).toEqual(
-        'serviceA',
-      );
-      expect(getFederationMetadata(product.getFields()['color'])?.serviceName).toEqual(
-        'serviceC',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['price'])?.serviceName,
+      ).toEqual('serviceA');
+      expect(
+        getFederationMetadata(product.getFields()['color'])?.serviceName,
+      ).toEqual('serviceC');
     });
 
     it('allows extensions to overwrite other extension fields', () => {
@@ -257,26 +257,26 @@ describe('composeServices', () => {
       assertCompositionFailure(compositionResult);
       const { errors, schema } = compositionResult;
       expect(errors).toMatchInlineSnapshot(`
-                        Array [
-                          [GraphQLError: Field "Product.price" can only be defined once.],
-                        ]
-                  `);
+        Array [
+          [GraphQLError: Field "Product.price" can only be defined once.],
+        ]
+      `);
       expect(schema).toBeDefined();
 
       const product = schema.getType('Product') as GraphQLObjectType;
       expect(product).toMatchInlineSnapshot(`
-                        type Product {
-                          sku: String!
-                          name: String!
-                          price: Float!
-                          color: String!
-                        }
-                  `);
+        type Product {
+          sku: String!
+          name: String!
+          price: Float!
+          color: String!
+        }
+      `);
 
       expect(getFederationMetadata(product)?.serviceName).toEqual('serviceB');
-      expect(getFederationMetadata(product.getFields()['price'])?.serviceName).toEqual(
-        'serviceC',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['price'])?.serviceName,
+      ).toEqual('serviceC');
     });
 
     it('preserves arguments for fields', () => {
@@ -309,12 +309,12 @@ describe('composeServices', () => {
       expect(schema).toBeDefined();
 
       expect(schema.getType('Product')).toMatchInlineSnapshot(`
-                        type Product {
-                          sku: String!
-                          name(type: String): String!
-                          price(currency: Curr!): Int!
-                        }
-                  `);
+        type Product {
+          sku: String!
+          name(type: String): String!
+          price(currency: Curr!): Int!
+        }
+      `);
 
       const product = schema.getType('Product') as GraphQLObjectType;
       expect(product.getFields()['price'].args[0].name).toEqual('currency');
@@ -346,26 +346,26 @@ describe('composeServices', () => {
       const { errors, schema } = compositionResult;
       expect(schema).toBeDefined();
       expect(errors).toMatchInlineSnapshot(`
-                        Array [
-                          [GraphQLError: Field "Product.sku" already exists in the schema. It cannot also be defined in this type extension.],
-                          [GraphQLError: Field "Product.name" already exists in the schema. It cannot also be defined in this type extension.],
-                        ]
-                  `);
+        Array [
+          [GraphQLError: Field "Product.sku" already exists in the schema. It cannot also be defined in this type extension.],
+          [GraphQLError: Field "Product.name" already exists in the schema. It cannot also be defined in this type extension.],
+        ]
+      `);
 
       const product = schema.getType('Product') as GraphQLObjectType;
 
       expect(product).toMatchInlineSnapshot(`
-                        type Product {
-                          sku: String!
-                          name: String!
-                        }
-                  `);
-      expect(getFederationMetadata(product.getFields()['sku'])?.serviceName).toEqual(
-        'serviceB',
-      );
-      expect(getFederationMetadata(product.getFields()['name'])?.serviceName).toEqual(
-        'serviceB',
-      );
+        type Product {
+          sku: String!
+          name: String!
+        }
+      `);
+      expect(
+        getFederationMetadata(product.getFields()['sku'])?.serviceName,
+      ).toEqual('serviceB');
+      expect(
+        getFederationMetadata(product.getFields()['name'])?.serviceName,
+      ).toEqual('serviceB');
     });
 
     describe('collisions & error handling', () => {
@@ -402,14 +402,14 @@ describe('composeServices', () => {
         const product = schema.getType('Product') as GraphQLObjectType;
 
         expect(product).toMatchInlineSnapshot(`
-                              type Product {
-                                sku: String!
-                                name: String!
-                              }
-                        `);
-        expect(getFederationMetadata(product.getFields()['name'])?.serviceName).toEqual(
-          'serviceB',
-        );
+          type Product {
+            sku: String!
+            name: String!
+          }
+        `);
+        expect(
+          getFederationMetadata(product.getFields()['name'])?.serviceName,
+        ).toEqual('serviceB');
       });
 
       it('reports multiple errors correctly', () => {
@@ -451,14 +451,14 @@ describe('composeServices', () => {
         const product = schema.getType('Product') as GraphQLObjectType;
 
         expect(product).toMatchInlineSnapshot(`
-                              type Product {
-                                sku: String!
-                                name: String!
-                              }
-                        `);
-        expect(getFederationMetadata(product.getFields()['name'])?.serviceName).toEqual(
-          'serviceB',
-        );
+          type Product {
+            sku: String!
+            name: String!
+          }
+        `);
+        expect(
+          getFederationMetadata(product.getFields()['name'])?.serviceName,
+        ).toEqual('serviceB');
       });
 
       it('handles collisions of base types as expected (newest takes precedence)', () => {
@@ -497,12 +497,12 @@ describe('composeServices', () => {
         const product = schema.getType('Product') as GraphQLObjectType;
 
         expect(product).toMatchInlineSnapshot(`
-                              type Product {
-                                id: ID!
-                                name: String!
-                                price: Int!
-                              }
-                        `);
+          type Product {
+            id: ID!
+            name: String!
+            price: Int!
+          }
+        `);
       });
     });
   });
@@ -601,19 +601,19 @@ describe('composeServices', () => {
       expect(schema).toBeDefined();
 
       expect(schema.getType('Product')).toMatchInlineSnapshot(`
-                        type Product implements Item {
-                          id: String!
-                          sku: String!
-                          name: String!
-                        }
-                  `);
+        type Product implements Item {
+          id: String!
+          sku: String!
+          name: String!
+        }
+      `);
 
       const product = schema.getType('Product') as GraphQLObjectType;
 
       expect(getFederationMetadata(product)?.serviceName).toEqual('serviceA');
-      expect(getFederationMetadata(product.getFields()['id'])?.serviceName).toEqual(
-        'serviceB',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['id'])?.serviceName,
+      ).toEqual('serviceB');
     });
   });
 
@@ -643,11 +643,11 @@ describe('composeServices', () => {
       expect(schema).toBeDefined();
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
-                        type Query {
-                          products: [ID!]
-                          people: [ID!]
-                        }
-                  `);
+        type Query {
+          products: [ID!]
+          people: [ID!]
+        }
+      `);
 
       const query = schema.getQueryType()!;
 
@@ -685,11 +685,11 @@ describe('composeServices', () => {
       expect(schema).toBeDefined();
 
       expect(schema.getType('Query')).toMatchInlineSnapshot(`
-                        type Query {
-                          products: [ID!]
-                          people: [ID!]
-                        }
-                  `);
+        type Query {
+          products: [ID!]
+          people: [ID!]
+        }
+      `);
 
       const query = schema.getType('Query') as GraphQLObjectType;
 
@@ -726,11 +726,11 @@ describe('composeServices', () => {
       expect(schema).toBeDefined();
 
       expect(schema.getType('Mutation')).toMatchInlineSnapshot(`
-                        type Mutation {
-                          login(credentials: Credentials!): String
-                          logout(username: String!): Boolean
-                        }
-                  `);
+        type Mutation {
+          login(credentials: Credentials!): String
+          logout(username: String!): Boolean
+        }
+      `);
     });
 
     it('treats root Mutations type definition as an extension, not base definitions', () => {
@@ -763,11 +763,11 @@ describe('composeServices', () => {
       expect(schema).toBeDefined();
 
       expect(schema.getType('Mutation')).toMatchInlineSnapshot(`
-                        type Mutation {
-                          login(credentials: Credentials!): String
-                          logout(username: String!): Boolean
-                        }
-                  `);
+        type Mutation {
+          login(credentials: Credentials!): String
+          logout(username: String!): Boolean
+        }
+      `);
     });
 
     // TODO: not sure what to do here. Haven't looked into it yet :)
@@ -826,29 +826,30 @@ describe('composeServices', () => {
 
         const product = schema.getType('Product')!;
 
-        expect(getFederationMetadata(product)?.externals).toMatchInlineSnapshot(`
-                              Object {
-                                "serviceB--MISSING": Array [
-                                  Object {
-                                    "field": sku: String! @external,
-                                    "parentTypeName": "Product",
-                                    "serviceName": "serviceB--MISSING",
-                                  },
-                                ],
-                                "serviceC--found": Array [
-                                  Object {
-                                    "field": sku: String! @external,
-                                    "parentTypeName": "Product",
-                                    "serviceName": "serviceC--found",
-                                  },
-                                  Object {
-                                    "field": upc: String! @external,
-                                    "parentTypeName": "Product",
-                                    "serviceName": "serviceC--found",
-                                  },
-                                ],
-                              }
-                        `);
+        expect(getFederationMetadata(product)?.externals)
+          .toMatchInlineSnapshot(`
+            Object {
+              "serviceB--MISSING": Array [
+                Object {
+                  "field": sku: String! @external,
+                  "parentTypeName": "Product",
+                  "serviceName": "serviceB--MISSING",
+                },
+              ],
+              "serviceC--found": Array [
+                Object {
+                  "field": sku: String! @external,
+                  "parentTypeName": "Product",
+                  "serviceName": "serviceC--found",
+                },
+                Object {
+                  "field": upc: String! @external,
+                  "parentTypeName": "Product",
+                  "serviceName": "serviceC--found",
+                },
+              ],
+            }
+          `);
       });
       it('does not redefine fields with @external when composing', () => {
         const serviceA = {
@@ -879,15 +880,15 @@ describe('composeServices', () => {
         const product = schema.getType('Product') as GraphQLObjectType;
 
         expect(product).toMatchInlineSnapshot(`
-                              type Product {
-                                sku: String!
-                                name: String!
-                                price: Int!
-                              }
-                        `);
-        expect(getFederationMetadata(product.getFields()['price'])?.serviceName).toEqual(
-          'serviceB',
-        );
+          type Product {
+            sku: String!
+            name: String!
+            price: Int!
+          }
+        `);
+        expect(
+          getFederationMetadata(product.getFields()['price'])?.serviceName,
+        ).toEqual('serviceB');
         expect(getFederationMetadata(product)?.serviceName).toEqual('serviceA');
       });
     });
@@ -955,10 +956,10 @@ describe('composeServices', () => {
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(getFederationMetadata(product.getFields()['price'])?.requires)
           .toMatchInlineSnapshot(`
-                                sku {
-                                  id
-                                }
-                          `);
+            sku {
+              id
+            }
+          `);
       });
     });
 
@@ -994,13 +995,14 @@ describe('composeServices', () => {
         const { schema } = compositionResult;
 
         const review = schema.getType('Review') as GraphQLObjectType;
-        expect(getFederationMetadata(review.getFields()['product'])).toMatchInlineSnapshot(`
-          Object {
-            "belongsToValueType": false,
-            "provides": sku,
-            "serviceName": "serviceA",
-          }
-        `);
+        expect(getFederationMetadata(review.getFields()['product']))
+          .toMatchInlineSnapshot(`
+            Object {
+              "belongsToValueType": false,
+              "provides": sku,
+              "serviceName": "serviceA",
+            }
+          `);
       });
 
       it('adds @provides information to fields using a nested field set', () => {
@@ -1040,10 +1042,10 @@ describe('composeServices', () => {
         const review = schema.getType('Review') as GraphQLObjectType;
         expect(getFederationMetadata(review.getFields()['product'])?.provides)
           .toMatchInlineSnapshot(`
-                                sku {
-                                  id
-                                }
-                          `);
+            sku {
+              id
+            }
+          `);
       });
 
       it('adds @provides information for object types within list types', () => {
@@ -1078,12 +1080,12 @@ describe('composeServices', () => {
         const review = schema.getType('Review') as GraphQLObjectType;
         expect(getFederationMetadata(review.getFields()['products']))
           .toMatchInlineSnapshot(`
-          Object {
-            "belongsToValueType": false,
-            "provides": sku,
-            "serviceName": "serviceA",
-          }
-        `);
+            Object {
+              "belongsToValueType": false,
+              "provides": sku,
+              "serviceName": "serviceA",
+            }
+          `);
       });
 
       it('adds correct @provides information to fields on value types', () => {
@@ -1126,7 +1128,9 @@ describe('composeServices', () => {
         const { schema } = compositionResult;
 
         const valueType = schema.getType('ValueType') as GraphQLObjectType;
-        const userFieldFederationMetadata = getFederationMetadata(valueType.getFields()['user']);
+        const userFieldFederationMetadata = getFederationMetadata(
+          valueType.getFields()['user'],
+        );
         expect(userFieldFederationMetadata?.belongsToValueType).toBe(true);
         expect(userFieldFederationMetadata?.serviceName).toBe(null);
       });
@@ -1160,13 +1164,13 @@ describe('composeServices', () => {
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(getFederationMetadata(product)?.keys).toMatchInlineSnapshot(`
-                              Object {
-                                "serviceA": Array [
-                                  sku,
-                                  upc,
-                                ],
-                              }
-                        `);
+          Object {
+            "serviceA": Array [
+              sku,
+              upc,
+            ],
+          }
+        `);
       });
 
       it('adds @key information to types using selection set notation', () => {
@@ -1202,15 +1206,15 @@ describe('composeServices', () => {
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(getFederationMetadata(product)?.keys).toMatchInlineSnapshot(`
-                              Object {
-                                "serviceA": Array [
-                                  color {
-                                id
-                                value
-                              },
-                                ],
-                              }
-                        `);
+          Object {
+            "serviceA": Array [
+              color {
+            id
+            value
+          },
+            ],
+          }
+        `);
       });
 
       it('preserves @key information with respect to types across different services', () => {
@@ -1246,18 +1250,18 @@ describe('composeServices', () => {
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(getFederationMetadata(product)?.keys).toMatchInlineSnapshot(`
-                              Object {
-                                "serviceA": Array [
-                                  color {
-                                id
-                                value
-                              },
-                                ],
-                                "serviceB": Array [
-                                  sku,
-                                ],
-                              }
-                        `);
+          Object {
+            "serviceA": Array [
+              color {
+            id
+            value
+          },
+            ],
+            "serviceB": Array [
+              sku,
+            ],
+          }
+        `);
       });
     });
 
@@ -1296,12 +1300,12 @@ describe('composeServices', () => {
 
         const product = schema.getType('Product') as GraphQLObjectType;
         expect(product).toMatchInlineSnapshot(`
-                              type Product {
-                                sku: String!
-                                upc: String!
-                                price: Int!
-                              }
-                        `);
+          type Product {
+            sku: String!
+            upc: String!
+            price: Int!
+          }
+        `);
       });
 
       it('treats interfaces with @extends as interface extensions', () => {
@@ -1351,7 +1355,7 @@ describe('composeServices', () => {
     it('keeps executable directives in the schema', () => {
       const serviceA = {
         typeDefs: gql`
-          directive @defer on  FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+          directive @defer on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
         `,
         name: 'serviceA',
       };
@@ -1367,13 +1371,13 @@ describe('composeServices', () => {
     it('keeps executable directives in the schema', () => {
       const serviceA = {
         typeDefs: gql`
-          directive @defer on  FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+          directive @defer on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
         `,
         name: 'serviceA',
       };
       const serviceB = {
         typeDefs: gql`
-          directive @stream on  FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+          directive @stream on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
         `,
         name: 'serviceB',
       };
