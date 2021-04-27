@@ -1,7 +1,8 @@
-import gql from 'graphql-tag';
 import { reservedFieldUsed as validateReservedFieldUsed } from '..';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -26,7 +27,7 @@ describe('reservedFieldUsed', () => {
 
   it('warns when _service or _entities is used at the query root', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Query {
           product: Product
           _service: String!
@@ -36,7 +37,7 @@ describe('reservedFieldUsed', () => {
         type Product {
           sku: String
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
@@ -47,7 +48,7 @@ describe('reservedFieldUsed', () => {
           "code": "RESERVED_FIELD_USED",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
@@ -57,7 +58,7 @@ describe('reservedFieldUsed', () => {
           "code": "RESERVED_FIELD_USED",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 5,
             },
           ],
@@ -69,7 +70,7 @@ describe('reservedFieldUsed', () => {
 
   it('warns when _service or _entities is used in a schema extension', () => {
     const schemaDefinition = {
-      typeDefs: parse(`
+      typeDefs: gql`
         schema {
           query: RootQuery
         }
@@ -82,12 +83,12 @@ describe('reservedFieldUsed', () => {
         type Product {
           sku: String
         }
-      `),
+      `,
       name: 'schemaDefinition',
     };
 
     const schemaExtension = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend schema {
           query: RootQuery
         }
@@ -100,7 +101,7 @@ describe('reservedFieldUsed', () => {
         type Product {
           sku: String
         }
-      `),
+      `,
       name: 'schemaExtension',
     };
 
@@ -115,7 +116,7 @@ describe('reservedFieldUsed', () => {
           "code": "RESERVED_FIELD_USED",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 8,
             },
           ],
@@ -129,7 +130,7 @@ describe('reservedFieldUsed', () => {
           "code": "RESERVED_FIELD_USED",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 7,
             },
           ],
@@ -141,7 +142,7 @@ describe('reservedFieldUsed', () => {
 
   it('warns when reserved fields are used on custom Query types', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         schema {
           query: RootQuery
         }
@@ -155,7 +156,7 @@ describe('reservedFieldUsed', () => {
         type Product {
           sku: String
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
@@ -168,7 +169,7 @@ describe('reservedFieldUsed', () => {
           "code": "RESERVED_FIELD_USED",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 8,
             },
           ],
@@ -178,7 +179,7 @@ describe('reservedFieldUsed', () => {
           "code": "RESERVED_FIELD_USED",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 9,
             },
           ],
