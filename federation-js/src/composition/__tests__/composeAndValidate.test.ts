@@ -1,17 +1,16 @@
 import { composeAndValidate } from '../composeAndValidate';
-import gql from 'graphql-tag';
 import {
   GraphQLObjectType,
   DocumentNode,
   GraphQLScalarType,
   specifiedDirectives,
   printSchema,
-  parse,
 } from 'graphql';
 import {
   astSerializer,
   typeSerializer,
   graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import {
   assertCompositionFailure,
@@ -120,7 +119,7 @@ it('composes and validates all (24) permutations without error', () => {
 
 it("doesn't throw errors when a type is unknown, but captures them instead", () => {
   const serviceA = {
-    typeDefs: parse(`
+    typeDefs: gql`
       type Query {
         foo: Bar!
       }
@@ -129,7 +128,7 @@ it("doesn't throw errors when a type is unknown, but captures them instead", () 
         id: ID! @external
         thing: String
       }
-    `),
+    `,
     name: 'serviceA',
   };
 
@@ -146,7 +145,7 @@ it("doesn't throw errors when a type is unknown, but captures them instead", () 
         "code": "MISSING_ERROR",
         "locations": Array [
           Object {
-            "column": 14,
+            "column": 8,
             "line": 3,
           },
         ],
@@ -156,7 +155,7 @@ it("doesn't throw errors when a type is unknown, but captures them instead", () 
         "code": "EXTENSION_WITH_NO_BASE",
         "locations": Array [
           Object {
-            "column": 7,
+            "column": 1,
             "line": 6,
           },
         ],
@@ -368,10 +367,9 @@ describe('composition of value types', () => {
   });
 
   describe('errors', () => {
-
     it('on invalid usages of default operation names', () => {
       const serviceA = {
-        typeDefs: parse(`
+        typeDefs: gql`
           schema {
             query: RootQuery
           }
@@ -388,12 +386,12 @@ describe('composition of value types', () => {
           type Query {
             invalidUseOfQuery: Boolean
           }
-        `),
+        `,
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Query {
             validUseOfQuery: Boolean
           }
@@ -402,7 +400,7 @@ describe('composition of value types', () => {
             id: ID! @external
             sku: String
           }
-        `),
+        `,
         name: 'serviceB',
       };
 
@@ -415,7 +413,7 @@ describe('composition of value types', () => {
             "code": "ROOT_QUERY_USED",
             "locations": Array [
               Object {
-                "column": 11,
+                "column": 1,
                 "line": 15,
               },
             ],
@@ -427,7 +425,7 @@ describe('composition of value types', () => {
 
     it('when a type extension has no base', () => {
       const serviceA = {
-        typeDefs: parse(`
+        typeDefs: gql`
           schema {
             query: MyRoot
           }
@@ -440,16 +438,16 @@ describe('composition of value types', () => {
             sku: String!
             upc: String!
           }
-        `),
+        `,
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: parse(`
+        typeDefs: gql`
           extend type Location {
             id: ID
           }
-        `),
+        `,
         name: 'serviceB',
       };
 
@@ -464,7 +462,7 @@ describe('composition of value types', () => {
             "code": "EXTENSION_WITH_NO_BASE",
             "locations": Array [
               Object {
-                "column": 11,
+                "column": 1,
                 "line": 2,
               },
             ],
@@ -476,7 +474,7 @@ describe('composition of value types', () => {
 
     it('when used as an entity', () => {
       const serviceA = {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Query {
             product: Product
           }
@@ -485,12 +483,12 @@ describe('composition of value types', () => {
             sku: ID!
             color: String!
           }
-        `),
+        `,
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Query {
             topProducts: [Product]
           }
@@ -499,7 +497,7 @@ describe('composition of value types', () => {
             sku: ID!
             color: String!
           }
-        `),
+        `,
         name: 'serviceB',
       };
 
@@ -512,11 +510,11 @@ describe('composition of value types', () => {
           "code": "VALUE_TYPE_NO_ENTITY",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 1,
               "line": 6,
             },
             Object {
-              "column": 11,
+              "column": 1,
               "line": 6,
             },
           ],
@@ -527,7 +525,7 @@ describe('composition of value types', () => {
 
     it('on field type mismatch', () => {
       const serviceA = {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Query {
             product: Product
           }
@@ -536,12 +534,12 @@ describe('composition of value types', () => {
             sku: ID!
             color: String!
           }
-        `),
+        `,
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Query {
             topProducts: [Product]
           }
@@ -550,7 +548,7 @@ describe('composition of value types', () => {
             sku: ID!
             color: String
           }
-        `),
+        `,
         name: 'serviceB',
       };
 
@@ -563,11 +561,11 @@ describe('composition of value types', () => {
           "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 1,
               "line": 6,
             },
             Object {
-              "column": 11,
+              "column": 1,
               "line": 6,
             },
           ],
@@ -578,7 +576,7 @@ describe('composition of value types', () => {
 
     it('on kind mismatch', () => {
       const serviceA = {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Query {
             product: Product
           }
@@ -587,12 +585,12 @@ describe('composition of value types', () => {
             sku: ID!
             color: String!
           }
-        `),
+        `,
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Query {
             topProducts: [Product]
           }
@@ -601,7 +599,7 @@ describe('composition of value types', () => {
             sku: ID!
             color: String!
           }
-        `),
+        `,
         name: 'serviceB',
       };
 
@@ -613,11 +611,11 @@ describe('composition of value types', () => {
           "code": "VALUE_TYPE_KIND_MISMATCH",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 1,
               "line": 6,
             },
             Object {
-              "column": 11,
+              "column": 1,
               "line": 6,
             },
           ],
@@ -628,7 +626,7 @@ describe('composition of value types', () => {
 
     it('on union types mismatch', () => {
       const serviceA = {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Query {
             product: Product
           }
@@ -642,12 +640,12 @@ describe('composition of value types', () => {
           }
 
           union Product = Couch | Mattress
-        `),
+        `,
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Query {
             topProducts: [Product]
           }
@@ -661,7 +659,7 @@ describe('composition of value types', () => {
           }
 
           union Product = Couch | Cabinet
-        `),
+        `,
         name: 'serviceB',
       };
 
@@ -673,11 +671,11 @@ describe('composition of value types', () => {
           "code": "VALUE_TYPE_UNION_TYPES_MISMATCH",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 1,
               "line": 14,
             },
             Object {
-              "column": 11,
+              "column": 1,
               "line": 14,
             },
           ],

@@ -2,15 +2,14 @@ import {
   GraphQLObjectType,
   isSpecifiedDirective,
   GraphQLDirective,
-  parse,
 } from 'graphql';
-import gql from 'graphql-tag';
 import { composeServices } from '../compose';
 import {
   astSerializer,
   typeSerializer,
   selectionSetSerializer,
   graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import { normalizeTypeDefs } from '../normalize';
 import {
@@ -228,31 +227,31 @@ describe('composeServices', () => {
 
     it('allows extensions to overwrite other extension fields', () => {
       const serviceA = {
-        typeDefs: parse(`
+        typeDefs: gql`
           extend type Product {
             price: Int!
           }
-        `),
+        `,
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: parse(`
+        typeDefs: gql`
           type Product {
             sku: String!
             name: String!
           }
-        `),
+        `,
         name: 'serviceB',
       };
 
       const serviceC = {
-        typeDefs: parse(`
+        typeDefs: gql`
           extend type Product {
             price: Float!
             color: String!
           }
-        `),
+        `,
         name: 'serviceC',
       };
 
@@ -265,11 +264,11 @@ describe('composeServices', () => {
             "code": "MISSING_ERROR",
             "locations": Array [
               Object {
-                "column": 13,
+                "column": 3,
                 "line": 3,
               },
               Object {
-                "column": 13,
+                "column": 3,
                 "line": 3,
               },
             ],
@@ -387,21 +386,21 @@ describe('composeServices', () => {
     describe('collisions & error handling', () => {
       it('handles collisions on type extensions as expected', () => {
         const serviceA = {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Product {
               sku: String!
               name: String!
             }
-          `),
+          `,
           name: 'serviceA',
         };
 
         const serviceB = {
-          typeDefs: parse(`
+          typeDefs: gql`
             extend type Product {
               name: String!
             }
-          `),
+          `,
           name: 'serviceB',
         };
 
@@ -415,7 +414,7 @@ describe('composeServices', () => {
               "code": "MISSING_ERROR",
               "locations": Array [
                 Object {
-                  "column": 15,
+                  "column": 3,
                   "line": 3,
                 },
               ],
@@ -439,7 +438,7 @@ describe('composeServices', () => {
 
       it('reports multiple errors correctly', () => {
         const serviceA = {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Query {
               product: Product
             }
@@ -448,17 +447,17 @@ describe('composeServices', () => {
               sku: String!
               name: String!
             }
-          `),
+          `,
           name: 'serviceA',
         };
 
         const serviceB = {
-          typeDefs: parse(`
+          typeDefs: gql`
             extend type Product {
               sku: String!
               name: String!
             }
-          `),
+          `,
           name: 'serviceB',
         };
 
@@ -472,7 +471,7 @@ describe('composeServices', () => {
               "code": "MISSING_ERROR",
               "locations": Array [
                 Object {
-                  "column": 15,
+                  "column": 3,
                   "line": 3,
                 },
               ],
@@ -482,7 +481,7 @@ describe('composeServices', () => {
               "code": "MISSING_ERROR",
               "locations": Array [
                 Object {
-                  "column": 15,
+                  "column": 3,
                   "line": 4,
                 },
               ],
@@ -506,23 +505,23 @@ describe('composeServices', () => {
 
       it('handles collisions of base types as expected (newest takes precedence)', () => {
         const serviceA = {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Product {
               sku: String!
               name: String!
             }
-          `),
+          `,
           name: 'serviceA',
         };
 
         const serviceB = {
-          typeDefs: parse(`
+          typeDefs: gql`
             type Product {
               id: ID!
               name: String!
               price: Int!
             }
-          `),
+          `,
           name: 'serviceB',
         };
 
@@ -536,11 +535,11 @@ describe('composeServices', () => {
               "code": "MISSING_ERROR",
               "locations": Array [
                 Object {
-                  "column": 15,
+                  "column": 3,
                   "line": 4,
                 },
                 Object {
-                  "column": 15,
+                  "column": 3,
                   "line": 4,
                 },
               ],
@@ -550,11 +549,11 @@ describe('composeServices', () => {
               "code": "MISSING_ERROR",
               "locations": Array [
                 Object {
-                  "column": 13,
+                  "column": 1,
                   "line": 2,
                 },
                 Object {
-                  "column": 18,
+                  "column": 6,
                   "line": 2,
                 },
               ],
@@ -636,7 +635,7 @@ describe('composeServices', () => {
     // TODO: should there be a validation warning of some sort for this?
     it('allows overwriting a type that implements an interface improperly', () => {
       const serviceA = {
-        typeDefs: parse(`
+        typeDefs: gql`
           interface Item {
             id: ID!
           }
@@ -646,16 +645,16 @@ describe('composeServices', () => {
             sku: String!
             name: String!
           }
-        `),
+        `,
         name: 'serviceA',
       };
 
       const serviceB = {
-        typeDefs: parse(`
+        typeDefs: gql`
           extend type Product {
             id: String!
           }
-        `),
+        `,
         name: 'serviceB',
       };
 
@@ -668,7 +667,7 @@ describe('composeServices', () => {
             "code": "MISSING_ERROR",
             "locations": Array [
               Object {
-                "column": 13,
+                "column": 3,
                 "line": 3,
               },
             ],
