@@ -1,8 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { executableDirectivesInAllServices } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -53,27 +54,27 @@ describe('executableDirectivesInAllServices', () => {
 
   it("throws errors when custom, executable directives aren't defined in every service", () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         directive @stream on FIELD
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Query {
           thing: String
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
     const serviceC = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Query {
           otherThing: String
         }
-      `),
+      `,
       name: 'serviceC',
     };
 
@@ -86,7 +87,7 @@ describe('executableDirectivesInAllServices', () => {
           "code": "EXECUTABLE_DIRECTIVES_IN_ALL_SERVICES",
           "locations": Array [
             Object {
-              "column": 9,
+              "column": 1,
               "line": 2,
             },
           ],
