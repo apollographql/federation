@@ -1,6 +1,11 @@
-import { fixtures } from 'apollo-federation-integration-testsuite';
+import {
+  fixtures,
+  sdlSerializer,
+} from 'apollo-federation-integration-testsuite';
 import { parse, GraphQLError, visit, StringValueNode } from 'graphql';
 import { composeAndValidate, compositionHasErrors } from '../../composition';
+
+expect.addSnapshotSerializer(sdlSerializer);
 
 describe('printSupergraphSdl', () => {
   let supergraphSdl: string, errors: GraphQLError[];
@@ -25,9 +30,10 @@ describe('printSupergraphSdl', () => {
 
   it('prints a fully composed schema correctly', () => {
     expect(supergraphSdl).toMatchInlineSnapshot(`
-      "schema
-        @core(feature: \\"https://specs.apollo.dev/core/v0.1\\"),
-        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\")
+      #graphql
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.1"),
+        @core(feature: "https://specs.apollo.dev/join/v0.1")
       {
         query: Query
         mutation: Mutation
@@ -57,10 +63,10 @@ describe('printSupergraphSdl', () => {
 
       type Book implements Product
         @join__owner(graph: BOOKS)
-        @join__type(graph: BOOKS, key: \\"isbn\\")
-        @join__type(graph: INVENTORY, key: \\"isbn\\")
-        @join__type(graph: PRODUCT, key: \\"isbn\\")
-        @join__type(graph: REVIEWS, key: \\"isbn\\")
+        @join__type(graph: BOOKS, key: "isbn")
+        @join__type(graph: INVENTORY, key: "isbn")
+        @join__type(graph: PRODUCT, key: "isbn")
+        @join__type(graph: REVIEWS, key: "isbn")
       {
         isbn: String! @join__field(graph: BOOKS)
         title: String @join__field(graph: BOOKS)
@@ -71,24 +77,24 @@ describe('printSupergraphSdl', () => {
         isCheckedOut: Boolean @join__field(graph: INVENTORY)
         upc: String! @join__field(graph: PRODUCT)
         sku: String! @join__field(graph: PRODUCT)
-        name(delimeter: String = \\" \\"): String @join__field(graph: PRODUCT, requires: \\"title year\\")
+        name(delimeter: String = " "): String @join__field(graph: PRODUCT, requires: "title year")
         price: String @join__field(graph: PRODUCT)
         details: ProductDetailsBook @join__field(graph: PRODUCT)
         reviews: [Review] @join__field(graph: REVIEWS)
-        relatedReviews: [Review!]! @join__field(graph: REVIEWS, requires: \\"similarBooks{isbn}\\")
+        relatedReviews: [Review!]! @join__field(graph: REVIEWS, requires: "similarBooks{isbn}")
       }
 
       union Brand = Ikea | Amazon
 
       type Car implements Vehicle
         @join__owner(graph: PRODUCT)
-        @join__type(graph: PRODUCT, key: \\"id\\")
-        @join__type(graph: REVIEWS, key: \\"id\\")
+        @join__type(graph: PRODUCT, key: "id")
+        @join__type(graph: REVIEWS, key: "id")
       {
         id: String! @join__field(graph: PRODUCT)
         description: String @join__field(graph: PRODUCT)
         price: String @join__field(graph: PRODUCT)
-        retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
+        retailPrice: String @join__field(graph: REVIEWS, requires: "price")
       }
 
       type Error {
@@ -98,10 +104,10 @@ describe('printSupergraphSdl', () => {
 
       type Furniture implements Product
         @join__owner(graph: PRODUCT)
-        @join__type(graph: PRODUCT, key: \\"upc\\")
-        @join__type(graph: PRODUCT, key: \\"sku\\")
-        @join__type(graph: INVENTORY, key: \\"sku\\")
-        @join__type(graph: REVIEWS, key: \\"upc\\")
+        @join__type(graph: PRODUCT, key: "upc")
+        @join__type(graph: PRODUCT, key: "sku")
+        @join__type(graph: INVENTORY, key: "sku")
+        @join__type(graph: REVIEWS, key: "upc")
       {
         upc: String! @join__field(graph: PRODUCT)
         sku: String! @join__field(graph: PRODUCT)
@@ -131,12 +137,12 @@ describe('printSupergraphSdl', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        ACCOUNTS @join__graph(name: \\"accounts\\" url: \\"https://accounts.api.com\\")
-        BOOKS @join__graph(name: \\"books\\" url: \\"https://books.api.com\\")
-        DOCUMENTS @join__graph(name: \\"documents\\" url: \\"https://documents.api.com\\")
-        INVENTORY @join__graph(name: \\"inventory\\" url: \\"https://inventory.api.com\\")
-        PRODUCT @join__graph(name: \\"product\\" url: \\"https://product.api.com\\")
-        REVIEWS @join__graph(name: \\"reviews\\" url: \\"https://reviews.api.com\\")
+        ACCOUNTS @join__graph(name: "accounts" url: "https://accounts.api.com")
+        BOOKS @join__graph(name: "books" url: "https://books.api.com")
+        DOCUMENTS @join__graph(name: "documents" url: "https://documents.api.com")
+        INVENTORY @join__graph(name: "inventory" url: "https://inventory.api.com")
+        PRODUCT @join__graph(name: "product" url: "https://product.api.com")
+        REVIEWS @join__graph(name: "reviews" url: "https://reviews.api.com")
       }
 
       type KeyValue {
@@ -146,12 +152,12 @@ describe('printSupergraphSdl', () => {
 
       type Library
         @join__owner(graph: BOOKS)
-        @join__type(graph: BOOKS, key: \\"id\\")
-        @join__type(graph: ACCOUNTS, key: \\"id\\")
+        @join__type(graph: BOOKS, key: "id")
+        @join__type(graph: ACCOUNTS, key: "id")
       {
         id: ID! @join__field(graph: BOOKS)
         name: String @join__field(graph: BOOKS)
-        userAccount(id: ID! = 1): User @join__field(graph: ACCOUNTS, requires: \\"name\\")
+        userAccount(id: ID! = 1): User @join__field(graph: ACCOUNTS, requires: "name")
       }
 
       union MetadataOrError = KeyValue | Error
@@ -170,15 +176,15 @@ describe('printSupergraphSdl', () => {
 
       type PasswordAccount
         @join__owner(graph: ACCOUNTS)
-        @join__type(graph: ACCOUNTS, key: \\"email\\")
+        @join__type(graph: ACCOUNTS, key: "email")
       {
         email: String! @join__field(graph: ACCOUNTS)
       }
 
       interface Product
-        @join__type(graph: PRODUCT, key: \\"\\")
-        @join__type(graph: INVENTORY, key: \\"\\")
-        @join__type(graph: REVIEWS, key: \\"\\") {
+        @join__type(graph: PRODUCT, key: "")
+        @join__type(graph: INVENTORY, key: "")
+        @join__type(graph: REVIEWS, key: "") {
         upc: String!
         sku: String!
         name: String
@@ -189,7 +195,7 @@ describe('printSupergraphSdl', () => {
       }
 
       interface ProductDetails
-        @join__type(graph: PRODUCT, key: \\"\\") {
+        @join__type(graph: PRODUCT, key: "") {
         country: String
       }
 
@@ -219,18 +225,18 @@ describe('printSupergraphSdl', () => {
 
       type Review
         @join__owner(graph: REVIEWS)
-        @join__type(graph: REVIEWS, key: \\"id\\")
+        @join__type(graph: REVIEWS, key: "id")
       {
         id: ID! @join__field(graph: REVIEWS)
         body(format: Boolean = false): String @join__field(graph: REVIEWS)
-        author: User @join__field(graph: REVIEWS, provides: \\"username\\")
+        author: User @join__field(graph: REVIEWS, provides: "username")
         product: Product @join__field(graph: REVIEWS)
         metadata: [MetadataOrError] @join__field(graph: REVIEWS)
       }
 
       type SMSAccount
         @join__owner(graph: ACCOUNTS)
-        @join__type(graph: ACCOUNTS, key: \\"number\\")
+        @join__type(graph: ACCOUNTS, key: "number")
       {
         number: String @join__field(graph: ACCOUNTS)
       }
@@ -254,11 +260,11 @@ describe('printSupergraphSdl', () => {
 
       type User
         @join__owner(graph: ACCOUNTS)
-        @join__type(graph: ACCOUNTS, key: \\"id\\")
-        @join__type(graph: ACCOUNTS, key: \\"username name{first last}\\")
-        @join__type(graph: INVENTORY, key: \\"id\\")
-        @join__type(graph: PRODUCT, key: \\"id\\")
-        @join__type(graph: REVIEWS, key: \\"id\\")
+        @join__type(graph: ACCOUNTS, key: "id")
+        @join__type(graph: ACCOUNTS, key: "username name{first last}")
+        @join__type(graph: INVENTORY, key: "id")
+        @join__type(graph: PRODUCT, key: "id")
+        @join__type(graph: REVIEWS, key: "id")
       {
         id: ID! @join__field(graph: ACCOUNTS)
         name: Name @join__field(graph: ACCOUNTS)
@@ -266,12 +272,12 @@ describe('printSupergraphSdl', () => {
         birthDate(locale: String): String @join__field(graph: ACCOUNTS)
         account: AccountType @join__field(graph: ACCOUNTS)
         metadata: [UserMetadata] @join__field(graph: ACCOUNTS)
-        goodDescription: Boolean @join__field(graph: INVENTORY, requires: \\"metadata{description}\\")
+        goodDescription: Boolean @join__field(graph: INVENTORY, requires: "metadata{description}")
         vehicle: Vehicle @join__field(graph: PRODUCT)
         thing: Thing @join__field(graph: PRODUCT)
         reviews: [Review] @join__field(graph: REVIEWS)
         numberOfReviews: Int! @join__field(graph: REVIEWS)
-        goodAddress: Boolean @join__field(graph: REVIEWS, requires: \\"metadata{address}\\")
+        goodAddress: Boolean @join__field(graph: REVIEWS, requires: "metadata{address}")
       }
 
       type UserMetadata {
@@ -282,24 +288,24 @@ describe('printSupergraphSdl', () => {
 
       type Van implements Vehicle
         @join__owner(graph: PRODUCT)
-        @join__type(graph: PRODUCT, key: \\"id\\")
-        @join__type(graph: REVIEWS, key: \\"id\\")
+        @join__type(graph: PRODUCT, key: "id")
+        @join__type(graph: REVIEWS, key: "id")
       {
         id: String! @join__field(graph: PRODUCT)
         description: String @join__field(graph: PRODUCT)
         price: String @join__field(graph: PRODUCT)
-        retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
+        retailPrice: String @join__field(graph: REVIEWS, requires: "price")
       }
 
       interface Vehicle
-        @join__type(graph: PRODUCT, key: \\"\\")
-        @join__type(graph: REVIEWS, key: \\"\\") {
+        @join__type(graph: PRODUCT, key: "")
+        @join__type(graph: REVIEWS, key: "") {
         id: String!
         description: String
         price: String
         retailPrice: String
       }
-      "
+
     `);
   });
 
