@@ -42,7 +42,7 @@ export const requiresFieldsMissingOnBase: PostCompositionValidator = ({
                 'REQUIRES_FIELDS_MISSING_ON_BASE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `requires the field \`${selection.name.value}\` to be @external. @external fields must exist on the base type, not an extension.`,
-                field.astNode || undefined,
+                field.astNode ?? undefined,
               ),
             );
           }

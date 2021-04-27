@@ -33,7 +33,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
               'KEY_MISSING_ON_BASE',
               logServiceAndType(serviceName, parentTypeName) +
                 `appears to be an entity but no @key directives are specified on the originating type.`,
-              parentType.astNode || undefined,
+              parentType.astNode ?? undefined,
             ),
           );
           continue;
@@ -51,7 +51,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
                   'MULTIPLE_KEYS_ON_EXTENSION',
                   logServiceAndType(extendingService, parentTypeName) +
                     `is extended from service ${serviceName} but specifies multiple @key directives. Extensions may only specify one @key.`,
-                  parentType.astNode || undefined,
+                  parentType.astNode ?? undefined,
                 ),
               );
               return;
@@ -71,7 +71,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
                     `\t${availableKeys
                       .map((fieldSet) => `@key(fields: "${fieldSet}")`)
                       .join('\n\t')}`,
-                  parentType.astNode || undefined
+                  parentType.astNode ?? undefined
                 ),
               );
               return;

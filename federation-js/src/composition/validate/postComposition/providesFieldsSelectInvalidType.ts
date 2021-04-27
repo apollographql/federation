@@ -52,7 +52,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${name}, but ${fieldType.name}.${name} could not be found`,
-                field.astNode || undefined,
+                field.astNode ?? undefined,
               ),
             );
             continue;
@@ -68,7 +68,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${fieldType.name}.${name}, which is a list type. A field cannot @provide lists.`,
-                field.astNode || undefined,
+                field.astNode ?? undefined,
               ),
             );
           }
@@ -82,7 +82,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${fieldType.name}.${name}, which is an interface type. A field cannot @provide interfaces.`,
-                field.astNode || undefined,
+                field.astNode ?? undefined,
               ),
             );
           }
@@ -97,7 +97,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${fieldType.name}.${name}, which is a union type. A field cannot @provide union types.`,
-                field.astNode || undefined,
+                field.astNode ?? undefined,
               ),
             );
           }

@@ -48,7 +48,7 @@ export const providesFieldsMissingExternal: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_MISSING_EXTERNAL',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `provides the field \`${selection.name.value}\` and requires ${fieldType}.${selection.name.value} to be marked as @external.`,
-                field.astNode || undefined,
+                field.astNode ?? undefined,
               ),
             );
           }

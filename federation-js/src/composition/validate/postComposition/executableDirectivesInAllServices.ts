@@ -50,7 +50,7 @@ export const executableDirectivesInAllServices: PostCompositionValidator = ({
             `Custom directives must be implemented in every service. The following services do not implement the @${
               directive.name
             } directive: ${serviceNamesWithoutDirective.join(', ')}.`,
-          directive.astNode || undefined,
+          directive.astNode ?? undefined,
         ),
       );
     }
