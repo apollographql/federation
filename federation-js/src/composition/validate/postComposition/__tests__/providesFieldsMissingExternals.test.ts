@@ -1,9 +1,10 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { providesFieldsMissingExternal as validateProdivesFieldsMissingExternal } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
-import { parse } from 'graphql';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -65,18 +66,18 @@ describe('providesFieldsMissingExternal', () => {
 
   it('warns when there is a @provides with no matching @external field', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "sku") {
           sku: String!
           upc: String!
           id: ID!
         }
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Review @key(fields: "id") {
           id: ID!
           product: Product @provides(fields: "id")
@@ -86,7 +87,7 @@ describe('providesFieldsMissingExternal', () => {
           sku: String! @external
           price: Int!
         }
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -104,7 +105,7 @@ describe('providesFieldsMissingExternal', () => {
           "code": "PROVIDES_FIELDS_MISSING_EXTERNAL",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
