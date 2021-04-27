@@ -1,8 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { requiresFieldsMissingOnBase as validateRequiresFieldsMissingOnBase } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -38,28 +39,28 @@ describe('requiresFieldsMissingOnBase', () => {
 
   it('warns when requires selects a field not found on the base type', () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         type Product @key(fields: "sku") {
           sku: String!
         }
-      `),
+      `,
       name: 'serviceA',
     };
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") {
           id: ID!
         }
-      `),
+      `,
       name: 'serviceB',
     };
     const serviceC = {
-      typeDefs: parse(`
+      typeDefs: gql`
         extend type Product @key(fields: "sku") {
           id: ID! @external
           weight: Float! @requires(fields: "id")
         }
-      `),
+      `,
       name: 'serviceC',
     };
     const serviceList = [serviceA, serviceB, serviceC];
@@ -74,7 +75,7 @@ describe('requiresFieldsMissingOnBase', () => {
           "code": "REQUIRES_FIELDS_MISSING_ON_BASE",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 3,
               "line": 4,
             },
           ],
