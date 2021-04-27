@@ -1,8 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { executableDirectivesIdentical } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -55,23 +56,23 @@ describe('executableDirectivesIdentical', () => {
 
   it("throws errors when custom, executable directives aren't defined with the same locations in every service", () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         directive @stream on FIELD
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         directive @stream on FIELD | QUERY
-      `),
+      `,
       name: 'serviceB',
     };
 
     const serviceC = {
-      typeDefs: parse(`
+      typeDefs: gql`
         directive @stream on INLINE_FRAGMENT
-      `),
+      `,
       name: 'serviceC',
     };
 
@@ -84,7 +85,7 @@ describe('executableDirectivesIdentical', () => {
           "code": "EXECUTABLE_DIRECTIVES_IDENTICAL",
           "locations": Array [
             Object {
-              "column": 9,
+              "column": 1,
               "line": 2,
             },
           ],
@@ -99,16 +100,16 @@ describe('executableDirectivesIdentical', () => {
 
   it("throws errors when custom, executable directives aren't defined with the same arguments in every service", () => {
     const serviceA = {
-      typeDefs: parse(`
+      typeDefs: gql`
         directive @instrument(tag: String!) on FIELD
-      `),
+      `,
       name: 'serviceA',
     };
 
     const serviceB = {
-      typeDefs: parse(`
+      typeDefs: gql`
         directive @instrument(tag: Boolean) on FIELD
-      `),
+      `,
       name: 'serviceB',
     };
 
@@ -121,7 +122,7 @@ describe('executableDirectivesIdentical', () => {
           "code": "EXECUTABLE_DIRECTIVES_IDENTICAL",
           "locations": Array [
             Object {
-              "column": 9,
+              "column": 1,
               "line": 2,
             },
           ],
