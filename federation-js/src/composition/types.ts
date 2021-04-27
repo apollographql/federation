@@ -33,6 +33,10 @@ export interface FederationType {
   isValueType?: boolean;
 }
 
+export interface FederationInterface {
+  graphNames: ServiceName[];
+}
+
 export interface FederationField {
   serviceName?: ServiceName;
   requires?: ReadonlyArray<SelectionNode>;

@@ -2,6 +2,7 @@ import {
   GraphQLObjectType,
   isSpecifiedDirective,
   GraphQLDirective,
+  GraphQLInterfaceType,
 } from 'graphql';
 import gql from 'graphql-tag';
 import { composeServices } from '../compose';
@@ -615,6 +616,47 @@ describe('composeServices', () => {
         getFederationMetadata(product.getFields()['id'])?.serviceName,
       ).toEqual('serviceB');
     });
+
+    it('captures federation metadata on interfaces', () => {
+      const serviceA = {
+        typeDefs: gql`
+          extend type Query {
+            products: [Product!]
+          }
+
+          interface Product {
+            id: ID!
+            price: Float!
+          }
+        `,
+        name: 'serviceA',
+      };
+
+      const serviceB = {
+        typeDefs: gql`
+          extend interface Product {
+            quantity: Int!
+          }
+        `,
+        name: 'serviceB',
+      };
+
+      const compositionResult = composeServices([serviceA, serviceB]);
+      assertCompositionSuccess(compositionResult);
+      const { schema } = compositionResult;
+
+      expect(schema).toBeDefined();
+
+      const product = schema.getType('Product') as GraphQLInterfaceType;
+      expect(getFederationMetadata(product)).toMatchInlineSnapshot(`
+        Object {
+          "graphNames": Array [
+            "serviceA",
+            "serviceB",
+          ],
+        }
+      `);
+    });
   });
 
   describe('root type extensions', () => {
@@ -824,7 +866,7 @@ describe('composeServices', () => {
         assertCompositionSuccess(compositionResult);
         const { schema } = compositionResult;
 
-        const product = schema.getType('Product')!;
+        const product = schema.getType('Product') as GraphQLObjectType;
 
         expect(getFederationMetadata(product)?.externals)
           .toMatchInlineSnapshot(`

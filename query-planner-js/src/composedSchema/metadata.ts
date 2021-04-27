@@ -10,6 +10,10 @@ declare module 'graphql' {
     federation?: FederationTypeMetadata;
   }
 
+  interface GraphQLInterfaceTypeExtensions {
+    federation?: FederationInterfaceMetadata;
+  }
+
   interface GraphQLFieldExtensions<
     _TSource,
     _TContext,
@@ -67,6 +71,10 @@ export function isEntityTypeMetadata(
   metadata: FederationTypeMetadata,
 ): metadata is FederationEntityTypeMetadata {
   return !metadata.isValueType;
+}
+
+interface FederationInterfaceMetadata {
+  graphNames: GraphName[];
 }
 
 export interface FederationFieldMetadata {

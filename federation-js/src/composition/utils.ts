@@ -30,8 +30,9 @@ import {
   GraphQLDirective,
   OperationTypeNode,
   isDirective,
-  isNamedType,
   SchemaDefinitionNode,
+  GraphQLInterfaceType,
+  isInterfaceType,
 } from 'graphql';
 import {
   ExternalFieldDefinition,
@@ -40,6 +41,7 @@ import {
   FederationType,
   FederationDirective,
   FederationField,
+  FederationInterface,
 } from './types';
 import federationDirectives from '../directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
@@ -641,14 +643,16 @@ export function assertCompositionFailure(
   }
 }
 
-// This function is overloaded for 3 different input types. Each input type
+// This function is overloaded for 4 different input types. Each input type
 // maps to a particular return type, hence the overload.
-export function getFederationMetadata(obj: GraphQLNamedType): FederationType | undefined;
+export function getFederationMetadata(obj: GraphQLObjectType): FederationType | undefined;
+export function getFederationMetadata(obj: GraphQLInterfaceType): FederationInterface | undefined;
 export function getFederationMetadata(obj: GraphQLField<any, any>): FederationField | undefined;
 export function getFederationMetadata(obj: GraphQLDirective): FederationDirective | undefined;
 export function getFederationMetadata(obj: any) {
   if (typeof obj === "undefined") return undefined;
-  else if (isNamedType(obj)) return obj.extensions?.federation as FederationType | undefined;
+  else if (isObjectType(obj)) return obj.extensions?.federation as FederationType | undefined;
+  else if (isInterfaceType(obj)) return obj.extensions?.federation as FederationInterface | undefined;
   else if (isDirective(obj)) return obj.extensions?.federation as FederationDirective | undefined;
   else return obj.extensions?.federation as FederationField | undefined;
 }
