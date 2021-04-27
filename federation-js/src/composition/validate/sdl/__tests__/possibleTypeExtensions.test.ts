@@ -4,14 +4,13 @@ import {
   GraphQLSchema,
   specifiedDirectives,
   extendSchema,
-  parse,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
-import gql from 'graphql-tag';
 import { buildMapsFromServiceList } from '../../../compose';
 import {
   typeSerializer,
   graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import federationDirectives from '../../../../directives';
 import { ServiceDefinition } from '../../../types';
@@ -86,11 +85,11 @@ describe('PossibleTypeExtensionsType', () => {
   it('errors when there is an extension with no base', () => {
     const serviceList = [
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           extend type Product {
             id: ID!
           }
-        `),
+        `,
         name: 'serviceA',
       },
     ];
@@ -109,7 +108,7 @@ describe('PossibleTypeExtensionsType', () => {
           "code": "EXTENSION_WITH_NO_BASE",
           "locations": Array [
             Object {
-              "column": 11,
+              "column": 1,
               "line": 2,
             },
           ],
@@ -122,20 +121,20 @@ describe('PossibleTypeExtensionsType', () => {
   it('errors when trying to extend a type with a different `Kind`', () => {
     const serviceList = [
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           extend type Product {
             sku: ID
           }
-        `),
+        `,
         name: 'serviceA',
       },
 
       {
-        typeDefs: parse(`
+        typeDefs: gql`
           input Product {
             id: ID!
           }
-        `),
+        `,
         name: 'serviceB',
       },
     ];
@@ -147,19 +146,19 @@ describe('PossibleTypeExtensionsType', () => {
     schema = extendSchema(schema, definitions, { assumeValidSDL: true });
     errors.push(...validateSDL(extensions, schema, [PossibleTypeExtensions]));
     expect(errors).toMatchInlineSnapshot(`
-            Array [
-              Object {
-                "code": "EXTENSION_OF_WRONG_KIND",
-                "locations": Array [
-                  Object {
-                    "column": 11,
-                    "line": 2,
-                  },
-                ],
-                "message": "[serviceA] Product -> \`Product\` was originally defined as a InputObjectTypeDefinition and can only be extended by a InputObjectTypeExtension. serviceA defines Product as a ObjectTypeExtension",
-              },
-            ]
-        `);
+      Array [
+        Object {
+          "code": "EXTENSION_OF_WRONG_KIND",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
+          "message": "[serviceA] Product -> \`Product\` was originally defined as a InputObjectTypeDefinition and can only be extended by a InputObjectTypeExtension. serviceA defines Product as a ObjectTypeExtension",
+        },
+      ]
+    `);
   });
 
   it('does not error', () => {
