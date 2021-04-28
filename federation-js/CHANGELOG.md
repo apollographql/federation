@@ -8,7 +8,7 @@
 
 ## v0.24.0
 
-- Composition errors now include `location` corresponding to the line number & column in the subgraph sdl. [PR #686](https://github.com/apollographql/federation/pull/686/files)
+- Composition errors now include `locations` corresponding to the line number & column in the subgraph SDL. [PR #686](https://github.com/apollographql/federation/pull/686/files)
 
 ## v0.23.0
 
