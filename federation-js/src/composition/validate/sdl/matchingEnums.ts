@@ -7,7 +7,8 @@ import {
   TypeDefinitionNode,
 } from 'graphql';
 import { errorWithCode, logServiceAndType } from '../../utils';
-import { isString } from 'util';
+
+const isString = (val: any) : val is string => typeof val === 'string'
 
 function isEnumDefinition(node: TypeDefinitionNode) {
   return node.kind === Kind.ENUM_TYPE_DEFINITION;

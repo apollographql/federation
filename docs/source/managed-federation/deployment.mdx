@@ -233,9 +233,7 @@ If the Apollo Studio API experiences an outage, changes to your configuration wi
 
 ## The `service:push` lifecycle
 
-Whenever you call `apollo service:push` for an implementing service, it both updates that service's registered schema and updates the gateway's managed configuration. Because multiple services might be updated simultaneously, it's possible for changes to cause composition errors even if 
-
-Because the graph is dynamically changing, it's possible for composition errors to occur for a `service:push` even after a `service:check` has succeeded if other federated services changed in the interim. For this reason, updating a federated service will re-trigger composition in the cloud, ensuring that the federated services still compose to form a complete graph before provisioning the configuration. The workflow behind the scenes can be summed up as follows:
+Whenever you call `apollo service:push` for an implementing service, it both updates that service's registered schema and updates the gateway's managed configuration. Because the graph is dynamically changing and multiple services might be updated simultaneously, it's possible for changes to cause composition errors, even if `apollo service:check` was successful. For this reason, updating a federated service will re-trigger composition in the cloud, ensuring that the federated services still compose to form a complete graph before provisioning the configuration. The workflow behind the scenes can be summed up as follows:
 
 1. The partial schema is uploaded to a secure location and indexed.
 2. The federated service is updated in the registry to point to the partial schema.

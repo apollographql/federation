@@ -4,15 +4,20 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
--  _Nothing yet! Stay tuned!_
+- Composition errors now include `locations` corresponding to the line number & column in the subgraph SDL. [PR #686](https://github.com/apollographql/federation/pull/686)
 
-## v0.24.0
+## v0.23.2
 
-- Composition errors now include `locations` corresponding to the line number & column in the subgraph SDL. [PR #686](https://github.com/apollographql/federation/pull/686/files)
+- Remove lingering `core-js` polyfill imports, they're no longer needed (since `@apollo/gateway@0.15.0` dropped support for <= Node.js v10) and their presence is problematic since `core-js` isn't defined as a dependency within the package. Update `apollo-graphql` dependency which resolves a missing dependency (`sha.js`) within that package. [PR #699](https://github.com/apollographql/federation/pull/699)
+
+## v0.23.1
+
+- This change is mostly a set of follow-up changes for PR #622. Most of these changes are internal (renaming, etc.). Some noteworthy changes worth mentioning are: a switch to graphql-js's `stripIgnoredCharacters` during field set printing, an update to the `join__Enum` generation algorithm, and some additional assertions. [PR #656](https://github.com/apollographql/federation/pull/656)
 
 ## v0.23.0
 
 - __BREAKING__ - Update CSDL to the new core schema format, implementing the currently-being-introduced core and join specs. `composeAndValidate` now returns `supergraphSdl` in the new format instead of `composedSdl` in the previous CSDL format. [PR #622](https://github.com/apollographql/federation/pull/622)
+
 ## v0.22.0
 
 - No changes to the package itself, though there are some small changes to the way this package is compiled and the tests within this package due to the changes in [PR #453](https://github.com/apollographql/federation/pull/453)

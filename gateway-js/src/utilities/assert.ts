@@ -5,7 +5,7 @@
  *
  * @param condition
  * @param message
- * @throws
+ * @throws {@link Error}
  */
 export function assert(condition: any, message: string): asserts condition {
   if (!condition) {

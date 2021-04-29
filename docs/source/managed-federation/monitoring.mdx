@@ -3,37 +3,67 @@ title: Monitoring a federated graph
 sidebar_title: Monitoring
 ---
 
-The following sections describe features for monitoring a federated graph with Apollo Studio.
+As with any distributed architecture, a federated graph introduces more complexity than its monolithic counterpart. To help address this complexity and improve reliability, you should make sure that your federated graph has proper observability, monitoring, and automation in place.
 
-## Inspecting your graph
-
-You can view the implementing services that make up your graph with either the Apollo CLI or [Apollo Studio](https://studio.apollographql.com/).
-
-Run `apollo service:list` to see a snapshot of the services that make up your graph, including their endpoints and when they were last updated:
-
-```
-$ apollo service:list
-  ✔ Loading Apollo Project
-  ✔ Fetching list of services for graph service-list-federation-demo
-
-name       URL                            last updated
-─────────  ─────────────────────────────  ────────────────────────
-Accounts   http://localhost:4001/graphql  3 July 2019 (2 days ago)
-Inventory  http://localhost:4004/graphql  3 July 2019 (2 days ago)
-Products   http://localhost:4003/graphql  3 July 2019 (2 days ago)
-Reviews    http://localhost:4002/graphql  3 July 2019 (2 days ago)
-
-View full details at: https://studio.apollographql.com/graph/service-list-federation-demo/service-list
-```
+This article describes Apollo managed federation features that help you monitor and debug your graph.
 
 ## Metrics and observability
 
-Like any distributed architecture, you should make sure that your federated graph has proper observability, monitoring, and automation to ensure reliability and performance of both your gateway and the federated services underneath it. Serving your GraphQL API from a distributed architecture has many benefits, like productivity, isolation, and being able to match the right services with the right runtimes. Operating a distributed system also has more complexity and points of failure than operating a monolith, and with that complexity comes a need to heighten observability into the state of your system and control over its coordination.
+Federated graphs can push operation metrics to Apollo Studio to enable many powerful tools, including:
 
-Apollo Server has support for reporting federated [tracing](https://www.apollographql.com/docs/studio/performance/) information from the gateway. In order to support the gateway with detailed timing and error information, federated services expose their own tracing information per-fetch in their extensions, which are consumed by the gateway and merged together in order to be emitted to the Apollo metrics ingress.
+* Operation performance dashboards
+* [Schema checks](https://www.apollographql.com/docs/studio/schema-checks/) (paid)
+* [Performance alerts](https://www.apollographql.com/docs/studio/performance-alerts/) (paid and experimental)
 
-To enable federated tracing, make sure the `APOLLO_KEY` is set in the environment for your gateway server and ensure that all federated services and the gateway are running `apollo-server` version `2.7.0` or greater. Also, ensure that federated services **do not** set the `APOLLO_KEY` environment variable (`ENGINE_API_KEY` in `apollo-server` versions pre 2.13.0).
+With a federated graph, your subgraphs pass **trace data** (timing and error information for each resolved schema field) to the gateway for every operation. The gateway then pushes that data to Studio:
 
-Traces are reported in Studio in the shape of the query plan, with each unique fetch to a federated service reporting timing and error data.
+```mermaid
+graph LR;
+  studio{{Apollo Studio}};
+  subgraph " "
+    gateway([Gateway]);
+    serviceA[Products subgraph];
+    serviceB[Reviews subgraph];
+    serviceC[Inventory subgraph];
+  end
+  gateway -- Pushes traces --> studio;
+  serviceA & serviceB & serviceC -- Passes traces --> gateway;
+  class studio secondary;
+```
 
-Operation-level statistics are still collected over the operations sent by the client, and those operations will be validated as part of the `service:check` validation workflow.
+> Individual services do _not_ push trace data directly to Studio.
+
+Traces are displayed in Studio in the shape of the query plan, with each unique fetch to a federated service reporting timing and error data.
+
+Operation-level statistics are still collected for operations sent by clients, and those operations are validated as part of schema checks.
+
+### Setup
+
+To enable federated tracing, you [set the `APOLLO_KEY` environment variable](https://www.apollographql.com/docs/apollo-server/monitoring/metrics/#connecting-to-apollo-studio) in your _gateway's_ environment. **Do not** set this environment variable for your subgraph servers.
+
+> If _other_ features require you to set `APOLLO_KEY` in your subgraph servers, [disable usage reporting](https://www.apollographql.com/docs/apollo-server/api/plugin/usage-reporting/#disabling-the-plugin) in those servers.
+
+Also ensure that all instances of Apollo Server in your graph are using an up-to-date version of the `apollo-server` library (at least version `2.13`).
+
+## Inspecting your subgraphs
+
+View basic details for the subgraphs that make up your federated graph with the [Rover CLI](https://www.apollographql.com/docs/rover/)'s `rover subgraph list` command:
+
+```
+$ rover subgraph list docs-example-graph@production
+
+Listing subgraphs for docs-example-graph@production using credentials from the default profile.
+┌──────────┬───────────────────────────────┬────────────────────────────┐
+│  Name    │          Routing Url          │        Last Updated        │
+├──────────┼───────────────────────────────┼────────────────────────────┤
+│ products │ http://localhost:4001/graphql │ 2020-12-18 10:29:14 -08:00 │
+├──────────┼───────────────────────────────┼────────────────────────────┤
+│ reviews  │ http://localhost:4002/graphql │ 2020-12-18 10:28:59 -08:00 │
+└──────────┴───────────────────────────────┴────────────────────────────┘
+
+View full details at https://studio.apollographql.com/graph/docs-example-graph/service-list
+```
+
+This command includes a link to an Apollo Studio page that provides additional information about your subgraphs.
+
+> If you're using the [Apollo CLI](https://www.apollographql.com/docs/devtools/cli/), run `apollo service:list` instead.

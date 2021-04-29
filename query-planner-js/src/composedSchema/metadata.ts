@@ -32,6 +32,11 @@ export function getFederationMetadataForField(
 }
 
 export type GraphName = string;
+
+// Without rewriting a number of AST types from graphql-js, this typing is
+// technically too relaxed. Recursive selections are not excluded from containing
+// FragmentSpreads, which is what this type is aiming to achieve (and accomplishes
+// at the root level, but not recursively)
 export type FieldSet = readonly (FieldNode | InlineFragmentNode)[];
 
 export interface Graph {
@@ -39,14 +44,29 @@ export interface Graph {
   url: string;
 }
 
-export type GraphMap = { [graphName: string]: Graph };
+export type GraphMap = Map<string, Graph>;
 export interface FederationSchemaMetadata {
   graphs: GraphMap;
 }
-export interface FederationTypeMetadata {
-  graphName?: GraphName;
-  keys?: MultiMap<GraphName, FieldSet>;
-  isValueType: boolean;
+
+export type FederationTypeMetadata =
+  | FederationEntityTypeMetadata
+  | FederationValueTypeMetadata;
+
+export interface FederationEntityTypeMetadata {
+  graphName: GraphName;
+  keys: MultiMap<GraphName, FieldSet>,
+  isValueType: false;
+}
+
+interface FederationValueTypeMetadata {
+  isValueType: true;
+}
+
+export function isEntityTypeMetadata(
+  metadata: FederationTypeMetadata,
+): metadata is FederationEntityTypeMetadata {
+  return !metadata.isValueType;
 }
 
 export interface FederationFieldMetadata {

@@ -87,10 +87,8 @@ jobs:
         type: executor
     executor: << parameters.platform >>
     environment:
-      # Because it's QUITE difficult to change the npm version on Windows,
-      # we'll use the version of npm that comes with this version of Node.js
-      # These versions can be found at https://nodejs.org/en/download/releases/.
       NODE_VERSION: 14.16.1
+      NPM_VERSION: 6.14.13
     steps:
       - checkout
       - when:
@@ -110,13 +108,16 @@ jobs:
                 command: |
                   curl "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.pkg" > "$HOME/Downloads/node.pkg" && sudo installer -store -pkg "$HOME/Downloads/node.pkg" -target "/"
             - run:
-                name: Debug output of Node.js and npm versions
+                name: Install specific version of npm
                 command: |
-                  echo 'Node.js version:'
-                  node --version
-                  echo 'npm version:'
-                  npm --version
-            - run: npm install
+                  sudo npm install --global npm@${NPM_VERSION}
+            - run:
+                name: Assert Node.js version
+                command: test "$(node --version)" = "v${NODE_VERSION}"
+            - run:
+                name: Assert npm version
+                command: test "$(npm --version)" = "${NPM_VERSION}"
+            - run: npm clean-install
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
                 cache_version: v2-macos
@@ -141,15 +142,19 @@ jobs:
                 name: Install nvm
                 command: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
             - run: echo '. ~/.nvm/nvm.sh' >> $BASH_ENV
-            - run: nvm install $NODE_VERSION && nvm alias default $NODE_VERSION
             - run:
-                name: Debug output of Node.js and npm versions
+                name: Install desired Node.js version
                 command: |
-                  echo 'Node.js version:'
-                  node --version
-                  echo 'npm version:'
-                  npm --version
-            - run: npm install
+                  nvm install $NODE_VERSION
+                  nvm alias default $NODE_VERSION
+                  npm install --global npm@${NPM_VERSION}
+            - run:
+                name: Assert Node.js version
+                command: test "$(node --version)" = "v${NODE_VERSION}"
+            - run:
+                name: Assert npm version
+                command: test "$(npm --version)" = "${NPM_VERSION}"
+            - run: npm clean-install
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
                 cache_version: v2-linux
@@ -190,13 +195,31 @@ jobs:
                   nvm install ${Env:NODE_VERSION}
                   nvm on
             - run:
-                name: Debug output of Node.js and npm versions
+                # https://github.com/coreybutler/nvm-windows/issues/300
+                # Have to move the command out of the way because it can't
+                # overwrite itself otherwise.   This is madness, but apparently
+                # accepted.  Other things I tried: using yarn to install npm,
+                # using http://npm.im/npm-windows-upgrade and even shouting.
+                name: Install specific version of npm in a crazy Windows way
                 command: |
-                  echo 'Node.js version:'
-                  node --version
-                  echo 'npm version:'
-                  npm --version
-            - run: npm install
+                  $node_dir = (get-item (get-command npm).source).directory.fullname
+                  foreach ($cmd in @("npm", "npx")) {
+                    foreach ($ext in @(".ps1", ".cmd", "")) {
+                      if (Test-Path "$node_dir/$cmd$ext") {
+                        rename-item -path (join-path -path $node_dir -childpath "$cmd$ext") "${cmd}-orig${ext}"
+                      }
+                    }
+                  }
+                  npm-orig install --global "npm@${Env:NPM_VERSION}"
+            - run:
+                name: Assert Node.js version
+                command: |
+                  if ((node --version) -Ne "v${Env:NODE_VERSION}") { exit 1 }
+            - run:
+                name: Assert npm version
+                command: |
+                  if ((npm --version) -Ne "${Env:NPM_VERSION}") { exit 1 }
+            - run: npm clean-install
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
                 cache_version: v2-windows

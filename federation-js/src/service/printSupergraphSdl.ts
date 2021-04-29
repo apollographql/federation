@@ -25,12 +25,13 @@ import {
   GraphQLEnumValue,
   GraphQLString,
   DEFAULT_DEPRECATION_REASON,
-  ASTNode,
   SelectionNode,
+  stripIgnoredCharacters,
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
+import { assert } from '../utilities';
 import { CoreDirective } from '../coreSpec';
-import { getJoins } from '../joinSpec';
+import { getJoinDefinitions } from '../joinSpec';
 
 type Options = {
   /**
@@ -47,7 +48,7 @@ type Options = {
 interface PrintingContext {
   // Core addition: we need access to a map from serviceName to its corresponding
   // sanitized / uniquified enum value `Name` from the `join__Graph` enum
-  sanitizedServiceNames?: Record<string, string>;
+  graphNameToEnumValueName?: Record<string, string>;
 }
 
 /**
@@ -72,8 +73,8 @@ export function printSupergraphSdl(
     JoinOwnerDirective,
     JoinGraphEnum,
     JoinGraphDirective,
-    sanitizedServiceNames,
-  } = getJoins(serviceList);
+    graphNameToEnumValueName,
+  } = getJoinDefinitions(serviceList);
 
   schema = new GraphQLSchema({
     ...config,
@@ -89,7 +90,7 @@ export function printSupergraphSdl(
   });
 
   const context: PrintingContext = {
-    sanitizedServiceNames,
+    graphNameToEnumValueName,
   }
 
   return printFilteredSchema(
@@ -246,10 +247,14 @@ function printTypeJoinDirectives(
 
   // We don't want to print an owner for interface types
   const shouldPrintOwner = isObjectType(type);
+
+  const ownerGraphEnumValue = context.graphNameToEnumValueName?.[ownerService];
+  assert(
+    ownerGraphEnumValue,
+    `Unexpected enum value missing for subgraph ${ownerService}`,
+  );
   const joinOwnerString = shouldPrintOwner
-    ? `\n  @join__owner(graph: ${
-        context.sanitizedServiceNames?.[ownerService] ?? ownerService
-      })`
+    ? `\n  @join__owner(graph: ${ownerGraphEnumValue})`
     : '';
 
   return (
@@ -257,12 +262,17 @@ function printTypeJoinDirectives(
     [ownerEntry, ...restEntries]
       .map(([service, keys = []]) =>
         keys
-          .map(
-            (selections) =>
-              `\n  @join__type(graph: ${
-                context.sanitizedServiceNames?.[service] ?? service
-              }, key: ${printStringLiteral(printFieldSet(selections))})`,
-          )
+          .map((selections) => {
+            const typeGraphEnumValue =
+              context.graphNameToEnumValueName?.[service];
+            assert(
+              typeGraphEnumValue,
+              `Unexpected enum value missing for subgraph ${service}`,
+            );
+            return `\n  @join__type(graph: ${typeGraphEnumValue}, key: ${printStringLiteral(
+              printFieldSet(selections),
+            )})`;
+          })
           .join(''),
       )
       .join('')
@@ -353,19 +363,15 @@ function printFields(
   return printBlock(fields, isEntity);
 }
 
-export function printWithReducedWhitespace(ast: ASTNode): string {
-  return print(ast)
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 /**
  * Core change: print fieldsets for @join__field's @key, @requires, and @provides args
  *
  * @param selections
  */
 function printFieldSet(selections: readonly SelectionNode[]): string {
-  return `${selections.map(printWithReducedWhitespace).join(' ')}`;
+  return selections
+    .map((selection) => stripIgnoredCharacters(print(selection)))
+    .join(' ');
 }
 
 /**
@@ -391,18 +397,14 @@ function printJoinFieldDirectives(
     // Because we print `@join__type` directives based on the keys, but only used to
     // look at the owning service here, that meant we would print `@join__field`
     // without a corresponding `@join__type`, which is invalid according to the spec.
-    if (
-      parentType.extensions?.federation?.serviceName &&
-      parentType.extensions?.federation?.keys
-    ) {
-      return (
-        printed +
-        `graph: ${
-          context.sanitizedServiceNames?.[
-            parentType.extensions?.federation.serviceName
-          ] ?? parentType.extensions?.federation.serviceName
-        })`
+    const { serviceName, keys } = parentType.extensions?.federation;
+    if (serviceName && keys) {
+      const enumValue = context.graphNameToEnumValueName?.[serviceName];
+      assert(
+        enumValue,
+        `Unexpected enum value missing for subgraph ${serviceName}`,
       );
+      return printed + `graph: ${enumValue})`;
     }
     return '';
   }
@@ -417,7 +419,7 @@ function printJoinFieldDirectives(
 
   if (serviceName && serviceName.length > 0) {
     directiveArgs.push(
-      `graph: ${context.sanitizedServiceNames?.[serviceName] ?? serviceName}`,
+      `graph: ${context.graphNameToEnumValueName?.[serviceName] ?? serviceName}`,
     );
   }
 
