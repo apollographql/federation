@@ -53,6 +53,7 @@ import { DebugLogger } from './utilities/debug';
 import { QueryPlanningContext } from './QueryPlanningContext';
 import { Scope } from './Scope';
 
+import deepEqual from 'deep-equal';
 
 function stringIsTrue(str?: string) : boolean {
   if (!str) {
@@ -728,7 +729,11 @@ function completeField(
     splitSubfields(context, fieldPath, subfields, subGroup);
     debug.groupEnd();
 
-    parentGroup.otherDependentGroups.push(...subGroup.dependentGroups);
+    // Because of the way we split fields, we may have created multiple
+    // dependent groups to the same subgraph for the same path. We therefore
+    // attempt to merge dependent groups of the subgroup and of the parent group
+    // to avoid duplicate fetches.
+    parentGroup.mergeDependentGroups(subGroup);
 
     let definition: FragmentDefinitionNode;
     let selectionSet = selectionSetFromFieldSet(subGroup.fields, returnType);
@@ -876,6 +881,30 @@ class FetchGroup {
       ...Object.values(this.dependentGroupsByService),
       ...this.otherDependentGroups,
     ];
+  }
+
+  mergeDependentGroups(that: FetchGroup) {
+    for (const dependentGroup of that.dependentGroups) {
+      // In order to avoid duplicate fetches, we try to find existing dependent
+      // groups with the same service and merge path first.
+      const existingDependentGroup = this.dependentGroups.find(
+        (group) =>
+          group.serviceName === dependentGroup.serviceName &&
+          deepEqual(group.mergeAt, dependentGroup.mergeAt),
+      );
+      if (existingDependentGroup) {
+        existingDependentGroup.merge(dependentGroup);
+      } else {
+        this.otherDependentGroups.push(dependentGroup);
+      }
+    }
+  }
+
+  merge(otherGroup: FetchGroup) {
+    this.fields.push(...otherGroup.fields);
+    this.requiredFields.push(...otherGroup.requiredFields);
+    this.providedFields.push(...otherGroup.providedFields);
+    this.mergeDependentGroups(otherGroup);
   }
 }
 
