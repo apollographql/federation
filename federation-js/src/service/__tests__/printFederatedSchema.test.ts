@@ -72,7 +72,7 @@ describe('printFederatedSchema', () => {
         asile: Int
       }
 
-      type Image {
+      type Image implements NamedObject {
         name: String!
         attributes: ImageAttributes!
       }
@@ -104,6 +104,10 @@ describe('printFederatedSchema', () => {
       type Name {
         first: String
         last: String
+      }
+
+      interface NamedObject {
+        name: String!
       }
 
       type PasswordAccount @key(fields: \\"email\\") {
@@ -160,7 +164,7 @@ describe('printFederatedSchema', () => {
         number: String
       }
 
-      type Text {
+      type Text implements NamedObject {
         name: String!
         attributes: TextAttributes!
       }

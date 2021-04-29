@@ -1,18 +1,14 @@
 import { isNotNullOrUndefined } from './utilities/predicates';
 import {
   DocumentNode,
-  FieldNode,
   FragmentDefinitionNode,
   getNamedType,
   getOperationRootType,
-  GraphQLAbstractType,
   GraphQLCompositeType,
   GraphQLError,
-  GraphQLField,
   GraphQLObjectType,
   GraphQLSchema,
   GraphQLType,
-  InlineFragmentNode,
   isAbstractType,
   isCompositeType,
   isIntrospectionType,
@@ -22,9 +18,7 @@ import {
   Kind,
   OperationDefinitionNode,
   SelectionSetNode,
-  typeFromAST,
   TypeNameMetaFieldDef,
-  visit,
   VariableDefinitionNode,
   OperationTypeNode,
   print,
@@ -33,13 +27,12 @@ import {
 import {
   Field,
   FieldSet,
-  groupByParentType,
   groupByResponseName,
   matchesField,
   selectionSetFromFieldSet,
-  Scope,
   debugPrintField,
   debugPrintFields,
+  groupByScope,
 } from './FieldSet';
 import {
   FetchNode,
@@ -50,14 +43,15 @@ import {
   ResponsePath,
   trimSelectionNodes,
 } from './QueryPlan';
-import { getFieldDef, getResponseName } from './utilities/graphql';
+import { getResponseName } from './utilities/graphql';
 import { MultiMap } from './utilities/MultiMap';
 import {
   getFederationMetadataForType,
   getFederationMetadataForField,
-  isEntityTypeMetadata,
 } from './composedSchema';
 import { DebugLogger } from './utilities/debug';
+import { QueryPlanningContext } from './QueryPlanningContext';
+import { Scope } from './Scope';
 
 
 function stringIsTrue(str?: string) : boolean {
@@ -116,9 +110,8 @@ export function buildQueryPlan(
   debug.log(() => `Building plan for ${isMutation ? "mutation" : "query"} "${rootType}" (fragments: [${Object.keys(context.fragments)}], autoFragmentization: ${context.autoFragmentization})`);
 
   debug.group(`Collecting root fields:`);
-  const fields = collectFields(
-    context,
-    context.newScope(rootType),
+  const fields = context.collectFields(
+    Scope.create(context, rootType),
     context.operation.selectionSet,
   );
   debug.groupEnd(`Collected root fields:`);
@@ -356,7 +349,8 @@ function splitRootFields(
     const { scope, fieldNode, fieldDef } = field;
     const { parentType } = scope;
 
-    const owningService = context.getOwningService(parentType, fieldDef);
+    // The root type is necessarily an object type.
+    const owningService = context.getOwningService(parentType as GraphQLObjectType, fieldDef);
 
     if (!owningService) {
       throw new GraphQLError(
@@ -411,7 +405,8 @@ function splitRootFieldsSerially(
     const { scope, fieldNode, fieldDef } = field;
     const { parentType } = scope;
 
-    const owningService = context.getOwningService(parentType, fieldDef);
+    // The root type is necessarily an object type.
+    const owningService = context.getOwningService(parentType as GraphQLObjectType, fieldDef);
 
     if (!owningService) {
       throw new GraphQLError(
@@ -436,17 +431,15 @@ function splitSubfields(
     const { scope, fieldNode, fieldDef } = field;
     const { parentType } = scope;
 
+    let baseService, owningService;
+
     // Committed by @trevor-scheer but authored by @martijnwalraven
     // Treat abstract types as value types to replicate type explosion fix
     // XXX: this replicates the behavior of the Rust query planner implementation,
     // in order to get the tests passing before making further changes. But the
     // type explosion fix this depends on is fundamentally flawed and needs to
     // be replaced.
-    const parentIsValueType = !isObjectType(parentType) || getFederationMetadataForType(parentType)?.isValueType;
-
-    let baseService, owningService;
-
-    if (parentIsValueType) {
+    if (!isObjectType(parentType) || getFederationMetadataForType(parentType)?.isValueType) {
       baseService = parentGroup.serviceName;
       owningService = parentGroup.serviceName;
     } else {
@@ -478,10 +471,7 @@ function splitSubfields(
       } else {
         // We need to fetch the key fields from the parent group first, and then
         // use a dependent fetch from the owning service.
-        let keyFields = context.getKeyFields({
-          parentType,
-          serviceName: parentGroup.serviceName,
-        });
+        let keyFields = context.getKeyFields(scope, parentGroup.serviceName);
         if (
           keyFields.length === 0 ||
           (keyFields.length === 1 &&
@@ -490,17 +480,14 @@ function splitSubfields(
           // Only __typename key found.
           // In some cases, the parent group does not have any @key directives.
           // Fall back to owning group's keys
-          keyFields = context.getKeyFields({
-            parentType,
-            serviceName: owningService,
-          });
+          keyFields = context.getKeyFields(scope, owningService);
         }
         return parentGroup.dependentGroupForService(owningService, keyFields);
       }
     } else {
       // It's an extension field, so we need to fetch the required fields first.
       const requiredFields = context.getRequiredFields(
-        parentType,
+        scope,
         fieldDef,
         owningService,
       );
@@ -522,10 +509,7 @@ function splitSubfields(
       } else {
         // We need to go through the base group first.
 
-        const keyFields = context.getKeyFields({
-          parentType,
-          serviceName: parentGroup.serviceName,
-        });
+        const keyFields = context.getKeyFields(scope, parentGroup.serviceName);
 
         if (!keyFields) {
           throw new GraphQLError(
@@ -559,19 +543,21 @@ function splitFields(
   context: QueryPlanningContext,
   path: ResponsePath,
   fields: FieldSet,
-  groupForField: (field: Field<GraphQLObjectType>) => FetchGroup,
+  groupForField: (field: Field) => FetchGroup,
 ) {
   for (const fieldsForResponseName of groupByResponseName(fields).values()) {
-    for (const [parentType, fieldsForParentType] of groupByParentType(fieldsForResponseName)) {
-      // Field nodes that share the same response name and parent type are guaranteed
-      // to have the same field name and arguments. We only need the other nodes when
-      // merging selection sets, to take node-specific subfields and directives
-      // into account.
+    for (const fieldsForScope of groupByScope(fieldsForResponseName).values()) {
+      // Field nodes that share the same response name and scope are guaranteed to have the same field name and
+      // arguments. We only need the other nodes when merging selection sets, to take node-specific subfields and
+      // directives into account.
 
-      debug.group(() => debugPrintFields(fieldsForParentType));
+      debug.group(() => debugPrintFields(fieldsForScope));
 
-      const field = fieldsForParentType[0];
+      // All the fields in fieldsForScope have the same scope, so that means the same parent type and possible runtime
+      // types, so we effectively can just use the first one and ignore the rest.
+      const field = fieldsForScope[0];
       const { scope, fieldDef } = field;
+      const parentType = scope.parentType;
 
       // We skip `__typename` for root types.
       if (fieldDef.name === TypeNameMetaFieldDef.name) {
@@ -595,24 +581,16 @@ function splitFields(
         continue;
       }
 
-      if (isObjectType(parentType) && scope.possibleTypes.includes(parentType)) {
+      if (isObjectType(parentType) && scope.possibleRuntimeTypes().includes(parentType)) {
         // If parent type is an object type, we can directly look for the right
         // group.
-        debug.log(() => `${parentType} = object and ${parentType} ∈ [${scope.possibleTypes}]`);
-        const group = groupForField(field as Field<GraphQLObjectType>);
+        debug.log(() => `${parentType} = object and ${parentType} ∈ [${scope.possibleRuntimeTypes()}]`);
+        const group = groupForField(field);
         debug.log(() => `Initial fetch group for fields: ${debugPrintGroup(group)}`);
-        group.fields.push(
-          completeField(
-            context,
-            scope as Scope<typeof parentType>,
-            group,
-            path,
-            fieldsForParentType,
-          ),
-        );
+        group.fields.push(completeField(context, scope, group, path, fieldsForScope));
         debug.groupEnd(() => `Updated fetch group: ${debugPrintGroup(group)}`);
       } else {
-        debug.log(() => `${parentType} ≠ object or ${parentType} ∉ [${scope.possibleTypes}]`);
+        debug.log(() => `${parentType} ≠ object or ${parentType} ∉ [${scope.possibleRuntimeTypes()}]`);
         // For interfaces however, we need to look at all possible runtime types.
 
         /**
@@ -623,7 +601,7 @@ function splitFields(
          */
 
         // Collect all of the field defs on the possible runtime types
-        const possibleFieldDefs = scope.possibleTypes.map(
+        const possibleFieldDefs = scope.possibleRuntimeTypes().map(
           runtimeType => context.getFieldDef(runtimeType, field.fieldNode),
         );
 
@@ -635,12 +613,10 @@ function splitFields(
 
         // With no extending field definitions, we can engage the optimization
         if (hasNoExtendingFieldDefs) {
-          debug.group(() => `No field of ${scope.possibleTypes} have federation directives, avoid type explosion.`);
-          const group = groupForField(field as Field<GraphQLObjectType>);
+          debug.group(() => `No field of ${scope.possibleRuntimeTypes()} have federation directives, avoid type explosion.`);
+          const group = groupForField(field);
           debug.groupEnd(() => `Initial fetch group for fields: ${debugPrintGroup(group)}`);
-          group.fields.push(
-            completeField(context, scope, group, path, fieldsForParentType)
-          );
+          group.fields.push(completeField(context, scope, group, path, fieldsForScope));
           debug.groupEnd(() => `Updated fetch group: ${debugPrintGroup(group)}`);
           continue;
         }
@@ -653,14 +629,14 @@ function splitFields(
         >();
 
         debug.group('Computing fetch groups by runtime parent types');
-        for (const runtimeParentType of scope.possibleTypes) {
+        for (const runtimeParentType of scope.possibleRuntimeTypes()) {
           const fieldDef = context.getFieldDef(
             runtimeParentType,
             field.fieldNode,
           );
           groupsByRuntimeParentTypes.add(
             groupForField({
-              scope: context.newScope(runtimeParentType, scope),
+              scope: scope.refine(runtimeParentType),
               fieldNode: field.fieldNode,
               fieldDef,
             }),
@@ -685,7 +661,7 @@ function splitFields(
               field.fieldNode,
             );
 
-            const fieldsWithRuntimeParentType = fieldsForParentType.map(field => ({
+            const fieldsWithRuntimeParentType = fieldsForScope.map(field => ({
               ...field,
               fieldDef,
             }));
@@ -693,7 +669,7 @@ function splitFields(
             group.fields.push(
               completeField(
                 context,
-                context.newScope(runtimeParentType, scope),
+                scope.refine(runtimeParentType),
                 group,
                 path,
                 fieldsWithRuntimeParentType,
@@ -713,7 +689,7 @@ function splitFields(
 
 function completeField(
   context: QueryPlanningContext,
-  scope: Scope<GraphQLCompositeType>,
+  scope: Scope,
   parentGroup: FetchGroup,
   path: ResponsePath,
   fields: FieldSet,
@@ -741,7 +717,7 @@ function completeField(
     // For abstract types, we always need to request `__typename`
     if (isAbstractType(returnType)) {
       subGroup.fields.push({
-        scope: context.newScope(returnType, scope),
+        scope: Scope.create(context, returnType),
         fieldNode: typenameField,
         fieldDef: TypeNameMetaFieldDef,
       });
@@ -831,97 +807,6 @@ function getInternalFragment(
   return context.internalFragments.get(key)!;
 }
 
-function collectFields(
-  context: QueryPlanningContext,
-  scope: Scope<GraphQLCompositeType>,
-  selectionSet: SelectionSetNode,
-  fields: FieldSet = [],
-  visitedFragmentNames: { [fragmentName: string]: boolean } = Object.create(
-    null,
-  ),
-): FieldSet {
-  for (const selection of selectionSet.selections) {
-    switch (selection.kind) {
-      case Kind.FIELD:
-        const fieldDef = context.getFieldDef(scope.parentType, selection);
-        fields.push({ scope, fieldNode: selection, fieldDef });
-        break;
-      case Kind.INLINE_FRAGMENT: {
-        const newScope = context.newScope(getFragmentCondition(selection), scope);
-        if (newScope.possibleTypes.length === 0) {
-          break;
-        }
-
-        // Committed by @trevor-scheer but authored by @martijnwalraven
-        // This replicates the behavior added to the Rust query planner in #178.
-        // Unfortunately, the logic in there is seriously flawed, and may lead to
-        // unexpected results. The assumption seems to be that fields with the
-        // same parent type are always nested in the same inline fragment. That
-        // is not necessarily true however, and because we take the directives
-        // from the scope of the first field with a particular parent type,
-        // those directives will be applied to all other fields that have the
-        // same parent type even if the directives aren't meant to apply to them
-        // because they were nested in a different inline fragment. (That also
-        // means that if the scope of the first field doesn't have directives,
-        // directives that would have applied to other fields will be lost.)
-        // Note that this also applies to `@skip` and `@include`, which could
-        // lead to invalid query plans that fail at runtime because expected
-        // fields are missing from a subgraph response.
-        newScope.directives = selection.directives;
-
-        collectFields(
-          context,
-          newScope,
-          selection.selectionSet,
-          fields,
-          visitedFragmentNames,
-        );
-        break;
-      }
-      case Kind.FRAGMENT_SPREAD:
-        const fragmentName = selection.name.value;
-
-        const fragment = context.fragments[fragmentName];
-        if (!fragment) {
-          continue;
-        }
-
-        const newScope = context.newScope(getFragmentCondition(fragment), scope);
-        if (newScope.possibleTypes.length === 0) {
-          continue;
-        }
-
-        if (visitedFragmentNames[fragmentName]) {
-          continue;
-        }
-        visitedFragmentNames[fragmentName] = true;
-
-        collectFields(
-          context,
-          newScope,
-          fragment.selectionSet,
-          fields,
-          visitedFragmentNames,
-        );
-        break;
-    }
-  }
-
-  return fields;
-
-  function getFragmentCondition(
-    fragment: FragmentDefinitionNode | InlineFragmentNode,
-  ): GraphQLCompositeType {
-    const typeConditionNode = fragment.typeCondition;
-    if (!typeConditionNode) return scope.parentType;
-
-    return typeFromAST(
-      context.schema,
-      typeConditionNode,
-    ) as GraphQLCompositeType;
-  }
-}
-
 // Collecting subfields collapses parent types, because it merges
 // selection sets without taking the runtime parent type of the field
 // into account. If we want to keep track of multiple levels of possible
@@ -932,18 +817,15 @@ export function collectSubfields(
   fields: FieldSet,
 ): FieldSet {
   let subfields: FieldSet = [];
-  const visitedFragmentNames = Object.create(null);
 
   for (const field of fields) {
     const selectionSet = field.fieldNode.selectionSet;
 
     if (selectionSet) {
-      subfields = collectFields(
-        context,
-        context.newScope(returnType),
+      subfields = context.collectFields(
+        Scope.create(context, returnType),
         selectionSet,
         subfields,
-        visitedFragmentNames,
       );
     }
   }
@@ -1063,220 +945,6 @@ export function buildQueryPlanningContext(
     fragments,
     options.autoFragmentization,
   );
-}
-
-export class QueryPlanningContext {
-  public internalFragments: Map<
-    string,
-    {
-      name: string;
-      definition: FragmentDefinitionNode;
-      selectionSet: SelectionSetNode;
-    }
-  > = new Map();
-
-  public internalFragmentCount = 0;
-
-  protected variableDefinitions: {
-    [name: string]: VariableDefinitionNode;
-  };
-
-  constructor(
-    public readonly schema: GraphQLSchema,
-    public readonly operation: OperationDefinitionNode,
-    public readonly fragments: FragmentMap,
-    public readonly autoFragmentization: boolean,
-  ) {
-    this.variableDefinitions = Object.create(null);
-    visit(operation, {
-      VariableDefinition: definition => {
-        this.variableDefinitions[definition.variable.name.value] = definition;
-      },
-    });
-  }
-
-  getFieldDef(parentType: GraphQLCompositeType, fieldNode: FieldNode) {
-    const fieldName = fieldNode.name.value;
-
-    const fieldDef = getFieldDef(this.schema, parentType, fieldName);
-
-    if (!fieldDef) {
-      throw new GraphQLError(
-        `Cannot query field "${fieldNode.name.value}" on type "${String(
-          parentType,
-        )}"`,
-        fieldNode,
-      );
-    }
-
-    return fieldDef;
-  }
-
-  getPossibleTypes(
-    type: GraphQLAbstractType | GraphQLObjectType,
-  ): ReadonlyArray<GraphQLObjectType> {
-    return isAbstractType(type) ? this.schema.getPossibleTypes(type) : [type];
-  }
-
-  getVariableUsages(
-    selectionSet: SelectionSetNode,
-    fragments: Set<FragmentDefinitionNode>,
-  ) {
-    const usages: {
-      [name: string]: VariableDefinitionNode;
-    } = Object.create(null);
-
-    // Construct a document of the selection set and fragment definitions so we
-    // can visit them, adding all variable usages to the `usages` object.
-    const document: DocumentNode = {
-      kind: Kind.DOCUMENT,
-      definitions: [
-        { kind: Kind.OPERATION_DEFINITION, selectionSet, operation: 'query' },
-        ...Array.from(fragments),
-      ],
-    };
-
-    visit(document, {
-      Variable: (node) => {
-        usages[node.name.value] = this.variableDefinitions[node.name.value];
-      },
-    });
-
-    return usages;
-  }
-
-  newScope<TParent extends GraphQLCompositeType>(
-    parentType: TParent,
-    enclosingScope?: Scope<GraphQLCompositeType>,
-  ): Scope<TParent> {
-    return {
-      parentType,
-      possibleTypes: enclosingScope
-        ? this.getPossibleTypes(parentType).filter(type =>
-            enclosingScope.possibleTypes.includes(type),
-          )
-        : this.getPossibleTypes(parentType),
-      enclosingScope,
-    };
-  }
-
-  getBaseService(parentType: GraphQLObjectType): string | undefined {
-    const type = getFederationMetadataForType(parentType);
-    return (type && isEntityTypeMetadata(type)) ? type.graphName : undefined;
-  }
-
-  getOwningService(
-    parentType: GraphQLObjectType,
-    fieldDef: GraphQLField<any, any>,
-  ): string | undefined {
-    return (
-      getFederationMetadataForField(fieldDef)?.graphName ??
-      this.getBaseService(parentType)
-    );
-  }
-
-  getKeyFields({
-    parentType,
-    serviceName,
-    fetchAll = false,
-  }: {
-    parentType: GraphQLCompositeType;
-    serviceName: string;
-    fetchAll?: boolean;
-  }): FieldSet {
-    const keyFields: FieldSet = [];
-
-    keyFields.push({
-      scope: {
-        parentType,
-        possibleTypes: this.getPossibleTypes(parentType),
-      },
-      fieldNode: typenameField,
-      fieldDef: TypeNameMetaFieldDef,
-    });
-
-    for (const possibleType of this.getPossibleTypes(parentType)) {
-      const type = getFederationMetadataForType(possibleType);
-      const keys =
-        type && isEntityTypeMetadata(type)
-          ? type.keys.get(serviceName)
-          : undefined;
-
-      if (!(keys && keys.length > 0)) continue;
-
-      if (fetchAll) {
-        keyFields.push(
-          ...keys.flatMap(key =>
-            collectFields(this, this.newScope(possibleType), {
-              kind: Kind.SELECTION_SET,
-              selections: key,
-            }),
-          ),
-        );
-      } else {
-        keyFields.push(
-          ...collectFields(this, this.newScope(possibleType), {
-            kind: Kind.SELECTION_SET,
-            selections: keys[0],
-          }),
-        );
-      }
-    }
-
-    return keyFields;
-  }
-
-  getRequiredFields(
-    parentType: GraphQLCompositeType,
-    fieldDef: GraphQLField<any, any>,
-    serviceName: string,
-  ): FieldSet {
-    const requiredFields: FieldSet = [];
-
-    requiredFields.push(...this.getKeyFields({ parentType, serviceName }));
-
-    const fieldFederationMetadata = getFederationMetadataForField(fieldDef);
-    if (fieldFederationMetadata?.requires) {
-      requiredFields.push(
-        ...collectFields(this, this.newScope(parentType), {
-          kind: Kind.SELECTION_SET,
-          selections: fieldFederationMetadata.requires,
-        }),
-      );
-    }
-
-    return requiredFields;
-  }
-
-  getProvidedFields(
-    fieldDef: GraphQLField<any, any>,
-    serviceName: string,
-  ): FieldSet {
-    const returnType = getNamedType(fieldDef.type);
-    if (!isCompositeType(returnType)) return [];
-
-    const providedFields: FieldSet = [];
-
-    providedFields.push(
-      ...this.getKeyFields({
-        parentType: returnType,
-        serviceName,
-        fetchAll: true,
-      }),
-    );
-
-    const fieldFederationMetadata = getFederationMetadataForField(fieldDef);
-    if (fieldFederationMetadata?.provides) {
-      providedFields.push(
-        ...collectFields(this, this.newScope(returnType), {
-          kind: Kind.SELECTION_SET,
-          selections: fieldFederationMetadata.provides,
-        }),
-      );
-    }
-
-    return providedFields;
-  }
 }
 
 function addPath(path: ResponsePath, responseName: string, type: GraphQLType) {
