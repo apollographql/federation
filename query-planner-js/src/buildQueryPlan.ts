@@ -58,6 +58,7 @@ import {
   isEntityTypeMetadata,
 } from './composedSchema';
 import { DebugLogger } from './utilities/debug';
+import { nextValue } from './utilities/iterator';
 
 
 function stringIsTrue(str?: string) : boolean {
@@ -615,36 +616,6 @@ function splitFields(
         debug.log(() => `${parentType} ≠ object or ${parentType} ∉ [${scope.possibleTypes}]`);
         // For interfaces however, we need to look at all possible runtime types.
 
-        /**
-         * The following is an optimization to prevent an explosion of type
-         * conditions to services when it isn't needed. If all possible runtime
-         * types can be fufilled by only one service then we don't need to
-         * expand the fields into unique type conditions.
-         */
-
-        // Collect all of the field defs on the possible runtime types
-        const possibleFieldDefs = scope.possibleTypes.map(
-          runtimeType => context.getFieldDef(runtimeType, field.fieldNode),
-        );
-
-        // If none of the field defs have a federation property, this interface's
-        // implementors can all be resolved within the same service.
-        const hasNoExtendingFieldDefs = !possibleFieldDefs.some(
-          (field) => getFederationMetadataForField(field)?.graphName,
-        );
-
-        // With no extending field definitions, we can engage the optimization
-        if (hasNoExtendingFieldDefs) {
-          debug.group(() => `No field of ${scope.possibleTypes} have federation directives, avoid type explosion.`);
-          const group = groupForField(field as Field<GraphQLObjectType>);
-          debug.groupEnd(() => `Initial fetch group for fields: ${debugPrintGroup(group)}`);
-          group.fields.push(
-            completeField(context, scope, group, path, fieldsForParentType)
-          );
-          debug.groupEnd(() => `Updated fetch group: ${debugPrintGroup(group)}`);
-          continue;
-        }
-
         // We keep track of which possible runtime parent types can be fetched
         // from which group,
         const groupsByRuntimeParentTypes = new MultiMap<
@@ -669,6 +640,23 @@ function splitFields(
         }
         debug.groupEnd(`Fetch groups to resolvable runtime types:`);
         debug.groupedEntries(groupsByRuntimeParentTypes, debugPrintGroup, (v) => v.toString());
+
+        // TODO: We need to make sure the group's service supports the interface.
+        // And if we have that information, we may want to perform this check for every group,
+        // not just if there is a single group.
+        if (groupsByRuntimeParentTypes.size === 1) {
+          debug.log(() => `All possible types (${scope.possibleTypes}) can be resolved from one fetch group, avoiding type explosion.`);
+
+          const group = nextValue(groupsByRuntimeParentTypes.keys())!
+
+          group.fields.push(
+            completeField(context, scope, group, path, fieldsForParentType)
+          );
+
+          debug.groupEnd(() => `Updated fetch group: ${debugPrintGroup(group)}`);
+
+          continue;
+        }
 
         debug.group('Iterating on fetch groups');
         // We add the field separately for each runtime parent type.
