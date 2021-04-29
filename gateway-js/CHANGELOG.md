@@ -6,6 +6,10 @@
 
 -  _Nothing yet! Stay tuned!_
 
+## v0.27.1
+
+- Update version of `@apollo/query-planner` which was uninstallable due to a missing dependency. Related PR: [PR #709](https://github.com/apollographql/federation/pull/709)
+
 ## v0.27.0
 
 - Fix query plans missing fields in some situations involving nested type conditions. [PR #652](https://github.com/apollographql/federation/pull/652) [Issue #396](https://github.com/apollographql/federation/issues/396)
