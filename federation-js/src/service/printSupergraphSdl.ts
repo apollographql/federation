@@ -95,7 +95,7 @@ export function printSupergraphSdl(
 
   return printFilteredSchema(
     schema,
-    (n) => !isSpecifiedDirective(n),
+    (n) => !isSpecifiedDirective(n) || n.name === 'internal',
     isDefinedType,
     context,
     options,
@@ -432,8 +432,13 @@ function printJoinFieldDirectives(
   }
 
   printed += directiveArgs.join(', ');
+  printed += ')'
 
-  return (printed += ')');
+  if(field.astNode?.directives?.some(directive => directive.name.value === 'internal')){
+    printed += " @internal"
+  }
+
+  return printed;
 }
 
 // Core change: `onNewLine` is a formatting nice-to-have for printing

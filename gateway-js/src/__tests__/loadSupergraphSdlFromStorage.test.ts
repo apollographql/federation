@@ -42,6 +42,8 @@ describe('loadSupergraphSdlFromStorage', () => {
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
+      directive @internal on OBJECT | FIELD_DEFINITION
+
       directive @stream on FIELD
 
       directive @transform(from: String!) on FIELD

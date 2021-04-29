@@ -41,6 +41,11 @@ export const ExternalDirective = new GraphQLDirective({
   locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
 });
 
+export const InternalDirective = new GraphQLDirective({
+  name: 'internal',
+  locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
+});
+
 export const RequiresDirective = new GraphQLDirective({
   name: 'requires',
   locations: [DirectiveLocation.FIELD_DEFINITION],
@@ -65,6 +70,7 @@ export const federationDirectives = [
   KeyDirective,
   ExtendsDirective,
   ExternalDirective,
+  InternalDirective,
   RequiresDirective,
   ProvidesDirective,
 ];
