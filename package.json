@@ -34,8 +34,7 @@
     "@apollo/harmonizer": "file:harmonizer",
     "@apollographql/apollo-tools": "0.4.14",
     "@apollo/query-planner": "file:query-planner-js",
-    "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js",
-    "deep-equal": "^2.0.5"
+    "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "1.21.4",
