@@ -137,7 +137,7 @@ We can fetch a running subgraph's schema by executing an enhanced introspection 
 From your project directory, run the following command in your terminal:
 
 ```shell
-rover subgraph introspect https://7bssbnldib.execute-api.us-east-1.amazonaws.com/Prod/graphql
+rover subgraph introspect https://rover.apollo.dev/quickstart/products/graphql
 ```
 
 Rover introspects Apollo's example `products` service and outputs the following schema:
@@ -208,7 +208,7 @@ extend type Query {
 Now run that same command, but this time append ` > products.graphql`:
 
 ```shell
-rover subgraph introspect https://7bssbnldib.execute-api.us-east-1.amazonaws.com/Prod/graphql > products.graphql
+rover subgraph introspect https://rover.apollo.dev/quickstart/products/graphql > products.graphql
 ```
 
 This writes the subgraph's schema to a file instead of printing it to your terminal.
@@ -216,7 +216,7 @@ This writes the subgraph's schema to a file instead of printing it to your termi
 Next, do the same thing for the _second_ subgraph (`reviews`), this time writing it to `reviews.graphql`:
 
 ```shell
-rover subgraph introspect https://w0jtezo2pa.execute-api.us-east-1.amazonaws.com/Prod/graphql > reviews.graphql
+rover subgraph introspect https://rover.apollo.dev/quickstart/reviews/graphql > reviews.graphql
 ```
 
 Great! We now have the schemas for our two subgraphs.
@@ -230,11 +230,11 @@ Create a file called `supergraph-config.yaml` and paste the following into it:
 ```yaml:title=supergraph-config.yaml
 subgraphs:
   products:
-    routing_url: https://7bssbnldib.execute-api.us-east-1.amazonaws.com/Prod/graphql
+    routing_url: https://rover.apollo.dev/quickstart/products/graphql
     schema:
       file: ./products.graphql
   reviews:
-    routing_url: https://w0jtezo2pa.execute-api.us-east-1.amazonaws.com/Prod/graphql
+    routing_url: https://rover.apollo.dev/quickstart/reviews/graphql
     schema:
       file: ./reviews.graphql
 ```
@@ -283,8 +283,8 @@ type Department {
 scalar join__FieldSet
 
 enum join__Graph {
-  PRODUCTS @join__graph(name: "products" url: "https://7bssbnldib.execute-api.us-east-1.amazonaws.com/Prod/graphql")
-  REVIEWS @join__graph(name: "reviews" url: "https://w0jtezo2pa.execute-api.us-east-1.amazonaws.com/Prod/graphql")
+  PRODUCTS @join__graph(name: "products" url: "https://rover.apollo.dev/quickstart/products/graphql")
+  REVIEWS @join__graph(name: "reviews" url: "https://rover.apollo.dev/quickstart/reviews/graphql")
 }
 
 type Money {
