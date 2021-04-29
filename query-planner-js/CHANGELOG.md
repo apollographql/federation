@@ -9,6 +9,7 @@
 # v0.1.3
 
 - Fix query plans missing fields in some situations involving nested type conditions (#396).
+- Fix duplicate fetches in query plans [PR #671](https://github.com/apollographql/federation/pull/671).
 
 # v0.1.2
 
