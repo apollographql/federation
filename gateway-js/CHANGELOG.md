@@ -8,8 +8,8 @@
 
 ## v0.27.0
 
-- Fix query plans missing fields in some situations involving nested type conditions (#396).
-- Fix duplicate fetches in query plans [PR #671](https://github.com/apollographql/federation/pull/671).
+- Fix query plans missing fields in some situations involving nested type conditions. [PR #652](https://github.com/apollographql/federation/pull/652) [Issue #396](https://github.com/apollographql/federation/issues/396)
+- Fix condition would could result in duplicate fetches within query plans. [PR #671](https://github.com/apollographql/federation/pull/671)
 
 ## v0.26.3
 
