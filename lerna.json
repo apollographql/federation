@@ -10,7 +10,7 @@
   "command": {
     "version": {
       "message": "Release",
-      "ignoreChanges": ["**/*.md", "**/*.mdx"],
+      "ignoreChanges": ["**/*.md", "**/*.mdx", "**/__tests__/**"],
       "includeMergedTags": true
     }
   }
