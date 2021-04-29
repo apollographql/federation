@@ -42,7 +42,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
                   'KEY_FIELDS_SELECT_INVALID_TYPE',
                   logServiceAndType(serviceName, typeName) +
                     `A @key selects ${name}, but ${typeName}.${name} could not be found`,
-                  field,
+                  namedType.astNode ?? undefined,
                 ),
               );
             }
@@ -58,7 +58,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
                     'KEY_FIELDS_SELECT_INVALID_TYPE',
                     logServiceAndType(serviceName, typeName) +
                       `A @key selects ${typeName}.${name}, which is an interface type. Keys cannot select interfaces.`,
-                    field,
+                    matchingField.astNode ?? undefined,
                   ),
                 );
               }
@@ -73,7 +73,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
                     'KEY_FIELDS_SELECT_INVALID_TYPE',
                     logServiceAndType(serviceName, typeName) +
                       `A @key selects ${typeName}.${name}, which is a union type. Keys cannot select union types.`,
-                    field,
+                    matchingField.astNode ?? undefined,
                   ),
                 );
               }

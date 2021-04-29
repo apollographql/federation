@@ -38,7 +38,7 @@ export const keyFieldsMissingOnBase: PostCompositionValidator = ({
                     'KEY_FIELDS_MISSING_ON_BASE',
                     logServiceAndType(serviceName, typeName) +
                       `A @key selects ${name}, but ${typeName}.${name} was either created or overwritten by ${fieldFederationMetadata.serviceName}, not ${serviceName}`,
-                    field,
+                    matchingField.astNode ?? undefined,
                   ),
                 );
               }
