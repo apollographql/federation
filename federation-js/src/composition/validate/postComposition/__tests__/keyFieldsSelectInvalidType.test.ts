@@ -90,8 +90,8 @@ describe('keyFieldsSelectInvalidType', () => {
           "code": "KEY_FIELDS_SELECT_INVALID_TYPE",
           "locations": Array [
             Object {
-              "column": 3,
-              "line": 3,
+              "column": 1,
+              "line": 2,
             },
           ],
           "message": "[serviceA] Product -> A @key selects Product.featuredItem, which is an interface type. Keys cannot select interfaces.",
@@ -138,8 +138,8 @@ describe('keyFieldsSelectInvalidType', () => {
           "code": "KEY_FIELDS_SELECT_INVALID_TYPE",
           "locations": Array [
             Object {
-              "column": 3,
-              "line": 4,
+              "column": 1,
+              "line": 2,
             },
           ],
           "message": "[serviceA] Product -> A @key selects Product.price, which is a union type. Keys cannot select union types.",

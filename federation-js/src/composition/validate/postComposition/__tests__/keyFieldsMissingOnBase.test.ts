@@ -80,8 +80,8 @@ describe('keyFieldsMissingOnBase', () => {
           "code": "KEY_FIELDS_MISSING_ON_BASE",
           "locations": Array [
             Object {
-              "column": 3,
-              "line": 3,
+              "column": 1,
+              "line": 2,
             },
           ],
           "message": "[serviceA] Product -> A @key selects uid, but Product.uid was either created or overwritten by serviceB, not serviceA",
