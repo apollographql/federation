@@ -98,6 +98,9 @@ jobs:
         type: executor
     executor: << parameters.platform >>
     environment:
+      # Note: This is a no-op at the second, but bear with me on this.  If this
+      # comment is not removed by 2021-06-30 remove it along with the next line.
+      # renovate: datasource=github-tags depName=nodejs/node versioning=node
       NODE_VERSION: 14.16.1
       NPM_VERSION: 7.10.0
     steps:
