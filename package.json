@@ -25,7 +25,7 @@
     "codegen:check": "npm run codegen && git diff --exit-code"
   },
   "engines": {
-    "node": ">=6 <15",
+    "node": ">=12.13.0 <17.0",
     "npm": "7.x"
   },
   "dependencies": {
