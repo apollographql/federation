@@ -55,7 +55,8 @@ jobs:
   # at https://hub.docker.com/r/circleci/node/.
 
   NodeJS 12:
-    executor: { name: oss/node, tag: '12' }
+    docker:
+      - image: cimg/node:12.22.1
     steps:
       - common_test_steps
       # We will save the results of this one particular invocation to use in
@@ -69,13 +70,15 @@ jobs:
             - ./**
 
   NodeJS 14:
-    executor: { name: oss/node, tag: '14' }
+    docker:
+      - image: cimg/node:14.16.1
     steps:
       - common_test_steps
 
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
-    executor: { name: oss/node, tag: '14' }
+    docker:
+      - image: cimg/node:14.16.1
     steps:
       - oss/install_specific_npm_version:
           version: '7'
