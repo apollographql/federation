@@ -6,4 +6,6 @@
   # presently wrong.  I would encourage removing this eventually, but for now,
   # we'll check to see if `/bin/false` returns true (it won't) as a gauge.
   ignore  = "/bin/false"
-
+[build.environment]
+  NODE_VERSION = "14"
+  NPM_VERSION  = "7"
