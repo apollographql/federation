@@ -3,6 +3,21 @@
     "apollo-open-source"
   ],
   "dependencyDashboard": true,
+  // The "circleci" manager is intentionally disabled right now (e.g., not
+  // included in this list).  While we do benefit from its updating of "Orb"
+  // versions, the CircleCI manager also attempts to update Docker images using
+  // its "Docker" datasource.  This is really handy, in theory, but we have
+  // intentionally varying major Node.js docker image identifiers in our
+  // CircleCI configuration to test on each major Node.js platform.  Enabling
+  // the "circleci" manager would cause all of these to update to the latest
+  // version (e.g., 16) when we want them to be intentionally different!
+  // I'm going to try to craft an fix for this, but I might do it upstream
+  // on Renovate itself using its Regex manager.  It's also worth noting that
+  // there is other configuration that could be used to _only_ renovate "orbs"
+  // on this file, but I'm taking the short-cut route and not juggling with
+  // that right now.  I can test the repository locally with my own copy of
+  // Renovate and come up with another solution given some free time. -Jesse
+  "enabledManagers": ["npm", "cargo"],
   "packageRules": [
     // We set this to the lowest supported Node.js version to ensure we don't
     // use newer Node.js APIs unknowingly during development which are going to

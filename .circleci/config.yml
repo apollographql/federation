@@ -55,7 +55,8 @@ jobs:
   # at https://hub.docker.com/r/circleci/node/.
 
   NodeJS 12:
-    executor: { name: oss/node, tag: '12' }
+    docker:
+      - image: cimg/node:12.22.1
     steps:
       - common_test_steps
       # We will save the results of this one particular invocation to use in
@@ -69,13 +70,21 @@ jobs:
             - ./**
 
   NodeJS 14:
-    executor: { name: oss/node, tag: '14' }
+    docker:
+      - image: cimg/node:14.16.1
+    steps:
+      - common_test_steps
+
+  NodeJS 16:
+    docker:
+      - image: cimg/node:16.0.0
     steps:
       - common_test_steps
 
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
-    executor: { name: oss/node, tag: '14' }
+    docker:
+      - image: cimg/node:14.16.1
     steps:
       - oss/install_specific_npm_version:
           version: '7'
@@ -89,6 +98,9 @@ jobs:
         type: executor
     executor: << parameters.platform >>
     environment:
+      # Note: This is a no-op at the second, but bear with me on this.  If this
+      # comment is not removed by 2021-06-30 remove it along with the next line.
+      # renovate: datasource=github-tags depName=nodejs/node versioning=node
       NODE_VERSION: 14.16.1
       NPM_VERSION: 7.10.0
     steps:
@@ -225,7 +237,10 @@ jobs:
                 name: Assert npm version
                 command: |
                   if ((npm --version) -Ne "${Env:NPM_VERSION}") { exit 1 }
-            - run: npm clean-install
+            - run:
+                name: npm clean-install
+                command: |
+                  npm clean-install
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
                 cache_version: v2-windows
@@ -270,6 +285,9 @@ workflows:
       - NodeJS 14:
           name: "JS: Node 14"
           <<: *common_non_publish_filters
+      - NodeJS 16:
+          name: "JS: Node 16"
+          <<: *common_non_publish_filters
       - GraphQL Types:
           name: "GraphQL Types (up to date)"
           <<: *common_non_publish_filters
@@ -287,6 +305,7 @@ workflows:
           requires:
             - "JS: Node 12"
             - "JS: Node 14"
+            - "JS: Node 16"
             - "GraphQL Types (up to date)"
       - oss/dry_run:
           name: "JS: Dry-run"
@@ -294,6 +313,7 @@ workflows:
           requires:
             - "JS: Node 12"
             - "JS: Node 14"
+            - "JS: Node 16"
             - Rust
             - "GraphQL Types (up to date)"
       - oss/confirmation:

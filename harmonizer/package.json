@@ -16,7 +16,7 @@
   "author": "Apollo <opensource@apollographql.com>",
   "license": "MIT",
   "engines": {
-    "node": ">=12.13.0 <15.0"
+    "node": ">=12.13.0 <17.0"
   },
   "dependencies": {
     "@apollo/federation": "file:../federation-js"
