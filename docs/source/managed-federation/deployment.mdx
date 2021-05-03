@@ -4,42 +4,28 @@ description: Best practices
 sidebar_title: Deployment best practices
 ---
 
-When rolling out changes to an [implementing service](../implementing-services/), we recommend the following workflow:
+When rolling out changes to a [subgraph](../implementing-services/), we recommend the following workflow:
 
-1. Confirm the backward compatibility of each change by [running `apollo service:check`](./federated-schema-checks/) in your CI pipeline.
+1. Confirm the backward compatibility of each change by [running `rover subgraph check`](https://www.apollographql.com/docs/rover/subgraphs/#checking-subgraph-schema-changes) in your CI pipeline.
 2. Merge backward compatible changes that successfully pass schema checks.
-3. Deploy changes to the implementing service in your infrastructure.
+3. Deploy changes to the subgraph in your infrastructure.
 4. Wait until all replicas finish deploying.
-5. Call `apollo service:push` to update your managed federation configuration:
+5. Run [`rover subgraph publish`](https://www.apollographql.com/docs/rover/subgraphs/#publishing-a-subgraph-schema-to-apollo-studio) to update your managed federation configuration:
 
-    ```
-    ~$ apollo service:push --serviceName="launches" \
-                          --serviceURL="http://launches-graphql.svc.cluster.local:4001/" \
-                          --endpoint="http://localhost:4001/"
-
-    ✔ Loading Apollo Project
-    ✔ Uploading service to Apollo
-
-    The 'registry' service for the 'space-explorer@current' graph was updated
-
-    The gateway for the 'space-explorer@current' graph was updated with a new schema, composed from the updated 'launches' service
-
-    id      graph             variant
-    ──────  ────────────────  ───────
-    az329e  space-explorer    current
-    ```
-
-> **What's the difference between the `endpoint` and `serviceURL` options?** 
->
->The `endpoint` option sets the endpoint where your service's schema is fetched from during composition, whereas `serviceURL` sets the URL that the gateway communicates with at runtime. This separation is useful because implementing services **should not be publicly accessible**, so the `endpoint` might point to a locally running server or a file, whereas the `serviceURL` should be a URL accessible to the gateway.
+```bash
+rover subgraph publish my-supergraph@my-variant \
+  --schema ./accounts/schema.graphql \
+  --name accounts \
+  --routing-url https://my-running-subgraph.com/api
+```
 
 ## Pushing configuration updates safely
 
-Whenever possible, you should update your service configuration in a way that is backward compatible to avoid downtime. The best way to do this is to minimize the number of [breaking changes](https://www.apollographql.com/docs/studio/schema-checks/#potentially-breaking-changes) you make to your schemas.
+Whenever possible, you should update your subgraph configuration in a way that is backward compatible to avoid downtime. The best way to do this is to minimize the number of [breaking changes](https://www.apollographql.com/docs/studio/schema-checks/#potentially-breaking-changes) you make to your schemas.
 
-Additionally, **call `apollo service:push` for an implementing service only after all replicas of that service are deployed**. This ensures that resolvers are in place for all operations that are executable against your graph, and operations can't attempt to access fields that do not yet exist.
+Additionally, **call `rover subgraph publish` for a subgraph only after all replicas of that subgraph are deployed**. This ensures that resolvers are in place for all operations that are executable against your graph, and operations can't attempt to access fields that do not yet exist.
 
-In the rare case where a configuration change is not backward compatible with your gateway's query planner, you should update your service registry _before_ you deploy your implementing services.
+In the rare case where a configuration change is _not_ backward compatible with your gateway's query planner, you should update your registered subgraph schemas _before_ you deploy your updated subgraphs.
 
 Additionally, you should perform configuration updates that affect query planning separately from (and prior to) other changes. This helps avoid a scenario where the query planner generates queries that fail validation in downstream services or violate your resolvers.
 
@@ -48,39 +34,39 @@ Examples of this include:
 - Modifying `@key`, `@requires`, or `@provides` directives
 - Removing a type implementation from an interface
 
-In general, always exercise caution when pushing configuration changes that affect your gateway's query planner, and consider how those changes will affect your other implementing services.
+In general, always exercise caution when pushing configuration changes that affect your gateway's query planner, and consider how those changes will affect your other subgraphs.
 
 ### Example scenario
 
-Let's say we define a `Channel` interface in one service, and we define types that _implement_ `Channel` in two other services:
+Let's say we define a `Channel` interface in one subgraph, and we define types that _implement_ `Channel` in two other subgraphs:
 
 ```graphql
-# Channel service
+# channel subgraph
 interface Channel @key(fields: "id") {
   id: ID!
 }
 
-# Web service
+# web subgraph
 type WebChannel implements Channel @key(fields: "id") {
   id: ID!
   webHook: String!
 }
 
-# Email service
+# email subgraph
 type EmailChannel implements Channel @key(fields: "id") {
   id: ID!
   emailAddress: String!
 }
 ```
 
-To safely remove the `EmailChannel` type from your schema:
+To safely remove the `EmailChannel` type from your supergraph schema:
 
-1. Perform a `service:push` of the `email` service that removes the `EmailChannel` type from its schema.
-2. Deploy a new version of the service that removes the `EmailChannel` type.
+1. Perform a `subgraph push` of the `email` subgraph that removes the `EmailChannel` type from its schema.
+2. Deploy a new version of the subgraph that removes the `EmailChannel` type.
 
-The first step causes the query planner to stop sending fragments `...on EmailChannel`, which would fail validation if sent to a service that isn't aware of the type.
+The first step causes the query planner to stop sending fragments `...on EmailChannel`, which would fail validation if sent to a subgraph that isn't aware of the type.
 
-If the goal is not to remove the type altogether, but to only remove it from the interface, the process is similar. Instead of removing the `EmailChannel` type altogether, only remove the `implements Channel` addendum to the type definition. This is because the query planner expands queries to interfaces or unions into fragments on their implementing types.
+If you want to _keep_ `EmailType` but remove it from the `Channel` interface, the process is similar. Instead of removing the `EmailChannel` type altogether, only remove the `implements Channel` addendum to the type definition. This is because the query planner expands queries to interfaces or unions into fragments on their implementing types.
 
 For example, a query such as...
 
@@ -92,12 +78,12 @@ query FindChannel($id: ID!) {
 }
 ```
 
-...generates two queries, one to each service, like so:
+...generates two queries, one to each subgraph, like so:
 
 ```graphql
 # Generated by the query planner
-# To Email service
 
+# To email subgraph
 query {
   _entities(...) {
     ...on EmailChannel {
@@ -106,7 +92,7 @@ query {
   }
 }
 
-# To Web Service
+# To web subgraph
 query {
   _entities(...) {
     ...on WebChannel {
@@ -118,50 +104,44 @@ query {
 
 Currently, the gateway expands all interfaces into implementing types.
 
-## Removing an implementing service
+## Removing a subgraph
 
-To "de-register" an implementing service with Apollo Studio, call `apollo service:delete`:
+To "de-register" a subgraph with Apollo, call `rover subgraph delete`:
 
 > **This action cannot be reversed!**
 
 ```
-apollo service:delete --serviceName=products
+rover subgraph delete my-supergraph@my-variant --name accounts
 ```
 
-The next time it polls, your gateway obtains an updated configuration that reflects the removed service.
-
-Include the `--variant` option to remove an implementing service from a variant other than the default variant (`current`):
-
-```
-apollo service:delete --serviceName=products --variant=staging
-```
+The next time it polls, your gateway obtains an updated configuration that reflects the removed subgraph.
 
 ## Using variants to control rollout
 
 With managed federation, you can control which version of your graph a fleet of gateways are using. In the majority of cases, rolling over all of your gateway instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible.
 
-However, changes at the gateway level might involve a variety of different updates, such as [migrating entity ownership](../entities/#entity-migration) from one service to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](https://www.apollographql.com/docs/studio/schema/registry/#registering-a-schema-to-a-variant) to manage different fleets of gateways running with different configurations.
+However, changes at the gateway level might involve a variety of different updates, such as [migrating entity ownership](../entities/#entity-migration) from one subgraph to another. If your infrastructure requires a more advanced deployment process, you can use [graph variants](https://www.apollographql.com/docs/studio/schema/registry/#registering-a-schema-to-a-variant) to manage different fleets of gateways running with different configurations.
 
 ### Example
 
-To configure a canary deployment, you might maintain two production graph variants in Apollo Studio, one named `prod` and the other named `prod-canary`. To deploy a change to an implementing service named `launches`, you might perform the following steps:
+To configure a canary deployment, you might maintain two production graph variants in Apollo Studio, one named `prod` and the other named `prod-canary`. To deploy a change to a subgraph named `launches`, you might perform the following steps:
 
 1. Check the changes in `launches` against both `prod` and `prod-canary`:
    ```shell
-   apollo service:check --variant=prod --serviceName=launches
-   apollo service:check --variant=prod-canary --serviceName=launches
+   rover subgraph check my-supergraph@prod --name launches
+   rover subgraph check my-supergraph@prod-canary --name launches
    ```
-2. Deploy your changes to the `launches` service in your production environment, _without_ running `apollo service:push`.
+2. Deploy your changes to the `launches` subgraph in your production environment, _without_ running `rover subgraph publish`.
     * _This ensures that your production gateway's configuration is not updated yet._
 3. Update your `prod-canary` variant's registered schema, by running:
     ```
-    apollo service:push --variant=prod-canary --serviceName=launches
+    rover subgraph publish my-supergraph@prod-canary --name launches
     ```
     * _If composition fails due to intermediate changes to the canary graph, the canary gateway's configuration will not be updated._
 4. Wait for health checks to pass against the canary and confirm that operation metrics appear as expected.
 5. After the canary is stable, roll out the changes to your production gateways:
     ```
-    apollo service:push --variant=prod --serviceName=launches
+    rover subgraph publish my-supergraph@prod --name=launches
     ```
 
 If you [associate metrics with variants](https://www.apollographql.com/docs/studio/schema/registry/#associating-metrics-with-a-variant) as well, you can use [Apollo Studio](https://studio.apollographql.com) to verify a canary's performance before rolling out changes to the rest of the graph. You can also use variants to support a variety of other advanced deployment workflows, such as blue/green deployments.
@@ -170,17 +150,17 @@ If you [associate metrics with variants](https://www.apollographql.com/docs/stud
 
 Treat migrations of your query-planning logic similarly to how you treat database migrations. Carefully consider the effects on downstream services as the query planner changes, and plan for "double reading" as appropriate.
 
-Consider the following example of a `Products` service and a `Reviews` service:
+Consider the following example of a `Products` subgraph and a `Reviews` subgraph:
 
 ```graphql
-# Products Service
+# Products subgraph
 
 type Product @key(fields: "upc") {
   upc: ID!
   nameLowerCase: String!
 }
 
-# Review Service
+# Review subgraph
 
 extend type Product @key(fields: "upc") {
   upc: ID! @external
@@ -192,7 +172,7 @@ extend type Product @key(fields: "upc") {
 Let's say we want to deprecate the `nameLowercase` field and replace it with the `name` field, like so:
 
 ```graphql
-# Products Service
+# Products subgraph
 
 type Product @key(fields: "upc") {
   upc: ID!
@@ -200,7 +180,7 @@ type Product @key(fields: "upc") {
   name: String!
 }
 
-# Reviews Service
+# Reviews subgraph
 
 extend type Product @key(fields: "upc") {
   upc: ID! @external
@@ -212,18 +192,18 @@ extend type Product @key(fields: "upc") {
 
 To perform this migration in-place:
 
-1. Modify the `Products` service to add the new field. (As usual, first deploy all replicas, then use `apollo service:push` to push the new partial schema.)
-2. Deploy a new version of the `Reviews` service with a resolver that accepts _either_ `nameLowercase` or `name` in the source object.
-3. Modify the Reviews service's schema in the registry so that it `@requires(fields: "name")`.
-4. Deploy a new version of the `Reviews` service with a resolver that _only_ accepts the `name` in its source object.
+1. Modify the `Products` subgraph to add the new field. (As usual, first deploy all replicas, then use `rover subgraph publish` to push the new subgraph schema.)
+2. Deploy a new version of the `Reviews` subgraph with a resolver that accepts _either_ `nameLowercase` or `name` in the source object.
+3. Modify the Reviews subgraph's schema in the registry so that it `@requires(fields: "name")`.
+4. Deploy a new version of the `Reviews` subgraph with a resolver that _only_ accepts the `name` in its source object.
 
-Alternatively, you can perform this operation with an atomic migration at the service level, by modifying the service's URL:
+Alternatively, you can perform this operation with an atomic migration at the subgraph level, by modifying the subgraph's URL:
 
-1. Modify the `Products` service to add the `name` field (as usual, first deploy all replicas, then use `apollo service:push` to push the new partial schema).
+1. Modify the `Products` subgraph to add the `name` field (as usual, first deploy all replicas, then use `rover subgraph publish` to push the new subgraph schema).
 2. Deploy a new set of `Reviews` replicas to a new URL that reads from `name`.
-3. Register the `Reviews` service with the new URL and the partial schema changes above.
+3. Register the `Reviews` subgraph with the new URL and the schema changes above.
 
-With this atomic strategy, the query planner resolves all outstanding requests to the old service that relied on `nameLowercase` with the old query-planning configuration, which `@requires` the `nameLowercase` field. All _new_ requests are made to the new service (due to the change of URL) using the new query-planning configuration, which `@requires` the `name` field.
+With this atomic strategy, the query planner resolves all outstanding requests to the old subgraph URL that relied on `nameLowercase` with the old query-planning configuration, which `@requires` the `nameLowercase` field. All _new_ requests are made to the new subgraph URL using the new query-planning configuration, which `@requires` the `name` field.
 
 ## Reliability and security
 
@@ -231,19 +211,19 @@ The gateway's configuration is exposed through [Google Cloud Storage (GCS)](http
 
 If the Apollo Studio API experiences an outage, changes to your configuration will halt until the outage resolves, but your most recently published configuration for each variant is still accessible via GCS.
 
-## The `service:push` lifecycle
+## The `subgraph publish` lifecycle
 
-Whenever you call `apollo service:push` for an implementing service, it both updates that service's registered schema and updates the gateway's managed configuration. Because the graph is dynamically changing and multiple services might be updated simultaneously, it's possible for changes to cause composition errors, even if `apollo service:check` was successful. For this reason, updating a federated service will re-trigger composition in the cloud, ensuring that the federated services still compose to form a complete graph before provisioning the configuration. The workflow behind the scenes can be summed up as follows:
+Whenever you call `rover subgraph publish` for a particular subgraph, it both updates that subgraph's registered schema and updates the gateway's managed configuration. Because the graph is dynamically changing and multiple subgraphs might be updated simultaneously, it's possible for changes to cause composition errors, even if `rover subgraph check` was successful. For this reason, updating a subgraph re-triggers composition in the cloud, ensuring that all subgraphs still compose to form a complete supergraph before provisioning the configuration. The workflow behind the scenes can be summed up as follows:
 
-1. The partial schema is uploaded to a secure location and indexed.
-2. The federated service is updated in the registry to point to the partial schema.
-3. All federated services are composed in the cloud to produce a new complete schema.
+1. The subgraph schema is uploaded to a secure location and indexed.
+2. The subgraph is updated in the registry to point to the new schema.
+3. All subgraphs are composed in the cloud to produce a new supergraph schema.
 4. If composition fails, the command exits and emits errors.
-5. If composition succeeds, the top-level configuration file is updated in-place to point to the updated set of federated services.
+5. If composition succeeds, the top-level configuration file is updated in-place to point to the updated set of subgraphs.
 
 On the other side of the equation sits the gateway. The gateway is constantly listening for changes to the top-level configuration file. The location of the configuration file is guarded by using a hash of the API key, provisioned ahead of time so as not to affect reliability. The lifecycle of dynamic configuration updates is as follows:
 
 1. The gateway listens for updates to its configuration.
-2. On update, the gateway downloads the configuration for each implementing service in parallel.
+2. On update, the gateway downloads the configuration for each subgraph in parallel.
 3. The gateway performs composition over the configuration to update query planning.
 4. The gateway continues to resolve in-flight requests with the previous configuration, while using the updated configuration for all new requests.
