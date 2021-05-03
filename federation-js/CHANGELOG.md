@@ -6,6 +6,8 @@
 
 -  _Nothing yet! Stay tuned!_
 
+## v0.24.0
+
 - Expand the range of supported `node` versions in the package's `engines` specifier to include the now-tested Node.js `16`. [PR #713](https://github.com/apollographql/federation/pull/713)
 
 ## v0.23.2
