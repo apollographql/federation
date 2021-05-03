@@ -10,7 +10,7 @@ import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
 import { ApolloGateway } from '../..';
 import { Plugin, Config, Refs } from 'pretty-format';
-import { Report } from 'apollo-reporting-protobuf';
+import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 
 // TODO: We should fix this another way, but for now adding this
@@ -18,7 +18,7 @@ import { fixtures } from 'apollo-federation-integration-testsuite';
 // due to us not dependeing on `dom` (or `webworker`) types.
 declare global {
   interface WindowOrWorkerGlobalScope {
-    fetch: typeof import('apollo-server-env')['fetch']
+    fetch: typeof import('apollo-server-env')['fetch'];
   }
 }
 
@@ -130,9 +130,11 @@ describe('reporting', () => {
         key: 'service:foo:bar',
         graphVariant: 'current',
       },
-      plugins: [ApolloServerPluginUsageReporting({
-        sendReportsImmediately: true,
-      })],
+      plugins: [
+        ApolloServerPluginUsageReporting({
+          sendReportsImmediately: true,
+        }),
+      ],
     });
     ({ url: gatewayUrl } = await gatewayServer.listen({ port: 0 }));
   });
@@ -206,7 +208,7 @@ describe('reporting', () => {
     const statsReportKey = '# -\n{me{name{first last}}topProducts{name}}';
     expect(Object.keys(report.tracesPerQuery)).toStrictEqual([statsReportKey]);
     expect(report.tracesPerQuery[statsReportKey]!.trace!.length).toBe(1);
-    const trace = report.tracesPerQuery[statsReportKey]!.trace![0]!;
+    const trace = report.tracesPerQuery[statsReportKey]!.trace![0]! as Trace;
     // In the gateway, the root trace is just an empty node (unless there are errors).
     expect(trace.root!.child).toStrictEqual([]);
     // The query plan has (among other things) a fetch against 'accounts' and a
@@ -230,7 +232,10 @@ describe('reporting', () => {
 
     expect(report).toMatchInlineSnapshot(`
       Object {
-        "endTime": null,
+        "endTime": Object {
+          "nanos": 123000000,
+          "seconds": "1562203363",
+        },
         "header": "<HEADER>",
         "tracesPerQuery": Object {
           "# -
