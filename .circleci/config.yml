@@ -44,7 +44,7 @@ executors:
   rust_windows: &rust_windows_executor
     machine:
       image: 'windows-server-2019-vs2019:stable'
-    resource_class: windows.medium
+    resource_class: windows.xlarge
     shell: powershell.exe -ExecutionPolicy Bypass
 
 # Important! When adding a new job to `jobs`, make sure to define when it
@@ -174,13 +174,17 @@ jobs:
           steps:
             - run:
                 name: Install rustup
+                environment:
+                  # Override auto-detection of RAM for Rustc install.
+                  # https://github.com/rust-lang/rustup/issues/2229#issuecomment-585855925
+                  RUSTUP_UNPACK_RAM: "21474836480"
                 command: |
                   $installer_dir = "$Env:TEMP"
                   echo "Downloading rustup"
-                  (New-Object System.Net.WebClient).DownloadFile("https://win.rustup.rs", "$installer_dir\rustup-init.exe")
+                  (New-Object System.Net.WebClient).DownloadFile("https://win.rustup.rs/x86_64", "$installer_dir\rustup-init.exe")
                   echo "Installing rustup"
                   & $installer_dir\rustup-init.exe --profile minimal --component rustfmt,clippy -y
-                  echo "Done"
+                  exit $LASTEXITCODE
             - run:
                 name: Special case for Windows because of ssh-agent
                 command: |
