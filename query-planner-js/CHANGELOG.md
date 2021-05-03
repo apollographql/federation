@@ -6,6 +6,10 @@
 
 -  _Nothing yet! Stay tuned!_
 
+# v0.1.4
+
+- Add missing `deep-equal` dependency, which was accidentally installed to the monorepo's root. [PR #709](https://github.com/apollographql/federation/pull/709)
+
 # v0.1.3
 
 - Fix query plans missing fields in some situations involving nested type conditions (#396).

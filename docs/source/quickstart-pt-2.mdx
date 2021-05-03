@@ -81,7 +81,7 @@ Run the following from your project directory, **substituting your Studio graph'
 
 ```shell
 rover subgraph publish <GRAPH_NAME> \
-  --routing-url https://7bssbnldib.execute-api.us-east-1.amazonaws.com/Prod/graphql \
+  --routing-url https://rover.apollo.dev/quickstart/products/graphql \
   --schema ./products.graphql \
   --name products
 ```
@@ -101,7 +101,7 @@ Now, let's do the same thing for our `reviews` service, **again substituting you
 
 ```shell
 rover subgraph publish <GRAPH_NAME> \
-  --routing-url https://w0jtezo2pa.execute-api.us-east-1.amazonaws.com/Prod/graphql \
+  --routing-url https://rover.apollo.dev/quickstart/reviews/graphql \
   --schema ./reviews.graphql \
   --name reviews
 ```

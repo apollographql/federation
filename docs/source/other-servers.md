@@ -15,6 +15,7 @@ The following open-source GraphQL server libraries provide support for Apollo Fe
 | JavaScript    | apollo-server | [apollo-server](https://github.com/apollographql/apollo-server/)                 |
 | Kotlin        | graphql-java  | [graphql-kotlin](https://github.com/ExpediaGroup/graphql-kotlin)                 |
 | Python        | ariadne       | [ariadne](https://github.com/mirumee/ariadne)                                    |
+| Python        | graphene      | [graphene-federation](https://github.com/preply/graphene-federation)             |
 | Scala         | caliban       | [caliban](https://github.com/ghostdogpr/caliban)                                 |
 | Ruby          | graphql-ruby  | [apollo-federation-ruby](https://github.com/Gusto/apollo-federation-ruby)        |
 | Rust          | async-graphql | [async-graphql](https://github.com/async-graphql/async-graphql)                  |
