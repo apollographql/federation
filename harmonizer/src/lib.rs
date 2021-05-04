@@ -210,10 +210,6 @@ function done(result) {
   Deno.core.jsonOpSync('op_composition_result', result);
 }
 
-// Finally we register the error class used during do_compose.js.
-// so that it throws the correct class.
-Deno.core.registerErrorClass('Error', Error);
-
 // We build some of the preliminary objects that our Rollup-built package is
 // expecting to be present in the environment.
 // node_fetch_1 is an unused external dependency we don't bundle.  See the
