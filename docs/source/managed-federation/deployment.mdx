@@ -114,7 +114,7 @@ To "de-register" a subgraph with Apollo, call `rover subgraph delete`:
 rover subgraph delete my-supergraph@my-variant --name accounts
 ```
 
-The next time it polls, your gateway obtains an updated configuration that reflects the removed subgraph.
+The next time it starts up or polls, your gateway obtains an updated configuration that reflects the removed subgraph.
 
 ## Using variants to control rollout
 
@@ -128,20 +128,20 @@ To configure a canary deployment, you might maintain two production graph varian
 
 1. Check the changes in `launches` against both `prod` and `prod-canary`:
    ```shell
-   rover subgraph check my-supergraph@prod --name launches
-   rover subgraph check my-supergraph@prod-canary --name launches
+   rover subgraph check my-supergraph@prod --name launches --schema ./launches/schema.graphql
+   rover subgraph check my-supergraph@prod-canary --name launches --schema ./launches/schema.graphql
    ```
 2. Deploy your changes to the `launches` subgraph in your production environment, _without_ running `rover subgraph publish`.
     * _This ensures that your production gateway's configuration is not updated yet._
 3. Update your `prod-canary` variant's registered schema, by running:
     ```
-    rover subgraph publish my-supergraph@prod-canary --name launches
+    rover subgraph publish my-supergraph@prod-canary --name launches --schema ./launches/schema.graphql
     ```
     * _If composition fails due to intermediate changes to the canary graph, the canary gateway's configuration will not be updated._
 4. Wait for health checks to pass against the canary and confirm that operation metrics appear as expected.
 5. After the canary is stable, roll out the changes to your production gateways:
     ```
-    rover subgraph publish my-supergraph@prod --name=launches
+    rover subgraph publish my-supergraph@prod --name=launches --schema ./launches/schema.graphql
     ```
 
 If you [associate metrics with variants](https://www.apollographql.com/docs/studio/schema/registry/#associating-metrics-with-a-variant) as well, you can use [Apollo Studio](https://studio.apollographql.com) to verify a canary's performance before rolling out changes to the rest of the graph. You can also use variants to support a variety of other advanced deployment workflows, such as blue/green deployments.
@@ -219,11 +219,11 @@ Whenever you call `rover subgraph publish` for a particular subgraph, it both up
 2. The subgraph is updated in the registry to point to the new schema.
 3. All subgraphs are composed in the cloud to produce a new supergraph schema.
 4. If composition fails, the command exits and emits errors.
-5. If composition succeeds, the top-level configuration file is updated in-place to point to the updated set of subgraphs.
+5. If composition succeeds, the top-level configuration file is updated in-place to point to the updated supergraph schema.
 
 On the other side of the equation sits the gateway. The gateway is constantly listening for changes to the top-level configuration file. The location of the configuration file is guarded by using a hash of the API key, provisioned ahead of time so as not to affect reliability. The lifecycle of dynamic configuration updates is as follows:
 
 1. The gateway listens for updates to its configuration.
-2. On update, the gateway downloads the configuration for each subgraph in parallel.
+2. On update, the gateway downloads the updated configuration, including the new supergraph schema.
 3. The gateway performs composition over the configuration to update query planning.
 4. The gateway continues to resolve in-flight requests with the previous configuration, while using the updated configuration for all new requests.

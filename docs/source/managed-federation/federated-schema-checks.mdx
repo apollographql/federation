@@ -14,7 +14,7 @@ There are two types of failures that can occur during validation: failed usage c
 
 ## Handling composition failure
 
-In general, you should run `rover subgraph publish` only after a successful run of `rover subgraph check`. Even in this case, however, it's possible that `rover subgraph publish` will encounter composition errors because of simultaneous changes to _another_ subgraph. When this happens, your subgraph's registered schema will still be updated as long as its capabilities are spec-compliant, but **the graph will not be updated**. This means that a new schema will not be associated, nor will the gateway's configuration be updated.
+In general, you should run `rover subgraph publish` only after a successful run of `rover subgraph check`. Even in this case, however, it's possible that `rover subgraph publish` will encounter composition errors because of simultaneous changes to _another_ subgraph. When a composition error occurs after publishing a subgraph, your subgraph's registered schema is still updated as long as its capabilities are spec-compliant, but **the supergraph will not be updated**. This means that a new supergraph schema will not be associated, nor will the gateway's configuration be updated.
 
 An example output of this behavior looks like this:
 

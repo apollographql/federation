@@ -21,7 +21,7 @@ module.exports = {
             'quickstart-pt-3',
           ],
           'Core Concepts': [
-            'implementing-services',
+            'subgraphs',
             'gateway',
             'entities',
             'value-types',
