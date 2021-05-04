@@ -29,7 +29,6 @@ composition implementation while we work toward something else.
 #![forbid(unsafe_code)]
 #![deny(missing_debug_implementations, nonstandard_style)]
 #![warn(missing_docs, future_incompatible, unreachable_pub, rust_2018_idioms)]
-use deno_core::Op;
 use deno_core::{op_sync, JsRuntime};
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::channel;
@@ -161,10 +160,10 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
     // Deno.core.dispatchByName and the name provided.
     runtime.register_op(
         "op_print",
-        // The op_fn callback takes a state object OpState
-        // and a vector of ZeroCopyBuf's, which are mutable references
-        // to ArrayBuffer's in JavaScript.
-        |_state, zero_copy| {
+        // The op_fn callback takes a state object OpState,
+        // a structured arg of type `T` and an optional ZeroCopyBuf,
+        // a mutable reference to a JavaScript ArrayBuffer
+        op_sync(|_state, _msg: Option<String>, zero_copy| {
             let mut out = std::io::stdout();
 
             // Write the contents of every buffer to stdout
@@ -173,8 +172,8 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
                     .expect("failure writing buffered output");
             }
 
-            Op::Sync(Box::new([])) // No meaningful result
-        },
+            Ok(()) // No meaningful result
+        }),
     );
 
     runtime.register_op(
@@ -203,7 +202,7 @@ Deno.core.ops();
 // our op_print op to display the stringified argument.
 const _newline = new Uint8Array([10]);
 function print(value) {
-  Deno.core.dispatchByName('op_print', Deno.core.encode(value.toString()), _newline);
+  Deno.core.dispatchByName('op_print', 0, value.toString(), _newline);
 }
 
 function done(result) {
