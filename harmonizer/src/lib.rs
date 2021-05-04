@@ -30,7 +30,7 @@ composition implementation while we work toward something else.
 #![deny(missing_debug_implementations, nonstandard_style)]
 #![warn(missing_docs, future_incompatible, unreachable_pub, rust_2018_idioms)]
 use deno_core::Op;
-use deno_core::{json_op_sync, JsRuntime};
+use deno_core::{op_sync, JsRuntime};
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::channel;
 use std::{fmt::Display, io::Write};
@@ -179,7 +179,7 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
 
     runtime.register_op(
         "op_composition_result",
-        json_op_sync(move |_state, value, _zero_copy| {
+        op_sync(move |_state, value, _zero_copy| {
             tx.send(serde_json::from_value(value).expect("deserializing composition result"))
                 .expect("channel must be open");
 
@@ -207,7 +207,7 @@ function print(value) {
 }
 
 function done(result) {
-  Deno.core.jsonOpSync('op_composition_result', result);
+  Deno.core.opSync('op_composition_result', result);
 }
 
 // We build some of the preliminary objects that our Rollup-built package is
