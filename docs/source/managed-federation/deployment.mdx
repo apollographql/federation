@@ -21,13 +21,13 @@ rover subgraph publish my-supergraph@my-variant \
 
 ## Pushing configuration updates safely
 
-Whenever possible, you should update your subgraph configuration in a way that is backward compatible to avoid downtime. The best way to do this is to minimize the number of [breaking changes](https://www.apollographql.com/docs/studio/schema-checks/#potentially-breaking-changes) you make to your schemas.
+Whenever possible, you should update your subgraph configuration in a way that is backward compatible to avoid downtime. As suggested above, the best way to do this is to run `rover subgraph check` before updating. You should also generally seek to minimize the number of [breaking changes](https://www.apollographql.com/docs/studio/schema-checks/#potentially-breaking-changes) you make to your schemas.
 
 Additionally, **call `rover subgraph publish` for a subgraph only after all replicas of that subgraph are deployed**. This ensures that resolvers are in place for all operations that are executable against your graph, and operations can't attempt to access fields that do not yet exist.
 
-In the rare case where a configuration change is _not_ backward compatible with your gateway's query planner, you should update your registered subgraph schemas _before_ you deploy your updated subgraphs.
+In the rare case where a configuration change is _not_ backward compatible with your gateway's query planner, you should update your registered subgraph schemas _before_ you deploy your updated code.
 
-Additionally, you should perform configuration updates that affect query planning separately from (and prior to) other changes. This helps avoid a scenario where the query planner generates queries that fail validation in downstream services or violate your resolvers.
+You should also perform configuration updates that affect query planning prior to (and separately from) other changes. This helps avoid a scenario where the query planner generates queries that fail validation in downstream services or violate your resolvers.
 
 Examples of this include:
 
