@@ -1,5 +1,5 @@
 ---
-title: "Implementing services (subgraphs)"
+title: "Subgraphs"
 ---
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
@@ -8,13 +8,17 @@ import {
   ExpansionPanel,
 } from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
 
-This article describes how to create an **implementing service** (also known as a **subgraph**) for a federated data graph using Apollo Server.
+> **Implementing services** are now known as **subgraphs**.
+>
+> If you find an outdated use of "implementing service," please submit article feedback or a pull request using the links on the right.
 
-## Defining an implementing service
+This article describes how to create a **subgraph** (formerly known as an **implementing service**) for a federated data graph using Apollo Server.
 
-> To be part of a federated graph, an implementing service must conform to the [Apollo Federation specification](/federation-spec/), which exposes the service's capabilities to the gateway, as well as to tools like Apollo Studio.
+## Defining a subgraph
 
-Converting an existing schema into an implementing service is the first step in building a federated graph. To start, here's a *non-federated* Apollo Server setup:
+> To be part of a supergraph, a subgraph must conform to the [Apollo Federation specification](/federation-spec/), which exposes the subgraph's capabilities to the gateway, as well as to tools like Apollo Studio.
+
+Converting an existing monolithic graph into a single subgraph is a convenient first step in building a federated supergraph. To start, here's a *non-federated* Apollo Server setup:
 
 ```javascript:title=index.js
 const { ApolloServer, gql } = require('apollo-server');
@@ -50,7 +54,7 @@ server.listen(4001).then(({ url }) => {
 
 This should look familiar if you've [set up Apollo Server](https://www.apollographql.com/docs/apollo-server/getting-started/) before. If it doesn't, we recommend you familiarize yourself with the basics before jumping into federation.
 
-Now, let's convert this to an implementing service. The first step is to install the `@apollo/federation` package in our project:
+Now, let's convert this to a subgraph. The first step is to install the `@apollo/federation` package in our project:
 
 ```shell
 npm install @apollo/federation
@@ -58,7 +62,7 @@ npm install @apollo/federation
 
 ### Defining an entity
 
-As part of our federated architecture, we want _other_ implementing services to be able to extend the `User` type this service defines. To enable this, we add the `@key` directive to the `User` type's definition to designate it as an [entity](./entities/):
+As part of our federated architecture, we want _other_ subgraphs to be able to extend the `User` type this subgraph defines. To enable this, we add the `@key` directive to the `User` type's definition to designate it as an [entity](./entities/):
 
 ```js:title=index.js
 const { ApolloServer, gql } = require('apollo-server');
@@ -76,9 +80,7 @@ const typeDefs = gql`
 `;
 ```
 
-The `@key` directive tells other services which field(s) of the `User` type to use
-to uniquely identify a particular instance. In this case, services should use the
-single field `id`.
+The `@key` directive tells other subgraphs which field(s) of the `User` type to use to uniquely identify a particular instance. In this case, subgraphs should use the single field `id`.
 
 Next, we add a **reference resolver** for the `User` type. A reference resolver tells the gateway how to fetch an entity by its `@key` fields:
 
@@ -115,7 +117,7 @@ server.listen(4001).then(({ url }) => {
 });
 ```
 
-The server is now ready to act as an implementing service in a federated data graph!
+The server is now ready to act as a subgraph in a federated data graph!
 
 ### Combined example
 
@@ -218,12 +220,12 @@ const server = new ApolloServer({
 
 Also make sure to read about the [gateway's support for custom directives](./gateway/#custom-directive-support).
 
-## Securing implementing services
+## Securing subgraphs
 
-Because of the power and flexibility of Apollo Federation's `_entities` field, your implementing services should **not** be directly accessible by clients. Instead, only your [gateway](./gateway/) should have access to your implementing services. Clients then communicate with the gateway:
+Because of the power and flexibility of Apollo Federation's `_entities` field, your subgraphs should **not** be directly accessible by clients. Instead, only your [gateway](./gateway/) should have access to your subgraphs. Clients then communicate with the gateway:
 
 <FederationArchitecture />
 
 Make sure to implement any necessary firewall rules, access control
-lists, or other measures to ensure that individual implementing services can
+lists, or other measures to ensure that individual subgraphs can
 be accessed only via the gateway.
