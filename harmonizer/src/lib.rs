@@ -167,7 +167,7 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
             let mut out = std::io::stdout();
 
             // Write the contents of every buffer to stdout
-            for buf in zero_copy {
+            if let Some(buf) = zero_copy {
                 out.write_all(&buf)
                     .expect("failure writing buffered output");
             }
