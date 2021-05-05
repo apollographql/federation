@@ -131,7 +131,7 @@ describe('providesNotOnEntity', () => {
           "code": "PROVIDES_NOT_ON_ENTITY",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 32,
               "line": 4,
             },
           ],
@@ -177,7 +177,7 @@ describe('providesNotOnEntity', () => {
           "code": "PROVIDES_NOT_ON_ENTITY",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 35,
               "line": 4,
             },
           ],
@@ -225,7 +225,7 @@ describe('providesNotOnEntity', () => {
           "code": "PROVIDES_NOT_ON_ENTITY",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 32,
               "line": 4,
             },
           ],
@@ -273,7 +273,7 @@ describe('providesNotOnEntity', () => {
           "code": "PROVIDES_NOT_ON_ENTITY",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 36,
               "line": 4,
             },
           ],

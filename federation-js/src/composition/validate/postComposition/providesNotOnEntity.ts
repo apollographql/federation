@@ -3,14 +3,16 @@ import {
   GraphQLError,
   isListType,
   isNonNullType,
+  FieldDefinitionNode,
+  InputValueDefinitionNode,
 } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
  *  Provides directive can only be added to return types that are entities
  */
-export const providesNotOnEntity: PostCompositionValidator = ({ schema }) => {
+export const providesNotOnEntity: PostCompositionValidator = ({ schema, serviceList }) => {
   const errors: GraphQLError[] = [];
 
   const types = schema.getTypeMap();
@@ -46,13 +48,21 @@ export const providesNotOnEntity: PostCompositionValidator = ({ schema }) => {
 
       // field has a @provides directive on it
       if (fieldFederationMetadata?.provides) {
+        const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
+        const providesDirectiveNode = typeNode && 'fields' in typeNode ?
+          (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])?.find(field => field.name.value === fieldName)?.
+          directives?.find(
+            directive => directive.name.value === "provides"
+          )?.arguments?.find(
+            argument => argument.name.value === 'fields'
+          ) : undefined;
         if (!isObjectType(baseType)) {
           errors.push(
             errorWithCode(
               'PROVIDES_NOT_ON_ENTITY',
               logServiceAndType(serviceName, typeName, fieldName) +
                 `uses the @provides directive but \`${typeName}.${fieldName}\` returns \`${field.type}\`, which is not an Object or List type. @provides can only be used on Object types with at least one @key, or Lists of such Objects.`,
-              field.astNode ?? undefined,
+              providesDirectiveNode,
             ),
           );
           continue;
@@ -67,7 +77,7 @@ export const providesNotOnEntity: PostCompositionValidator = ({ schema }) => {
               'PROVIDES_NOT_ON_ENTITY',
               logServiceAndType(serviceName, typeName, fieldName) +
                 `uses the @provides directive but \`${typeName}.${fieldName}\` does not return a type that has a @key. Try adding a @key to the \`${baseType}\` type.`,
-              field.astNode ?? undefined,
+              providesDirectiveNode,
             ),
           );
         }
