@@ -88,6 +88,14 @@ describe('executableDirectivesIdentical', () => {
               "column": 1,
               "line": 2,
             },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
           ],
           "message": "[@stream] -> custom directives must be defined identically across all services. See below for a list of current implementations:
       	serviceA: directive @stream on FIELD
@@ -121,6 +129,10 @@ describe('executableDirectivesIdentical', () => {
         Object {
           "code": "EXECUTABLE_DIRECTIVES_IDENTICAL",
           "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
             Object {
               "column": 1,
               "line": 2,

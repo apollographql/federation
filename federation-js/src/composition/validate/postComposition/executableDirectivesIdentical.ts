@@ -42,6 +42,7 @@ export const executableDirectivesIdentical: PostCompositionValidator = ({
     });
 
     if (shouldError) {
+      const directiveDefinitionNodes = definitions.map(([_, directiveDefinitionNode]) => directiveDefinitionNode);
       errors.push(
         errorWithCode(
           'EXECUTABLE_DIRECTIVES_IDENTICAL',
@@ -51,7 +52,7 @@ export const executableDirectivesIdentical: PostCompositionValidator = ({
                 return `\t${serviceName}: ${print(definition)}`;
               })
               .join('\n')}`,
-          directive.astNode ?? undefined,
+          directiveDefinitionNodes,
         ),
       );
     }
