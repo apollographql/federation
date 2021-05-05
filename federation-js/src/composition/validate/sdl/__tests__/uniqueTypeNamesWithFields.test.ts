@@ -111,12 +111,12 @@ describe('UniqueTypeNamesWithFields', () => {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
             "locations": Array [
               Object {
-                "column": 1,
-                "line": 2,
+                "column": 3,
+                "line": 3,
               },
               Object {
-                "column": 1,
-                "line": 2,
+                "column": 3,
+                "line": 3,
               },
             ],
             "message": "[serviceA] Product.sku -> A field was defined differently in different services. \`serviceA\` and \`serviceB\` define \`Product.sku\` as a ID! and String! respectively. In order to define \`Product\` in multiple places, the fields and their types must be identical.",
@@ -125,12 +125,12 @@ describe('UniqueTypeNamesWithFields', () => {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
             "locations": Array [
               Object {
-                "column": 1,
-                "line": 2,
+                "column": 3,
+                "line": 5,
               },
               Object {
-                "column": 1,
-                "line": 2,
+                "column": 3,
+                "line": 5,
               },
             ],
             "message": "[serviceA] Product.quantity -> A field was defined differently in different services. \`serviceA\` and \`serviceB\` define \`Product.quantity\` as a Int and Int! respectively. In order to define \`Product\` in multiple places, the fields and their types must be identical.",

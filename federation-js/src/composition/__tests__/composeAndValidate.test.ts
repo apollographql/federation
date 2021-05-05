@@ -561,12 +561,12 @@ describe('composition of value types', () => {
           "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
           "locations": Array [
             Object {
-              "column": 1,
-              "line": 6,
+              "column": 10,
+              "line": 8,
             },
             Object {
-              "column": 1,
-              "line": 6,
+              "column": 10,
+              "line": 8,
             },
           ],
           "message": "[serviceA] Product.color -> A field was defined differently in different services. \`serviceA\` and \`serviceB\` define \`Product.color\` as a String! and String respectively. In order to define \`Product\` in multiple places, the fields and their types must be identical.",
