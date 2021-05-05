@@ -111,11 +111,11 @@ describe('UniqueTypeNamesWithFields', () => {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
             "locations": Array [
               Object {
-                "column": 3,
+                "column": 8,
                 "line": 3,
               },
               Object {
-                "column": 3,
+                "column": 8,
                 "line": 3,
               },
             ],
@@ -125,11 +125,11 @@ describe('UniqueTypeNamesWithFields', () => {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
             "locations": Array [
               Object {
-                "column": 3,
+                "column": 13,
                 "line": 5,
               },
               Object {
-                "column": 3,
+                "column": 13,
                 "line": 5,
               },
             ],

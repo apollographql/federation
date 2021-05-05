@@ -118,7 +118,7 @@ export function UniqueTypeNamesWithFields(
                 } respectively. In order to define \`${typeName}\` in multiple places, the fields and their types must be identical.`,
                 // TODO (Issue #705): when we can associate locations to service names
                 // add locations for each service where this field was defined
-                fieldNode && duplicateFieldNode ? [fieldNode, duplicateFieldNode] : undefined,
+                fieldNode && duplicateFieldNode ? [fieldNode.type, duplicateFieldNode.type] : undefined,
               ),
             );
             return true;
