@@ -47,7 +47,7 @@ describe('requiresUsedOnBase', () => {
           "code": "REQUIRES_USED_ON_BASE",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 16,
               "line": 4,
             },
           ],

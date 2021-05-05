@@ -29,7 +29,7 @@ export const requiresUsedOnBase = ({
                       field.name.value,
                     ) +
                       `Found extraneous @requires directive. @requires cannot be used on base types.`,
-                    field,
+                    field.directives.find(directive => directive.name.value === name),
                   ),
                 );
               }
