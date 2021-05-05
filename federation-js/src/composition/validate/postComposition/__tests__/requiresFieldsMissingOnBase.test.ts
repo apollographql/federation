@@ -75,7 +75,7 @@ describe('requiresFieldsMissingOnBase', () => {
           "code": "REQUIRES_FIELDS_MISSING_ON_BASE",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 28,
               "line": 4,
             },
           ],

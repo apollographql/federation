@@ -1,5 +1,5 @@
-import { isObjectType, FieldNode, GraphQLError } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata } from '../../utils';
+import { isObjectType, FieldNode, GraphQLError, FieldDefinitionNode, InputValueDefinitionNode } from 'graphql';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -7,6 +7,7 @@ import { PostCompositionValidator } from '.';
  */
 export const requiresFieldsMissingOnBase: PostCompositionValidator = ({
   schema,
+  serviceList,
 }) => {
   const errors: GraphQLError[] = [];
 
@@ -37,12 +38,22 @@ export const requiresFieldsMissingOnBase: PostCompositionValidator = ({
           const typeFederationMetadata = getFederationMetadata(matchingFieldOnType);
 
           if (typeFederationMetadata?.serviceName) {
+            const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
+            const argumentNode =
+              typeNode &&
+              'fields' in typeNode ?
+              (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])?.
+                find(field => field.name.value === fieldName)?.directives?.find(
+                  directive => directive.name.value === "requires"
+                  )?.arguments?.find(
+                    argument => argument.name.value === "fields"
+                  ) : undefined;
             errors.push(
               errorWithCode(
                 'REQUIRES_FIELDS_MISSING_ON_BASE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `requires the field \`${selection.name.value}\` to be @external. @external fields must exist on the base type, not an extension.`,
-                field.astNode ?? undefined,
+                argumentNode
               ),
             );
           }
