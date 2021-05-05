@@ -97,7 +97,7 @@ describe('providesFieldsSelectInvalidType', () => {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 26,
               "line": 4,
             },
           ],
@@ -156,7 +156,7 @@ describe('providesFieldsSelectInvalidType', () => {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 26,
               "line": 4,
             },
           ],
@@ -227,7 +227,7 @@ describe('providesFieldsSelectInvalidType', () => {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 26,
               "line": 4,
             },
           ],
