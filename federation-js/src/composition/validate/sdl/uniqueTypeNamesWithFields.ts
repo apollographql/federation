@@ -145,6 +145,8 @@ export function UniqueTypeNamesWithFields(
                 }\` define \`${name}\` as a ${types[1]} and ${
                   types[0]
                 } respectively. In order to define \`${typeName}\` in multiple places, the input values and their types must be identical.`,
+                // TODO (Issue #705): when we can associate locations to service names
+                // add locations for each service where this field was defined
                 [node, duplicateTypeNode],
               ),
             );
