@@ -7,7 +7,7 @@ import {
   isUnionType,
   GraphQLError,
 } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -17,6 +17,7 @@ import { PostCompositionValidator } from '.';
  */
 export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
   schema,
+  serviceList,
 }) => {
   const errors: GraphQLError[] = [];
 
@@ -36,13 +37,19 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
 
             // find corresponding field for each selected field
             const matchingField = allFieldsInType[name];
+            const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
+            const fieldNode = typeNode && 'directives' in typeNode ?
+              typeNode.directives?.find(
+                directive => directive.name.value === 'key')?.arguments?.find(
+                  argument => argument.name.value === 'fields') : undefined;
+
             if (!matchingField) {
               errors.push(
                 errorWithCode(
                   'KEY_FIELDS_SELECT_INVALID_TYPE',
                   logServiceAndType(serviceName, typeName) +
                     `A @key selects ${name}, but ${typeName}.${name} could not be found`,
-                  namedType.astNode ?? undefined,
+                  fieldNode,
                 ),
               );
             }
@@ -58,7 +65,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
                     'KEY_FIELDS_SELECT_INVALID_TYPE',
                     logServiceAndType(serviceName, typeName) +
                       `A @key selects ${typeName}.${name}, which is an interface type. Keys cannot select interfaces.`,
-                    namedType.astNode ?? undefined,
+                    fieldNode,
                   ),
                 );
               }
@@ -73,7 +80,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
                     'KEY_FIELDS_SELECT_INVALID_TYPE',
                     logServiceAndType(serviceName, typeName) +
                       `A @key selects ${typeName}.${name}, which is a union type. Keys cannot select union types.`,
-                    namedType.astNode ?? undefined,
+                      fieldNode,
                   ),
                 );
               }

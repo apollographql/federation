@@ -90,7 +90,7 @@ describe('keyFieldsSelectInvalidType', () => {
           "code": "KEY_FIELDS_SELECT_INVALID_TYPE",
           "locations": Array [
             Object {
-              "column": 1,
+              "column": 19,
               "line": 2,
             },
           ],
@@ -138,7 +138,7 @@ describe('keyFieldsSelectInvalidType', () => {
           "code": "KEY_FIELDS_SELECT_INVALID_TYPE",
           "locations": Array [
             Object {
-              "column": 1,
+              "column": 19,
               "line": 2,
             },
           ],

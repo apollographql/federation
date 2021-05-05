@@ -40,6 +40,7 @@ import {
   FederationType,
   FederationDirective,
   FederationField,
+  ServiceDefinition,
 } from './types';
 import federationDirectives from '../directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
@@ -553,6 +554,17 @@ export function typeNodesAreEquivalent(
     locations.length === 0 &&
     Object.keys(args).length === 0
   );
+}
+
+
+export function findTypeNodeInServiceList(typeName: string, serviceName: string, serviceList: ServiceDefinition[]) {
+  return serviceList.find(
+    service => service.name === serviceName
+    )?.typeDefs.definitions.find(
+      definition =>
+      'name' in definition
+      && definition.name?.value === typeName
+      );
 }
 
 /**

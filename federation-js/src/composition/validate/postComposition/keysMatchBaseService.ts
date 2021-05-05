@@ -9,6 +9,7 @@ import {
   logServiceAndType,
   errorWithCode,
   getFederationMetadata,
+  findTypeNodeInServiceList,
 } from '../../utils';
 import { PostCompositionValidator } from '.';
 
@@ -19,6 +20,7 @@ import { PostCompositionValidator } from '.';
  */
 export const keysMatchBaseService: PostCompositionValidator = function ({
   schema,
+  serviceList,
 }) {
   const errors: GraphQLError[] = [];
   const types = schema.getTypeMap();
@@ -38,7 +40,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
               'KEY_MISSING_ON_BASE',
               logServiceAndType(serviceName, parentTypeName) +
                 `appears to be an entity but no @key directives are specified on the originating type.`,
-              parentType.astNode ?? undefined,
+              findTypeNodeInServiceList(parentTypeName, serviceName, serviceList),
             ),
           );
           continue;
@@ -50,13 +52,17 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
           .filter(([service]) => service !== serviceName)
           .forEach(([extendingService, keyFields = []]) => {
             // Extensions can't specify more than one key
+            const extendingServiceTypeNode = findTypeNodeInServiceList(parentTypeName, extendingService, serviceList);
             if (keyFields.length > 1) {
               errors.push(
                 errorWithCode(
                   'MULTIPLE_KEYS_ON_EXTENSION',
                   logServiceAndType(extendingService, parentTypeName) +
                     `is extended from service ${serviceName} but specifies multiple @key directives. Extensions may only specify one @key.`,
-                  parentType.astNode ?? undefined,
+                  extendingServiceTypeNode && 'directives' in extendingServiceTypeNode ?
+                    extendingServiceTypeNode.directives?.find(directive =>
+                      directive.name.value === 'key')?.arguments?.find
+                        (argument => argument.name.value === 'fields') : undefined,
                 ),
               );
               return;
@@ -68,6 +74,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
             // services which can link one key to another via "joins".
             const extensionKey = printFieldSet(keyFields[0]);
             if (!availableKeys.includes(extensionKey)) {
+              const extendingServiceTypeNode = findTypeNodeInServiceList(parentTypeName, extendingService, serviceList);
               errors.push(
                 errorWithCode(
                   'KEY_NOT_SPECIFIED',
@@ -76,7 +83,10 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
                     `\t${availableKeys
                       .map((fieldSet) => `@key(fields: "${fieldSet}")`)
                       .join('\n\t')}`,
-                  parentType.astNode ?? undefined
+                  extendingServiceTypeNode && 'directives' in extendingServiceTypeNode ?
+                    extendingServiceTypeNode.directives?.find(directive =>
+                      directive.name.value === 'key')?.arguments?.find
+                        (argument => argument.name.value === 'fields') : undefined,
                 ),
               );
               return;

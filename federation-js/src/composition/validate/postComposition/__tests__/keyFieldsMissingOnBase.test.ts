@@ -80,7 +80,7 @@ describe('keyFieldsMissingOnBase', () => {
           "code": "KEY_FIELDS_MISSING_ON_BASE",
           "locations": Array [
             Object {
-              "column": 1,
+              "column": 19,
               "line": 2,
             },
           ],
