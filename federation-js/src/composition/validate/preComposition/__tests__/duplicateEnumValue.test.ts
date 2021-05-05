@@ -70,8 +70,8 @@ describe('duplicateEnumValue', () => {
           "code": "DUPLICATE_ENUM_VALUE",
           "locations": Array [
             Object {
-              "column": 1,
-              "line": 18,
+              "column": 3,
+              "line": 20,
             },
           ],
           "message": "[serviceA] ProductType.BOOK -> The enum, \`ProductType\` has multiple definitions of the \`BOOK\` value.",

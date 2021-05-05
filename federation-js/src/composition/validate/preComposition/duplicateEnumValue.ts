@@ -55,7 +55,7 @@ export const duplicateEnumValue = ({
                 'DUPLICATE_ENUM_VALUE',
                 logServiceAndType(serviceName, name, valueName) +
                   `The enum, \`${name}\` has multiple definitions of the \`${valueName}\` value.`,
-                definition,
+                definition.values?.find(enumValue => enumValue.name.value === valueName),
               ),
             );
             return;
