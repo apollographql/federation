@@ -101,14 +101,16 @@ export function UniqueFieldDefinitionNames(
       const fieldName = fieldDef.name.value;
 
       if (hasField(existingTypeMap[typeName], fieldName)) {
+        const type =  existingTypeMap[typeName];
         context.reportError(
           new GraphQLError(
             existedFieldDefinitionNameMessage(
               typeName,
               fieldName,
-              existingTypeMap[typeName].astNode!.serviceName!,
+              node.serviceName ?? '',
             ),
-            fieldDef.name,
+            isObjectType(type) || isInterfaceType(type) || isInputObjectType(type) ?
+             type.getFields()[fieldName].astNode : undefined,
           ),
         );
       } else if (fieldNames[fieldName]) {

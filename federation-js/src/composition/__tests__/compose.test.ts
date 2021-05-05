@@ -415,10 +415,10 @@ describe('composeServices', () => {
               "locations": Array [
                 Object {
                   "column": 3,
-                  "line": 3,
+                  "line": 4,
                 },
               ],
-              "message": "[serviceA] Product.name -> Field \\"Product.name\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
+              "message": "[serviceB] Product.name -> Field \\"Product.name\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
             },
           ]
         `);
@@ -472,20 +472,20 @@ describe('composeServices', () => {
               "locations": Array [
                 Object {
                   "column": 3,
-                  "line": 3,
+                  "line": 7,
                 },
               ],
-              "message": "[serviceA] Product.sku -> Field \\"Product.sku\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
+              "message": "[serviceB] Product.sku -> Field \\"Product.sku\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
             },
             Object {
               "code": "MISSING_ERROR",
               "locations": Array [
                 Object {
                   "column": 3,
-                  "line": 4,
+                  "line": 8,
                 },
               ],
-              "message": "[serviceA] Product.name -> Field \\"Product.name\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
+              "message": "[serviceB] Product.name -> Field \\"Product.name\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
             },
           ]
         `);
@@ -668,10 +668,10 @@ describe('composeServices', () => {
             "locations": Array [
               Object {
                 "column": 3,
-                "line": 3,
+                "line": 7,
               },
             ],
-            "message": "[serviceA] Product.id -> Field \\"Product.id\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
+            "message": "[serviceB] Product.id -> Field \\"Product.id\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
           },
         ]
       `);
