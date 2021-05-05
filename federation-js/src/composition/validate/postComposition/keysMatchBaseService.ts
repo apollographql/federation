@@ -83,6 +83,8 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
                     `\t${availableKeys
                       .map((fieldSet) => `@key(fields: "${fieldSet}")`)
                       .join('\n\t')}`,
+                  // TODO (Issue #705): when we can associate locations to service names, we should expose the location
+                  // of each of the key directives
                   extendingServiceTypeNode && 'directives' in extendingServiceTypeNode ?
                     extendingServiceTypeNode.directives?.find(directive =>
                       directive.name.value === 'key')?.arguments?.find

@@ -50,6 +50,8 @@ export const executableDirectivesInAllServices: PostCompositionValidator = ({
             `Custom directives must be implemented in every service. The following services do not implement the @${
               directive.name
             } directive: ${serviceNamesWithoutDirective.join(', ')}.`,
+          // TODO (Issue #705): when we can associate locations to service names, we should expose
+          // locations of the services where this directive is not used
           directive.astNode ?? undefined,
         ),
       );

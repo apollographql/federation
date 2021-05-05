@@ -53,6 +53,8 @@ export const requiresFieldsMissingOnBase: PostCompositionValidator = ({
                 'REQUIRES_FIELDS_MISSING_ON_BASE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `requires the field \`${selection.name.value}\` to be @external. @external fields must exist on the base type, not an extension.`,
+                // TODO (Issue #705): when we can associate locations to service name's this should be the node of the
+                // field on the other service that needs to be marked external
                 argumentNode
               ),
             );
