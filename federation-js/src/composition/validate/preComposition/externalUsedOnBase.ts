@@ -29,7 +29,7 @@ export const externalUsedOnBase = ({
                       field.name.value,
                     ) +
                       `Found extraneous @external directive. @external cannot be used on base types.`,
-                    field,
+                    field.directives.find(directive => directive.name.value === "external"),
                   ),
                 );
               }
