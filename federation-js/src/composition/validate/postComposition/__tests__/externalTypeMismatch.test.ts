@@ -40,7 +40,7 @@ describe('validateExternalDirectivesOnSchema', () => {
           "code": "EXTERNAL_TYPE_MISMATCH",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 8,
               "line": 3,
             },
           ],
@@ -50,7 +50,7 @@ describe('validateExternalDirectivesOnSchema', () => {
           "code": "EXTERNAL_TYPE_MISMATCH",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 9,
               "line": 4,
             },
           ],
@@ -90,7 +90,7 @@ describe('validateExternalDirectivesOnSchema', () => {
           "code": "EXTERNAL_TYPE_MISMATCH",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 8,
               "line": 3,
             },
           ],

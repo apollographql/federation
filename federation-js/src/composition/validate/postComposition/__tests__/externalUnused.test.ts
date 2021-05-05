@@ -40,7 +40,7 @@ describe('externalUnused', () => {
           "code": "EXTERNAL_UNUSED",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 16,
               "line": 3,
             },
           ],
@@ -382,7 +382,7 @@ describe('externalUnused', () => {
           "code": "EXTERNAL_UNUSED",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 18,
               "line": 5,
             },
           ],
