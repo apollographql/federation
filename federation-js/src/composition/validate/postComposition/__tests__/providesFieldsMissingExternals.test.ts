@@ -106,7 +106,7 @@ describe('providesFieldsMissingExternal', () => {
           "locations": Array [
             Object {
               "column": 3,
-              "line": 4,
+              "line": 3,
             },
           ],
           "message": "[serviceB] Review.product -> provides the field \`id\` and requires Product.id to be marked as @external.",

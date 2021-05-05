@@ -1,5 +1,5 @@
-import { isObjectType, FieldNode, GraphQLError } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata } from '../../utils';
+import { isObjectType, FieldNode, GraphQLError, InputValueDefinitionNode, FieldDefinitionNode } from 'graphql';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -7,6 +7,7 @@ import { PostCompositionValidator } from '.';
  */
 export const providesFieldsMissingExternal: PostCompositionValidator = ({
   schema,
+  serviceList,
 }) => {
   const errors: GraphQLError[] = [];
 
@@ -43,12 +44,14 @@ export const providesFieldsMissingExternal: PostCompositionValidator = ({
               )
             : undefined;
           if (!foundMatchingExternal) {
+            const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
             errors.push(
               errorWithCode(
                 'PROVIDES_FIELDS_MISSING_EXTERNAL',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `provides the field \`${selection.name.value}\` and requires ${fieldType}.${selection.name.value} to be marked as @external.`,
-                field.astNode ?? undefined,
+                typeNode && 'fields' in typeNode ?
+                  (typeNode?.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])?.find(field => field.name.value === selection.name.value): undefined,
               ),
             );
           }
