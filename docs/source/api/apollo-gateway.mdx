@@ -419,14 +419,14 @@ This method must return an object that matches the structure of a [`GraphQLRespo
 
 #### `didEncounterError`
 
-Override this method in a subclass to customize the gateway's behavior after it encounters an error while communicating with the implementing service.
+Override this method in a subclass to customize the gateway's behavior after it encounters an error while communicating with the implementing service or while parsing its response (e.g., if the response is not well-formed JSON).
 
 If you _don't_ override this method, the default implementation `throw`s the error, like so:
 
 ```javascript
 class MyDataSource extends RemoteGraphQLDataSource {
 
-  didEncounterError({ error, fetchRequest, fetchResponse, context }) {
+  didEncounterError(error, fetchRequest, fetchResponse, context) {
     throw error;
   }
 
@@ -435,7 +435,7 @@ class MyDataSource extends RemoteGraphQLDataSource {
 
 Note that if you _don't_ `throw error` (or a different `Error`) in this method, `error` is thrown immediately after this method returns.
 
-This method takes the following parameters:
+This method takes the following positional parameters:
 
 <table class="field-table">
   <thead>
@@ -494,7 +494,7 @@ The details of the `fetch` response sent by the implementing service.
 </td>
 <td>
 
-The context of the communication's associated GraphQL request.
+[The `context` argument](https://www.apollographql.com/docs/apollo-server/data/resolvers/#the-context-argument) passed between the GraphQL operation's resolvers.
 </td>
 </tr>
 </tbody>
