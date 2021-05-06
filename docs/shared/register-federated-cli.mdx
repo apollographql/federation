@@ -4,13 +4,13 @@ In a federated architecture, each of your graph's [subgraphs](https://www.apollo
 graph LR;
   subgraph " "
   gateway([Gateway]);
-  serviceA[Products subgraph];
-  serviceB[Reviews subgraph];
-  serviceC[Inventory subgraph];
+  subgraphA[Products subgraph];
+  subgraphB[Reviews subgraph];
+  subgraphC[Inventory subgraph];
   end
   registry{{Apollo Schema Registry}};
-  gateway --- serviceA & serviceB & serviceC;
-  serviceA & serviceB & serviceC -. rover subgraph publish  .-> registry;
+  gateway --- subgraphA & subgraphB & subgraphC;
+  subgraphA & subgraphB & subgraphC -. rover subgraph publish  .-> registry;
   class registry secondary;
 ```
 
@@ -24,14 +24,9 @@ Then, **do the following for each of your subgraphs**:
 1. Obtain the following values, which are required for the `rover subgraph publish` command:
 
     * The name that uniquely identifies the subgraph within your graph (e.g., `products`).
-        * If you've already registered a particular subgraph at least once, you can get its name from your graph's **Schema > SDL** tab in Apollo Studio, or by running `rover subgraph list`.
-        * Otherwise, you set the subgraph's name the first time you register it. **Make sure the name is unique within your graph.**
     * The URL that your gateway will use to communicate with the subgraph (e.g., `http://products-graphql.svc.cluster.local:4001/`).
-    * The service's schema. The Rover CLI can either:
-        * Use a `.gql` or `.graphql` file saved on your local machine, or
-        * Perform an introspection query on the running service to fetch the schema
 
-2. Run the `rover subgraph publish` command, providing your schema in one of the ways shown:
+2. Run the `rover subgraph publish` command, providing it your subgraph's schema in one of the ways shown:
 
     ```bash
     # Provide a local .graphql file path
@@ -43,4 +38,4 @@ Then, **do the following for each of your subgraphs**:
 
 As you register your subgraph schemas, the schema registry attempts to **compose** their latest versions into a single **supergraph schema**. Whenever composition succeeds, your gateway can fetch the latest supergraph schema from the registry.
 
-You can also fetch your latest supergraph schema with the `rover supergraph fetch` command, and it's available in Apollo Studio from your graph's **Schema > SDL** tab.
+You can also manually fetch your latest supergraph schema with the `rover supergraph fetch` command, or retrieve it from your graph's **Schema > SDL** tab in Apollo Studio.

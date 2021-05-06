@@ -4,17 +4,25 @@ title: Federated schema checks
 
 > For an introduction to schema checks, see [Schema checks](https://www.apollographql.com/docs/studio/schema-checks/).
 
-Federation enables teams to work independently on subgraphs without needing to coordinate on a monolithic schema. However, this increase in autonomy requires controls to ensure that teams respect [defined dependencies](../federation-spec/) ensure that supergraph composition succeeds.
+Whenever you make changes to a subgraph schema, running `rover subgraph check` helps ensure that _all_ your subgraph schemas still compose to a valid supergraph schema. This helps teams work independently on their portion of your federated graph without negatively affecting your users or other teams.
 
-In particular, along with validating overall schema changes against known operations, running `rover subgraph check` for a subgraph helps ensure that all subgraph schemas still compose to a valid supergraph schema, and will output any violated dependencies if present.
+When you run `rover subgraph check` on a particular subgraph, Apollo Studio takes your schema changes and attempts to compose a supergraph schema from _all_ of your registered subgraph schemas.
 
-When you run `rover subgraph check` on a particular subgraph, Apollo Studio runs composition on the proposed capabilities with the current list of subgraphs and their capabilities, making sure that the composition is successful. That composed schema is then compared against the most recently registered schema to confirm that those changes are safe. If composition fails, then validation ends and results are returned to the user. Note that running `rover subgraph check` never updates the graph.
+* **If composition succeeds**, the result is compared against your most recently registered supergraph schema to confirm that no known clients are affected by the proposed changes.
+* **If composition fails**, validation ends and results are returned to the user.
 
-There are two types of failures that can occur during validation: failed usage checks and failed composition. Failed usage checks are failures due to breaking changes, like removing a field that an active client is querying. Failed composition, on the other hand, is a failure due to inability to compose the graph, like missing a `@key` for an extended entity.
+> Running `rover subgraph check` never updates your current registered supergraph schema.
 
-## Handling composition failure
+## Handling check failures
 
-In general, you should run `rover subgraph publish` only after a successful run of `rover subgraph check`. Even in this case, however, it's possible that `rover subgraph publish` will encounter composition errors because of simultaneous changes to _another_ subgraph. When a composition error occurs after publishing a subgraph, your subgraph's registered schema is still updated as long as its capabilities are spec-compliant, but **the supergraph will not be updated**. This means that a new supergraph schema will not be associated, nor will the gateway's configuration be updated.
+There are two types of failures that can occur during validation: failed usage checks and failed composition.
+
+* Failed usage checks are failures due to breaking changes, like removing a field that an active client is querying.
+* Failed composition is a failure due to inability to compose the graph, like missing a `@key` for an extended entity.
+
+In general, you should run `rover subgraph publish` only _after_ a successful run of `rover subgraph check`. Even in this case, however, it's possible that `rover subgraph publish` will encounter composition errors because of simultaneous changes to _another_ subgraph.
+
+When a composition error occurs after publishing a subgraph, your subgraph's registered schema is still updated as long as it is spec-compliant. However, **the supergraph schema is not updated**. This means that your gateway's configuration is _also_ not updated.
 
 An example output of this behavior looks like this:
 
@@ -31,4 +39,6 @@ Field "Book.author" can only be defined once.
 There can be only one type named "Book".
 ```
 
-The reasoning behind this functionality is that the Apollo schema registry should always reflect what is running in your infrastructure. Even if that means that composition is failing in your infrastructure, the registry should reflect that. However, you still want your gateway to function as it was before the most recent deployment. Additionally, this functionality can be used to make dependent changes, like smoothly migrating a field from one subgraph to another or introducing a circular dependency.
+The reasoning behind this functionality is that the Apollo schema registry should always reflect what is running in your infrastructure. Even if that means that composition is failing in your infrastructure, the registry should reflect that.
+
+However, you still want your gateway to function as it was before the most recent deployment. Additionally, this functionality can be used to make dependent changes, like smoothly migrating a field from one subgraph to another or introducing a circular dependency.
