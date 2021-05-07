@@ -7,7 +7,7 @@ import {
   isUnionType,
   GraphQLError,
 } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode, isDirectiveDefinitionNode, printFieldSet } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -38,7 +38,8 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
             // find corresponding field for each selected field
             const matchingField = allFieldsInType[name];
             const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
-            const selectionSetNode = findSelectionSetOnNode(typeNode, 'key', name);
+            const selectionSetNode = !isDirectiveDefinitionNode(typeNode) ?
+              findSelectionSetOnNode(typeNode, 'key', printFieldSet(selectionSet)) : undefined;
 
             if (!matchingField) {
               errors.push(

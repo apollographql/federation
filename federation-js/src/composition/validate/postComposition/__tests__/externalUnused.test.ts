@@ -392,7 +392,7 @@ describe('externalUnused', () => {
     `);
   });
 
-  it('point to the right location on error when multiple directives are on the field in question', () => {
+  it('points to the right location on error when multiple directives are on the field in question', () => {
     const serviceA = {
       typeDefs: gql`
         type Car implements Vehicle @key(fields: "id") {

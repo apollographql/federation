@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
 import deepFreeze from 'deep-freeze';
-import { stripExternalFieldsFromTypeDefs } from '../utils';
+import { findSelectionSetOnNode, isDirectiveDefinitionNode, stripExternalFieldsFromTypeDefs } from '../utils';
 import { astSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(astSerializer);

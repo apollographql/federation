@@ -10,7 +10,7 @@ import {
   InputValueDefinitionNode,
   FieldDefinitionNode,
 } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode, printFieldSet } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -53,7 +53,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
           const fieldNode = typeNode && 'fields' in typeNode ?
             (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])
             ?.find(field => field.name.value === fieldName) : undefined;
-          const selectionSetNode = findSelectionSetOnNode(fieldNode, 'provides', name);
+          const selectionSetNode = findSelectionSetOnNode(fieldNode, 'provides', printFieldSet(selections));
 
           if (!matchingField) {
             errors.push(

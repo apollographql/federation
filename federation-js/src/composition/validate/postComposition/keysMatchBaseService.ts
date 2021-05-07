@@ -1,9 +1,6 @@
 import {
   isObjectType,
   GraphQLError,
-  SelectionNode,
-  stripIgnoredCharacters,
-  print,
 } from 'graphql';
 import {
   logServiceAndType,
@@ -11,6 +8,8 @@ import {
   getFederationMetadata,
   findTypeNodeInServiceList,
   findSelectionSetOnNode,
+  isDirectiveDefinitionNode,
+  printFieldSet,
 } from '../../utils';
 import { PostCompositionValidator } from '.';
 
@@ -71,7 +70,8 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
             // In the future, `@key`s just need to be "reachable" through a number of
             // services which can link one key to another via "joins".
             const extensionKey = printFieldSet(keyFields[0]);
-            const selectionSetNode = findSelectionSetOnNode(extendingServiceTypeNode, 'key', extensionKey);
+            const selectionSetNode = !isDirectiveDefinitionNode(extendingServiceTypeNode) ?
+              findSelectionSetOnNode(extendingServiceTypeNode, 'key', extensionKey) : undefined;
             if (!availableKeys.includes(extensionKey)) {
               errors.push(
                 errorWithCode(
@@ -93,9 +93,3 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
 
   return errors;
 };
-
-function printFieldSet(selections: readonly SelectionNode[]): string {
-  return selections
-    .map((selection) => stripIgnoredCharacters(print(selection)))
-    .join(' ');
-}

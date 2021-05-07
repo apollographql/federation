@@ -1,5 +1,5 @@
 import { isObjectType, FieldNode, GraphQLError, FieldDefinitionNode, InputValueDefinitionNode } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode, printFieldSet } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -47,7 +47,7 @@ export const requiresFieldsMissingExternal: PostCompositionValidator = ({
               'fields' in typeNode ?
               (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])?.
                 find(field => field.name.value === fieldName) : undefined;
-            const selectionSetNode = findSelectionSetOnNode(fieldNode, 'requires', selection.name.value);
+            const selectionSetNode = findSelectionSetOnNode(fieldNode, 'requires', printFieldSet(selections));
             errors.push(
               errorWithCode(
                 'REQUIRES_FIELDS_MISSING_EXTERNAL',

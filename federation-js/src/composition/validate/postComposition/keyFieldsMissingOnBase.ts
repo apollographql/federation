@@ -1,5 +1,5 @@
 import { isObjectType, FieldNode, GraphQLError } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode, isDirectiveDefinitionNode, printFieldSet } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -32,7 +32,8 @@ export const keyFieldsMissingOnBase: PostCompositionValidator = ({
             // keyFieldsSelectInvalidType already does that :)
             if (matchingField) {
               const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
-              const selectionSetNode = findSelectionSetOnNode(typeNode, 'key', name);
+              const selectionSetNode = !isDirectiveDefinitionNode(typeNode) ?
+                findSelectionSetOnNode(typeNode, 'key', printFieldSet(selectionSet)) : undefined;
 
               const fieldFederationMetadata = getFederationMetadata(matchingField);
               // warn if not from base type OR IF IT WAS OVERWITTEN
