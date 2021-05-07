@@ -50,7 +50,7 @@ describe('externalMissingOnBase', () => {
           "code": "EXTERNAL_MISSING_ON_BASE",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 15,
               "line": 4,
             },
           ],
@@ -60,7 +60,7 @@ describe('externalMissingOnBase', () => {
           "code": "EXTERNAL_MISSING_ON_BASE",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 13,
               "line": 5,
             },
           ],
@@ -100,7 +100,7 @@ describe('externalMissingOnBase', () => {
           "code": "EXTERNAL_MISSING_ON_BASE",
           "locations": Array [
             Object {
-              "column": 3,
+              "column": 22,
               "line": 3,
             },
           ],
