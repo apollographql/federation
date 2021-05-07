@@ -31,7 +31,7 @@ import {
   OperationTypeNode,
   isDirective,
   isNamedType,
-  SchemaDefinitionNode,
+  DefinitionNode,
 } from 'graphql';
 import {
   ExternalFieldDefinition,
@@ -62,18 +62,37 @@ export function mapFieldNamesToServiceName<Node extends { name: NameNode }>(
 
 export function findDirectivesOnNode(
   node: Maybe<
-    | TypeDefinitionNode
-    | TypeExtensionNode
     | FieldDefinitionNode
-    | SchemaDefinitionNode
+    | FieldNode
+    | DefinitionNode
   >,
   directiveName: string,
 ) {
-  return node && node.directives
+  return node && 'directives' in node && node.directives
     ? node.directives.filter(
         directive => directive.name.value === directiveName,
       )
     : [];
+}
+
+export function findSelectionSetOnNode(
+  node: Maybe<
+    | FieldDefinitionNode
+    | DefinitionNode
+  >,
+  directiveName: string,
+  elementInSelectionSet: string,
+) {
+  // assume there is only one directive with this name that selects this element
+  return node && 'directives' in node && node.directives
+    ? node.directives.find(
+        directive =>
+          directive.name.value === directiveName && directive.arguments?.some(
+            argument => argument.value.kind === "StringValue" &&
+              argument.value.value.includes(elementInSelectionSet)
+          ))?.arguments?.find(
+            argument => argument.name.value === 'fields')?.value
+    : undefined;
 }
 
 export function stripExternalFieldsFromTypeDefs(

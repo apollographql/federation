@@ -10,6 +10,7 @@ import {
   errorWithCode,
   getFederationMetadata,
   findTypeNodeInServiceList,
+  findSelectionSetOnNode,
 } from '../../utils';
 import { PostCompositionValidator } from '.';
 
@@ -59,10 +60,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
                   'MULTIPLE_KEYS_ON_EXTENSION',
                   logServiceAndType(extendingService, parentTypeName) +
                     `is extended from service ${serviceName} but specifies multiple @key directives. Extensions may only specify one @key.`,
-                  extendingServiceTypeNode && 'directives' in extendingServiceTypeNode ?
-                    extendingServiceTypeNode.directives?.find(directive =>
-                      directive.name.value === 'key')?.arguments?.find
-                        (argument => argument.name.value === 'fields') : undefined,
+                  extendingServiceTypeNode,
                 ),
               );
               return;
@@ -73,8 +71,8 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
             // In the future, `@key`s just need to be "reachable" through a number of
             // services which can link one key to another via "joins".
             const extensionKey = printFieldSet(keyFields[0]);
+            const selectionSetNode = findSelectionSetOnNode(extendingServiceTypeNode, 'key', extensionKey);
             if (!availableKeys.includes(extensionKey)) {
-              const extendingServiceTypeNode = findTypeNodeInServiceList(parentTypeName, extendingService, serviceList);
               errors.push(
                 errorWithCode(
                   'KEY_NOT_SPECIFIED',
@@ -83,12 +81,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
                     `\t${availableKeys
                       .map((fieldSet) => `@key(fields: "${fieldSet}")`)
                       .join('\n\t')}`,
-                  // TODO (Issue #705): when we can associate locations to service names, we should expose the location
-                  // of each of the key directives
-                  extendingServiceTypeNode && 'directives' in extendingServiceTypeNode ?
-                    extendingServiceTypeNode.directives?.find(directive =>
-                      directive.name.value === 'key')?.arguments?.find
-                        (argument => argument.name.value === 'fields') : undefined,
+                  selectionSetNode,
                 ),
               );
               return;

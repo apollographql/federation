@@ -124,7 +124,7 @@ describe('keysMatchBaseService', () => {
         "code": "MULTIPLE_KEYS_ON_EXTENSION",
         "locations": Array [
           Object {
-            "column": 26,
+            "column": 1,
             "line": 2,
           },
         ],
@@ -169,7 +169,7 @@ describe('keysMatchBaseService', () => {
         "code": "KEY_NOT_SPECIFIED",
         "locations": Array [
           Object {
-            "column": 26,
+            "column": 34,
             "line": 2,
           },
         ],

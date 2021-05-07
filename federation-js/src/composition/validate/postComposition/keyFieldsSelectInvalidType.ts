@@ -7,7 +7,7 @@ import {
   isUnionType,
   GraphQLError,
 } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -38,10 +38,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
             // find corresponding field for each selected field
             const matchingField = allFieldsInType[name];
             const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
-            const fieldNode = typeNode && 'directives' in typeNode ?
-              typeNode.directives?.find(
-                directive => directive.name.value === 'key')?.arguments?.find(
-                  argument => argument.name.value === 'fields') : undefined;
+            const selectionSetNode = findSelectionSetOnNode(typeNode, 'key', name);
 
             if (!matchingField) {
               errors.push(
@@ -49,7 +46,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
                   'KEY_FIELDS_SELECT_INVALID_TYPE',
                   logServiceAndType(serviceName, typeName) +
                     `A @key selects ${name}, but ${typeName}.${name} could not be found`,
-                  fieldNode,
+                  selectionSetNode,
                 ),
               );
             }
@@ -65,7 +62,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
                     'KEY_FIELDS_SELECT_INVALID_TYPE',
                     logServiceAndType(serviceName, typeName) +
                       `A @key selects ${typeName}.${name}, which is an interface type. Keys cannot select interfaces.`,
-                    fieldNode,
+                    selectionSetNode,
                   ),
                 );
               }
@@ -80,7 +77,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
                     'KEY_FIELDS_SELECT_INVALID_TYPE',
                     logServiceAndType(serviceName, typeName) +
                       `A @key selects ${typeName}.${name}, which is a union type. Keys cannot select union types.`,
-                      fieldNode,
+                    selectionSetNode,
                   ),
                 );
               }
