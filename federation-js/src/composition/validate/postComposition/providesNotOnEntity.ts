@@ -6,7 +6,13 @@ import {
   FieldDefinitionNode,
   InputValueDefinitionNode,
 } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList } from '../../utils';
+import {
+  logServiceAndType,
+  errorWithCode,
+  getFederationMetadata,
+  findTypeNodeInServiceList,
+  findDirectivesOnNode
+} from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -49,13 +55,11 @@ export const providesNotOnEntity: PostCompositionValidator = ({ schema, serviceL
       // field has a @provides directive on it
       if (fieldFederationMetadata?.provides) {
         const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
-        const providesDirectiveNode = typeNode && 'fields' in typeNode ?
-          (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])?.find(field => field.name.value === fieldName)?.
-          directives?.find(
-            directive => directive.name.value === "provides"
-          )?.arguments?.find(
-            argument => argument.name.value === 'fields'
-          ) : undefined;
+        const fieldNode = typeNode && 'fields' in typeNode ?
+          (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])
+            ?.find(field => field.name.value === fieldName) : undefined;
+        const providesDirectiveNode = findDirectivesOnNode(fieldNode, 'provides');
+
         if (!isObjectType(baseType)) {
           errors.push(
             errorWithCode(

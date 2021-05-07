@@ -10,7 +10,7 @@ import {
   InputValueDefinitionNode,
   FieldDefinitionNode,
 } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -50,20 +50,18 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
           const name = selection.name.value;
           const matchingField = allFields[name];
           const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
-          const providesDirectiveNode = typeNode && 'fields' in typeNode ?
-            (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])?.find(field => field.name.value === fieldName)?.
-            directives?.find(
-              directive => directive.name.value === "provides"
-            )?.arguments?.find(
-              argument => argument.name.value === 'fields'
-            ) : undefined;
+          const fieldNode = typeNode && 'fields' in typeNode ?
+            (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])
+            ?.find(field => field.name.value === fieldName) : undefined;
+          const selectionSetNode = findSelectionSetOnNode(fieldNode, 'provides', name);
+
           if (!matchingField) {
             errors.push(
               errorWithCode(
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${name}, but ${fieldType.name}.${name} could not be found`,
-                providesDirectiveNode,
+                selectionSetNode,
               ),
             );
             continue;
@@ -79,7 +77,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${fieldType.name}.${name}, which is a list type. A field cannot @provide lists.`,
-                providesDirectiveNode,
+                selectionSetNode,
               ),
             );
           }
@@ -93,7 +91,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${fieldType.name}.${name}, which is an interface type. A field cannot @provide interfaces.`,
-                providesDirectiveNode,
+                selectionSetNode,
               ),
             );
           }
@@ -108,7 +106,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${fieldType.name}.${name}, which is a union type. A field cannot @provide union types.`,
-                providesDirectiveNode,
+                selectionSetNode,
               ),
             );
           }

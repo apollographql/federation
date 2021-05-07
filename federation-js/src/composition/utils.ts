@@ -63,6 +63,7 @@ export function mapFieldNamesToServiceName<Node extends { name: NameNode }>(
 export function findDirectivesOnNode(
   node: Maybe<
     | FieldDefinitionNode
+    | InputValueDefinitionNode
     | FieldNode
     | DefinitionNode
   >,
@@ -78,6 +79,7 @@ export function findDirectivesOnNode(
 export function findSelectionSetOnNode(
   node: Maybe<
     | FieldDefinitionNode
+    | InputValueDefinitionNode
     | DefinitionNode
   >,
   directiveName: string,
