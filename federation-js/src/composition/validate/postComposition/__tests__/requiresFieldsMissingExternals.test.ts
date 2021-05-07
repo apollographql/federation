@@ -72,7 +72,7 @@ describe('requiresFieldsMissingExternal', () => {
           "code": "REQUIRES_FIELDS_MISSING_EXTERNAL",
           "locations": Array [
             Object {
-              "column": 25,
+              "column": 33,
               "line": 3,
             },
           ],

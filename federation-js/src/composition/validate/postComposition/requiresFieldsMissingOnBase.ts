@@ -1,5 +1,5 @@
 import { isObjectType, FieldNode, GraphQLError, FieldDefinitionNode, InputValueDefinitionNode } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -39,15 +39,12 @@ export const requiresFieldsMissingOnBase: PostCompositionValidator = ({
 
           if (typeFederationMetadata?.serviceName) {
             const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
-            const argumentNode =
+            const fieldNode =
               typeNode &&
               'fields' in typeNode ?
               (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])?.
-                find(field => field.name.value === fieldName)?.directives?.find(
-                  directive => directive.name.value === "requires"
-                  )?.arguments?.find(
-                    argument => argument.name.value === "fields"
-                  ) : undefined;
+                find(field => field.name.value === fieldName) : undefined;
+            const selectionSetNode = findSelectionSetOnNode(fieldNode, 'requires', selection.name.value);
             errors.push(
               errorWithCode(
                 'REQUIRES_FIELDS_MISSING_ON_BASE',
@@ -55,7 +52,7 @@ export const requiresFieldsMissingOnBase: PostCompositionValidator = ({
                   `requires the field \`${selection.name.value}\` to be @external. @external fields must exist on the base type, not an extension.`,
                 // TODO (Issue #705): when we can associate locations to service name's this should be the node of the
                 // field on the other service that needs to be marked external
-                argumentNode
+                selectionSetNode,
               ),
             );
           }
