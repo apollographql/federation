@@ -1,7 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { externalMissingOnBase as validateExternalMissingOnBase } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -46,10 +48,22 @@ describe('externalMissingOnBase', () => {
       Array [
         Object {
           "code": "EXTERNAL_MISSING_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 15,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.id -> marked @external but id was defined in serviceC, not in the service that owns Product (serviceA)",
         },
         Object {
           "code": "EXTERNAL_MISSING_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 13,
+              "line": 5,
+            },
+          ],
           "message": "[serviceC] Product.test -> marked @external but test is not defined on the base service of Product (serviceA)",
         },
       ]
@@ -84,6 +98,12 @@ describe('externalMissingOnBase', () => {
       Array [
         Object {
           "code": "EXTERNAL_MISSING_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 22,
+              "line": 3,
+            },
+          ],
           "message": "[serviceB] Product.specialId -> marked @external but specialId is not defined on the base service of Product (serviceA)",
         },
       ]

@@ -1,7 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { externalUnused as validateExternalUnused } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -36,6 +38,12 @@ describe('externalUnused', () => {
       Array [
         Object {
           "code": "EXTERNAL_UNUSED",
+          "locations": Array [
+            Object {
+              "column": 16,
+              "line": 3,
+            },
+          ],
           "message": "[serviceB] Product.sku -> is marked as @external but is not used by a @requires, @key, or @provides directive.",
         },
       ]
@@ -372,6 +380,60 @@ describe('externalUnused', () => {
       Array [
         Object {
           "code": "EXTERNAL_UNUSED",
+          "locations": Array [
+            Object {
+              "column": 18,
+              "line": 5,
+            },
+          ],
+          "message": "[serviceB] Car.wheelSize -> is marked as @external but is not used by a @requires, @key, or @provides directive.",
+        },
+      ]
+    `);
+  });
+
+  it('points to the right location on error when multiple directives are on the field in question', () => {
+    const serviceA = {
+      typeDefs: gql`
+        type Car implements Vehicle @key(fields: "id") {
+          id: ID!
+          speed: Int
+          wheelSize: Int
+        }
+        interface Vehicle {
+          id: ID!
+          speed: Int
+        }
+      `,
+      name: 'serviceA',
+    };
+    const serviceB = {
+      typeDefs: gql`
+        extend type Car implements Vehicle @key(fields: "id") {
+          id: ID! @external
+          speed: Int @external
+          wheelSize: Int @requires(fields: "id") @external
+        }
+        interface Vehicle {
+          id: ID!
+          speed: Int
+        }
+      `,
+      name: 'serviceB',
+    };
+    const serviceList = [serviceA, serviceB];
+    const { schema } = composeServices(serviceList);
+    const errors = validateExternalUnused({ schema, serviceList });
+    expect(errors).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "code": "EXTERNAL_UNUSED",
+          "locations": Array [
+            Object {
+              "column": 42,
+              "line": 5,
+            },
+          ],
           "message": "[serviceB] Car.wheelSize -> is marked as @external but is not used by a @requires, @key, or @provides directive.",
         },
       ]

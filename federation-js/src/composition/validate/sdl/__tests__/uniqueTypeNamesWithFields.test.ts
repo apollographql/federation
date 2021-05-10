@@ -5,10 +5,10 @@ import {
   DocumentNode,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
-import gql from 'graphql-tag';
 import {
   typeSerializer,
   graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import federationDirectives from '../../../../directives';
 import { UniqueTypeNamesWithFields } from '..';
@@ -109,10 +109,30 @@ describe('UniqueTypeNamesWithFields', () => {
         Array [
           Object {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
+            "locations": Array [
+              Object {
+                "column": 8,
+                "line": 3,
+              },
+              Object {
+                "column": 8,
+                "line": 3,
+              },
+            ],
             "message": "[serviceA] Product.sku -> A field was defined differently in different services. \`serviceA\` and \`serviceB\` define \`Product.sku\` as a ID! and String! respectively. In order to define \`Product\` in multiple places, the fields and their types must be identical.",
           },
           Object {
             "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
+            "locations": Array [
+              Object {
+                "column": 13,
+                "line": 5,
+              },
+              Object {
+                "column": 13,
+                "line": 5,
+              },
+            ],
             "message": "[serviceA] Product.quantity -> A field was defined differently in different services. \`serviceA\` and \`serviceB\` define \`Product.quantity\` as a Int and Int! respectively. In order to define \`Product\` in multiple places, the fields and their types must be identical.",
           },
         ]
@@ -147,6 +167,16 @@ describe('UniqueTypeNamesWithFields', () => {
         Array [
           Object {
             "code": "VALUE_TYPE_INPUT_VALUE_MISMATCH",
+            "locations": Array [
+              Object {
+                "column": 1,
+                "line": 2,
+              },
+              Object {
+                "column": 1,
+                "line": 2,
+              },
+            ],
             "message": "[serviceA] Person -> A field's input type (\`relative\`) was defined differently in different services. \`serviceA\` and \`serviceB\` define \`relative\` as a Boolean! and Boolean respectively. In order to define \`Person\` in multiple places, the input values and their types must be identical.",
           },
         ]
@@ -375,6 +405,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_KIND_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] Product -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`Product\` is defined as both a \`ObjectTypeDefinition\` and a \`InputObjectTypeDefinition\`. In order to define \`Product\` in multiple places, the kinds must be identical.",
         }
       `);
@@ -408,6 +448,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_KIND_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] DateTime -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`DateTime\` is defined as both a \`ObjectTypeDefinition\` and a \`ScalarTypeDefinition\`. In order to define \`DateTime\` in multiple places, the kinds must be identical.",
         }
       `);
@@ -441,6 +491,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_KIND_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] DateTime -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`DateTime\` is defined as both a \`ObjectTypeDefinition\` and a \`UnionTypeDefinition\`. In order to define \`DateTime\` in multiple places, the kinds must be identical.",
         }
       `);
@@ -477,6 +537,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_KIND_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] DateTime -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`DateTime\` is defined as both a \`ObjectTypeDefinition\` and a \`EnumTypeDefinition\`. In order to define \`DateTime\` in multiple places, the kinds must be identical.",
         }
       `);
@@ -509,6 +579,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_NO_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] Product -> Value types cannot be entities (using the \`@key\` directive). Please ensure that the \`Product\` type is extended properly or remove the \`@key\` directive if this is not an entity.",
         }
       `);
@@ -541,6 +621,16 @@ describe('UniqueTypeNamesWithFields', () => {
       expect(errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_NO_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
           "message": "[serviceB] Product -> Value types cannot be entities (using the \`@key\` directive). Please ensure that the \`Product\` type is extended properly or remove the \`@key\` directive if this is not an entity.",
         }
       `);

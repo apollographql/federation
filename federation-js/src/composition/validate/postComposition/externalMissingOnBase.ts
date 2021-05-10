@@ -1,5 +1,5 @@
 import { isObjectType, GraphQLError } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findDirectivesOnNode } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -35,6 +35,7 @@ export const externalMissingOnBase: PostCompositionValidator = ({ schema }) => {
                 'EXTERNAL_MISSING_ON_BASE',
                 logServiceAndType(serviceName, typeName, externalFieldName) +
                   `marked @external but ${externalFieldName} is not defined on the base service of ${typeName} (${typeFederationMetadata.serviceName})`,
+                findDirectivesOnNode(externalField, 'external'),
               ),
             );
             continue;
@@ -50,6 +51,7 @@ export const externalMissingOnBase: PostCompositionValidator = ({ schema }) => {
                 'EXTERNAL_MISSING_ON_BASE',
                 logServiceAndType(serviceName, typeName, externalFieldName) +
                   `marked @external but ${externalFieldName} was defined in ${fieldFederationMetadata.serviceName}, not in the service that owns ${typeName} (${typeFederationMetadata.serviceName})`,
+                findDirectivesOnNode(externalField, 'external'),
               ),
             );
           }

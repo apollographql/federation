@@ -1,6 +1,8 @@
-import gql from 'graphql-tag';
 import { rootFieldUsed as validateRootFieldUsed } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -95,6 +97,12 @@ describe('rootFieldUsed', () => {
       Array [
         Object {
           "code": "ROOT_QUERY_USED",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 14,
+            },
+          ],
           "message": "[serviceA] Query -> Found invalid use of default root operation name \`Query\`. \`Query\` is disallowed when \`Schema.query\` is set to a type other than \`Query\`.",
         },
       ]
@@ -126,6 +134,12 @@ describe('rootFieldUsed', () => {
       Array [
         Object {
           "code": "ROOT_MUTATION_USED",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 10,
+            },
+          ],
           "message": "[serviceA] Mutation -> Found invalid use of default root operation name \`Mutation\`. \`Mutation\` is disallowed when \`Schema.mutation\` is set to a type other than \`Mutation\`.",
         },
       ]

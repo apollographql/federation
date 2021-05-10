@@ -1,6 +1,8 @@
-import gql from 'graphql-tag';
 import { requiresUsedOnBase as validateRequiresUsedOnBase } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -43,6 +45,12 @@ describe('requiresUsedOnBase', () => {
       Array [
         Object {
           "code": "REQUIRES_USED_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 16,
+              "line": 4,
+            },
+          ],
           "message": "[serviceA] Product.upc -> Found extraneous @requires directive. @requires cannot be used on base types.",
         },
       ]

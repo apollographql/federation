@@ -1,7 +1,9 @@
-import gql from 'graphql-tag';
 import { externalTypeMismatch as validateExternalTypeMismatch } from '../';
 import { composeServices } from '../../../compose';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -36,10 +38,22 @@ describe('validateExternalDirectivesOnSchema', () => {
       Array [
         Object {
           "code": "EXTERNAL_TYPE_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 8,
+              "line": 3,
+            },
+          ],
           "message": "[serviceB] Product.sku -> Type \`String\` does not match the type of the original field in serviceA (\`String!\`)",
         },
         Object {
           "code": "EXTERNAL_TYPE_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 9,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.skew -> Type \`String!\` does not match the type of the original field in serviceA (\`String\`)",
         },
       ]
@@ -74,6 +88,12 @@ describe('validateExternalDirectivesOnSchema', () => {
       Array [
         Object {
           "code": "EXTERNAL_TYPE_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 8,
+              "line": 3,
+            },
+          ],
           "message": "[serviceB] Product.sku -> the type of the @external field does not exist in the resulting composed schema",
         },
       ]

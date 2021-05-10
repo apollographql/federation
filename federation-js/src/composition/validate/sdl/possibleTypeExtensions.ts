@@ -58,6 +58,7 @@ export function PossibleTypeExtensions(
             'EXTENSION_OF_WRONG_KIND',
             logServiceAndType(serviceName, typeName) +
               `\`${typeName}\` was originally defined as a ${baseKind} and can only be extended by a ${expectedKind}. ${serviceName} defines ${typeName} as a ${node.kind}`,
+            node,
           ),
         );
       }
@@ -70,6 +71,7 @@ export function PossibleTypeExtensions(
             'EXTENSION_OF_WRONG_KIND',
             logServiceAndType(serviceName, typeName) +
               `\`${typeName}\` was originally defined as a ${baseKind} and can only be extended by a ${expectedKind}. ${serviceName} defines ${typeName} as a ${node.kind}`,
+            node,
           ),
         );
       }
@@ -79,6 +81,7 @@ export function PossibleTypeExtensions(
           'EXTENSION_WITH_NO_BASE',
           logServiceAndType(serviceName, typeName) +
             `\`${typeName}\` is an extension type, but \`${typeName}\` is not defined in any service`,
+          node,
         ),
       );
     }

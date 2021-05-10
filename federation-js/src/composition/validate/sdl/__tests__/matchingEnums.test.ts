@@ -5,12 +5,13 @@ import {
   specifiedDirectives,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
-import gql from 'graphql-tag';
 import { buildMapsFromServiceList } from '../../../compose';
 import {
   astSerializer,
   typeSerializer,
   selectionSetSerializer,
+  graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import federationDirectives from '../../../../directives';
 import { ServiceDefinition } from '../../../types';
@@ -19,6 +20,7 @@ import { MatchingEnums } from '../matchingEnums';
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(typeSerializer);
 expect.addSnapshotSerializer(selectionSetSerializer);
+expect.addSnapshotSerializer(graphqlErrorSerializer);
 
 // simulate the first half of the composition process
 const createDefinitionsDocumentForServices = (
@@ -99,7 +101,20 @@ describe('matchingEnums', () => {
     const errors = validateSDL(definitionsDocument, schema, [MatchingEnums]);
     expect(errors).toMatchInlineSnapshot(`
       Array [
-        [GraphQLError: The \`ProductCategory\` enum does not have identical values in all services. Groups of services with identical values are: [serviceA], [serviceB]],
+        Object {
+          "code": "ENUM_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
+          "message": "The \`ProductCategory\` enum does not have identical values in all services. Groups of services with identical values are: [serviceA], [serviceB]",
+        },
       ]
     `);
   });
@@ -153,7 +168,24 @@ describe('matchingEnums', () => {
     const errors = validateSDL(definitionsDocument, schema, [MatchingEnums]);
     expect(errors).toMatchInlineSnapshot(`
       Array [
-        [GraphQLError: The \`ProductType\` enum does not have identical values in all services. Groups of services with identical values are: [serviceA], [serviceB, serviceC]],
+        Object {
+          "code": "ENUM_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 12,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
+          "message": "The \`ProductType\` enum does not have identical values in all services. Groups of services with identical values are: [serviceA], [serviceB, serviceC]",
+        },
       ]
     `);
   });
@@ -195,7 +227,24 @@ describe('matchingEnums', () => {
     const errors = validateSDL(definitionsDocument, schema, [MatchingEnums]);
     expect(errors).toMatchInlineSnapshot(`
       Array [
-        [GraphQLError: [serviceA] ProductType -> ProductType is an enum in [serviceA, serviceC], but not in [serviceB]],
+        Object {
+          "code": "ENUM_MISMATCH_TYPE",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
+          "message": "[serviceA] ProductType -> ProductType is an enum in [serviceA, serviceC], but not in [serviceB]",
+        },
       ]
     `);
   });

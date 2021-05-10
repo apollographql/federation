@@ -1,6 +1,8 @@
-import gql from 'graphql-tag';
 import { duplicateEnumOrScalar as validateDuplicateEnumOrScalar } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -60,13 +62,19 @@ describe('duplicateEnumOrScalar', () => {
 
     const warnings = validateDuplicateEnumOrScalar(serviceA);
     expect(warnings).toMatchInlineSnapshot(`
-            Array [
-              Object {
-                "code": "DUPLICATE_ENUM_DEFINITION",
-                "message": "[serviceA] ProductType -> The enum, \`ProductType\` was defined multiple times in this service. Remove one of the definitions for \`ProductType\`",
-              },
-            ]
-        `);
+      Array [
+        Object {
+          "code": "DUPLICATE_ENUM_DEFINITION",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 18,
+            },
+          ],
+          "message": "[serviceA] ProductType -> The enum, \`ProductType\` was defined multiple times in this service. Remove one of the definitions for \`ProductType\`",
+        },
+      ]
+    `);
   });
 
   it('errors when there are multiple definitions of the same scalar', () => {
@@ -89,6 +97,12 @@ describe('duplicateEnumOrScalar', () => {
       Array [
         Object {
           "code": "DUPLICATE_SCALAR_DEFINITION",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 9,
+            },
+          ],
           "message": "[serviceA] Date -> The scalar, \`Date\` was defined multiple times in this service. Remove one of the definitions for \`Date\`",
         },
       ]

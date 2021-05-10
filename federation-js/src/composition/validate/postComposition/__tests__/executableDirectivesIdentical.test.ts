@@ -1,7 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { executableDirectivesIdentical } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -81,6 +83,20 @@ describe('executableDirectivesIdentical', () => {
       Array [
         Object {
           "code": "EXECUTABLE_DIRECTIVES_IDENTICAL",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
           "message": "[@stream] -> custom directives must be defined identically across all services. See below for a list of current implementations:
       	serviceA: directive @stream on FIELD
       	serviceB: directive @stream on FIELD | QUERY
@@ -112,6 +128,16 @@ describe('executableDirectivesIdentical', () => {
       Array [
         Object {
           "code": "EXECUTABLE_DIRECTIVES_IDENTICAL",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+            Object {
+              "column": 1,
+              "line": 2,
+            },
+          ],
           "message": "[@instrument] -> custom directives must be defined identically across all services. See below for a list of current implementations:
       	serviceA: directive @instrument(tag: String!) on FIELD
       	serviceB: directive @instrument(tag: Boolean) on FIELD",

@@ -31,7 +31,11 @@ import {
   OperationTypeNode,
   isDirective,
   isNamedType,
+  EnumValueDefinitionNode,
   SchemaDefinitionNode,
+  ExecutableDefinitionNode,
+  TypeSystemExtensionNode,
+  stripIgnoredCharacters,
 } from 'graphql';
 import {
   ExternalFieldDefinition,
@@ -40,12 +44,17 @@ import {
   FederationType,
   FederationDirective,
   FederationField,
+  ServiceDefinition,
 } from './types';
 import federationDirectives from '../directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
 
 export function isStringValueNode(node: any): node is StringValueNode {
   return node.kind === Kind.STRING;
+}
+
+export function isDirectiveDefinitionNode(node: any): node is DirectiveDefinitionNode {
+  return node.kind === Kind.DIRECTIVE_DEFINITION;
 }
 
 // Create a map of { fieldName: serviceName } for each field.
@@ -61,18 +70,63 @@ export function mapFieldNamesToServiceName<Node extends { name: NameNode }>(
 
 export function findDirectivesOnNode(
   node: Maybe<
-    | TypeDefinitionNode
-    | TypeExtensionNode
     | FieldDefinitionNode
+    | InputValueDefinitionNode
+    | EnumValueDefinitionNode
     | SchemaDefinitionNode
+    | ExecutableDefinitionNode
+    | SelectionNode
+    | TypeDefinitionNode
+    | TypeSystemExtensionNode
   >,
   directiveName: string,
 ) {
-  return node && node.directives
-    ? node.directives.filter(
+  return node?.directives?.filter(
         directive => directive.name.value === directiveName,
-      )
-    : [];
+      ) ?? [];
+}
+
+/**
+ * Core change: print fieldsets for @join__field's @key, @requires, and @provides args
+ *
+ * @param selections
+ */
+export function printFieldSet(selections: readonly SelectionNode[]): string {
+  return selections
+    .map((selection) => stripIgnoredCharacters(print(selection)))
+    .join(' ');
+}
+
+/**
+ * Find a matching selection set on a node given it's string form,
+ * directive name and the node to search on
+ *
+ * @param node
+ * @param directiveName
+ * @param printedSelectionSet
+ * @returns
+ */
+export function findSelectionSetOnNode(
+  node: Maybe<
+    | FieldDefinitionNode
+    | InputValueDefinitionNode
+    | EnumValueDefinitionNode
+    | SchemaDefinitionNode
+    | ExecutableDefinitionNode
+    | SelectionNode
+    | TypeDefinitionNode
+    | TypeSystemExtensionNode
+  >,
+  directiveName: string,
+  printedSelectionSet: string,
+) {
+  return node?.directives?.find(
+        directive =>
+          directive.name.value === directiveName && directive.arguments?.some(
+            argument => isStringValueNode(argument.value) &&
+              argument.value.value === printedSelectionSet
+          ))?.arguments?.find(
+            argument => argument.name.value === 'fields')?.value;
 }
 
 export function stripExternalFieldsFromTypeDefs(
@@ -553,6 +607,17 @@ export function typeNodesAreEquivalent(
     locations.length === 0 &&
     Object.keys(args).length === 0
   );
+}
+
+
+export function findTypeNodeInServiceList(typeName: string, serviceName: string, serviceList: ServiceDefinition[]) {
+  return serviceList.find(
+    service => service.name === serviceName
+    )?.typeDefs.definitions.find(
+      definition =>
+      'name' in definition
+      && definition.name?.value === typeName
+      );
 }
 
 /**

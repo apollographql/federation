@@ -71,6 +71,7 @@ export const rootFieldUsed = ({
             `ROOT_${rootOperationName.toUpperCase()}_USED`,
             logServiceAndType(serviceName, rootOperationName) +
               `Found invalid use of default root operation name \`${rootOperationName}\`. \`${rootOperationName}\` is disallowed when \`Schema.${rootOperationName.toLowerCase()}\` is set to a type other than \`${rootOperationName}\`.`,
+            node,
           ),
         );
       }

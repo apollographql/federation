@@ -2,6 +2,8 @@ import {
   GraphQLError,
   ASTVisitor,
   TypeDefinitionNode,
+  FieldDefinitionNode,
+  InputValueDefinitionNode,
 } from 'graphql';
 
 import { SDLValidationContext } from 'graphql/validation/ValidationContext';
@@ -91,7 +93,6 @@ export function UniqueTypeNamesWithFields(
         return;
       }
 
-
       const typesHaveSameFieldShape =
         fieldsDiff.length === 0 ||
         fieldsDiff.every(([fieldName, types]) => {
@@ -99,6 +100,8 @@ export function UniqueTypeNamesWithFields(
           // In this case, we can push a useful error to hint to the user that we
           // think they tried to define a value type, but one of the fields has a type mismatch.
           if (types.length === 2) {
+            const fieldNode = 'fields' in node && (node.fields as Readonly<(FieldDefinitionNode | InputValueDefinitionNode)[]>)?.find((field) => field.name.value === fieldName);
+            const duplicateFieldNode = 'fields' in duplicateTypeNode && (duplicateTypeNode.fields as Readonly<(FieldDefinitionNode | InputValueDefinitionNode)[]>)?.find(field => field.name.value === fieldName);
             possibleErrors.push(
               errorWithCode(
                 'VALUE_TYPE_FIELD_TYPE_MISMATCH',
@@ -113,7 +116,9 @@ export function UniqueTypeNamesWithFields(
                 }\` define \`${typeName}.${fieldName}\` as a ${types[1]} and ${
                   types[0]
                 } respectively. In order to define \`${typeName}\` in multiple places, the fields and their types must be identical.`,
-                [node, duplicateTypeNode],
+                // TODO (Issue #705): when we can associate locations to service names
+                // add locations for each service where this field was defined
+                fieldNode && duplicateFieldNode ? [fieldNode.type, duplicateFieldNode.type] : undefined,
               ),
             );
             return true;
@@ -140,6 +145,8 @@ export function UniqueTypeNamesWithFields(
                 }\` define \`${name}\` as a ${types[1]} and ${
                   types[0]
                 } respectively. In order to define \`${typeName}\` in multiple places, the input values and their types must be identical.`,
+                // TODO (Issue #705): when we can associate locations to service names
+                // add locations for each service where this field was defined
                 [node, duplicateTypeNode],
               ),
             );

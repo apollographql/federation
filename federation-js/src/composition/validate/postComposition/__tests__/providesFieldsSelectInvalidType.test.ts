@@ -1,7 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { providesFieldsSelectInvalidType as validateprovidesFieldsSelectInvalidType } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
@@ -93,6 +95,12 @@ describe('providesFieldsSelectInvalidType', () => {
       Array [
         Object {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
+          "locations": Array [
+            Object {
+              "column": 34,
+              "line": 4,
+            },
+          ],
           "message": "[serviceA] Review.author -> A @provides selects User.wishLists, which is a list type. A field cannot @provide lists.",
         },
       ]
@@ -146,6 +154,12 @@ describe('providesFieldsSelectInvalidType', () => {
       Array [
         Object {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
+          "locations": Array [
+            Object {
+              "column": 34,
+              "line": 4,
+            },
+          ],
           "message": "[serviceA] Review.author -> A @provides selects User.account, which is an interface type. A field cannot @provide interfaces.",
         },
       ]
@@ -211,6 +225,12 @@ describe('providesFieldsSelectInvalidType', () => {
       Array [
         Object {
           "code": "PROVIDES_FIELDS_SELECT_INVALID_TYPE",
+          "locations": Array [
+            Object {
+              "column": 34,
+              "line": 4,
+            },
+          ],
           "message": "[serviceA] Review.author -> A @provides selects User.account, which is a union type. A field cannot @provide union types.",
         },
       ]

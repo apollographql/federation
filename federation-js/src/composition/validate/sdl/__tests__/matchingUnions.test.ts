@@ -5,10 +5,10 @@ import {
   DocumentNode,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
-import gql from 'graphql-tag';
 import {
   typeSerializer,
   graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import { UniqueUnionTypes } from '..';
 import { ServiceDefinition } from '../../../types';
@@ -87,6 +87,16 @@ describe('MatchingUnions', () => {
     expect(errors[0]).toMatchInlineSnapshot(`
       Object {
         "code": "VALUE_TYPE_UNION_TYPES_MISMATCH",
+        "locations": Array [
+          Object {
+            "column": 1,
+            "line": 2,
+          },
+          Object {
+            "column": 1,
+            "line": 2,
+          },
+        ],
         "message": "[serviceA] ProductOrError -> The union \`ProductOrError\` is defined in services \`serviceA\` and \`serviceB\`, however their types do not match. Union types with the same name must also consist of identical types. The type Error is mismatched.",
       }
     `);
