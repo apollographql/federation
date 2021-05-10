@@ -174,7 +174,8 @@ describe('printSupergraphSdl', () => {
         last: String
       }
 
-      interface NamedObject {
+      interface NamedObject
+        @join__type(graph: DOCUMENTS, key: "") {
         name: String!
       }
 
