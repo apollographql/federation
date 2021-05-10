@@ -828,6 +828,180 @@ describe('buildQueryPlan', () => {
         }
       `);
     });
+
+    it(`should not get confused by a fragment spread multiple times`, () => {
+      const operationString = `#graphql
+        fragment Price on Product {
+          price
+        }
+
+        query {
+          topProducts {
+            __typename
+            ... on Book {
+              ...Price
+            }
+            ... on Furniture {
+              ...Price
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const queryPlan = queryPlanner.buildQueryPlan(
+        buildOperationContext({
+          schema,
+          operationDocument,
+        })
+      );
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+                QueryPlan {
+                  Fetch(service: "product") {
+                    {
+                      topProducts {
+                        __typename
+                        ... on Book {
+                          price
+                        }
+                        ... on Furniture {
+                          price
+                        }
+                      }
+                    }
+                  },
+                }
+            `);
+    });
+
+    it(`should not get confused by an inline fragment multiple times`, () => {
+      const operationString = `#graphql
+        query {
+          topProducts {
+            __typename
+            ... on Book {
+              ...on Product {
+                price
+              }
+            }
+            ... on Furniture {
+              ... on Product {
+                price
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const queryPlan = queryPlanner.buildQueryPlan(
+        buildOperationContext({
+          schema,
+          operationDocument,
+        })
+      );
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+                QueryPlan {
+                  Fetch(service: "product") {
+                    {
+                      topProducts {
+                        __typename
+                        ... on Book {
+                          price
+                        }
+                        ... on Furniture {
+                          price
+                        }
+                      }
+                    }
+                  },
+                }
+            `);
+    });
+
+    it(`should preserve type conditions for value types`, () => {
+      const operationString = `#graphql
+        query {
+          body {
+            ... on Image {
+              ... on NamedObject {
+                name
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const queryPlan = queryPlanner.buildQueryPlan(
+        buildOperationContext({
+          schema,
+          operationDocument,
+        })
+      );
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+                QueryPlan {
+                  Fetch(service: "documents") {
+                    {
+                      body {
+                        __typename
+                        ... on Image {
+                          ... on NamedObject {
+                            name
+                          }
+                        }
+                      }
+                    }
+                  },
+                }
+            `);
+    });
+
+    it(`should preserve directives on inline fragments even if the fragment is otherwise useless`, () => {
+      const operationString = `#graphql
+        query myQuery($b: Boolean) {
+          body {
+            ... on Image {
+              ... on NamedObject @include(if: $b) {
+                name
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const queryPlan = queryPlanner.buildQueryPlan(
+        buildOperationContext({
+          schema,
+          operationDocument,
+        })
+      );
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+                QueryPlan {
+                  Fetch(service: "documents") {
+                    {
+                      body {
+                        __typename
+                        ... on Image {
+                          ... on NamedObject @include(if: $b) {
+                            name
+                          }
+                        }
+                      }
+                    }
+                  },
+                }
+            `);
+    });
   });
 
   // GraphQLError: Cannot query field "isbn" on type "Book"

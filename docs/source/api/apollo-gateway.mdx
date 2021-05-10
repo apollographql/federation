@@ -416,3 +416,86 @@ This enables you to modify any combination of the operation's `context` and the 
 The `http` property of the `request` and `response` objects contains additional HTTP-specific properties, such as `headers`.
 
 This method must return an object that matches the structure of a [`GraphQLResponse`](https://github.com/apollographql/apollo-server/blob/2562d096/packages/apollo-server-types/src/index.ts#L43-L48).  If no modifications are necessary, return the original `response`.
+
+#### `didEncounterError`
+
+Override this method in a subclass to customize the gateway's behavior after it encounters an error while communicating with the implementing service or while parsing its response (e.g., if the response is not well-formed JSON).
+
+If you _don't_ override this method, the default implementation `throw`s the error, like so:
+
+```javascript
+class MyDataSource extends RemoteGraphQLDataSource {
+
+  didEncounterError(error, fetchRequest, fetchResponse, context) {
+    throw error;
+  }
+
+}
+```
+
+Note that if you _don't_ `throw error` (or a different `Error`) in this method, `error` is thrown immediately after this method returns.
+
+This method takes the following positional parameters:
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+<tr>
+<td>
+
+###### `error`
+
+`Error`
+</td>
+<td>
+
+The error that occurred during communication.
+</td>
+</tr>
+
+<tr>
+<td>
+
+###### `fetchRequest`
+
+`Request`
+</td>
+<td>
+
+The details of the `fetch` request sent to the implementing service.
+</td>
+</tr>
+
+<tr>
+<td>
+
+###### `fetchResponse`
+
+`Response`
+</td>
+<td>
+
+The details of the `fetch` response sent by the implementing service.
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `context`
+
+`TContext`
+</td>
+<td>
+
+[The `context` argument](https://www.apollographql.com/docs/apollo-server/data/resolvers/#the-context-argument) passed between the GraphQL operation's resolvers.
+</td>
+</tr>
+</tbody>
+</table>

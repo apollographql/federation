@@ -12,13 +12,17 @@ export const typeDefs = gql`
 
   union Body = Image | Text
 
-  type Image {
+  interface NamedObject {
+    name: String!
+  }
+
+  type Image implements NamedObject {
       name: String!
       # Same as option below but the type is different
       attributes: ImageAttributes!
   }
 
-  type Text {
+  type Text implements NamedObject {
       name: String!
       # Same as option above but the type is different
       attributes: TextAttributes!

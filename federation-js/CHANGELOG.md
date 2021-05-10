@@ -6,6 +6,10 @@
 
 - Add `@join__type` directive usages to interface types during the supergraph print step. Capture subgraph names as federation metadata on interface types during composition to facilitate this, in a similar pattern to how we currently capture metadata for other federation directives. [PR #704](https://github.com/apollographql/federation/pull/704)
 
+## v0.24.0
+
+- Expand the range of supported `node` versions in the package's `engines` specifier to include the now-tested Node.js `16`. [PR #713](https://github.com/apollographql/federation/pull/713)
+
 ## v0.23.2
 
 - Remove lingering `core-js` polyfill imports, they're no longer needed (since `@apollo/gateway@0.15.0` dropped support for <= Node.js v10) and their presence is problematic since `core-js` isn't defined as a dependency within the package. Update `apollo-graphql` dependency which resolves a missing dependency (`sha.js`) within that package. [PR #699](https://github.com/apollographql/federation/pull/699)

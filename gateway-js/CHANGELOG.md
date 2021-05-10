@@ -6,6 +6,19 @@
 
 -  _Nothing yet! Stay tuned!_
 
+## v0.28.0
+
+- Expand the range of supported `node` versions in the package's `engines` specifier to include the now-tested Node.js `16`. [PR #713](https://github.com/apollographql/federation/pull/713)
+
+## v0.27.1
+
+- Update version of `@apollo/query-planner` which was uninstallable due to a missing dependency. Related PR: [PR #709](https://github.com/apollographql/federation/pull/709)
+
+## v0.27.0
+
+- Fix query plans missing fields in some situations involving nested type conditions. [PR #652](https://github.com/apollographql/federation/pull/652) [Issue #396](https://github.com/apollographql/federation/issues/396)
+- Fix condition would could result in duplicate fetches within query plans. [PR #671](https://github.com/apollographql/federation/pull/671)
+
 ## v0.26.3
 
 - Update `apollo-graphql` dependency which resolves a missing dependency (`sha.js`) within that package. [PR #699](https://github.com/apollographql/federation/pull/699)

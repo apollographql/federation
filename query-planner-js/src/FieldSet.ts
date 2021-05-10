@@ -7,16 +7,14 @@ import {
   Kind,
   SelectionNode,
   SelectionSetNode,
-  GraphQLObjectType,
   DirectiveNode,
 } from 'graphql';
 import { getResponseName } from './utilities/graphql';
 import { partition, groupBy } from './utilities/array';
+import { Scope } from './Scope';
 
-export interface Field<
-  TParent extends GraphQLCompositeType = GraphQLCompositeType
-> {
-  scope: Scope<TParent>;
+export interface Field {
+  scope: Scope;
   fieldNode: FieldNode;
   fieldDef: GraphQLField<any, any>;
 }
@@ -32,36 +30,7 @@ export interface Field<
  */
 export function debugPrintField(field: Field) : string {
   const def = field.fieldDef;
-  return `(${def.name}: ${def.type})${debugPrintScope(field.scope)}`;
-}
-
-export interface Scope<TParent extends GraphQLCompositeType> {
-  parentType: TParent;
-  possibleTypes: ReadonlyArray<GraphQLObjectType>;
-  directives?: ReadonlyArray<DirectiveNode>
-  enclosingScope?: Scope<GraphQLCompositeType>;
-}
-
-/**
- * Provides a string representation of a field suitable for debugging.
- *
- * The format looks like '<A [A1, A2]>' where 'A' is the scope 'parentType' and '[A1, A2]' are the 'possibleTypes'.
- *
- * @param scope - the scope object to convert.
- * @param deepDebug - whether to also display enclosed scopes.
- * @return a string representation of the scope.
- */
-export function debugPrintScope<TParent extends GraphQLCompositeType>(
-  scope: Scope<TParent>, deepDebug: boolean = false) : string {
-  let enclosingStr = '';
-  if (scope.enclosingScope) {
-    if (deepDebug) {
-      enclosingStr = ' -> ' + debugPrintScope(scope.enclosingScope);
-    } else {
-      enclosingStr = ' ⋯'; // show an elipsis so we know there is an enclosing scope, but it's just not displayed.
-    }
-  }
-  return`<${scope.parentType} [${scope.possibleTypes}]${enclosingStr}>`;
+  return `(${def.name}: ${def.type})${field.scope.debugPrint()}`;
 }
 
 export type FieldSet = Field[];
@@ -87,7 +56,7 @@ export function printFields(fields?: FieldSet) {
  */
 export function debugPrintFields(fields?: FieldSet) : string {
   if (!fields) return '[]';
-  return '[' + fields.map(debugPrintField).join(', ') + ']'
+  return '[' + fields.map(f => debugPrintField(f)).join(', ') + ']'
 }
 
 export function matchesField(field: Field) {
@@ -101,8 +70,11 @@ export const groupByResponseName = groupBy<Field, string>(field =>
   getResponseName(field.fieldNode)
 );
 
-export const groupByParentType = groupBy<Field, GraphQLCompositeType>(
-  field => field.scope.parentType,
+/**
+ * Groups fields by their scope "identity key" (@see Scope.identityKey()).
+ */
+export const groupByScope = groupBy<Field, string>(
+  field => field.scope.identityKey(),
 );
 
 export function selectionSetFromFieldSet(
@@ -111,22 +83,17 @@ export function selectionSetFromFieldSet(
 ): SelectionSetNode {
   return {
     kind: Kind.SELECTION_SET,
-    selections: Array.from(groupByParentType(fields)).flatMap(
-      ([typeCondition, fieldsByParentType]: [
-        GraphQLCompositeType,
-        FieldSet,
-      ]) => {
-        const directives = fieldsByParentType[0].scope.directives;
-
+    selections: Array.from(groupByScope(fields).values()).flatMap(
+      (fieldsByScope: FieldSet) => {
+        const scope = fieldsByScope[0].scope;
         return wrapInInlineFragmentIfNeeded(
-          Array.from(groupByResponseName(fieldsByParentType).values()).map(
+          Array.from(groupByResponseName(fieldsByScope).values()).map(
             (fieldsByResponseName) => {
               return combineFields(fieldsByResponseName).fieldNode;
             },
           ),
-          typeCondition,
+          scope,
           parentType,
-          directives,
         );
       },
     ),
@@ -135,26 +102,33 @@ export function selectionSetFromFieldSet(
 
 function wrapInInlineFragmentIfNeeded(
   selections: SelectionNode[],
-  typeCondition: GraphQLCompositeType,
+  scope: Scope,
   parentType?: GraphQLCompositeType,
-  directives?: ReadonlyArray<DirectiveNode>
 ): SelectionNode[] {
-  return typeCondition === parentType
-    ? selections
-    : [
-        {
-          kind: Kind.INLINE_FRAGMENT,
-          typeCondition: {
-            kind: Kind.NAMED_TYPE,
-            name: {
-              kind: Kind.NAME,
-              value: typeCondition.name,
-            },
-          },
-        selectionSet: { kind: Kind.SELECTION_SET, selections },
-        directives
+  const shouldWrap = scope.enclosing || !parentType || scope.isStrictlyRefining(parentType);
+  const newSelections = shouldWrap ? wrapInInlineFragment(selections, scope.parentType, scope.directives) : selections;
+  return scope.enclosing ? wrapInInlineFragmentIfNeeded(newSelections, scope.enclosing, parentType) : newSelections;
+}
+
+function wrapInInlineFragment(
+  selections: SelectionNode[],
+  typeCondition: GraphQLCompositeType,
+  directives? : ReadonlyArray<DirectiveNode>
+): SelectionNode[] {
+  return [
+    {
+      kind: Kind.INLINE_FRAGMENT,
+      typeCondition: {
+        kind: Kind.NAMED_TYPE,
+        name: {
+          kind: Kind.NAME,
+          value: typeCondition.name,
         },
-      ];
+      },
+      selectionSet: { kind: Kind.SELECTION_SET, selections },
+      directives
+    },
+  ];
 }
 
 function combineFields(

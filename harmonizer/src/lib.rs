@@ -29,8 +29,7 @@ composition implementation while we work toward something else.
 #![forbid(unsafe_code)]
 #![deny(missing_debug_implementations, nonstandard_style)]
 #![warn(missing_docs, future_incompatible, unreachable_pub, rust_2018_idioms)]
-use deno_core::Op;
-use deno_core::{json_op_sync, JsRuntime};
+use deno_core::{op_sync, JsRuntime};
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::channel;
 use std::{fmt::Display, io::Write};
@@ -161,25 +160,25 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
     // Deno.core.dispatchByName and the name provided.
     runtime.register_op(
         "op_print",
-        // The op_fn callback takes a state object OpState
-        // and a vector of ZeroCopyBuf's, which are mutable references
-        // to ArrayBuffer's in JavaScript.
-        |_state, zero_copy| {
+        // The op_fn callback takes a state object OpState,
+        // a structured arg of type `T` and an optional ZeroCopyBuf,
+        // a mutable reference to a JavaScript ArrayBuffer
+        op_sync(|_state, _msg: Option<String>, zero_copy| {
             let mut out = std::io::stdout();
 
             // Write the contents of every buffer to stdout
-            for buf in zero_copy {
+            if let Some(buf) = zero_copy {
                 out.write_all(&buf)
                     .expect("failure writing buffered output");
             }
 
-            Op::Sync(Box::new([])) // No meaningful result
-        },
+            Ok(()) // No meaningful result
+        }),
     );
 
     runtime.register_op(
         "op_composition_result",
-        json_op_sync(move |_state, value, _zero_copy| {
+        op_sync(move |_state, value, _zero_copy| {
             tx.send(serde_json::from_value(value).expect("deserializing composition result"))
                 .expect("channel must be open");
 
@@ -203,16 +202,12 @@ Deno.core.ops();
 // our op_print op to display the stringified argument.
 const _newline = new Uint8Array([10]);
 function print(value) {
-  Deno.core.dispatchByName('op_print', Deno.core.encode(value.toString()), _newline);
+  Deno.core.dispatchByName('op_print', 0, value.toString(), _newline);
 }
 
 function done(result) {
-  Deno.core.jsonOpSync('op_composition_result', result);
+  Deno.core.opSync('op_composition_result', result);
 }
-
-// Finally we register the error class used during do_compose.js.
-// so that it throws the correct class.
-Deno.core.registerErrorClass('Error', Error);
 
 // We build some of the preliminary objects that our Rollup-built package is
 // expecting to be present in the environment.
