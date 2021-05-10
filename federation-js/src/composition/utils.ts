@@ -86,6 +86,11 @@ export function findDirectivesOnNode(
       ) ?? [];
 }
 
+/**
+ * Core change: print fieldsets for @join__field's @key, @requires, and @provides args
+ *
+ * @param selections
+ */
 export function printFieldSet(selections: readonly SelectionNode[]): string {
   return selections
     .map((selection) => stripIgnoredCharacters(print(selection)))
@@ -119,7 +124,7 @@ export function findSelectionSetOnNode(
         directive =>
           directive.name.value === directiveName && directive.arguments?.some(
             argument => isStringValueNode(argument.value) &&
-              argument.value.value.includes(printedSelectionSet)
+              argument.value.value === printedSelectionSet
           ))?.arguments?.find(
             argument => argument.name.value === 'fields')?.value;
 }
