@@ -6,6 +6,19 @@
 
 -  _Nothing yet! Stay tuned!_
 
+# v0.2.0
+
+- Expand the range of supported `node` versions in the package's `engines` specifier to include the now-tested Node.js `16`. [PR #713](https://github.com/apollographql/federation/pull/713)
+
+# v0.1.4
+
+- Add missing `deep-equal` dependency, which was accidentally installed to the monorepo's root. [PR #709](https://github.com/apollographql/federation/pull/709)
+
+# v0.1.3
+
+- Fix query plans missing fields in some situations involving nested type conditions (#396).
+- Fix duplicate fetches in query plans [PR #671](https://github.com/apollographql/federation/pull/671).
+
 # v0.1.2
 
 - This change is mostly a set of follow-up changes for PR #622. Most of these changes are internal (renaming, etc.). Some noteworthy changes worth mentioning are: the splitting of entity and value type metadata types and a conversion of GraphMap to an actual `Map` (which resulted in some additional assertions). [PR #656](https://github.com/apollographql/federation/pull/656)

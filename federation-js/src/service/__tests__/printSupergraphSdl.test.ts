@@ -119,7 +119,7 @@ describe('printSupergraphSdl', () => {
         asile: Int
       }
 
-      type Image {
+      type Image implements NamedObject {
         name: String!
         attributes: ImageAttributes!
       }
@@ -166,6 +166,10 @@ describe('printSupergraphSdl', () => {
       type Name {
         first: String
         last: String
+      }
+
+      interface NamedObject {
+        name: String!
       }
 
       type PasswordAccount
@@ -231,7 +235,7 @@ describe('printSupergraphSdl', () => {
         number: String @join__field(graph: ACCOUNTS)
       }
 
-      type Text {
+      type Text implements NamedObject {
         name: String!
         attributes: TextAttributes!
       }

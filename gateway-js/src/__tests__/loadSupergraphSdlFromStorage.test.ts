@@ -118,7 +118,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         asile: Int
       }
 
-      type Image {
+      type Image implements NamedObject {
         name: String!
         attributes: ImageAttributes!
       }
@@ -165,6 +165,10 @@ describe('loadSupergraphSdlFromStorage', () => {
       type Name {
         first: String
         last: String
+      }
+
+      interface NamedObject {
+        name: String!
       }
 
       type PasswordAccount
@@ -230,7 +234,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         number: String @join__field(graph: ACCOUNTS)
       }
 
-      type Text {
+      type Text implements NamedObject {
         name: String!
         attributes: TextAttributes!
       }
