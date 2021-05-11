@@ -31,9 +31,9 @@ graph LR;
   class studio secondary;
 ```
 
-> Individual services do _not_ push trace data directly to Studio.
+> Individual subgraphs do _not_ push trace data directly to Studio.
 
-Traces are displayed in Studio in the shape of the query plan, with each unique fetch to a federated service reporting timing and error data.
+Traces are displayed in Studio in the shape of the query plan, with each unique fetch to a subgraph reporting timing and error data.
 
 Operation-level statistics are still collected for operations sent by clients, and those operations are validated as part of schema checks.
 

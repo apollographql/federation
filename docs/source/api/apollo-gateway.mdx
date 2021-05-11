@@ -46,9 +46,9 @@ const gateway = new ApolloGateway({
 });
 ```
 
-###### Configuring the implementing service fetcher
+###### Configuring the subgraph fetcher
 
-If you provide a [`buildService` function](#the-buildservice-function) to the constructor of `ApolloGateway`, the function is called once for each of your graph's implementing services. This function can return a `RemoteGraphQLDataSource` with a custom `fetcher`, which is then used for all communication with implementing services:
+If you provide a [`buildService` function](#the-buildservice-function) to the constructor of `ApolloGateway`, the function is called once for each of your graph's subgraphs. This function can return a `RemoteGraphQLDataSource` with a custom `fetcher`, which is then used for all communication with subgraphs:
 
 ```js
 const gateway = new ApolloGateway({
@@ -71,7 +71,7 @@ const gateway = new ApolloGateway({
 
 > This _only_ configures the fetcher that your gateway uses to fetch [managed federation](../managed-federation/overview/) configuration from Apollo.
 >
-> See also [Configuring the implementing service fetcher](#configuring-the-implementing-service-fetcher).
+> See also [Configuring the subgraph fetcher](#configuring-the-subgraph-fetcher).
 
 ```js
 const gateway = new ApolloGateway({
@@ -103,9 +103,9 @@ const gateway = new ApolloGateway({
 </td>
 <td>
 
-An array of objects that each specify the `name` and `url` of one implementing service in your federated graph.
+An array of objects that each specify the `name` and `url` of one subgraph in your federated graph.
 
-You can specify any string value for the `name` field, which is used for identifying the service in log output and error messages, and for reporting metrics to Apollo Studio.
+You can specify any string value for the `name` field, which is used for identifying the subgraph in log output and error messages, and for reporting metrics to Apollo Studio.
 
 **If you are using managed federation,** do not provide this field.
 
@@ -125,7 +125,7 @@ You can specify any string value for the `name` field, which is used for identif
 </td>
 <td>
 
-An object, or an (optionally) async function returning an object, containing the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your implementing services.
+An object, or an (optionally) async function returning an object, containing the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
 
 **If you are using managed federation,** do not provide this field.
 
@@ -177,7 +177,7 @@ This logger is automatically added to the `GraphQLRequestContext` object that's 
 </td>
 <td>
 
-Specifies which [Fetch API](https://fetch.spec.whatwg.org/#fetch-api) implementation to use with [managed federation](../managed-federation/overview/) when fetching service configuration from Apollo.
+Specifies which [Fetch API](https://fetch.spec.whatwg.org/#fetch-api) implementation to use with [managed federation](../managed-federation/overview/) when fetching configuration from Apollo.
 
 By default, the gateway uses the default configuration of [`make-fetch-happen`](https://npm.im/make-fetch-happen). You can specify another valid implementation (such as [`node-fetch`](https://npm.im/node-fetch)) by setting this field's value to `require('node-fetch')`.
 
@@ -195,11 +195,11 @@ As shown in the example above, you can also provide [`make-fetch-happen`](https:
 </td>
 <td>
 
-If `true`, the gateway sends a small query (`{ __typename }`) to all implementing services on gateway startup. It also does the same on each live schema update if you're using managed federation.
+If `true`, the gateway sends a small query (`{ __typename }`) to all subgraphs on gateway startup. It also does the same on each live schema update if you're using managed federation.
 
 **On startup,** the gateway throws an error if any of these requests fail.
 
-**On schema update,** the gateway does not roll over to the new schema or service configuration if any of these requests fail. The gateway retries the requests at each polling interval until they succeed.
+**On schema update,** the gateway does not roll over to the new schema or graph configuration if any of these requests fail. The gateway retries the requests at each polling interval until they succeed.
 
 The default value is `false`.
 </td>
@@ -215,7 +215,7 @@ The default value is `false`.
 </td>
 <td>
 
-Define this function to customize your gateway's data transport to some or all of your implementing services. This customization can include using a protocol besides HTTP. For details, see [The `buildService` function](#the-buildservice-function).
+Define this function to customize your gateway's data transport to some or all of your subgraphs. This customization can include using a protocol besides HTTP. For details, see [The `buildService` function](#the-buildservice-function).
 </td>
 </tr>
 
@@ -225,9 +225,9 @@ Define this function to customize your gateway's data transport to some or all o
 
 ##### The `buildService` function
 
-If you provide this function, the gateway calls it once for each implementing service. The function must return an object that implements the [`GraphQLDataSource` interface](https://github.com/apollographql/apollo-server/blob/570f548b88/packages/apollo-gateway/src/datasources/types.ts), such as an instance of [RemoteGraphQLDataSource](#class-remotegraphqldatasource) or a subclass of it.
+If you provide this function, the gateway calls it once for each subgraph. The function must return an object that implements the [`GraphQLDataSource` interface](https://github.com/apollographql/apollo-server/blob/570f548b88/packages/apollo-gateway/src/datasources/types.ts), such as an instance of [RemoteGraphQLDataSource](#class-remotegraphqldatasource) or a subclass of it.
 
-The example below demonstrates adding an `x-user-id` HTTP header to every request the gateway sends to an implementing service:
+The example below demonstrates adding an `x-user-id` HTTP header to every request the gateway sends to a subgraph:
 
 ```js{9-11}
 class AuthenticatedDataSource extends RemoteGraphQLDataSource {
@@ -275,7 +275,7 @@ The default value is `30`, which is usually sufficient unless the server process
 
 #### `serviceHealthCheck`
 
-When called, the gateway sends a small query (`{ __typename }`) to each implementing service to verify that they're all responsive. This function `throw`s on failure and returns a `Promise` to be `await`ed.
+When called, the gateway sends a small query (`{ __typename }`) to each subgraph to verify that they're all responsive. This function `throw`s on failure and returns a `Promise` to be `await`ed.
 
 ##### Parameters
 
@@ -298,7 +298,7 @@ When called, the gateway sends a small query (`{ __typename }`) to each implemen
 
 If provided, the gateway sends health check requests to only the data sources included in the map.
 
-By default, the gateway uses `this.serviceMap` (i.e., it sends health check requests to all known implementing services).
+By default, the gateway uses `this.serviceMap` (i.e., it sends health check requests to all known subgraphs).
 </td>
 </tr>
 </tbody>
@@ -307,12 +307,12 @@ By default, the gateway uses `this.serviceMap` (i.e., it sends health check requ
 
 ## `class RemoteGraphQLDataSource`
 
-Represents a connection between your federated gateway and _one_ of your implementing services.
+Represents a connection between your federated gateway and _one_ of your subgraphs.
 
 You can customize this connection by extending this class and overriding its `willSendRequest` and/or `didReceiveResponse` methods:
 
-* Override `willSendRequest` to modify your gateway's requests to the implementing service before they're sent.
-* Override `didReceiveResponse` to modify the implementing service's responses before the gateway passes them along to the requesting client.
+* Override `willSendRequest` to modify your gateway's requests to the subgraph before they're sent.
+* Override `didReceiveResponse` to modify the subgraph's responses before the gateway passes them along to the requesting client.
 
 These methods are described in detail below.
 
@@ -350,7 +350,7 @@ Takes an `options` object as a parameter. Supported fields of this object are de
 </td>
 <td>
 
-**Required.** The implementing service's URL for sending fetch requests via HTTP.
+**Required.** The subgraph's URL for sending fetch requests via HTTP.
 </td>
 </tr>
 
@@ -363,9 +363,9 @@ Takes an `options` object as a parameter. Supported fields of this object are de
 </td>
 <td>
 
-If `true`, the gateway attempts to use [automated persisted queries (APQ)](https://www.apollographql.com/docs/apollo-server/performance/apq/) when sending queries to this implementing service. APQ can dramatically reduce the size of most requests sent over the network, especially for more complex queries.
+If `true`, the gateway attempts to use [automated persisted queries (APQ)](https://www.apollographql.com/docs/apollo-server/performance/apq/) when sending queries to this subgraph. APQ can dramatically reduce the size of most requests sent over the network, especially for more complex queries.
 
-The implementing service must also enable support for APQ for the gateway to use this feature (Apollo Server enables APQ by default).
+The subgraph must also enable support for APQ for the gateway to use this feature (Apollo Server enables APQ by default).
 </td>
 </tr>
 </tbody>
@@ -373,7 +373,7 @@ The implementing service must also enable support for APQ for the gateway to use
 
 #### `willSendRequest`
 
-Override this method in a subclass to modify each outgoing fetch request before it's sent to the implementing service:
+Override this method in a subclass to modify each outgoing fetch request before it's sent to the subgraph:
 
 ```js
 // Adds an `x-user-id` header to each outgoing fetch request
@@ -389,7 +389,7 @@ This method takes a `requestContext`  object that contains both the original unm
 
 #### `didReceiveResponse`
 
-Override this method in a subclass to customize the gateway's behavior after it completes a fetch to the implementing service, but _before_ it sends a response to the requesting client:
+Override this method in a subclass to customize the gateway's behavior after it completes a fetch to the subgraph, but _before_ it sends a response to the requesting client:
 
 ```javascript
 class CookieDataSource extends RemoteGraphQLDataSource {
@@ -407,8 +407,8 @@ class CookieDataSource extends RemoteGraphQLDataSource {
 
 This method takes a `requestContext` object that contains:
 
-* The implementing service's `response`
-* The gateway's `request` to the implementing service
+* The subgraph's `response`
+* The gateway's `request` to the subgraph
 * The current operation's `context`
 
 This enables you to modify any combination of the operation's `context` and the response of the fetch. 
