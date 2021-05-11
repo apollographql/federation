@@ -286,6 +286,20 @@ In the above example, if a client requests a product's `shippingEstimate`, the g
 }
 ```
 
+### Using `@requires` with object subfields
+
+If a computed field `@requires` a field that returns an object type, you also specify which _subfields_ of that object are required. You list those subfields with the following syntax:
+
+```graphql{4}:title=shipping
+extend type Product @key(fields: "sku") {
+  sku: ID! @external
+  dimensions: ProductDimensions @external
+  shippingEstimate: String @requires(fields: "dimensions { size weight }")
+}
+```
+
+In this modification of the previous example, `size` and `weight` are now subfields of a `ProductDimensions` object. Note that the `ProductDimensions` object must be defined in both the entity's extending subgraph _and_ its originating subgraph, either as an entity or as a [value type](./value-types/).
+
 ## Resolving another subgraph's field (advanced)
 
 Sometimes, multiple subgraphs are capable of resolving a particular field for an entity, because all of those subgraphs have access to a particular data store. For example, an `inventory` subgraph and a `products` subgraph might both have access to the database that stores all product-related data.
