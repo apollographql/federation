@@ -232,10 +232,7 @@ describe('reporting', () => {
 
     expect(report).toMatchInlineSnapshot(`
       Object {
-        "endTime": Object {
-          "nanos": 123000000,
-          "seconds": "1562203363",
-        },
+        "endTime": null,
         "header": "<HEADER>",
         "tracesPerQuery": Object {
           "# -

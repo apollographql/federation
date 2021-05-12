@@ -185,9 +185,10 @@ describe('printFederatedSchema', () => {
         id: ID!
         name: Name
         username: String
-        birthDate(locale: String): String
+        birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         account: AccountType
         metadata: [UserMetadata]
+        ssn: String @inaccessible
         goodDescription: Boolean @requires(fields: \\"metadata { description }\\")
         vehicle: Vehicle
         thing: Thing
