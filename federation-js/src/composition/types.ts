@@ -3,6 +3,7 @@ import {
   DocumentNode,
   FieldDefinitionNode,
   DirectiveDefinitionNode,
+  DirectiveNode,
 } from 'graphql';
 
 export type Maybe<T> = null | undefined | T;
@@ -38,6 +39,7 @@ export interface FederationField {
   requires?: ReadonlyArray<SelectionNode>;
   provides?: ReadonlyArray<SelectionNode>;
   belongsToValueType?: boolean;
+  appliedDirectives?: DirectiveNode[]
 }
 
 export interface FederationDirective {

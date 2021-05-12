@@ -26,12 +26,16 @@ import {
   GraphQLString,
   DEFAULT_DEPRECATION_REASON,
   SelectionNode,
+  DirectiveNode,
+  ValueNode,
+  Kind,
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
 import { assert } from '../utilities';
 import { CoreDirective } from '../coreSpec';
 import { getJoinDefinitions } from '../joinSpec';
 import { printFieldSet } from '../composition/utils';
+import { InaccessibleDirective, TagDirective } from '../directives';
 
 type Options = {
   /**
@@ -84,6 +88,8 @@ export function printSupergraphSdl(
       JoinTypeDirective,
       JoinOwnerDirective,
       JoinGraphDirective,
+      TagDirective,
+      InaccessibleDirective,
       ...config.directives,
     ],
     types: [FieldSetScalar, JoinGraphEnum, ...config.types],
@@ -353,7 +359,10 @@ function printFields(
       String(f.type) +
       printDeprecated(f) +
       // We don't want to print field owner directives on fields belonging to an interface type
-      (isObjectType(type) ? printJoinFieldDirectives(f, type, context) : ''),
+      (isObjectType(type)
+        ? printJoinFieldDirectives(f, type, context) +
+          printAppliedDirectives(f)
+        : ''),
   );
 
   // Core change: for entities, we want to print the block on a new line.
@@ -379,7 +388,7 @@ function printJoinFieldDirectives(
   // Fields on the owning service do not have any federation metadata applied
   // TODO: maybe make this metadata available? Though I think this is intended and we may depend on that implicity.
 
-  if (!field.extensions?.federation) {
+  if (!field.extensions?.federation?.serviceName) {
     // FIXME: We should change the way we detect value types. If a type is
     // defined in only one service, we currently don't consider it a value type
     // even if it doesn't specify any keys.
@@ -404,7 +413,7 @@ function printJoinFieldDirectives(
     provides = [],
   }: FederationField = field.extensions.federation;
 
-  let directiveArgs: string[] = [];
+  const directiveArgs: string[] = [];
 
   if (serviceName && serviceName.length > 0) {
     directiveArgs.push(
@@ -423,6 +432,37 @@ function printJoinFieldDirectives(
   printed += directiveArgs.join(', ');
 
   return (printed += ')');
+}
+
+function printAppliedDirectives(field: GraphQLField<any, any>) {
+  const appliedDirectives = (
+    field.extensions?.federation?.appliedDirectives ?? []
+  ) as DirectiveNode[];
+  return appliedDirectives.length > 0
+    ? ' ' + appliedDirectives.map(printDirectiveNode).join(' ')
+    : '';
+};
+
+function printDirectiveNode(directive: DirectiveNode) {
+  const printedName = `@${directive.name.value}`;
+  const printedArgs = directive.arguments?.length
+    ? '(' +
+      directive.arguments
+        .map((arg) => `${arg.name.value}: ${printValueNode(arg.value)}`)
+        .join(', ') +
+      ')'
+  : '';
+  return printedName + printedArgs;
+}
+
+// TODO: incomplete / maybe unnecessary
+function printValueNode(value: ValueNode) {
+  switch(value.kind) {
+    case Kind.STRING:
+      return printStringLiteral(value.value);
+    default:
+      return '';
+  }
 }
 
 // Core change: `onNewLine` is a formatting nice-to-have for printing

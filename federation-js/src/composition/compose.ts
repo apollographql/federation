@@ -485,6 +485,7 @@ export function addFederationMetadataToSchemaNodes({
   keyDirectivesMap,
   valueTypes,
   directiveDefinitionsMap,
+  typeNameToFieldDirectivesMap,
 }: {
   schema: GraphQLSchema;
   typeToServiceMap: TypeToServiceMap;
@@ -492,6 +493,7 @@ export function addFederationMetadataToSchemaNodes({
   keyDirectivesMap: KeyDirectivesMap;
   valueTypes: ValueTypes;
   directiveDefinitionsMap: DirectiveDefinitionsMap;
+  typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap;
 }) {
   for (const [
     typeName,
@@ -512,7 +514,7 @@ export function addFederationMetadataToSchemaNodes({
       ...(keyDirectivesMap[typeName] && {
         keys: keyDirectivesMap[typeName],
       }),
-    }
+    };
 
     namedType.extensions = {
       ...namedType.extensions,
@@ -539,11 +541,11 @@ export function addFederationMetadataToSchemaNodes({
               providesDirective.arguments[0].value.value,
             ),
             belongsToValueType: isValueType,
-          }
+          };
 
           field.extensions = {
             ...field.extensions,
-            federation: fieldFederationMetadata
+            federation: fieldFederationMetadata,
           };
         }
       }
@@ -565,7 +567,7 @@ export function addFederationMetadataToSchemaNodes({
         const fieldFederationMetadata: FederationField = {
           ...getFederationMetadata(field),
           serviceName: extendingServiceName,
-        }
+        };
 
         field.extensions = {
           ...field.extensions,
@@ -587,7 +589,7 @@ export function addFederationMetadataToSchemaNodes({
             requires: parseSelections(
               requiresDirective.arguments[0].value.value,
             ),
-          }
+          };
 
           field.extensions = {
             ...field.extensions,
@@ -628,12 +630,36 @@ export function addFederationMetadataToSchemaNodes({
     const directiveFederationMetadata: FederationDirective = {
       ...getFederationMetadata(directive),
       directiveDefinitions: directiveDefinitionsMap[directiveName],
-    }
+    };
 
     directive.extensions = {
       ...directive.extensions,
       federation: directiveFederationMetadata,
+    };
+  }
+
+  for (const [typeName, fieldsToDirectivesMap] of typeNameToFieldDirectivesMap.entries()) {
+    const type = schema.getType(typeName) as GraphQLObjectType;
+
+    for (const [
+      fieldName,
+      appliedDirectives,
+    ] of fieldsToDirectivesMap.entries()) {
+      const field = type.getFields()[fieldName];
+
+      // TODO: probably don't need to recreate these objects
+      const existingMetadata = getFederationMetadata(field);
+      const fieldFederationMetadata: FederationField = {
+        ...existingMetadata,
+        appliedDirectives,
+      };
+
+      field.extensions = {
+        ...field.extensions,
+        federation: fieldFederationMetadata,
+      };
     }
+
   }
 }
 
@@ -691,6 +717,7 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     keyDirectivesMap,
     valueTypes,
     directiveDefinitionsMap,
+    typeNameToFieldDirectivesMap,
   });
 
   if (errors.length > 0) {
