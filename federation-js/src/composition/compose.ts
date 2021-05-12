@@ -17,6 +17,7 @@ import {
   TypeExtensionNode,
   ObjectTypeDefinitionNode,
   NamedTypeNode,
+  DirectiveNode,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
 import federationDirectives from '../directives';
@@ -45,7 +46,7 @@ import {
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
 import { printSupergraphSdl } from '../service/printSupergraphSdl';
-import { mapValues } from '../utilities';
+import { mapGetOrSet, mapValues } from '../utilities';
 
 const EmptyQueryDefinition = {
   kind: Kind.OBJECT_TYPE_DEFINITION,
@@ -121,6 +122,11 @@ export interface KeyDirectivesMap {
  */
 type ValueTypes = Set<string>;
 
+type FieldDirectivesMap = Map<string, DirectiveNode[]>;
+
+// TODO: rename?
+type TypeNameToFieldDirectivesMap = Map<string, FieldDirectivesMap>;
+
 /**
  * Loop over each service and process its typeDefs (`definitions`)
  * - build up typeToServiceMap
@@ -134,6 +140,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
   const externalFields: ExternalFieldDefinition[] = [];
   const keyDirectivesMap: KeyDirectivesMap = Object.create(null);
   const valueTypes: ValueTypes = new Set();
+  const typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap = new Map();
 
   for (const { typeDefs, name: serviceName } of serviceList) {
     // Build a new SDL with @external fields removed, as well as information about
@@ -174,6 +181,34 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
             keyDirectivesMap[typeName][serviceName]!.push(
               parseSelections(keyDirective.arguments[0].value.value),
             );
+          }
+        }
+
+        for (const field of definition.fields ?? []) {
+          const fieldName = field.name.value;
+          const tagDirectives = findDirectivesOnNode(field, 'tag');
+
+          // TODO: we can dry this up into one step for both cases
+          if (tagDirectives.length > 0) {
+            const fieldToDirectivesMap = mapGetOrSet(
+              typeNameToFieldDirectivesMap,
+              typeName,
+              new Map(),
+            );
+            const directives = mapGetOrSet(fieldToDirectivesMap, fieldName, []);
+            directives.push(...tagDirectives);
+          }
+          const inaccessibleDirectives = findDirectivesOnNode(field, 'inaccessible');
+          if (inaccessibleDirectives.length === 1) {
+            const fieldToDirectivesMap = mapGetOrSet(
+              typeNameToFieldDirectivesMap,
+              typeName,
+              new Map(),
+            );
+            const directives = mapGetOrSet(fieldToDirectivesMap, fieldName, []);
+            directives.push(inaccessibleDirectives[0]);
+          } else if (inaccessibleDirectives.length > 1) {
+            // TODO: warn about multiple applications of inaccessible?
           }
         }
       }
@@ -331,6 +366,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     externalFields,
     keyDirectivesMap,
     valueTypes,
+    typeNameToFieldDirectivesMap,
   };
 }
 
@@ -610,6 +646,7 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     externalFields,
     keyDirectivesMap,
     valueTypes,
+    typeNameToFieldDirectivesMap,
   } = buildMapsFromServiceList(services);
 
   let { schema, errors } = buildSchemaFromDefinitionsAndExtensions({

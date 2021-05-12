@@ -33,13 +33,14 @@ export const typeDefs = gql`
     description: String
   }
 
-  type User @key(fields: "id") @key(fields: "username name { first last }"){
+  type User @key(fields: "id") @key(fields: "username name { first last }") {
     id: ID!
     name: Name
     username: String
-    birthDate(locale: String): String
+    birthDate(locale: String): String @tag(name: "admin") @tag(name: "dev")
     account: AccountType
     metadata: [UserMetadata]
+    ssn: String @inaccessible
   }
 
   type Name {
@@ -63,21 +64,23 @@ const users = [
     id: '1',
     name: {
       first: 'Ada',
-      last: 'Lovelace'
+      last: 'Lovelace',
     },
     birthDate: '1815-12-10',
     username: '@ada',
     account: { __typename: 'LibraryAccount', id: '1' },
+    ssn: '123-45-6789',
   },
   {
     id: '2',
     name: {
       first: 'Alan',
-      last: 'Turing'
+      last: 'Turing',
     },
     birthDate: '1912-06-23',
     username: '@complete',
     account: { __typename: 'SMSAccount', number: '8675309' },
+    ssn: '987-65-4321',
   },
 ];
 
