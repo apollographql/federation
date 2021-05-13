@@ -27,8 +27,6 @@ import {
   DEFAULT_DEPRECATION_REASON,
   SelectionNode,
   DirectiveNode,
-  ValueNode,
-  Kind,
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
 import { assert } from '../utilities';
@@ -432,36 +430,16 @@ function printJoinFieldDirectives(
   return ` @join__field(${directiveArgs.join(', ')})`;
 }
 
+// Core addition: print `@tag` and `@inaccessible` directives found in subgraph
+// SDL into the supergraph SDL
 function printAppliedDirectives(field: GraphQLField<any, any>) {
   const appliedDirectives = (
     field.extensions?.federation?.appliedDirectives ?? []
   ) as DirectiveNode[];
-  return appliedDirectives.length > 0
-    ? ' ' + appliedDirectives.map(printDirectiveNode).join(' ')
-    : '';
+
+  if (appliedDirectives.length < 1) return '';
+  return ` ${appliedDirectives.map(print).join(' ')}`;
 };
-
-function printDirectiveNode(directive: DirectiveNode) {
-  const printedName = `@${directive.name.value}`;
-  const printedArgs = directive.arguments?.length
-    ? '(' +
-      directive.arguments
-        .map((arg) => `${arg.name.value}: ${printValueNode(arg.value)}`)
-        .join(', ') +
-      ')'
-  : '';
-  return printedName + printedArgs;
-}
-
-// TODO: incomplete / maybe unnecessary
-function printValueNode(value: ValueNode) {
-  switch(value.kind) {
-    case Kind.STRING:
-      return printStringLiteral(value.value);
-    default:
-      return '';
-  }
-}
 
 // Core change: `onNewLine` is a formatting nice-to-have for printing
 // types that have a list of directives attached, i.e. an entity.
