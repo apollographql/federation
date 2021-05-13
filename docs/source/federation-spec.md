@@ -36,7 +36,7 @@ extend type Query {
 directive @external on FIELD_DEFINITION
 directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
-directive @key(fields: _FieldSet!) on OBJECT | INTERFACE
+directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 
 # this is an optional directive discussed below
 directive @extends on OBJECT | INTERFACE
@@ -227,7 +227,7 @@ A new field must be added to the query root called `_entities`. This field must 
 ### `@key`
 
 ```graphql
-directive @key(fields: _FieldSet!) on OBJECT | INTERFACE
+directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 ```
 
 The `@key` directive is used to indicate a combination of fields that can be used to uniquely identify and fetch an object or interface.
