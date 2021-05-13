@@ -207,8 +207,6 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
             );
             const directives = mapGetOrSet(fieldToDirectivesMap, fieldName, []);
             directives.push(inaccessibleDirectives[0]);
-          } else if (inaccessibleDirectives.length > 1) {
-            // TODO: warn about multiple applications of inaccessible?
           }
         }
       }
