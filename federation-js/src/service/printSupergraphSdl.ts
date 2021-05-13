@@ -384,54 +384,52 @@ function printJoinFieldDirectives(
   // Core addition - see `PrintingContext` type for details
   context: PrintingContext,
 ): string {
-  let printed = ' @join__field(';
-  // Fields on the owning service do not have any federation metadata applied
-  // TODO: maybe make this metadata available? Though I think this is intended and we may depend on that implicity.
-
-  if (!field.extensions?.federation?.serviceName) {
-    // FIXME: We should change the way we detect value types. If a type is
-    // defined in only one service, we currently don't consider it a value type
-    // even if it doesn't specify any keys.
-    // Because we print `@join__type` directives based on the keys, but only used to
-    // look at the owning service here, that meant we would print `@join__field`
-    // without a corresponding `@join__type`, which is invalid according to the spec.
-    const { serviceName, keys } = parentType.extensions?.federation;
-    if (serviceName && keys) {
-      const enumValue = context.graphNameToEnumValueName?.[serviceName];
-      assert(
-        enumValue,
-        `Unexpected enum value missing for subgraph ${serviceName}`,
-      );
-      return printed + `graph: ${enumValue})`;
-    }
-    return '';
-  }
-
-  const {
-    serviceName,
-    requires = [],
-    provides = [],
-  }: FederationField = field.extensions.federation;
-
   const directiveArgs: string[] = [];
 
-  if (serviceName && serviceName.length > 0) {
+  const fieldMetadata: FederationField | undefined =
+    field.extensions?.federation;
+
+  let serviceName = fieldMetadata?.serviceName;
+
+  // For entities (which we detect through the existence of `keys`),
+  // although the join spec doesn't currently require `@join__field(graph:)` when
+  // a field can be resolved from the owning service, the code we used
+  // previously did include it in those cases. And especially since we want to
+  // remove type ownership, I think it makes to keep the same behavior.
+  if (!serviceName && parentType.extensions?.federation.keys) {
+    serviceName = parentType.extensions?.federation.serviceName;
+  }
+
+  if (serviceName) {
+    const enumValue = context.graphNameToEnumValueName?.[serviceName];
+    assert(
+      enumValue,
+      `Unexpected enum value missing for subgraph ${serviceName}`,
+    );
+
+    directiveArgs.push(`graph: ${enumValue}`);
+  }
+
+  const requires = fieldMetadata?.requires;
+
+  if (requires && requires.length > 0) {
     directiveArgs.push(
-      `graph: ${context.graphNameToEnumValueName?.[serviceName] ?? serviceName}`,
+      `requires: ${printStringLiteral(printFieldSet(requires))}`,
     );
   }
 
-  if (requires.length > 0) {
-    directiveArgs.push(`requires: ${printStringLiteral(printFieldSet(requires))}`);
+  const provides = fieldMetadata?.provides;
+
+  if (provides && provides.length > 0) {
+    directiveArgs.push(
+      `provides: ${printStringLiteral(printFieldSet(provides))}`,
+    );
   }
 
-  if (provides.length > 0) {
-    directiveArgs.push(`provides: ${printStringLiteral(printFieldSet(provides))}`);
-  }
+  // A directive without arguments isn't valid (nor useful).
+  if (directiveArgs.length < 1) return '';
 
-  printed += directiveArgs.join(', ');
-
-  return (printed += ')');
+  return ` @join__field(${directiveArgs.join(', ')})`;
 }
 
 function printAppliedDirectives(field: GraphQLField<any, any>) {
