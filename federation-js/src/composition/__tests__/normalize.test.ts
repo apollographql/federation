@@ -169,7 +169,7 @@ describe('SDL normalization and its respective parts', () => {
         ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
         # Federation directives
-        directive @key(fields: _FieldSet!) on OBJECT | INTERFACE
+        directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
         directive @external on FIELD_DEFINITION
         directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
         directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
@@ -318,7 +318,7 @@ describe('SDL normalization and its respective parts', () => {
           if: String = "Skipped when true."
         ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
-        directive @key(fields: _FieldSet!) on OBJECT | INTERFACE
+        directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
         directive @external on FIELD_DEFINITION
         directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
         directive @provides(fields: _FieldSet!) on FIELD_DEFINITION

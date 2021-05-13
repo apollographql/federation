@@ -910,7 +910,7 @@ it('composition of full-SDL schemas without any errors', () => {
       ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       # Federation directives
-      directive @key(fields: _FieldSet!) on OBJECT | INTERFACE
+      directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
       directive @external on FIELD_DEFINITION
       directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
       directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
@@ -968,7 +968,7 @@ it('composition of full-SDL schemas without any errors', () => {
       ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       # Federation directives
-      directive @key(fields: _FieldSet!) on OBJECT | INTERFACE
+      directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
       directive @external on FIELD_DEFINITION
       directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
       directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
