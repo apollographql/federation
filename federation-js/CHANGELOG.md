@@ -6,6 +6,9 @@
 
 -  _Nothing yet! Stay tuned!_
 
+## Update spec
+- Add `repeatable` keyword to the @key directive in federation spec. [PR #758](https://github.com/apollographql/federation/pull/758)
+
 ## v0.25.0
 
 - Composition errors now include `locations` corresponding to the line number & column in the subgraph SDL. [PR #686](https://github.com/apollographql/federation/pull/686)
