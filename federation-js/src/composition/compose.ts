@@ -33,7 +33,8 @@ import {
   stripTypeSystemDirectivesFromTypeDefs,
   defaultRootOperationNameLookup,
   getFederationMetadata,
-  CompositionResult
+  CompositionResult,
+  isDirectiveDefinitionNode
 } from './utils';
 import {
   ServiceDefinition,
@@ -306,7 +307,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
         } else {
           typeExtensionsMap[typeName] = [{ ...definition, serviceName }];
         }
-      } else if (definition.kind === Kind.DIRECTIVE_DEFINITION) {
+      } else if (isDirectiveDefinitionNode(definition)) {
         const directiveName = definition.name.value;
 
         // The composed schema should only contain directives and their
