@@ -184,29 +184,23 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
           }
         }
 
+        // Capture `@tag` and `@inaccessible` directive applications
         for (const field of definition.fields ?? []) {
           const fieldName = field.name.value;
-          const tagDirectives = findDirectivesOnNode(field, 'tag');
 
-          // TODO: we can dry this up into one step for both cases
-          if (tagDirectives.length > 0) {
+          const tagAndInaccessibleDirectives = [
+            ...findDirectivesOnNode(field, 'tag'),
+            ...findDirectivesOnNode(field, 'inaccessible'),
+          ];
+
+          if (tagAndInaccessibleDirectives.length > 0) {
             const fieldToDirectivesMap = mapGetOrSet(
               typeNameToFieldDirectivesMap,
               typeName,
               new Map(),
             );
             const directives = mapGetOrSet(fieldToDirectivesMap, fieldName, []);
-            directives.push(...tagDirectives);
-          }
-          const inaccessibleDirectives = findDirectivesOnNode(field, 'inaccessible');
-          if (inaccessibleDirectives.length === 1) {
-            const fieldToDirectivesMap = mapGetOrSet(
-              typeNameToFieldDirectivesMap,
-              typeName,
-              new Map(),
-            );
-            const directives = mapGetOrSet(fieldToDirectivesMap, fieldName, []);
-            directives.push(inaccessibleDirectives[0]);
+            directives.push(...tagAndInaccessibleDirectives);
           }
         }
       }
