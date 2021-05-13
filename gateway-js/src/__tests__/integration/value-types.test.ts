@@ -327,6 +327,7 @@ describe('value types', () => {
                   id
                   user {
                     id
+                    name
                     __typename
                   }
                 }
@@ -342,7 +343,6 @@ describe('value types', () => {
                 } =>
                 {
                   ... on User {
-                    name
                     address
                   }
                 }
@@ -356,6 +356,7 @@ describe('value types', () => {
                   id
                   user {
                     id
+                    name
                     __typename
                   }
                 }
@@ -371,7 +372,6 @@ describe('value types', () => {
                 } =>
                 {
                   ... on User {
-                    name
                     address
                   }
                 }
