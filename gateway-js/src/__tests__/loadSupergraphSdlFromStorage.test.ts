@@ -53,6 +53,10 @@ describe('loadSupergraphSdlFromStorage', () => {
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION
+
+      directive @inaccessible on FIELD_DEFINITION
+
       directive @stream on FIELD
 
       directive @transform(from: String!) on FIELD
@@ -271,7 +275,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         @join__type(graph: REVIEWS, key: \\"id\\")
       {
         account: AccountType @join__field(graph: ACCOUNTS)
-        birthDate(locale: String): String @join__field(graph: ACCOUNTS)
+        birthDate(locale: String): String @join__field(graph: ACCOUNTS) @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         goodAddress: Boolean @join__field(graph: REVIEWS, requires: \\"metadata{address}\\")
         goodDescription: Boolean @join__field(graph: INVENTORY, requires: \\"metadata{description}\\")
         id: ID! @join__field(graph: ACCOUNTS)
@@ -279,6 +283,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         name: Name @join__field(graph: ACCOUNTS)
         numberOfReviews: Int! @join__field(graph: REVIEWS)
         reviews: [Review] @join__field(graph: REVIEWS)
+        ssn: String @join__field(graph: ACCOUNTS) @inaccessible
         thing: Thing @join__field(graph: PRODUCT)
         username: String @join__field(graph: ACCOUNTS)
         vehicle: Vehicle @join__field(graph: PRODUCT)

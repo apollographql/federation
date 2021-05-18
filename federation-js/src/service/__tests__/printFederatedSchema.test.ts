@@ -183,7 +183,7 @@ describe('printFederatedSchema', () => {
 
       type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") {
         account: AccountType
-        birthDate(locale: String): String
+        birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         goodAddress: Boolean @requires(fields: \\"metadata { address }\\")
         goodDescription: Boolean @requires(fields: \\"metadata { description }\\")
         id: ID!
@@ -191,6 +191,7 @@ describe('printFederatedSchema', () => {
         name: Name
         numberOfReviews: Int!
         reviews: [Review]
+        ssn: String @inaccessible
         thing: Thing
         username: String
         vehicle: Vehicle
