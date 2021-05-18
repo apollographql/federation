@@ -1,4 +1,4 @@
-import { FieldNode, InlineFragmentNode, GraphQLField, GraphQLObjectType } from 'graphql';
+import { FieldNode, InlineFragmentNode, GraphQLField, GraphQLObjectType, DirectiveNode } from 'graphql';
 import { MultiMap } from '../utilities/MultiMap';
 
 declare module 'graphql' {
@@ -73,4 +73,5 @@ export interface FederationFieldMetadata {
   graphName?: GraphName;
   requires?: FieldSet;
   provides?: FieldSet;
+  appliedDirectives?: DirectiveNode[];
 }

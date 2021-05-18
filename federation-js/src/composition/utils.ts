@@ -70,9 +70,11 @@ export function findDirectivesOnNode(
   >,
   directiveName: string,
 ) {
-  return node?.directives?.filter(
-        directive => directive.name.value === directiveName,
-      ) ?? [];
+  return (
+    node?.directives?.filter(
+      (directive) => directive.name.value === directiveName,
+    ) ?? []
+  );
 }
 
 /**
