@@ -31,10 +31,6 @@ import {
   OperationTypeNode,
   isDirective,
   isNamedType,
-  EnumValueDefinitionNode,
-  SchemaDefinitionNode,
-  ExecutableDefinitionNode,
-  TypeSystemExtensionNode,
   stripIgnoredCharacters,
 } from 'graphql';
 import {
@@ -46,7 +42,7 @@ import {
   FederationField,
   ServiceDefinition,
 } from './types';
-import federationDirectives from '../directives';
+import federationDirectives, { ASTNodeWithDirectives } from '../directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
 
 export function isStringValueNode(node: any): node is StringValueNode {
@@ -70,14 +66,7 @@ export function mapFieldNamesToServiceName<Node extends { name: NameNode }>(
 
 export function findDirectivesOnNode(
   node: Maybe<
-    | FieldDefinitionNode
-    | InputValueDefinitionNode
-    | EnumValueDefinitionNode
-    | SchemaDefinitionNode
-    | ExecutableDefinitionNode
-    | SelectionNode
-    | TypeDefinitionNode
-    | TypeSystemExtensionNode
+    ASTNodeWithDirectives
   >,
   directiveName: string,
 ) {
@@ -110,14 +99,7 @@ export function printFieldSet(selections: readonly SelectionNode[]): string {
  */
 export function findSelectionSetOnNode(
   node: Maybe<
-    | FieldDefinitionNode
-    | InputValueDefinitionNode
-    | EnumValueDefinitionNode
-    | SchemaDefinitionNode
-    | ExecutableDefinitionNode
-    | SelectionNode
-    | TypeDefinitionNode
-    | TypeSystemExtensionNode
+    ASTNodeWithDirectives
   >,
   directiveName: string,
   printedSelectionSet: string,
