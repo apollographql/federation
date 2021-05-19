@@ -174,8 +174,12 @@ export class ApolloGateway implements GraphQLService {
   private logger: Logger;
   private queryPlanStore: InMemoryLRUCache<QueryPlan>;
   private apolloConfig?: ApolloConfigFromAS3;
-  private onSchemaChangeListeners = new Set<
-    (schema: GraphQLSchema, supergraphSdl: string) => void
+  private onSchemaChangeListeners = new Set<(schema: GraphQLSchema) => void>();
+  private onSchemaLoadOrUpdateListeners = new Set<
+    (schemaContext: {
+      apiSchema: GraphQLSchema;
+      coreSupergraphSdl: string;
+    }) => void
   >();
   private serviceDefinitions: ServiceDefinition[] = [];
   private compositionMetadata?: CompositionMetadata;
@@ -436,7 +440,7 @@ export class ApolloGateway implements GraphQLService {
         : this.createSchemaFromSupergraphSdl(config.supergraphSdl));
       // TODO(trevor): #580 redundant parse
       this.parsedSupergraphSdl = parse(supergraphSdl);
-      this.updateWithSchemaAndNotify(schema, supergraphSdl);
+      this.updateWithSchemaAndNotify(schema, supergraphSdl, true);
     } catch (e) {
       this.state = { phase: 'failed to load' };
       throw e;
@@ -603,23 +607,43 @@ export class ApolloGateway implements GraphQLService {
 
   private updateWithSchemaAndNotify(
     coreSchema: GraphQLSchema,
-    supergraphSdl: string,
+    coreSupergraphSdl: string,
+    // Once we remove the deprecated onSchemaChange() method, we can remove this.
+    legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
     this.schema = toAPISchema(coreSchema);
     this.queryPlanner = new QueryPlanner(coreSchema);
 
-    // Notify the schema listeners of the updated schema
-    try {
-      this.onSchemaChangeListeners.forEach((listener) =>
-        listener(this.schema!, supergraphSdl),
-      );
-    } catch (e) {
-      this.logger.error(
-        "An error was thrown from an 'onSchemaChange' listener. " +
-          'The schema will still update: ' +
-          ((e && e.message) || e),
-      );
+    // Notify onSchemaChange listeners of the updated schema
+    if (!legacyDontNotifyOnSchemaChangeListeners) {
+      this.onSchemaChangeListeners.forEach((listener) => {
+        try {
+          listener(this.schema!);
+        } catch (e) {
+          this.logger.error(
+            "An error was thrown from an 'onSchemaChange' listener. " +
+              'The schema will still update: ' +
+              ((e && e.message) || e),
+          );
+        }
+      });
     }
+
+    // Notify onSchemaLoadOrUpdate listeners of the updated schema
+    this.onSchemaLoadOrUpdateListeners.forEach((listener) => {
+      try {
+        listener({
+          apiSchema: this.schema!,
+          coreSupergraphSdl,
+        });
+      } catch (e) {
+        this.logger.error(
+          "An error was thrown from an 'onSchemaLoadOrUpdate' listener. " +
+            'The schema will still update: ' +
+            ((e && e.message) || e),
+        );
+      }
+    });
   }
 
   private async maybePerformServiceHealthCheck(update: CompositionUpdate) {
@@ -761,13 +785,29 @@ export class ApolloGateway implements GraphQLService {
     };
   }
 
+  /**
+   * @deprecated Please use `onSchemaLoadOrUpdate` instead.
+   */
   public onSchemaChange(
-    callback: (schema: GraphQLSchema, supergraphSdl: string) => void,
+    callback: (schema: GraphQLSchema) => void,
   ): Unsubscriber {
     this.onSchemaChangeListeners.add(callback);
 
     return () => {
       this.onSchemaChangeListeners.delete(callback);
+    };
+  }
+
+  public onSchemaLoadOrUpdate(
+    callback: (schemaContext: {
+      apiSchema: GraphQLSchema;
+      coreSupergraphSdl: string;
+    }) => void,
+  ): Unsubscriber {
+    this.onSchemaLoadOrUpdateListeners.add(callback);
+
+    return () => {
+      this.onSchemaLoadOrUpdateListeners.delete(callback);
     };
   }
 
