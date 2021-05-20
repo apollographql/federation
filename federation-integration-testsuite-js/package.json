@@ -12,7 +12,7 @@
   },
   "keywords": [],
   "author": "Apollo <packages@apollographql.com>",
-  "license": "MIT",
+  "license": "SEE LICENSE IN ./LICENSE",
   "bugs": {
     "url": "https://github.com/apollographql/federation/issues"
   },

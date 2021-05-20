@@ -12,7 +12,7 @@
     "directory": "router-bridge/"
   },
   "author": "Apollo <packages@apollographql.com>",
-  "license": "MIT",
+  "license": "SEE LICENSE IN ./LICENSE",
   "dependencies": {
     "@apollo/query-planner": "file:../query-planner-js",
     "fast-text-encoding": "1.0.3",

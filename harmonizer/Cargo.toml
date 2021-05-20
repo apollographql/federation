@@ -7,7 +7,7 @@ description = "Apollo Federation utility to compose a supergraph from subgraphs"
 homepage = "https://www.apollographql.com/apollo-federation/"
 documentation = "https://apollographql.com/docs/federation/"
 repository = "https://github.com/apollographql/federation/"
-license = "MIT"
+license-file = "./LICENSE"
 readme = "README.md"
 include = [ "dist/**/*", "js/**/*", "src/**/*", "Cargo.toml" ]
 

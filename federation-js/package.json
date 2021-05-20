@@ -15,7 +15,7 @@
     "apollo"
   ],
   "author": "Apollo <packages@apollographql.com>",
-  "license": "MIT",
+  "license": "SEE LICENSE IN ./LICENSE",
   "engines": {
     "node": ">=12.13.0 <17.0"
   },
