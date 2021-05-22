@@ -601,6 +601,9 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
+  // TODO: We should consolidate "schema derived data" state as we've done in Apollo Server to
+  //       ensure we do not forget to update some of that state, and to avoid scenarios where
+  //       concurrently executing code sees partially-updated state.
   private updateWithSchemaAndNotify(
     coreSchema: GraphQLSchema,
     coreSupergraphSdl: string,
