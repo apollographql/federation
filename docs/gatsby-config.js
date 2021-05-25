@@ -35,6 +35,9 @@ module.exports = {
             'managed-federation/deployment',
             '[Studio features](https://www.apollographql.com/docs/studio/federated-graphs/)',
           ],
+          'Implementation Guide': [
+            'implementation-guide/example'
+          ],
           'Debugging': [
             'errors',
             'metrics',
