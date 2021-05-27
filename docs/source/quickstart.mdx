@@ -10,11 +10,7 @@ import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
 > In addition to completing this tutorial, you can [clone our example gateway on GitHub](https://github.com/apollographql/supergraph-demo). The GitHub example is **not** identical to the gateway you create in this tutorial, but it demonstrates many of the same concepts.
 
-Hello! This tutorial gets you up and running with Apollo Federation. Unlike other articles in this documentation, this tutorial uses some Apollo tools and terminology that are still in **preview**.
-
-**This content is not yet recommended for use in a production environment.** However, we expect these tools to leave preview soon, so this tutorial is a great way to begin learning about federation using upcoming best practices.
-
-> This tutorial currently requires [Node.js version 12 or 14](https://nodejs.org/en/download/).
+Hello! This tutorial gets you up and running with Apollo Federation. It currently requires [Node.js version 12 or 14](https://nodejs.org/en/download/).
 
 ## Federation concepts
 
@@ -53,7 +49,7 @@ After installing, run `rover` in your terminal with no arguments to confirm that
 
 > You can also [clone our example gateway on GitHub](https://github.com/apollographql/supergraph-demo). The GitHub example is **not** identical to the gateway you create in this tutorial, but it demonstrates the same concepts.
 
-As mentioned in the [preface](#preface-federated-architecture), your federated supergraph is represented by a **gateway** that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up our own gateway in front of them.
+As mentioned [above](#federation-concepts), your federated supergraph is represented by a **gateway** that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up our own gateway in front of them.
 
 With the help of the `@apollo/gateway` library, [Apollo Server](https://www.apollographql.com/docs/apollo-server/) can act as our federated gateway.
 

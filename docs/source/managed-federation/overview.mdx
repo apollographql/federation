@@ -7,23 +7,27 @@ Apollo provides free **managed federation** support for data graphs that use Apo
 
 With managed federation, your [gateway](../gateway/) is no longer responsible for fetching schemas from your [subgraphs](../subgraphs/) on startup. Instead, your subgraphs push their schemas to the Apollo schema registry, which verifies that they successfully **compose** into a federated schema.
 
-On composition success, Studio updates a dedicated configuration file that's stored in Google Cloud Services, which your gateway regularly polls for updates:
+On composition success, Studio updates your graph's latest configuration, which is available at a special endpoint (called the **uplink**) that your gateway regularly polls for updates:
 
 ```mermaid
 graph LR;
-  subgraph " "
+  subgraph "Your infrastructure"
   serviceA[Products subgraph];
   serviceB[Reviews subgraph];
   gateway([Gateway]);
   end
+  subgraph "Apollo cloud"
   registry{{Apollo Schema Registry}};
-  gcs{{GCS}}
+  uplink{{Apollo Uplink}}
+  end
   serviceA & serviceB -->|Pushes schema| registry;
-  registry -->|Updates config| gcs;
-  gateway -->|Polls for config changes| gcs;
+  registry -->|Updates config| uplink;
+  gateway -->|Polls for config changes| uplink;
   class registry secondary;
-  class gcs secondary;
+  class uplink secondary;
 ```
+
+## Benefits of managed federation
 
 Managed federation helps your organization safely validate, coordinate, deploy, and monitor changes to your graph. It provides:
 
@@ -33,7 +37,7 @@ You can modify subgraph schemas (and even add or remove entire subgraphs from yo
 
 ### Composition stability
 
-Whenever your gateway obtains an updated configuration from Studio, it knows that the updated set of schemas will compose, because the configuration includes the latest composed supergraph.
+Whenever your gateway obtains an updated configuration from Studio, it knows that the updated set of schemas will compose, because the configuration includes the latest composed supergraph schema.
 
 The gateway _also_ knows that your subgraphs are prepared to handle operations against the updated set of schemas. This is because your subgraphs should register their updated schemas as part of their deployment, meaning they're definitely running by the time the gateway is aware of the configuration change.
 

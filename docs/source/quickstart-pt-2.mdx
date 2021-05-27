@@ -8,8 +8,6 @@ import {Button} from '@apollo/space-kit/Button';
 import {Link} from 'gatsby';
 import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
-> **Reminder:** This tutorial uses some Apollo tools and terminology that are still in **preview**, and therefore this content is not yet recommended for use in a production environment.
-
 [Back in Part 1](./quickstart/), we created a federated gateway and used the Rover CLI to compose a supergraph schema for it based on two subgraphs. Next, we'll move that composition process into the cloud.
 
 Our gateway currently loads its composed supergraph schema from a file on startup. This means that whenever the schema _changes_, the gateway needs to restart to load the new version.
@@ -65,13 +63,15 @@ If you don't have an Apollo Studio account yet, let's create one.
 
 Complete the first two steps of <a href="https://www.apollographql.com/docs/studio/getting-started/" target="_blank">Get started with Apollo Studio</a> (**Create your account** and **Create your first graph**), then return here.
 
+> For future steps, you'll need the name of the graph you just created in Apollo Studio. Make sure to have it available.
+
 ## 2. Authenticate Rover with Apollo Studio
 
 The Rover CLI includes commands for registering and fetching subgraph schemas from Apollo. To use these commands, you need to authenticate Rover with Apollo Studio.
 
 Complete the first two steps of <a href="https://www.apollographql.com/docs/rover/configuring/" target="_blank">Configuring Rover</a> (**Obtain an API key** and **Provide the API key to Rover**), then return here.
 
-> For the next step, you'll need the name of the graph you just created in Apollo Studio. Make sure to have it available.
+
 
 ## 3. Register subgraph schemas
 

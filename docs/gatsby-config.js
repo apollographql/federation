@@ -15,7 +15,7 @@ module.exports = {
           null: [
             'index',
           ],
-          'Quickstart (Preview)': [
+          'Quickstart': [
             'quickstart',
             'quickstart-pt-2',
             'quickstart-pt-3',
