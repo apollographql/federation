@@ -29,7 +29,7 @@
     "@apollo/query-planner": "file:../query-planner-js",
     "@types/node-fetch": "2.5.10",
     "apollo-graphql": "^0.9.3",
-    "apollo-reporting-protobuf": "^0.7.0",
+    "apollo-reporting-protobuf": "^0.8.0",
     "apollo-server-caching": "^0.7.0",
     "apollo-server-core": "^2.23.0",
     "apollo-server-env": "^3.0.0",
