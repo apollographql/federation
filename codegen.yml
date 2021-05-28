@@ -1,5 +1,8 @@
 overwrite: true
-schema: "https://uplink.api.apollographql.com/"
+schema: [
+  "https://uplink.api.apollographql.com/",
+  "https://uplink.api.apollographql.com/monitoring",
+]
 documents:
   - gateway-js/src/loadSupergraphSdlFromStorage.ts
 generates:

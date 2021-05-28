@@ -7,11 +7,30 @@ import {
   apiKey,
   mockCloudConfigUrl,
   mockSupergraphSdlRequest,
+  mockOutOfBandReportRequestSuccess,
+  mockOutOfBandReporterUrl,
 } from './integration/nockMocks';
+import mockedEnv from 'mocked-env';
 
 describe('loadSupergraphSdlFromStorage', () => {
+  let cleanUp: (() => void) | null = null;
+
+  beforeAll(() => {
+    cleanUp = mockedEnv({
+      APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
+    });
+  });
+
+  afterAll(async () => {
+    if (cleanUp) {
+      cleanUp();
+      cleanUp = null;
+    }
+  });
+
   it('fetches Supergraph SDL as expected', async () => {
     mockSupergraphSdlRequestSuccess();
+    mockOutOfBandReportRequestSuccess();
     const fetcher = getDefaultFetcher();
     const result = await loadSupergraphSdlFromStorage({
       graphId,
@@ -304,6 +323,7 @@ describe('loadSupergraphSdlFromStorage', () => {
   describe('errors', () => {
     it('throws on a malformed response', async () => {
       mockSupergraphSdlRequest().reply(200, 'Invalid JSON');
+      mockOutOfBandReportRequestSuccess();
 
       const fetcher = getDefaultFetcher();
       await expect(
@@ -327,6 +347,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           errors: [{ message }],
         }),
       );
+      mockOutOfBandReportRequestSuccess();
 
       const fetcher = getDefaultFetcher();
       await expect(
@@ -342,6 +363,29 @@ describe('loadSupergraphSdlFromStorage', () => {
 
     it("throws on non-OK status codes when `errors` isn't present in a JSON response", async () => {
       mockSupergraphSdlRequest().reply(500);
+      mockOutOfBandReportRequestSuccess();
+
+      const fetcher = getDefaultFetcher();
+      await expect(
+        loadSupergraphSdlFromStorage({
+          graphId,
+          graphVariant,
+          apiKey,
+          endpoint: mockCloudConfigUrl,
+          fetcher,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"An error occurred while fetching your schema from Apollo: 500 Internal Server Error"`,
+      );
+    });
+
+    it("throws on timeout status response and successfully submits an out of band error", async () => {
+      cleanUp = mockedEnv({
+        APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
+      });
+
+      mockSupergraphSdlRequest().reply(408);
+      mockOutOfBandReportRequestSuccess();
 
       const fetcher = getDefaultFetcher();
       await expect(
