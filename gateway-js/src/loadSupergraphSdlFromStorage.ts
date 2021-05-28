@@ -60,6 +60,12 @@ async function submitOutOfBandReport({
   tags?: string[];
   fetcher: typeof fetch;
 }) {
+
+  // don't send report if the endpoint url is not configured
+  if (!process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT) {
+    return;
+  }
+
   let errorCode = ErrorCode.Other;
 
   // some possible error situations to check against
@@ -74,8 +80,7 @@ async function submitOutOfBandReport({
   }
 
   try {
-    // TODO put endpoint url in config somewhere and have urls for staging/dev0?
-    const result = await fetcher(process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT ?? '', {
+    const result = await fetcher(process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT!!, {
       method: 'POST',
       body: JSON.stringify({
         query: OUT_OF_BAND_REPORTER_QUERY,
