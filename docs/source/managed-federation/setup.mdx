@@ -62,7 +62,7 @@ APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://uplink.api.apollographql.com/
 
 You can also set these values directly in the command you use to start your gateway.
 
-The second environment variable, `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT`, instructs the gateway to fetch its configuration from a new (and recommended) Apollo-hosted endpoint called the **uplink**. If you don't set this value, the gateway instead fetches its configuration from a file hosted in Google Cloud Services.
+The second environment variable, `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT`, instructs the gateway to fetch its configuration from a new (and recommended) Apollo-hosted endpoint called the **uplink**. If you don't set this value, the gateway instead fetches its configuration from a file hosted in Google Cloud Storage.
 
 > When running your gateway in an environment where outbound traffic to the internet is restricted, consult the [directions for configuring a proxy](https://www.apollographql.com/docs/apollo-server/proxy-configuration/) within Apollo Server.
 
@@ -70,4 +70,4 @@ The second environment variable, `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT`, instr
 
 You can now deploy your modified gateway to begin fetching your federated schema from Studio instead of directly from your subgraphs.
 
-On startup, your gateway will use its API key to access its federation config from Google Cloud Storage. It can then begin executing operations across your subgraphs.
+On startup, your gateway will use its API key to fetch its federation config from Apollo. It can then begin executing operations across your subgraphs.
