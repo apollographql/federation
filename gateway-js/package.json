@@ -27,6 +27,7 @@
   "dependencies": {
     "@apollo/core-schema": "^0.1.0",
     "@apollo/federation": "file:../federation-js",
+    "@apollo/composition": "file:../composition-js",
     "@apollo/query-planner": "file:../query-planner-js",
     "@opentelemetry/api": "^1.0.1",
     "@types/node-fetch": "2.5.12",

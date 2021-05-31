@@ -6,6 +6,7 @@
   "include": [],
   "references": [
     { "path": "./core-js" },
+    { "path": "./query-graphs-js" },
     { "path": "./gateway-js" },
     { "path": "./federation-integration-testsuite-js" },
     { "path": "./subgraph-js" },

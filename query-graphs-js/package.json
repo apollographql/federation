@@ -1,0 +1,34 @@
+{
+  "name": "@apollo/query-graphs",
+  "version": "0.1.0",
+  "description": "Apollo Federation library to work with 'query graphs'",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollographql/federation.git",
+    "directory": "query-graphs-js/"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [
+    "graphql",
+    "federation",
+    "apollo"
+  ],
+  "author": "Apollo <opensource@apollographql.com>",
+  "license": "SEE LICENSE IN ./LICENSE",
+  "engines": {
+    "node": ">=12.13.0 <17.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.23"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "graphql": "^14.5.0 || ^15.0.0"
+  }
+}

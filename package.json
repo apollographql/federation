@@ -32,8 +32,10 @@
   },
   "dependencies": {
     "@apollo/core": "file:core-js",
+    "@apollo/query-graphs": "file:query-graphs-js",
     "@apollo/federation": "file:federation-js",
     "@apollo/gateway": "file:gateway-js",
+    "@apollo/composition": "file:composition-js",
     "@apollo/harmonizer": "file:harmonizer",
     "@apollo/query-planner": "file:query-planner-js",
     "@apollo/router-bridge": "file:router-bridge",
@@ -94,7 +96,8 @@
       "<rootDir>/federation-integration-testsuite-js",
       "<rootDir>/gateway-js",
       "<rootDir>/query-planner-js",
-      "<rootDir>/subgraph-js"
+      "<rootDir>/composition-js",
+      "<rootDir>/query-graphs-js"
     ]
   }
 }
