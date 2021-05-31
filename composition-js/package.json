@@ -4,6 +4,9 @@
   "description": "Apollo Federation composition utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "jest"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/apollographql/federation.git",
@@ -22,6 +25,11 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@apollo/core": "file:../core-js",
+    "@types/jest": "^26.0.23",
+    "ts-graphviz": "^0.15.1"
   },
   "peerDependencies": {
     "graphql": "^14.5.0 || ^15.0.0"

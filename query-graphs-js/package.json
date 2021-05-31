@@ -22,6 +22,10 @@
   "engines": {
     "node": ">=12.13.0 <17.0"
   },
+  "dependencies": {
+    "@apollo/core": "file:../core-js",
+    "ts-graphviz": "^0.15.1"
+  },
   "devDependencies": {
     "@types/jest": "^26.0.23"
   },
