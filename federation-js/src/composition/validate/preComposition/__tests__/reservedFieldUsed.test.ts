@@ -1,6 +1,8 @@
-import gql from 'graphql-tag';
 import { reservedFieldUsed as validateReservedFieldUsed } from '..';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -44,10 +46,22 @@ describe('reservedFieldUsed', () => {
       Array [
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 3,
+              "line": 4,
+            },
+          ],
           "message": "[serviceA] Query._service -> _service is a field reserved for federation and can't be used at the Query root.",
         },
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 3,
+              "line": 5,
+            },
+          ],
           "message": "[serviceA] Query._entities -> _entities is a field reserved for federation and can't be used at the Query root.",
         },
       ]
@@ -100,6 +114,12 @@ describe('reservedFieldUsed', () => {
       Array [
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 3,
+              "line": 8,
+            },
+          ],
           "message": "[schemaDefinition] RootQuery._entities -> _entities is a field reserved for federation and can't be used at the Query root.",
         },
       ]
@@ -108,6 +128,12 @@ describe('reservedFieldUsed', () => {
       Array [
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 3,
+              "line": 7,
+            },
+          ],
           "message": "[schemaExtension] RootQuery._service -> _service is a field reserved for federation and can't be used at the Query root.",
         },
       ]
@@ -141,10 +167,22 @@ describe('reservedFieldUsed', () => {
       Array [
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 3,
+              "line": 8,
+            },
+          ],
           "message": "[serviceA] RootQuery._service -> _service is a field reserved for federation and can't be used at the Query root.",
         },
         Object {
           "code": "RESERVED_FIELD_USED",
+          "locations": Array [
+            Object {
+              "column": 3,
+              "line": 9,
+            },
+          ],
           "message": "[serviceA] RootQuery._entities -> _entities is a field reserved for federation and can't be used at the Query root.",
         },
       ]

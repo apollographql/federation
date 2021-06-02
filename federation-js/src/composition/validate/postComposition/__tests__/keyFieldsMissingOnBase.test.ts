@@ -1,7 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { keyFieldsMissingOnBase as validateKeyFieldsMissingOnBase } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 import { assertCompositionSuccess } from '../../../utils';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
@@ -76,6 +78,12 @@ describe('keyFieldsMissingOnBase', () => {
       Array [
         Object {
           "code": "KEY_FIELDS_MISSING_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 27,
+              "line": 2,
+            },
+          ],
           "message": "[serviceA] Product -> A @key selects uid, but Product.uid was either created or overwritten by serviceB, not serviceA",
         },
       ]

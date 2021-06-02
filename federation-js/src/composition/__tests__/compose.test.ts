@@ -3,12 +3,13 @@ import {
   isSpecifiedDirective,
   GraphQLDirective,
 } from 'graphql';
-import gql from 'graphql-tag';
 import { composeServices } from '../compose';
 import {
   astSerializer,
   typeSerializer,
   selectionSetSerializer,
+  graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import { normalizeTypeDefs } from '../normalize';
 import {
@@ -20,6 +21,7 @@ import {
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(typeSerializer);
 expect.addSnapshotSerializer(selectionSetSerializer);
+expect.addSnapshotSerializer(graphqlErrorSerializer);
 
 describe('composeServices', () => {
   it('should include types from different services', () => {
@@ -124,9 +126,9 @@ describe('composeServices', () => {
       const product = schema.getType('Product') as GraphQLObjectType;
 
       expect(getFederationMetadata(product)?.serviceName).toEqual('serviceA');
-      expect(getFederationMetadata(product.getFields()['price'])?.serviceName).toEqual(
-        'serviceB',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['price'])?.serviceName,
+      ).toEqual('serviceB');
     });
 
     it('works when extension service is first', () => {
@@ -164,9 +166,9 @@ describe('composeServices', () => {
       const product = schema.getType('Product') as GraphQLObjectType;
 
       expect(getFederationMetadata(product)?.serviceName).toEqual('serviceB');
-      expect(getFederationMetadata(product.getFields()['price'])?.serviceName).toEqual(
-        'serviceA',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['price'])?.serviceName,
+      ).toEqual('serviceA');
     });
 
     it('works with multiple extensions on the same type', () => {
@@ -215,12 +217,12 @@ describe('composeServices', () => {
       const product = schema.getType('Product') as GraphQLObjectType;
 
       expect(getFederationMetadata(product)?.serviceName).toEqual('serviceB');
-      expect(getFederationMetadata(product.getFields()['price'])?.serviceName).toEqual(
-        'serviceA',
-      );
-      expect(getFederationMetadata(product.getFields()['color'])?.serviceName).toEqual(
-        'serviceC',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['price'])?.serviceName,
+      ).toEqual('serviceA');
+      expect(
+        getFederationMetadata(product.getFields()['color'])?.serviceName,
+      ).toEqual('serviceC');
     });
 
     it('allows extensions to overwrite other extension fields', () => {
@@ -257,10 +259,23 @@ describe('composeServices', () => {
       assertCompositionFailure(compositionResult);
       const { errors, schema } = compositionResult;
       expect(errors).toMatchInlineSnapshot(`
-                        Array [
-                          [GraphQLError: Field "Product.price" can only be defined once.],
-                        ]
-                  `);
+        Array [
+          Object {
+            "code": "MISSING_ERROR",
+            "locations": Array [
+              Object {
+                "column": 3,
+                "line": 3,
+              },
+              Object {
+                "column": 3,
+                "line": 3,
+              },
+            ],
+            "message": "Field \\"Product.price\\" can only be defined once.",
+          },
+        ]
+      `);
       expect(schema).toBeDefined();
 
       const product = schema.getType('Product') as GraphQLObjectType;
@@ -274,9 +289,9 @@ describe('composeServices', () => {
                   `);
 
       expect(getFederationMetadata(product)?.serviceName).toEqual('serviceB');
-      expect(getFederationMetadata(product.getFields()['price'])?.serviceName).toEqual(
-        'serviceC',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['price'])?.serviceName,
+      ).toEqual('serviceC');
     });
 
     it('preserves arguments for fields', () => {
@@ -360,12 +375,12 @@ describe('composeServices', () => {
                           name: String!
                         }
                   `);
-      expect(getFederationMetadata(product.getFields()['sku'])?.serviceName).toEqual(
-        'serviceB',
-      );
-      expect(getFederationMetadata(product.getFields()['name'])?.serviceName).toEqual(
-        'serviceB',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['sku'])?.serviceName,
+      ).toEqual('serviceB');
+      expect(
+        getFederationMetadata(product.getFields()['name'])?.serviceName,
+      ).toEqual('serviceB');
     });
 
     describe('collisions & error handling', () => {
@@ -395,7 +410,16 @@ describe('composeServices', () => {
         expect(schema).toBeDefined();
         expect(errors).toMatchInlineSnapshot(`
           Array [
-            [GraphQLError: [serviceA] Product.name -> Field "Product.name" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.],
+            Object {
+              "code": "MISSING_ERROR",
+              "locations": Array [
+                Object {
+                  "column": 3,
+                  "line": 4,
+                },
+              ],
+              "message": "[serviceB] Product.name -> Field \\"Product.name\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
+            },
           ]
         `);
 
@@ -407,9 +431,9 @@ describe('composeServices', () => {
                                 name: String!
                               }
                         `);
-        expect(getFederationMetadata(product.getFields()['name'])?.serviceName).toEqual(
-          'serviceB',
-        );
+        expect(
+          getFederationMetadata(product.getFields()['name'])?.serviceName,
+        ).toEqual('serviceB');
       });
 
       it('reports multiple errors correctly', () => {
@@ -443,8 +467,26 @@ describe('composeServices', () => {
         expect(schema).toBeDefined();
         expect(errors).toMatchInlineSnapshot(`
           Array [
-            [GraphQLError: [serviceA] Product.sku -> Field "Product.sku" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.],
-            [GraphQLError: [serviceA] Product.name -> Field "Product.name" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.],
+            Object {
+              "code": "MISSING_ERROR",
+              "locations": Array [
+                Object {
+                  "column": 3,
+                  "line": 7,
+                },
+              ],
+              "message": "[serviceB] Product.sku -> Field \\"Product.sku\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
+            },
+            Object {
+              "code": "MISSING_ERROR",
+              "locations": Array [
+                Object {
+                  "column": 3,
+                  "line": 8,
+                },
+              ],
+              "message": "[serviceB] Product.name -> Field \\"Product.name\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
+            },
           ]
         `);
 
@@ -456,9 +498,9 @@ describe('composeServices', () => {
                                 name: String!
                               }
                         `);
-        expect(getFederationMetadata(product.getFields()['name'])?.serviceName).toEqual(
-          'serviceB',
-        );
+        expect(
+          getFederationMetadata(product.getFields()['name'])?.serviceName,
+        ).toEqual('serviceB');
       });
 
       it('handles collisions of base types as expected (newest takes precedence)', () => {
@@ -489,8 +531,34 @@ describe('composeServices', () => {
         expect(schema).toBeDefined();
         expect(errors).toMatchInlineSnapshot(`
           Array [
-            [GraphQLError: Field "Product.name" can only be defined once.],
-            [GraphQLError: There can be only one type named "Product".],
+            Object {
+              "code": "MISSING_ERROR",
+              "locations": Array [
+                Object {
+                  "column": 3,
+                  "line": 4,
+                },
+                Object {
+                  "column": 3,
+                  "line": 4,
+                },
+              ],
+              "message": "Field \\"Product.name\\" can only be defined once.",
+            },
+            Object {
+              "code": "MISSING_ERROR",
+              "locations": Array [
+                Object {
+                  "column": 1,
+                  "line": 2,
+                },
+                Object {
+                  "column": 6,
+                  "line": 2,
+                },
+              ],
+              "message": "There can be only one type named \\"Product\\".",
+            },
           ]
         `);
 
@@ -595,7 +663,16 @@ describe('composeServices', () => {
       const { errors, schema } = compositionResult;
       expect(errors).toMatchInlineSnapshot(`
         Array [
-          [GraphQLError: [serviceA] Product.id -> Field "Product.id" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.],
+          Object {
+            "code": "MISSING_ERROR",
+            "locations": Array [
+              Object {
+                "column": 3,
+                "line": 7,
+              },
+            ],
+            "message": "[serviceB] Product.id -> Field \\"Product.id\\" already exists in the schema. It cannot also be defined in this type extension. If this is meant to be an external field, add the \`@external\` directive.",
+          },
         ]
       `);
       expect(schema).toBeDefined();
@@ -611,9 +688,9 @@ describe('composeServices', () => {
       const product = schema.getType('Product') as GraphQLObjectType;
 
       expect(getFederationMetadata(product)?.serviceName).toEqual('serviceA');
-      expect(getFederationMetadata(product.getFields()['id'])?.serviceName).toEqual(
-        'serviceB',
-      );
+      expect(
+        getFederationMetadata(product.getFields()['id'])?.serviceName,
+      ).toEqual('serviceB');
     });
   });
 
@@ -826,7 +903,8 @@ describe('composeServices', () => {
 
         const product = schema.getType('Product')!;
 
-        expect(getFederationMetadata(product)?.externals).toMatchInlineSnapshot(`
+        expect(getFederationMetadata(product)?.externals)
+          .toMatchInlineSnapshot(`
                               Object {
                                 "serviceB--MISSING": Array [
                                   Object {
@@ -885,9 +963,9 @@ describe('composeServices', () => {
                                 price: Int!
                               }
                         `);
-        expect(getFederationMetadata(product.getFields()['price'])?.serviceName).toEqual(
-          'serviceB',
-        );
+        expect(
+          getFederationMetadata(product.getFields()['price'])?.serviceName,
+        ).toEqual('serviceB');
         expect(getFederationMetadata(product)?.serviceName).toEqual('serviceA');
       });
     });
@@ -994,7 +1072,8 @@ describe('composeServices', () => {
         const { schema } = compositionResult;
 
         const review = schema.getType('Review') as GraphQLObjectType;
-        expect(getFederationMetadata(review.getFields()['product'])).toMatchInlineSnapshot(`
+        expect(getFederationMetadata(review.getFields()['product']))
+          .toMatchInlineSnapshot(`
           Object {
             "belongsToValueType": false,
             "provides": sku,
@@ -1126,7 +1205,9 @@ describe('composeServices', () => {
         const { schema } = compositionResult;
 
         const valueType = schema.getType('ValueType') as GraphQLObjectType;
-        const userFieldFederationMetadata = getFederationMetadata(valueType.getFields()['user']);
+        const userFieldFederationMetadata = getFederationMetadata(
+          valueType.getFields()['user'],
+        );
         expect(userFieldFederationMetadata?.belongsToValueType).toBe(true);
         expect(userFieldFederationMetadata?.serviceName).toBe(null);
       });
@@ -1351,7 +1432,7 @@ describe('composeServices', () => {
     it('keeps executable directives in the schema', () => {
       const serviceA = {
         typeDefs: gql`
-          directive @defer on  FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+          directive @defer on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
         `,
         name: 'serviceA',
       };
@@ -1367,13 +1448,13 @@ describe('composeServices', () => {
     it('keeps executable directives in the schema', () => {
       const serviceA = {
         typeDefs: gql`
-          directive @defer on  FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+          directive @defer on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
         `,
         name: 'serviceA',
       };
       const serviceB = {
         typeDefs: gql`
-          directive @stream on  FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+          directive @stream on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
         `,
         name: 'serviceB',
       };

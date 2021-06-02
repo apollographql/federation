@@ -26,12 +26,12 @@ import {
   GraphQLString,
   DEFAULT_DEPRECATION_REASON,
   SelectionNode,
-  stripIgnoredCharacters,
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
 import { assert } from '../utilities';
 import { CoreDirective } from '../coreSpec';
 import { getJoinDefinitions } from '../joinSpec';
+import { printFieldSet } from '../composition/utils';
 
 type Options = {
   /**
@@ -361,17 +361,6 @@ function printFields(
   const isEntity = Boolean(type.extensions?.federation?.keys);
 
   return printBlock(fields, isEntity);
-}
-
-/**
- * Core change: print fieldsets for @join__field's @key, @requires, and @provides args
- *
- * @param selections
- */
-function printFieldSet(selections: readonly SelectionNode[]): string {
-  return selections
-    .map((selection) => stripIgnoredCharacters(print(selection)))
-    .join(' ');
 }
 
 /**

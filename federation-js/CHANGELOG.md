@@ -4,7 +4,16 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
--  _Nothing yet! Stay tuned!_
+## v0.25.1
+
+-  `ASTNodeWithDirectives` now includes all AST nodes with the `directives` field on it. [PR #755](https://github.com/apollographql/federation/pull/755)
+
+## Update spec
+- Add `repeatable` keyword to the @key directive in federation spec. [PR #758](https://github.com/apollographql/federation/pull/758)
+
+## v0.25.0
+
+- Composition errors now include `locations` corresponding to the line number & column in the subgraph SDL. [PR #686](https://github.com/apollographql/federation/pull/686)
 
 ## v0.24.0
 
@@ -21,6 +30,7 @@
 ## v0.23.0
 
 - __BREAKING__ - Update CSDL to the new core schema format, implementing the currently-being-introduced core and join specs. `composeAndValidate` now returns `supergraphSdl` in the new format instead of `composedSdl` in the previous CSDL format. [PR #622](https://github.com/apollographql/federation/pull/622)
+
 ## v0.22.0
 
 - No changes to the package itself, though there are some small changes to the way this package is compiled and the tests within this package due to the changes in [PR #453](https://github.com/apollographql/federation/pull/453)

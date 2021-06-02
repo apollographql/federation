@@ -1,7 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { requiresFieldsMissingOnBase as validateRequiresFieldsMissingOnBase } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -71,6 +73,12 @@ describe('requiresFieldsMissingOnBase', () => {
       Array [
         Object {
           "code": "REQUIRES_FIELDS_MISSING_ON_BASE",
+          "locations": Array [
+            Object {
+              "column": 36,
+              "line": 4,
+            },
+          ],
           "message": "[serviceC] Product.weight -> requires the field \`id\` to be @external. @external fields must exist on the base type, not an extension.",
         },
       ]

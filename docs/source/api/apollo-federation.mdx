@@ -17,7 +17,7 @@ const server = new ApolloServer({
 });
 ```
 
-Used when [defining an implementing service](../implementing-services/#defining-an-implementing-service) in a federated graph.
+Used when [defining a subgraph](../subgraphs/#defining-a-subgraph) in a federated graph.
 
 Each schema module is an object with the following format:
 
@@ -91,7 +91,7 @@ const server = new ApolloServer({
 
 The name of a special **reference resolver** function you can define for every [entity](../entities/) in a resolver map, _if_ that resolver map is part of a [federated schema](#buildfederatedschema).
 
-The `__resolveReference` function enables your gateway's query planner to resolve a particular entity by whatever unique identifier your other implementing services use to reference it. For details, see [Entities: Resolving](../entities/#resolving).
+The `__resolveReference` function enables your gateway's query planner to resolve a particular entity by whatever unique identifier your other subgraphs use to reference it. For details, see [Entities: Resolving](../entities/#resolving).
 
 The function takes the parameters listed below.
 
@@ -115,9 +115,9 @@ The function takes the parameters listed below.
 </td>
 <td>
 
-The representation of the entity that's passed from another implementing service.
+The representation of the entity that's passed from another subgraph.
 
-This object includes a `__typename` field, along with whichever fields the service uses for the entity's `@key`.
+This object includes a `__typename` field, along with whichever fields the subgraph uses for the entity's `@key`.
 </td>
 </tr>
 

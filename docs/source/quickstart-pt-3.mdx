@@ -9,8 +9,6 @@ import {Link} from 'gatsby';
 import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 import { VideoFrame } from 'gatsby-theme-apollo-docs';
 
-> **Reminder:** This tutorial uses some Apollo tools and terminology that are still in **preview**, and therefore this content is not yet recommended for use in a production environment.
-
 In [Part 1](./quickstart/) and [Part 2](./quickstart-pt-2/), we used Apollo-hosted services for our subgraphs. Now, let's see what we can do with our _own_ subgraphs.
 
 A service that you want to act as a subgraph can use any GraphQL server that supports Apollo Federation. This includes Apollo Server, along with the servers listed in [Supported libraries](./other-servers/).
@@ -75,8 +73,6 @@ After you've registered your first subgraph schema, you can try out one of Apoll
 > Schema checks are a **paid feature** of Apollo Studio. You can try them out with a free trial of a Team plan.
 
 With schema checks, you can check whether some changes you want to make to your schema will affect any of the clients that use your graph. This feature is at its most powerful in your CI/CD environment, where you can automatically detect breaking schema changes before they're deployed to production.
-
-> The official docs for schema checks still use `apollo` CLI commands instead of `rover`. Wherever those docs use `apollo service:check`, you can use `rover subgraph check` instead. For details, [see the Rover docs](https://www.apollographql.com/docs/rover/subgraphs/#checking-subgraph-schema-changes).
 
 1. [Learn about the basics of schema checks](https://www.apollographql.com/docs/studio/schema-checks/)
 2. [Learn about using schema checks with Apollo Federation](./managed-federation/federated-schema-checks/)

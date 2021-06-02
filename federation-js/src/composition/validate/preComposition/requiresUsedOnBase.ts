@@ -1,7 +1,7 @@
 import { GraphQLError, visit } from 'graphql';
 import { ServiceDefinition } from '../../types';
 
-import { logServiceAndType, errorWithCode } from '../../utils';
+import { logServiceAndType, errorWithCode, findDirectivesOnNode } from '../../utils';
 
 /**
  * - There are no fields with @requires on base type definitions
@@ -29,6 +29,7 @@ export const requiresUsedOnBase = ({
                       field.name.value,
                     ) +
                       `Found extraneous @requires directive. @requires cannot be used on base types.`,
+                    findDirectivesOnNode(field, 'requires'),
                   ),
                 );
               }

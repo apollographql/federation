@@ -1,6 +1,8 @@
-import gql from 'graphql-tag';
 import { duplicateEnumValue as validateDuplicateEnumValue } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -66,6 +68,12 @@ describe('duplicateEnumValue', () => {
       Array [
         Object {
           "code": "DUPLICATE_ENUM_VALUE",
+          "locations": Array [
+            Object {
+              "column": 3,
+              "line": 20,
+            },
+          ],
           "message": "[serviceA] ProductType.BOOK -> The enum, \`ProductType\` has multiple definitions of the \`BOOK\` value.",
         },
       ]

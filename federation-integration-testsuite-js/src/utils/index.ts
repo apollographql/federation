@@ -1,0 +1,1 @@
+export { gql } from './gql';

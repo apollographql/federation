@@ -1,7 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { requiresFieldsMissingExternal as validateRequiresFieldsMissingExternal } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -68,6 +70,12 @@ describe('requiresFieldsMissingExternal', () => {
       Array [
         Object {
           "code": "REQUIRES_FIELDS_MISSING_EXTERNAL",
+          "locations": Array [
+            Object {
+              "column": 33,
+              "line": 3,
+            },
+          ],
           "message": "[serviceB] Product.price -> requires the field \`id\` to be marked as @external.",
         },
       ]

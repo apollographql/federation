@@ -1,14 +1,15 @@
 import {
   isObjectType,
   GraphQLError,
-  SelectionNode,
-  stripIgnoredCharacters,
-  print,
 } from 'graphql';
 import {
   logServiceAndType,
   errorWithCode,
   getFederationMetadata,
+  findTypeNodeInServiceList,
+  findSelectionSetOnNode,
+  isDirectiveDefinitionNode,
+  printFieldSet,
 } from '../../utils';
 import { PostCompositionValidator } from '.';
 
@@ -19,6 +20,7 @@ import { PostCompositionValidator } from '.';
  */
 export const keysMatchBaseService: PostCompositionValidator = function ({
   schema,
+  serviceList,
 }) {
   const errors: GraphQLError[] = [];
   const types = schema.getTypeMap();
@@ -38,6 +40,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
               'KEY_MISSING_ON_BASE',
               logServiceAndType(serviceName, parentTypeName) +
                 `appears to be an entity but no @key directives are specified on the originating type.`,
+              findTypeNodeInServiceList(parentTypeName, serviceName, serviceList),
             ),
           );
           continue;
@@ -49,12 +52,14 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
           .filter(([service]) => service !== serviceName)
           .forEach(([extendingService, keyFields = []]) => {
             // Extensions can't specify more than one key
+            const extendingServiceTypeNode = findTypeNodeInServiceList(parentTypeName, extendingService, serviceList);
             if (keyFields.length > 1) {
               errors.push(
                 errorWithCode(
                   'MULTIPLE_KEYS_ON_EXTENSION',
                   logServiceAndType(extendingService, parentTypeName) +
                     `is extended from service ${serviceName} but specifies multiple @key directives. Extensions may only specify one @key.`,
+                  extendingServiceTypeNode,
                 ),
               );
               return;
@@ -65,6 +70,8 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
             // In the future, `@key`s just need to be "reachable" through a number of
             // services which can link one key to another via "joins".
             const extensionKey = printFieldSet(keyFields[0]);
+            const selectionSetNode = !isDirectiveDefinitionNode(extendingServiceTypeNode) ?
+              findSelectionSetOnNode(extendingServiceTypeNode, 'key', extensionKey) : undefined;
             if (!availableKeys.includes(extensionKey)) {
               errors.push(
                 errorWithCode(
@@ -74,6 +81,7 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
                     `\t${availableKeys
                       .map((fieldSet) => `@key(fields: "${fieldSet}")`)
                       .join('\n\t')}`,
+                  selectionSetNode,
                 ),
               );
               return;
@@ -85,9 +93,3 @@ export const keysMatchBaseService: PostCompositionValidator = function ({
 
   return errors;
 };
-
-function printFieldSet(selections: readonly SelectionNode[]): string {
-  return selections
-    .map((selection) => stripIgnoredCharacters(print(selection)))
-    .join(' ');
-}

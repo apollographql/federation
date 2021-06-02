@@ -1,5 +1,4 @@
 import { composeAndValidate } from '../composeAndValidate';
-import gql from 'graphql-tag';
 import {
   GraphQLObjectType,
   DocumentNode,
@@ -11,6 +10,7 @@ import {
   astSerializer,
   typeSerializer,
   graphqlErrorSerializer,
+  gql,
 } from 'apollo-federation-integration-testsuite';
 import {
   assertCompositionFailure,
@@ -117,49 +117,6 @@ it('composes and validates all (24) permutations without error', () => {
   });
 });
 
-it('errors when a type extension has no base', () => {
-  const serviceA = {
-    typeDefs: gql`
-      schema {
-        query: MyRoot
-      }
-
-      type MyRoot {
-        products: [Product]!
-      }
-
-      type Product @key(fields: "sku") {
-        sku: String!
-        upc: String!
-      }
-    `,
-    name: 'serviceA',
-  };
-
-  const serviceB = {
-    typeDefs: gql`
-      extend type Location {
-        id: ID
-      }
-    `,
-    name: 'serviceB',
-  };
-
-  const compositionResult = composeAndValidate([serviceA, serviceB]);
-
-  assertCompositionFailure(compositionResult);
-
-  expect(compositionResult.errors).toHaveLength(1);
-  expect(compositionResult.errors).toMatchInlineSnapshot(`
-    Array [
-      Object {
-        "code": "EXTENSION_WITH_NO_BASE",
-        "message": "[serviceB] Location -> \`Location\` is an extension type, but \`Location\` is not defined in any service",
-      },
-    ]
-  `);
-});
-
 it("doesn't throw errors when a type is unknown, but captures them instead", () => {
   const serviceA = {
     typeDefs: gql`
@@ -186,14 +143,27 @@ it("doesn't throw errors when a type is unknown, but captures them instead", () 
     Array [
       Object {
         "code": "MISSING_ERROR",
+        "locations": Array [
+          Object {
+            "column": 8,
+            "line": 3,
+          },
+        ],
         "message": "Unknown type \\"Bar\\".",
       },
       Object {
         "code": "EXTENSION_WITH_NO_BASE",
+        "locations": Array [
+          Object {
+            "column": 1,
+            "line": 6,
+          },
+        ],
         "message": "[serviceA] Bar -> \`Bar\` is an extension type, but \`Bar\` is not defined in any service",
       },
       Object {
         "code": "MISSING_ERROR",
+        "locations": Array [],
         "message": "Type Query must define one or more fields.",
       },
     ]
@@ -277,56 +247,6 @@ it('treats interfaces with @extends as interface extensions', () => {
       upc: String!
       price: Int!
     }
-  `);
-});
-
-it('errors on invalid usages of default operation names', () => {
-  const serviceA = {
-    typeDefs: gql`
-      schema {
-        query: RootQuery
-      }
-
-      type RootQuery {
-        product: Product
-      }
-
-      type Product @key(fields: "id") {
-        id: ID!
-        query: Query
-      }
-
-      type Query {
-        invalidUseOfQuery: Boolean
-      }
-    `,
-    name: 'serviceA',
-  };
-
-  const serviceB = {
-    typeDefs: gql`
-      type Query {
-        validUseOfQuery: Boolean
-      }
-
-      extend type Product @key(fields: "id") {
-        id: ID! @external
-        sku: String
-      }
-    `,
-    name: 'serviceB',
-  };
-
-  const compositionResult = composeAndValidate([serviceA, serviceB]);
-
-  assertCompositionFailure(compositionResult);
-  expect(compositionResult.errors).toMatchInlineSnapshot(`
-    Array [
-      Object {
-        "code": "ROOT_QUERY_USED",
-        "message": "[serviceA] Query -> Found invalid use of default root operation name \`Query\`. \`Query\` is disallowed when \`Schema.query\` is set to a type other than \`Query\`.",
-      },
-    ]
   `);
 });
 
@@ -447,6 +367,111 @@ describe('composition of value types', () => {
   });
 
   describe('errors', () => {
+    it('on invalid usages of default operation names', () => {
+      const serviceA = {
+        typeDefs: gql`
+          schema {
+            query: RootQuery
+          }
+
+          type RootQuery {
+            product: Product
+          }
+
+          type Product @key(fields: "id") {
+            id: ID!
+            query: Query
+          }
+
+          type Query {
+            invalidUseOfQuery: Boolean
+          }
+        `,
+        name: 'serviceA',
+      };
+
+      const serviceB = {
+        typeDefs: gql`
+          type Query {
+            validUseOfQuery: Boolean
+          }
+
+          extend type Product @key(fields: "id") {
+            id: ID! @external
+            sku: String
+          }
+        `,
+        name: 'serviceB',
+      };
+
+      const compositionResult = composeAndValidate([serviceA, serviceB]);
+
+      assertCompositionFailure(compositionResult);
+      expect(compositionResult.errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "code": "ROOT_QUERY_USED",
+            "locations": Array [
+              Object {
+                "column": 1,
+                "line": 15,
+              },
+            ],
+            "message": "[serviceA] Query -> Found invalid use of default root operation name \`Query\`. \`Query\` is disallowed when \`Schema.query\` is set to a type other than \`Query\`.",
+          },
+        ]
+      `);
+    });
+
+    it('when a type extension has no base', () => {
+      const serviceA = {
+        typeDefs: gql`
+          schema {
+            query: MyRoot
+          }
+
+          type MyRoot {
+            products: [Product]!
+          }
+
+          type Product @key(fields: "sku") {
+            sku: String!
+            upc: String!
+          }
+        `,
+        name: 'serviceA',
+      };
+
+      const serviceB = {
+        typeDefs: gql`
+          extend type Location {
+            id: ID
+          }
+        `,
+        name: 'serviceB',
+      };
+
+      const compositionResult = composeAndValidate([serviceA, serviceB]);
+
+      assertCompositionFailure(compositionResult);
+
+      expect(compositionResult.errors).toHaveLength(1);
+      expect(compositionResult.errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "code": "EXTENSION_WITH_NO_BASE",
+            "locations": Array [
+              Object {
+                "column": 1,
+                "line": 2,
+              },
+            ],
+            "message": "[serviceB] Location -> \`Location\` is an extension type, but \`Location\` is not defined in any service",
+          },
+        ]
+      `);
+    });
+
     it('when used as an entity', () => {
       const serviceA = {
         typeDefs: gql`
@@ -483,6 +508,16 @@ describe('composition of value types', () => {
       expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_NO_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 6,
+            },
+            Object {
+              "column": 1,
+              "line": 6,
+            },
+          ],
           "message": "[serviceB] Product -> Value types cannot be entities (using the \`@key\` directive). Please ensure that the \`Product\` type is extended properly or remove the \`@key\` directive if this is not an entity.",
         }
       `);
@@ -524,6 +559,16 @@ describe('composition of value types', () => {
       expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 10,
+              "line": 8,
+            },
+            Object {
+              "column": 10,
+              "line": 8,
+            },
+          ],
           "message": "[serviceA] Product.color -> A field was defined differently in different services. \`serviceA\` and \`serviceB\` define \`Product.color\` as a String! and String respectively. In order to define \`Product\` in multiple places, the fields and their types must be identical.",
         }
       `);
@@ -564,6 +609,16 @@ describe('composition of value types', () => {
       expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_KIND_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 6,
+            },
+            Object {
+              "column": 1,
+              "line": 6,
+            },
+          ],
           "message": "[serviceA] Product -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`Product\` is defined as both a \`ObjectTypeDefinition\` and a \`InterfaceTypeDefinition\`. In order to define \`Product\` in multiple places, the kinds must be identical.",
         }
       `);
@@ -614,6 +669,16 @@ describe('composition of value types', () => {
       expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_UNION_TYPES_MISMATCH",
+          "locations": Array [
+            Object {
+              "column": 1,
+              "line": 14,
+            },
+            Object {
+              "column": 1,
+              "line": 14,
+            },
+          ],
           "message": "[serviceA] Product -> The union \`Product\` is defined in services \`serviceA\` and \`serviceB\`, however their types do not match. Union types with the same name must also consist of identical types. The types Cabinet, Mattress are mismatched.",
         }
       `);
@@ -845,7 +910,7 @@ it('composition of full-SDL schemas without any errors', () => {
       ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       # Federation directives
-      directive @key(fields: _FieldSet!) on OBJECT | INTERFACE
+      directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
       directive @external on FIELD_DEFINITION
       directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
       directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
@@ -903,7 +968,7 @@ it('composition of full-SDL schemas without any errors', () => {
       ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       # Federation directives
-      directive @key(fields: _FieldSet!) on OBJECT | INTERFACE
+      directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
       directive @external on FIELD_DEFINITION
       directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
       directive @provides(fields: _FieldSet!) on FIELD_DEFINITION

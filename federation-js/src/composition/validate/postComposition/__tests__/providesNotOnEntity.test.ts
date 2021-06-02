@@ -1,7 +1,9 @@
-import gql from 'graphql-tag';
 import { composeServices } from '../../../compose';
 import { providesNotOnEntity as validateProvidesNotOnEntity } from '../';
-import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  gql,
+  graphqlErrorSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -127,6 +129,12 @@ describe('providesNotOnEntity', () => {
       Array [
         Object {
           "code": "PROVIDES_NOT_ON_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 22,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.lineItem -> uses the @provides directive but \`Product.lineItem\` does not return a type that has a @key. Try adding a @key to the \`LineItem\` type.",
         },
       ]
@@ -167,6 +175,12 @@ describe('providesNotOnEntity', () => {
       Array [
         Object {
           "code": "PROVIDES_NOT_ON_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 25,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.lineItems -> uses the @provides directive but \`Product.lineItems\` does not return a type that has a @key. Try adding a @key to the \`LineItem\` type.",
         },
       ]
@@ -209,6 +223,12 @@ describe('providesNotOnEntity', () => {
       Array [
         Object {
           "code": "PROVIDES_NOT_ON_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 22,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.category -> uses the @provides directive but \`Product.category\` returns \`Category\`, which is not an Object or List type. @provides can only be used on Object types with at least one @key, or Lists of such Objects.",
         },
       ]
@@ -251,6 +271,12 @@ describe('providesNotOnEntity', () => {
       Array [
         Object {
           "code": "PROVIDES_NOT_ON_ENTITY",
+          "locations": Array [
+            Object {
+              "column": 26,
+              "line": 4,
+            },
+          ],
           "message": "[serviceB] Product.categories -> uses the @provides directive but \`Product.categories\` returns \`[Category]\`, which is not an Object or List type. @provides can only be used on Object types with at least one @key, or Lists of such Objects.",
         },
       ]

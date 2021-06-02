@@ -7,7 +7,7 @@ import {
   isUnionType,
   GraphQLError,
 } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode, isDirectiveDefinitionNode, printFieldSet } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -17,6 +17,7 @@ import { PostCompositionValidator } from '.';
  */
 export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
   schema,
+  serviceList,
 }) => {
   const errors: GraphQLError[] = [];
 
@@ -36,12 +37,17 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
 
             // find corresponding field for each selected field
             const matchingField = allFieldsInType[name];
+            const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
+            const selectionSetNode = !isDirectiveDefinitionNode(typeNode) ?
+              findSelectionSetOnNode(typeNode, 'key', printFieldSet(selectionSet)) : undefined;
+
             if (!matchingField) {
               errors.push(
                 errorWithCode(
                   'KEY_FIELDS_SELECT_INVALID_TYPE',
                   logServiceAndType(serviceName, typeName) +
                     `A @key selects ${name}, but ${typeName}.${name} could not be found`,
+                  selectionSetNode,
                 ),
               );
             }
@@ -57,6 +63,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
                     'KEY_FIELDS_SELECT_INVALID_TYPE',
                     logServiceAndType(serviceName, typeName) +
                       `A @key selects ${typeName}.${name}, which is an interface type. Keys cannot select interfaces.`,
+                    selectionSetNode,
                   ),
                 );
               }
@@ -71,6 +78,7 @@ export const keyFieldsSelectInvalidType: PostCompositionValidator = ({
                     'KEY_FIELDS_SELECT_INVALID_TYPE',
                     logServiceAndType(serviceName, typeName) +
                       `A @key selects ${typeName}.${name}, which is a union type. Keys cannot select union types.`,
+                    selectionSetNode,
                   ),
                 );
               }

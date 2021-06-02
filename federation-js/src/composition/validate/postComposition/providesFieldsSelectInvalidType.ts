@@ -7,8 +7,10 @@ import {
   isNonNullType,
   getNullableType,
   isUnionType,
+  InputValueDefinitionNode,
+  FieldDefinitionNode,
 } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata } from '../../utils';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode, printFieldSet } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -18,6 +20,7 @@ import { PostCompositionValidator } from '.';
  */
 export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
   schema,
+  serviceList,
 }) => {
   const errors: GraphQLError[] = [];
 
@@ -46,12 +49,19 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
         for (const selection of selections) {
           const name = selection.name.value;
           const matchingField = allFields[name];
+          const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
+          const fieldNode = typeNode && 'fields' in typeNode ?
+            (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])
+            ?.find(field => field.name.value === fieldName) : undefined;
+          const selectionSetNode = findSelectionSetOnNode(fieldNode, 'provides', printFieldSet(selections));
+
           if (!matchingField) {
             errors.push(
               errorWithCode(
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${name}, but ${fieldType.name}.${name} could not be found`,
+                selectionSetNode,
               ),
             );
             continue;
@@ -67,6 +77,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${fieldType.name}.${name}, which is a list type. A field cannot @provide lists.`,
+                selectionSetNode,
               ),
             );
           }
@@ -80,6 +91,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${fieldType.name}.${name}, which is an interface type. A field cannot @provide interfaces.`,
+                selectionSetNode,
               ),
             );
           }
@@ -94,6 +106,7 @@ export const providesFieldsSelectInvalidType: PostCompositionValidator = ({
                 'PROVIDES_FIELDS_SELECT_INVALID_TYPE',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `A @provides selects ${fieldType.name}.${name}, which is a union type. A field cannot @provide union types.`,
+                selectionSetNode,
               ),
             );
           }

@@ -15,13 +15,13 @@ module.exports = {
           null: [
             'index',
           ],
-          'Quickstart (Preview)': [
+          'Quickstart': [
             'quickstart',
             'quickstart-pt-2',
             'quickstart-pt-3',
           ],
           'Core Concepts': [
-            'implementing-services',
+            'subgraphs',
             'gateway',
             'entities',
             'value-types',

@@ -1,7 +1,7 @@
 import { visit, GraphQLError } from 'graphql';
 import { ServiceDefinition } from '../../types';
 
-import { logServiceAndType, errorWithCode } from '../../utils';
+import { logServiceAndType, errorWithCode, findDirectivesOnNode } from '../../utils';
 
 /**
  * - There are no fields with @external on base type definitions
@@ -29,6 +29,7 @@ export const externalUsedOnBase = ({
                       field.name.value,
                     ) +
                       `Found extraneous @external directive. @external cannot be used on base types.`,
+                    findDirectivesOnNode(field, 'external')
                   ),
                 );
               }

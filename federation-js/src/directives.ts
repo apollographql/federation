@@ -7,18 +7,13 @@ import {
   isInputObjectType,
   GraphQLInputObjectType,
   DirectiveNode,
-  ScalarTypeDefinitionNode,
-  ObjectTypeDefinitionNode,
-  InterfaceTypeDefinitionNode,
-  UnionTypeDefinitionNode,
-  EnumTypeDefinitionNode,
-  ScalarTypeExtensionNode,
-  ObjectTypeExtensionNode,
-  InterfaceTypeExtensionNode,
-  UnionTypeExtensionNode,
-  EnumTypeExtensionNode,
   GraphQLField,
   FieldDefinitionNode,
+  InputValueDefinitionNode,
+  SchemaDefinitionNode,
+  TypeSystemExtensionNode,
+  TypeDefinitionNode,
+  ExecutableDefinitionNode,
 } from 'graphql';
 
 export const KeyDirective = new GraphQLDirective({
@@ -72,17 +67,12 @@ export const federationDirectives = [
 export default federationDirectives;
 
 export type ASTNodeWithDirectives =
-  | ScalarTypeDefinitionNode
-  | ObjectTypeDefinitionNode
-  | InterfaceTypeDefinitionNode
-  | UnionTypeDefinitionNode
-  | EnumTypeDefinitionNode
-  | ScalarTypeExtensionNode
-  | ObjectTypeExtensionNode
-  | InterfaceTypeExtensionNode
-  | UnionTypeExtensionNode
-  | EnumTypeExtensionNode
-  | FieldDefinitionNode;
+  | FieldDefinitionNode
+  | InputValueDefinitionNode
+  | ExecutableDefinitionNode
+  | SchemaDefinitionNode
+  | TypeDefinitionNode
+  | TypeSystemExtensionNode;
 
 // | GraphQLField<any, any>
 export type GraphQLNamedTypeWithDirectives = Exclude<

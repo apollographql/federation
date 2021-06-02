@@ -1,5 +1,5 @@
-import { isObjectType, FieldNode, GraphQLError } from 'graphql';
-import { logServiceAndType, errorWithCode, getFederationMetadata } from '../../utils';
+import { isObjectType, FieldNode, GraphQLError, FieldDefinitionNode, InputValueDefinitionNode } from 'graphql';
+import { logServiceAndType, errorWithCode, getFederationMetadata, findTypeNodeInServiceList, findSelectionSetOnNode, printFieldSet } from '../../utils';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -7,6 +7,7 @@ import { PostCompositionValidator } from '.';
  */
 export const requiresFieldsMissingExternal: PostCompositionValidator = ({
   schema,
+  serviceList,
 }) => {
   const errors: GraphQLError[] = [];
 
@@ -40,11 +41,21 @@ export const requiresFieldsMissingExternal: PostCompositionValidator = ({
               )
             : undefined;
           if (!foundMatchingExternal) {
+            const typeNode = findTypeNodeInServiceList(typeName, serviceName, serviceList);
+            const fieldNode =
+              typeNode &&
+              'fields' in typeNode ?
+              (typeNode.fields as (FieldDefinitionNode | InputValueDefinitionNode)[])?.
+                find(field => field.name.value === fieldName) : undefined;
+            const selectionSetNode = findSelectionSetOnNode(fieldNode, 'requires', printFieldSet(selections));
             errors.push(
               errorWithCode(
                 'REQUIRES_FIELDS_MISSING_EXTERNAL',
                 logServiceAndType(serviceName, typeName, fieldName) +
                   `requires the field \`${selection.name.value}\` to be marked as @external.`,
+                // TODO (Issue #705): when we can associate locations to service name's this should be the node of the
+                // field on the other service that needs to be marked external
+                selectionSetNode,
               ),
             );
           }

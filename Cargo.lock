@@ -39,9 +39,9 @@ dependencies = [
 
 [[package]]
 name = "deno_core"
-version = "0.83.0"
+version = "0.86.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e925978edbdbb035402d5e5cfa5df74229816f9576ab530b64e150dc7a2b7ce"
+checksum = "9d901cde9bf3a7b05d090098fcab18297c3a49e77344262013c9d652c653e824"
 dependencies = [
  "anyhow",
  "futures",
@@ -53,7 +53,7 @@ dependencies = [
  "rusty_v8",
  "serde",
  "serde_json",
- "smallvec",
+ "serde_v8",
  "url",
 ]
 
@@ -189,7 +189,7 @@ dependencies = [
 
 [[package]]
 name = "harmonizer"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "deno_core",
@@ -262,9 +262,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.92"
+version = "0.2.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56d855069fafbb9b344c0f962150cd2c1187975cb1c22c1522c240d8c4986714"
+checksum = "18794a8ad5b29321f790b55d93dfba91e125cb1a9edbd4f8e3150acc771c1a5e"
 
 [[package]]
 name = "linked-hash-map"
@@ -363,9 +363,9 @@ dependencies = [
 
 [[package]]
 name = "rusty_v8"
-version = "0.21.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44bcf83fc222cc6caf4404414eae397c910e2f1ee31f291024434ae5cc312918"
+checksum = "9e39f106a3e39e8d18bc7dcbd4d59ece79cd27f888c6d82e0c93aa56d4708fdd"
 dependencies = [
  "bitflags",
  "fslock",
@@ -413,6 +413,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_v8"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "416bd8e099d34cc6efc6a22655308c609faaf123ed49027b03d03d17c9f819e0"
+dependencies = [
+ "rusty_v8",
+ "serde",
+]
+
+[[package]]
 name = "serde_yaml"
 version = "0.8.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -435,12 +445,6 @@ name = "slab"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
-
-[[package]]
-name = "smallvec"
-version = "1.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 
 [[package]]
 name = "syn"
