@@ -101,32 +101,33 @@ export function mockSupergraphSdlRequestSuccess(
 }
 
 export function mockOutOfBandReportRequest() {
+  return gatewayNock(mockOutOfBandReporterUrl).post('/', () => true);
+}
+
+export function mockOutOfBandReportRequestTimeout() {
   return gatewayNock(mockOutOfBandReporterUrl).post('/', {
     query: OUT_OF_BAND_REPORTER_QUERY,
     variables: {
       input: {
         error: {
-          code: 'OTHER',
-          message: ''
+          code: 'TIMEOUT',
+          message: 'An error occurred while fetching your schema from Apollo: '
         },
         request: {
-          url: '',
+          url: 'https://example.cloud-config-url.com/cloudconfig/',
           headers: [],
           body: ''
         },
         response: {
-          httpStatusCode: 200,
+          httpStatusCode: 408,
           headers: [],
           body: ''
         },
-        startedAt: new Date().toISOString(),
-        endedAt: new Date().toISOString(),
         tags: []
       }
     },
   });
 }
-
 
 export function mockOutOfBandReportRequestSuccess() {
   return mockOutOfBandReportRequest().reply(

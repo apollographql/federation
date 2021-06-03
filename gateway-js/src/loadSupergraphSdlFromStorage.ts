@@ -80,6 +80,13 @@ async function submitOutOfBandReport({
   }
 
   try {
+    let responseBody;
+    try{
+      responseBody = await response?.json();
+    } catch (e) {
+      responseBody = null;
+    }
+
     const result = await fetcher(process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT!!, {
       method: 'POST',
       body: JSON.stringify({
@@ -92,13 +99,13 @@ async function submitOutOfBandReport({
             },
             request: {
               url: request.url,
-              headers: request.headers,
-              body: request.bodyUsed ? request.json() : ''
+              headers: Object.entries(request.headers),
+              body: request.bodyUsed ? await request.json() : ''
             },
             response: response ? {
               httpStatusCode: response.status,
-              headers: response.headers,
-              body: response.json()
+              headers: Object.entries(response.headers),
+              body: responseBody
             } : null,
             startedAt: startedAt,
             endedAt: endedAt,
@@ -115,8 +122,9 @@ async function submitOutOfBandReport({
     });
 
     const oobResponse = await result.json();
-    if (!oobResponse?.reportError) {
-      console.log("Failed to submit error report")
+    if (!oobResponse?.data?.reportError) {
+      throw new Error("An error occured while reporting your error to Apollo: "
+      + fetchErrorMsg + result.status + ' ' + result.statusText);
     }
   } catch (e) {
     throw new Error(fetchErrorMsg + (e.message ?? e));
@@ -137,7 +145,7 @@ export async function loadSupergraphSdlFromStorage({
   fetcher: typeof fetch;
 }) {
   let result: Response;
-  const request: Request = new Request(endpoint, {
+  const requestDetails = {
     method: 'POST',
     body: JSON.stringify({
       query: SUPERGRAPH_SDL_QUERY,
@@ -146,23 +154,23 @@ export async function loadSupergraphSdlFromStorage({
         apiKey,
       },
     }),
-    headers: [
-      ['apollographql-client-name', name],
-      ['apollographql-client-version', version],
-      ['user-agent', `${name}/${version}`],
-      ['content-type', 'application/json']
-    ]
-  });
+    headers: {
+      'apollographql-client-name': name,
+      'apollographql-client-version': version,
+      'user-agent': `${name}/${version}`,
+      'content-type': 'application/json',
+    },
+  };
+
+  const request: Request = new Request(endpoint, requestDetails);
 
   const startTime = new Date()
   try {
-    console.log(request.url)
-    result = await fetcher(request);
+    result = await fetcher(endpoint, requestDetails);
   } catch (e) {
     const endTime = new Date();
-    console.log(e)
 
-    submitOutOfBandReport({
+    await submitOutOfBandReport({
       error: e,
       request,
       startedAt: startTime.toISOString(),
@@ -192,15 +200,18 @@ export async function loadSupergraphSdlFromStorage({
       );
     }
   } else {
-    submitOutOfBandReport({
-      error: fetchErrorMsg,
-      request,
-      response: result,
-      startedAt: startTime.toISOString(),
-      endedAt: endTime.toISOString(),
-      fetcher
-    });
-
+    try {
+      await submitOutOfBandReport({
+        error: fetchErrorMsg + result.status + ' ' + result.statusText,
+        request,
+        response: result,
+        startedAt: startTime.toISOString(),
+        endedAt: endTime.toISOString(),
+        fetcher
+      });
+    } catch(e) {
+      throw new Error(e);
+    }
     throw new Error(fetchErrorMsg + result.status + ' ' + result.statusText);
   }
 

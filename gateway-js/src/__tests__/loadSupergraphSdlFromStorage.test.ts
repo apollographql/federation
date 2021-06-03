@@ -8,6 +8,7 @@ import {
   mockCloudConfigUrl,
   mockSupergraphSdlRequest,
   mockOutOfBandReportRequestSuccess,
+  mockOutOfBandReportRequestTimeout,
   mockOutOfBandReporterUrl,
 } from './integration/nockMocks';
 import mockedEnv from 'mocked-env';
@@ -385,7 +386,14 @@ describe('loadSupergraphSdlFromStorage', () => {
       });
 
       mockSupergraphSdlRequest().reply(408);
-      mockOutOfBandReportRequestSuccess();
+      mockOutOfBandReportRequestTimeout().reply(
+        200,
+        JSON.stringify({
+          data: {
+            reportError: true
+          },
+        }),
+      );
 
       const fetcher = getDefaultFetcher();
       await expect(
@@ -397,7 +405,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           fetcher,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"An error occurred while fetching your schema from Apollo: 500 Internal Server Error"`,
+        `"An error occurred while fetching your schema from Apollo: 408 Request Timeout"`,
       );
     });
   });
