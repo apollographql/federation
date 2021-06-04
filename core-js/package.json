@@ -1,0 +1,28 @@
+{
+  "name": "@apollo/core",
+  "version": "0.1.0",
+  "description": "Apollo Federation core utilities",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollographql/federation.git",
+    "directory": "core-js/"
+  },
+  "keywords": [
+    "graphql",
+    "federation",
+    "apollo"
+  ],
+  "author": "Apollo <opensource@apollographql.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=12.13.0 <17.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "graphql": "^14.5.0 || ^15.0.0"
+  }
+}
