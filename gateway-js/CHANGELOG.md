@@ -6,9 +6,9 @@
 
 -  Take subtypes into account when matching type conditions to extract representations. [PR #804](https://github.com/apollographql/federation/pull/804)
 
-## v0.28.1
+## v0.28.3
 
-- Fix plan querying a subgraph with an interface it doesn't know due to directives ([#801](https://github.com/apollographql/federation/issues/801)).
+- Fix plan querying a subgraph with an interface it doesn't know due to directives [PR #805](https://github.com/apollographql/federation/pull/805) [Issue #801](https://github.com/apollographql/federation/issues/801)
 
 ## v0.28.0
 

@@ -8,7 +8,7 @@
 
 # v0.2.1
 
-- Fix plan querying a subgraph with an interface it doesn't know due to directives ([#801](https://github.com/apollographql/federation/issues/801)).
+- Fix plan querying a subgraph with an interface it doesn't know due to directives. [PR #805](https://github.com/apollographql/federation/pull/805) [Issue #801](https://github.com/apollographql/federation/issues/801)
 
 # v0.2.0
 
