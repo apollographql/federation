@@ -6,6 +6,10 @@
 
 -  _Nothing yet! Stay tuned!_
 
+# v0.2.1
+
+- Fix plan querying a subgraph with an interface it doesn't know due to directives ([#801](https://github.com/apollographql/federation/issues/801)).
+
 # v0.2.0
 
 - Expand the range of supported `node` versions in the package's `engines` specifier to include the now-tested Node.js `16`. [PR #713](https://github.com/apollographql/federation/pull/713)

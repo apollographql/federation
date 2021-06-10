@@ -91,10 +91,6 @@ export class Scope {
     if (directives && directives.length == 0) {
       directives = undefined;
     }
-    // If we have directives, we always want to preserve the condition so as to preserve that directive.
-    if (directives) {
-      return new Scope(this.context, type, directives, this);
-    }
     // Scope always preserve the immediate parent type, but if the new type is already the parent one
     // and we have not directives to preserve, simply return the existing scope.
     if (!directives && type === this.parentType) {
