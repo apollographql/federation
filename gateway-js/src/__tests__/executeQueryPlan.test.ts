@@ -1118,4 +1118,64 @@ describe('executeQueryPlan', () => {
       }
     `);
   });
+
+  it(`can execute queries with @include on inline fragment with extension field`, async () => {
+    const operationString = `#graphql
+      query {
+        topProducts(first: 5) {
+          ... on Book @include(if: true) {
+            price
+            inStock
+          }
+          ... on Furniture {
+            price
+            inStock
+          }
+        }
+      }
+    `;
+
+    const operationDocument = gql(operationString);
+
+    const operationContext = buildOperationContext({
+      schema,
+      operationDocument,
+    });
+
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+    const response = await executeQueryPlan(
+      queryPlan,
+      serviceMap,
+      buildRequestContext(),
+      operationContext,
+    );
+
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "topProducts": Array [
+          Object {
+            "inStock": true,
+            "price": "899",
+          },
+          Object {
+            "inStock": false,
+            "price": "1299",
+          },
+          Object {
+            "inStock": true,
+            "price": "54",
+          },
+          Object {
+            "inStock": true,
+            "price": "39",
+          },
+          Object {
+            "inStock": false,
+            "price": "29",
+          },
+        ],
+      }
+    `);
+  });
 });
