@@ -1,7 +1,7 @@
 {
   "name": "apollo-federation-integration-testsuite",
   "private": true,
-  "version": "0.25.1",
+  "version": "0.26.0-beta.0",
   "description": "Apollo Federation Integrations / Test Fixtures",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,9 +18,9 @@
   },
   "homepage": "https://github.com/apollographql/federation#readme",
   "dependencies": {
-    "apollo-graphql": "^0.9.3",
-    "graphql-tag": "^2.10.4",
     "@opentelemetry/api": "^0.20.0",
-    "@opentelemetry/tracing": "^0.20.0"
+    "@opentelemetry/tracing": "^0.20.0",
+    "apollo-graphql": "^0.9.3",
+    "graphql-tag": "^2.10.4"
   }
 }
