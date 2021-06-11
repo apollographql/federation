@@ -1,14 +1,14 @@
 import {
-    AnyDirective,
+  AnyDirective,
   AnyDirectiveDefinition,
   AnyFieldDefinition,
-  AnyGraphQLDocument,
+  AnySchema,
   AnyInputFieldDefinition,
   AnyInputObjectType,
   AnyNamedType,
   AnyObjectType,
   AnyScalarType,
-  AnySchema,
+  AnySchemaDefinition,
   AnySchemaElement,
   AnyUnionType,
   defaultRootTypeName,
@@ -29,21 +29,21 @@ const defaultDirectiveFilter = (directive: AnyDirectiveDefinition) => (
   !federationDirectivesNames.includes(directive.name)
 );
 
-export function printDocument(document: AnyGraphQLDocument): string {
-  return printFilteredDocument(document, defaultTypeFilter, defaultDirectiveFilter);
+export function printSchema(schema: AnySchema): string {
+  return printFilteredSchema(schema, defaultTypeFilter, defaultDirectiveFilter);
 }
 
-function printFilteredDocument(
-  document: AnyGraphQLDocument,
+function printFilteredSchema(
+  schema: AnySchema,
   typeFilter: (type: AnyNamedType) => boolean,
   directiveFilter: (type: AnyDirectiveDefinition) => boolean
 ): string {
-  const directives = [...document.directives.values()].filter(directiveFilter);
-  const types = [...document.types.values()]
+  const directives = [...schema.directives.values()].filter(directiveFilter);
+  const types = [...schema.types.values()]
     .sort((type1, type2) => type1.name.localeCompare(type2.name))
     .filter(typeFilter);
   return (
-    [printSchema(document.schema)]
+    [printSchemaDefinition(schema.schemaDefinition)]
       .concat(
         directives.map(directive => printDirectiveDefinition(directive)),
         types.map(type => printTypeDefinition(type)),
@@ -53,11 +53,11 @@ function printFilteredDocument(
   );
 }
 
-function printSchema(schema: AnySchema): string | undefined {
-  if (isSchemaOfCommonNames(schema)) {
+function printSchemaDefinition(schemaDefinition: AnySchemaDefinition): string | undefined {
+  if (isSchemaOfCommonNames(schemaDefinition)) {
     return;
   }
-  const rootEntries = [...schema.roots.entries()].map(([root, type]) => `${indent}${root}: ${type}`);
+  const rootEntries = [...schemaDefinition.roots.entries()].map(([root, type]) => `${indent}${root}: ${type}`);
   return `schema {\n${rootEntries.join('\n')}\n}`;
 }
 
@@ -73,7 +73,7 @@ function printSchema(schema: AnySchema): string | undefined {
  *
  * When using this naming convention, the schema description can be omitted.
  */
-function isSchemaOfCommonNames(schema: AnySchema): boolean {
+function isSchemaOfCommonNames(schema: AnySchemaDefinition): boolean {
   for (const [root, type] of schema.roots) {
     if (type.name != defaultRootTypeName(root)) {
       return false;

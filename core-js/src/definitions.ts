@@ -28,8 +28,8 @@ export function defaultRootTypeName(root: SchemaRoot) {
 
 type ImmutableWorld = {
   detached: never,
-  document: GraphQLDocument,
   schema: Schema,
+  schemaDefinition: SchemaDefinition,
   schemaElement: SchemaElement,
   type: Type,
   namedType: NamedType,
@@ -51,8 +51,8 @@ type ImmutableWorld = {
 
 type MutableWorld = {
   detached: undefined,
-  document: MutableGraphQLDocument,
   schema: MutableSchema,
+  schemaDefinition: MutableSchemaDefinition,
   schemaElement: MutableSchemaElement,
   type: MutableType,
   namedType: MutableNamedType,
@@ -87,7 +87,7 @@ export type MutableInputType = MutableScalarType | MutableInputObjectType;
 export type MutableWrapperType = MutableListType<any>;
 
 // Those exists to make it a bit easier to write code that work on both mutable and immutable variants, if one so wishes.
-export type AnyGraphQLDocument = GraphQLDocument | MutableGraphQLDocument;
+export type AnySchema = Schema | MutableSchema;
 export type AnySchemaElement = SchemaElement | MutableSchemaElement;
 export type AnyType = AnyOutputType | AnyInputType;
 export type AnyNamedType = AnyScalarType | AnyObjectType | AnyUnionType | AnyInputObjectType;
@@ -100,7 +100,7 @@ export type AnyUnionType = UnionType | MutableUnionType;
 export type AnyInputObjectType = InputObjectType | MutableInputObjectType;
 export type AnyListType = ListType<any> | MutableListType<any>;
 
-export type AnySchema = Schema | MutableSchema;
+export type AnySchemaDefinition = SchemaDefinition | MutableSchemaDefinition;
 export type AnyDirectiveDefinition = DirectiveDefinition | MutableDirectiveDefinition;
 export type AnyDirective = Directive | MutableDirective;
 export type AnyFieldDefinition = FieldDefinition | MutableFieldDefinition;
@@ -140,11 +140,11 @@ function valueEquals(a: any, b: any): boolean {
   return deepEqual(a, b);
 }
 
-// TODO: make most of those a field since they are essentially a "property" of the element (document() excluded maybe).
+// TODO: make most of those a field since they are essentially a "property" of the element (schema() excluded maybe).
 export interface SchemaElement<W extends World = ImmutableWorld> {
   coordinate(): string;
-  document(): W['document'] | W['detached'];
-  parent(): W['schemaElement'] | W['document'] | W['detached'];
+  schema(): W['schema'] | W['detached'];
+  parent(): W['schemaElement'] | W['schema'] | W['detached'];
   source(): ASTNode | undefined;
   appliedDirectives(): readonly W['directive'][];
   appliedDirective(name: string): W['directive'][];
@@ -154,7 +154,7 @@ export interface MutableSchemaElement extends SchemaElement<MutableWorld> {
   remove(): MutableSchemaElement[];
 }
 
-abstract class BaseElement<P extends W['schemaElement']  | W['document'], W extends World> implements SchemaElement<W> {
+abstract class BaseElement<P extends W['schemaElement']  | W['schema'], W extends World> implements SchemaElement<W> {
   protected readonly _appliedDirectives: W['directive'][] = [];
 
   constructor(
@@ -164,13 +164,13 @@ abstract class BaseElement<P extends W['schemaElement']  | W['document'], W exte
 
   abstract coordinate(): string;
 
-  document(): W['document'] | W['detached'] {
+  schema(): W['schema'] | W['detached'] {
     if (this._parent == undefined) {
       return undefined;
-    } else if ('kind' in this._parent && this._parent.kind == 'Document') {
-      return this._parent as W['document'];
+    } else if ('kind' in this._parent && this._parent.kind == 'Schema') {
+      return this._parent as W['schema'];
     } else {
-      return (this._parent as W['schemaElement']).document();
+      return (this._parent as W['schemaElement']).schema();
     }
   }
 
@@ -207,7 +207,7 @@ abstract class BaseElement<P extends W['schemaElement']  | W['document'], W exte
   }
 }
 
-abstract class BaseNamedElement<P extends W['schemaElement']  | W['document'], W extends World> extends BaseElement<P, W> implements Named {
+abstract class BaseNamedElement<P extends W['schemaElement']  | W['schema'], W extends World> extends BaseElement<P, W> implements Named {
   constructor(
     readonly name: string,
     parent: P | W['detached'],
@@ -217,15 +217,15 @@ abstract class BaseNamedElement<P extends W['schemaElement']  | W['document'], W
   }
 }
 
-abstract class BaseNamedType<W extends World> extends BaseNamedElement<W['document'], W> {
+abstract class BaseNamedType<W extends World> extends BaseNamedElement<W['schema'], W> {
   protected readonly _referencers: Set<W['schemaElement']> = new Set();
 
   protected constructor(
     name: string,
-    document: W['document'] | W['detached'],
+    schema: W['schema'] | W['detached'],
     source?: ASTNode
   ) {
-    super(name, document, source);
+    super(name, schema, source);
   }
 
   coordinate(): string {
@@ -246,39 +246,39 @@ abstract class BaseNamedType<W extends World> extends BaseNamedElement<W['docume
   }
 }
 
-class BaseGraphQLDocument<W extends World> {
-  private _schema: W['schema'] | undefined = undefined;
+class BaseSchema<W extends World> {
+  private _schemaDefinition: W['schemaDefinition'] | undefined = undefined;
   protected readonly builtInTypes: Map<string, W['scalarType']> = new Map();
   protected readonly typesMap: Map<string, W['namedType']> = new Map();
   protected readonly directivesMap: Map<string, W['directiveDefinition'] & W['schemaElement']> = new Map();
 
   protected constructor() {}
 
-  kind: 'Document' = 'Document';
+  kind: 'Schema' = 'Schema';
 
   // Used only through cheating the type system.
-  private setSchema(schema: W['schema']) {
-    this._schema = schema;
+  private setSchemaDefinition(schemaDefinition: W['schemaDefinition']) {
+    this._schemaDefinition = schemaDefinition;
   }
 
   private setBuiltIn(name: string, type: W['scalarType']) {
     this.builtInTypes.set(name, type);
   }
 
-  get schema(): W['schema'] {
-    assert(this._schema, "Badly constructor document; doesn't have a schema");
-    return this._schema;
+  get schemaDefinition(): W['schemaDefinition'] {
+    assert(this._schemaDefinition, "Badly constructed schema; doesn't have a schema definition");
+    return this._schemaDefinition;
   }
 
   /**
-   * A map of all the types defined on this document _excluding_ the built-in types.
+   * A map of all the types defined on this schema _excluding_ the built-in types.
    */
   get types(): ReadonlyMap<string, W['namedType']> {
     return this.typesMap;
   }
 
   /**
-   * The type of the provide name in this document if one is defined or if it is the name of a built-in.
+   * The type of the provide name in this schema if one is defined or if it is the name of a built-in.
    */
   type(name: string): W['namedType'] | undefined {
     const type = this.typesMap.get(name);
@@ -314,8 +314,8 @@ class BaseGraphQLDocument<W extends World> {
   }
 
   *allSchemaElement(): Generator<W['schemaElement'], void, undefined> {
-    if (this._schema) {
-      yield this._schema;
+    if (this._schemaDefinition) {
+      yield this._schemaDefinition;
     }
     for (const type of this.types.values()) {
       yield type;
@@ -328,37 +328,37 @@ class BaseGraphQLDocument<W extends World> {
   }
 }
 
-export class GraphQLDocument extends BaseGraphQLDocument<ImmutableWorld> {
-  // Note that because typescript typesystem is structural, we need GraphQLDocument to some incompatible
-  // properties in GraphQLDocument that are not in MutableGraphQLDocument (not having MutableGraphQLDocument be a subclass
-  // of GraphQLDocument is not sufficient). This is the why of the 'mutable' field (the `toMutable` property
-  // also achieve this in practice, but we could want to add a toMutable() to MutableGraphQLDocument (that
+export class Schema extends BaseSchema<ImmutableWorld> {
+  // Note that because typescript typesystem is structural, we need Schema to some incompatible
+  // properties in Schema that are not in MutableSchema (not having MutableSchema be a subclass
+  // of Schema is not sufficient). This is the why of the 'mutable' field (the `toMutable` property
+  // also achieve this in practice, but we could want to add a toMutable() to MutableSchema (that
   // just return `this`) for some reason, so the field is a bit clearer/safer).
   mutable: false = false;
 
-  static parse(source: string | Source): GraphQLDocument {
-    return buildDocumentInternal(parse(source), Ctors.immutable);
+  static parse(source: string | Source): Schema {
+    return buildSchemaInternal(parse(source), Ctors.immutable);
   }
 
-  toMutable(): MutableGraphQLDocument {
+  toMutable(): MutableSchema {
     return copy(this, Ctors.mutable);
   }
 }
 
-export class MutableGraphQLDocument extends BaseGraphQLDocument<MutableWorld> {
+export class MutableSchema extends BaseSchema<MutableWorld> {
   mutable: true = true;
 
-  static empty(): MutableGraphQLDocument {
-    return Ctors.mutable.addSchema(Ctors.mutable.document());
+  static empty(): MutableSchema {
+    return Ctors.mutable.addSchemaDefinition(Ctors.mutable.schema());
   }
 
-  static parse(source: string | Source): MutableGraphQLDocument {
-    return buildDocumentInternal(parse(source), Ctors.mutable);
+  static parse(source: string | Source): MutableSchema {
+    return buildSchemaInternal(parse(source), Ctors.mutable);
   }
 
   private ensureTypeNotFound(name: string) {
     if (this.type(name)) {
-      throw new GraphQLError(`Type ${name} already exists in this document`);
+      throw new GraphQLError(`Type ${name} already exists in this schema`);
     }
   }
 
@@ -405,16 +405,16 @@ export class MutableGraphQLDocument extends BaseGraphQLDocument<MutableWorld> {
     this.directivesMap.set(directive.name, directive);
   }
 
-  toImmutable(): GraphQLDocument {
+  toImmutable(): Schema {
     return copy(this, Ctors.immutable);
   }
 }
 
-export class Schema<W extends World = ImmutableWorld> extends BaseElement<W['document'], W>  {
+export class SchemaDefinition<W extends World = ImmutableWorld> extends BaseElement<W['schema'], W>  {
   protected readonly rootsMap: Map<SchemaRoot, W['objectType']> = new Map();
 
   protected constructor(
-    parent: W['document'] | W['detached'],
+    parent: W['schema'] | W['detached'],
     source?: ASTNode
   ) {
     super(parent, source);
@@ -424,7 +424,7 @@ export class Schema<W extends World = ImmutableWorld> extends BaseElement<W['doc
     return '';
   }
 
-  kind: 'Schema' = 'Schema';
+  kind: 'SchemaDefinition' = 'SchemaDefinition';
 
   get roots(): ReadonlyMap<SchemaRoot, W['objectType']> {
     return this.rootsMap;
@@ -447,11 +447,11 @@ export class Schema<W extends World = ImmutableWorld> extends BaseElement<W['doc
   }
 }
 
-export class MutableSchema extends Schema<MutableWorld> implements MutableSchemaElement {
+export class MutableSchemaDefinition extends SchemaDefinition<MutableWorld> implements MutableSchemaElement {
   setRoot(rootType: SchemaRoot, objectType: MutableObjectType): MutableObjectType {
-    if (objectType.document() != this.document()) {
-      const attachement = objectType.document() ? 'attached to another document' : 'detached';
-      throw new GraphQLError(`Cannot use provided type ${objectType} for ${rootType} as it is not attached to this document (it is ${attachement})`);
+    if (objectType.schema() != this.schema()) {
+      const attachement = objectType.schema() ? 'attached to another schema' : 'detached';
+      throw new GraphQLError(`Cannot use provided type ${objectType} for ${rootType} as it is not attached to this schema (it is ${attachement})`);
     }
     this.rootsMap.set(rootType, objectType);
     return objectType;
@@ -483,16 +483,16 @@ export class MutableScalarType extends ScalarType<MutableWorld> implements Mutab
   }
 
   /**
-   * Removes this type definition from its parent document.
+   * Removes this type definition from its parent schema.
    *
-   * After calling this method, this type will be "detached": it wil have no parent, document, fields,
+   * After calling this method, this type will be "detached": it wil have no parent, schema, fields,
    * values, directives, etc...
    *
-   * Note that it is always allowed to remove a type, but this may make a valid document
+   * Note that it is always allowed to remove a type, but this may make a valid schema
    * invalid, and in particular any element that references this type will, after this call, have an undefined
    * reference.
    *
-   * @returns an array of all the elements in the document of this type (before the removal) that were
+   * @returns an array of all the elements in the schema of this type (before the removal) that were
    * referening this type (and have thus now an undefined reference).
    */
   remove(): MutableSchemaElement[] {
@@ -518,10 +518,10 @@ export class ObjectType<W extends World = ImmutableWorld> extends BaseNamedType<
 
   protected constructor(
     name: string,
-    document: W['document'] | undefined,
+    schema: W['schema'] | undefined,
     source?: ASTNode
   ) {
-    super(name, document, source);
+    super(name, schema, source);
   }
 
   kind: 'ObjectType' = 'ObjectType';
@@ -551,9 +551,9 @@ export class MutableObjectType extends ObjectType<MutableWorld> implements Mutab
     if (this.field(name)) {
       throw new GraphQLError(`Field ${name} already exists in type ${this} (${this.field(name)})`);
     }
-    if (type.document() != this.document()) {
-      const attachement = type.document() ? 'attached to another document' : 'detached';
-      throw new GraphQLError(`Cannot use provided type ${type} as it is not attached to this document (it is ${attachement})`);
+    if (type.schema() != this.schema()) {
+      const attachement = type.schema() ? 'attached to another schema' : 'detached';
+      throw new GraphQLError(`Cannot use provided type ${type} as it is not attached to this schema (it is ${attachement})`);
     }
     const field = Ctors.mutable.createFieldDefinition(name, this, type);
     this.fieldsMap.set(name, field);
@@ -565,16 +565,16 @@ export class MutableObjectType extends ObjectType<MutableWorld> implements Mutab
   }
 
   /**
-   * Removes this type definition from its parent document.
+   * Removes this type definition from its parent schema.
    *
-   * After calling this method, this type will be "detached": it wil have no parent, document, fields,
+   * After calling this method, this type will be "detached": it wil have no parent, schema, fields,
    * values, directives, etc...
    *
-   * Note that it is always allowed to remove a type, but this may make a valid document
+   * Note that it is always allowed to remove a type, but this may make a valid schema
    * invalid, and in particular any element that references this type will, after this call, have an undefined
    * reference.
    *
-   * @returns an array of all the elements in the document of this type (before the removal) that were
+   * @returns an array of all the elements in the schema of this type (before the removal) that were
    * referening this type (and have thus now an undefined reference).
    */
   remove(): MutableSchemaElement[] {
@@ -603,10 +603,10 @@ export class UnionType<W extends World = ImmutableWorld> extends BaseNamedType<W
 
   protected constructor(
     name: string,
-    document: W['document'] | W['detached'],
+    schema: W['schema'] | W['detached'],
     source?: ASTNode
   ) {
-    super(name, document, source);
+    super(name, schema, source);
   }
 
   kind: 'UnionType' = 'UnionType';
@@ -625,9 +625,9 @@ export class UnionType<W extends World = ImmutableWorld> extends BaseNamedType<W
 
 export class MutableUnionType extends UnionType<MutableWorld> implements MutableSchemaElement {
   addType(type: MutableObjectType): void {
-    if (type.document() != this.document()) {
-      const attachement = type.document() ? 'attached to another document' : 'detached';
-      throw new GraphQLError(`Cannot add provided type ${type} to union ${this} as it is not attached to this document (it is ${attachement})`);
+    if (type.schema() != this.schema()) {
+      const attachement = type.schema() ? 'attached to another schema' : 'detached';
+      throw new GraphQLError(`Cannot add provided type ${type} to union ${this} as it is not attached to this schema (it is ${attachement})`);
     }
     if (!this.typesList.includes(type)) {
       this.typesList.push(type);
@@ -639,16 +639,16 @@ export class MutableUnionType extends UnionType<MutableWorld> implements Mutable
   }
 
   /**
-   * Removes this type definition from its parent document.
+   * Removes this type definition from its parent schema.
    *
-   * After calling this method, this type will be "detached": it wil have no parent, document, fields,
+   * After calling this method, this type will be "detached": it wil have no parent, schema, fields,
    * values, directives, etc...
    *
-   * Note that it is always allowed to remove a type, but this may make a valid document
+   * Note that it is always allowed to remove a type, but this may make a valid schema
    * invalid, and in particular any element that references this type will, after this call, have an undefined
    * reference.
    *
-   * @returns an array of all the elements in the document of this type (before the removal) that were
+   * @returns an array of all the elements in the schema of this type (before the removal) that were
    * referening this type (and have thus now an undefined reference).
    */
   remove(): MutableSchemaElement[] {
@@ -675,10 +675,10 @@ export class InputObjectType<W extends World = ImmutableWorld> extends BaseNamed
 
   protected constructor(
     name: string,
-    document: W['document'] | undefined,
+    schema: W['schema'] | undefined,
     source?: ASTNode
   ) {
-    super(name, document, source);
+    super(name, schema, source);
   }
 
   kind: 'InputObjectType' = 'InputObjectType';
@@ -705,9 +705,9 @@ export class MutableInputObjectType extends InputObjectType<MutableWorld> implem
     if (this.field(name)) {
       throw new GraphQLError(`Field ${name} already exists in type ${this} (${this.field(name)})`);
     }
-    if (type.document() != this.document()) {
-      const attachement = type.document() ? 'attached to another document' : 'detached';
-      throw new GraphQLError(`Cannot use provided type ${type} as it is not attached to this document (it is ${attachement})`);
+    if (type.schema() != this.schema()) {
+      const attachement = type.schema() ? 'attached to another schema' : 'detached';
+      throw new GraphQLError(`Cannot use provided type ${type} as it is not attached to this schema (it is ${attachement})`);
     }
     const field = Ctors.mutable.createInputFieldDefinition(name, this, type);
     this.fieldsMap.set(name, field);
@@ -719,16 +719,16 @@ export class MutableInputObjectType extends InputObjectType<MutableWorld> implem
   }
 
   /**
-   * Removes this type definition from its parent document.
+   * Removes this type definition from its parent schema.
    *
-   * After calling this method, this type will be "detached": it wil have no parent, document, fields,
+   * After calling this method, this type will be "detached": it wil have no parent, schema, fields,
    * values, directives, etc...
    *
-   * Note that it is always allowed to remove a type, but this may make a valid document
+   * Note that it is always allowed to remove a type, but this may make a valid schema
    * invalid, and in particular any element that references this type will, after this call, have an undefined
    * reference.
    *
-   * @returns an array of all the elements in the document of this type (before the removal) that were
+   * @returns an array of all the elements in the schema of this type (before the removal) that were
    * referening this type (and have thus now an undefined reference).
    */
   remove(): MutableSchemaElement[] {
@@ -757,8 +757,8 @@ export class ListType<T extends W['type'], W extends World = ImmutableWorld> {
 
   kind: 'ListType' = 'ListType';
 
-  document(): W['document'] {
-    return this.baseType().document() as W['document'];
+  schema(): W['schema'] {
+    return this.baseType().schema() as W['schema'];
   }
 
   ofType(): T {
@@ -823,13 +823,13 @@ export class FieldDefinition<W extends World = ImmutableWorld> extends BaseNamed
 
 export class MutableFieldDefinition extends FieldDefinition<MutableWorld> implements MutableSchemaElement {
   setType(type: MutableOutputType): MutableFieldDefinition {
-    if (!this.document()) {
+    if (!this.schema()) {
       // Let's not allow manipulating detached elements too much as this could make our lives harder.
       throw new GraphQLError(`Cannot set the type of field ${this.name} as it is detached`);
     }
-    if (type.document() != this.document()) {
-      const attachement = type.document() ? 'attached to another document' : 'detached';
-      throw new GraphQLError(`Cannot set provided type ${type} to field ${this.name} as it is not attached to this document (it is ${attachement})`);
+    if (type.schema() != this.schema()) {
+      const attachement = type.schema() ? 'attached to another schema' : 'detached';
+      throw new GraphQLError(`Cannot set provided type ${type} to field ${this.name} as it is not attached to this schema (it is ${attachement})`);
     }
     this._type = type;
     return this;
@@ -842,7 +842,7 @@ export class MutableFieldDefinition extends FieldDefinition<MutableWorld> implem
   /**
    * Removes this field definition from its parent type.
    *
-   * After calling this method, this field definition will be "detached": it wil have no parent, document, type,
+   * After calling this method, this field definition will be "detached": it wil have no parent, schema, type,
    * arguments or directives.
    */
   remove(): MutableSchemaElement[] {
@@ -896,13 +896,13 @@ export class InputFieldDefinition<W extends World = ImmutableWorld> extends Base
 
 export class MutableInputFieldDefinition extends InputFieldDefinition<MutableWorld> implements MutableSchemaElement {
   setType(type: MutableInputType): MutableInputFieldDefinition {
-    if (!this.document()) {
+    if (!this.schema()) {
       // Let's not allow manipulating detached elements too much as this could make our lives harder.
       throw new GraphQLError(`Cannot set the type of input field ${this.name} as it is detached`);
     }
-    if (type.document() != this.document()) {
-      const attachement = type.document() ? 'attached to another document' : 'detached';
-      throw new GraphQLError(`Cannot set provided type ${type} to input field ${this.name} as it is not attached to this document (it is ${attachement})`);
+    if (type.schema() != this.schema()) {
+      const attachement = type.schema() ? 'attached to another schema' : 'detached';
+      throw new GraphQLError(`Cannot set provided type ${type} to input field ${this.name} as it is not attached to this schema (it is ${attachement})`);
     }
     this._type = type;
     return this;
@@ -915,7 +915,7 @@ export class MutableInputFieldDefinition extends InputFieldDefinition<MutableWor
   /**
    * Removes this field definition from its parent type.
    *
-   * After calling this method, this field definition will be "detached": it wil have no parent, document, type,
+   * After calling this method, this field definition will be "detached": it wil have no parent, schema, type,
    * arguments or directives.
    */
   remove(): MutableSchemaElement[] {
@@ -978,7 +978,7 @@ export class MutableArgumentDefinition<P extends MutableFieldDefinition | Mutabl
   /**
    * Removes this argument definition from its parent element (field or directive).
    *
-   * After calling this method, this argument definition will be "detached": it wil have no parent, document, type,
+   * After calling this method, this argument definition will be "detached": it wil have no parent, schema, type,
    * default value or directives.
    */
   remove(): MutableSchemaElement[] {
@@ -995,15 +995,15 @@ export class MutableArgumentDefinition<P extends MutableFieldDefinition | Mutabl
   }
 }
 
-export class DirectiveDefinition<W extends World = ImmutableWorld> extends BaseNamedElement<W['document'], W> {
+export class DirectiveDefinition<W extends World = ImmutableWorld> extends BaseNamedElement<W['schema'], W> {
   protected readonly _args: Map<string, W['directiveArgumentDefinition']> = new Map();
 
   protected constructor(
     name: string,
-    document: W['document'] | W['detached'],
+    schema: W['schema'] | W['detached'],
     source?: ASTNode
   ) {
-    super(name, document, source);
+    super(name, schema, source);
   }
 
   kind: 'Directive' = 'Directive';
@@ -1031,13 +1031,13 @@ export class DirectiveDefinition<W extends World = ImmutableWorld> extends BaseN
 
 export class MutableDirectiveDefinition extends DirectiveDefinition<MutableWorld> implements MutableSchemaElement {
   addArgument(name: string, type: MutableInputType, defaultValue?: any): MutableArgumentDefinition<MutableDirectiveDefinition> {
-    if (!this.document()) {
+    if (!this.schema()) {
       // Let's not allow manipulating detached elements too much as this could make our lives harder.
       throw new GraphQLError(`Cannot add argument to directive definition ${this.name} as it is detached`);
     }
-    if (type.document() != this.document()) {
-      const attachement = type.document() ? 'attached to another document' : 'detached';
-      throw new GraphQLError(`Cannot use type ${type} for argument of directive definition ${this.name} as it is not attached to this document (it is ${attachement})`);
+    if (type.schema() != this.schema()) {
+      const attachement = type.schema() ? 'attached to another schema' : 'detached';
+      throw new GraphQLError(`Cannot use type ${type} for argument of directive definition ${this.name} as it is not attached to this schema (it is ${attachement})`);
     }
     const newArg = Ctors.mutable.createDirectiveArgumentDefinition(name, this, type, defaultValue);
     this._args.set(name, newArg);
@@ -1058,8 +1058,8 @@ export class Directive<W extends World = ImmutableWorld> implements Named {
   ) {
   }
 
-  document(): W['document'] | W['detached'] {
-    return this._parent?.document();
+  schema(): W['schema'] | W['detached'] {
+    return this._parent?.schema();
   }
 
   parent(): W['schemaElement'] | W['detached'] {
@@ -1067,7 +1067,7 @@ export class Directive<W extends World = ImmutableWorld> implements Named {
   }
 
   definition(): W['directiveDefinition'] | W['detached'] {
-    const doc = this.document();
+    const doc = this.schema();
     return doc?.directive(this.name);
   }
 
@@ -1125,8 +1125,8 @@ class Ctors<W extends World> {
   // are protected, but we still need to access them here, hence the `Function.prototype` hack.
   // Note: this is fairly well contained so manageable but certainly ugly and a bit error-prone, so if someone knowns a better way?
   static immutable = new Ctors<ImmutableWorld>(
-    () => new (Function.prototype.bind.call(GraphQLDocument, null)),
-    (parent, source) => new (Function.prototype.bind.call(Schema, null, parent, source)),
+    () => new (Function.prototype.bind.call(Schema, null)),
+    (parent, source) => new (Function.prototype.bind.call(SchemaDefinition, null, parent, source)),
     (name, doc, source) => new (Function.prototype.bind.call(ScalarType, null, name, doc, source)),
     (name, doc, source) => new (Function.prototype.bind.call(ObjectType, null, name, doc, source)),
     (name, doc, source) => new (Function.prototype.bind.call(UnionType, null, name, doc, source)),
@@ -1147,8 +1147,8 @@ class Ctors<W extends World> {
   );
 
   static mutable = new Ctors<MutableWorld>(
-    () => new (Function.prototype.bind.call(MutableGraphQLDocument, null)),
-    (parent, source) => new (Function.prototype.bind.call(MutableSchema, null, parent, source)),
+    () => new (Function.prototype.bind.call(MutableSchema, null)),
+    (parent, source) => new (Function.prototype.bind.call(MutableSchemaDefinition, null, parent, source)),
     (name, doc,  source) => new (Function.prototype.bind.call(MutableScalarType, null, name, doc, source)),
     (name, doc, source) => new (Function.prototype.bind.call(MutableObjectType, null, name, doc, source)),
     (name, doc, source) => new (Function.prototype.bind.call(MutableUnionType, null, name, doc, source)),
@@ -1164,69 +1164,69 @@ class Ctors<W extends World> {
   );
 
   constructor(
-    private readonly createDocument: () => W['document'],
-    private readonly createSchema: (parent: W['document'] | W['detached'], source?: ASTNode) => W['schema'],
-    readonly createScalarType: (name: string, document: W['document'] | W['detached'], source?: ASTNode) => W['scalarType'],
-    readonly createObjectType: (name: string, document: W['document'] | W['detached'], source?: ASTNode) => W['objectType'],
-    readonly createUnionType: (name: string, document: W['document'] | W['detached'], source?: ASTNode) => W['unionType'],
-    readonly createInputObjectType: (name: string, document: W['document'] | W['detached'], source?: ASTNode) => W['inputObjectType'],
+    private readonly createSchema: () => W['schema'],
+    private readonly createSchemaDefinition: (parent: W['schema'] | W['detached'], source?: ASTNode) => W['schemaDefinition'],
+    readonly createScalarType: (name: string, schema: W['schema'] | W['detached'], source?: ASTNode) => W['scalarType'],
+    readonly createObjectType: (name: string, schema: W['schema'] | W['detached'], source?: ASTNode) => W['objectType'],
+    readonly createUnionType: (name: string, schema: W['schema'] | W['detached'], source?: ASTNode) => W['unionType'],
+    readonly createInputObjectType: (name: string, schema: W['schema'] | W['detached'], source?: ASTNode) => W['inputObjectType'],
     readonly createList: <T extends W['type']>(type: T) => W['listType'],
     readonly createFieldDefinition: (name: string, parent: W['objectType'] | W['detached'], type: W['outputType'], source?: ASTNode) => W['fieldDefinition'],
     readonly createInputFieldDefinition: (name: string, parent: W['inputObjectType'] | W['detached'], type: W['inputType'], source?: ASTNode) => W['inputFieldDefinition'],
     readonly createFieldArgumentDefinition: (name: string, parent: W['fieldDefinition'] | W['detached'], type: W['inputType'], defaultValue: any, source?: ASTNode) => W['fieldArgumentDefinition'],
     readonly createDirectiveArgumentDefinition: (name: string, parent: W['directiveDefinition'] | W['detached'], type: W['inputType'], defaultValue: any, source?: ASTNode) => W['directiveArgumentDefinition'],
-    readonly createDirectiveDefinition: (name: string, parent: W['document'] | W['detached'], source?: ASTNode) => W['directiveDefinition'],
+    readonly createDirectiveDefinition: (name: string, parent: W['schema'] | W['detached'], source?: ASTNode) => W['directiveDefinition'],
     readonly createDirective: (name: string, parent: W['schemaElement'] | W['detached'], args: Map<string, any>, source?: ASTNode) => W['directive'],
     readonly checkDetached: <T>(v: T | undefined) => T | W['detached']
   ) {
   }
 
-  document(): W['document'] {
-    const doc = this.createDocument();
+  schema(): W['schema'] {
+    const doc = this.createSchema();
     for (const builtIn of builtInTypes) {
-      BaseGraphQLDocument.prototype['setBuiltIn'].call(doc, builtIn, this.createScalarType(builtIn, doc));
+      BaseSchema.prototype['setBuiltIn'].call(doc, builtIn, this.createScalarType(builtIn, doc));
     }
     return doc;
   }
 
-  addSchema(document: W['document'], source?: ASTNode): W['document'] {
-    const schema = this.createSchema(document, source);
-    BaseGraphQLDocument.prototype['setSchema'].call(document, schema);
-    return document;
+  addSchemaDefinition(schema: W['schema'], source?: ASTNode): W['schema'] {
+    const schemaDefinition = this.createSchemaDefinition(schema, source);
+    BaseSchema.prototype['setSchemaDefinition'].call(schema, schemaDefinition);
+    return schema;
   }
 
-  createNamedType(kind: string, name: string, document: W['document'], source?: ASTNode): W['namedType'] {
+  createNamedType(kind: string, name: string, schema: W['schema'], source?: ASTNode): W['namedType'] {
     switch (kind) {
       case 'ScalarType':
-        return this.createScalarType(name, document, source);
+        return this.createScalarType(name, schema, source);
       case 'ObjectType':
-        return this.createObjectType(name, document, source);
+        return this.createObjectType(name, schema, source);
       case 'UnionType':
-        return this.createUnionType(name, document, source);
+        return this.createUnionType(name, schema, source);
       case 'InputObjectType':
-        return this.createInputObjectType(name, document, source);
+        return this.createInputObjectType(name, schema, source);
       default:
         assert(false, "Missing branch for type " + kind);
     }
   }
 }
 
-function addTypeDefinition<W extends World>(namedType: W['namedType'], document: W['document']) {
-  (document.types as Map<string, W['namedType']>).set(namedType.name, namedType);
+function addTypeDefinition<W extends World>(namedType: W['namedType'], schema: W['schema']) {
+  (schema.types as Map<string, W['namedType']>).set(namedType.name, namedType);
 }
 
-function removeTypeDefinition<W extends World>(namedType: W['namedType'], document: W['document']) {
-  (document.types as Map<string, W['namedType']>).delete(namedType.name);
+function removeTypeDefinition<W extends World>(namedType: W['namedType'], schema: W['schema']) {
+  (schema.types as Map<string, W['namedType']>).delete(namedType.name);
 }
 
-function addDirectiveDefinition<W extends World>(definition: W['directiveDefinition'], document: W['document']) {
-  (document.directives as Map<string, W['directiveDefinition']>).set(definition.name, definition);
+function addDirectiveDefinition<W extends World>(definition: W['directiveDefinition'], schema: W['schema']) {
+  (schema.directives as Map<string, W['directiveDefinition']>).set(definition.name, definition);
 }
 
-function addRoot<W extends World>(root: SchemaRoot, typeName: string, schema: W['schema']) {
-  const type = schema.document()!.type(typeName)! as W['objectType'];
-  (schema.roots as Map<SchemaRoot, W['objectType']>).set(root, type);
-  addReferencerToType(schema, type);
+function addRoot<W extends World>(root: SchemaRoot, typeName: string, schemaDefinition: W['schemaDefinition']) {
+  const type = schemaDefinition.schema()!.type(typeName)! as W['objectType'];
+  (schemaDefinition.roots as Map<SchemaRoot, W['objectType']>).set(root, type);
+  addReferencerToType(schemaDefinition, type);
 }
 
 function addFieldArg<W extends World>(arg: W['fieldArgumentDefinition'], field: W['fieldDefinition']) {
@@ -1242,7 +1242,7 @@ function addField<W extends World>(field: W['fieldDefinition'] | W['inputFieldDe
 }
 
 function addTypeToUnion<W extends World>(typeName: string, unionType: W['unionType']) {
-  const type = unionType.document()!.type(typeName)! as W['objectType'];
+  const type = unionType.schema()!.type(typeName)! as W['objectType'];
   (unionType.types as W['objectType'][]).push(type);
   addReferencerToType(unionType, type);
 }
@@ -1270,16 +1270,16 @@ function buildValue(value?: ValueNode): any {
   return value ? valueFromASTUntyped(value) : undefined;
 }
 
-function buildDocumentInternal<W extends World>(documentNode: DocumentNode, ctors: Ctors<W>): W['document'] {
-  const doc = ctors.document();
+function buildSchemaInternal<W extends World>(documentNode: DocumentNode, ctors: Ctors<W>): W['schema'] {
+  const doc = ctors.schema();
   buildNamedTypeShallow(documentNode, doc, ctors);
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
       case 'OperationDefinition':
       case 'FragmentDefinition':
-        throw new GraphQLError("Invalid executable definition found while building document", definitionNode);
+        throw new GraphQLError("Invalid executable definition found while building schema", definitionNode);
       case 'SchemaDefinition':
-        buildSchema(definitionNode, doc, ctors);
+        buildSchemaDefinition(definitionNode, doc, ctors);
         break;
       case 'ScalarTypeDefinition':
       case 'ObjectTypeDefinition':
@@ -1305,7 +1305,7 @@ function buildDocumentInternal<W extends World>(documentNode: DocumentNode, ctor
   return doc;
 }
 
-function buildNamedTypeShallow<W extends World>(documentNode: DocumentNode, document: W['document'], ctors: Ctors<W>) {
+function buildNamedTypeShallow<W extends World>(documentNode: DocumentNode, schema: W['schema'], ctors: Ctors<W>) {
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
       case 'ScalarTypeDefinition':
@@ -1314,7 +1314,7 @@ function buildNamedTypeShallow<W extends World>(documentNode: DocumentNode, docu
       case 'UnionTypeDefinition':
       case 'EnumTypeDefinition':
       case 'InputObjectTypeDefinition':
-        addTypeDefinition(ctors.createNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value, document, definitionNode), document);
+        addTypeDefinition(ctors.createNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value, schema, definitionNode), schema);
         break;
       case 'SchemaExtension':
       case 'ScalarTypeExtension':
@@ -1334,11 +1334,11 @@ function withoutTrailingDefinition(str: string): string {
   return str.slice(0, str.length - 'Definition'.length);
 }
 
-function buildSchema<W extends World>(schemaNode: SchemaDefinitionNode, document: W['document'], ctors: Ctors<W>) {
-  ctors.addSchema(document, schemaNode);
-  buildAppliedDirectives(schemaNode, document.schema, ctors);
+function buildSchemaDefinition<W extends World>(schemaNode: SchemaDefinitionNode, schema: W['schema'], ctors: Ctors<W>) {
+  ctors.addSchemaDefinition(schema, schemaNode);
+  buildAppliedDirectives(schemaNode, schema.schemaDefinition, ctors);
   for (const opTypeNode of schemaNode.operationTypes) {
-    addRoot(opTypeNode.operation, opTypeNode.type.name.value, document.schema);
+    addRoot(opTypeNode.operation, opTypeNode.type.name.value, schema.schemaDefinition);
   }
 }
 
@@ -1385,7 +1385,7 @@ function buildNamedTypeInner<W extends World>(definitionNode: DefinitionNode & N
 }
 
 function buildFieldDefinition<W extends World>(fieldNode: FieldDefinitionNode, parentType: W['objectType'], ctors: Ctors<W>): W['fieldDefinition'] {
-  const type = buildWrapperTypeOrTypeRef(fieldNode.type, parentType.document()!, ctors) as W['outputType'];
+  const type = buildWrapperTypeOrTypeRef(fieldNode.type, parentType.schema()!, ctors) as W['outputType'];
   const builtField = ctors.createFieldDefinition(fieldNode.name.value, parentType, type, fieldNode);
   buildAppliedDirectives(fieldNode, builtField, ctors);
   for (const inputValueDef of fieldNode.arguments ?? []) {
@@ -1395,19 +1395,19 @@ function buildFieldDefinition<W extends World>(fieldNode: FieldDefinitionNode, p
   return builtField;
 }
 
-function buildWrapperTypeOrTypeRef<W extends World>(typeNode: TypeNode, document: W['document'], ctors: Ctors<W>): W['type'] {
+function buildWrapperTypeOrTypeRef<W extends World>(typeNode: TypeNode, schema: W['schema'], ctors: Ctors<W>): W['type'] {
   switch (typeNode.kind) {
     case 'ListType':
-      return ctors.createList(buildWrapperTypeOrTypeRef(typeNode.type, document, ctors));
+      return ctors.createList(buildWrapperTypeOrTypeRef(typeNode.type, schema, ctors));
     case 'NonNullType':
       throw new Error('TODO');
     default:
-      return document.type(typeNode.name.value)!;
+      return schema.type(typeNode.name.value)!;
   }
 }
 
 function buildFieldArgumentDefinition<W extends World>(inputNode: InputValueDefinitionNode, parent: W['fieldDefinition'], ctors: Ctors<W>): W['fieldArgumentDefinition'] {
-  const type = buildWrapperTypeOrTypeRef(inputNode.type, parent.document()!, ctors) as W['inputType'];
+  const type = buildWrapperTypeOrTypeRef(inputNode.type, parent.schema()!, ctors) as W['inputType'];
   const built = ctors.createFieldArgumentDefinition(inputNode.name.value, parent, type, buildValue(inputNode.defaultValue), inputNode);
   buildAppliedDirectives(inputNode, built, ctors);
   addReferencerToType(built, type);
@@ -1415,14 +1415,14 @@ function buildFieldArgumentDefinition<W extends World>(inputNode: InputValueDefi
 }
 
 function buildInputFieldDefinition<W extends World>(fieldNode: InputValueDefinitionNode, parentType: W['inputObjectType'], ctors: Ctors<W>): W['inputFieldDefinition'] {
-  const type = buildWrapperTypeOrTypeRef(fieldNode.type, parentType.document()!, ctors) as W['inputType'];
+  const type = buildWrapperTypeOrTypeRef(fieldNode.type, parentType.schema()!, ctors) as W['inputType'];
   const builtField = ctors.createInputFieldDefinition(fieldNode.name.value, parentType, type, fieldNode);
   buildAppliedDirectives(fieldNode, builtField, ctors);
   addReferencerToType(builtField, type);
   return builtField;
 }
 
-function buildDirectiveDefinition<W extends World>(directiveNode: DirectiveDefinitionNode, parent: W['document'], ctors: Ctors<W>): W['directiveDefinition'] {
+function buildDirectiveDefinition<W extends World>(directiveNode: DirectiveDefinitionNode, parent: W['schema'], ctors: Ctors<W>): W['directiveDefinition'] {
   const builtDirective = ctors.createDirectiveDefinition(directiveNode.name.value, parent, directiveNode);
   for (const inputValueDef of directiveNode.arguments ?? []) {
     addDirectiveArg(buildDirectiveArgumentDefinition(inputValueDef, builtDirective, ctors), builtDirective);
@@ -1431,19 +1431,19 @@ function buildDirectiveDefinition<W extends World>(directiveNode: DirectiveDefin
 }
 
 function buildDirectiveArgumentDefinition<W extends World>(inputNode: InputValueDefinitionNode, parent: W['directiveDefinition'], ctors: Ctors<W>): W['directiveArgumentDefinition'] {
-  const type = buildWrapperTypeOrTypeRef(inputNode.type, parent.document()!, ctors) as W['inputType'];
+  const type = buildWrapperTypeOrTypeRef(inputNode.type, parent.schema()!, ctors) as W['inputType'];
   const built = ctors.createDirectiveArgumentDefinition(inputNode.name.value, parent, type, buildValue(inputNode.defaultValue), inputNode);
   buildAppliedDirectives(inputNode, built, ctors);
   addReferencerToType(built, type);
   return built;
 }
 
-function copy<WS extends World, WD extends World>(source: WS['document'], destCtors: Ctors<WD>): WD['document'] {
-  const doc = destCtors.addSchema(destCtors.document(), source.schema.source());
+function copy<WS extends World, WD extends World>(source: WS['schema'], destCtors: Ctors<WD>): WD['schema'] {
+  const doc = destCtors.addSchemaDefinition(destCtors.schema(), source.schemaDefinition.source());
   for (const type of source.types.values()) {
     addTypeDefinition(copyNamedTypeShallow(type, doc, destCtors), doc);
   }
-  copySchemaInner(source.schema, doc.schema, destCtors);
+  copySchemaDefinitionInner(source.schemaDefinition, doc.schemaDefinition, destCtors);
   for (const type of source.types.values()) {
     copyNamedTypeInner(type, doc.type(type.name)!, destCtors);
   }
@@ -1453,7 +1453,7 @@ function copy<WS extends World, WD extends World>(source: WS['document'], destCt
   return doc;
 }
 
-function copySchemaInner<WS extends World, WD extends World>(source: WS['schema'], dest: WD['schema'], destCtors: Ctors<WD>) {
+function copySchemaDefinitionInner<WS extends World, WD extends World>(source: WS['schemaDefinition'], dest: WD['schemaDefinition'], destCtors: Ctors<WD>) {
   for (const [root, type] of source.roots.entries()) {
     addRoot(root, type.name, dest);
   }
@@ -1476,8 +1476,8 @@ function copyDirective<WS extends World, WD extends World>(source: WS['directive
 
 // Because types can refer to one another (through fields or directive applications), we first create a shallow copy of
 // all types, and then copy fields (see below) assuming that the type "shell" exists.
-function copyNamedTypeShallow<WS extends World, WD extends World>(source: WS['namedType'], document: WD['document'], destCtors: Ctors<WD>): WD['namedType'] {
-  return destCtors.createNamedType(source.kind, source.name, document, source.source());
+function copyNamedTypeShallow<WS extends World, WD extends World>(source: WS['namedType'], schema: WD['schema'], destCtors: Ctors<WD>): WD['namedType'] {
+  return destCtors.createNamedType(source.kind, source.name, schema, source.source());
 }
 
 function copyNamedTypeInner<WS extends World, WD extends World>(source: WS['namedType'], dest: WD['namedType'], destCtors: Ctors<WD>) {
@@ -1507,7 +1507,7 @@ function copyNamedTypeInner<WS extends World, WD extends World>(source: WS['name
 }
 
 function copyFieldDefinition<WS extends World, WD extends World>(source: WS['fieldDefinition'], destParent: WD['objectType'], destCtors: Ctors<WD>): WD['fieldDefinition'] {
-  const type = copyWrapperTypeOrTypeRef(source.type(), destParent.document()!, destCtors) as WD['outputType'];
+  const type = copyWrapperTypeOrTypeRef(source.type(), destParent.schema()!, destCtors) as WD['outputType'];
   const copiedField = destCtors.createFieldDefinition(source.name, destParent, type, source.source());
   copyAppliedDirectives(source, copiedField, destCtors);
   for (const sourceArg of source.arguments().values()) {
@@ -1518,14 +1518,14 @@ function copyFieldDefinition<WS extends World, WD extends World>(source: WS['fie
 }
 
 function copyInputFieldDefinition<WS extends World, WD extends World>(source: WS['inputFieldDefinition'], destParent: WD['inputObjectType'], destCtors: Ctors<WD>): WD['inputFieldDefinition'] {
-  const type = copyWrapperTypeOrTypeRef(source.type(), destParent.document()!, destCtors) as WD['inputType'];
+  const type = copyWrapperTypeOrTypeRef(source.type(), destParent.schema()!, destCtors) as WD['inputType'];
   const copied = destCtors.createInputFieldDefinition(source.name, destParent, type, source.source());
   copyAppliedDirectives(source, copied, destCtors);
   addReferencerToType(copied, type);
   return copied;
 }
 
-function copyWrapperTypeOrTypeRef<WS extends World, WD extends World>(source: WS['type'] | WS['detached'], destParent: WD['document'], destCtors: Ctors<WD>): WD['type'] | WD['detached'] {
+function copyWrapperTypeOrTypeRef<WS extends World, WD extends World>(source: WS['type'] | WS['detached'], destParent: WD['schema'], destCtors: Ctors<WD>): WD['type'] | WD['detached'] {
   if (source == undefined) {
     return destCtors.checkDetached(undefined);
   }
@@ -1538,14 +1538,14 @@ function copyWrapperTypeOrTypeRef<WS extends World, WD extends World>(source: WS
 }
 
 function copyFieldArgumentDefinition<WS extends World, WD extends World>(source: WS['fieldArgumentDefinition'], destParent: WD['fieldDefinition'], destCtors: Ctors<WD>): WD['fieldArgumentDefinition'] {
-  const type = copyWrapperTypeOrTypeRef(source.type(), destParent.document()!, destCtors) as WD['inputType'];
+  const type = copyWrapperTypeOrTypeRef(source.type(), destParent.schema()!, destCtors) as WD['inputType'];
   const copied = destCtors.createFieldArgumentDefinition(source.name, destParent, type, source.defaultValue(), source.source());
   copyAppliedDirectives(source, copied, destCtors);
   addReferencerToType(copied, type);
   return copied;
 }
 
-function copyDirectiveDefinition<WS extends World, WD extends World>(source: WS['directiveDefinition'], destParent: WD['document'], destCtors: Ctors<WD>): WD['directiveDefinition'] {
+function copyDirectiveDefinition<WS extends World, WD extends World>(source: WS['directiveDefinition'], destParent: WD['schema'], destCtors: Ctors<WD>): WD['directiveDefinition'] {
   const copiedDirective = destCtors.createDirectiveDefinition(source.name, destParent, source.source());
   for (const sourceArg of source.arguments().values()) {
     addDirectiveArg(copyDirectiveArgumentDefinition(sourceArg, copiedDirective, destCtors), copiedDirective);
@@ -1553,7 +1553,7 @@ function copyDirectiveDefinition<WS extends World, WD extends World>(source: WS[
   return copiedDirective;
 }
 function copyDirectiveArgumentDefinition<WS extends World, WD extends World>(source: WS['directiveArgumentDefinition'], destParent: WD['directiveDefinition'], destCtors: Ctors<WD>): WD['directiveArgumentDefinition'] {
-  const type = copyWrapperTypeOrTypeRef(source.type(), destParent.document()!, destCtors) as InputType;
+  const type = copyWrapperTypeOrTypeRef(source.type(), destParent.schema()!, destCtors) as InputType;
   const copied = destCtors.createDirectiveArgumentDefinition(source.name, destParent, type, source.defaultValue(), source.source());
   copyAppliedDirectives(source, copied, destCtors);
   addReferencerToType(copied, type);

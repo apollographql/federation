@@ -1,17 +1,17 @@
 import {
-  AnyGraphQLDocument,
+  AnySchema,
   AnyObjectType,
   AnySchemaElement,
   AnyType,
-  GraphQLDocument,
-  MutableGraphQLDocument,
+  Schema,
+  MutableSchema,
   MutableObjectType,
   MutableType,
   ObjectType,
   Type
 } from '../../dist/definitions';
 import {
-  printDocument
+  printSchema
 } from '../../dist/print';
 
 function expectObjectType(type: Type | MutableType | undefined): asserts type is ObjectType | MutableObjectType {
@@ -86,9 +86,9 @@ expect.extend({
   }
 });
 
-test('building a simple mutable document programatically and converting to immutable', () => {
-  const mutDoc = MutableGraphQLDocument.empty();
-  const mutQueryType = mutDoc.schema.setRoot('query', mutDoc.addObjectType('Query'));
+test('building a simple mutable schema programatically and converting to immutable', () => {
+  const mutDoc = MutableSchema.empty();
+  const mutQueryType = mutDoc.schemaDefinition.setRoot('query', mutDoc.addObjectType('Query'));
   const mutTypeA = mutDoc.addObjectType('A');
   mutQueryType.addField('a', mutTypeA);
   mutTypeA.addField('q', mutQueryType);
@@ -104,7 +104,7 @@ test('building a simple mutable document programatically and converting to immut
   const doc = mutDoc.toImmutable();
   const queryType = doc.type('Query'); 
   const typeA = doc.type('A'); 
-  expect(queryType).toBe(doc.schema.root('query'));
+  expect(queryType).toBe(doc.schemaDefinition.root('query'));
   expectObjectType(queryType);
   expectObjectType(typeA);
   expect(queryType).toHaveField('a', typeA);
@@ -113,7 +113,7 @@ test('building a simple mutable document programatically and converting to immut
   expect(typeA).toHaveDirective('key', new Map([['fields', 'a']]));
 });
 
-function parseAndValidateTestDocument<Doc extends AnyGraphQLDocument>(parser: (source: string) => Doc): Doc {
+function parseAndValidateTestSchema<S extends AnySchema>(parser: (source: string) => S): S {
   const sdl =
 `schema {
   query: MyQuery
@@ -134,21 +134,21 @@ type MyQuery {
   const typeA = doc.type('A')!;
   expectObjectType(queryType);
   expectObjectType(typeA);
-  expect(doc.schema.root('query')).toBe(queryType);
+  expect(doc.schemaDefinition.root('query')).toBe(queryType);
   expect(queryType).toHaveField('a', typeA);
   const f2 = typeA.field('f2');
   expect(f2).toHaveDirective('inaccessible');
-  expect(printDocument(doc)).toBe(sdl);
+  expect(printSchema(doc)).toBe(sdl);
   return doc;
 }
 
 
-test('parse immutable document', () => {
-  parseAndValidateTestDocument(GraphQLDocument.parse);
+test('parse immutable schema', () => {
+  parseAndValidateTestSchema(Schema.parse);
 });
 
-test('parse mutable document and modify', () => {
-  const doc = parseAndValidateTestDocument(MutableGraphQLDocument.parse);
+test('parse mutable schema and modify', () => {
+  const doc = parseAndValidateTestSchema(MutableSchema.parse);
   const typeA = doc.type('A');
   expectObjectType(typeA);
   expect(typeA).toHaveField('f1');
@@ -156,8 +156,8 @@ test('parse mutable document and modify', () => {
   expect(typeA).not.toHaveField('f1');
 });
 
-test('removal of all directives of a document', () => {
-  const doc = MutableGraphQLDocument.parse(`
+test('removal of all directives of a schema', () => {
+  const doc = MutableSchema.parse(`
     schema @foo {
       query: Query
     }
@@ -182,7 +182,7 @@ test('removal of all directives of a document', () => {
     element.appliedDirectives().forEach(d => d.remove());
   }
 
-  expect(printDocument(doc)).toBe(
+  expect(printSchema(doc)).toBe(
 `type A {
   a1: String
   a2: [Int]
@@ -199,8 +199,8 @@ type Query {
 union U = A | B`);
 });
 
-test('removal of all inacessible elements of a document', () => {
-  const doc = MutableGraphQLDocument.parse(`
+test('removal of all inacessible elements of a schema', () => {
+  const doc = MutableSchema.parse(`
     schema @foo {
       query: Query
     }
@@ -227,7 +227,7 @@ test('removal of all inacessible elements of a document', () => {
     }
   }
 
-  expect(printDocument(doc)).toBe(
+  expect(printSchema(doc)).toBe(
 `type A {
   a2: [Int]
 }
