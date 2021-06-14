@@ -1,7 +1,7 @@
 import nock from 'nock';
 import { MockService } from './networkRequests.test';
 import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
-import { SUPERGRAPH_SDL_QUERY, OUT_OF_BAND_REPORTER_QUERY } from '../../loadSupergraphSdlFromStorage';
+import { SUPERGRAPH_SDL_QUERY } from '../../loadSupergraphSdlFromStorage';
 import { getTestingSupergraphSdl } from '../../__tests__/execution-utils';
 import { print } from 'graphql';
 import { fixtures } from 'apollo-federation-integration-testsuite';
@@ -102,31 +102,6 @@ export function mockSupergraphSdlRequestSuccess(
 
 export function mockOutOfBandReportRequest() {
   return gatewayNock(mockOutOfBandReporterUrl).post('/', () => true);
-}
-
-export function mockOutOfBandReportRequestTimeout() {
-  return gatewayNock(mockOutOfBandReporterUrl).post('/', {
-    query: OUT_OF_BAND_REPORTER_QUERY,
-    variables: {
-      input: {
-        error: {
-          code: 'TIMEOUT',
-          message: 'An error occurred while fetching your schema from Apollo: '
-        },
-        request: {
-          url: 'https://example.cloud-config-url.com/cloudconfig/',
-          headers: [],
-          body: ''
-        },
-        response: {
-          httpStatusCode: 408,
-          headers: [],
-          body: ''
-        },
-        tags: []
-      }
-    },
-  });
 }
 
 export function mockOutOfBandReportRequestSuccess() {

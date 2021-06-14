@@ -54,7 +54,6 @@ export class OutOfBandReporter {
       errorCode = ErrorCode.ConnectionFailed;
     }
 
-    let oobResponse: Response;
     let responseBody: string;
     try{
       responseBody = await response?.json();
@@ -80,6 +79,7 @@ export class OutOfBandReporter {
       tags: tags
     }
 
+    let oobResponse: Response;
     await fetcher(this.endpoint, {
       method: 'POST',
       body: JSON.stringify({
