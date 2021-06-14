@@ -9,7 +9,8 @@ import {
   MutableType,
   ObjectType,
   Type,
-  BuiltIns
+  BuiltIns,
+  AnyDirectiveDefinition
 } from '../../dist/definitions';
 import {
   printSchema
@@ -27,7 +28,7 @@ declare global {
   namespace jest {
     interface Matchers<R> {
       toHaveField(name: string, type?: AnyType): R;
-      toHaveDirective(name: string, args?: Map<string, any>): R;
+      toHaveDirective(directive: AnyDirectiveDefinition, args?: Map<string, any>): R;
     }
   }
 }
@@ -47,9 +48,9 @@ expect.extend({
         pass: false
       };
     }
-    if (type && field.type() != type) {
+    if (type && field.type != type) {
       return {
-        message: () => `Expected field ${parentType}.${name} to have type ${type} but got type ${field.type()}`,
+        message: () => `Expected field ${parentType}.${name} to have type ${type} but got type ${field.type}`,
         pass: false
       };
     }
@@ -59,17 +60,17 @@ expect.extend({
     }
   },
 
-  toHaveDirective(element: AnySchemaElement, name: string, args?: Map<string, any>) {
-    const directives = element.appliedDirective(name);
+  toHaveDirective(element: AnySchemaElement, definition: AnyDirectiveDefinition, args?: Map<string, any>) {
+    const directives = element.appliedDirective(definition as any);
     if (directives.length == 0) {
       return {
-        message: () => `Cannot find directive @${name} applied to element ${element} (whose applied directives are [${element.appliedDirectives().join(', ')}]`,
+        message: () => `Cannot find directive @${definition} applied to element ${element} (whose applied directives are [${element.appliedDirectives.join(', ')}]`,
         pass: false
       };
     }
     if (!args) {
       return {
-        message: () => `Expected directive @${name} to not be applied to ${element} but it is`,
+        message: () => `Expected directive @${definition} to not be applied to ${element} but it is`,
         pass: true
       };
     }
@@ -84,7 +85,7 @@ expect.extend({
       }
     }
     return {
-      message: () => `Element ${element} has application of directive @${name} but not with the requested arguments. Got applications: [${directives.join(', ')}]`,
+      message: () => `Element ${element} has application of directive @${definition} but not with the requested arguments. Got applications: [${directives.join(', ')}]`,
       pass: false
     }
   }
@@ -94,16 +95,18 @@ test('building a simple mutable schema programatically and converting to immutab
   const mutDoc = MutableSchema.empty(federationBuiltIns);
   const mutQueryType = mutDoc.schemaDefinition.setRoot('query', mutDoc.addObjectType('Query'));
   const mutTypeA = mutDoc.addObjectType('A');
+  const inaccessible = mutDoc.directive('inaccessible')!;
+  const key = mutDoc.directive('key')!;
   mutQueryType.addField('a', mutTypeA);
   mutTypeA.addField('q', mutQueryType);
-  mutTypeA.applyDirective('inaccessible');
-  mutTypeA.applyDirective('key', new Map([['fields', 'a']]));
+  mutTypeA.applyDirective(inaccessible);
+  mutTypeA.applyDirective(key, new Map([['fields', 'a']]));
 
   // Sanity check
   expect(mutQueryType).toHaveField('a', mutTypeA);
   expect(mutTypeA).toHaveField('q', mutQueryType);
-  expect(mutTypeA).toHaveDirective('inaccessible');
-  expect(mutTypeA).toHaveDirective('key', new Map([['fields', 'a']]));
+  expect(mutTypeA).toHaveDirective(inaccessible);
+  expect(mutTypeA).toHaveDirective(key, new Map([['fields', 'a']]));
 
   const doc = mutDoc.toImmutable();
   const queryType = doc.type('Query'); 
@@ -113,8 +116,8 @@ test('building a simple mutable schema programatically and converting to immutab
   expectObjectType(typeA);
   expect(queryType).toHaveField('a', typeA);
   expect(typeA).toHaveField('q', queryType);
-  expect(typeA).toHaveDirective('inaccessible');
-  expect(typeA).toHaveDirective('key', new Map([['fields', 'a']]));
+  expect(typeA).toHaveDirective(inaccessible);
+  expect(typeA).toHaveDirective(key, new Map([['fields', 'a']]));
 });
 
 function parseAndValidateTestSchema<S extends AnySchema>(parser: (source: string, builtIns: BuiltIns) => S): S {
@@ -141,7 +144,7 @@ type MyQuery {
   expect(doc.schemaDefinition.root('query')).toBe(queryType);
   expect(queryType).toHaveField('a', typeA);
   const f2 = typeA.field('f2');
-  expect(f2).toHaveDirective('inaccessible');
+  expect(f2).toHaveDirective(doc.directive('inaccessible')!);
   expect(printSchema(doc)).toBe(sdl);
   return doc;
 }
@@ -187,7 +190,7 @@ test('removal of all directives of a schema', () => {
   `, federationBuiltIns);
 
   for (const element of doc.allSchemaElement()) {
-    element.appliedDirectives().forEach(d => d.remove());
+    element.appliedDirectives.forEach(d => d.remove());
   }
 
   expect(printSchema(doc)).toBe(
@@ -239,7 +242,7 @@ test('removal of all inacessible elements of a schema', () => {
   `, federationBuiltIns);
 
   for (const element of doc.allSchemaElement()) {
-    if (element.appliedDirective('inaccessible').length > 0) {
+    if (element.appliedDirective(doc.directive('inaccessible')!).length > 0) {
       element.remove();
     }
   }

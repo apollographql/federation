@@ -53,7 +53,7 @@ function printSchemaDefinition(schemaDefinition: AnySchemaDefinition): string | 
  * When using this naming convention, the schema description can be omitted.
  */
 function isSchemaOfCommonNames(schema: AnySchemaDefinition): boolean {
-  if (schema.appliedDirectives().length > 0) {
+  if (schema.appliedDirectives.length > 0) {
     return false;
   }
   for (const [root, type] of schema.roots) {
@@ -74,15 +74,15 @@ export function printTypeDefinition(type: AnyNamedType): string {
 }
 
 export function printDirectiveDefinition(directive: AnyDirectiveDefinition): string {
-  const args = directive.arguments().size == 0
+  const args = directive.arguments.size == 0
     ? "" 
-    : [...directive.arguments().values()].map(arg => arg.toString()).join(', ');
+    : [...directive.arguments.values()].map(arg => arg.toString()).join(', ');
   const locations = directive.locations.join(' | ');
   return `directive @${directive}${args}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
 function printAppliedDirectives(element: AnySchemaElement): string {
-  const appliedDirectives = element.appliedDirectives();
+  const appliedDirectives = element.appliedDirectives;
   return appliedDirectives.length == 0 ? "" : " " + appliedDirectives.map((d: AnyDirective) => d.toString()).join(" ");
 }
 
@@ -110,10 +110,10 @@ function printFields(fields: AnyFieldDefinition[] | AnyInputFieldDefinition[]): 
 
 function printField(field: AnyFieldDefinition | AnyInputFieldDefinition): string {
   let args = '';
-  if (field.kind == 'FieldDefinition' && field.arguments().size > 0) {
-    args = '(' + [...field.arguments().values()].map(arg => `${arg}${printAppliedDirectives(arg)}`).join(', ') + ')';
+  if (field.kind == 'FieldDefinition' && field.arguments.size > 0) {
+    args = '(' + [...field.arguments.values()].map(arg => `${arg}${printAppliedDirectives(arg)}`).join(', ') + ')';
   }
-  return `${field.name}${args}: ${field.type()}`;
+  return `${field.name}${args}: ${field.type}`;
 }
 
 function printBlock(items: string[]): string {
