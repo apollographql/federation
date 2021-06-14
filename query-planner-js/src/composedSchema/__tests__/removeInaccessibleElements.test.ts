@@ -6,7 +6,7 @@ describe('removeInaccessibleElements', () => {
     let schema = buildSchema(`
       directive @core(feature: String!) repeatable on SCHEMA
 
-      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.1")
@@ -33,7 +33,7 @@ describe('removeInaccessibleElements', () => {
     let schema = buildSchema(`
       directive @core(feature: String!) repeatable on SCHEMA
 
-      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.1")
@@ -60,7 +60,7 @@ describe('removeInaccessibleElements', () => {
     let schema = buildSchema(`
       directive @core(feature: String!) repeatable on SCHEMA
 
-      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.1")
@@ -81,5 +81,40 @@ describe('removeInaccessibleElements', () => {
     schema = removeInaccessibleElements(schema);
 
     expect(schema.getType('Foo')).toBeUndefined();
+  });
+
+  it(`removes @inaccessible union types`, () => {
+    let schema = buildSchema(`
+      directive @core(feature: String!) repeatable on SCHEMA
+
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.1")
+        @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
+      {
+        query: Query
+      }
+
+      type Query {
+        fooField: Foo
+      }
+
+      union Foo @inaccessible = Bar | Baz
+
+      type Bar {
+        someField: String
+      }
+
+      type Baz {
+        anotherField: String
+      }
+    `);
+
+    schema = removeInaccessibleElements(schema);
+
+    expect(schema.getType('Foo')).toBeUndefined();
+    expect(schema.getType('Bar')).toBeDefined();
+    expect(schema.getType('Baz')).toBeDefined();
   });
 });
