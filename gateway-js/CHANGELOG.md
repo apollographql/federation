@@ -4,7 +4,11 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
--  _Nothing yet! Stay tuned!_
+-  Take subtypes into account when matching type conditions to extract representations. [PR #804](https://github.com/apollographql/federation/pull/804)
+
+## v0.28.3
+
+- Fix plan querying a subgraph with an interface it doesn't know due to directives [PR #805](https://github.com/apollographql/federation/pull/805) [Issue #801](https://github.com/apollographql/federation/issues/801)
 
 ## v0.28.0
 
@@ -25,7 +29,7 @@
 
 ## v0.26.2
 
-- Avoid _small_ potential performamce concern/observation introduced in v0.21.0 which unnecessarily `JSON.stringify`'d the same object twice during requests to upstream subgraphs. [PR #673](https://github.com/apollographql/federation/pull/673)
+- Avoid _small_ potential performance concern/observation introduced in v0.21.0 which unnecessarily `JSON.stringify`'d the same object twice during requests to upstream subgraphs. [PR #673](https://github.com/apollographql/federation/pull/673)
 - Allow passing a function to the `introspectionHeaders` field when constructing an `ApolloGateway` instance. This allows for producing dynamic introspection headers per request. [PR #607](https://github.com/apollographql/federation/pull/607)
 - Will no longer calculate the automated persisted query (APQ) hash when `apq` is not set to `true` on the `RemoteGraphQLDataSource`. [PR #672](https://github.com/apollographql/federation/pull/672)
 
