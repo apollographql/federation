@@ -8,11 +8,15 @@ import {
   MutableObjectType,
   MutableType,
   ObjectType,
-  Type
+  Type,
+  BuiltIns
 } from '../../dist/definitions';
 import {
   printSchema
 } from '../../dist/print';
+import {
+  federationBuiltIns
+} from '../../dist/federation';
 
 function expectObjectType(type: Type | MutableType | undefined): asserts type is ObjectType | MutableObjectType {
   expect(type).toBeDefined();
@@ -87,7 +91,7 @@ expect.extend({
 });
 
 test('building a simple mutable schema programatically and converting to immutable', () => {
-  const mutDoc = MutableSchema.empty();
+  const mutDoc = MutableSchema.empty(federationBuiltIns);
   const mutQueryType = mutDoc.schemaDefinition.setRoot('query', mutDoc.addObjectType('Query'));
   const mutTypeA = mutDoc.addObjectType('A');
   mutQueryType.addField('a', mutTypeA);
@@ -113,7 +117,7 @@ test('building a simple mutable schema programatically and converting to immutab
   expect(typeA).toHaveDirective('key', new Map([['fields', 'a']]));
 });
 
-function parseAndValidateTestSchema<S extends AnySchema>(parser: (source: string) => S): S {
+function parseAndValidateTestSchema<S extends AnySchema>(parser: (source: string, builtIns: BuiltIns) => S): S {
   const sdl =
 `schema {
   query: MyQuery
@@ -128,7 +132,7 @@ type MyQuery {
   a: A
   b: Int
 }`;
-  const doc = parser(sdl);
+  const doc = parser(sdl, federationBuiltIns);
 
   const queryType = doc.type('MyQuery')!;
   const typeA = doc.type('A')!;
@@ -176,14 +180,24 @@ test('removal of all directives of a schema', () => {
     }
 
     union U @foobar = A | B
-  `);
+
+    directive @foo on SCHEMA | FIELD_DEFINITION
+    directive @foobar on UNION
+    directive @bar on ARGUMENT_DEFINITION
+  `, federationBuiltIns);
 
   for (const element of doc.allSchemaElement()) {
     element.appliedDirectives().forEach(d => d.remove());
   }
 
   expect(printSchema(doc)).toBe(
-`type A {
+`directive @foo on SCHEMA | FIELD_DEFINITION
+
+directive @foobar on UNION
+
+directive @bar on ARGUMENT_DEFINITION
+
+type A {
   a1: String
   a2: [Int]
 }
@@ -219,7 +233,10 @@ test('removal of all inacessible elements of a schema', () => {
     }
 
     union U @inaccessible = A | B
-  `);
+
+    directive @foo on SCHEMA | FIELD_DEFINITION
+    directive @bar on ARGUMENT_DEFINITION
+  `, federationBuiltIns);
 
   for (const element of doc.allSchemaElement()) {
     if (element.appliedDirective('inaccessible').length > 0) {
@@ -228,7 +245,15 @@ test('removal of all inacessible elements of a schema', () => {
   }
 
   expect(printSchema(doc)).toBe(
-`type A {
+`schema @foo {
+  query: Query
+}
+
+directive @foo on SCHEMA | FIELD_DEFINITION
+
+directive @bar on ARGUMENT_DEFINITION
+
+type A {
   a2: [Int]
 }
 

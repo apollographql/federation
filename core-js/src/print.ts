@@ -11,37 +11,16 @@ import {
   AnySchemaDefinition,
   AnySchemaElement,
   AnyUnionType,
-  defaultRootTypeName,
-  isBuiltInDirective,
-  isBuiltInType
+  defaultRootTypeName
 } from "./definitions";
-import { federationMachineryTypesNames, federationDirectivesNames } from "./federation";
 
 const indent = "  "; // Could be made an option at some point
 
-const defaultTypeFilter = (type: AnyNamedType) => (
-  !isBuiltInType(type) &&
-  !federationMachineryTypesNames.includes(type.name)
-);
-
-const defaultDirectiveFilter = (directive: AnyDirectiveDefinition) => (
-  !isBuiltInDirective(directive) &&
-  !federationDirectivesNames.includes(directive.name)
-);
-
 export function printSchema(schema: AnySchema): string {
-  return printFilteredSchema(schema, defaultTypeFilter, defaultDirectiveFilter);
-}
-
-function printFilteredSchema(
-  schema: AnySchema,
-  typeFilter: (type: AnyNamedType) => boolean,
-  directiveFilter: (type: AnyDirectiveDefinition) => boolean
-): string {
-  const directives = [...schema.directives.values()].filter(directiveFilter);
+  const directives = [...schema.directives.values()].filter(d => !d.isBuiltIn);
   const types = [...schema.types.values()]
-    .sort((type1, type2) => type1.name.localeCompare(type2.name))
-    .filter(typeFilter);
+    .filter(t => !t.isBuiltIn)
+    .sort((type1, type2) => type1.name.localeCompare(type2.name));
   return (
     [printSchemaDefinition(schema.schemaDefinition)]
       .concat(
@@ -58,7 +37,7 @@ function printSchemaDefinition(schemaDefinition: AnySchemaDefinition): string | 
     return;
   }
   const rootEntries = [...schemaDefinition.roots.entries()].map(([root, type]) => `${indent}${root}: ${type}`);
-  return `schema {\n${rootEntries.join('\n')}\n}`;
+  return `schema${printAppliedDirectives(schemaDefinition)} {\n${rootEntries.join('\n')}\n}`;
 }
 
 /**
@@ -74,6 +53,9 @@ function printSchemaDefinition(schemaDefinition: AnySchemaDefinition): string | 
  * When using this naming convention, the schema description can be omitted.
  */
 function isSchemaOfCommonNames(schema: AnySchemaDefinition): boolean {
+  if (schema.appliedDirectives().length > 0) {
+    return false;
+  }
   for (const [root, type] of schema.roots) {
     if (type.name != defaultRootTypeName(root)) {
       return false;
@@ -95,8 +77,8 @@ export function printDirectiveDefinition(directive: AnyDirectiveDefinition): str
   const args = directive.arguments().size == 0
     ? "" 
     : [...directive.arguments().values()].map(arg => arg.toString()).join(', ');
-  // TODO: missing isRepeatable and locations
-  return `directive @${directive}${args}`;
+  const locations = directive.locations.join(' | ');
+  return `directive @${directive}${args}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
 function printAppliedDirectives(element: AnySchemaElement): string {
