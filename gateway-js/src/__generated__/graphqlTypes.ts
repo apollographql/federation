@@ -135,13 +135,3 @@ export type SupergraphSdlQuery = (
     & Pick<FetchError, 'code' | 'message'>
   ) }
 );
-
-export type TestMutationMutationVariables = Exact<{
-  input?: Maybe<ApiMonitoringReport>;
-}>;
-
-
-export type TestMutationMutation = (
-  { __typename?: 'Mutation' }
-  & Pick<Mutation, 'reportError'>
-);
