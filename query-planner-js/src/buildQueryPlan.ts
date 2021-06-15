@@ -657,9 +657,13 @@ function splitFields(
             debug.group(`For runtime parent type ${runtimeParentType}:`);
 
             const fieldDef = context.getFieldDef(
-
               runtimeParentType,
               field.fieldNode,
+            );
+
+            const owningService = context.getOwningService(
+              runtimeParentType,
+              fieldDef
             );
 
             const fieldsWithRuntimeParentType = fieldsForScope.map(field => ({
@@ -667,15 +671,17 @@ function splitFields(
               fieldDef,
             }));
 
-            group.fields.push(
-              completeField(
-                context,
-                scope.refine(runtimeParentType),
-                group,
-                path,
-                fieldsWithRuntimeParentType,
-              ),
-            );
+            if (owningService === group.serviceName) {
+              group.fields.push(
+                completeField(
+                  context,
+                  scope.refine(runtimeParentType),
+                  group,
+                  path,
+                  fieldsWithRuntimeParentType,
+                ),
+              );
+            }
             debug.groupEnd(() => `Updated fetch group: ${debugPrintGroup(group)}`);
           }
           debug.groupEnd();
