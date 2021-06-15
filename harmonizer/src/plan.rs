@@ -4,7 +4,7 @@
 
 use crate::js::Js;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 #[derive(Debug, Serialize)]
@@ -35,6 +35,26 @@ pub struct OperationalContext {
     pub query: String,
     /// The operation
     pub operation: String,
+}
+
+#[derive(Debug, Error, Serialize, Deserialize, PartialEq)]
+/// Container for planning errors
+pub struct PlanningErrors {
+    /// The contained errors
+    pub errors: Vec<PlanningError>,
+}
+
+impl Display for PlanningErrors {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "Planning errors: {}",
+            self.errors
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        ))
+    }
 }
 
 /// An error which occurred during JavaScript planning.
@@ -85,11 +105,12 @@ impl PlanningError {
 pub fn plan(
     context: OperationalContext,
     options: QueryPlanOptions,
-) -> Result<String, Vec<PlanningError>> {
+) -> Result<String, PlanningErrors> {
     Js::new()
         .with_parameter("context", context)
         .with_parameter("options", options)
         .execute("do_plan", include_str!("../js/do_plan.js"))
+        .map_err(|errors| PlanningErrors { errors })
 }
 
 #[cfg(test)]
@@ -114,10 +135,12 @@ mod tests {
 
     #[test]
     fn invalid_schema_is_caught() {
-        let result = Err(vec![PlanningError {
-            message: Some("Syntax Error: Unexpected Name \"Garbage\".".to_string()),
-            extensions: None,
-        }]);
+        let result = Err(PlanningErrors {
+            errors: vec![PlanningError {
+                message: Some("Syntax Error: Unexpected Name \"Garbage\".".to_string()),
+                extensions: None,
+            }],
+        });
         assert_eq!(
             result,
             plan(
@@ -133,10 +156,12 @@ mod tests {
 
     #[test]
     fn invalid_query_is_caught() {
-        let result = Err(vec![PlanningError {
-            message: Some("Syntax Error: Unexpected Name \"Garbage\".".to_string()),
-            extensions: None,
-        }]);
+        let result = Err(PlanningErrors {
+            errors: vec![PlanningError {
+                message: Some("Syntax Error: Unexpected Name \"Garbage\".".to_string()),
+                extensions: None,
+            }],
+        });
         assert_eq!(
             result,
             plan(
