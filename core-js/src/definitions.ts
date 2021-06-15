@@ -18,6 +18,7 @@ import {
 } from "graphql";
 import { assert } from "./utils";
 import deepEqual from 'deep-equal';
+import { NamedTypeNode } from "graphql";
 
 export type QueryRoot = 'query';
 export type MutationRoot = 'mutation';
@@ -36,6 +37,7 @@ type ImmutableWorld = {
   type: Type,
   namedType: NamedType,
   objectType: ObjectType,
+  interfaceType: InterfaceType,
   scalarType: ScalarType,
   unionType: UnionType,
   inputObjectType: InputObjectType,
@@ -44,8 +46,8 @@ type ImmutableWorld = {
   wrapperType: WrapperType,
   listType: ListType<any>,
   nonNullType: NonNullType<any>,
-  fieldDefinition: FieldDefinition,
-  fieldArgumentDefinition: ArgumentDefinition<FieldDefinition>,
+  fieldDefinition: FieldDefinition<any>,
+  fieldArgumentDefinition: ArgumentDefinition<FieldDefinition<any>>,
   inputFieldDefinition: InputFieldDefinition,
   directiveDefinition: DirectiveDefinition,
   directiveArgumentDefinition: ArgumentDefinition<DirectiveDefinition>,
@@ -63,6 +65,7 @@ type MutableWorld = {
   type: MutableType,
   namedType: MutableNamedType,
   objectType: MutableObjectType,
+  interfaceType: MutableInterfaceType,
   scalarType: MutableScalarType,
   unionType: MutableUnionType,
   inputObjectType: MutableInputObjectType,
@@ -71,8 +74,8 @@ type MutableWorld = {
   wrapperType: MutableWrapperType,
   listType: MutableListType<any>,
   nonNullType: MutableNonNullType<any>,
-  fieldDefinition: MutableFieldDefinition,
-  fieldArgumentDefinition: MutableArgumentDefinition<MutableFieldDefinition>,
+  fieldDefinition: MutableFieldDefinition<any>,
+  fieldArgumentDefinition: MutableArgumentDefinition<MutableFieldDefinition<any>>,
   inputFieldDefinition: MutableInputFieldDefinition,
   directiveDefinition: MutableDirectiveDefinition
   directiveArgumentDefinition: MutableArgumentDefinition<MutableDirectiveDefinition>,
@@ -85,24 +88,26 @@ type MutableWorld = {
 type World = ImmutableWorld | MutableWorld;
 
 export type Type = InputType | OutputType;
-export type NamedType = ScalarType | ObjectType | UnionType | InputObjectType;
-export type OutputType = ScalarType | ObjectType | UnionType | ListType<any> | NonNullType<any>;
+export type NamedType = ScalarType | ObjectType | InterfaceType | UnionType | InputObjectType;
+export type OutputType = ScalarType | ObjectType | InterfaceType | UnionType | ListType<any> | NonNullType<any>;
 export type InputType = ScalarType | InputObjectType | ListType<any> | NonNullType<any>;
 export type WrapperType = ListType<any> | NonNullType<any>;
 
-export type OutputTypeReferencer = FieldDefinition;
+export type OutputTypeReferencer = FieldDefinition<any>;
 export type InputTypeReferencer = InputFieldDefinition | ArgumentDefinition<any>;
 export type ObjectTypeReferencer = OutputType | UnionType | SchemaDefinition;
+export type InterfaceTypeReferencer = ObjectType | InterfaceType;
 
 export type MutableType = MutableOutputType | MutableInputType;
-export type MutableNamedType = MutableScalarType | MutableObjectType | MutableUnionType | MutableInputObjectType;
-export type MutableOutputType = MutableScalarType | MutableObjectType | MutableUnionType | MutableListType<any> | MutableNonNullType<any>;
+export type MutableNamedType = MutableScalarType | MutableObjectType | MutableInterfaceType | MutableUnionType | MutableInputObjectType;
+export type MutableOutputType = MutableScalarType | MutableObjectType | MutableInterfaceType | MutableUnionType | MutableListType<any> | MutableNonNullType<any>;
 export type MutableInputType = MutableScalarType | MutableInputObjectType | MutableListType<any> | MutableNonNullType<any>;
 export type MutableWrapperType = MutableListType<any> | NonNullType<any>;
 
-export type MutableOutputTypeReferencer = MutableFieldDefinition;
+export type MutableOutputTypeReferencer = MutableFieldDefinition<any>;
 export type MutableInputTypeReferencer = MutableInputFieldDefinition | MutableArgumentDefinition<any>;
 export type MutableObjectTypeReferencer = MutableOutputType | MutableUnionType | MutableSchemaDefinition;
+export type MutableInterfaceTypeReferencer = MutableObjectType | MutableInterfaceType;
 
 // Those exists to make it a bit easier to write code that work on both mutable and immutable variants, if one so wishes.
 export type AnySchema = Schema | MutableSchema;
@@ -114,6 +119,7 @@ export type AnyInputType = InputType | MutableInputType;
 export type AnyWrapperType = WrapperType | MutableWrapperType;
 export type AnyScalarType = ScalarType | MutableScalarType;
 export type AnyObjectType = ObjectType | MutableObjectType;
+export type AnyInterfaceType = InterfaceType | MutableInterfaceType;
 export type AnyUnionType = UnionType | MutableUnionType;
 export type AnyInputObjectType = InputObjectType | MutableInputObjectType;
 export type AnyListType = ListType<any> | MutableListType<any>;
@@ -122,9 +128,9 @@ export type AnyNonNullType = NonNullType<any> | MutableNonNullType<any>;
 export type AnySchemaDefinition = SchemaDefinition | MutableSchemaDefinition;
 export type AnyDirectiveDefinition = DirectiveDefinition | MutableDirectiveDefinition;
 export type AnyDirective = Directive | MutableDirective;
-export type AnyFieldDefinition = FieldDefinition | MutableFieldDefinition;
+export type AnyFieldDefinition = FieldDefinition<any> | MutableFieldDefinition<any>;
 export type AnyInputFieldDefinition = InputFieldDefinition | MutableInputFieldDefinition;
-export type AnyFieldArgumentDefinition = ArgumentDefinition<FieldDefinition> | MutableArgumentDefinition<MutableFieldDefinition>;
+export type AnyFieldArgumentDefinition = ArgumentDefinition<FieldDefinition<any>> | MutableArgumentDefinition<MutableFieldDefinition<any>>;
 export type AnyDirectiveArgumentDefinition = ArgumentDefinition<DirectiveDefinition> | MutableArgumentDefinition<MutableDirectiveDefinition>;
 export type AnyArgumentDefinition = AnyFieldDefinition | AnyDirectiveDefinition;
 
@@ -598,7 +604,8 @@ export class MutableScalarType extends ScalarType<MutableWorld> implements Mutab
   }
 }
 
-export class ObjectType<W extends World = ImmutableWorld> extends BaseNamedType<W> {
+class FieldBasedType<R, W extends World = ImmutableWorld> extends BaseNamedType<W> {
+  protected readonly _interfaces: W['interfaceType'][] = [];
   protected readonly fieldsMap: Map<string, W['fieldDefinition']> = new Map();
 
   protected constructor(
@@ -610,7 +617,13 @@ export class ObjectType<W extends World = ImmutableWorld> extends BaseNamedType<
     super(name, schema, isBuiltIn, source);
   }
 
-  kind: 'ObjectType' = 'ObjectType';
+  get interfaces(): readonly W['interfaceType'][] {
+    return this._interfaces;
+  }
+
+  implementsInterface(name: string): boolean {
+    return this._interfaces.some(i => i.name == name);
+  }
 
   get fields(): ReadonlyMap<string, W['fieldDefinition']> {
     return this.fieldsMap;
@@ -627,20 +640,64 @@ export class ObjectType<W extends World = ImmutableWorld> extends BaseNamedType<
     }
   }
 
-  protected removeTypeReference(_: W['namedType']): void {
-    assert(false, "Object types can never reference other types directly (their field does)");
+  protected removeTypeReference(type: W['namedType']): void {
+    const index = this._interfaces.indexOf(type as W['interfaceType']);
+    if (index >= 0) {
+      this._interfaces.splice(index, 1);
+    }
   }
-}
 
-export class MutableObjectType extends ObjectType<MutableWorld> implements MutableSchemaElement<MutableObjectTypeReferencer> {
-  addField(name: string, type: MutableType): MutableFieldDefinition {
+  protected addFieldInternal<T extends MutableObjectType | MutableInterfaceType>(t: T, name: string, type: MutableType): MutableFieldDefinition<T> {
     this.checkModification(type);
     if (!isOutputType(type)) {
       throw new GraphQLError(`Cannot use type ${type} for field ${name} as it is an input type (fields can only use output types)`);
     }
-    const field = Ctors.mutable.createFieldDefinition(name, this, type);
+    const field = Ctors.mutable.createFieldDefinition(name, t, type);
     this.fieldsMap.set(name, field);
     return field;
+  }
+
+  /**
+   * Removes this type definition from its parent schema.
+   *
+   * After calling this method, this type will be "detached": it wil have no parent, schema, fields,
+   * values, directives, etc...
+   *
+   * Note that it is always allowed to remove a type, but this may make a valid schema
+   * invalid, and in particular any element that references this type will, after this call, have an undefined
+   * reference.
+   *
+   * @returns an array of all the elements in the schema of this type (before the removal) that were
+   * referening this type (and have thus now an undefined reference).
+   */
+  protected removeInternal<T extends MutableObjectType | MutableInterfaceType>(t: T): R[] {
+    if (!this._parent) {
+      return [];
+    }
+    removeTypeDefinition(t, this._parent);
+    this._parent = undefined;
+    for (const directive of this._appliedDirectives) {
+      (directive as MutableDirective).remove();
+    }
+    for (const field of this.fieldsMap.values()) {
+      (field as MutableFieldDefinition<any>).remove();
+    }
+    const toReturn = [... this._referencers].map(r => {
+      BaseElement.prototype['removeTypeReference'].call(r, this);
+      return r as any;
+    });
+    this._referencers.clear();
+    return toReturn;
+  }
+}
+
+export class ObjectType<W extends World = ImmutableWorld> extends FieldBasedType<MutableObjectTypeReferencer, W> {
+  kind: 'ObjectType' = 'ObjectType';
+}
+
+export class MutableObjectType extends ObjectType<MutableWorld> implements MutableSchemaElement<MutableObjectTypeReferencer> {
+  addField(name: string, type: MutableType): MutableFieldDefinition<MutableObjectType> {
+    return this.addFieldInternal(this, name, type);
   }
 
   applyDirective(definition: MutableDirectiveDefinition, args?: Map<string, any>): MutableDirective {
@@ -661,23 +718,47 @@ export class MutableObjectType extends ObjectType<MutableWorld> implements Mutab
    * referening this type (and have thus now an undefined reference).
    */
   remove(): MutableObjectTypeReferencer[] {
-    if (!this._parent) {
-      return [];
-    }
-    removeTypeDefinition(this, this._parent);
-    this._parent = undefined;
-    for (const directive of this._appliedDirectives) {
-      directive.remove();
-    }
-    for (const field of this.fieldsMap.values()) {
-      field.remove();
-    }
-    const toReturn = [... this._referencers].map(r => {
-      BaseElement.prototype['removeTypeReference'].call(r, this);
-      return r as MutableObjectTypeReferencer;
-    });
-    this._referencers.clear();
-    return toReturn;
+    return this.removeInternal(this);
+  }
+}
+
+export class InterfaceType<W extends World = ImmutableWorld> extends FieldBasedType<MutableInterfaceTypeReferencer, W> {
+  kind: 'InterfaceType' = 'InterfaceType';
+
+  allImplementations(): readonly (W['objectType'] | W['interfaceType'])[] {
+    return [...this._referencers] as (W['objectType'] | W['interfaceType'])[];
+  }
+
+  possibleRuntimeTypes(): readonly W['objectType'][] {
+    // Note that object types in GraphQL needs to reference directly all the interfaces they implement, and cannot rely on transitivity.
+    return this.allImplementations().filter(impl => impl.kind == 'ObjectType') as W['objectType'][];
+  }
+}
+
+export class MutableInterfaceType extends InterfaceType<MutableWorld> implements MutableSchemaElement<MutableInterfaceTypeReferencer> {
+  addField(name: string, type: MutableType): MutableFieldDefinition<MutableInterfaceType> {
+    return this.addFieldInternal(this, name, type);
+  }
+
+  applyDirective(definition: MutableDirectiveDefinition, args?: Map<string, any>): MutableDirective {
+    return this.addAppliedDirective(Ctors.mutable.createDirective(definition.name, this, args ?? new Map()));
+  }
+
+  /**
+   * Removes this type definition from its parent schema.
+   *
+   * After calling this method, this type will be "detached": it wil have no parent, schema, fields,
+   * values, directives, etc...
+   *
+   * Note that it is always allowed to remove a type, but this may make a valid schema
+   * invalid, and in particular any element that references this type will, after this call, have an undefined
+   * reference.
+   *
+   * @returns an array of all the elements in the schema of this type (before the removal) that were
+   * referening this type (and have thus now an undefined reference).
+   */
+  remove(): MutableInterfaceTypeReferencer[] {
+    return this.removeInternal(this);
   }
 }
 
@@ -898,12 +979,12 @@ export class NonNullType<T extends NullableType<W>, W extends World = ImmutableW
 
 export class MutableNonNullType<T extends MutableNullableType> extends NonNullType<T, MutableWorld> {}
 
-export class FieldDefinition<W extends World = ImmutableWorld> extends BaseNamedElement<W['objectType'], W> {
+export class FieldDefinition<P extends W['objectType'] | W['interfaceType'], W extends World = ImmutableWorld> extends BaseNamedElement<P, W> {
   protected readonly _args: Map<string, W['fieldArgumentDefinition']> = new Map();
 
   protected constructor(
     name: string,
-    parent: W['objectType'] | W['detached'],
+    parent: P | W['detached'],
     protected _type: W['outputType'] | W['detached'],
     source?: ASTNode
   ) {
@@ -943,8 +1024,8 @@ export class FieldDefinition<W extends World = ImmutableWorld> extends BaseNamed
   }
 }
 
-export class MutableFieldDefinition extends FieldDefinition<MutableWorld> implements MutableSchemaElement<never> {
-  setType(type: MutableType): MutableFieldDefinition {
+export class MutableFieldDefinition<P extends MutableObjectType | MutableInterfaceType> extends FieldDefinition<P, MutableWorld> implements MutableSchemaElement<never> {
+  setType(type: MutableType): MutableFieldDefinition<P> {
     this.checkModification(type);
     if (!isOutputType(type)) {
       throw new GraphQLError(`Cannot use type ${type} for field ${this.name} as it is an input type (fields can only use output types)`);
@@ -967,7 +1048,7 @@ export class MutableFieldDefinition extends FieldDefinition<MutableWorld> implem
     if (!this._parent) {
       return [];
     }
-    (this._parent.fields as Map<string, MutableFieldDefinition>).delete(this.name);
+    (this._parent.fields as Map<string, MutableFieldDefinition<any>>).delete(this.name);
     // We "clean" all the attributes of the object. This is because we mean detached element to be essentially
     // dead and meant to be GCed and this ensure we don't prevent that for no good reason.
     this._parent = undefined;
@@ -1084,7 +1165,7 @@ export class ArgumentDefinition<P extends W['fieldDefinition'] | W['directiveDef
   }
 }
 
-export class MutableArgumentDefinition<P extends MutableFieldDefinition | MutableDirectiveDefinition> extends ArgumentDefinition<P, MutableWorld> implements MutableSchemaElement<never> {
+export class MutableArgumentDefinition<P extends MutableFieldDefinition<any> | MutableDirectiveDefinition> extends ArgumentDefinition<P, MutableWorld> implements MutableSchemaElement<never> {
   applyDirective(definition: MutableDirectiveDefinition, args?: Map<string, any>): MutableDirective {
     return this.addAppliedDirective(Ctors.mutable.createDirective(definition.name, this, args ?? new Map()));
   }
@@ -1319,6 +1400,7 @@ class Ctors<W extends World> {
     (parent, source) => new (Function.prototype.bind.call(SchemaDefinition, null, parent, source)),
     (name, doc, builtIn, source) => new (Function.prototype.bind.call(ScalarType, null, name, doc, builtIn, source)),
     (name, doc, builtIn, source) => new (Function.prototype.bind.call(ObjectType, null, name, doc, builtIn, source)),
+    (name, doc, builtIn, source) => new (Function.prototype.bind.call(InterfaceType, null, name, doc, builtIn, source)),
     (name, doc, builtIn, source) => new (Function.prototype.bind.call(UnionType, null, name, doc, builtIn, source)),
     (name, doc, builtIn, source) => new (Function.prototype.bind.call(InputObjectType, null, name, doc, builtIn, source)),
     (type) => new (Function.prototype.bind.call(ListType, null, type)),
@@ -1342,6 +1424,7 @@ class Ctors<W extends World> {
     (parent, source) => new (Function.prototype.bind.call(MutableSchemaDefinition, null, parent, source)),
     (name, doc, builtIn, source) => new (Function.prototype.bind.call(MutableScalarType, null, name, doc, builtIn, source)),
     (name, doc, builtIn, source) => new (Function.prototype.bind.call(MutableObjectType, null, name, doc, builtIn, source)),
+    (name, doc, builtIn, source) => new (Function.prototype.bind.call(MutableInterfaceType, null, name, doc, builtIn, source)),
     (name, doc, builtIn, source) => new (Function.prototype.bind.call(MutableUnionType, null, name, doc, builtIn, source)),
     (name, doc, builtIn, source) => new (Function.prototype.bind.call(MutableInputObjectType, null, name, doc, builtIn, source)),
     (type) => new (Function.prototype.bind.call(MutableListType, null, type)),
@@ -1360,11 +1443,12 @@ class Ctors<W extends World> {
     private readonly createSchemaDefinition: (parent: W['schema'] | W['detached'], source?: ASTNode) => W['schemaDefinition'],
     readonly createScalarType: (name: string, schema: W['schema'] | W['detached'], isBuiltIn: boolean, source?: ASTNode) => W['scalarType'],
     readonly createObjectType: (name: string, schema: W['schema'] | W['detached'], isBuiltIn: boolean, source?: ASTNode) => W['objectType'],
+    readonly createInterfaceType: (name: string, schema: W['schema'] | W['detached'], isBuiltIn: boolean, source?: ASTNode) => W['interfaceType'],
     readonly createUnionType: (name: string, schema: W['schema'] | W['detached'], isBuiltIn: boolean, source?: ASTNode) => W['unionType'],
     readonly createInputObjectType: (name: string, schema: W['schema'] | W['detached'], isBuiltIn: boolean, source?: ASTNode) => W['inputObjectType'],
     readonly createList: <T extends W['type']>(type: T) => W['listType'],
     readonly createNonNull: <T extends W['type']>(type: T) => W['nonNullType'],
-    readonly createFieldDefinition: (name: string, parent: W['objectType'] | W['detached'], type: W['outputType'], source?: ASTNode) => W['fieldDefinition'],
+    readonly createFieldDefinition: (name: string, parent: W['objectType'] | W['interfaceType'] | W['detached'], type: W['outputType'], source?: ASTNode) => W['fieldDefinition'],
     readonly createInputFieldDefinition: (name: string, parent: W['inputObjectType'] | W['detached'], type: W['inputType'], source?: ASTNode) => W['inputFieldDefinition'],
     readonly createFieldArgumentDefinition: (name: string, parent: W['fieldDefinition'] | W['detached'], type: W['inputType'], defaultValue: any, source?: ASTNode) => W['fieldArgumentDefinition'],
     readonly createDirectiveArgumentDefinition: (name: string, parent: W['directiveDefinition'] | W['detached'], type: W['inputType'], defaultValue: any, source?: ASTNode) => W['directiveArgumentDefinition'],
@@ -1390,6 +1474,8 @@ class Ctors<W extends World> {
         return this.createScalarType(name, schema, isBuiltIn, source);
       case 'ObjectType':
         return this.createObjectType(name, schema, isBuiltIn, source);
+      case 'InterfaceType':
+        return this.createInterfaceType(name, schema, isBuiltIn, source);
       case 'UnionType':
         return this.createUnionType(name, schema, isBuiltIn, source);
       case 'InputObjectType':
@@ -1520,7 +1606,7 @@ function addDirectiveArg<W extends World>(arg: W['directiveArgumentDefinition'],
   (directive.arguments as Map<string, W['directiveArgumentDefinition']>).set(arg.name, arg);
 }
 
-function addField<W extends World>(field: W['fieldDefinition'] | W['inputFieldDefinition'], objectType: W['objectType'] | W['inputObjectType']) {
+function addField<W extends World>(field: W['fieldDefinition'] | W['inputFieldDefinition'], objectType: W['objectType'] | W['interfaceType'] | W['inputObjectType']) {
   (objectType.fields as Map<string, W['fieldDefinition'] | W['inputFieldDefinition']>).set(field.name, field);
 }
 
@@ -1528,6 +1614,13 @@ function addTypeToUnion<W extends World>(typeName: string, unionType: W['unionTy
   const type = unionType.schema()!.type(typeName)! as W['objectType'];
   (unionType.types as W['objectType'][]).push(type);
   addReferencerToType(unionType, type);
+}
+
+function addImplementedInterface<W extends World>(implemented: W['interfaceType'], implementer: W['interfaceType'] | W['objectType']) {
+  if (!implementer.implementsInterface(implemented.name)) {
+    (implementer.interfaces as W['interfaceType'][]).push(implemented);
+    addReferencerToType(implementer, implemented);
+  }
 }
 
 function addReferencerToType<W extends World>(referencer: W['schemaElement'], type: W['type']) {
@@ -1632,6 +1725,14 @@ function withoutTrailingDefinition(str: string): string {
   return str.slice(0, str.length - 'Definition'.length);
 }
 
+function getReferencedType<W extends World>(schema: W['schema'], node: NamedTypeNode): W['namedType'] {
+  const type = schema.type(node.name.value);
+  if (!type) {
+    throw new GraphQLError(`Unknown type ${node.name.value}`, node);
+  }
+  return type;
+}
+
 function buildSchemaDefinition<W extends World>(schemaNode: SchemaDefinitionNode, schema: W['schema'], ctors: Ctors<W>) {
   ctors.addSchemaDefinition(schema, schemaNode);
   buildAppliedDirectives(schemaNode, schema.schemaDefinition, ctors);
@@ -1664,13 +1765,20 @@ function buildNamedTypeInner<W extends World>(definitionNode: DefinitionNode & N
   buildAppliedDirectives(definitionNode, type, ctors);
   switch (definitionNode.kind) {
     case 'ObjectTypeDefinition':
-      const objectType = type as W['objectType'];
+    case 'InterfaceTypeDefinition':
+      const fieldBasedType = type as W['objectType'] | W['interfaceType'];
       for (const fieldNode of definitionNode.fields ?? []) {
-        addField(buildFieldDefinition(fieldNode, objectType, ctors), objectType);
+        addField(buildFieldDefinition(fieldNode, fieldBasedType, ctors), fieldBasedType);
+      }
+      for (const itfNode of definitionNode.interfaces ?? []) {
+        const itfType = getReferencedType(type.schema()!, itfNode);
+        if (itfType.kind != 'InterfaceType') {
+          // TODO: check what error graphql-js thrown for this.
+          throw new GraphQLError(`Type ${fieldBasedType} cannot implement non-interface type ${itfType}`, [definitionNode, itfNode]);
+        }
+        addImplementedInterface(itfType, fieldBasedType);
       }
       break;
-    case 'InterfaceTypeDefinition':
-      throw new Error("TODO");
     case 'UnionTypeDefinition':
       const unionType = type as W['unionType'];
       for (const namedType of definitionNode.types ?? []) {
@@ -1688,7 +1796,7 @@ function buildNamedTypeInner<W extends World>(definitionNode: DefinitionNode & N
   }
 }
 
-function buildFieldDefinition<W extends World>(fieldNode: FieldDefinitionNode, parentType: W['objectType'], ctors: Ctors<W>): W['fieldDefinition'] {
+function buildFieldDefinition<W extends World>(fieldNode: FieldDefinitionNode, parentType: W['objectType'] | W['interfaceType'], ctors: Ctors<W>): W['fieldDefinition'] {
   const type = buildWrapperTypeOrTypeRef(fieldNode.type, parentType.schema()!, ctors) as W['outputType'];
   const builtField = ctors.createFieldDefinition(fieldNode.name.value, parentType, type, fieldNode);
   buildAppliedDirectives(fieldNode, builtField, ctors);
@@ -1814,10 +1922,14 @@ function copyNamedTypeInner<WS extends World, WD extends World>(source: WS['name
   copyAppliedDirectives(source, dest, destCtors);
   switch (source.kind) {
     case 'ObjectType':
-      const sourceObjectType = source as WS['objectType'];
-      const destObjectType = dest as WD['objectType'];
-      for (const field of sourceObjectType.fields.values()) {
-        addField(copyFieldDefinition(field, destObjectType, destCtors), destObjectType); 
+    case 'InterfaceType':
+      const sourceFieldBasedType = source as WS['objectType'] | WS['interfaceType'];
+      const destFieldBasedType = dest as WD['objectType'] | WD['interfaceType'];
+      for (const field of sourceFieldBasedType.fields.values()) {
+        addField(copyFieldDefinition(field, destFieldBasedType, destCtors), destFieldBasedType); 
+      }
+      for (const itf of sourceFieldBasedType.interfaces) {
+        addImplementedInterface(destFieldBasedType.schema()?.type(itf.name)! as WD['interfaceType'], destFieldBasedType);
       }
       break;
     case 'UnionType':
@@ -1836,7 +1948,7 @@ function copyNamedTypeInner<WS extends World, WD extends World>(source: WS['name
   }
 }
 
-function copyFieldDefinition<WS extends World, WD extends World>(source: WS['fieldDefinition'], destParent: WD['objectType'], destCtors: Ctors<WD>): WD['fieldDefinition'] {
+function copyFieldDefinition<WS extends World, WD extends World>(source: WS['fieldDefinition'], destParent: WD['objectType'] | WD['interfaceType'], destCtors: Ctors<WD>): WD['fieldDefinition'] {
   const type = copyWrapperTypeOrTypeRef(source.type, destParent.schema()!, destCtors) as WD['outputType'];
   const copiedField = destCtors.createFieldDefinition(source.name, destParent, type, source.source);
   copyAppliedDirectives(source, copiedField, destCtors);
@@ -1861,9 +1973,9 @@ function copyWrapperTypeOrTypeRef<WS extends World, WD extends World>(source: WS
   }
   switch (source.kind) {
     case 'ListType':
-      return destCtors.createList(copyWrapperTypeOrTypeRef((source as WS['listType']).ofType(), destParent, destCtors) as WD['type']);
+      return destCtors.createList(copyWrapperTypeOrTypeRef((source as WS['listType']).ofType, destParent, destCtors) as WD['type']);
     case 'NonNullType':
-      return destCtors.createNonNull(copyWrapperTypeOrTypeRef((source as WS['nonNullType']).ofType(), destParent, destCtors) as WD['type']);
+      return destCtors.createNonNull(copyWrapperTypeOrTypeRef((source as WS['nonNullType']).ofType, destParent, destCtors) as WD['type']);
     default:
       return destParent.type((source as WS['namedType']).name)!;
   }

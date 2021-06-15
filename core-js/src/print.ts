@@ -11,7 +11,8 @@ import {
   AnySchemaDefinition,
   AnySchemaElement,
   AnyUnionType,
-  defaultRootTypeName
+  defaultRootTypeName,
+  AnyInterfaceType
 } from "./definitions";
 
 const indent = "  "; // Could be made an option at some point
@@ -68,6 +69,7 @@ export function printTypeDefinition(type: AnyNamedType): string {
   switch (type.kind) {
     case 'ScalarType': return printScalarType(type);
     case 'ObjectType': return printObjectType(type);
+    case 'InterfaceType': return printInterfaceType(type);
     case 'UnionType': return printUnionType(type);
     case 'InputObjectType': return printInputObjectType(type);
   }
@@ -93,6 +95,11 @@ function printScalarType(type: AnyScalarType): string {
 function printObjectType(type: AnyObjectType): string {
   // TODO: missing interfaces
   return `type ${type.name}${printAppliedDirectives(type)}` + printFields([...type.fields.values()]);
+}
+
+function printInterfaceType(type: AnyInterfaceType): string {
+  // TODO: missing interfaces
+  return `interface ${type.name}${printAppliedDirectives(type)}` + printFields([...type.fields.values()]);
 }
 
 function printUnionType(type: AnyUnionType): string {

@@ -10,7 +10,10 @@ import {
   ObjectType,
   Type,
   BuiltIns,
-  AnyDirectiveDefinition
+  AnyDirectiveDefinition,
+  InterfaceType,
+  MutableInterfaceType,
+  AnyInterfaceType
 } from '../../dist/definitions';
 import {
   printSchema
@@ -22,6 +25,12 @@ import {
 function expectObjectType(type: Type | MutableType | undefined): asserts type is ObjectType | MutableObjectType {
   expect(type).toBeDefined();
   expect(type!.kind).toBe('ObjectType');
+
+}
+
+function expectInterfaceType(type: Type | MutableType | undefined): asserts type is InterfaceType | MutableInterfaceType {
+  expect(type).toBeDefined();
+  expect(type!.kind).toBe('InterfaceType');
 }
 
 declare global {
@@ -34,7 +43,7 @@ declare global {
 }
 
 expect.extend({
-  toHaveField(parentType: AnyObjectType, name: string, type?: AnyType) {
+  toHaveField(parentType: AnyObjectType | AnyInterfaceType, name: string, type?: AnyType) {
     const field = parentType.field(name);
     if (!field) {
       return {
@@ -263,4 +272,69 @@ type A {
 type Query {
   a(id: String @bar): A
 }`);
+});
+
+test('handling of interfaces', () => {
+  const doc = Schema.parse(`
+    type Query {
+      bestIs: [I!]!
+    }
+
+    interface B {
+      a: Int
+    }
+
+    interface I implements B {
+      a: Int
+      b: String
+    }
+
+    type T1 implements B & I {
+      a: Int
+      b: String
+      c: Int
+    }
+
+    type T2 implements B & I {
+      a: Int
+      b: String
+      c: String
+    }
+  `);
+
+  const b = doc.type('B');
+  const i = doc.type('I');
+  const t1 = doc.type('T1');
+  const t2 = doc.type('T2');
+  expectInterfaceType(b);
+  expectInterfaceType(i);
+  expectObjectType(t1);
+  expectObjectType(t2);
+
+  for (const t of [b, i, t1, t2]) {
+    expect(t).toHaveField('a', doc.intType());
+  }
+  for (const t of [i, t1, t2]) {
+    expect(t).toHaveField('b', doc.stringType());
+  }
+  expect(t1).toHaveField('c', doc.intType());
+  expect(t2).toHaveField('c', doc.stringType());
+
+  expect(i.implementsInterface(b.name)).toBeTruthy();
+  expect(t1.implementsInterface(b.name)).toBeTruthy();
+  expect(t1.implementsInterface(i.name)).toBeTruthy();
+  expect(t2.implementsInterface(b.name)).toBeTruthy();
+  expect(t2.implementsInterface(i.name)).toBeTruthy();
+
+  const impls = b.allImplementations();
+  for (let j = 0; j < impls.length; j++) {
+    console.log(`Element: ${i}: ${impls[j]} == ${[i, t1, t2][j]}?`);
+    expect(impls[j]).toBe([i, t2, t1][j]);
+  }
+  //expect(b.allImplementations()).toBe([i, t1, t2]);
+  //expect(i.allImplementations()).toBe([t1, t2]);
+
+  //for (const itf of [b, i]) {
+  //  expect(itf.possibleRuntimeTypes()).toBe([t1, t2]);
+  //}
 });
