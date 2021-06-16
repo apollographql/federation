@@ -2,7 +2,6 @@ import {
   GraphQLService,
   SchemaChangeCallback,
   Unsubscriber,
-  GraphQLServiceEngineConfig,
 } from 'apollo-server-core';
 import {
   GraphQLExecutionResult,
@@ -136,12 +135,18 @@ type GatewayState =
     }
   | { phase: 'polling'; pollingDonePromise: Promise<void> };
 
+// We want to be compatible with `load()` as called by both AS2 and AS3, so we
+// define its argument types ourselves instead of relying on imports.
+
+// This is what AS3's ApolloConfig looks like; it's what we'll save internally.
 interface ApolloConfigFromAS3 {
   key?: string;
   keyHash?: string;
   graphRef?: string;
 }
 
+// This interface matches what we may receive from either version. We convert it
+// to ApolloConfigFromAS3.
 interface ApolloConfigFromAS2Or3 {
   key?: string;
   keyHash?: string;
@@ -149,6 +154,15 @@ interface ApolloConfigFromAS2Or3 {
   graphId?: string;
   graphVariant?: string;
 }
+
+// This interface was the only way this data was provided prior to AS 2.18; it
+// is being removed in AS 3, so we define our own version.
+interface GraphQLServiceEngineConfig {
+  apiKeyHash: string;
+  graphId: string;
+  graphVariant?: string;
+};
+
 
 export class ApolloGateway implements GraphQLService {
   public schema?: GraphQLSchema;
