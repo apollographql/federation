@@ -7,9 +7,14 @@
 -  Take subtypes into account when matching type conditions to extract representations. [PR #804](https://github.com/apollographql/federation/pull/804)
 
 
+
+## v0.29.1
+
+- More work towards compatibility with Apollo Server 3 preview releases. [PR #822](https://github.com/apollographql/federation/pull/822)
+
 ## v0.29.0
 
-- This release is compatible with preview releases of Apollo Server 3. The `apollo` option to `ApolloGateway.load` now can accept the signature sent by AS2 (which always includes `graphVariant`) or AS3 (which never does), and the dependencies on Apollo Server packages allow for preview releases as well as the AS2 versions. [PR #819](https://github.com/apollographql/federation/pull/819) [PR #???](https://github.com/apollographql/federation/pull/???)
+- This release is intended to be compatible with preview releases of Apollo Server 3. The `apollo` option to `ApolloGateway.load` now can accept the signature sent by AS2 (which always includes `graphVariant`) or AS3 (which never does), and the dependencies on Apollo Server packages allow for preview releases as well as the AS2 versions. (However, it was not quite enough for AS3 compatibility; see 0.29.1 above.) [PR #819](https://github.com/apollographql/federation/pull/819) [PR #819](https://github.com/apollographql/federation/pull/819)
 
 ## v0.28.3
 
