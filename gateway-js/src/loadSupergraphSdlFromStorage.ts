@@ -37,14 +37,12 @@ const { name, version } = require('../package.json');
 const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
 
 export async function loadSupergraphSdlFromStorage({
-  graphId,
-  graphVariant,
+  graphRef,
   apiKey,
   endpoint,
   fetcher,
 }: {
-  graphId: string;
-  graphVariant: string;
+  graphRef: string;
   apiKey: string;
   endpoint: string;
   fetcher: typeof fetch;
@@ -56,7 +54,7 @@ export async function loadSupergraphSdlFromStorage({
       body: JSON.stringify({
         query: SUPERGRAPH_SDL_QUERY,
         variables: {
-          ref: `${graphId}@${graphVariant}`,
+          ref: graphRef,
           apiKey,
         },
       }),

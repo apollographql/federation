@@ -8,7 +8,6 @@ import {
   GraphQLExecutionResult,
   Logger,
   GraphQLRequestContextExecutionDidStart,
-  ApolloConfig,
 } from 'apollo-server-types';
 import { InMemoryLRUCache } from 'apollo-server-caching';
 import {
@@ -126,7 +125,7 @@ export const SERVICE_DEFINITION_QUERY =
 
 type GatewayState =
   | { phase: 'initialized' }
-  | { phase: 'failed to load'}
+  | { phase: 'failed to load' }
   | { phase: 'loaded' }
   | { phase: 'stopping'; stoppingDonePromise: Promise<void> }
   | { phase: 'stopped' }
@@ -136,13 +135,28 @@ type GatewayState =
       doneWaiting: () => void;
     }
   | { phase: 'polling'; pollingDonePromise: Promise<void> };
+
+interface ApolloConfigFromAS3 {
+  key?: string;
+  keyHash?: string;
+  graphRef?: string;
+}
+
+interface ApolloConfigFromAS2Or3 {
+  key?: string;
+  keyHash?: string;
+  graphRef?: string;
+  graphId?: string;
+  graphVariant?: string;
+}
+
 export class ApolloGateway implements GraphQLService {
   public schema?: GraphQLSchema;
   private serviceMap: DataSourceMap = Object.create(null);
   private config: GatewayConfig;
   private logger: Logger;
   private queryPlanStore: InMemoryLRUCache<QueryPlan>;
-  private apolloConfig?: ApolloConfig;
+  private apolloConfig?: ApolloConfigFromAS3;
   private onSchemaChangeListeners = new Set<SchemaChangeCallback>();
   private serviceDefinitions: ServiceDefinition[] = [];
   private compositionMetadata?: CompositionMetadata;
@@ -306,7 +320,7 @@ export class ApolloGateway implements GraphQLService {
   }
 
   public async load(options?: {
-    apollo?: ApolloConfig;
+    apollo?: ApolloConfigFromAS2Or3;
     engine?: GraphQLServiceEngineConfig;
   }) {
     if (this.state.phase !== 'initialized') {
@@ -315,13 +329,22 @@ export class ApolloGateway implements GraphQLService {
       );
     }
     if (options?.apollo) {
-      this.apolloConfig = options.apollo;
+      const { key, keyHash, graphRef, graphId, graphVariant } = options.apollo;
+      this.apolloConfig = {
+        key,
+        keyHash,
+        graphRef:
+          graphRef ??
+          (graphId ? `${graphId}@${graphVariant ?? 'current'}` : undefined),
+      };
     } else if (options?.engine) {
       // Older version of apollo-server-core that isn't passing 'apollo' yet.
+      const { apiKeyHash, graphId, graphVariant } = options.engine;
       this.apolloConfig = {
-        keyHash: options.engine.apiKeyHash,
-        graphId: options.engine.graphId,
-        graphVariant: options.engine.graphVariant || 'current',
+        keyHash: apiKeyHash,
+        graphRef: graphId
+          ? `${graphId}@${graphVariant ?? 'current'}`
+          : undefined,
       };
     }
 
@@ -363,8 +386,8 @@ export class ApolloGateway implements GraphQLService {
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
     this.logger.info(
       `Gateway successfully loaded schema.\n\t* Mode: ${mode}${
-        this.apolloConfig && this.apolloConfig.graphId
-          ? `\n\t* Service: ${this.apolloConfig.graphId}@${this.apolloConfig.graphVariant}`
+        this.apolloConfig && this.apolloConfig.graphRef
+          ? `\n\t* Service: ${this.apolloConfig.graphRef}`
           : ''
       }`,
     );
@@ -861,7 +884,7 @@ export class ApolloGateway implements GraphQLService {
     }
 
     const canUseManagedConfig =
-      this.apolloConfig?.graphId && this.apolloConfig?.keyHash;
+      this.apolloConfig?.graphRef && this.apolloConfig?.keyHash;
     if (!canUseManagedConfig) {
       throw new Error(
         'When a manual configuration is not provided, gateway requires an Apollo ' +
@@ -877,18 +900,16 @@ export class ApolloGateway implements GraphQLService {
       !isPrecomposedManagedConfig(config)
     ) {
       return getServiceDefinitionsFromStorage({
-        graphId: this.apolloConfig!.graphId!,
+        graphRef: this.apolloConfig!.graphRef!,
         apiKeyHash: this.apolloConfig!.keyHash!,
-        graphVariant: this.apolloConfig!.graphVariant,
         federationVersion: config.federationVersion || 1,
         fetcher: this.fetcher,
       });
     }
 
     return loadSupergraphSdlFromStorage({
-      graphId: this.apolloConfig!.graphId!,
+      graphRef: this.apolloConfig!.graphRef!,
       apiKey: this.apolloConfig!.key!,
-      graphVariant: this.apolloConfig!.graphVariant,
       endpoint: this.experimental_schemaConfigDeliveryEndpoint!,
       fetcher: this.fetcher,
     });
@@ -896,7 +917,7 @@ export class ApolloGateway implements GraphQLService {
 
   private maybeWarnOnConflictingConfig() {
     const canUseManagedConfig =
-      this.apolloConfig?.graphId && this.apolloConfig?.keyHash;
+      this.apolloConfig?.graphRef && this.apolloConfig?.keyHash;
 
     // This might be a bit confusing just by reading, but `!isManagedConfig` just
     // means it's any of the other types of config. If it's any other config _and_
