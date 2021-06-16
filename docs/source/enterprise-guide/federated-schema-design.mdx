@@ -9,7 +9,7 @@ Throughout this section, we'll explore some proven best practices for GraphQL sc
 
 ## Best practice #1: Start thinking in entities
 
-[Entities](/entities/) are the core building blocks of a federated data graph, so the adoption of any schema design best practice must be approached with the unique role of entities in mind. A successful federated schema design process should begin by thinking about what the initial entity types will be and how they will be referenced and extended throughout the graph to help preserve the separation of concerns between services—both today and as the graph evolves in the future.
+[Entities](/entities/) are the core building blocks of a federated data graph, so the adoption of any schema design best practice must be approached with the unique role of entities in mind. While there's no requirement for subgraphs to define any entities at all with Apollo Federation, the federated schema design process often begins by thinking about what the initial entity types will be and how they will be referenced and extended throughout the graph to help preserve the separation of concerns between services—both today and as the graph evolves in the future.
 
 ### Define, reference, and extend entities as needed
 
@@ -263,7 +263,9 @@ The matter of whether you should make referenced entities nullable in a subgraph
 
 ## Best practice #5: Use abstract type judiciously
 
-The GraphQL specification currently offers two abstract types in the type system—interfaces and unions. Both interfaces and unions are powerful tools to express relationships between types in a schema. However, when adding interfaces and unions to a schema—and in particular, a federated schema—it's important to do so with a clear-eyed understanding of the longer-term implications of managing these types. To do so, we must first ensure that we're using interfaces and unions in semantically purposeful ways. Second, we must help prepare client developers to handle changes to these types as the schema evolves.
+The GraphQL specification currently offers two abstract types in the type system—interfaces and unions. Both interfaces and unions are powerful tools to express relationships between types in a schema. However, when adding interfaces and unions to a schema—and in particular, a federated schema—it's important to do so with a clear-eyed understanding of the longer-term implications of managing these types. 
+
+As a prerequisite to using an abstract type in a subgraph, that subgraph must be able to resolve all possible concrete types that may be returned by a field that uses the abstract type as its output. Beyond that requirement, we must also ensure that we're using interfaces and unions in semantically purposeful ways. Additionally, we must help prepare client developers to handle changes to these types as the schema evolves.
 
 ### Create semantically meaningful interfaces
 
