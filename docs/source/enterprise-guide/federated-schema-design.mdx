@@ -7,13 +7,13 @@ GraphQL is a relatively new technology, but from its rapid and widespread adopti
 
 Throughout this section, we'll explore some proven best practices for GraphQL schema design with a specific lens on how these practices relate to federated data graphs, as well as any special considerations and trade-offs to keep in mind when designing and evolving schemas across a distributed GraphQL architecture.
 
-## Best Practice #1: Start Thinking in Entities
+## Best practice #1: Start thinking in entities
 
-[Entities](/federation/entities/) are the core building blocks of a federated data graph, so the adoption of any schema design best practice must be approached with the unique role of entities in mind. A successful federated schema design process should begin by thinking about what the initial entity types will be and how they will be referenced and extended throughout the graph to help preserve the separation of concerns between services—both today and as the graph evolves in the future.
+[Entities](/entities/) are the core building blocks of a federated data graph, so the adoption of any schema design best practice must be approached with the unique role of entities in mind. A successful federated schema design process should begin by thinking about what the initial entity types will be and how they will be referenced and extended throughout the graph to help preserve the separation of concerns between services—both today and as the graph evolves in the future.
 
-### Define, Reference, and Extend Entities as Needed
+### Define, reference, and extend entities as needed
 
-The [Apollo Federation specificaiton](/federation/federation-spec/) indicates that an Object or Interface type can be made into an entity by adding the `@key` directive to its defintion in a subgraph schema. The `@key` directive defines a **primary key** for the entity and its `fields` argument will contain one or more of the type's fields. In the following example, the `Product` entity's primary key would be its `upc` field:
+The [Apollo Federation specificaiton](/federation-spec/) indicates that an Object or Interface type can be made into an entity by adding the `@key` directive to its defintion in a subgraph schema. The `@key` directive defines a **primary key** for the entity and its `fields` argument will contain one or more of the type's fields. In the following example, the `Product` entity's primary key would be its `upc` field:
 
 ```graphql:title=Products%20Subgraph
 type Product @key(fields: "upc") {
@@ -56,21 +56,21 @@ extend type Product @key(fields: "upc") {
 
 When extending entities, it's important to keep in mind that **the entity's originating service will not be aware of the added fields**. Additionally, each field in an entity must only be defined once or the gateway will encounter schema composition errors.
 
-### Work from the Entities Outward
+### Work from the entities outward
 
 When migrating from a client-only or monolithic GraphQL pattern, that work begins by identifying what entities will be exposed in the first subgraph extracted from the larger schema. When migrating from an architecture consisting of BFF-based GraphQL APIs or any other architecture of multiple overlapping graphs, the work of identifying entities (and determining new service boundaries, in general) may be a bit more complex and involve some degree of negotiation with respect to type ownership, as well as a migration process to help account for any breaking changes that may result for clients.
 
 Whatever your architectural starting point, Apollo Federation was designed to allow the work of identifying entities and defining subgraph boundaries to be done in an incremental, non-disruptive fashion. Beginning to identify these entities is also the essential prerequisite for adopting the other schema design best practices that will follow.
 
-For more information on entity usage and capabilities, please see the [Entities documentation page](/federation/entities/).
+For more information on entity usage and capabilities, please see the [Entities documentation page](/entities/).
 
-## Best Practice #2: Design Schemas in a Demand-Oriented, Abstract Way
+## Best practice #2: Design schemas in a demand-oriented, abstract way
 
 The shift to a common data graph is often motivated in part by a desire to simplify how clients access the data they need from a GraphQL API backed by a distributed service architecture. And while GraphQL offers the promise of taking a client-driven approach to API design and development, it provides no inherent guarantee that any given schema will lend itself to real client use cases.
 
 To best support the client applications that consume data from our federated graph, we must intentionally design schemas in an abstract, demand-oriented way. This concept is formalized as one of the [Agility principles](https://principledgraphql.com/agility) in Principled GraphQL, stating that a schema should not be tightly coupled to any particular client, nor should it expose implementation details of any particular service.
 
-### Prioritize Client Needs, But Not Just One Client's Needs
+### Prioritize client needs, but not just one client's needs
 
 Creating a schema that is simultaneously demand-oriented while avoiding the over-prioritization of a single client's needs requires some upfront work—specifically, client teams should be consulted early on in the API design process. From a data-graph-as-a-product perspective, this is an essential form of foundational research to ensure the product satisfies user needs. This research should also continue to happen on an ongoing basis as the data graph and client requirements evolve.
 
@@ -78,7 +78,7 @@ Client teams should drive these discussions wherever possible. That means in pra
 
 When thinking about driving product experiences via the data graph, keep in mind that the overall schema of the data graph is a representation of your product and each federated schema is the representation of a domain boundary within the product. This is why Apollo Federation excels at supporting omni-channel product strategies—the data graph can be designed in a demand-oriented way that's based on product functions and the clients that query the graph can, in turn, evolve along with those functions.
 
-### Keep Service Implementation Details Out of the Schema
+### Keep service implementation details out of the schema
 
 Client team consultation can also help you avoid another schema design pitfall, which is allowing the schema to be unduly influenced by backing services or data sources.
 
@@ -136,11 +136,11 @@ As a final, related point on hiding implementation details in the schema, we sho
 
 However, when tools are used to auto-generate a GraphQL schema based on backing data sources, then you will almost invariably end up with fields in your schema that clients don't need but may develop unintended use cases for in the future, which will make your schema harder to evolve over the longer term. This is why, at Apollo, we generally discourage the use of schema auto-generation tools—they lead you in precisely the opposite direction of taking a client-first approach to schema design.
 
-## Best Practice #3: Prioritize Schema Expressiveness
+## Best practice #3: Prioritize schema expressiveness
 
 A good GraphQL schema will convey meaning about the underlying nodes in a data graph, as well as the relationships between those nodes. There are multiple dimensions to schema expressiveness—many of which overlap with other schema design best practices—but here we'll focus specifically on standardizing naming and formatting conventions across services, designing purposeful fields in a schema, and augmenting an inherently expressive schema with thorough documentation directly in its SDL to maximize usability.
 
-### Standardize Naming and Formatting Conventions
+### Standardize naming and formatting conventions
 
 > _There are only two hard things in Computer Science: cache invalidation and naming things._
 >
@@ -154,7 +154,7 @@ Additionally, when a company already has multiple GraphQL APIs in use that will 
 
 The outset of a migration project to a federated data graph is the right time to take stock of what naming conventions are currently used in existing GraphQL schemas within the company, determine what conventions will become standardized, onboard teams to those conventions, and plan for deprecations and rollovers as needed. Additionally, there should also be a thorough review process in place as the graph evolves to ensure that new fields, types, and services adhere to these conventions.
 
-#### A Brief Sidebar on Pagination Conventions
+#### A brief sidebar on pagination conventions
 
 Another important area of standardization when consolidating GraphQL APIs is providing clients a consistent experience for paginating field results across services. On this topic, we offer these high-level guidelines:
 
@@ -163,7 +163,7 @@ Another important area of standardization when consolidating GraphQL APIs is pro
 - Standardizing pagination across your data graph doesn't mean preferring one style of pagination over another (for example, offset-based or cursor-based pagination). Choose the right tool for the job, but ensure that each style of pagination is implemented consistently across services.
 - Your company's data graph governance group should actively enforce pagination standards across your subgraphs to maintain consistency for clients.
 
-### Design Fields Around Specific Use Cases
+### Design fields around specific use cases
 
 As mentioned previously, a GraphQL schema should be designed around client use cases, and ideally, the fields that are added to a schema to support those use cases will be single-purpose. In practice, this means having more specific, finer-grained mutations and queries.
 
@@ -193,7 +193,7 @@ extend type Query {
 }
 ```
 
-### Document Types, Fields, and Arguments
+### Document types, fields, and arguments
 
 A well-documented schema isn't just a nicety in GraphQL. The imperative to document the various aspects of a schema is codified in the [GraphQL specification](https://spec.graphql.org/June2018/#sec-Descriptions). The specification states that documentation is a "first-class feature of GraphQL type systems" and goes further to say that all types, fields, arguments, and other definitions that can be described should include a description unless they are self-descriptive.
 
@@ -225,17 +225,17 @@ In the example above, we see how a thoroughly described `products` query may loo
 
 And as a final note, when documenting subgraphs' schema files, we can't add descriptions strings above extended types (including extended `Query` and `Mutation` types in subgraph schemas) because the GraphQL specification states that only type definitions can have descriptions, not type extensions.
 
-## Best Practice #4: Make Intentional Choices About Nullability
+## Best practice #4: Make intentional choices about nullability
 
 All fields in GraphQL are nullable by default and it's often best to err on the side of embracing that default behavior as new fields are initially added to a schema. However, where warranted, non-null fields and arguments (denoted with a trailing `!`) are an important mechanism that can help improve the expressiveness and predictability of a schema. Non-null fields can also be a win for clients because they will know exactly where to expect values to be returned when handling query responses. Non-null fields and arguments do, of course, come with trade-offs, and it's important to weigh the implications of each choice you make about nullability for every type, field, and argument in a schema.
 
-### Plan for Backward Compatibility
+### Plan for backward compatibility
 
 Including non-null fields and arguments in a schema makes that schema harder to evolve where a client expects a previously non-null field's value to be provided in a response. For example, if a non-null `email` field on a `User` type is converted to a nullable field, will the clients that use that field be prepared to handle this potentially null value after the schema is updated? Similarly, if the schema changes in such a way that a client is suddenly expected to send a previously nullable argument with a request, then this may also result in a breaking change.
 
 While it's important to make informed decisions about nullability when initially designing a service's schema, you will inevitably be faced with making a breaking change of this nature as a schema naturally evolves. When this happens, GraphQL observability tools that give you insight into how those fields are used currently in different operations and across different clients. This visibility will help you identify issues proactively and allow you to communicate these changes to impacted clients in advance so they can avoid unexpected errors.
 
-### Minimize Nullable Arguments and Input Fields
+### Minimize nullable arguments and input fields
 
 As mentioned previously, converting a nullable argument or input field for a mutation to non-null may lead to breaking changes for clients. As a result, specifying non-null arguments and input fields on mutations can help you avoid this breaking change scenario in the future. Doing so, however, will typically require that you design finer-grained mutations and avoid using "everything but the kitchen sink" input types as arguments that are filled with nullable fields to account for all possible use cases.
 
@@ -255,17 +255,17 @@ extend type Query {
 }
 ```
 
-### Weigh the Implications of Non-Null Entity References
+### Weigh the implications of non-null entity references
 
 When adding fields to a schema that are resolved with data from third-party data sources, the conventional advice is to make these fields nullable given the potential for the request to fail or for the data source to make breaking changes without warning. Federated data graphs add an interesting dimension to these considerations given that many of the entities in the graph may be backed by data sources that are not in a given service's immediate control.
 
 The matter of whether you should make referenced entities nullable in a subgraph's schema will depend on your existing architecture and internal SLAs and will likely need to be assessed on a case-by-case basis. Keep in mind the implication that nullability has on error handling—specifically, when a value cannot be resolved for a non-null field, then the null result bubbles up to the nearest nullable parent—and consider whether it's better to have a partial result or no result at all if a request for an entity fails.
 
-## Best Practice #5: Use Abstract Type Judiciously
+## Best practice #5: Use abstract type judiciously
 
 The GraphQL specification currently offers two abstract types in the type system—interfaces and unions. Both interfaces and unions are powerful tools to express relationships between types in a schema. However, when adding interfaces and unions to a schema—and in particular, a federated schema—it's important to do so with a clear-eyed understanding of the longer-term implications of managing these types. To do so, we must first ensure that we're using interfaces and unions in semantically purposeful ways. Second, we must help prepare client developers to handle changes to these types as the schema evolves.
 
-### Create Semantically Meaningful Interfaces
+### Create semantically meaningful interfaces
 
 A common misuse of interfaces is to use them simply to express a contract for shared fields between types. While this is certainly an aspect of their intended use, they should only be used when you need to return an object or a set of objects from a field *and* those objects may represent a variety of different types with some fields in common. For example:
 
@@ -311,7 +311,7 @@ What's more, the overhead for maintaining both interface and union types is ampl
 
 While interfaces are abstract types, they should ultimately represent something concrete about the relationship they codify in a schema and they should indicate some shared behavior among the types that implement them. Satisfying this baseline requirement can help guide your decisions about where to use interfaces selectively in your federated schemas.
 
-### Help Clients Prepare for Breaking Changes
+### Help clients prepare for breaking changes
 
 Interfaces and unions should be added to a schema and subsequently evolved with careful consideration because subtle breaking changes can occur for the API consumers that rely on them. For example, client applications may not be prepared to handle new types as they are added to interfaces and unions, which may lead to unexpected behavior in existing operations. From our previous example, a new `Goldfish` type may implement the `Pet` interface as follows:
 
@@ -326,13 +326,13 @@ The previous `GetFamilyPet` query may now return results that include goldfish, 
 
 As such, it's important to communicate these changes to client developers in advance and it's also incumbent on client developers to treat fields that return abstract types with extra care to guard against potential breaking changes.
 
-## Best Practice #6: Leverage SDL and Tooling to Manage Deprecations
+## Best practice #6: Leverage SDL and tooling to manage deprecations
 
 Your data graph governance group should outline a company-wide field rollover strategy to gracefully handle type and field deprecations throughout the unified graph. We'll discuss graph administration and governance concerns in-depth in the next section, so here we'll focus on more tactical considerations when deprecating fields in a GraphQL schema.
 
 GraphQL APIs can be versioned, but at Apollo, we have seen that it is far more common for enterprises to leverage GraphQL's inherently evolutionary nature and iterate their APIs on a rapid and incremental basis. Doing so, however, requires clear communication with API consumers, and especially when field deprecations are required.
 
-### Use the @deprecated Type System Directive
+### Use the `@deprecated` type system directive
 
 As a first step, the `@deprecated` directive, which is [defined in the GraphQL specification](https://spec.graphql.org/June2018/#sec--deprecated), should be applied when deprecating fields or enum values in a schema. Its single `reason` argument can also provide the API consumer some direction about what to do instead of using that field or enum value. For instance, in our earlier `products` example we can indicate that a related `topProducts` query has been deprecated as follows:
 
@@ -360,17 +360,17 @@ extend type Query {
 }
 ```
 
-### Use Operation Traces to Assess When It's Safe to Remove Fields
+### Use operation traces to assess when it's safe to remove fields
 
 After a service's schema has been updated with new `@deprecated` directives, it's important to communicate the deprecations beyond the SDL as well. Using a dedicated Slack channel or team meetings may serve as appropriate communication channels for such notices, and they should be delivered with any additional migration instructions for client teams.
 
 At this point, a crucial question still remains: "When will it be safe to remove the deprecated field?" To answer this question with certainty that you won't cause any breaking changes to client applications, you must lean on your observability tooling. Specifically, tracing data can provide insight into what clients may still be using the deprecated fields so appropriate follow-ups can be actioned. GraphQL observability tools such as [Apollo Studio](https://www.apollographql.com/docs/studio/) will check any changes pushed for registered schemas against a recent window of operation tracing data to ensure that a deprecated field rollover can be completed without causing any breaking changes to existing clients.
 
-## Best Practice #7: Handle Errors in a Client-Friendly Way
+## Best practice #7: Handle errors in a client-friendly way
 
 Given that GraphQL offers a demand-oriented approach to building APIs, it's important to take a client-centric approach to handle errors when something goes wrong during operation execution as well. There are currently two main approaches for handling and sending errors to clients that result from GraphQL operations. The first is to take advantage of the error-related behaviors [outlined by the GraphQL specification](https://spec.graphql.org/June2018/#sec-Errors). The second option is to take an "error as data" approach and codify a range of possible response states directly in the schema. Choosing the correct approach for handling a particular error will depend largely on the type of error that was encountered, and, as always, should be informed by real-world client use cases.
 
-### Use the Built-in Errors List When Things Really Do Go Wrong
+### Use the built-in errors list when things really do go wrong
 
 The GraphQL specification outlines certain error handling procedures in responses, so we'll explore how this default behavior works first. GraphQL has a unique feature in that it allows you to send back both data and errors in the same response (on the `data` and `errors` keys, respectively). According to the GraphQL specification, if errors occur during the execution of a GraphQL operation, then they will be added to the list of errors in the response along with any partial data that may be safely returned.
 
@@ -435,7 +435,7 @@ For these reasons, the default approach to handling errors is best suited for th
 
 Lasty, as a best practice, stack traces should be removed from an error's `extensions` key in production. This can be done by setting the `debug` option to `false` in the Apollo Server constructor, or by setting the `NODE_ENV` environment variable to `production` or `test`. Please see the [Apollo Server documentation](https://www.apollographql.com/docs/apollo-server/data/errors/) for more information on handling, masking, and logging errors in production environments.
 
-### Represent Errors as Data to Communicate Other Possible States
+### Represent errors as data to communicate other possible states
 
 Sometimes errors arise during the execution of a GraphQL operation from which a user may recover or reasonably ignore. For example, a new user may trigger a mutation to create a new account but send a username argument that already exists. In other scenarios, certain errors may occur due to situational factors, such as data being unavailable when users are located in some countries.
 
@@ -515,9 +515,9 @@ Further, the key to implementing errors as data successfully in a schema is to d
 
 For an in-depth exploration of the errors as data approach, please see the [200 OK! Error Handling in GraphQL](https://youtu.be/RDNTP66oY2o) talk by Sasha Solomon from GraphQL Summit 2020.
 
-## Best Practice #8: Manage Cross-Cutting Concerns Carefully
+## Best practice #8: Manage cross-cutting concerns carefully
 
-Sharing [value types](/federation/value-types/) (scalars, objects, interfaces, enums, unions, and inputs) and [executable directives](/federation/gateway/#executable-directives) across subgraphs' schemas leads to cross-cutting concerns. As a general rule, where subgraphs share value types, then those types must be identical in name, contents, and logic, or composition errors will occur. Similarly, executable directives must be defined consistently in the schemas of all subgraphs using the same locations, arguments, and argument types, or composition errors will also result.
+Sharing [value types](/value-types/) (scalars, objects, interfaces, enums, unions, and inputs) and [executable directives](/gateway/#executable-directives) across subgraphs' schemas leads to cross-cutting concerns. As a general rule, where subgraphs share value types, then those types must be identical in name, contents, and logic, or composition errors will occur. Similarly, executable directives must be defined consistently in the schemas of all subgraphs using the same locations, arguments, and argument types, or composition errors will also result.
 
 In some instances, it will make sense for subgraphs to share ownership of certain types instead of assigning that type to one service and exposing it as an entity. For example, when a GraphQL API supports Relay-style pagination, it may be necessary to share an identical `PageInfo` object type across multiple services that require these pagination-related fields:
 

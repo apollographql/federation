@@ -12,14 +12,8 @@ module.exports = {
         description: 'A guide to using Apollo Federation',
         githubRepo: 'apollographql/federation',
         sidebarCategories: {
-          null: [
-            'index',
-          ],
-          'Quickstart': [
-            'quickstart',
-            'quickstart-pt-2',
-            'quickstart-pt-3',
-          ],
+          null: ['index'],
+          Quickstart: ['quickstart', 'quickstart-pt-2', 'quickstart-pt-3'],
           'Core Concepts': [
             'subgraphs',
             'gateway',
@@ -35,26 +29,17 @@ module.exports = {
             'managed-federation/deployment',
             '[Studio features](https://www.apollographql.com/docs/studio/federated-graphs/)',
           ],
-          'Federation Guide': [
-            'federation-guide/introduction',
-            'federation-guide/graphql-consolidation',
-            'federation-guide/federated-schema-design',
-            'federation-guide/graph-administration',
-            'federation-guide/federation-case-studies',
-            'federation-guide/additional-resources'
+          'Enterprise Guide': [
+            'enterprise-guide/introduction',
+            'enterprise-guide/graphql-consolidation',
+            'enterprise-guide/federated-schema-design',
+            'enterprise-guide/graph-administration',
+            'enterprise-guide/federation-case-studies',
+            'enterprise-guide/additional-resources',
           ],
-          'Debugging': [
-            'errors',
-            'metrics',
-          ],
-          'Third-Party Support': [
-            'other-servers',
-            'federation-spec',
-          ],
-          'API Reference': [
-            'api/apollo-federation',
-            'api/apollo-gateway',
-          ],
+          Debugging: ['errors', 'metrics'],
+          'Third-Party Support': ['other-servers', 'federation-spec'],
+          'API Reference': ['api/apollo-federation', 'api/apollo-gateway'],
         },
       },
     },

@@ -15,7 +15,7 @@ As we can see, adopting a federated [One Graph](https://principledgraphql.com/in
 
 Teams that work on components of a distributed GraphQL architecture need workflows that support the iterative evolution of the data graph, both at an initial conceptual stage and later when shipping changes that will impact the composition of the overall graph. At Apollo, we have observed and worked with customers to develop the following best practices for prototyping and deploying schema changes.
 
-### Prototyping Schemas
+### Prototyping schemas
 
 Whether embarking on an initial consolidation project or iterating subgraph schemas in an existing federated data graph, teams need a way to prototype their type definitions with an understanding of how the types and fields in their portion of the schema will compose into the broader graph. They also need a way to experiment with referencing and extending entities from other subgraphs. These prototyping exercises are the starting point for all schema design workflows and they are instrumental in planning for the iterative evolution of a federated data graph.
 
@@ -25,29 +25,29 @@ There are many different variations of this schema design process, but one consi
 
 To support and enhance our customer's schema design workflows, the Apollo solutions team designed the [Apollo Workbench VS Code extension](https://marketplace.visualstudio.com/items?itemName=apollographql.apollo-workbench). This extension allows developers to design and test federated schema design by modeling GraphQL operations and providing feedback about composition errors directly in VS Code. It also integrates with Apollo Studio's schema registry so that all subgraph schemas may be downloaded for a data graph and modified in a non-destructive environment. The Apollo Workbench extension may be downloaded from the VS Code extension marketplace.
 
-### Deploying Changes into the Data Graph
+### Deploying changes into the data graph
 
 Once schema changes are ready to deploy, teams need a workflow for rolling out the changes to different environments and informing other teams of those changes. This is where a *schema registry* becomes essential. A centralized registry will be the source of truth for the company's data graph, provides an overall view of the graph so team members can understand how their portion of the schema fits into the larger picture, allows developers to safely push changes to that graph, and can integrate with other developer tooling.
 
 With a centralized registry in place, a gateway can reference the composed schema directly from the registry and schema change events can be used to drive updates to the configuration of an Apollo Gateway. In turn, referencing a schema configuration from a registry allows a federated data graph's schema to be updated on the fly and without restarting the gateway service to force recomposition. Service owners can then incorporate schema pushes into their CI/CD pipelines once the artifact has been deployed and is ready to serve traffic.
 
-Apollo Studio can serve as this centralized registry, and subsequently, unlock all of the capabilities of [managed federation](https://www.apollographql.com/docs/federation/managed-federation/overview/). Managed federation will create a new gateway configuration every time a schema is pushed to the registry by one of the subgraphs using the `rover subgraph publish` command from the [Rover CLI](https://www.apollographql.com/docs/rover/), but only does so when those changes can be composed into the existing data graph without breaking changes for other subgraphs and clients. Additionally, managed federation allows teams to create different *variants* of the data graph that correspond to the different environments where the graph runs (such as staging and production). Each variant has its own GraphQL schema, which means schemas can differ between environments.
+Apollo Studio can serve as this centralized registry, and subsequently, unlock all of the capabilities of [managed federation](/managed-federation/overview/). Managed federation will create a new gateway configuration every time a schema is pushed to the registry by one of the subgraphs using the `rover subgraph publish` command from the [Rover CLI](https://www.apollographql.com/docs/rover/), but only does so when those changes can be composed into the existing data graph without breaking changes for other subgraphs and clients. Additionally, managed federation allows teams to create different *variants* of the data graph that correspond to the different environments where the graph runs (such as staging and production). Each variant has its own GraphQL schema, which means schemas can differ between environments.
 
 Ultimately, there will need to be controls in place to manage data graph contributions and those controls will live in the schema registry. Each push of an updated subgraph schema to the registry is an opportunity to perform validation that flags breaking changes to the overall data graph. At a minimum, a schema registry should be capable of determining if an update to a subgraph's schema can be safely composed back in, and then upon successful composition, drive the updated schema to the gateway service.
 
 You can try out managed federation with Apollo Gateway today by signing up for [Apollo Studio](https://studio.apollographql.com/) to obtain an `APOLLO_KEY` and then pushing your subgraph schemas up to the registry using the Rover CLI. After adding the `APOLLO_KEY` as an environment variable, you can remove the `serviceList` or `supergraphSdl` option from the existing `ApolloGateway` configuration, restart the gateway service, and your data graph will automatically start in managed mode. It will now serve the version of your schema configuration that has been stored by the Apollo Studio registry.
 
-## Tooling for Data Graph Contributors
+## Tooling for data graph contributors
 
 When multiple teams contribute to a data graph, it's essential to have standards in place to ensure everyone can contribute to the graph as effectively as possible. The schema registry is the central point at which these individual contributions are collected and validated before incorporation into the overall data graph. To use a schema registry, some tooling is required to add schema checks and publications into a team's existing deployment process.
 
-### CI/CD Pipelines for Subgraph Services
+### CI/CD pipelines for subgraph services
 
 When a subgraph schema is published to the registry, Apollo Studio runs composition validation to ensure that the proposed change will compose with other registered subgraph schemas. Upon successful composition, a new gateway configuration is created. However, if a composition error occurs, then the error state of the new schema is staged in the registry until the subgraph publishes an updated version of its schema that may be properly composed into the data graph.
 
 Ideally, a subgraph's schema registration should be incorporated into a relevant CI/CD pipeline to automate this process. Further, the automated schema publish should happen when the subgraph service is ready to serve traffic, which would typically be after the service completes deployment and passes a health check. In a Kubernetes-based environment, it's common to publish a schema after the readiness probe passes. If Apollo Server is used to power the subgraph services, then you can use the `onHealthCheck` method to implement custom logic to verify that a service is ready to serve traffic (usually to ensure that downstream data sources are available). Once the health check passes, a CI/CD pipeline can register the schema.
 
-### Schema Validation
+### Schema validation
 
 Confirming valid schema composition is only half of the battle when guarding against breaking changes in production—you'll also need to ensure that schema updates won't break existing operations currently used by clients. Nobody wants to deal with (or be the cause of) production downtime, and it has very real financial consequences for companies. For a large e-commerce application, a few minutes of downtime can have six-figure implications. Within a distributed GraphQL architecture that favors continual schema evolution, developers working on subgraph services should feel confident that they can release changes without doing unintended damage to client applications. For example, even something as simple as changing an existing field on an Object type from non-null to nullable can lead to breaking changes for clients that aren't prepared to handle a potentially null value.
 
@@ -55,9 +55,9 @@ This is where a schema registry provides even more value when combined with obse
 
 Apollo Studio facilitates schema validation via the Rover CLI using `rover subgraph check` command. Teams can use this command in their deployment pipelines to ensure proposed schema changes don't adversely affect client traffic. If Apollo Studio detects a potentially dangerous change, then it will display information in its user interface about what the breaking change is, what clients are affected (by client name and version number), what operations are impacted, and the volume of traffic running against those operations. As a result, schema validation provides a scalable solution that supports safe, incremental data graph evolution driven by multiple teams.
 
-![A schema check in Apollo Studio](../images/federation-guide/apollo-studio-schema-check.png)
+![A schema check in Apollo Studio](../images/enterprise-guide/apollo-studio-schema-check.jpg)
 
-### Schema Design
+### Schema design
 
 As noted above, [Apollo Workbench](https://marketplace.visualstudio.com/items?itemName=apollographql.apollo-workbench) is an essential tool for developers making ongoing contributions to the data graph. It was created to help developers understand data graph composition and execution details during the schema design phase in a mocked environment, rather than waiting until implementation time to discover that a schema addition or update doesn't compose into the graph as expected.
 
@@ -65,11 +65,11 @@ A typical Apollo Workbench-driven workflow for a developer updating a subgraph s
 
 For more details on optimizing development workflows with Apollo Workbench, see the [GraphQL Summit 2021 keynote](https://youtu.be/XUocF2TLGMk?t=1165) or the [Apollo Workbench documentation](https://apollographql.github.io/apollo-workbench-vscode/).
 
-## Tooling for Data Graph Consumers
+## Tooling for data graph consumers
 
 GraphQL offers a client-centric approach to developing APIs, and this promise extends beyond designing queries that are purpose-built to meet client developer needs and drive product experiences. Both Apollo and members of the GraphQL community have created extensive client-side tooling for web and mobile to expedite development and help teams ship features faster. In turn, client developers can maximize the utility of the schema registry by adopting best practices when sending their requests to the data graph.
 
-### Consuming the Data Graph
+### Consuming the data graph
 
 When a company shifts toward a consolidated data graph, client developers who may have previously juggled multiple GraphQL endpoints or other point-to-point APIs no longer need to jump through client-side hoops to query all of the data needed to render a view in an application. That said, with a centralized schema registry in place, a common set of standards should be established to structure how clients make requests to the data graph.
 
@@ -79,33 +79,33 @@ In addition to identifying themselves by name and version, clients should use [n
 
 While there isn't a single "best" way to structure operation names, the important takeaway here is to establish some operation-related standards, communicate those standards to teams, and then enforce them. Enforcement of these rules can take place within the Apollo Gateway, but adding runtime logic on a per-request basis should be approached with caution when rules may be checked statically in client code as part of the CI/CD process instead. However enforced, both client awareness and operation names are essential in providing the necessary visibility in observability tools to support a field deprecation and rollover strategy that prevents breaking changes for client developers as the data graph evolves.
 
-### Code Generation
+### Code generation
 
 Codegen-related tooling can help facilitate client development for both web and mobile applications. To support modern, strongly-typed web development, the [GraphQL Code Generator](https://graphql-code-generator.com/) library can be used to generate types for operation results.
 
 On the iOS side, the [Apollo CLI](https://www.apollographql.com/docs/ios/tutorial/tutorial-obtain-schema/#download-your-servers-schema) may be used to download the data graph's schema and add it to a target's directory, and then subsequently generate code as a build step based on the operations saved in `.graphql` files. For Android, an Apollo Gradle plugin is available to download the schema and generate type-safe models and code from operations in `.graphql` files when built.
 
-### Additional Tools for Client Developers
+### Additional tools for client developers
 
 Apollo provides additional tools to help support client development, including the [Apollo Client Devtools](https://www.apollographql.com/docs/react/development-testing/developer-tooling/#apollo-client-devtools) extensions for Chrome and Firefox, which includes an embedded GraphiQL IDE along with query, mutation, and cache inspectors. The [Apollo VS Code extension](https://www.apollographql.com/docs/devtools/editor-plugins/) also supports client development with GraphQL syntax highlighting, operation autocompletion, performance information, and more. For iOS, [Apollo Xcode Add-ons](https://github.com/apollographql/xcode-graphql) provides syntax highlighting for GraphQL query document files to Xcode.
 
 ## Observability
 
-As more services are added to a federated data graph and adoption spreads across client applications, it may grow challenging to reason about how a single request traverses the graph. Apollo Gateway undertakes a query planning process to optimize for the most time spent in a single service to reduce the number of network hops for a single request. Once calculated, the gateway will execute the query plan across the subgraphs required to fulfill the request. With managed federation and Apollo Studio, [federated traces](https://www.apollographql.com/docs/federation/metrics/#gatsby-focus-wrapper) may be used to provide detailed insights into the GraphQL layer's performance and usage.
+As more services are added to a federated data graph and adoption spreads across client applications, it may grow challenging to reason about how a single request traverses the graph. Apollo Gateway undertakes a query planning process to optimize for the most time spent in a single service to reduce the number of network hops for a single request. Once calculated, the gateway will execute the query plan across the subgraphs required to fulfill the request. With managed federation and Apollo Studio, [federated traces](/metrics/) may be used to provide detailed insights into the GraphQL layer's performance and usage.
 
-### Federated Traces
+### Federated traces
 
-With federated tracing enabled ([which happens by default](https://www.apollographql.com/docs/federation/metrics/#turning-it-on) when an `APOLLO_KEY` variable is present in the gateway's environment), the gateway will include an HTTP header of `apollo-federation-include-trace: ftv1` with each request to a subgraph. Each subgraph will then [construct its trace](https://www.apollographql.com/docs/federation/metrics/#how-traces-are-constructed-and-aggregated) and add this data to the `extensions` of its response. Apollo Gateway then constructs the overall trace for the request based on the shape of the query plan. This process may be visualized as follows:
+With federated tracing enabled ([which happens by default](/metrics/#turning-it-on) when an `APOLLO_KEY` variable is present in the gateway's environment), the gateway will include an HTTP header of `apollo-federation-include-trace: ftv1` with each request to a subgraph. Each subgraph will then [construct its trace](/metrics/#how-traces-are-constructed-and-aggregated) and add this data to the `extensions` of its response. Apollo Gateway then constructs the overall trace for the request based on the shape of the query plan. This process may be visualized as follows:
 
-![Federated tracing process](../images/federation-guide/federated-tracing.png)
+![Federated tracing process](../images/enterprise-guide/federated-tracing.jpg)
 
 The gateway will send this tracing data to Apollo Studio where it may be used for schema checks, tuning query performance, and debugging operation errors:
 
-![A federated trace representation in Apollo Studio](../images/federation-guide/apollo-studio-federated-trace.png)
+![A federated trace representation in Apollo Studio](../images/enterprise-guide/apollo-studio-federated-trace.jpg)
 
-When Apollo Server is used to power subgraphs, this tracing data is provided out-of-the-box via the [inline trace plugin](https://www.apollographql.com/docs/apollo-server/api/plugin/inline-trace/#using-the-plugin). Many [third-party federation libraries](https://www.apollographql.com/docs/federation/other-servers/) also expose federated tracing data. Note that not all third-party federation libraries will necessarily provide field-level tracing data in a response, but the gateway's aggregated trace will still show the total time spent in the service even though the detailed field resolver data won't be available for that portion of the query plan.
+When Apollo Server is used to power subgraphs, this tracing data is provided out-of-the-box via the [inline trace plugin](https://www.apollographql.com/docs/apollo-server/api/plugin/inline-trace/#using-the-plugin). Many [third-party federation libraries](/other-servers/) also expose federated tracing data. Note that not all third-party federation libraries will necessarily provide field-level tracing data in a response, but the gateway's aggregated trace will still show the total time spent in the service even though the detailed field resolver data won't be available for that portion of the query plan.
 
-### Integration with Other Observability Tools
+### Integration with other observability tools
 
 Many teams use additional observability tools to monitor application performance and these tools may also be integrated with a federated data graph. Apollo Studio connects directly with [DataDog](https://www.apollographql.com/docs/studio/datadog-integration/) and many other integrations are possible too, either through a custom Apollo Server plugin in the gateway, a custom `RemoteGraphQLDataSource`, or by carrying specific headers throughout a request.
 
@@ -119,7 +119,7 @@ ApolloServerPluginUsageReporting({
 
 When tracing data is viewed in Apollo Studio, you will now have the `aws-request-id` available to help diagnose service-level performance issues in CloudWatch in relation to the federated traces.
 
-![Trace inspector in Apollo Studio](../images/federation-guide/apollo-studio-trace-inspector.png)
+![Trace inspector in Apollo Studio](../images/enterprise-guide/apollo-studio-trace-inspector.jpg)
 
 As another example, your team may need to understand the relationship between an incoming request from a gateway to a subgraph service and the original operation name of the request to the gateway. For this case, a custom `RemoteGraphQLDataSource` can be used to include the operation name and a hashed representation of the original query can be used as the name of the query to the subgraph:
 
@@ -147,7 +147,7 @@ Initial GraphQL adoption often emerges either from within a single team or a sma
 
 The establishment of a data governance group is an important factor in the success of any consolidation project. This group may be thought of as the "GraphQL Center of Excellence" within a company and it should represent a cross-section of key data graph stakeholders. Ultimately, the governance of a federated data graph is largely concerned with empowering the people who will contribute to and consume it with processes that will help them operate as good citizens of the graph. Once the data graph governance group has been established, the work largely focuses on setting standards that help maintain the quality of the data graph, facilitate its continuous evolution, support its operation, and enforce standards for client usage.
 
-### Establishing the Data Graph Governance Group
+### Establishing the data graph governance group
 
 To set company-wide standards for the graph, a data graph governance group should be established. This group acts as a cross-team, collaborative governing body for the data graph. It also establishes best practices related to data graph maintenance and administration and provides ongoing education for graph contributors and consumers.
 
@@ -166,33 +166,33 @@ Ideally, the data graph governance group should be formed at the outset of a con
 
 An appropriate meeting cadence for this governance group will vary by company needs and the complexity of the consolidation work at hand, though in most cases, the group members will likely need to meet on a more frequent basis at the outset of a consolidation project. Once a federated data graph is running in production, a regular meeting cadence should still be maintained to help support graph evolution as well as expanding its adoption across teams.
 
-### Setting Standards for Data Graph Management
+### Setting standards for data graph management
 
 Once established, the data graph governance group is responsible for setting best practices related to the company's consolidated graph, communicating and enforcing those practices, and evolving them as needed over time. Generally, these concerns may be categorized into three main areas: Graph Integrity, Graph Operation, and Graph Usage. Suggested practices for each area are outlined below.
 
-#### Graph Integrity
+#### Graph integrity
 
 Reconciling naming conventions and how entities are conceptualized, referenced, and extended across domains can be a challenging aspect of an initial consolidation project. These concerns will require ongoing attention afterward too as the data graph evolves and new subgraph services are incorporated into it. Documenting naming conventions, guidelines for entity and value type updates, as well as type and field migration workflows helps service owners make informed decisions about how they can evolve their portion of the schema. The governance group should also formalize a review process for proposed schema changes and an architectural review process for adding new subgraph services before they are incorporated into the broader data graph.
 
 Once changes are made to the data graph, teams that contribute to and consume the API must be informed. Regular rhythms and processes should be established for synchronously and asynchronously communicating schema updates to internal teams, especially when rolling over deprecated fields. In addition, Apollo Studio can be configured to post schema change notifications directly in a Slack channel, and it also exposes a schema change webhook for general use with other services and tools.
 
-#### Graph Operation
+#### Graph operation
 
 Having the right observability tools in place is a key factor in maintaining smooth graph operations and minimizing mean time to recovery when something unexpected happens. As previously discussed, federated traces provide insight into API usage at the field, operation, and client levels in Apollo Studio and this data can be used to tune performance, debug errors, and support a safe rollover strategy for deprecated fields (and performance reports and alerts can also be pushed directly to a Slack channel from Apollo Studio).
 
 The governance group should proactively establish performance best practices that support data graph operation. For example, caching may happen at various levels in the stack—from the normalized cache in Apollo Client, to Automatic Persisted Queries that support edge caching with CDNs, to full response caching at the gateway or subgraph level—and service owners and client teams alike must be aware of what the standard practices are within the graph. Similar guidelines may be provided for areas such as using data loaders to batch requests to underlying data sources, providing minimal unit test coverage for subgraph resolvers, and running automated performance tests for known operations.
 
-#### Graph Usage
+#### Graph usage
 
 As previously discussed, it's a best practice for clients to identify themselves by name and version before querying data from the graph, and clients should also assign names to all of the operations they send to the API. Ideally, these operation names are defined using a shared naming scheme, so it will be the role of the data graph governance group to set, communicate, and enforce these naming standards.
 
 Additionally, the governance group may wish to set standards for using query variables instead of literals as operation arguments. This measure will help minimize operation cardinality and take advantage of some of Apollo Studio's reporting optimizations in the gateway. And to guard against potentially abusive operations, the governance group may also put appropriate mechanisms in place to limit query depth, breadth, and overall cost.
 
-### Onboarding and Supporting Teams
+### Onboarding and supporting teams
 
 When it comes to driving adoption of the data graph, one of the most important functions a governance group can serve is supporting teams as they are onboarded to the data graph, both as contributors and consumers. Similarly, the data graph governance group can also help support ongoing education through the establishment of an company-wide "Community of Practice" for the unified data graph, and GraphQL in general. 
 
-For an extensive list of links to learning materials to help support internal GraphQL training at your company, please see the [additional resources section](/federation-guide/additional-resources) of this guide.
+For an extensive list of links to learning materials to help support internal GraphQL training at your company, please see the [additional resources section](/enterprise-guide/additional-resources) of this guide.
 
 ## Summary
 

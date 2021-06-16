@@ -5,7 +5,7 @@ sidebar_title: GraphQL consolidation
 
 In this section, you'll learn about the advantages of a consolidated GraphQL architecture and how a common, federated data graph allows you to realize those benefits. Based on our experience working with a variety of enterprises at Apollo, we'll also provide a framework for determining whether your organization is ready to consolidate its data graph.
 
-## Why Consolidate Your Data Graph?
+## Why consolidate your data graph?
 
 The GraphQL community and ecosystem of related software have grown at astonishing speed. During the years since its public release in 2015, this GraphQL has quickly matured to a point where it can be used as a component of nearly any application architecture.
 
@@ -13,23 +13,23 @@ Companies such as Airbnb, GitHub, and the New York Times have famously already a
 
 Scanning the different teams in your company, you may quickly realize that many are already using GraphQL in production today. Having some top-level insight into how GraphQL is used across your company is the first step toward understanding whether those efforts can and should be consolidated.
 
-### How GraphQL Gains Traction
+### How graphQL gains traction
 
 When developers begin to experiment with GraphQL, they often begin with a foundational architecture where a client application queries a single GraphQL server. In turn, the server distributes those requests to backing data sources and returns the data in the client’s desired shape:
 
-![Diagram of a basic GraphQL architecture](../images/federation-guide/basic-graphql-server.png)
+![Diagram of a basic GraphQL architecture](../images/enterprise-guide/basic-graphql-server.jpg)
 
 As different teams begin to adopt GraphQL, their approach will usually be adapted from this basic architecture, but the implementation details may vary from from team to team. At Apollo, we've typically seen that those initial, unconsolidated efforts resemble one of the following four patterns.
 
-### Pattern 1: Client-Only GraphQL
+### Pattern 1: Client-only graphQL
 
 Client teams that are eager to reap the benefits of GraphQL's client-centric data-fetching capabilities may charge ahead and implement a GraphQL API within the context of their application. With these implementations, these teams are often motivated to adopt GraphQL for the convenience of wrapping existing APIs with a single GraphQL API endpoint.
 
 To illustrate this approach, a client-only GraphQL architecture may look like this:
 
-![Client-only GraphQL pattern](../images/federation-guide/pattern-client-only.png)
+![Client-only GraphQL pattern](../images/enterprise-guide/pattern-client-only.jpg)
 
-### Pattern 2: Backend for Frontend
+### Pattern 2: Backend for frontend
 
 GraphQL may also be used as a solution for teams implementing the Backend for Frontend (BFF) pattern. BFFs attempt to solve the problem of requiring different clients (for example, web and iOS) to interact with a monolithic, general-purpose API. Alternatively, BFFs can save client applications from making requests to multiple backend services to obtain all of the data required to render a particular user interface view.
 
@@ -37,9 +37,9 @@ As a solution, BFFs add a new layer where each client has a dedicated BFF servic
 
 In practice, the BFF pattern with GraphQL may look like this:
 
-![Backends for frontends pattern](../images/federation-guide/pattern-bff.png)
+![Backends for frontends pattern](../images/enterprise-guide/pattern-bff.jpg)
 
-### Pattern 3: The Monolith
+### Pattern 3: The monolith
 
 The monolith pattern can take on two forms. In its first form, teams may share one codebase for a GraphQL server that is used by one or more clients. In some cases, client code may even live in the same repository as the GraphQL server. However the code is organized, the ownership of this graph is shared by the different developers who contribute to the graph.
 
@@ -49,21 +49,21 @@ As with GraphQL-based BFFs, maintaining a single, monolithic GraphQL API can hel
 
 For either monolithic scenario, its high-level architecture looks like this:
 
-![Monolithic GraphQL API pattern](../images/federation-guide/pattern-monolith.png)
+![Monolithic GraphQL API pattern](../images/enterprise-guide/pattern-monolith.jpg)
 
-### Pattens 4: Multiple Overlapping Graphs
+### Pattens 4: Multiple overlapping graphs
 
 Enterprise teams may also independently develop their own service-specific GraphQL APIs in tandem. With this approach, teams may delineate each service API based on types or use cases, but there will often be overlap between the graphs due to the interconnected nature of data. 
 
 An example of this architecture could look like this:
 
-![Multiple overlapping GraphQL APIs pattern](../images/federation-guide/pattern-multiple-graphs.png)
+![Multiple overlapping GraphQL APIs pattern](../images/enterprise-guide/pattern-multiple-graphs.jpg)
 
-### Where Do These Patterns Break Down?
+### Where do these patterns break down?
 
 After taking stock of who uses GraphQL and how in your company, the patterns the various teams have implemented can provide insight into what kinds of problems they initially tried to solve. Similarly, these choices can help highlight what GraphQL pain points the teams currently face in their tech stacks.
 
-#### Client-Only GraphQL
+#### Client-only graphQL
 
 Teams that opt for client-only GraphQL approaches are motivated to improve their client development experience by layering GraphQL on top of REST endpoints or other legacy APIs that they have to work with. And while improved developer experience is a win, beneath this abstraction the client application will still incur performance costs as it maintains responsibility for making multiple requests to various services to gather all of the data required to render a view.
 
@@ -79,13 +79,13 @@ The challenges that emerge from shared BFFs are intensified with monolithic Grap
 
 Even in scenarios where a dedicated server team maintains ownership of the graph challenges, quickly arise when more than one graph definition is required for a single product in order to support the needs of multiple clients. A server team may also find itself burdened with the task of building and maintaining the necessary tooling to evolve the schema over time to meet new product needs without breaking compatibility for any clients that are actively consuming data from the graph.
 
-#### Multiple Overlapping Graphs
+#### Multiple overlapping graphs
 
 Finally, when multiple graphs exist within an enterprise it often indicates that the organization was an early adopter of GraphQL, moved to production quickly, and invested more in GraphQL as time went on. As one potential outcome of this investment, an attempt to expand a monolithic GraphQL API across teams may have ultimately resulted in the graph being split into multiple pieces to accommodate the conflicting needs of each team. The inevitable result of this approach is a duplication of effort to manage these overlapping graphs and a subpar experience for client applications that no longer have a unified interface from which to request data.
 
 Another possible reason an enterprise may have multiple overlapping graphs stems from a deliberate choice for teams to manage their GraphQL APIs independently, but then assemble them into a single GraphQL API using schema stitching. While schema stitching can simplify API usage from a client's perspective, the stitched API may require a considerable amount of imperative code to implement. What's more, it may not always be clear where to split types across services and it also necessitates the designation of an API gatekeeper who will manage the gateway and how the underlying schemas are composed into it.
 
-#### Inconsistency: The Common Shortcoming
+#### Inconsistency: The common shortcoming
 
 All of the previous patterns—whether client-only GraphQL, BFFs, monoliths, or multiple overlapping graphs—also have a shared shortcoming in that their implementations result in a **lack of consistency.** A more productive way forward for teams searching for better efficiency and understandability from their GraphQL-based architectures typically have two requirements:
 
@@ -93,7 +93,7 @@ All of the previous patterns—whether client-only GraphQL, BFFs, monoliths, or 
 
 2. **Providers should consistently represent common entities in a consumption-friendly way.** Teams may be empowered to use any underlying technology at the data layer, but access to this data should be consolidated through the GraphQL API and exposed in a way that compliments client use cases. Additionally, teams should be able to delineate service boundaries based on separation of concerns (as opposed to separation by types) without interfering with each other.
 
-### How Consolidation Addresses These Challenges
+### How consolidation addresses these challenges
 
 Consolidating your data graph is the key to moving beyond these architectural pitfalls, achieving consistency, and realizing the full potential of GraphQL in an enterprise.
 
@@ -109,14 +109,14 @@ Specifically, moving toward this kind of consolidated data graph allows teams ac
 
 - **Ship code faster.** Companies adopt GraphQL to build and iterate on their products faster. As GraphQL gains traction across teams, these benefits may be partially offset by time spent developing tooling to help support that growth. Consolidation helps reclaim that lost momentum by providing a clearly defined set of practices for teams follow when contributing to or consuming data from the graph.
 
-## What Does a Consolidated Data Graph Look Like?
+## What does a consolidated data graph look like?
 
 A consolidated, federation-driven GraphQL architecture consists of:
 
 - A collection of **subgraph** services that each define a distinct GraphQL schema
 - A **gateway** that composes the distinct schemas into a **federated data graph** and executes queries across the services in the graph
 
-![A federated GraphQL architecture](../images/federation-guide/federated-architecture.png)
+![A federated GraphQL architecture](../images/enterprise-guide/federated-architecture.jpg)
 
 Unlike other distributed GraphQL architectures such as schema stitching, federation uses a declarative programming model that enables each subgraph to implement *only* the part of your data graph that for which it’s responsible. With this approach, your company can represent an enterprise-scale data graph as a collection of separately maintained GraphQL services. What’s more, schema composition in federation is based on GraphQL primitives, unlike the imperative, implementation-specific approach required by schema-stitching.
 
@@ -125,11 +125,11 @@ Apollo Server provides open source libraries that allow it to act both as a subg
 - [`@apollo/federation`](https://www.npmjs.com/package/@apollo/federation) provides primitives that your subgraphs use to make their individual GraphQL schemas composable
 - [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) enables you to set up an instance of Apollo Server as a gateway that distributes incoming GraphQL operations across one or more subgraphs
 
-### Core Principles of Federation
+### Core principles of federation
 
 A GraphQL architecture that has been consolidated with federation will adhere to these two core principles:
 
-#### Core Principle #1: Incremental Adoption
+#### Core principle #1: Incremental adoption
 
 Just as any GraphQL schema should be built up incrementally and evolved smoothly over time (as outlined in detail as one of the "Agility" principles in [Principled GraphQL](https://principledgraphql.com/agility)), a federated GraphQL architecture should be similarly rolled-out through a phased process.
 
@@ -137,7 +137,7 @@ For most teams, a "big bang" rewrite of all existing GraphQL APIs or all portion
 
 Additionally, whatever portion of the data graph you scope into an initial subgraphs should have at least one client that actively continues to consume this data. From the client's perspective, the transition to federation can and should be as seamless as possible, and continued consumption of this data can help you validate assumptions, test out new federation tooling, and help you understand how to best delineate future subgraphs' boundaries.
 
-#### Core Principle #2: Separation of Concerns
+#### Core principle #2: Separation of concerns
 
 The second core principle is also one of its main architectural advantages of consolidating GraphQL APIs. Federation allows teams to partition the schema of the unified data graph using **concern-based separation** rather than type-based separation. This distinction sets federation apart from other consolidation approaches like schema stitching and allows teams to collaborate on and contribute to the data graph in a more organic and productive way.
 
@@ -147,7 +147,7 @@ In these instances, foreign key-like fields may find their way into the types, w
 
 Separation of concerns allows each service to define the types and fields that it is capable of (and should be responsible for) populating from its back-end data store. The boundaries that encompass these concerns that are related to team structure, geographic hosting, performance, governance and compliance, or some combination those. Other services may then directly **reference** and **extend** those types in their schemas with new fields backed by their data stores. The end result offers the best of both worlds: teams can maintain their respective portions of the graph with little-to-no friction, and client developers have access to a product-centric schema with rich types that align with the natural ways they would expect to consume the graph.
 
-## When to Consolidate Your Data Graph
+## When to consolidate your data graph
 
 At this point, you may have a sense that your company could benefit from consolidating its data graph, so the next important question to answer is _when_ should it move toward consolidation?
 
@@ -161,7 +161,7 @@ More often, as GraphQL's surface area expands across teams' tech stacks, pain po
 
 To help answer the "when" question for your company, we'll explore some common scenarios taken from real-world projects here at Apollo. To frame this decision-making process, we'll first examine the inherent strengths of adopting a federated data graph.
 
-### The Strengths of a Federated Graph Implementation
+### The strengths of a federated graph implementation
 
 Just as network performance tuning is bound by the speed of light, the organizational optimizations offered by a federated GraphQL implementation is bound by some real-world constraints:
 
@@ -174,7 +174,7 @@ As we've already explored, a federated GraphQL implementation is an *optimizatio
 
 When deciding to break a monolithic graph into a federated one or when expanding a federated graph by adding new subgraphs and teams, a software architect should have a plan for addressing the above four areas of concern. The decision matrix below is annotated with each of these concerns and provides guidance in resolving any gaps in measuring, understanding, and addressing these concerns.
 
-### Consolidation Decision Matrix
+### Consolidation decision matrix
 
 Whether you’re adding a new subgraph, splitting an existing service, or choosing to implement a federated graph for the first time, **a software architect’s most important responsibility is understanding the motivation for the change**.  At a strategic level, GraphQL adoption and evolution to a federated implementation can be measured reliably using a simple matrix. By answering these questions periodically, technology leaders will have a continuous evaluation of when, and how, their GraphQL consolidation efforts should proceed.
 
@@ -200,7 +200,7 @@ If the answers to **any** these questions are unclear or “no,” then leaders 
 |Consensus|Is your existing GraphQL schema internally consistent, and are your GraphQL schema design patterns well-understood by providers and consumers?|Dividing responsibility or adding new schema to your Graph without strong governance may exacerbate existing friction or product/service delivery challenges.|
 |Performance|Can you be reasonably sure that the cost of additional latency, complexity, and infrastructure management will have a positive ROI when bound by business timelines and objectives?|Ensure that the requirements for separating concerns have a performance and optimization budget.|
 
-### Striving for Constant Improvement and Success
+### Striving for constant improvement and success
 
 The outcomes of a GraphQL consolidation project should be measured against the original, documented drivers for the transition to a federated data graph. Aside from these measurements, certain actions and approaches must be undertaken to ensure that ongoing changes to the consolidated GraphQL architecture will be a success from a human and technology perspective.
 
