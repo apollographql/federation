@@ -1,23 +1,23 @@
 import {
-  AnyDirective,
-  AnyDirectiveDefinition,
-  AnyFieldDefinition,
-  AnySchema,
-  AnyInputFieldDefinition,
-  AnyInputObjectType,
-  AnyNamedType,
-  AnyObjectType,
-  AnyScalarType,
-  AnySchemaDefinition,
-  AnySchemaElement,
-  AnyUnionType,
   defaultRootTypeName,
-  AnyInterfaceType
+    DirectiveDefinition,
+    EnumType,
+    FieldDefinition,
+    InputFieldDefinition,
+    InputObjectType,
+    InterfaceType,
+    NamedType,
+    ObjectType,
+    ScalarType,
+  Schema,
+  SchemaDefinition,
+  SchemaElement,
+  UnionType
 } from "./definitions";
 
 const indent = "  "; // Could be made an option at some point
 
-export function printSchema(schema: AnySchema): string {
+export function printSchema(schema: Schema): string {
   const directives = [...schema.directives.values()].filter(d => !d.isBuiltIn);
   const types = [...schema.types.values()]
     .filter(t => !t.isBuiltIn)
@@ -33,7 +33,7 @@ export function printSchema(schema: AnySchema): string {
   );
 }
 
-function printSchemaDefinition(schemaDefinition: AnySchemaDefinition): string | undefined {
+function printSchemaDefinition(schemaDefinition: SchemaDefinition): string | undefined {
   if (isSchemaOfCommonNames(schemaDefinition)) {
     return;
   }
@@ -53,7 +53,7 @@ function printSchemaDefinition(schemaDefinition: AnySchemaDefinition): string | 
  *
  * When using this naming convention, the schema description can be omitted.
  */
-function isSchemaOfCommonNames(schema: AnySchemaDefinition): boolean {
+function isSchemaOfCommonNames(schema: SchemaDefinition): boolean {
   if (schema.appliedDirectives.length > 0) {
     return false;
   }
@@ -65,17 +65,18 @@ function isSchemaOfCommonNames(schema: AnySchemaDefinition): boolean {
   return true;
 }
 
-export function printTypeDefinition(type: AnyNamedType): string {
+export function printTypeDefinition(type: NamedType): string {
   switch (type.kind) {
     case 'ScalarType': return printScalarType(type);
-    case 'ObjectType': return printObjectType(type);
-    case 'InterfaceType': return printInterfaceType(type);
+    case 'ObjectType': return printFieldBasedType('type', type);
+    case 'InterfaceType': return printFieldBasedType('interface', type);
     case 'UnionType': return printUnionType(type);
+    case 'EnumType': return printEnumType(type);
     case 'InputObjectType': return printInputObjectType(type);
   }
 }
 
-export function printDirectiveDefinition(directive: AnyDirectiveDefinition): string {
+export function printDirectiveDefinition(directive: DirectiveDefinition): string {
   const args = directive.arguments.size == 0
     ? "" 
     : [...directive.arguments.values()].map(arg => arg.toString()).join(', ');
@@ -83,39 +84,44 @@ export function printDirectiveDefinition(directive: AnyDirectiveDefinition): str
   return `directive @${directive}${args}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
-function printAppliedDirectives(element: AnySchemaElement): string {
+function printAppliedDirectives(element: SchemaElement<any, any>): string {
   const appliedDirectives = element.appliedDirectives;
-  return appliedDirectives.length == 0 ? "" : " " + appliedDirectives.map((d: AnyDirective) => d.toString()).join(" ");
+  return appliedDirectives.length == 0 ? "" : " " + appliedDirectives.map(d => d.toString()).join(" ");
 }
 
-function printScalarType(type: AnyScalarType): string {
+function printScalarType(type: ScalarType): string {
   return `scalar ${type.name}${printAppliedDirectives(type)}`
 }
 
-function printObjectType(type: AnyObjectType): string {
-  // TODO: missing interfaces
-  return `type ${type.name}${printAppliedDirectives(type)}` + printFields([...type.fields.values()]);
+function printImplementedInterfaces(type: ObjectType | InterfaceType): string {
+  return type.interfaces.length
+    ? ' implements ' + type.interfaces.map(i => i.name).join(' & ')
+    : '';
 }
 
-function printInterfaceType(type: AnyInterfaceType): string {
-  // TODO: missing interfaces
-  return `interface ${type.name}${printAppliedDirectives(type)}` + printFields([...type.fields.values()]);
+function printFieldBasedType(kind: string, type: ObjectType | InterfaceType): string {
+  return `${kind} ${type.name}${printImplementedInterfaces(type)}${printAppliedDirectives(type)}` + printFields([...type.fields.values()]);
 }
 
-function printUnionType(type: AnyUnionType): string {
+function printUnionType(type: UnionType): string {
   const possibleTypes = type.types.length ? ' = ' + type.types.join(' | ') : '';
   return `union ${type}${possibleTypes}`;
 }
 
-function printInputObjectType(type: AnyInputObjectType): string {
+function printEnumType(type: EnumType): string {
+  const vals = type.values.map(v => `${v}${printAppliedDirectives(v)}`);
+  return `enum ${type}${printBlock(vals)}`;
+}
+
+function printInputObjectType(type: InputObjectType): string {
   return `input ${type.name}${printAppliedDirectives(type)}` + printFields([...type.fields.values()]);
 }
 
-function printFields(fields: AnyFieldDefinition[] | AnyInputFieldDefinition[]): string {
-  return printBlock(fields.map((f: AnyFieldDefinition | AnyInputFieldDefinition) => indent + `${printField(f)}${printAppliedDirectives(f)}`));
+function printFields(fields: (FieldDefinition<any> | InputFieldDefinition)[]): string {
+  return printBlock(fields.map(f => indent + `${printField(f)}${printAppliedDirectives(f)}`));
 }
 
-function printField(field: AnyFieldDefinition | AnyInputFieldDefinition): string {
+function printField(field: FieldDefinition<any> | InputFieldDefinition): string {
   let args = '';
   if (field.kind == 'FieldDefinition' && field.arguments.size > 0) {
     args = '(' + [...field.arguments.values()].map(arg => `${arg}${printAppliedDirectives(arg)}`).join(', ') + ')';

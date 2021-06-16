@@ -1,49 +1,42 @@
 import {
-  AnySchema,
-  AnyObjectType,
-  AnySchemaElement,
-  AnyType,
   Schema,
-  MutableSchema,
-  MutableObjectType,
-  MutableType,
   ObjectType,
   Type,
-  BuiltIns,
-  AnyDirectiveDefinition,
+  DirectiveDefinition,
   InterfaceType,
-  MutableInterfaceType,
-  AnyInterfaceType
+  SchemaElement,
+  EnumType
 } from '../../dist/definitions';
-import {
-  printSchema
-} from '../../dist/print';
-import {
-  federationBuiltIns
-} from '../../dist/federation';
+import { printSchema } from '../../dist/print';
+import { buildSchema } from '../../dist/buildSchema';
+import { federationBuiltIns } from '../../dist/federation';
 
-function expectObjectType(type: Type | MutableType | undefined): asserts type is ObjectType | MutableObjectType {
+function expectObjectType(type?: Type): asserts type is ObjectType {
   expect(type).toBeDefined();
   expect(type!.kind).toBe('ObjectType');
-
 }
 
-function expectInterfaceType(type: Type | MutableType | undefined): asserts type is InterfaceType | MutableInterfaceType {
+function expectInterfaceType(type?: Type): asserts type is InterfaceType {
   expect(type).toBeDefined();
   expect(type!.kind).toBe('InterfaceType');
+}
+
+function expectEnumType(type?: Type): asserts type is EnumType {
+  expect(type).toBeDefined();
+  expect(type!.kind).toBe('EnumType');
 }
 
 declare global {
   namespace jest {
     interface Matchers<R> {
-      toHaveField(name: string, type?: AnyType): R;
-      toHaveDirective(directive: AnyDirectiveDefinition, args?: Map<string, any>): R;
+      toHaveField(name: string, type?: Type): R;
+      toHaveDirective(directive: DirectiveDefinition, args?: Map<string, any>): R;
     }
   }
 }
 
 expect.extend({
-  toHaveField(parentType: AnyObjectType | AnyInterfaceType, name: string, type?: AnyType) {
+  toHaveField(parentType: ObjectType | InterfaceType, name: string, type?: Type) {
     const field = parentType.field(name);
     if (!field) {
       return {
@@ -69,7 +62,7 @@ expect.extend({
     }
   },
 
-  toHaveDirective(element: AnySchemaElement, definition: AnyDirectiveDefinition, args?: Map<string, any>) {
+  toHaveDirective(element: SchemaElement<any, any>, definition: DirectiveDefinition, args?: Map<string, any>) {
     const directives = element.appliedDirective(definition as any);
     if (directives.length == 0) {
       return {
@@ -100,36 +93,27 @@ expect.extend({
   }
 });
 
-test('building a simple mutable schema programatically and converting to immutable', () => {
-  const mutDoc = MutableSchema.empty(federationBuiltIns);
-  const mutQueryType = mutDoc.schemaDefinition.setRoot('query', mutDoc.addObjectType('Query'));
-  const mutTypeA = mutDoc.addObjectType('A');
-  const inaccessible = mutDoc.directive('inaccessible')!;
-  const key = mutDoc.directive('key')!;
-  mutQueryType.addField('a', mutTypeA);
-  mutTypeA.addField('q', mutQueryType);
-  mutTypeA.applyDirective(inaccessible);
-  mutTypeA.applyDirective(key, new Map([['fields', 'a']]));
+test('building a simple schema programatically', () => {
+  const schema = new Schema(federationBuiltIns);
+  const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query')));
+  const typeA = schema.addType(new ObjectType('A'));
+  const inaccessible = schema.directive('inaccessible')!;
+  const key = schema.directive('key')!;
 
-  // Sanity check
-  expect(mutQueryType).toHaveField('a', mutTypeA);
-  expect(mutTypeA).toHaveField('q', mutQueryType);
-  expect(mutTypeA).toHaveDirective(inaccessible);
-  expect(mutTypeA).toHaveDirective(key, new Map([['fields', 'a']]));
+  queryType.addField('a', typeA);
+  typeA.addField('q', queryType);
+  typeA.applyDirective(inaccessible);
+  typeA.applyDirective(key, new Map([['fields', 'a']]));
 
-  const doc = mutDoc.toImmutable();
-  const queryType = doc.type('Query'); 
-  const typeA = doc.type('A'); 
-  expect(queryType).toBe(doc.schemaDefinition.root('query'));
-  expectObjectType(queryType);
-  expectObjectType(typeA);
+  expect(queryType).toBe(schema.schemaDefinition.root('query'));
   expect(queryType).toHaveField('a', typeA);
   expect(typeA).toHaveField('q', queryType);
   expect(typeA).toHaveDirective(inaccessible);
   expect(typeA).toHaveDirective(key, new Map([['fields', 'a']]));
 });
 
-function parseAndValidateTestSchema<S extends AnySchema>(parser: (source: string, builtIns: BuiltIns) => S): S {
+
+test('parse schema and modify', () => {
   const sdl =
 `schema {
   query: MyQuery
@@ -144,36 +128,25 @@ type MyQuery {
   a: A
   b: Int
 }`;
-  const doc = parser(sdl, federationBuiltIns);
+  const schema = buildSchema(sdl, federationBuiltIns);
 
-  const queryType = doc.type('MyQuery')!;
-  const typeA = doc.type('A')!;
+  const queryType = schema.type('MyQuery')!;
+  const typeA = schema.type('A')!;
   expectObjectType(queryType);
   expectObjectType(typeA);
-  expect(doc.schemaDefinition.root('query')).toBe(queryType);
+  expect(schema.schemaDefinition.root('query')).toBe(queryType);
   expect(queryType).toHaveField('a', typeA);
   const f2 = typeA.field('f2');
-  expect(f2).toHaveDirective(doc.directive('inaccessible')!);
-  expect(printSchema(doc)).toBe(sdl);
-  return doc;
-}
+  expect(f2).toHaveDirective(schema.directive('inaccessible')!);
+  expect(printSchema(schema)).toBe(sdl);
 
-
-test('parse immutable schema', () => {
-  parseAndValidateTestSchema(Schema.parse);
-});
-
-test('parse mutable schema and modify', () => {
-  const doc = parseAndValidateTestSchema(MutableSchema.parse);
-  const typeA = doc.type('A');
-  expectObjectType(typeA);
   expect(typeA).toHaveField('f1');
   typeA.field('f1')!.remove();
   expect(typeA).not.toHaveField('f1');
 });
 
 test('removal of all directives of a schema', () => {
-  const doc = MutableSchema.parse(`
+  const schema = buildSchema(`
     schema @foo {
       query: Query
     }
@@ -198,11 +171,11 @@ test('removal of all directives of a schema', () => {
     directive @bar on ARGUMENT_DEFINITION
   `, federationBuiltIns);
 
-  for (const element of doc.allSchemaElement()) {
+  for (const element of schema.allSchemaElement()) {
     element.appliedDirectives.forEach(d => d.remove());
   }
 
-  expect(printSchema(doc)).toBe(
+  expect(printSchema(schema)).toBe(
 `directive @foo on SCHEMA | FIELD_DEFINITION
 
 directive @foobar on UNION
@@ -226,7 +199,7 @@ union U = A | B`);
 });
 
 test('removal of all inacessible elements of a schema', () => {
-  const doc = MutableSchema.parse(`
+  const schema = buildSchema(`
     schema @foo {
       query: Query
     }
@@ -250,13 +223,13 @@ test('removal of all inacessible elements of a schema', () => {
     directive @bar on ARGUMENT_DEFINITION
   `, federationBuiltIns);
 
-  for (const element of doc.allSchemaElement()) {
-    if (element.appliedDirective(doc.directive('inaccessible')!).length > 0) {
+  for (const element of schema.allSchemaElement()) {
+    if (element.appliedDirective(schema.directive('inaccessible')!).length > 0) {
       element.remove();
     }
   }
 
-  expect(printSchema(doc)).toBe(
+  expect(printSchema(schema)).toBe(
 `schema @foo {
   query: Query
 }
@@ -275,7 +248,7 @@ type Query {
 });
 
 test('handling of interfaces', () => {
-  const doc = Schema.parse(`
+  const schema = buildSchema(`
     type Query {
       bestIs: [I!]!
     }
@@ -302,23 +275,23 @@ test('handling of interfaces', () => {
     }
   `);
 
-  const b = doc.type('B');
-  const i = doc.type('I');
-  const t1 = doc.type('T1');
-  const t2 = doc.type('T2');
+  const b = schema.type('B');
+  const i = schema.type('I');
+  const t1 = schema.type('T1');
+  const t2 = schema.type('T2');
   expectInterfaceType(b);
   expectInterfaceType(i);
   expectObjectType(t1);
   expectObjectType(t2);
 
   for (const t of [b, i, t1, t2]) {
-    expect(t).toHaveField('a', doc.intType());
+    expect(t).toHaveField('a', schema.intType());
   }
   for (const t of [i, t1, t2]) {
-    expect(t).toHaveField('b', doc.stringType());
+    expect(t).toHaveField('b', schema.stringType());
   }
-  expect(t1).toHaveField('c', doc.intType());
-  expect(t2).toHaveField('c', doc.stringType());
+  expect(t1).toHaveField('c', schema.intType());
+  expect(t2).toHaveField('c', schema.stringType());
 
   expect(i.implementsInterface(b.name)).toBeTruthy();
   expect(t1.implementsInterface(b.name)).toBeTruthy();
@@ -326,15 +299,64 @@ test('handling of interfaces', () => {
   expect(t2.implementsInterface(b.name)).toBeTruthy();
   expect(t2.implementsInterface(i.name)).toBeTruthy();
 
-  const impls = b.allImplementations();
-  for (let j = 0; j < impls.length; j++) {
-    console.log(`Element: ${i}: ${impls[j]} == ${[i, t1, t2][j]}?`);
-    expect(impls[j]).toBe([i, t2, t1][j]);
-  }
-  //expect(b.allImplementations()).toBe([i, t1, t2]);
-  //expect(i.allImplementations()).toBe([t1, t2]);
+  expect(b.allImplementations()).toEqual([i, t1, t2]);
+  expect(i.allImplementations()).toEqual([t1, t2]);
 
-  //for (const itf of [b, i]) {
-  //  expect(itf.possibleRuntimeTypes()).toBe([t1, t2]);
-  //}
+  for (const itf of [b, i]) {
+    expect(itf.possibleRuntimeTypes()).toEqual([t1, t2]);
+  }
+
+  b.remove();
+
+  expect(printSchema(schema)).toBe(
+`interface I {
+  a: Int
+  b: String
+}
+
+type Query {
+  bestIs: [I!]!
+}
+
+type T1 implements I {
+  a: Int
+  b: String
+  c: Int
+}
+
+type T2 implements I {
+  a: Int
+  b: String
+  c: String
+}`);
+});
+
+test('handling of enums', () => {
+  const schema = buildSchema(`
+    type Query {
+      a: A
+    }
+
+    enum E {
+      V1
+      V2
+    }
+
+    type A {
+      a: Int
+      e: E
+    }
+  `);
+
+  const a = schema.type('A');
+  const e = schema.type('E');
+  expectObjectType(a);
+  expectEnumType(e);
+
+  expect(a).toHaveField('e', e);
+  const v1 = e.value('V1');
+  const v2 = e.value('V2');
+  expect(v1).toBeDefined();
+  expect(v2).toBeDefined();
+  expect(e.values).toEqual([v1, v2]);
 });

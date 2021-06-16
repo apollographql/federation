@@ -1,32 +1,35 @@
-import { BuiltIns } from "./definitions";
+import { BuiltIns, Schema } from "./definitions";
 
 // TODO: Need a way to deal with the fact that the _Entity type is built after validation.
 export class FederationBuiltIns extends BuiltIns {
-  protected createBuiltInTypes(): void {
-    super.populateBuiltInTypes();
-    this.addUnionType('_Entity');
-    this.addObjectType('_Service').addField('sdl', this.getType('String'));
-    this.addScalarType('_Any');
+  addBuiltInTypes(schema: Schema) {
+    super.addBuiltInTypes(schema);
+
+    this.addBuiltInUnion(schema, '_Entity');
+    this.addBuiltInObject(schema, '_Service').addField('sdl', schema.stringType());
+    this.addBuiltInScalar(schema, '_Any');
   }
 
-  protected populateBuiltInDirectives(): void {
-    this.addDirective('key')
-      .addLocations('OBJECT', 'INTERFACE')
-      .addArgument('fields', this.getType('String'));
+  addBuiltInDirectives(schema: Schema) {
+    super.addBuiltInDirectives(schema);
 
-    this.addDirective('extends')
+    this.addBuiltInDirective(schema, 'key')
+      .addLocations('OBJECT', 'INTERFACE')
+      .addArgument('fields', schema.stringType());
+
+    this.addBuiltInDirective(schema, 'extends')
       .addLocations('OBJECT', 'INTERFACE');
 
-    this.addDirective('external')
+    this.addBuiltInDirective(schema, 'external')
       .addLocations('OBJECT', 'FIELD_DEFINITION');
 
     for (const name of ['requires', 'provides']) {
-      this.addDirective(name)
+      this.addBuiltInDirective(schema, name)
         .addLocations('FIELD_DEFINITION')
-        .addArgument('fields', this.getType('String'));
+        .addArgument('fields', schema.stringType());
     }
 
-    this.addDirective('inaccessible')
+    this.addBuiltInDirective(schema, 'inaccessible')
       .addAllLocations();
   }
 }
