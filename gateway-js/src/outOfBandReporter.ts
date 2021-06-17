@@ -12,13 +12,9 @@ export const OUT_OF_BAND_REPORTER_QUERY = /* GraphQL */`#graphql
 const { name, version } = require('../package.json');
 
 export class OutOfBandReporter {
-  endpoint: string | null;
+  static endpoint: string | null = process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT || null;
 
-  constructor() {
-    this.endpoint = process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT || null;
-  }
-
-  async submitOutOfBandReport({
+  async submitOutOfBandReportIfConfigured({
     error,
     request,
     response,
@@ -37,29 +33,35 @@ export class OutOfBandReporter {
   }) {
 
     // don't send report if the endpoint url is not configured
-    if (!this.endpoint) {
+    if (!OutOfBandReporter.endpoint) {
       return;
     }
 
-    let errorCode = ErrorCode.Other;
-
-    // some possible error situations to check against
-    if (response?.status && [400, 413, 422].includes(response?.status)) {
-      errorCode = ErrorCode.InvalidBody;
-    }
-    else if (response?.status && [408, 504].includes(response?.status)) {
-      errorCode = ErrorCode.Timeout;
-    }
-    else if (!response || [502, 503].includes(response?.status)) {
+    let errorCode: ErrorCode;
+    if (!response) {
       errorCode = ErrorCode.ConnectionFailed;
+    } else {
+      // possible error situations to check against
+      switch (response.status) {
+        case 400:
+        case 413:
+        case 422:
+          errorCode = ErrorCode.InvalidBody;
+          break;
+        case 408:
+        case 504:
+          errorCode = ErrorCode.Timeout;
+          break;
+        case 502:
+        case 503:
+          errorCode = ErrorCode.ConnectionFailed;
+          break;
+        default:
+          errorCode = ErrorCode.Other;
+      }
     }
 
-    let responseBody: string;
-    try{
-      responseBody = await response?.json();
-    } catch (e) {
-      responseBody = '';
-    }
+    const responseBody: string | undefined = await response?.text();
 
     const oobVariables: ApiMonitoringReport = {
       error: {
@@ -68,7 +70,7 @@ export class OutOfBandReporter {
       },
       request: {
         url: request.url,
-        body: request.bodyUsed ? await request.json() : ''
+        body: await request.text()
       },
       response: response ? {
         httpStatusCode: response.status,
@@ -79,30 +81,30 @@ export class OutOfBandReporter {
       tags: tags
     }
 
-    let oobResponse: Response;
-    await fetcher(this.endpoint, {
-      method: 'POST',
-      body: JSON.stringify({
-        query: OUT_OF_BAND_REPORTER_QUERY,
-        variables: {
-          input: oobVariables
+    try {
+      const oobResponse = await fetcher(OutOfBandReporter.endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          query: OUT_OF_BAND_REPORTER_QUERY,
+          variables: {
+            input: oobVariables,
+          },
+        }),
+        headers: {
+          'apollographql-client-name': name,
+          'apollographql-client-version': version,
+          'user-agent': `${name}/${version}`,
+          'content-type': 'application/json',
         },
-      }),
-      headers: {
-        'apollographql-client-name': name,
-        'apollographql-client-version': version,
-        'user-agent': `${name}/${version}`,
-        'content-type': 'application/json',
-      },
-    }).then(result => {
-      oobResponse = result;
-      return result.json();
-    }).then(response => {
-      if (!response?.data?.reportError) {
-        throw new Error(`Out-of-band error reporting failed: ${oobResponse.status} ${oobResponse.statusText}`);
+      });
+      const parsedResponse = await oobResponse.json();
+      if (!parsedResponse?.data?.reportError) {
+        throw new Error(
+          `Out-of-band error reporting failed: ${oobResponse.status} ${oobResponse.statusText}`,
+        );
       }
-    }).catch(e => {
+    } catch (e) {
       throw new Error(`Out-of-band error reporting failed: ${e.message ?? e}`);
-    })
+    }
   }
 }

@@ -78,7 +78,7 @@ export async function loadSupergraphSdlFromStorage({
   } catch (e) {
     const endTime = new Date();
 
-    await OOBReport.submitOutOfBandReport({
+    await OOBReport.submitOutOfBandReportIfConfigured({
       error: e,
       request,
       startedAt: startTime,
@@ -108,7 +108,7 @@ export async function loadSupergraphSdlFromStorage({
       );
     }
   } else {
-    await OOBReport.submitOutOfBandReport({
+    await OOBReport.submitOutOfBandReportIfConfigured({
       error: new Error(fetchErrorMsg + result.status + ' ' + result.statusText),
       request,
       response: result,
