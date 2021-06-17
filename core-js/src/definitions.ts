@@ -12,10 +12,6 @@ export type MutationRoot = 'mutation';
 export type SubscriptionRoot = 'subscription';
 export type SchemaRoot = QueryRoot | MutationRoot | SubscriptionRoot;
 
-export function defaultRootTypeName(root: SchemaRoot) {
-  return root.charAt(0).toUpperCase() + root.slice(1);
-}
-
 export type Type = InputType | OutputType;
 export type NamedType = ScalarType | ObjectType | InterfaceType | UnionType | EnumType | InputObjectType;
 export type OutputType = ScalarType | ObjectType | InterfaceType | UnionType | EnumType | ListType<any> | NonNullType<any>;
@@ -30,6 +26,10 @@ export type InterfaceTypeReferencer = OutputTypeReferencer | ObjectType | Interf
 export type NullableType = NamedType | ListType<any>;
 
 export type NamedTypeKind = NamedType['kind'];
+
+export function defaultRootTypeName(root: SchemaRoot) {
+  return root.charAt(0).toUpperCase() + root.slice(1);
+}
 
 export function isNamedType(type: Type): type is NamedType {
   return type instanceof BaseNamedType;
@@ -92,6 +92,7 @@ export interface Named {
 export abstract class SchemaElement<Parent extends SchemaElement<any, any> | Schema, Referencer> {
   protected _parent?: Parent;
   protected readonly _appliedDirectives: Directive[] = [];
+  description?: string;
   source?: ASTNode;
 
   abstract coordinate: string;
@@ -895,16 +896,17 @@ export class FieldDefinition<P extends ObjectType | InterfaceType> extends BaseN
   addArgument(arg: ArgumentDefinition<FieldDefinition<P>>): ArgumentDefinition<FieldDefinition<P>>;
   addArgument(name: string, type?: InputType, defaultValue?: any): ArgumentDefinition<FieldDefinition<P>>;
   addArgument(nameOrArg: string | ArgumentDefinition<FieldDefinition<P>>, type?: InputType, defaultValue?: any): ArgumentDefinition<FieldDefinition<P>> {
-    const toAdd = typeof nameOrArg === 'string' ? new ArgumentDefinition<FieldDefinition<P>>(nameOrArg).setDefaultValue(defaultValue) : nameOrArg;
+    let toAdd: ArgumentDefinition<FieldDefinition<P>>;
+    if (typeof nameOrArg === 'string') {
+      this.checkUpdate();
+      toAdd = new ArgumentDefinition<FieldDefinition<P>>(nameOrArg);
+      toAdd.defaultValue = defaultValue;
+    } else {
+      this.checkUpdate(nameOrArg);
+      toAdd = nameOrArg;
+    }
     if (this.argument(toAdd.name)) {
       throw buildError(`Argument ${toAdd.name} already exists on field ${this.name}`);
-    }
-    if (toAdd.parent) {
-      // For convenience, let's not error out on adding an already added type.
-      if (toAdd.parent === this) {
-        return toAdd;
-      }
-      throw buildError(`Cannot add argument ${toAdd.name} to this instance of field ${this.name}; it is already attached to another schema`);
     }
     this._args.set(toAdd.name, toAdd);
     SchemaElement.prototype['setParent'].call(toAdd, this);
@@ -974,7 +976,7 @@ export class InputFieldDefinition extends BaseNamedElementWithType<InputType, In
 
 export class ArgumentDefinition<P extends FieldDefinition<any> | DirectiveDefinition> extends BaseNamedElementWithType<InputType, P, never> {
   readonly kind: 'ArgumentDefinition' = 'ArgumentDefinition';
-  private _defaultValue?: any
+  defaultValue?: any
 
   constructor(name: string) {
     super(name);
@@ -983,15 +985,6 @@ export class ArgumentDefinition<P extends FieldDefinition<any> | DirectiveDefini
   get coordinate(): string {
     const parent = this.parent;
     return `${parent == undefined ? '<detached>' : parent.coordinate}(${this.name}:)`;
-  }
-
-  get defaultValue(): any {
-    return this._defaultValue;
-  }
-
-  setDefaultValue(defaultValue: any): ArgumentDefinition<P> {
-    this._defaultValue = defaultValue;
-    return this;
   }
 
   /**
@@ -1007,12 +1000,12 @@ export class ArgumentDefinition<P extends FieldDefinition<any> | DirectiveDefini
     (this._parent.arguments as Map<string, any>).delete(this.name);
     this._parent = undefined;
     this.type = undefined;
-    this._defaultValue = undefined;
+    this.defaultValue = undefined;
     return [];
   }
 
   toString() {
-    const defaultStr = this._defaultValue == undefined ? "" : ` = ${this._defaultValue}`;
+    const defaultStr = this.defaultValue == undefined ? "" : ` = ${valueToString(this.defaultValue)}`;
     return `${this.name}: ${this.type}${defaultStr}`;
   }
 }
@@ -1078,16 +1071,17 @@ export class DirectiveDefinition extends BaseNamedElement<Schema, Directive> {
   addArgument(arg: ArgumentDefinition<DirectiveDefinition>): ArgumentDefinition<DirectiveDefinition>;
   addArgument(name: string, type?: InputType, defaultValue?: any): ArgumentDefinition<DirectiveDefinition>;
   addArgument(nameOrArg: string | ArgumentDefinition<DirectiveDefinition>, type?: InputType, defaultValue?: any): ArgumentDefinition<DirectiveDefinition> {
-    const toAdd = typeof nameOrArg === 'string' ? new ArgumentDefinition<DirectiveDefinition>(nameOrArg).setDefaultValue(defaultValue) : nameOrArg;
+    let toAdd: ArgumentDefinition<DirectiveDefinition>;
+    if (typeof nameOrArg === 'string') {
+      this.checkUpdate();
+      toAdd = new ArgumentDefinition<DirectiveDefinition>(nameOrArg);
+      toAdd.defaultValue = defaultValue;
+    } else {
+      this.checkUpdate(nameOrArg);
+      toAdd = nameOrArg;
+    }
     if (this.argument(toAdd.name)) {
       throw buildError(`Argument ${toAdd.name} already exists on field ${this.name}`);
-    }
-    if (toAdd.parent) {
-      // For convenience, let's not error out on adding an already added type.
-      if (toAdd.parent === this) {
-        return toAdd;
-      }
-      throw buildError(`Cannot add argument ${toAdd.name} to this instance of field ${this.name}; it is already attached to another schema`);
     }
     this._args.set(toAdd.name, toAdd);
     SchemaElement.prototype['setParent'].call(toAdd, this);
@@ -1162,6 +1156,10 @@ export class DirectiveDefinition extends BaseNamedElement<Schema, Directive> {
   }
 }
 
+// TODO: How do we deal with default values? It feels like it would make some sense to have `argument('x')` return the default
+// value if `x` has one and wasn't explicitly set in the application. This would make code usage more pleasant. Should
+// `arguments()` also return those though? Maybe have an option to both method to say if it should include them or not.
+// (The question stands for matchArguments() as well though).
 export class Directive implements Named {
   private _parent?: SchemaElement<any, any>;
   source?: ASTNode;

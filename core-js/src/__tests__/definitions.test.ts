@@ -360,3 +360,70 @@ test('handling of enums', () => {
   expect(v2).toBeDefined();
   expect(e.values).toEqual([v1, v2]);
 });
+
+test('handling of descriptions', () => {
+const sdl =
+`"""A super schema full of great queries"""
+schema {
+  query: ASetOfQueries
+}
+
+"""Marks field that are deemed more important than others"""
+directive @Important(
+  """The reason for the importance of this field"""
+  why: String = "because!"
+) on FIELD_DEFINITION
+
+"""The actual queries of the schema"""
+type ASetOfQueries {
+  """Returns a set of products"""
+  bestProducts: [Product!]!
+
+  """Finds a product by ID"""
+  product(
+    """The ID identifying the product"""
+    id: ID!
+  ): Product
+}
+
+"""A product that is also a book"""
+type Book implements Product {
+  id: ID!
+  description: String!
+
+  """
+  Number of pages in the book. Good so the customer knows its buying a 1000 page book for instance
+  """
+  pages: Int @Important
+}
+
+type DVD implements Product {
+  id: ID!
+  description: String!
+
+  """The film author"""
+  author: String @Important(why: "it's good to give credit!")
+}
+
+"""Common interface to all our products"""
+interface Product {
+  """Identifies the product"""
+  id: ID!
+
+  """
+  Something that explains what the product is. This can just be the title of the product, but this can be more than that if we want to. But it should be useful you know, otherwise our customer won't buy it.
+  """
+  description: String!
+}`;
+  const schema = buildSchema(sdl);
+
+  // Checking we get back the schema through printing it is mostly good enough, but let's just
+  // make sure long descriptions don't get annoying formatting newlines for instance when acessed on the
+  // schema directly.
+  const longComment = "Something that explains what the product is. This can just be the title of the product, but this can be more than that if we want to. But it should be useful you know, otherwise our customer won't buy it.";
+  const product = schema.type('Product');
+  expectInterfaceType(product);
+  expect(product.field('description')!.description).toBe(longComment);
+
+  expect(printSchema(schema)).toBe(sdl);
+});

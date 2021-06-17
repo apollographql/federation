@@ -14,8 +14,10 @@ import {
   valueFromASTUntyped,
   ValueNode,
   NamedTypeNode,
-  ArgumentNode
+  ArgumentNode,
+  StringValueNode
 } from "graphql";
+import { Maybe } from "graphql/jsutils/Maybe";
 import {
   BuiltIns,
   Schema,
@@ -115,6 +117,7 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
 }
 
 type NodeWithDirectives = {directives?: ReadonlyArray<DirectiveNode>};
+type NodeWithDescription = {description?: Maybe<StringValueNode>};
 type NodeWithArguments = {arguments?: ReadonlyArray<ArgumentNode>};
 
 function withoutTrailingDefinition(str: string): NamedTypeKind {
@@ -130,11 +133,12 @@ function getReferencedType(node: NamedTypeNode, schema: Schema): NamedType {
 }
 
 function buildSchemaDefinitionInner(schemaNode: SchemaDefinitionNode, schemaDefinition: SchemaDefinition) {
-  schemaDefinition.source = schemaNode;
-  buildAppliedDirectives(schemaNode, schemaDefinition);
   for (const opTypeNode of schemaNode.operationTypes) {
     schemaDefinition.setRoot(opTypeNode.operation, opTypeNode.type.name.value, opTypeNode);
   }
+  schemaDefinition.source = schemaNode;
+  schemaDefinition.description = schemaNode.description?.value;
+  buildAppliedDirectives(schemaNode, schemaDefinition);
 }
 
 function buildAppliedDirectives(elementNode: NodeWithDirectives, element: SchemaElement<any, any>) {
@@ -151,7 +155,7 @@ function buildArgs(argumentsNode: NodeWithArguments): Map<string, any> {
   return args;
 }
 
-function buildNamedTypeInner(definitionNode: DefinitionNode & NodeWithDirectives, type: NamedType) {
+function buildNamedTypeInner(definitionNode: DefinitionNode & NodeWithDirectives & NodeWithDescription, type: NamedType) {
   switch (definitionNode.kind) {
     case 'ObjectTypeDefinition':
     case 'InterfaceTypeDefinition':
@@ -183,6 +187,7 @@ function buildNamedTypeInner(definitionNode: DefinitionNode & NodeWithDirectives
       break;
   }
   buildAppliedDirectives(definitionNode, type);
+  type.description = definitionNode.description?.value;
   type.source = definitionNode;
 }
 
@@ -193,6 +198,7 @@ function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldD
     buildArgumentDefinitionInner(inputValueDef, field.addArgument(inputValueDef.name.value));
   }
   buildAppliedDirectives(fieldNode, field);
+  field.description = fieldNode.description?.value;
   field.source = fieldNode;
 }
 
@@ -230,7 +236,9 @@ function buildWrapperTypeOrTypeRef(typeNode: TypeNode, schema: Schema): Type {
 function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: ArgumentDefinition<any>) {
   const type = buildWrapperTypeOrTypeRef(inputNode.type, arg.schema()!);
   arg.type = ensureInputType(type, inputNode.type);
+  arg.defaultValue = buildValue(inputNode.defaultValue);
   buildAppliedDirectives(inputNode, arg);
+  arg.description = inputNode.description?.value;
   arg.source = inputNode;
 }
 
@@ -238,6 +246,7 @@ function buildInputFieldDefinitionInner(fieldNode: InputValueDefinitionNode, fie
   const type = buildWrapperTypeOrTypeRef(fieldNode.type, field.schema()!);
   field.type = ensureInputType(type, fieldNode.type);
   buildAppliedDirectives(fieldNode, field);
+  field.description = fieldNode.description?.value;
   field.source = fieldNode;
 }
 
@@ -248,5 +257,6 @@ function buildDirectiveDefinitionInner(directiveNode: DirectiveDefinitionNode, d
   directive.repeatable = directiveNode.repeatable;
   const locations = directiveNode.locations.map(({ value }) => value as DirectiveLocationEnum);
   directive.addLocations(...locations);
+  directive.description = directiveNode.description?.value;
   directive.source = directiveNode;
 }

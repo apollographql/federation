@@ -1,4 +1,5 @@
 import {
+    ArgumentDefinition,
   defaultRootTypeName,
     DirectiveDefinition,
     EnumType,
@@ -38,7 +39,7 @@ function printSchemaDefinition(schemaDefinition: SchemaDefinition): string | und
     return;
   }
   const rootEntries = [...schemaDefinition.roots.entries()].map(([root, type]) => `${indent}${root}: ${type}`);
-  return `schema${printAppliedDirectives(schemaDefinition)} {\n${rootEntries.join('\n')}\n}`;
+  return `${printDescription(schemaDefinition)}schema${printAppliedDirectives(schemaDefinition)} {\n${rootEntries.join('\n')}\n}`;
 }
 
 /**
@@ -54,7 +55,7 @@ function printSchemaDefinition(schemaDefinition: SchemaDefinition): string | und
  * When using this naming convention, the schema description can be omitted.
  */
 function isSchemaOfCommonNames(schema: SchemaDefinition): boolean {
-  if (schema.appliedDirectives.length > 0) {
+  if (schema.appliedDirectives.length > 0 || schema.description) {
     return false;
   }
   for (const [root, type] of schema.roots) {
@@ -77,11 +78,8 @@ export function printTypeDefinition(type: NamedType): string {
 }
 
 export function printDirectiveDefinition(directive: DirectiveDefinition): string {
-  const args = directive.arguments.size == 0
-    ? "" 
-    : [...directive.arguments.values()].map(arg => arg.toString()).join(', ');
   const locations = directive.locations.join(' | ');
-  return `directive @${directive}${args}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
+  return `${printDescription(directive)}directive @${directive}${printArgs([...directive.arguments.values()])}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
 function printAppliedDirectives(element: SchemaElement<any, any>): string {
@@ -89,8 +87,25 @@ function printAppliedDirectives(element: SchemaElement<any, any>): string {
   return appliedDirectives.length == 0 ? "" : " " + appliedDirectives.map(d => d.toString()).join(" ");
 }
 
+function printDescription(
+  element: SchemaElement<any, any>,
+  indentation: string = '',
+  firstInBlock: boolean = true
+): string {
+  if (!element.description) {
+    return '';
+  }
+
+  const preferMultipleLines = element.description.length > 70;
+  const blockString = printBlockString(element.description, '', preferMultipleLines);
+  const prefix =
+    indentation && !firstInBlock ? '\n' + indentation : indentation;
+
+  return prefix + blockString.replace(/\n/g, '\n' + indentation) + '\n';
+}
+
 function printScalarType(type: ScalarType): string {
-  return `scalar ${type.name}${printAppliedDirectives(type)}`
+  return `${printDescription(type)}scalar ${type.name}${printAppliedDirectives(type)}`
 }
 
 function printImplementedInterfaces(type: ObjectType | InterfaceType): string {
@@ -100,35 +115,85 @@ function printImplementedInterfaces(type: ObjectType | InterfaceType): string {
 }
 
 function printFieldBasedType(kind: string, type: ObjectType | InterfaceType): string {
-  return `${kind} ${type.name}${printImplementedInterfaces(type)}${printAppliedDirectives(type)}` + printFields([...type.fields.values()]);
+  return `${printDescription(type)}${kind} ${type.name}${printImplementedInterfaces(type)}${printAppliedDirectives(type)}` + printFields([...type.fields.values()]);
 }
 
 function printUnionType(type: UnionType): string {
   const possibleTypes = type.types.length ? ' = ' + type.types.join(' | ') : '';
-  return `union ${type}${possibleTypes}`;
+  return `${printDescription(type)}union ${type}${printAppliedDirectives(type)}${possibleTypes}`;
 }
 
 function printEnumType(type: EnumType): string {
   const vals = type.values.map(v => `${v}${printAppliedDirectives(v)}`);
-  return `enum ${type}${printBlock(vals)}`;
+  return `${printDescription(type)}enum ${type}${printAppliedDirectives(type)}${printBlock(vals)}`;
 }
 
 function printInputObjectType(type: InputObjectType): string {
-  return `input ${type.name}${printAppliedDirectives(type)}` + printFields([...type.fields.values()]);
+  return `${printDescription(type)}input ${type.name}${printAppliedDirectives(type)}` + printFields([...type.fields.values()]);
 }
 
 function printFields(fields: (FieldDefinition<any> | InputFieldDefinition)[]): string {
-  return printBlock(fields.map(f => indent + `${printField(f)}${printAppliedDirectives(f)}`));
+  return printBlock(fields.map((f, i) => printDescription(f, indent, !i) + indent + `${printField(f)}${printAppliedDirectives(f)}`));
 }
 
 function printField(field: FieldDefinition<any> | InputFieldDefinition): string {
-  let args = '';
-  if (field.kind == 'FieldDefinition' && field.arguments.size > 0) {
-    args = '(' + [...field.arguments.values()].map(arg => `${arg}${printAppliedDirectives(arg)}`).join(', ') + ')';
-  }
+  let args = field.kind == 'FieldDefinition' ? printArgs([...field.arguments.values()], indent) : '';
   return `${field.name}${args}: ${field.type}`;
+}
+
+function printArgs(args: ArgumentDefinition<any>[], indentation = '') {
+  if (args.length === 0) {
+    return '';
+  }
+
+  // If every arg does not have a description, print them on one line.
+  if (args.every(arg => !arg.description)) {
+    return '(' + args.map(printArg).join(', ') + ')';
+  }
+
+  const formattedArgs = args
+    .map((arg, i) => printDescription(arg, '  ' + indentation, !i) + '  ' + indentation + printArg(arg))
+    .join('\n');
+  return `(\n${formattedArgs}\n${indentation})`;
+}
+
+function printArg(arg: ArgumentDefinition<any>) {
+  return `${arg}${printAppliedDirectives(arg)}`;
 }
 
 function printBlock(items: string[]): string {
   return items.length !== 0 ? ' {\n' + items.join('\n') + '\n}' : '';
+}
+
+/**
+ * Print a block string in the indented block form by adding a leading and
+ * trailing blank line. However, if a block string starts with whitespace and is
+ * a single-line, adding a leading blank line would strip that whitespace.
+ */
+function printBlockString(
+  value: string,
+  indentation: string = '',
+  preferMultipleLines: boolean = false,
+): string {
+  const isSingleLine = value.indexOf('\n') === -1;
+  const hasLeadingSpace = value[0] === ' ' || value[0] === '\t';
+  const hasTrailingQuote = value[value.length - 1] === '"';
+  const hasTrailingSlash = value[value.length - 1] === '\\';
+  const printAsMultipleLines =
+    !isSingleLine ||
+    hasTrailingQuote ||
+    hasTrailingSlash ||
+    preferMultipleLines;
+
+  let result = '';
+  // Format a multi-line block quote to account for leading space.
+  if (printAsMultipleLines && !(isSingleLine && hasLeadingSpace)) {
+    result += '\n' + indentation;
+  }
+  result += indentation ? value.replace(/\n/g, '\n' + indentation) : value;
+  if (printAsMultipleLines) {
+    result += '\n';
+  }
+
+  return '"""' + result.replace(/"""/g, '\\"""') + '"""';
 }
