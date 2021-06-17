@@ -1,4 +1,4 @@
-import { BuiltIns, Schema } from "./definitions";
+import { BuiltIns, Schema, DirectiveDefinition, NonNullType } from "./definitions";
 
 // TODO: Need a way to deal with the fact that the _Entity type is built after validation.
 export class FederationBuiltIns extends BuiltIns {
@@ -15,7 +15,7 @@ export class FederationBuiltIns extends BuiltIns {
 
     this.addBuiltInDirective(schema, 'key')
       .addLocations('OBJECT', 'INTERFACE')
-      .addArgument('fields', schema.stringType());
+      .addArgument('fields', new NonNullType(schema.stringType()));
 
     this.addBuiltInDirective(schema, 'extends')
       .addLocations('OBJECT', 'INTERFACE');
@@ -26,11 +26,35 @@ export class FederationBuiltIns extends BuiltIns {
     for (const name of ['requires', 'provides']) {
       this.addBuiltInDirective(schema, name)
         .addLocations('FIELD_DEFINITION')
-        .addArgument('fields', schema.stringType());
+        .addArgument('fields', new NonNullType(schema.stringType()));
     }
 
     this.addBuiltInDirective(schema, 'inaccessible')
       .addAllLocations();
+  }
+
+  keyDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
+    return this.getTypedDirective(schema, 'key');
+  }
+
+  extendsDirective(schema: Schema): DirectiveDefinition<{}> {
+    return this.getTypedDirective(schema, 'extends');
+  }
+
+  externalDirective(schema: Schema): DirectiveDefinition<{}> {
+    return this.getTypedDirective(schema, 'external');
+  }
+
+  requiresDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
+    return this.getTypedDirective(schema, 'requires');
+  }
+
+  providesDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
+    return this.getTypedDirective(schema, 'provides');
+  }
+
+  inaccessibleDirective(schema: Schema): DirectiveDefinition<{}> {
+    return this.getTypedDirective(schema, 'inaccessible');
   }
 }
 

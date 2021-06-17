@@ -30,7 +30,7 @@ declare global {
   namespace jest {
     interface Matchers<R> {
       toHaveField(name: string, type?: Type): R;
-      toHaveDirective(directive: DirectiveDefinition, args?: Record<string, any>): R;
+      toHaveDirective<TArgs extends {[key: string]: any}>(directive: DirectiveDefinition<TArgs>, args?: TArgs): R;
     }
   }
 }
@@ -97,8 +97,8 @@ test('building a simple schema programatically', () => {
   const schema = new Schema(federationBuiltIns);
   const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query')));
   const typeA = schema.addType(new ObjectType('A'));
-  const inaccessible = schema.directive('inaccessible')!;
-  const key = schema.directive('key')!;
+  const inaccessible = federationBuiltIns.inaccessibleDirective(schema);
+  const key = federationBuiltIns.keyDirective(schema);
 
   queryType.addField('a', typeA);
   typeA.addField('q', queryType);
@@ -137,7 +137,7 @@ type MyQuery {
   expect(schema.schemaDefinition.root('query')).toBe(queryType);
   expect(queryType).toHaveField('a', typeA);
   const f2 = typeA.field('f2');
-  expect(f2).toHaveDirective(schema.directive('inaccessible')!);
+  expect(f2).toHaveDirective(federationBuiltIns.inaccessibleDirective(schema));
   expect(printSchema(schema)).toBe(sdl);
 
   expect(typeA).toHaveField('f1');
@@ -224,7 +224,7 @@ test('removal of all inacessible elements of a schema', () => {
   `, federationBuiltIns);
 
   for (const element of schema.allSchemaElement()) {
-    if (element.appliedDirectivesOf(schema.directive('inaccessible')!).length > 0) {
+    if (element.appliedDirectivesOf(federationBuiltIns.inaccessibleDirective(schema)).length > 0) {
       element.remove();
     }
   }
@@ -424,10 +424,6 @@ interface Product {
   const product = schema.type('Product');
   expectInterfaceType(product);
   expect(product.field('description')!.description).toBe(longComment);
-
-  const directive = schema.directive('Important')!;
-  if (directive.repeatable === false)
-    product.appliedDirectivesOf(directive);
 
   expect(printSchema(schema)).toBe(sdl);
 });

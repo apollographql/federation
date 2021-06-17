@@ -125,7 +125,7 @@ export abstract class SchemaElement<TParent extends SchemaElement<any, any> | Sc
   }
 
   appliedDirectivesOf(name: string): Directive[];
-  appliedDirectivesOf(definition: DirectiveDefinition): Directive[];
+  appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(definition: DirectiveDefinition<TApplicationArgs>): Directive<TApplicationArgs>[];
   appliedDirectivesOf(nameOrDefinition: string | DirectiveDefinition): Directive[] {
     const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
     return this._appliedDirectives.filter(d => d.name == directiveName);
@@ -156,6 +156,7 @@ export abstract class SchemaElement<TParent extends SchemaElement<any, any> | Sc
       Directive.prototype['setParent'].call(toAdd, this);
       toAdd.source = source;
     }
+    // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
     this._appliedDirectives.push(toAdd);
     DirectiveDefinition.prototype['addReferencer'].call(toAdd.definition!, toAdd);
     return toAdd;
@@ -350,6 +351,33 @@ export class BuiltIns {
 
   protected addBuiltInDirective(schema: Schema, name: string): DirectiveDefinition {
     return schema.addDirectiveDefinition(new DirectiveDefinition(name, true));
+  }
+
+  protected getTypedDirective<TApplicationArgs extends {[key: string]: any}>(
+    schema: Schema,
+    name: string
+  ): DirectiveDefinition<TApplicationArgs> {
+    const directive = schema.directive(name);
+    if (!directive) {
+      throw new Error(`The provided schema has not be built with the ${name} directive built-in`);
+    }
+    return directive as DirectiveDefinition<TApplicationArgs>;
+  }
+
+  includeDirective(schema: Schema): DirectiveDefinition<{if: boolean}> {
+    return this.getTypedDirective(schema, 'include');
+  }
+
+  skipDirective(schema: Schema): DirectiveDefinition<{if: boolean}> {
+    return this.getTypedDirective(schema, 'skip');
+  }
+
+  deprecatedDirective(schema: Schema): DirectiveDefinition<{reason?: string}> {
+    return this.getTypedDirective(schema, 'deprecated');
+  }
+
+  specifiedByDirective(schema: Schema): DirectiveDefinition<{url: string}> {
+    return this.getTypedDirective(schema, 'specifiedBy');
   }
 }
 
@@ -1054,13 +1082,13 @@ export class EnumValue extends BaseNamedElement<EnumType, never> {
   }
 }
 
-export class DirectiveDefinition extends BaseNamedElement<Schema, Directive> {
+export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}> extends BaseNamedElement<Schema, Directive> {
   readonly kind: 'DirectiveDefinition' = 'DirectiveDefinition';
 
   private readonly _args: Map<string, ArgumentDefinition<DirectiveDefinition>> = new Map();
   repeatable: boolean = false;
   private readonly _locations: DirectiveLocationEnum[] = [];
-  private readonly _referencers: Set<Directive> = new Set();
+  private readonly _referencers: Set<Directive<TApplicationArgs>> = new Set();
 
   constructor(name: string, readonly isBuiltIn: boolean = false) {
     super(name);
@@ -1132,7 +1160,7 @@ export class DirectiveDefinition extends BaseNamedElement<Schema, Directive> {
     return this;
   }
 
-  private addReferencer(referencer: Directive) {
+  private addReferencer(referencer: Directive<TApplicationArgs>) {
     assert(referencer, 'Referencer should exists');
     this._referencers.add(referencer);
   }
@@ -1170,11 +1198,11 @@ export class DirectiveDefinition extends BaseNamedElement<Schema, Directive> {
 // value if `x` has one and wasn't explicitly set in the application. This would make code usage more pleasant. Should
 // `arguments()` also return those though? Maybe have an option to both method to say if it should include them or not.
 // (The question stands for matchArguments() as well though).
-export class Directive implements Named {
+export class Directive<TArgs extends {[key: string]: any} = {[key: string]: any}> implements Named {
   private _parent?: SchemaElement<any, any>;
   source?: ASTNode;
 
-  constructor(readonly name: string, private _args: Record<string, any>) {}
+  constructor(readonly name: string, private _args: TArgs) {}
 
   schema(): Schema | undefined {
     return this._parent?.schema();
@@ -1194,12 +1222,8 @@ export class Directive implements Named {
     return doc?.directive(this.name);
   }
 
-  get arguments() : Record<string, any> {
+  get arguments() : TArgs {
     return this._args;
-  }
-
-  argument(name: string): any {
-    return this._args.get(name);
   }
 
   matchArguments(expectedArgs: Record<string, any>): boolean {
