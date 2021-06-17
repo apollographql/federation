@@ -8,8 +8,6 @@ import {Button} from '@apollo/space-kit/Button';
 import {Link} from 'gatsby';
 import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
 
-> **Reminder:** This tutorial uses some Apollo tools and terminology that are still in **preview**, and therefore this content is not yet recommended for use in a production environment.
-
 [Back in Part 1](./quickstart/), we created a federated gateway and used the Rover CLI to compose a supergraph schema for it based on two subgraphs. Next, we'll move that composition process into the cloud.
 
 Our gateway currently loads its composed supergraph schema from a file on startup. This means that whenever the schema _changes_, the gateway needs to restart to load the new version.
@@ -65,13 +63,15 @@ If you don't have an Apollo Studio account yet, let's create one.
 
 Complete the first two steps of <a href="https://www.apollographql.com/docs/studio/getting-started/" target="_blank">Get started with Apollo Studio</a> (**Create your account** and **Create your first graph**), then return here.
 
+> For future steps, you'll need the name of the graph you just created in Apollo Studio. Make sure to have it available.
+
 ## 2. Authenticate Rover with Apollo Studio
 
 The Rover CLI includes commands for registering and fetching subgraph schemas from Apollo. To use these commands, you need to authenticate Rover with Apollo Studio.
 
 Complete the first two steps of <a href="https://www.apollographql.com/docs/rover/configuring/" target="_blank">Configuring Rover</a> (**Obtain an API key** and **Provide the API key to Rover**), then return here.
 
-> For the next step, you'll need the name of the graph you just created in Apollo Studio. Make sure to have it available.
+
 
 ## 3. Register subgraph schemas
 
@@ -86,7 +86,7 @@ rover subgraph publish <GRAPH_NAME> \
   --name products
 ```
 
-> Technically, you don't provide the graph's _name_, but rather its **graph ref**. [Learn more.](https://www.apollographql.com/docs/rover/essentials/#graph-refs)
+> Technically, you don't provide the graph's _name_, but rather its **graph ref**. [Learn more.](https://www.apollographql.com/docs/rover/conventions/#graph-refs)
 
 If the command is successful, you'll see output like the following:
 
@@ -174,7 +174,7 @@ So now, how do we connect and authenticate our gateway with Apollo Studio? With 
 
 > By providing an API key to your gateway, you also automatically enable **federated trace reporting** to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](./metrics/)
 
-Now, open up GraphQL Playground in your browser again at `localhost:4000`. Sure enough, your supergraph schema's types and fields are all available, and you can execute test queries as before. But now, all of this information is coming from Apollo Studio.
+Now, [open up Apollo Sandbox in your browser again](https://studio.apollographql.com/sandbox). Sure enough, your supergraph schema's types and fields are all available, and you can execute test queries as before. But now, all of this information is coming from Apollo Studio.
 
 ## Moving forward
 

@@ -10,6 +10,8 @@ import {
   TypeNameMetaFieldDef,
   GraphQLFieldResolver,
   GraphQLFormattedError,
+  isAbstractType,
+  GraphQLSchema,
 } from 'graphql';
 import { Trace, google } from 'apollo-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
@@ -81,7 +83,7 @@ export async function executeQueryPlan<TContext>(
   // the original query.
   // It is also used to allow execution of introspection queries though.
   try {
-    ({ data } = await execute({
+    const executionResult = await execute({
       schema: operationContext.schema,
       document: {
         kind: Kind.DOCUMENT,
@@ -94,7 +96,11 @@ export async function executeQueryPlan<TContext>(
       variableValues: requestContext.request.variables,
       // See also `wrapSchemaWithAliasResolver` in `gateway-js/src/index.ts`.
       fieldResolver: defaultFieldResolverWithAliasSupport,
-    }));
+    });
+    data = executionResult.data;
+    if (executionResult.errors?.length) {
+      errors.push(...executionResult.errors)
+    }
   } catch (error) {
     return { errors: [error] };
   }
@@ -243,7 +249,11 @@ async function executeFetch<TContext>(
     const representationToEntity: number[] = [];
 
     entities.forEach((entity, index) => {
-      const representation = executeSelectionSet(entity, requires);
+      const representation = executeSelectionSet(
+        context.operationContext,
+        entity,
+        requires,
+      );
       if (representation && representation[TypeNameMetaFieldDef.name]) {
         representations.push(representation);
         representationToEntity.push(index);
@@ -397,6 +407,7 @@ async function executeFetch<TContext>(
  * @param selectionSet
  */
 function executeSelectionSet(
+  operationContext: OperationContext,
   source: Record<string, any> | null,
   selections: QueryPlanSelectionNode[],
 ): Record<string, any> | null {
@@ -420,10 +431,13 @@ function executeSelectionSet(
         }
         if (Array.isArray(source[responseName])) {
           result[responseName] = source[responseName].map((value: any) =>
-            selections ? executeSelectionSet(value, selections) : value,
+            selections
+              ? executeSelectionSet(operationContext, value, selections)
+              : value,
           );
         } else if (selections) {
           result[responseName] = executeSelectionSet(
+            operationContext,
             source[responseName],
             selections,
           );
@@ -437,10 +451,10 @@ function executeSelectionSet(
         const typename = source && source['__typename'];
         if (!typename) continue;
 
-        if (typename === selection.typeCondition) {
+        if (doesTypeConditionMatch(operationContext.schema, selection.typeCondition, typename)) {
           deepMerge(
             result,
-            executeSelectionSet(source, selection.selections),
+            executeSelectionSet(operationContext, source, selection.selections),
           );
         }
         break;
@@ -448,6 +462,32 @@ function executeSelectionSet(
   }
 
   return result;
+}
+
+function doesTypeConditionMatch(
+  schema: GraphQLSchema,
+  typeCondition: string,
+  typename: string,
+): boolean {
+  if (typeCondition === typename) {
+    return true;
+  }
+
+  const type = schema.getType(typename);
+  if (!type) {
+    return false;
+  }
+
+  const conditionalType = schema.getType(typeCondition);
+  if (!conditionalType) {
+    return false;
+  }
+
+  if (isAbstractType(conditionalType)) {
+    return schema.isSubType(conditionalType, type);
+  }
+
+  return false;
 }
 
 function flattenResultsAtPath(value: any, path: ResponsePath): any {

@@ -53,9 +53,16 @@ Like your subgraphs, your gateway uses an API key to identify itself to Studio.
 
 <ObtainGraphApiKey />
 
-Provide your API key to your gateway by setting it as the value of the `APOLLO_KEY` environment variable (`ENGINE_API_KEY` in `apollo-server` pre-2.13.0) in your gateway's environment. Apollo Server will automatically read this environment variable on startup.
+After obtaining your graph API key, you set two environment variables in your gateway's environment. If you're using a `.env` file with a library like [`dotenv`](https://www.npmjs.com/package/dotenv), those environment variables look like this:
 
-Note that if you specify the API key in a `.env` file, the gateway does _not_ automatically read this file. Use a library such as [`dotenv`](https://www.npmjs.com/package/dotenv).
+```sh:title=.env
+APOLLO_KEY=<YOUR_GRAPH_API_KEY>
+APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://uplink.api.apollographql.com/
+```
+
+You can also set these values directly in the command you use to start your gateway.
+
+The second environment variable, `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT`, instructs the gateway to fetch its configuration from a new (and recommended) Apollo-hosted endpoint called the **uplink**. If you don't set this value, the gateway instead fetches its configuration from a file hosted in Google Cloud Storage.
 
 > When running your gateway in an environment where outbound traffic to the internet is restricted, consult the [directions for configuring a proxy](https://www.apollographql.com/docs/apollo-server/proxy-configuration/) within Apollo Server.
 
@@ -63,4 +70,4 @@ Note that if you specify the API key in a `.env` file, the gateway does _not_ au
 
 You can now deploy your modified gateway to begin fetching your federated schema from Studio instead of directly from your subgraphs.
 
-On startup, your gateway will use its API key to access its federation config from Google Cloud Storage. It can then begin executing operations across your subgraphs.
+On startup, your gateway will use its API key to fetch its federation config from Apollo. It can then begin executing operations across your subgraphs.

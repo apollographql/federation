@@ -1,8 +1,7 @@
 import { loadSupergraphSdlFromStorage } from '../loadSupergraphSdlFromStorage';
 import { getDefaultFetcher } from '../..';
 import {
-  graphId,
-  graphVariant,
+  graphRef,
   apiKey,
   mockCloudConfigUrl,
   mockSupergraphSdlRequest,
@@ -27,8 +26,7 @@ describe('loadSupergraphSdlFromStorage', () => {
 
     const fetcher = getDefaultFetcher();
     const result = await loadSupergraphSdlFromStorage({
-      graphId,
-      graphVariant,
+      graphRef,
       apiKey,
       endpoint: mockCloudConfigUrl,
       fetcher,
@@ -321,8 +319,7 @@ describe('loadSupergraphSdlFromStorage', () => {
       const fetcher = getDefaultFetcher();
       await expect(
         loadSupergraphSdlFromStorage({
-          graphId,
-          graphVariant,
+          graphRef,
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
@@ -344,8 +341,7 @@ describe('loadSupergraphSdlFromStorage', () => {
       const fetcher = getDefaultFetcher();
       await expect(
         loadSupergraphSdlFromStorage({
-          graphId,
-          graphVariant,
+          graphRef,
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
@@ -359,8 +355,7 @@ describe('loadSupergraphSdlFromStorage', () => {
       const fetcher = getDefaultFetcher();
       await expect(
         loadSupergraphSdlFromStorage({
-          graphId,
-          graphVariant,
+          graphRef,
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
