@@ -147,10 +147,10 @@ function buildAppliedDirectives(elementNode: NodeWithDirectives, element: Schema
   }
 }
 
-function buildArgs(argumentsNode: NodeWithArguments): Map<string, any> {
-  const args = new Map();
+function buildArgs(argumentsNode: NodeWithArguments): Record<string, any> {
+  const args = Object.create(null);
   for (const argNode of argumentsNode.arguments ?? []) {
-    args.set(argNode.name.value, buildValue(argNode.value));
+    args[argNode.name.value] = buildValue(argNode.value);
   }
   return args;
 }

@@ -132,9 +132,9 @@ export abstract class SchemaElement<TParent extends SchemaElement<any, any> | Sc
   }
 
   applyDirective(directive: Directive): Directive; 
-  applyDirective(definition: DirectiveDefinition, args?: Map<string, any>): Directive; 
-  applyDirective(name: string, args?: Map<string, any>, source?: ASTNode): Directive;
-  applyDirective(nameOrDefOrDirective: Directive | DirectiveDefinition | string, args?: Map<string, any>, source?: ASTNode): Directive {
+  applyDirective(definition: DirectiveDefinition, args?: Record<string, any>): Directive;
+  applyDirective(name: string, args?: Record<string, any>, source?: ASTNode): Directive;
+  applyDirective(nameOrDefOrDirective: Directive | DirectiveDefinition | string, args?: Record<string, any>, source?: ASTNode): Directive {
     let toAdd: Directive;
     if (nameOrDefOrDirective instanceof Directive) {
       this.checkUpdate(nameOrDefOrDirective);
@@ -152,7 +152,7 @@ export abstract class SchemaElement<TParent extends SchemaElement<any, any> | Sc
         this.checkUpdate(nameOrDefOrDirective);
         name = nameOrDefOrDirective.name;
       }
-      toAdd = new Directive(name, args ?? new Map());
+      toAdd = new Directive(name, args ?? Object.create(null));
       Directive.prototype['setParent'].call(toAdd, this);
       toAdd.source = source;
     }
@@ -1167,7 +1167,7 @@ export class Directive implements Named {
   private _parent?: SchemaElement<any, any>;
   source?: ASTNode;
 
-  constructor(readonly name: string, private _args: Map<string, any>) {}
+  constructor(readonly name: string, private _args: Record<string, any>) {}
 
   schema(): Schema | undefined {
     return this._parent?.schema();
@@ -1187,7 +1187,7 @@ export class Directive implements Named {
     return doc?.directive(this.name);
   }
 
-  get arguments() : ReadonlyMap<string, any> {
+  get arguments() : Record<string, any> {
     return this._args;
   }
 
@@ -1195,14 +1195,17 @@ export class Directive implements Named {
     return this._args.get(name);
   }
 
-  matchArguments(expectedArgs: Map<string, any>): boolean {
-    if (this._args.size !== expectedArgs.size) {
+  matchArguments(expectedArgs: Record<string, any>): boolean {
+    const entries = Object.entries(this._args);
+    if (entries.length !== Object.keys(expectedArgs).length) {
       return false;
     }
-    for (var [key, val] of this._args) {
-      const expectedVal = expectedArgs.get(key);
-      // In cases of an undefined value, make sure the key actually exists on the object so there are no false positives
-      if (!valueEquals(expectedVal, val) || (expectedVal === undefined && !expectedArgs.has(key))) {
+    for (var [key, val] of entries) {
+      if (!(key in expectedArgs)) {
+        return false;
+      }
+      const expectedVal = expectedArgs[key];
+      if (!valueEquals(expectedVal, val)) {
         return false;
       }
     }
@@ -1227,7 +1230,8 @@ export class Directive implements Named {
   }
 
   toString(): string {
-    const args = this._args.size == 0 ? '' : '(' + [...this._args.entries()].map(([n, v]) => `${n}: ${valueToString(v)}`).join(', ') + ')';
+    const entries = Object.entries(this._args);
+    const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v)}`).join(', ') + ')';
     return `@${this.name}${args}`;
   }
 }
@@ -1329,7 +1333,7 @@ function copySchemaDefinitionInner(source: SchemaDefinition, dest: SchemaDefinit
 
 function copyAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>) {
   for (const directive of source.appliedDirectives) {
-    dest.applyDirective(directive.name, new Map(directive.arguments));
+    dest.applyDirective(directive.name, { ...directive.arguments});
   }
 }
 

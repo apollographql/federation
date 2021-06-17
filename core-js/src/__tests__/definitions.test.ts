@@ -30,7 +30,7 @@ declare global {
   namespace jest {
     interface Matchers<R> {
       toHaveField(name: string, type?: Type): R;
-      toHaveDirective(directive: DirectiveDefinition, args?: Map<string, any>): R;
+      toHaveDirective(directive: DirectiveDefinition, args?: Record<string, any>): R;
     }
   }
 }
@@ -62,7 +62,7 @@ expect.extend({
     }
   },
 
-  toHaveDirective(element: SchemaElement<any, any>, definition: DirectiveDefinition, args?: Map<string, any>) {
+  toHaveDirective(element: SchemaElement<any, any>, definition: DirectiveDefinition, args?: Record<string, any>) {
     const directives = element.appliedDirectivesOf(definition);
     if (directives.length == 0) {
       return {
@@ -81,7 +81,7 @@ expect.extend({
       if (directive.matchArguments(args)) {
         return {
           // Not 100% certain that message is correct but I don't think it's going to be used ...
-          message: () => `Expected directive ${directive.name} applied to ${element} to have arguments ${args} but got ${directive.arguments}`,
+          message: () => `Expected directive ${directive.name} applied to ${element} to have arguments ${JSON.stringify(args)} but got ${JSON.stringify(directive.arguments)}`,
           pass: true
         };
       }
@@ -103,13 +103,13 @@ test('building a simple schema programatically', () => {
   queryType.addField('a', typeA);
   typeA.addField('q', queryType);
   typeA.applyDirective(inaccessible);
-  typeA.applyDirective(key, new Map([['fields', 'a']]));
+  typeA.applyDirective(key, { fields: 'a'});
 
   expect(queryType).toBe(schema.schemaDefinition.root('query'));
   expect(queryType).toHaveField('a', typeA);
   expect(typeA).toHaveField('q', queryType);
   expect(typeA).toHaveDirective(inaccessible);
-  expect(typeA).toHaveDirective(key, new Map([['fields', 'a']]));
+  expect(typeA).toHaveDirective(key, { fields: 'a'});
 });
 
 
