@@ -237,6 +237,7 @@ async function executeFetch<TContext>(
       context,
       fetch.operation,
       variables,
+      _path,
     );
 
     for (const entity of entities) {
@@ -272,6 +273,7 @@ async function executeFetch<TContext>(
       context,
       fetch.operation,
       { ...variables, representations },
+      _path,
     );
 
     if (!dataReceivedFromService) {
@@ -304,6 +306,7 @@ async function executeFetch<TContext>(
     context: ExecutionContext<TContext>,
     source: string,
     variables: Record<string, any>,
+    nodePath: ResponsePath,
   ): Promise<ResultMap | void | null> {
     // We declare this as 'any' because it is missing url and method, which
     // GraphQLRequest.http is supposed to have if it exists.
@@ -337,12 +340,14 @@ async function executeFetch<TContext>(
     });
 
     if (response.errors) {
-      const errors = response.errors.map(error =>
+      const errors = response.errors.map((error, index) =>
         downstreamServiceError(
           error,
           fetch.serviceName,
           source,
           variables,
+          nodePath,
+          index,
         ),
       );
       context.errors.push(...errors);
@@ -506,7 +511,9 @@ function downstreamServiceError(
   originalError: GraphQLFormattedError,
   serviceName: string,
   query: string,
-  variables?: Record<string, any>,
+  variables: Record<string, any>,
+  nodePath: ResponsePath,
+  entityIndex: number,
 ) {
   let {
     message,
@@ -526,15 +533,43 @@ function downstreamServiceError(
     variables,
     ...extensions,
   };
+
+  const errorPath = downstreamServiceErrorPath({
+    nodePath,
+    errorPath: path,
+    entityIndex
+  });
+
   return new GraphQLError(
     message,
     undefined,
     undefined,
     undefined,
-    path,
+    errorPath,
     originalError as Error,
     extensions,
   );
+}
+
+function downstreamServiceErrorPath({ nodePath, errorPath, entityIndex }: {
+  nodePath: ResponsePath,
+  errorPath: GraphQLFormattedError['path'],
+  entityIndex: number
+}) {
+  if (
+    nodePath.length === 0
+    || !errorPath
+    || errorPath[0] !== '_entities'
+  ) return errorPath;
+
+  const pathStart = nodePath.slice();
+
+  const atIndex = nodePath.indexOf('@');
+  if (atIndex !== -1) pathStart[atIndex] = entityIndex;
+
+  const pathEnd = errorPath.slice(2);
+
+  return pathStart.concat(pathEnd);
 }
 
 export const defaultFieldResolverWithAliasSupport: GraphQLFieldResolver<
