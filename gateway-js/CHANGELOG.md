@@ -5,7 +5,7 @@
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
 -  Take subtypes into account when matching type conditions to extract representations. [PR #804](https://github.com/apollographql/federation/pull/804)
-- Send error reports to a configurable `APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT=https://uplink.api.apollographql.com/monitoring` owned by Apollo. Using the url `https://uplink.api.apollographql.com/monitoring` is recommended unless you have a custom configuration. Reports will only be sent if the endpoint value is set in `env`.  [PR #777](https://github.com/apollographql/federation/pull/777/files)
+- Send error reports to a configurable endpoint when providing the `APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT` env variable. Using the Apollo URL `https://uplink.api.apollographql.com/monitoring` is recommended unless you have a custom configuration. Reports will only be sent if the env variable is set. [PR #777](https://github.com/apollographql/federation/pull/777)
 
 
 ## v0.29.1
