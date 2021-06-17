@@ -4,8 +4,8 @@ import {
   Type,
   DirectiveDefinition,
   InterfaceType,
-  SchemaElement,
-  EnumType
+  EnumType,
+  SchemaElement
 } from '../../dist/definitions';
 import { printSchema } from '../../dist/print';
 import { buildSchema } from '../../dist/buildSchema';
@@ -63,7 +63,7 @@ expect.extend({
   },
 
   toHaveDirective(element: SchemaElement<any, any>, definition: DirectiveDefinition, args?: Map<string, any>) {
-    const directives = element.appliedDirective(definition as any);
+    const directives = element.appliedDirectivesOf(definition);
     if (directives.length == 0) {
       return {
         message: () => `Cannot find directive @${definition} applied to element ${element} (whose applied directives are [${element.appliedDirectives.join(', ')}]`,
@@ -224,7 +224,7 @@ test('removal of all inacessible elements of a schema', () => {
   `, federationBuiltIns);
 
   for (const element of schema.allSchemaElement()) {
-    if (element.appliedDirective(schema.directive('inaccessible')!).length > 0) {
+    if (element.appliedDirectivesOf(schema.directive('inaccessible')!).length > 0) {
       element.remove();
     }
   }
@@ -424,6 +424,10 @@ interface Product {
   const product = schema.type('Product');
   expectInterfaceType(product);
   expect(product.field('description')!.description).toBe(longComment);
+
+  const directive = schema.directive('Important')!;
+  if (directive.repeatable === false)
+    product.appliedDirectivesOf(directive);
 
   expect(printSchema(schema)).toBe(sdl);
 });

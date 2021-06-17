@@ -63,7 +63,7 @@ export function buildSchema(source: string | Source, builtIns: BuiltIns = graphQ
 
 export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIns = graphQLBuiltIns): Schema {
   const schema = new Schema(builtIns);
-  // We do a first path to add all empty types and directives definition. This ensure any reference on one of
+  // We do a first pass to add all empty types and directives definition. This ensure any reference on one of
   // those can be resolved in the 2nd pass, regardless of the order of the definitions in the AST.
   buildNamedTypeAndDirectivesShallow(documentNode, schema);
   for (const definitionNode of documentNode.definitions) {

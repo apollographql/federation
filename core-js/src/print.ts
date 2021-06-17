@@ -19,9 +19,8 @@ import {
 const indent = "  "; // Could be made an option at some point
 
 export function printSchema(schema: Schema): string {
-  const directives = [...schema.directives.values()].filter(d => !d.isBuiltIn);
+  const directives = [...schema.directives.values()];
   const types = [...schema.types.values()]
-    .filter(t => !t.isBuiltIn)
     .sort((type1, type2) => type1.name.localeCompare(type2.name));
   return (
     [printSchemaDefinition(schema.schemaDefinition)]

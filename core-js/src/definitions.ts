@@ -12,7 +12,7 @@ export type MutationRoot = 'mutation';
 export type SubscriptionRoot = 'subscription';
 export type SchemaRoot = QueryRoot | MutationRoot | SubscriptionRoot;
 
-export type Type = InputType | OutputType;
+export type Type = NamedType | WrapperType;
 export type NamedType = ScalarType | ObjectType | InterfaceType | UnionType | EnumType | InputObjectType;
 export type OutputType = ScalarType | ObjectType | InterfaceType | UnionType | EnumType | ListType<any> | NonNullType<any>;
 export type InputType = ScalarType | EnumType | InputObjectType | ListType<any> | NonNullType<any>;
@@ -89,8 +89,8 @@ export interface Named {
   readonly name: string;
 }
 
-export abstract class SchemaElement<Parent extends SchemaElement<any, any> | Schema, Referencer> {
-  protected _parent?: Parent;
+export abstract class SchemaElement<TParent extends SchemaElement<any, any> | Schema, TReferencer> {
+  protected _parent?: TParent;
   protected readonly _appliedDirectives: Directive[] = [];
   description?: string;
   source?: ASTNode;
@@ -100,18 +100,22 @@ export abstract class SchemaElement<Parent extends SchemaElement<any, any> | Sch
   schema(): Schema | undefined {
     if (!this._parent) {
       return undefined;
-    } else if ( this._parent instanceof Schema) {
+    } else if (this._parent instanceof Schema) {
+      // Note: at the time of this writing, it seems like typescript type-checking breaks a bit around generics. 
+      // At this point of the code, `this._parent` is typed as 'TParent & Schema', but for some reason this is
+      // "not assignable to type 'Schema | undefined'" (which sounds wrong: if my type theory is not too broken,
+      // 'A & B' should always be assignable to both 'A' and 'B').
       return this._parent as any;
     } else {
       return (this._parent as SchemaElement<any, any>).schema();
     }
   }
 
-  get parent(): Parent | undefined {
+  get parent(): TParent | undefined {
     return this._parent;
   }
 
-  protected setParent(parent: Parent) {
+  protected setParent(parent: TParent) {
     assert(!this._parent, "Cannot set parent of a non-detached element");
     this._parent = parent;
   }
@@ -120,8 +124,11 @@ export abstract class SchemaElement<Parent extends SchemaElement<any, any> | Sch
     return this._appliedDirectives;
   }
 
-  appliedDirective(definition: DirectiveDefinition): Directive[] {
-    return this._appliedDirectives.filter(d => d.name == definition.name);
+  appliedDirectivesOf(name: string): Directive[];
+  appliedDirectivesOf(definition: DirectiveDefinition): Directive[];
+  appliedDirectivesOf(nameOrDefinition: string | DirectiveDefinition): Directive[] {
+    const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
+    return this._appliedDirectives.filter(d => d.name == directiveName);
   }
 
   applyDirective(directive: Directive): Directive; 
@@ -199,27 +206,27 @@ export abstract class SchemaElement<Parent extends SchemaElement<any, any> | Sch
     }
   }
 
-  abstract remove(): Referencer[];
+  abstract remove(): TReferencer[];
 }
 
-abstract class BaseNamedElement<P extends SchemaElement<any, any> | Schema, Referencer> extends SchemaElement<P, Referencer> implements Named {
+abstract class BaseNamedElement<TParent extends SchemaElement<any, any> | Schema, TReferencer> extends SchemaElement<TParent, TReferencer> implements Named {
   constructor(readonly name: string) {
     super();
   }
 }
 
-abstract class BaseNamedType<Referencer> extends BaseNamedElement<Schema, Referencer> {
-  protected readonly _referencers: Set<Referencer> = new Set();
+abstract class BaseNamedType<TReferencer> extends BaseNamedElement<Schema, TReferencer> {
+  protected readonly _referencers: Set<TReferencer> = new Set();
 
   constructor(name: string, readonly isBuiltIn: boolean = false) {
     super(name);
   }
 
-  private addReferencer(referencer: Referencer) {
+  private addReferencer(referencer: TReferencer) {
     this._referencers.add(referencer);
   }
 
-  private removeReferencer(referencer: Referencer) {
+  private removeReferencer(referencer: TReferencer) {
     this._referencers.delete(referencer);
   }
 
@@ -227,7 +234,7 @@ abstract class BaseNamedType<Referencer> extends BaseNamedElement<Schema, Refere
     return this.name;
   }
 
-  *allChildrenElements(): Generator<SchemaElement<any, any>, void, undefined> {
+  *allChildElements(): Generator<SchemaElement<any, any>, void, undefined> {
     // Overriden by those types that do have chidrens
   }
 
@@ -248,7 +255,7 @@ abstract class BaseNamedType<Referencer> extends BaseNamedElement<Schema, Refere
    * @returns an array of all the elements in the schema of this type (before the removal) that were
    * referening this type (and have thus now an undefined reference).
    */
-  remove(): Referencer[] {
+  remove(): TReferencer[] {
     if (!this._parent) {
       return [];
     }
@@ -274,14 +281,14 @@ abstract class BaseNamedType<Referencer> extends BaseNamedElement<Schema, Refere
   }
 }
 
-abstract class BaseNamedElementWithType<T extends Type, P extends SchemaElement<any, any> | Schema, Referencer> extends BaseNamedElement<P, Referencer> {
-  private _type?: T;
+abstract class BaseNamedElementWithType<TType extends Type, P extends SchemaElement<any, any> | Schema, Referencer> extends BaseNamedElement<P, Referencer> {
+  private _type?: TType;
 
-  get type(): T | undefined {
+  get type(): TType | undefined {
     return this._type;
   }
 
-  set type(type: T | undefined) {
+  set type(type: TType | undefined) {
     if (type) {
       this.checkUpdate(type);
     } else {
@@ -471,7 +478,7 @@ export class Schema {
     yield this._schemaDefinition;
     for (const type of this.types.values()) {
       yield type;
-      yield* type.allChildrenElements();
+      yield* type.allChildElements();
     }
     for (const directive of this.directives.values()) {
       yield directive;
@@ -657,7 +664,7 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
     return toAdd;
   }
 
-  *allChildrenElements(): Generator<SchemaElement<any, any>, void, undefined> {
+  *allChildElements(): Generator<SchemaElement<any, any>, void, undefined> {
     for (const field of this._fields.values()) {
       yield field;
       yield* field.arguments.values();
@@ -813,7 +820,7 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer> {
     return toAdd;
   }
 
-  *allChildrenElements(): Generator<SchemaElement<any, any>, void, undefined> {
+  *allChildElements(): Generator<SchemaElement<any, any>, void, undefined> {
     yield* this._fields.values();
   }
 
@@ -832,13 +839,11 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer> {
   }
 }
 
-export class ListType<T extends Type> {
-  readonly kind: 'ListType' = 'ListType';
+class BaseWrapperType<T extends Type> {
+  protected constructor(protected _type: T) {}
 
-  constructor(protected _type: T) {}
-
-  schema(): Schema {
-    return this.baseType().schema() as Schema;
+  schema(): Schema | undefined {
+    return this.baseType().schema();
   }
 
   get ofType(): T {
@@ -847,6 +852,14 @@ export class ListType<T extends Type> {
 
   baseType(): NamedType {
     return isWrapperType(this._type) ? this._type.baseType() : this._type as NamedType;
+  }
+}
+
+export class ListType<T extends Type> extends BaseWrapperType<T> {
+  readonly kind: 'ListType' = 'ListType';
+
+  constructor(type: T) {
+    super(type);
   }
 
   toString(): string {
@@ -854,21 +867,11 @@ export class ListType<T extends Type> {
   }
 }
 
-export class NonNullType<T extends NullableType> {
+export class NonNullType<T extends NullableType> extends BaseWrapperType<T> {
   readonly kind: 'NonNullType' = 'NonNullType';
 
-  constructor(protected _type: T) {}
-
-  schema(): Schema {
-    return this.baseType().schema() as Schema;
-  }
-
-  get ofType(): T {
-    return this._type;
-  }
-
-  baseType(): NamedType {
-    return isWrapperType(this._type) ? this._type.baseType() : this._type as NamedType;
+  constructor(type: T) {
+    super(type);
   }
 
   toString(): string {
@@ -876,30 +879,30 @@ export class NonNullType<T extends NullableType> {
   }
 }
 
-export class FieldDefinition<P extends ObjectType | InterfaceType> extends BaseNamedElementWithType<OutputType, P, never> {
+export class FieldDefinition<TParent extends ObjectType | InterfaceType> extends BaseNamedElementWithType<OutputType, TParent, never> {
   readonly kind: 'FieldDefinition' = 'FieldDefinition';
-  private readonly _args: Map<string, ArgumentDefinition<FieldDefinition<P>>> = new Map();
+  private readonly _args: Map<string, ArgumentDefinition<FieldDefinition<TParent>>> = new Map();
 
   get coordinate(): string {
     const parent = this.parent;
     return `${parent == undefined ? '<detached>' : parent.coordinate}.${this.name}`;
   }
 
-  get arguments(): ReadonlyMap<string, ArgumentDefinition<FieldDefinition<P>>> {
+  get arguments(): ReadonlyMap<string, ArgumentDefinition<FieldDefinition<TParent>>> {
     return this._args;
   }
 
-  argument(name: string): ArgumentDefinition<FieldDefinition<P>> | undefined {
+  argument(name: string): ArgumentDefinition<FieldDefinition<TParent>> | undefined {
     return this._args.get(name);
   }
 
-  addArgument(arg: ArgumentDefinition<FieldDefinition<P>>): ArgumentDefinition<FieldDefinition<P>>;
-  addArgument(name: string, type?: InputType, defaultValue?: any): ArgumentDefinition<FieldDefinition<P>>;
-  addArgument(nameOrArg: string | ArgumentDefinition<FieldDefinition<P>>, type?: InputType, defaultValue?: any): ArgumentDefinition<FieldDefinition<P>> {
-    let toAdd: ArgumentDefinition<FieldDefinition<P>>;
+  addArgument(arg: ArgumentDefinition<FieldDefinition<TParent>>): ArgumentDefinition<FieldDefinition<TParent>>;
+  addArgument(name: string, type?: InputType, defaultValue?: any): ArgumentDefinition<FieldDefinition<TParent>>;
+  addArgument(nameOrArg: string | ArgumentDefinition<FieldDefinition<TParent>>, type?: InputType, defaultValue?: any): ArgumentDefinition<FieldDefinition<TParent>> {
+    let toAdd: ArgumentDefinition<FieldDefinition<TParent>>;
     if (typeof nameOrArg === 'string') {
       this.checkUpdate();
-      toAdd = new ArgumentDefinition<FieldDefinition<P>>(nameOrArg);
+      toAdd = new ArgumentDefinition<FieldDefinition<TParent>>(nameOrArg);
       toAdd.defaultValue = defaultValue;
     } else {
       this.checkUpdate(nameOrArg);
@@ -974,7 +977,7 @@ export class InputFieldDefinition extends BaseNamedElementWithType<InputType, In
   }
 }
 
-export class ArgumentDefinition<P extends FieldDefinition<any> | DirectiveDefinition> extends BaseNamedElementWithType<InputType, P, never> {
+export class ArgumentDefinition<TParent extends FieldDefinition<any> | DirectiveDefinition> extends BaseNamedElementWithType<InputType, TParent, never> {
   readonly kind: 'ArgumentDefinition' = 'ArgumentDefinition';
   defaultValue?: any
 
