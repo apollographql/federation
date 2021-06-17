@@ -19,8 +19,8 @@ import {
 const indent = "  "; // Could be made an option at some point
 
 export function printSchema(schema: Schema): string {
-  const directives = [...schema.directives.values()];
-  const types = [...schema.types.values()]
+  const directives = [...schema.directives()];
+  const types = [...schema.types()]
     .sort((type1, type2) => type1.name.localeCompare(type2.name));
   return (
     [printSchemaDefinition(schema.schemaDefinition)]
@@ -78,7 +78,7 @@ export function printTypeDefinition(type: NamedType): string {
 
 export function printDirectiveDefinition(directive: DirectiveDefinition): string {
   const locations = directive.locations.join(' | ');
-  return `${printDescription(directive)}directive @${directive}${printArgs([...directive.arguments.values()])}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
+  return `${printDescription(directive)}directive @${directive}${printArgs([...directive.arguments()])}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
 function printAppliedDirectives(element: SchemaElement<any, any>): string {

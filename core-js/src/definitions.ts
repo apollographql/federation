@@ -391,18 +391,20 @@ export class Schema {
   }
 
   /**
-   * A map of all the types defined on this schema _excluding_ the built-in types.
+   * All the types defined on this schema _excluding_ the built-in types, unless explicitly requested.
    */
-  get types(): ReadonlyMap<string, NamedType> {
-    return this._types;
+  *types(includeBuiltIns: boolean = false): Generator<NamedType, void, undefined> {
+    if (includeBuiltIns) {
+      yield* this._builtInTypes.values();
+    }
+    yield* this._types.values();
   }
 
   /**
-   * A map of all the built-in types for this schema (those types that will not be displayed
-   * when printing the schema).
+   * All the built-in types for this schema (those that are not displayed when printing the schema).
    */
-  get builtInTypes(): ReadonlyMap<string, NamedType> {
-    return this._builtInTypes;
+  builtInTypes(): IterableIterator<NamedType> {
+    return this._builtInTypes.values();
   }
 
   /**
@@ -457,16 +459,21 @@ export class Schema {
     return type;
   }
 
-  get directives(): ReadonlyMap<string, DirectiveDefinition> {
-    return this._directives;
+  /**
+   * All the directive defined on this schema _excluding_ the built-in directives, unless explicitly requested.
+   */
+  *directives(includeBuiltIns: boolean = false): Generator<DirectiveDefinition, void, undefined> {
+    if (includeBuiltIns) {
+      yield* this._builtInDirectives.values();
+    }
+    yield* this._directives.values();
   }
 
   /**
-   * A map of all the built-in directives for this schema (those directives whose definition  will not be displayed
-   * when printing the schema).
+   * All the built-in directives for this schema (those that are not displayed when printing the schema).
    */
-  get builtInDirectives(): ReadonlyMap<string, DirectiveDefinition> {
-    return this._builtInDirectives;
+  builtInDirectives(): IterableIterator<DirectiveDefinition> {
+    return this._builtInDirectives.values();
   }
 
   directive(name: string): DirectiveDefinition | undefined {
@@ -476,13 +483,13 @@ export class Schema {
 
   *allSchemaElement(): Generator<SchemaElement<any, any>, void, undefined> {
     yield this._schemaDefinition;
-    for (const type of this.types.values()) {
+    for (const type of this.types()) {
       yield type;
       yield* type.allChildElements();
     }
-    for (const directive of this.directives.values()) {
+    for (const directive of this.directives()) {
       yield directive;
-      yield* directive.arguments.values();
+      yield* directive.arguments();
     }
   }
 
@@ -1063,8 +1070,8 @@ export class DirectiveDefinition extends BaseNamedElement<Schema, Directive> {
     return `@{this.name}`;
   }
 
-  get arguments(): ReadonlyMap<string, ArgumentDefinition<DirectiveDefinition>> {
-    return this._args;
+  arguments(): IterableIterator<ArgumentDefinition<DirectiveDefinition>> {
+    return this._args.values();
   }
 
   argument(name: string): ArgumentDefinition<DirectiveDefinition> | undefined {
@@ -1292,21 +1299,21 @@ export function newNamedType(kind: NamedTypeKind, name: string): NamedType {
 }
 
 function *typesToCopy(source: Schema, dest: Schema): Generator<NamedType, void, undefined>  {
-  for (const type of source.builtInTypes.values()) {
-    if (!dest.builtInTypes.has(type.name)) {
+  for (const type of source.builtInTypes()) {
+    if (!dest.type(type.name)?.isBuiltIn) {
       yield type;
     }
   }
-  yield* source.types.values();
+  yield* source.types();
 }
 
 function *directivesToCopy(source: Schema, dest: Schema): Generator<DirectiveDefinition, void, undefined>  {
-  for (const directive of source.builtInDirectives.values()) {
-    if (!dest.builtInDirectives.has(directive.name)) {
+  for (const directive of source.builtInDirectives()) {
+    if (!dest.directive(directive.name)?.isBuiltIn) {
       yield directive;
     }
   }
-  yield* source.directives.values();
+  yield* source.directives();
 }
 
 function copy(source: Schema, dest: Schema) {
@@ -1419,7 +1426,7 @@ function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveD
 }
 
 function copyDirectiveDefinitionInner(source: DirectiveDefinition, dest: DirectiveDefinition) {
-  for (const arg of source.arguments.values()) {
+  for (const arg of source.arguments()) {
     const type = copyWrapperTypeOrTypeRef(arg.type, dest.schema()!);
     copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, type as InputType));
   }
