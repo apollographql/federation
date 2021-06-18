@@ -81,13 +81,13 @@ export function printDirectiveDefinition(directive: DirectiveDefinition): string
   return `${printDescription(directive)}directive @${directive}${printArgs([...directive.arguments()])}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
-function printAppliedDirectives(element: SchemaElement<any, any>): string {
+function printAppliedDirectives(element: SchemaElement<any>): string {
   const appliedDirectives = element.appliedDirectives;
   return appliedDirectives.length == 0 ? "" : " " + appliedDirectives.map(d => d.toString()).join(" ");
 }
 
 function printDescription(
-  element: SchemaElement<any, any>,
+  element: SchemaElement<any>,
   indentation: string = '',
   firstInBlock: boolean = true
 ): string {

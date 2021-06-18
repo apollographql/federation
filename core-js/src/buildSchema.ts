@@ -136,12 +136,12 @@ function buildSchemaDefinitionInner(schemaNode: SchemaDefinitionNode, schemaDefi
   for (const opTypeNode of schemaNode.operationTypes) {
     schemaDefinition.setRoot(opTypeNode.operation, opTypeNode.type.name.value, opTypeNode);
   }
-  schemaDefinition.source = schemaNode;
+  schemaDefinition.sourceAST = schemaNode;
   schemaDefinition.description = schemaNode.description?.value;
   buildAppliedDirectives(schemaNode, schemaDefinition);
 }
 
-function buildAppliedDirectives(elementNode: NodeWithDirectives, element: SchemaElement<any, any>) {
+function buildAppliedDirectives(elementNode: NodeWithDirectives, element: SchemaElement<any>) {
   for (const directive of elementNode.directives ?? []) {
     element.applyDirective(directive.name.value, buildArgs(directive), directive)
   }
@@ -188,7 +188,7 @@ function buildNamedTypeInner(definitionNode: DefinitionNode & NodeWithDirectives
   }
   buildAppliedDirectives(definitionNode, type);
   type.description = definitionNode.description?.value;
-  type.source = definitionNode;
+  type.sourceAST = definitionNode;
 }
 
 function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldDefinition<any>) {
@@ -199,7 +199,7 @@ function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldD
   }
   buildAppliedDirectives(fieldNode, field);
   field.description = fieldNode.description?.value;
-  field.source = fieldNode;
+  field.sourceAST = fieldNode;
 }
 
 export function ensureOutputType(type: Type, node: TypeNode): OutputType {
@@ -239,7 +239,7 @@ function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: 
   arg.defaultValue = buildValue(inputNode.defaultValue);
   buildAppliedDirectives(inputNode, arg);
   arg.description = inputNode.description?.value;
-  arg.source = inputNode;
+  arg.sourceAST = inputNode;
 }
 
 function buildInputFieldDefinitionInner(fieldNode: InputValueDefinitionNode, field: InputFieldDefinition) {
@@ -247,7 +247,7 @@ function buildInputFieldDefinitionInner(fieldNode: InputValueDefinitionNode, fie
   field.type = ensureInputType(type, fieldNode.type);
   buildAppliedDirectives(fieldNode, field);
   field.description = fieldNode.description?.value;
-  field.source = fieldNode;
+  field.sourceAST = fieldNode;
 }
 
 function buildDirectiveDefinitionInner(directiveNode: DirectiveDefinitionNode, directive: DirectiveDefinition) {
@@ -258,5 +258,5 @@ function buildDirectiveDefinitionInner(directiveNode: DirectiveDefinitionNode, d
   const locations = directiveNode.locations.map(({ value }) => value as DirectiveLocationEnum);
   directive.addLocations(...locations);
   directive.description = directiveNode.description?.value;
-  directive.source = directiveNode;
+  directive.sourceAST = directiveNode;
 }
