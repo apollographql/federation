@@ -40,10 +40,7 @@ export function isWrapperType(type: Type): type is WrapperType {
 }
 
 export function isOutputType(type: Type): type is OutputType {
-  if (isWrapperType(type)) {
-    return isOutputType(type.baseType());
-  }
-  switch (type.kind) {
+  switch (baseType(type).kind) {
     case 'ScalarType':
     case 'ObjectType':
     case 'UnionType':
@@ -64,10 +61,7 @@ export function ensureOutputType(type: Type): OutputType {
 }
 
 export function isInputType(type: Type): type is InputType {
-  if (isWrapperType(type)) {
-    return isInputType(type.baseType());
-  }
-  switch (type.kind) {
+  switch (baseType(type).kind) {
     case 'ScalarType':
     case 'EnumType':
     case 'InputObjectType':
@@ -85,6 +79,10 @@ export function ensureInputType(type: Type): InputType {
   }
 }
 
+export function baseType(type: Type): NamedType {
+  return isWrapperType(type) ? type.baseType() : type;
+}
+
 export interface Named {
   readonly name: string;
 }
@@ -94,20 +92,6 @@ export interface Named {
 abstract class Element<TParent extends SchemaElement<any> | Schema> {
   protected _parent?: TParent;
   sourceAST?: ASTNode;
-
-  get parent(): TParent | undefined {
-    return this._parent;
-  }
-
-  protected setParent(parent: TParent) {
-    assert(!this._parent, "Cannot set parent of a non-detached element");
-    this._parent = parent;
-  }
-}
-
-export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema> extends Element<TParent> {
-  protected readonly _appliedDirectives: Directive[] = [];
-  description?: string;
 
   schema(): Schema | undefined {
     if (!this._parent) {
@@ -122,6 +106,20 @@ export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema>
       return (this._parent as SchemaElement<any>).schema();
     }
   }
+
+  get parent(): TParent | undefined {
+    return this._parent;
+  }
+
+  protected setParent(parent: TParent) {
+    assert(!this._parent, "Cannot set parent of a non-detached element");
+    this._parent = parent;
+  }
+}
+
+export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema> extends Element<TParent> {
+  protected readonly _appliedDirectives: Directive[] = [];
+  description?: string;
 
   get appliedDirectives(): readonly Directive[] {
     return this._appliedDirectives;
@@ -310,9 +308,9 @@ abstract class BaseNamedElementWithType<TType extends Type, P extends NamedSchem
   }
 
   protected removeTypeReference(type: NamedType) {
-    if (this._type == type) {
-      this._type = undefined;
-    }
+    // We shouldn't have been listed as a reference if we're not one, so make it sure.
+    assert(this._type && baseType(this._type) === type, `Cannot remove reference to type ${type} on ${this} as its type is ${this._type}`);
+    this._type = undefined;
   }
 }
 
@@ -634,8 +632,6 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
     return this._interfaces.some(i => i.name == name);
   }
 
-  addImplementedInterface(itf: InterfaceType): InterfaceType;
-  addImplementedInterface(name: string, source?: ASTNode): InterfaceType;
   addImplementedInterface(nameOrItf: InterfaceType | string, source?: ASTNode): InterfaceType {
     let toAdd: InterfaceType;
     if (typeof nameOrItf === 'string') {
@@ -698,6 +694,7 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
   }
 
   protected removeInnerElements(): void {
+    this._interfaces.splice(0, this._interfaces.length);
     for (const field of this._fields.values()) {
       field.remove();
     }
@@ -870,7 +867,7 @@ class BaseWrapperType<T extends Type> {
   }
 
   baseType(): NamedType {
-    return isWrapperType(this._type) ? this._type.baseType() : this._type as NamedType;
+    return baseType(this._type);
   }
 }
 
