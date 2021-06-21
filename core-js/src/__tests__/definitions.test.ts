@@ -5,7 +5,8 @@ import {
   DirectiveDefinition,
   InterfaceType,
   EnumType,
-  SchemaElement
+  SchemaElement,
+  UnionType
 } from '../../dist/definitions';
 import { printSchema } from '../../dist/print';
 import { buildSchema } from '../../dist/buildSchema';
@@ -19,6 +20,11 @@ function expectObjectType(type?: Type): asserts type is ObjectType {
 function expectInterfaceType(type?: Type): asserts type is InterfaceType {
   expect(type).toBeDefined();
   expect(type!.kind).toBe('InterfaceType');
+}
+
+function expectUnionType(type?: Type): asserts type is UnionType {
+  expect(type).toBeDefined();
+  expect(type!.kind).toBe('UnionType');
 }
 
 function expectEnumType(type?: Type): asserts type is EnumType {
@@ -37,7 +43,12 @@ declare global {
 }
 
 function deIndent(str: string): string {
+  // Strip leading \n
   str = str.slice(str.search(/[^\n]/));
+  // Strip trailing \n or space
+  while (str.charAt(str.length - 1) === '\n' || str.charAt(str.length - 1) === ' ') {
+    str = str.slice(0, str.length - 1);
+  }
   const indent = str.search(/[^ ]/);
   return str
     .split('\n')
@@ -72,7 +83,7 @@ expect.extend({
     }
   },
 
-  toHaveDirective(element: SchemaElement<any, any>, definition: DirectiveDefinition, args?: Record<string, any>) {
+  toHaveDirective(element: SchemaElement<any>, definition: DirectiveDefinition, args?: Record<string, any>) {
     const directives = element.appliedDirectivesOf(definition);
     if (directives.length == 0) {
       return {
@@ -103,7 +114,8 @@ expect.extend({
   },
 
   toMatchString(expected: string, received: string) {
-    const pass = this.equals(expected, deIndent(received));
+    received = deIndent(received);
+    const pass = this.equals(expected, received);
     const message = pass
       ? () => this.utils.matcherHint('toMatchString', undefined, undefined)
           + '\n\n'
@@ -120,7 +132,7 @@ expect.extend({
 
 test('building a simple schema programatically', () => {
   const schema = new Schema(federationBuiltIns);
-  const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query')));
+  const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query'))).type;
   const typeA = schema.addType(new ObjectType('A'));
   const inaccessible = federationBuiltIns.inaccessibleDirective(schema);
   const key = federationBuiltIns.keyDirective(schema);
@@ -130,7 +142,7 @@ test('building a simple schema programatically', () => {
   typeA.applyDirective(inaccessible);
   typeA.applyDirective(key, { fields: 'a'});
 
-  expect(queryType).toBe(schema.schemaDefinition.root('query'));
+  expect(queryType).toBe(schema.schemaDefinition.root('query')!.type);
   expect(queryType).toHaveField('a', typeA);
   expect(typeA).toHaveField('q', queryType);
   expect(typeA).toHaveDirective(inaccessible);
@@ -159,7 +171,7 @@ test('parse schema and modify', () => {
   const typeA = schema.type('A')!;
   expectObjectType(queryType);
   expectObjectType(typeA);
-  expect(schema.schemaDefinition.root('query')).toBe(queryType);
+  expect(schema.schemaDefinition.root('query')!.type).toBe(queryType);
   expect(queryType).toHaveField('a', typeA);
   const f2 = typeA.field('f2');
   expect(f2).toHaveDirective(federationBuiltIns.inaccessibleDirective(schema));
@@ -248,7 +260,7 @@ test('removal of all inacessible elements of a schema', () => {
     directive @bar on ARGUMENT_DEFINITION
   `, federationBuiltIns);
 
-  for (const element of schema.allSchemaElement()) {
+  for (const element of schema.allNamedSchemaElement()) {
     if (element.appliedDirectivesOf(federationBuiltIns.inaccessibleDirective(schema)).length > 0) {
       element.remove();
     }
@@ -451,4 +463,52 @@ test('handling of descriptions', () => {
   expect(product.field('description')!.description).toBe(longComment);
 
   expect(printSchema(schema)).toMatchString(sdl);
+});
+
+test('handling of extensions', () => {
+  const sdl = `
+    extend schema {
+      query: AType
+    }
+
+    interface AInterface {
+      i1: Int
+    }
+
+    extend interface AInterface @deprecated
+
+    scalar AScalar
+
+    extend scalar AScalar @deprecated
+
+    extend type AType {
+      t1: Int
+      t2: String
+    }
+
+    type AType2 {
+      t1: String
+    }
+
+    type AType3 {
+      t2: Int
+    }
+
+    union AUnion = AType | AType2
+
+    extend union AUnion = AType3
+  `;
+
+  const schema = buildSchema(sdl);
+  expect(printSchema(schema)).toMatchString(sdl);
+
+  const atype = schema.type('AType');
+  expectObjectType(atype);
+  expect(atype).toHaveField('t1', schema.intType());
+  expect(atype).toHaveField('t2', schema.stringType());
+
+  const aunion = schema.type('AUnion');
+  expectUnionType(aunion);
+  expect([...aunion.types()].map(t => t.name)).toEqual(['AType', 'AType2', 'AType3']);
+
 });

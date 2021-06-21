@@ -16,7 +16,8 @@ import {
   NamedTypeNode,
   ArgumentNode,
   StringValueNode,
-  ASTNode
+  ASTNode,
+  SchemaExtensionNode
 } from "graphql";
 import { Maybe } from "graphql/jsutils/Maybe";
 import {
@@ -43,7 +44,8 @@ import {
   DirectiveDefinition,
   UnionType,
   InputObjectType,
-  EnumType
+  EnumType,
+  Extension
 } from "./definitions";
 
 function buildValue(value?: ValueNode): any {
@@ -75,6 +77,12 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
       case 'SchemaDefinition':
         buildSchemaDefinitionInner(definitionNode, schema.schemaDefinition);
         break;
+      case 'SchemaExtension':
+        buildSchemaDefinitionInner(
+          definitionNode,
+          schema.schemaDefinition, 
+          schema.schemaDefinition.newExtension());
+        break;
       case 'ScalarTypeDefinition':
       case 'ObjectTypeDefinition':
       case 'InterfaceTypeDefinition':
@@ -83,17 +91,20 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
       case 'InputObjectTypeDefinition':
         buildNamedTypeInner(definitionNode, schema.type(definitionNode.name.value)!);
         break;
-      case 'DirectiveDefinition':
-        buildDirectiveDefinitionInner(definitionNode, schema.directive(definitionNode.name.value)!);
-        break;
-      case 'SchemaExtension':
       case 'ScalarTypeExtension':
       case 'ObjectTypeExtension':
       case 'InterfaceTypeExtension':
       case 'UnionTypeExtension':
       case 'EnumTypeExtension':
       case 'InputObjectTypeExtension':
-        throw new Error("Extensions are a TODO");
+        const toExtend = schema.type(definitionNode.name.value)!;
+        const extension = toExtend.newExtension();
+        extension.sourceAST = definitionNode;
+        buildNamedTypeInner(definitionNode, toExtend, extension);
+        break;
+      case 'DirectiveDefinition':
+        buildDirectiveDefinitionInner(definitionNode, schema.directive(definitionNode.name.value)!);
+        break;
     }
   }
   return schema;
@@ -108,7 +119,16 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
       case 'UnionTypeDefinition':
       case 'EnumTypeDefinition':
       case 'InputObjectTypeDefinition':
-        schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
+      case 'ScalarTypeExtension':
+      case 'ObjectTypeExtension':
+      case 'InterfaceTypeExtension':
+      case 'UnionTypeExtension':
+      case 'EnumTypeExtension':
+      case 'InputObjectTypeExtension':
+        // Note that because of extensions, this may be called multiple times for the same type.
+        if (!schema.type(definitionNode.name.value)) {
+          schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
+        }
         break;
       case 'DirectiveDefinition':
         schema.addDirectiveDefinition(definitionNode.name.value);
@@ -122,7 +142,8 @@ type NodeWithDescription = {description?: Maybe<StringValueNode>};
 type NodeWithArguments = {arguments?: ReadonlyArray<ArgumentNode>};
 
 function withoutTrailingDefinition(str: string): NamedTypeKind {
-  return str.slice(0, str.length - 'Definition'.length) as NamedTypeKind;
+  const endString = str.endsWith('Definition') ? 'Definition' : 'Extension';
+  return str.slice(0, str.length - endString.length) as NamedTypeKind;
 }
 
 function getReferencedType(node: NamedTypeNode, schema: Schema): NamedType {
@@ -145,7 +166,7 @@ function withNodeAttachedToError(operation: () => void, node: ASTNode) {
         e.source,
         e.positions,
         e.path,
-        e.originalError,
+        e,
         e.extensions
       );
     } else {
@@ -154,19 +175,30 @@ function withNodeAttachedToError(operation: () => void, node: ASTNode) {
   }
 }
 
-function buildSchemaDefinitionInner(schemaNode: SchemaDefinitionNode, schemaDefinition: SchemaDefinition) {
-  for (const opTypeNode of schemaNode.operationTypes) {
-    withNodeAttachedToError(() => schemaDefinition.setRoot(opTypeNode.operation, opTypeNode.type.name.value), opTypeNode);
+function buildSchemaDefinitionInner(
+  schemaNode: SchemaDefinitionNode | SchemaExtensionNode,
+  schemaDefinition: SchemaDefinition,
+  extension?: Extension<SchemaDefinition>
+) {
+  for (const opTypeNode of schemaNode.operationTypes ?? []) {
+    withNodeAttachedToError(
+      () => schemaDefinition.setRoot(opTypeNode.operation, opTypeNode.type.name.value).setOfExtension(extension),
+      opTypeNode);
   }
   schemaDefinition.sourceAST = schemaNode;
-  schemaDefinition.description = schemaNode.description?.value;
-  buildAppliedDirectives(schemaNode, schemaDefinition);
+  schemaDefinition.description = 'description' in schemaNode ? schemaNode.description?.value : undefined;
+  buildAppliedDirectives(schemaNode, schemaDefinition, extension);
 }
 
-function buildAppliedDirectives(elementNode: NodeWithDirectives, element: SchemaElement<any>) {
+function buildAppliedDirectives(
+  elementNode: NodeWithDirectives,
+  element: SchemaElement<any>,
+  extension?: Extension<any>
+) {
   for (const directive of elementNode.directives ?? []) {
     withNodeAttachedToError(() => {
       const d = element.applyDirective(directive.name.value, buildArgs(directive));
+      d.setOfExtension(extension);
       d.sourceAST = directive;
     }, directive);
   }
@@ -180,38 +212,55 @@ function buildArgs(argumentsNode: NodeWithArguments): Record<string, any> {
   return args;
 }
 
-function buildNamedTypeInner(definitionNode: DefinitionNode & NodeWithDirectives & NodeWithDescription, type: NamedType) {
+function buildNamedTypeInner(
+  definitionNode: DefinitionNode & NodeWithDirectives & NodeWithDescription,
+  type: NamedType,
+  extension?: Extension<any>
+) {
   switch (definitionNode.kind) {
     case 'ObjectTypeDefinition':
+    case 'ObjectTypeExtension':
     case 'InterfaceTypeDefinition':
+    case 'InterfaceTypeExtension':
       const fieldBasedType = type as ObjectType | InterfaceType;
       for (const fieldNode of definitionNode.fields ?? []) {
-        buildFieldDefinitionInner(fieldNode, fieldBasedType.addField(fieldNode.name.value));
+        const field = fieldBasedType.addField(fieldNode.name.value);
+        field.setOfExtension(extension);
+        buildFieldDefinitionInner(fieldNode, field);
       }
       for (const itfNode of definitionNode.interfaces ?? []) {
-        withNodeAttachedToError(() => fieldBasedType.addImplementedInterface(itfNode.name.value), itfNode);
+        withNodeAttachedToError(
+          () => fieldBasedType.addImplementedInterface(itfNode.name.value).setOfExtension(extension),
+          itfNode);
       }
       break;
     case 'UnionTypeDefinition':
+    case 'UnionTypeExtension':
       const unionType = type as UnionType;
       for (const namedType of definitionNode.types ?? []) {
-        withNodeAttachedToError(() => unionType.addType(namedType.name.value), namedType);
+        withNodeAttachedToError(
+          () => unionType.addType(namedType.name.value).setOfExtension(extension),
+          namedType);
       }
       break;
     case 'EnumTypeDefinition':
+    case 'EnumTypeExtension':
       const enumType = type as EnumType;
       for (const enumVal of definitionNode.values ?? []) {
-        enumType.addValue(enumVal.name.value);
+        enumType.addValue(enumVal.name.value).setOfExtension(extension);
       }
       break;
     case 'InputObjectTypeDefinition':
+    case 'InputObjectTypeExtension':
       const inputObjectType = type as InputObjectType;
       for (const fieldNode of definitionNode.fields ?? []) {
-        buildInputFieldDefinitionInner(fieldNode, inputObjectType.addField(fieldNode.name.value));
+        const field = inputObjectType.addField(fieldNode.name.value);
+        field.setOfExtension(extension);
+        buildInputFieldDefinitionInner(fieldNode, field);
       }
       break;
   }
-  buildAppliedDirectives(definitionNode, type);
+  buildAppliedDirectives(definitionNode, type, extension);
   type.description = definitionNode.description?.value;
   type.sourceAST = definitionNode;
 }
