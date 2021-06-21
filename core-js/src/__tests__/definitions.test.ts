@@ -31,8 +31,18 @@ declare global {
     interface Matchers<R> {
       toHaveField(name: string, type?: Type): R;
       toHaveDirective<TArgs extends {[key: string]: any}>(directive: DirectiveDefinition<TArgs>, args?: TArgs): R;
+      toMatchString(actual: string): R;
     }
   }
+}
+
+function deIndent(str: string): string {
+  str = str.slice(str.search(/[^\n]/));
+  const indent = str.search(/[^ ]/);
+  return str
+    .split('\n')
+    .map(line => line.slice(indent))
+    .join('\n');
 }
 
 expect.extend({
@@ -90,6 +100,21 @@ expect.extend({
       message: () => `Element ${element} has application of directive @${definition} but not with the requested arguments. Got applications: [${directives.join(', ')}]`,
       pass: false
     }
+  },
+
+  toMatchString(expected: string, received: string) {
+    const pass = this.equals(expected, deIndent(received));
+    const message = pass
+      ? () => this.utils.matcherHint('toMatchString', undefined, undefined)
+          + '\n\n'
+          + `Expected: not ${this.printExpected(expected)}`
+      : () => {
+        return (
+          this.utils.matcherHint('toMatchString', undefined, undefined,)
+          + '\n\n'
+          + this.utils.printDiffOrStringify(expected, received, 'Expected', 'Received', true));
+      };
+    return {received, expected, message, name: 'toMatchString', pass};
   }
 });
 
@@ -114,20 +139,20 @@ test('building a simple schema programatically', () => {
 
 
 test('parse schema and modify', () => {
-  const sdl =
-`schema {
-  query: MyQuery
-}
+  const sdl = `
+    schema {
+      query: MyQuery
+    }
 
-type A {
-  f1(x: Int @inaccessible): String
-  f2: String @inaccessible
-}
+    type A {
+      f1(x: Int @inaccessible): String
+      f2: String @inaccessible
+    }
 
-type MyQuery {
-  a: A
-  b: Int
-}`;
+    type MyQuery {
+      a: A
+      b: Int
+    }`;
   const schema = buildSchema(sdl, federationBuiltIns);
 
   const queryType = schema.type('MyQuery')!;
@@ -138,7 +163,7 @@ type MyQuery {
   expect(queryType).toHaveField('a', typeA);
   const f2 = typeA.field('f2');
   expect(f2).toHaveDirective(federationBuiltIns.inaccessibleDirective(schema));
-  expect(printSchema(schema)).toBe(sdl);
+  expect(printSchema(schema)).toMatchString(sdl);
 
   expect(typeA).toHaveField('f1');
   typeA.field('f1')!.remove();
@@ -175,27 +200,27 @@ test('removal of all directives of a schema', () => {
     element.appliedDirectives.forEach(d => d.remove());
   }
 
-  expect(printSchema(schema)).toBe(
-`directive @foo on SCHEMA | FIELD_DEFINITION
+  expect(printSchema(schema)).toMatchString(`
+    directive @foo on SCHEMA | FIELD_DEFINITION
 
-directive @foobar on UNION
+    directive @foobar on UNION
 
-directive @bar on ARGUMENT_DEFINITION
+    directive @bar on ARGUMENT_DEFINITION
 
-type A {
-  a1: String
-  a2: [Int]
-}
+    type A {
+      a1: String
+      a2: [Int]
+    }
 
-type B {
-  b: String
-}
+    type B {
+      b: String
+    }
 
-type Query {
-  a(id: String): A
-}
+    type Query {
+      a(id: String): A
+    }
 
-union U = A | B`);
+    union U = A | B`);
 });
 
 test('removal of all inacessible elements of a schema', () => {
@@ -229,22 +254,22 @@ test('removal of all inacessible elements of a schema', () => {
     }
   }
 
-  expect(printSchema(schema)).toBe(
-`schema @foo {
-  query: Query
-}
+  expect(printSchema(schema)).toMatchString(`
+    schema @foo {
+      query: Query
+    }
 
-directive @foo on SCHEMA | FIELD_DEFINITION
+    directive @foo on SCHEMA | FIELD_DEFINITION
 
-directive @bar on ARGUMENT_DEFINITION
+    directive @bar on ARGUMENT_DEFINITION
 
-type A {
-  a2: [Int]
-}
+    type A {
+      a2: [Int]
+    }
 
-type Query {
-  a(id: String @bar): A
-}`);
+    type Query {
+      a(id: String @bar): A
+    }`);
 });
 
 test('handling of interfaces', () => {
@@ -308,27 +333,27 @@ test('handling of interfaces', () => {
 
   b.remove();
 
-  expect(printSchema(schema)).toBe(
-`interface I {
-  a: Int
-  b: String
-}
+  expect(printSchema(schema)).toMatchString(`
+    interface I {
+      a: Int
+      b: String
+    }
 
-type Query {
-  bestIs: [I!]!
-}
+    type Query {
+      bestIs: [I!]!
+    }
 
-type T1 implements I {
-  a: Int
-  b: String
-  c: Int
-}
+    type T1 implements I {
+      a: Int
+      b: String
+      c: Int
+    }
 
-type T2 implements I {
-  a: Int
-  b: String
-  c: String
-}`);
+    type T2 implements I {
+      a: Int
+      b: String
+      c: String
+    }`);
 });
 
 test('handling of enums', () => {
@@ -362,59 +387,59 @@ test('handling of enums', () => {
 });
 
 test('handling of descriptions', () => {
-const sdl =
-`"""A super schema full of great queries"""
-schema {
-  query: ASetOfQueries
-}
+  const sdl = `
+    """A super schema full of great queries"""
+    schema {
+      query: ASetOfQueries
+    }
 
-"""Marks field that are deemed more important than others"""
-directive @Important(
-  """The reason for the importance of this field"""
-  why: String = "because!"
-) on FIELD_DEFINITION
+    """Marks field that are deemed more important than others"""
+    directive @Important(
+      """The reason for the importance of this field"""
+      why: String = "because!"
+    ) on FIELD_DEFINITION
 
-"""The actual queries of the schema"""
-type ASetOfQueries {
-  """Returns a set of products"""
-  bestProducts: [Product!]!
+    """The actual queries of the schema"""
+    type ASetOfQueries {
+      """Returns a set of products"""
+      bestProducts: [Product!]!
+    
+      """Finds a product by ID"""
+      product(
+        """The ID identifying the product"""
+        id: ID!
+      ): Product
+    }
 
-  """Finds a product by ID"""
-  product(
-    """The ID identifying the product"""
-    id: ID!
-  ): Product
-}
+    """A product that is also a book"""
+    type Book implements Product {
+      id: ID!
+      description: String!
+    
+      """
+      Number of pages in the book. Good so the customer knows its buying a 1000 page book for instance
+      """
+      pages: Int @Important
+    }
 
-"""A product that is also a book"""
-type Book implements Product {
-  id: ID!
-  description: String!
+    type DVD implements Product {
+      id: ID!
+      description: String!
 
-  """
-  Number of pages in the book. Good so the customer knows its buying a 1000 page book for instance
-  """
-  pages: Int @Important
-}
+      """The film author"""
+      author: String @Important(why: "it's good to give credit!")
+    }
 
-type DVD implements Product {
-  id: ID!
-  description: String!
+    """Common interface to all our products"""
+    interface Product {
+      """Identifies the product"""
+      id: ID!
 
-  """The film author"""
-  author: String @Important(why: "it's good to give credit!")
-}
-
-"""Common interface to all our products"""
-interface Product {
-  """Identifies the product"""
-  id: ID!
-
-  """
-  Something that explains what the product is. This can just be the title of the product, but this can be more than that if we want to. But it should be useful you know, otherwise our customer won't buy it.
-  """
-  description: String!
-}`;
+      """
+      Something that explains what the product is. This can just be the title of the product, but this can be more than that if we want to. But it should be useful you know, otherwise our customer won't buy it.
+      """
+      description: String!
+    }`;
   const schema = buildSchema(sdl);
 
   // Checking we get back the schema through printing it is mostly good enough, but let's just
@@ -425,5 +450,5 @@ interface Product {
   expectInterfaceType(product);
   expect(product.field('description')!.description).toBe(longComment);
 
-  expect(printSchema(schema)).toBe(sdl);
+  expect(printSchema(schema)).toMatchString(sdl);
 });
