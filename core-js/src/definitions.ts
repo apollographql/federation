@@ -132,30 +132,32 @@ export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema>
     return this._appliedDirectives.filter(d => d.name == directiveName);
   }
 
-  applyDirective(directive: Directive): Directive; 
-  applyDirective(definition: DirectiveDefinition, args?: Record<string, any>): Directive;
-  applyDirective(name: string, args?: Record<string, any>, source?: ASTNode): Directive;
-  applyDirective(nameOrDefOrDirective: Directive | DirectiveDefinition | string, args?: Record<string, any>, source?: ASTNode): Directive {
-    let toAdd: Directive;
+  applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
+    nameOrDefOrDirective: Directive<TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
+    args?: TApplicationArgs
+  ): Directive<TApplicationArgs> {
+    let toAdd: Directive<TApplicationArgs>;
     if (nameOrDefOrDirective instanceof Directive) {
       this.checkUpdate(nameOrDefOrDirective);
       toAdd = nameOrDefOrDirective;
+      if (args) {
+        toAdd.setArguments(args);
+      }
     } else {
       let name: string;
       if (typeof nameOrDefOrDirective === 'string') {
         this.checkUpdate();
         const def = this.schema()!.directive(nameOrDefOrDirective);
         if (!def) {
-          throw new GraphQLError(`Cannot apply unkown directive ${nameOrDefOrDirective}`, source);
+          throw new GraphQLError(`Cannot apply unkown directive ${nameOrDefOrDirective}`);
         }
         name = nameOrDefOrDirective;
       } else {
         this.checkUpdate(nameOrDefOrDirective);
         name = nameOrDefOrDirective.name;
       }
-      toAdd = new Directive(name, args ?? Object.create(null));
+      toAdd = new Directive<TApplicationArgs>(name, args ?? Object.create(null));
       Element.prototype['setParent'].call(toAdd, this);
-      toAdd.sourceAST = source;
     }
     // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
     this._appliedDirectives.push(toAdd);
@@ -568,17 +570,15 @@ export class SchemaDefinition extends SchemaElement<Schema>  {
     return this._roots.get(rootType);
   }
 
-  setRoot(rootType: SchemaRoot, type: ObjectType): ObjectType;
-  setRoot(rootType: SchemaRoot, name: string, source?: ASTNode): ObjectType;
-  setRoot(rootType: SchemaRoot, nameOrType: ObjectType | string, source?: ASTNode): ObjectType {
+  setRoot(rootType: SchemaRoot, nameOrType: ObjectType | string): ObjectType {
     let toSet: ObjectType;
     if (typeof nameOrType === 'string') {
       this.checkUpdate();
       const obj = this.schema()!.type(nameOrType);
       if (!obj) {
-        throw new GraphQLError(`Cannot set schema ${rootType} root to unknown type ${nameOrType}`, source);
+        throw new GraphQLError(`Cannot set schema ${rootType} root to unknown type ${nameOrType}`);
       } else if (obj.kind != 'ObjectType') {
-        throw new GraphQLError(`Cannot set schema ${rootType} root to non-object type ${nameOrType} (of type ${obj.kind})`, source);
+        throw new GraphQLError(`Cannot set schema ${rootType} root to non-object type ${nameOrType} (of type ${obj.kind})`);
       }
       toSet = obj;
     } else {
@@ -586,7 +586,6 @@ export class SchemaDefinition extends SchemaElement<Schema>  {
       toSet = nameOrType;
     }
     this._roots.set(rootType, toSet);
-    this.sourceAST = source;
     addReferenceToType(this, toSet);
     return toSet;
   }
@@ -632,15 +631,15 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
     return this._interfaces.some(i => i.name == name);
   }
 
-  addImplementedInterface(nameOrItf: InterfaceType | string, source?: ASTNode): InterfaceType {
+  addImplementedInterface(nameOrItf: InterfaceType | string): InterfaceType {
     let toAdd: InterfaceType;
     if (typeof nameOrItf === 'string') {
       this.checkUpdate();
       const itf = this.schema()!.type(nameOrItf);
       if (!itf) {
-        throw new GraphQLError(`Cannot implement unkown type ${nameOrItf}`, source);
+        throw new GraphQLError(`Cannot implement unkown type ${nameOrItf}`);
       } else if (itf.kind != 'InterfaceType') {
-        throw new GraphQLError(`Cannot implement non-interface type ${nameOrItf} (of type ${itf.kind})`, source);
+        throw new GraphQLError(`Cannot implement non-interface type ${nameOrItf} (of type ${itf.kind})`);
       }
       toAdd = itf;
     } else {
@@ -662,18 +661,22 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
     return this._fields.get(name);
   }
 
-  addField(field: FieldDefinition<T>): FieldDefinition<T>;
-  addField(name: string, type?: OutputType): FieldDefinition<T>;
   addField(nameOrField: string | FieldDefinition<T>, type?: OutputType): FieldDefinition<T> {
-    const toAdd = typeof nameOrField === 'string' ? new FieldDefinition<T>(nameOrField) : nameOrField;
-    this.checkUpdate(toAdd);
+    let toAdd: FieldDefinition<T>;
+    if (typeof nameOrField === 'string') {
+      this.checkUpdate();
+      toAdd = new FieldDefinition<T>(nameOrField);
+    } else {
+      this.checkUpdate(nameOrField);
+      toAdd = nameOrField;
+    }
     if (this.field(toAdd.name)) {
       throw buildError(`Field ${toAdd.name} already exists on ${this}`);
     }
     this._fields.set(toAdd.name, toAdd);
     Element.prototype['setParent'].call(toAdd, this);
     // Note that we need to wait we have attached the field to set the type.
-    if (typeof nameOrField === 'string') {
+    if (type) {
       toAdd.type = type;
     }
     return toAdd;
@@ -726,17 +729,15 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer> {
     return this._types;
   }
 
-  addType(type: ObjectType): ObjectType;
-  addType(name: string, source?: ASTNode): ObjectType;
-  addType(nameOrType: ObjectType | string, source?: ASTNode): ObjectType {
+  addType(nameOrType: ObjectType | string): ObjectType {
     let toAdd: ObjectType;
     if (typeof nameOrType === 'string') {
       this.checkUpdate();
       const obj = this.schema()!.type(nameOrType);
       if (!obj) {
-        throw new GraphQLError(`Cannot implement unkown type ${nameOrType}`, source);
+        throw new GraphQLError(`Cannot implement unkown type ${nameOrType}`);
       } else if (obj.kind != 'ObjectType') {
-        throw new GraphQLError(`Cannot implement non-object type ${nameOrType} (of type ${obj.kind})`, source);
+        throw new GraphQLError(`Cannot implement non-object type ${nameOrType} (of type ${obj.kind})`);
       }
       toAdd = obj;
     } else {
@@ -1193,8 +1194,12 @@ export class Directive<TArgs extends {[key: string]: any} = {[key: string]: any}
     return doc?.directive(this.name);
   }
 
-  get arguments() : TArgs {
+  arguments() : TArgs {
     return this._args;
+  }
+
+  setArguments(args: TArgs) {
+    this._args = args;
   }
 
   matchArguments(expectedArgs: Record<string, any>): boolean {

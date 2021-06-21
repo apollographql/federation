@@ -15,7 +15,8 @@ import {
   ValueNode,
   NamedTypeNode,
   ArgumentNode,
-  StringValueNode
+  StringValueNode,
+  ASTNode
 } from "graphql";
 import { Maybe } from "graphql/jsutils/Maybe";
 import {
@@ -132,9 +133,30 @@ function getReferencedType(node: NamedTypeNode, schema: Schema): NamedType {
   return type;
 }
 
+function withNodeAttachedToError(operation: () => void, node: ASTNode) {
+  try {
+    operation();
+  } catch (e) {
+    if (e instanceof GraphQLError) {
+      const allNodes: ASTNode | ASTNode[] = e.nodes ? [node, ...e.nodes] : node;
+      throw new GraphQLError(
+        e.message,
+        allNodes,
+        e.source,
+        e.positions,
+        e.path,
+        e.originalError,
+        e.extensions
+      );
+    } else {
+      throw e;
+    }
+  }
+}
+
 function buildSchemaDefinitionInner(schemaNode: SchemaDefinitionNode, schemaDefinition: SchemaDefinition) {
   for (const opTypeNode of schemaNode.operationTypes) {
-    schemaDefinition.setRoot(opTypeNode.operation, opTypeNode.type.name.value, opTypeNode);
+    withNodeAttachedToError(() => schemaDefinition.setRoot(opTypeNode.operation, opTypeNode.type.name.value), opTypeNode);
   }
   schemaDefinition.sourceAST = schemaNode;
   schemaDefinition.description = schemaNode.description?.value;
@@ -143,7 +165,10 @@ function buildSchemaDefinitionInner(schemaNode: SchemaDefinitionNode, schemaDefi
 
 function buildAppliedDirectives(elementNode: NodeWithDirectives, element: SchemaElement<any>) {
   for (const directive of elementNode.directives ?? []) {
-    element.applyDirective(directive.name.value, buildArgs(directive), directive)
+    withNodeAttachedToError(() => {
+      const d = element.applyDirective(directive.name.value, buildArgs(directive));
+      d.sourceAST = directive;
+    }, directive);
   }
 }
 
@@ -164,13 +189,13 @@ function buildNamedTypeInner(definitionNode: DefinitionNode & NodeWithDirectives
         buildFieldDefinitionInner(fieldNode, fieldBasedType.addField(fieldNode.name.value));
       }
       for (const itfNode of definitionNode.interfaces ?? []) {
-        fieldBasedType.addImplementedInterface(itfNode.name.value, itfNode);
+        withNodeAttachedToError(() => fieldBasedType.addImplementedInterface(itfNode.name.value), itfNode);
       }
       break;
     case 'UnionTypeDefinition':
       const unionType = type as UnionType;
       for (const namedType of definitionNode.types ?? []) {
-        unionType.addType(namedType.name.value, namedType);
+        withNodeAttachedToError(() => unionType.addType(namedType.name.value), namedType);
       }
       break;
     case 'EnumTypeDefinition':
