@@ -1,16 +1,29 @@
 import { loadSupergraphSdlFromStorage } from '../loadSupergraphSdlFromStorage';
 import { getDefaultFetcher } from '../..';
 import {
-  mockSupergraphSdlRequestSuccess,
   graphRef,
   apiKey,
   mockCloudConfigUrl,
   mockSupergraphSdlRequest,
+  mockOutOfBandReporterUrl,
+  mockOutOfBandReportRequestSuccess,
+  mockSupergraphSdlRequestSuccess,
 } from './integration/nockMocks';
+import mockedEnv from 'mocked-env';
 
 describe('loadSupergraphSdlFromStorage', () => {
+  let cleanUp: (() => void) | null = null;
+
+  afterAll(async () => {
+    if (cleanUp) {
+      cleanUp();
+      cleanUp = null;
+    }
+  });
+
   it('fetches Supergraph SDL as expected', async () => {
     mockSupergraphSdlRequestSuccess();
+
     const fetcher = getDefaultFetcher();
     const result = await loadSupergraphSdlFromStorage({
       graphRef,
@@ -351,5 +364,191 @@ describe('loadSupergraphSdlFromStorage', () => {
         `"An error occurred while fetching your schema from Apollo: 500 Internal Server Error"`,
       );
     });
+
+    // if an additional request were made by the out of band reporter, nock would throw since it's unmocked
+    // and this test would fail
+    it("Out of band reporting doesn't submit reports when endpoint is not configured", async () => {
+      mockSupergraphSdlRequest().reply(400);
+
+      const fetcher = getDefaultFetcher();
+      await expect(
+        loadSupergraphSdlFromStorage({
+          graphRef,
+          apiKey,
+          endpoint: mockCloudConfigUrl,
+          fetcher,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input"`,
+      );
+    });
+
+    it('throws on 400 status response and successfully submits an out of band error', async () => {
+      cleanUp = mockedEnv({
+        APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
+      });
+
+      mockSupergraphSdlRequest().reply(400);
+      mockOutOfBandReportRequestSuccess();
+
+      const fetcher = getDefaultFetcher();
+      await expect(
+        loadSupergraphSdlFromStorage({
+          graphRef,
+          apiKey,
+          endpoint: mockCloudConfigUrl,
+          fetcher,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input"`,
+      );
+    });
+
+    it('throws on 413 status response and successfully submits an out of band error', async () => {
+      cleanUp = mockedEnv({
+        APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
+      });
+
+      mockSupergraphSdlRequest().reply(413);
+      mockOutOfBandReportRequestSuccess();
+
+      const fetcher = getDefaultFetcher();
+      await expect(
+        loadSupergraphSdlFromStorage({
+          graphRef,
+          apiKey,
+          endpoint: mockCloudConfigUrl,
+          fetcher,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"An error occurred while fetching your schema from Apollo: 413 Payload Too Large"`,
+      );
+    });
+
+    it('throws on 422 status response and successfully submits an out of band error', async () => {
+      cleanUp = mockedEnv({
+        APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
+      });
+
+      mockSupergraphSdlRequest().reply(422);
+      mockOutOfBandReportRequestSuccess();
+
+      const fetcher = getDefaultFetcher();
+      await expect(
+        loadSupergraphSdlFromStorage({
+          graphRef,
+          apiKey,
+          endpoint: mockCloudConfigUrl,
+          fetcher,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"An error occurred while fetching your schema from Apollo: 422 Unprocessable Entity"`,
+      );
+    });
+
+    it('throws on 408 status response and successfully submits an out of band error', async () => {
+      cleanUp = mockedEnv({
+        APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
+      });
+
+      mockSupergraphSdlRequest().reply(408);
+      mockOutOfBandReportRequestSuccess();
+
+      const fetcher = getDefaultFetcher();
+      await expect(
+        loadSupergraphSdlFromStorage({
+          graphRef,
+          apiKey,
+          endpoint: mockCloudConfigUrl,
+          fetcher,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"An error occurred while fetching your schema from Apollo: 408 Request Timeout"`,
+      );
+    });
+  });
+
+  it('throws on 504 status response and successfully submits an out of band error', async () => {
+    cleanUp = mockedEnv({
+      APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
+    });
+
+    mockSupergraphSdlRequest().reply(504);
+    mockOutOfBandReportRequestSuccess();
+
+    const fetcher = getDefaultFetcher();
+    await expect(
+      loadSupergraphSdlFromStorage({
+        graphRef,
+        apiKey,
+        endpoint: mockCloudConfigUrl,
+        fetcher,
+      }),
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"An error occurred while fetching your schema from Apollo: 504 Gateway Timeout"`,
+    );
+  });
+
+  it('throws when there is no response and successfully submits an out of band error', async () => {
+    cleanUp = mockedEnv({
+      APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
+    });
+
+    mockSupergraphSdlRequest().replyWithError('no response');
+    mockOutOfBandReportRequestSuccess();
+
+    const fetcher = getDefaultFetcher();
+    await expect(
+      loadSupergraphSdlFromStorage({
+        graphRef,
+        apiKey,
+        endpoint: mockCloudConfigUrl,
+        fetcher,
+      }),
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"An error occurred while fetching your schema from Apollo: request to https://example.cloud-config-url.com/cloudconfig/ failed, reason: no response"`,
+    );
+  });
+
+  it('throws on 502 status response and successfully submits an out of band error', async () => {
+    cleanUp = mockedEnv({
+      APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
+    });
+
+    mockSupergraphSdlRequest().reply(502);
+    mockOutOfBandReportRequestSuccess();
+
+    const fetcher = getDefaultFetcher();
+    await expect(
+      loadSupergraphSdlFromStorage({
+        graphRef,
+        apiKey,
+        endpoint: mockCloudConfigUrl,
+        fetcher,
+      }),
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"An error occurred while fetching your schema from Apollo: 502 Bad Gateway"`,
+    );
+  });
+
+  it('throws on 503 status response and successfully submits an out of band error', async () => {
+    cleanUp = mockedEnv({
+      APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
+    });
+
+    mockSupergraphSdlRequest().reply(503);
+    mockOutOfBandReportRequestSuccess();
+
+    const fetcher = getDefaultFetcher();
+    await expect(
+      loadSupergraphSdlFromStorage({
+        graphRef,
+        apiKey,
+        endpoint: mockCloudConfigUrl,
+        fetcher,
+      }),
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"An error occurred while fetching your schema from Apollo: 503 Service Unavailable"`,
+    );
   });
 });
