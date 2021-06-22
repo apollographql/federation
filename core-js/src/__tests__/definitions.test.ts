@@ -539,3 +539,43 @@ test('handling of extensions', () => {
     union AUnion = AType | AType2 | AType3
   `);
 });
+
+test('default arguments for directives', () => {
+  const sdl = `
+    directive @Example(inputObject: ExampleInputObject! = {}) on FIELD_DEFINITION
+
+    type Query {
+      v1: Int @Example
+      v2: Int @Example(inputObject: {})
+      v3: Int @Example(inputObject: {number: 3})
+    }
+
+    input ExampleInputObject {
+      number: Int! = 3
+    }
+  `;
+
+  const schema = buildSchema(sdl);
+  expect(printSchema(schema)).toMatchString(sdl);
+
+  const query = schema.schemaDefinition.root('query')!.type;
+  const exampleDirective = schema.directive('Example')!;
+  expect(query).toHaveField('v1');
+  expect(query).toHaveField('v2');
+  expect(query).toHaveField('v3');
+  const v1 = query.field('v1')!;
+  const v2 = query.field('v2')!;
+  const v3 = query.field('v3')!;
+
+  const d1 = v1.appliedDirectivesOf(exampleDirective)[0];
+  const d2 = v2.appliedDirectivesOf(exampleDirective)[0];
+  const d3 = v3.appliedDirectivesOf(exampleDirective)[0];
+
+  expect(d1.arguments()).toEqual({});
+  expect(d2.arguments()).toEqual({ inputObject: {}});
+  expect(d3.arguments()).toEqual({ inputObject: { number: 3 }});
+
+  expect(d1.arguments(true)).toEqual({ inputObject: { number: 3 }});
+  expect(d2.arguments(true)).toEqual({ inputObject: { number: 3 }});
+  expect(d3.arguments(true)).toEqual({ inputObject: { number: 3 }});
+});

@@ -319,6 +319,7 @@ function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: 
 function buildInputFieldDefinitionInner(fieldNode: InputValueDefinitionNode, field: InputFieldDefinition) {
   const type = buildWrapperTypeOrTypeRef(fieldNode.type, field.schema()!);
   field.type = ensureInputType(type, fieldNode.type);
+  field.defaultValue = buildValue(fieldNode.defaultValue);
   buildAppliedDirectives(fieldNode, field);
   field.description = fieldNode.description?.value;
   field.sourceAST = fieldNode;

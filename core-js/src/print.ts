@@ -18,6 +18,7 @@ import {
   SchemaElement,
   UnionType
 } from "./definitions";
+import { valueToString } from "./values";
 
 export type Options = {
   indentString: string;
@@ -249,7 +250,10 @@ function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefiniti
 
 function printField(field: FieldDefinition<any> | InputFieldDefinition, options: Options): string {
   let args = field.kind == 'FieldDefinition' ? printArgs([...field.arguments.values()], options.indentString) : '';
-  return `${field.name}${args}: ${field.type}`;
+  let defaultValue = field.kind == 'InputFieldDefinition' && field.defaultValue !== undefined
+    ? ' = ' + valueToString(field.defaultValue)
+    : '';
+  return `${field.name}${args}: ${field.type}${defaultValue}`;
 }
 
 function printArgs(args: ArgumentDefinition<any>[], indentation = '') {

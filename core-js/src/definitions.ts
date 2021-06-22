@@ -5,12 +5,28 @@ import {
   GraphQLError
 } from "graphql";
 import { assert } from "./utils";
-import deepEqual from 'deep-equal';
+import { withDefaultValues, valueEquals, valueToString } from "./values";
 
 export type QueryRoot = 'query';
 export type MutationRoot = 'mutation';
 export type SubscriptionRoot = 'subscription';
 export type SchemaRoot = QueryRoot | MutationRoot | SubscriptionRoot;
+
+export function defaultRootName(rootKind: SchemaRoot): string {
+  return rootKind.charAt(0).toUpperCase() + rootKind.slice(1);
+}
+
+function checkDefaultSchemaRoot(type: NamedType): SchemaRoot | undefined {
+  if (type.kind !== 'ObjectType') {
+    return undefined;
+  }
+  switch (type.name) {
+    case 'Query': return 'query';
+    case 'Mutation': return 'mutation';
+    case 'Subscription': return 'subscription';
+    default: return undefined;
+  }
+}
 
 export type Type = NamedType | WrapperType;
 export type NamedType = ScalarType | ObjectType | InterfaceType | UnionType | EnumType | InputObjectType;
@@ -32,7 +48,19 @@ export function isNamedType(type: Type): type is NamedType {
 }
 
 export function isWrapperType(type: Type): type is WrapperType {
-  return type.kind == 'ListType' || type.kind == 'NonNullType';
+  return isListType(type) || isNonNullType(type);
+}
+
+export function isListType(type: Type): type is ListType<any> {
+  return type.kind == 'ListType';
+}
+
+export function isNonNullType(type: Type): type is NonNullType<any> {
+  return type.kind == 'NonNullType';
+}
+
+export function isInputObjectType(type: Type): type is InputObjectType {
+  return type.kind == 'InputObjectType';
 }
 
 export function isOutputType(type: Type): type is OutputType {
@@ -555,6 +583,13 @@ export class Schema {
       this._types.set(type.name, type);
     }
     Element.prototype['setParent'].call(type, this);
+    // If a type is the default name of a root, it "becomes" that root automatically,
+    // unless some other root has already been set.
+    const defaultSchemaRoot = checkDefaultSchemaRoot(type);
+    if (defaultSchemaRoot && !this.schemaDefinition.root(defaultSchemaRoot)) {
+      // Note that checkDefaultSchemaRoot guarantees us type is an ObjectType
+      this.schemaDefinition.setRoot(defaultSchemaRoot, type as ObjectType);
+    }
     return type;
   }
 
@@ -635,7 +670,7 @@ export class RootType extends BaseExtensionMember<SchemaDefinition> {
   }
 
   isDefaultRootName() {
-    return this.rootKind.charAt(0).toUpperCase() + this.rootKind.slice(1) == this.type.name;
+    return defaultRootName(this.rootKind) == this.type.name;
   }
 
 
@@ -1167,6 +1202,7 @@ export class FieldDefinition<TParent extends ObjectType | InterfaceType> extends
 export class InputFieldDefinition extends BaseNamedElementWithType<InputType, InputObjectType, never> {
   readonly kind = 'InputFieldDefinition' as const;
   private _extension?: Extension<InputObjectType>;
+  defaultValue?: any
 
   get coordinate(): string {
     const parent = this.parent;
@@ -1279,7 +1315,10 @@ export class EnumValue extends NamedSchemaElement<EnumType, never> {
     EnumType.prototype['removeValueInternal'].call(this._parent, this);
     this._parent = undefined;
     // Enum values have nothing that can reference them outside of their parents
-    // TODO: that's actually not true if you include arguments (both default value in definition and concrete directive application).
+    // TODO: that's actually only semi-true if you include arguments, because default values in args and concrete directive applications can
+    //   indirectly refer to enum value. It's indirect though as we currently keep enum value as string in values. That said, it would
+    //   probably be really nice to be able to known if an enum value is used or not, rather then removing it and not knowing if we broke
+    //   something).
     return [];
   }
 
@@ -1404,10 +1443,6 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
   }
 }
 
-// TODO: How do we deal with default values? It feels like it would make some sense to have `argument('x')` return the default
-// value if `x` has one and wasn't explicitly set in the application. This would make code usage more pleasant. Should
-// `arguments()` also return those though? Maybe have an option to both method to say if it should include them or not.
-// (The question stands for matchArguments() as well though).
 export class Directive<TArgs extends {[key: string]: any} = {[key: string]: any}> extends Element<SchemaElement<any>> implements Named {
   // Note that _extension will only be set for directive directly applied to an extendable element. Meaning that if a directive is
   // applied to a field that is part of an extension, the field will have its extension set, but not the underlying directive.
@@ -1426,8 +1461,19 @@ export class Directive<TArgs extends {[key: string]: any} = {[key: string]: any}
     return doc?.directive(this.name);
   }
 
-  arguments() : TArgs {
-    return this._args;
+  arguments(includeDefaultValues: boolean = false) : Readonly<TArgs> {
+    if (!includeDefaultValues) {
+      return this._args;
+    }
+    const definition = this.definition;
+    if (!definition) {
+      throw buildError(`Cannot include default values for arguments: cannot find directive definition for ${this.name}`);
+    }
+    const updated = Object.create(null);
+    for (const argDef of definition.arguments()) {
+      updated[argDef.name] = withDefaultValues(this._args[argDef.name], argDef);
+    }
+    return updated;
   }
 
   setArguments(args: TArgs) {
@@ -1496,14 +1542,6 @@ export class Directive<TArgs extends {[key: string]: any} = {[key: string]: any}
 }
 
 export const graphQLBuiltIns = new BuiltIns();
-
-function valueToString(v: any): string {
-  return JSON.stringify(v);
-}
-
-function valueEquals(a: any, b: any): boolean {
-  return deepEqual(a, b);
-}
 
 function addReferenceToType(referencer: SchemaElement<any>, type: Type) {
   switch (type.kind) {
