@@ -214,10 +214,17 @@ export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema>
   }
 
   protected checkUpdate(addedElement?: { schema(): Schema | undefined }) {
-    if (this.isElementBuiltIn() && !Schema.prototype['canModifyBuiltIn'].call(this.schema()!)) {
-      throw buildError(`Cannot modify built-in ${this}`);
-    }
     super.checkUpdate();
+    if (!Schema.prototype['canModifyBuiltIn'].call(this.schema()!)) {
+      // Ensure this element (the modified one), is not a built-in, or part of one.
+      let thisElement: SchemaElement<any> | Schema | undefined = this;
+      while (thisElement && thisElement instanceof SchemaElement) {
+        if (thisElement.isElementBuiltIn()) {
+          throw buildError(`Cannot modify built-in (or part of built-in) ${this}`);
+        }
+        thisElement = thisElement.parent;
+      }
+    }
     if (addedElement) {
       const thatSchema = addedElement.schema();
       if (thatSchema && thatSchema != this.schema()) {
