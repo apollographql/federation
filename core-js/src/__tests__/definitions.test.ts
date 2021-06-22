@@ -8,7 +8,7 @@ import {
   SchemaElement,
   UnionType
 } from '../../dist/definitions';
-import { printSchema } from '../../dist/print';
+import { defaultOptions, printSchema } from '../../dist/print';
 import { buildSchema } from '../../dist/buildSchema';
 import { federationBuiltIns } from '../../dist/federation';
 
@@ -219,6 +219,10 @@ test('removal of all directives of a schema', () => {
 
     directive @bar on ARGUMENT_DEFINITION
 
+    type Query {
+      a(id: String): A
+    }
+
     type A {
       a1: String
       a2: [Int]
@@ -226,10 +230,6 @@ test('removal of all directives of a schema', () => {
 
     type B {
       b: String
-    }
-
-    type Query {
-      a(id: String): A
     }
 
     union U = A | B`);
@@ -275,13 +275,14 @@ test('removal of all inacessible elements of a schema', () => {
 
     directive @bar on ARGUMENT_DEFINITION
 
+    type Query {
+      a(id: String @bar): A
+    }
+
     type A {
       a2: [Int]
     }
-
-    type Query {
-      a(id: String @bar): A
-    }`);
+  `);
 });
 
 test('handling of interfaces', () => {
@@ -346,13 +347,13 @@ test('handling of interfaces', () => {
   b.remove();
 
   expect(printSchema(schema)).toMatchString(`
+    type Query {
+      bestIs: [I!]!
+    }
+
     interface I {
       a: Int
       b: String
-    }
-
-    type Query {
-      bestIs: [I!]!
     }
 
     type T1 implements I {
@@ -511,4 +512,30 @@ test('handling of extensions', () => {
   expectUnionType(aunion);
   expect([...aunion.types()].map(t => t.name)).toEqual(['AType', 'AType2', 'AType3']);
 
+  expect(printSchema(schema, { ...defaultOptions, mergeTypesAndExtensions: true })).toMatchString(`
+    schema {
+      query: AType
+    }
+
+    interface AInterface @deprecated {
+      i1: Int
+    }
+
+    scalar AScalar @deprecated
+
+    type AType {
+      t1: Int
+      t2: String
+    }
+
+    type AType2 {
+      t1: String
+    }
+
+    type AType3 {
+      t2: Int
+    }
+
+    union AUnion = AType | AType2 | AType3
+  `);
 });
