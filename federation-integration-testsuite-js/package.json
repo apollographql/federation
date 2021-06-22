@@ -18,8 +18,6 @@
   },
   "homepage": "https://github.com/apollographql/federation#readme",
   "dependencies": {
-    "@opentelemetry/api": "^0.20.0",
-    "@opentelemetry/tracing": "^0.20.0",
     "apollo-graphql": "^0.9.3",
     "graphql-tag": "^2.10.4"
   }
