@@ -17,6 +17,7 @@ import {
   TypeExtensionNode,
   ObjectTypeDefinitionNode,
   NamedTypeNode,
+  lexicographicSortSchema,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
 import federationDirectives from '../directives';
@@ -646,6 +647,8 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     }
     return undefined;
   });
+
+  schema = lexicographicSortSchema(schema);
 
   addFederationMetadataToSchemaNodes({
     schema,
