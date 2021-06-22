@@ -1,6 +1,10 @@
 import { fetch, Response, Request } from 'apollo-server-env';
-import { ApiMonitoringReport, ErrorCode } from './__generated__/graphqlTypes';
-
+import { GraphQLError } from 'graphql';
+import {
+  ErrorCode,
+  OobReportMutation,
+  OobReportMutationVariables,
+} from './__generated__/graphqlTypes';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
 export const OUT_OF_BAND_REPORTER_QUERY = /* GraphQL */`#graphql
@@ -11,6 +15,18 @@ export const OUT_OF_BAND_REPORTER_QUERY = /* GraphQL */`#graphql
 
 const { name, version } = require('../package.json');
 
+type OobReportMutationResult =
+  | OobReportMutationSuccess
+  | OobReportMutationFailure;
+
+interface OobReportMutationSuccess {
+  data: OobReportMutation;
+}
+
+interface OobReportMutationFailure {
+  data?: OobReportMutation;
+  errors: GraphQLError[];
+}
 export class OutOfBandReporter {
   static endpoint: string | null = process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT || null;
 
@@ -63,32 +79,34 @@ export class OutOfBandReporter {
 
     const responseBody: string | undefined = await response?.text();
 
-    const oobVariables: ApiMonitoringReport = {
-      error: {
-        code: errorCode,
-        message: error.message ?? error
+    const variables: OobReportMutationVariables = {
+      input: {
+        error: {
+          code: errorCode,
+          message: error.message ?? error,
+        },
+        request: {
+          url: request.url,
+          body: await request.text(),
+        },
+        response: response
+          ? {
+              httpStatusCode: response.status,
+              body: responseBody,
+            }
+          : null,
+        startedAt: startedAt.toISOString(),
+        endedAt: endedAt.toISOString(),
+        tags: tags,
       },
-      request: {
-        url: request.url,
-        body: await request.text()
-      },
-      response: response ? {
-        httpStatusCode: response.status,
-        body: responseBody
-      } : null,
-      startedAt: startedAt.toISOString(),
-      endedAt: endedAt.toISOString(),
-      tags: tags
-    }
+    };
 
     try {
       const oobResponse = await fetcher(OutOfBandReporter.endpoint, {
         method: 'POST',
         body: JSON.stringify({
           query: OUT_OF_BAND_REPORTER_QUERY,
-          variables: {
-            input: oobVariables,
-          },
+          variables,
         }),
         headers: {
           'apollographql-client-name': name,
@@ -97,7 +115,7 @@ export class OutOfBandReporter {
           'content-type': 'application/json',
         },
       });
-      const parsedResponse = await oobResponse.json();
+      const parsedResponse: OobReportMutationResult = await oobResponse.json();
       if (!parsedResponse?.data?.reportError) {
         throw new Error(
           `Out-of-band error reporting failed: ${oobResponse.status} ${oobResponse.statusText}`,

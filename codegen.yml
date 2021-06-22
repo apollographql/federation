@@ -5,6 +5,7 @@ schema: [
 ]
 documents:
   - gateway-js/src/loadSupergraphSdlFromStorage.ts
+  - gateway-js/src/outOfBandReporter.ts
 generates:
   gateway-js/src/__generated__/graphqlTypes.ts:
     plugins:
