@@ -7,16 +7,18 @@ import {
 import { assert } from "./utils";
 import { withDefaultValues, valueEquals, valueToString } from "./values";
 
-export type QueryRoot = 'query';
-export type MutationRoot = 'mutation';
-export type SubscriptionRoot = 'subscription';
-export type SchemaRoot = QueryRoot | MutationRoot | SubscriptionRoot;
+export type QueryRootKind = 'query';
+export type MutationRootKind = 'mutation';
+export type SubscriptionRootKind = 'subscription';
+export type SchemaRootKind = QueryRootKind | MutationRootKind | SubscriptionRootKind;
 
-export function defaultRootName(rootKind: SchemaRoot): string {
+export const allSchemaRootKinds: SchemaRootKind[] = ['query', 'mutation', 'subscription'];
+
+export function defaultRootName(rootKind: SchemaRootKind): string {
   return rootKind.charAt(0).toUpperCase() + rootKind.slice(1);
 }
 
-function checkDefaultSchemaRoot(type: NamedType): SchemaRoot | undefined {
+function checkDefaultSchemaRoot(type: NamedType): SchemaRootKind | undefined {
   if (type.kind !== 'ObjectType') {
     return undefined;
   }
@@ -47,6 +49,10 @@ export function isNamedType(type: Type): type is NamedType {
   return type instanceof BaseNamedType;
 }
 
+export function getNamedType(type: Type): NamedType {
+  return isNamedType(type) ? type : type.baseType();
+}
+
 export function isWrapperType(type: Type): type is WrapperType {
   return isListType(type) || isNonNullType(type);
 }
@@ -57,6 +63,26 @@ export function isListType(type: Type): type is ListType<any> {
 
 export function isNonNullType(type: Type): type is NonNullType<any> {
   return type.kind == 'NonNullType';
+}
+
+export function isScalarType(type: Type): type is ScalarType {
+  return type.kind == 'ObjectType';
+}
+
+export function isObjectType(type: Type): type is ObjectType {
+  return type.kind == 'ObjectType';
+}
+
+export function isInterfaceType(type: Type): type is InterfaceType {
+  return type.kind == 'ObjectType';
+}
+
+export function isEnumType(type: Type): type is EnumType {
+  return type.kind == 'EnumType';
+}
+
+export function isUnionType(type: Type): type is UnionType {
+  return type.kind == 'UnionType';
 }
 
 export function isInputObjectType(type: Type): type is InputObjectType {
@@ -76,14 +102,6 @@ export function isOutputType(type: Type): type is OutputType {
   }
 }
 
-export function ensureOutputType(type: Type): OutputType {
-  if (isOutputType(type)) {
-    return type;
-  } else {
-    throw new Error(`Type ${type} (${type.kind}) is not an output type`);
-  }
-}
-
 export function isInputType(type: Type): type is InputType {
   switch (baseType(type).kind) {
     case 'ScalarType':
@@ -92,14 +110,6 @@ export function isInputType(type: Type): type is InputType {
       return true;
     default:
       return false;
-  }
-}
-
-export function ensureInputType(type: Type): InputType {
-  if (isInputType(type)) {
-    return type;
-  } else {
-    throw new Error(`Type ${type} (${type.kind}) is not an input type`);
   }
 }
 
@@ -665,7 +675,7 @@ export class Schema {
 }
 
 export class RootType extends BaseExtensionMember<SchemaDefinition> {
-  constructor(readonly rootKind: SchemaRoot, readonly type: ObjectType) {
+  constructor(readonly rootKind: SchemaRootKind, readonly type: ObjectType) {
     super();
   }
 
@@ -681,18 +691,18 @@ export class RootType extends BaseExtensionMember<SchemaDefinition> {
 
 export class SchemaDefinition extends SchemaElement<Schema>  {
   readonly kind = 'SchemaDefinition' as const;
-  protected readonly _roots: Map<SchemaRoot, RootType> = new Map();
+  protected readonly _roots: Map<SchemaRootKind, RootType> = new Map();
   protected readonly _extensions: Set<Extension<SchemaDefinition>> = new Set();
 
   *roots(): Generator<RootType, void, undefined> {
     yield* this._roots.values();
   }
 
-  root(rootKind: SchemaRoot): RootType | undefined {
+  root(rootKind: SchemaRootKind): RootType | undefined {
     return this._roots.get(rootKind);
   }
 
-  setRoot(rootKind: SchemaRoot, nameOrType: ObjectType | string): RootType {
+  setRoot(rootKind: SchemaRootKind, nameOrType: ObjectType | string): RootType {
     let toSet: RootType;
     if (typeof nameOrType === 'string') {
       this.checkUpdate();

@@ -276,7 +276,7 @@ function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldD
   field.sourceAST = fieldNode;
 }
 
-export function ensureOutputType(type: Type, node: TypeNode): OutputType {
+function ensureOutputType(type: Type, node: TypeNode): OutputType {
   if (isOutputType(type)) {
     return type;
   } else {
@@ -284,7 +284,7 @@ export function ensureOutputType(type: Type, node: TypeNode): OutputType {
   }
 }
 
-export function ensureInputType(type: Type, node: TypeNode): InputType {
+function ensureInputType(type: Type, node: TypeNode): InputType {
   if (isInputType(type)) {
     return type;
   } else {
