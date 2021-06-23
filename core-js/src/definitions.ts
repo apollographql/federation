@@ -74,7 +74,7 @@ export function isObjectType(type: Type): type is ObjectType {
 }
 
 export function isInterfaceType(type: Type): type is InterfaceType {
-  return type.kind == 'ObjectType';
+  return type.kind == 'InterfaceType';
 }
 
 export function isEnumType(type: Type): type is EnumType {
