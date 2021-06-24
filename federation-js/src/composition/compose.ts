@@ -21,7 +21,7 @@ import {
   DirectiveNode,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
-import federationDirectives from '../directives';
+import apolloTypeSystemDirectives from '../directives';
 import {
   findDirectivesOnNode,
   isStringValueNode,
@@ -29,13 +29,13 @@ import {
   mapFieldNamesToServiceName,
   stripExternalFieldsFromTypeDefs,
   typeNodesAreEquivalent,
-  isFederationDirective,
   executableDirectiveLocations,
   stripTypeSystemDirectivesFromTypeDefs,
   defaultRootOperationNameLookup,
   getFederationMetadata,
   CompositionResult,
-  isDirectiveDefinitionNode
+  isDirectiveDefinitionNode,
+  isApolloTypeSystemDirective
 } from './utils';
 import {
   ServiceDefinition,
@@ -153,6 +153,21 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     } = stripExternalFieldsFromTypeDefs(typeDefs, serviceName);
 
     externalFields.push(...strippedFields);
+
+    // We need to capture @tag directives from the external fields as well
+    for (const {parentTypeName, field} of externalFields) {
+      const tagDirectivesOnField = findDirectivesOnNode(field, 'tag');
+
+      if (tagDirectivesOnField.length > 0) {
+        const fieldToDirectivesMap = mapGetOrSet(
+          typeNameToFieldDirectivesMap,
+          parentTypeName,
+          new Map(),
+        );
+        const directives = mapGetOrSet(fieldToDirectivesMap, field.name.value, []);
+        directives.push(...tagDirectivesOnField);
+      }
+    }
 
     // Type system directives from downstream services are not a concern of the
     // gateway, but rather the services on which the fields live which serve
@@ -377,7 +392,10 @@ export function buildSchemaFromDefinitionsAndExtensions({
 
   let schema = new GraphQLSchema({
     query: undefined,
-    directives: [...specifiedDirectives, ...federationDirectives],
+    directives: [
+      ...specifiedDirectives,
+      ...apolloTypeSystemDirectives,
+    ],
   });
 
   // This interface and predicate is a TS / graphql-js workaround for now while
@@ -457,11 +475,11 @@ export function buildSchemaFromDefinitionsAndExtensions({
     });
   } catch {}
 
-  // Remove federation directives from the final schema
+  // Remove apollo type system directives from the final schema
   schema = new GraphQLSchema({
     ...schema.toConfig(),
     directives: [
-      ...schema.getDirectives().filter(x => !isFederationDirective(x)),
+      ...schema.getDirectives().filter((x) => !isApolloTypeSystemDirective(x)),
     ],
   });
 

@@ -42,7 +42,9 @@ import {
   FederationField,
   ServiceDefinition,
 } from './types';
-import federationDirectives, { ASTNodeWithDirectives } from '../directives';
+import apolloTypeSystemDirectives, {
+  ASTNodeWithDirectives,
+} from '../directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
 
 export function isStringValueNode(node: any): node is StringValueNode {
@@ -142,11 +144,11 @@ export function stripTypeSystemDirectivesFromTypeDefs(typeDefs: DocumentNode) {
       // The `deprecated` directive is an exceptional case that we want to leave in
       if (node.name.value === 'deprecated' || node.name.value === 'specifiedBy') return;
 
-      const isFederationDirective = federationDirectives.some(
+      const isApolloTypeSystemDirective = apolloTypeSystemDirectives.some(
         ({ name }) => name === node.name.value,
       );
       // Returning `null` to a visit will cause it to be removed from the tree.
-      return isFederationDirective ? undefined : null;
+      return isApolloTypeSystemDirective ? undefined : null;
     },
   }) as DocumentNode;
 
@@ -627,8 +629,8 @@ export const executableDirectiveLocations = [
   'VARIABLE_DEFINITION',
 ];
 
-export function isFederationDirective(directive: GraphQLDirective): boolean {
-  return federationDirectives.some(({ name }) => name === directive.name);
+export function isApolloTypeSystemDirective(directive: GraphQLDirective): boolean {
+  return apolloTypeSystemDirectives.some(({ name }) => name === directive.name);
 }
 
 export const reservedRootFields = ['_service', '_entities'];
