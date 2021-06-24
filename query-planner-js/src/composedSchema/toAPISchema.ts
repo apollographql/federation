@@ -7,7 +7,20 @@ import {
 import { supportedFeatures } from './buildComposedSchema';
 import { removeInaccessibleElements } from './removeInaccessibleElements';
 
+declare module 'graphql' {
+  interface GraphQLSchema {
+    __apiSchema: GraphQLSchema | undefined;
+  }
+}
+
 export function toAPISchema(schema: GraphQLSchema): GraphQLSchema {
+  // Similar to `validateSchema()` caching its result in `__validationErrors`,
+  // we cache the API schema to avoid recomputing it unnecessarily.
+
+  if (schema.__apiSchema) {
+    return schema.__apiSchema;
+  }
+
   schema = removeInaccessibleElements(schema);
 
   // TODO: We should get a list of feature names from the schema itself, rather
@@ -19,11 +32,15 @@ export function toAPISchema(schema: GraphQLSchema): GraphQLSchema {
 
   const schemaConfig = schema.toConfig();
 
-  return new GraphQLSchema({
+  const apiSchema = new GraphQLSchema({
     ...schemaConfig,
     types: schemaConfig.types.filter(isExported),
     directives: schemaConfig.directives.filter(isExported),
   });
+
+  schema.__apiSchema = apiSchema;
+
+  return apiSchema;
 
   // TODO: Implement the IsExported algorithm from the Core Schema spec.
   function isExported(element: NamedSchemaElement) {
