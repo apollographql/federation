@@ -154,21 +154,6 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
 
     externalFields.push(...strippedFields);
 
-    // We need to capture @tag directives from the external fields as well
-    for (const {parentTypeName, field} of externalFields) {
-      const tagDirectivesOnField = findDirectivesOnNode(field, 'tag');
-
-      if (tagDirectivesOnField.length > 0) {
-        const fieldToDirectivesMap = mapGetOrSet(
-          typeNameToFieldDirectivesMap,
-          parentTypeName,
-          new Map(),
-        );
-        const directives = mapGetOrSet(fieldToDirectivesMap, field.name.value, []);
-        directives.push(...tagDirectivesOnField);
-      }
-    }
-
     // Type system directives from downstream services are not a concern of the
     // gateway, but rather the services on which the fields live which serve
     // those types.  In other words, its up to an implementing service to
@@ -353,6 +338,31 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
           };
         }
       }
+    }
+  }
+
+  // We need to capture applied directives from the external fields as well,
+  // which are stripped and excluded from the main loop over the typeDefs
+  for (const { parentTypeName, field } of externalFields) {
+    const tagDirectivesOnField = findDirectivesOnNode(field, 'tag');
+    const inaccessibleDirectivesOnField = findDirectivesOnNode(field, 'inaccessible');
+
+    const appliedDirectivesOnField = [
+      ...tagDirectivesOnField,
+      ...inaccessibleDirectivesOnField,
+    ];
+    if (appliedDirectivesOnField.length > 0) {
+      const fieldToDirectivesMap = mapGetOrSet(
+        typeNameToFieldDirectivesMap,
+        parentTypeName,
+        new Map(),
+      );
+      const directives = mapGetOrSet(
+        fieldToDirectivesMap,
+        field.name.value,
+        [],
+      );
+      directives.push(...appliedDirectivesOnField);
     }
   }
 
@@ -659,11 +669,21 @@ export function addFederationMetadataToSchemaNodes({
     ] of fieldsToDirectivesMap.entries()) {
       const field = type.getFields()[fieldName];
 
+      const seenNonRepeatableDirectives: Record<string, boolean> = {};
+      const filteredDirectives = appliedDirectives.filter(directive => {
+        const name = directive.name.value;
+        const matchingDirective = apolloTypeSystemDirectives.find(d => d.name === name);
+        if (matchingDirective?.isRepeatable) return true;
+        if (seenNonRepeatableDirectives[name]) return false;
+        seenNonRepeatableDirectives[name] = true;
+        return true;
+      });
+
       // TODO: probably don't need to recreate these objects
       const existingMetadata = getFederationMetadata(field);
       const fieldFederationMetadata: FederationField = {
         ...existingMetadata,
-        appliedDirectives,
+        appliedDirectives: filteredDirectives,
       };
 
       field.extensions = {

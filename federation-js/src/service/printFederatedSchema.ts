@@ -314,7 +314,11 @@ function printAppliedDirectives(field: GraphQLField<any, any>) {
   ) as DirectiveNode[];
 
   if (appliedDirectives.length < 1) return '';
-  return ` ${appliedDirectives.map(print).join(' ')}`;
+  return ` ${appliedDirectives
+    .slice()
+    .sort((a, b) => a.name.value.localeCompare(b.name.value))
+    .map(print)
+    .join(' ')}`;
 };
 
 function printBlock(items: string[]) {
