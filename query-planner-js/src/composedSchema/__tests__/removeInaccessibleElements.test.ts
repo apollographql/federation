@@ -49,6 +49,8 @@ describe('removeInaccessibleElements', () => {
       type Foo @inaccessible {
         someField: String
       }
+
+      union Bar = Foo
     `);
 
     schema = removeInaccessibleElements(schema);
@@ -74,6 +76,10 @@ describe('removeInaccessibleElements', () => {
       }
 
       interface Foo @inaccessible {
+        someField: String
+      }
+
+      type Bar implements Foo {
         someField: String
       }
     `);

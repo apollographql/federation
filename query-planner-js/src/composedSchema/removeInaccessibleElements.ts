@@ -9,6 +9,9 @@ import {
   isInterfaceType,
   isObjectType,
   getNamedType,
+  GraphQLNamedType,
+  isUnionType,
+  GraphQLUnionType,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
 
@@ -43,6 +46,7 @@ export function removeInaccessibleElements(
       return new GraphQLObjectType({
         ...typeConfig,
         fields: removeInaccessibleFields(typeConfig.fields),
+        interfaces: removeInaccessibleTypes(typeConfig.interfaces)
       });
     } else if (isInterfaceType(type)) {
       const typeConfig = type.toConfig();
@@ -50,6 +54,14 @@ export function removeInaccessibleElements(
       return new GraphQLInterfaceType({
         ...typeConfig,
         fields: removeInaccessibleFields(typeConfig.fields),
+        interfaces: removeInaccessibleTypes(typeConfig.interfaces)
+      });
+    } else if (isUnionType(type)) {
+      const typeConfig = type.toConfig();
+
+      return new GraphQLUnionType({
+        ...typeConfig,
+        types: removeInaccessibleTypes(typeConfig.types)
       });
     } else {
       // Keep the type as is.
@@ -79,6 +91,10 @@ export function removeInaccessibleElements(
     }
 
     return newFieldMapConfig;
+  }
+
+  function removeInaccessibleTypes<T extends GraphQLNamedType>(types: T[]) {
+    return types.filter(type => !typesToRemove.has(type))
   }
 }
 
