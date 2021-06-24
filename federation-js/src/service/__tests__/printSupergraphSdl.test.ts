@@ -268,7 +268,7 @@ describe('printSupergraphSdl', () => {
         birthDate(locale: String): String @join__field(graph: ACCOUNTS) @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         goodAddress: Boolean @join__field(graph: REVIEWS, requires: \\"metadata{address}\\")
         goodDescription: Boolean @join__field(graph: INVENTORY, requires: \\"metadata{description}\\")
-        id: ID! @join__field(graph: ACCOUNTS)
+        id: ID! @join__field(graph: ACCOUNTS) @inaccessible @tag(name: \\"accounts\\") @tag(name: \\"reviews\\")
         metadata: [UserMetadata] @join__field(graph: ACCOUNTS)
         name: Name @join__field(graph: ACCOUNTS)
         numberOfReviews: Int! @join__field(graph: REVIEWS)

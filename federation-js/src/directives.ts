@@ -78,11 +78,16 @@ export const federationDirectives = [
   ExternalDirective,
   RequiresDirective,
   ProvidesDirective,
-  InaccessibleDirective,
-  TagDirective,
 ];
 
-export default federationDirectives;
+export const appliedDirectives = [InaccessibleDirective, TagDirective];
+
+const apolloTypeSystemDirectives = [
+  ...federationDirectives,
+  ...appliedDirectives,
+];
+
+export default apolloTypeSystemDirectives;
 
 export type ASTNodeWithDirectives =
   | FieldDefinitionNode

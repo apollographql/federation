@@ -21,7 +21,7 @@ import {
   DirectiveNode,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
-import federationDirectives from '../directives';
+import apolloTypeSystemDirectives from '../directives';
 import {
   findDirectivesOnNode,
   isStringValueNode,
@@ -29,13 +29,13 @@ import {
   mapFieldNamesToServiceName,
   stripExternalFieldsFromTypeDefs,
   typeNodesAreEquivalent,
-  isFederationDirective,
   executableDirectiveLocations,
   stripTypeSystemDirectivesFromTypeDefs,
   defaultRootOperationNameLookup,
   getFederationMetadata,
   CompositionResult,
-  isDirectiveDefinitionNode
+  isDirectiveDefinitionNode,
+  isApolloTypeSystemDirective
 } from './utils';
 import {
   ServiceDefinition,
@@ -341,6 +341,31 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     }
   }
 
+  // We need to capture applied directives from the external fields as well,
+  // which are stripped and excluded from the main loop over the typeDefs
+  for (const { parentTypeName, field } of externalFields) {
+    const tagDirectivesOnField = findDirectivesOnNode(field, 'tag');
+    const inaccessibleDirectivesOnField = findDirectivesOnNode(field, 'inaccessible');
+
+    const appliedDirectivesOnField = [
+      ...tagDirectivesOnField,
+      ...inaccessibleDirectivesOnField,
+    ];
+    if (appliedDirectivesOnField.length > 0) {
+      const fieldToDirectivesMap = mapGetOrSet(
+        typeNameToFieldDirectivesMap,
+        parentTypeName,
+        new Map(),
+      );
+      const directives = mapGetOrSet(
+        fieldToDirectivesMap,
+        field.name.value,
+        [],
+      );
+      directives.push(...appliedDirectivesOnField);
+    }
+  }
+
   // Since all Query/Mutation definitions in service schemas are treated as
   // extensions, we don't have a Query or Mutation DEFINITION in the definitions
   // list. Without a Query/Mutation definition, we can't _extend_ the type.
@@ -377,7 +402,10 @@ export function buildSchemaFromDefinitionsAndExtensions({
 
   let schema = new GraphQLSchema({
     query: undefined,
-    directives: [...specifiedDirectives, ...federationDirectives],
+    directives: [
+      ...specifiedDirectives,
+      ...apolloTypeSystemDirectives,
+    ],
   });
 
   // This interface and predicate is a TS / graphql-js workaround for now while
@@ -457,11 +485,11 @@ export function buildSchemaFromDefinitionsAndExtensions({
     });
   } catch {}
 
-  // Remove federation directives from the final schema
+  // Remove apollo type system directives from the final schema
   schema = new GraphQLSchema({
     ...schema.toConfig(),
     directives: [
-      ...schema.getDirectives().filter(x => !isFederationDirective(x)),
+      ...schema.getDirectives().filter((x) => !isApolloTypeSystemDirective(x)),
     ],
   });
 
@@ -641,11 +669,21 @@ export function addFederationMetadataToSchemaNodes({
     ] of fieldsToDirectivesMap.entries()) {
       const field = type.getFields()[fieldName];
 
+      const seenNonRepeatableDirectives: Record<string, boolean> = {};
+      const filteredDirectives = appliedDirectives.filter(directive => {
+        const name = directive.name.value;
+        const matchingDirective = apolloTypeSystemDirectives.find(d => d.name === name);
+        if (matchingDirective?.isRepeatable) return true;
+        if (seenNonRepeatableDirectives[name]) return false;
+        seenNonRepeatableDirectives[name] = true;
+        return true;
+      });
+
       // TODO: probably don't need to recreate these objects
       const existingMetadata = getFederationMetadata(field);
       const fieldFederationMetadata: FederationField = {
         ...existingMetadata,
-        appliedDirectives,
+        appliedDirectives: filteredDirectives,
       };
 
       field.extensions = {
