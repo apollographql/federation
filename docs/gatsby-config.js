@@ -37,7 +37,7 @@ module.exports = {
             'enterprise-guide/federation-case-studies',
             'enterprise-guide/additional-resources',
           ],
-          Debugging: [
+          'Debugging & Metrics': [
             'errors', 
             'metrics',
             'opentelemetry',
