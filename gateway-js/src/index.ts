@@ -119,6 +119,7 @@ export const GCS_RETRY_COUNT = 5;
 
 export const HEALTH_CHECK_QUERY =
   'query __ApolloServiceHealthCheck__ { __typename }';
+export const HEALTH_CHECK_QUERY_OPERATION_NAME = 'ApolloServiceHealthCheck';
 export const SERVICE_DEFINITION_QUERY =
   'query __ApolloGetServiceDefinition__ { _service { sdl } }';
 
@@ -667,7 +668,7 @@ export class ApolloGateway implements GraphQLService {
     return Promise.all(
       Object.entries(serviceMap).map(([name, { dataSource }]) =>
         dataSource
-          .process({ request: { query: HEALTH_CHECK_QUERY }, context: {} })
+          .process({ request: { query: HEALTH_CHECK_QUERY, operationName: HEALTH_CHECK_QUERY_OPERATION_NAME }, context: {} })
           .then((response) => ({ name, response }))
           .catch((e) => {
             throw new Error(`[${name}]: ${e.message}`);
