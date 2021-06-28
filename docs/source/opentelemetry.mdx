@@ -21,7 +21,22 @@ Additionally, the `@apollo/gateway` library provides built-in OpenTelemetry inst
 
 ### 1. Install required libraries
 
-To use OpenTelemetry in your application, we recommend installing _at least_ the following `@opentelemetry` Node.js libraries (you can install additional instrumentation libraries as desired):
+To use OpenTelemetry in your application, you need to install a baseline set of `@opentelemetry` Node.js libraries. This set differs slightly depending on whether you're setting up your federated gateway or a subgraph/monolith.
+
+<ExpansionPanel title="Gateway libraries">
+
+```bash
+npm install \
+  @opentelemetry/api \
+  @opentelemetry/node@0.22 \
+  @opentelemetry/core@0.22 \
+  @opentelemetry/instrumentation-http@0.22 \
+  @opentelemetry/instrumentation-express@0.22
+```
+
+</ExpansionPanel>
+
+<ExpansionPanel title="Subgraph/monolith libraries">
 
 ```bash
 npm install \
@@ -33,32 +48,36 @@ npm install \
   @opentelemetry/instrumentation-graphql@0.22
 ```
 
-> As shown, most `@opentelemetry` libraries should maintain a consistent version number to prevent dependency conflicts. As of this article's most recent update, the latest version is `0.22`. 
+</ExpansionPanel>
+
+**Most importantly, subgraphs and monoliths _must_ install `@opentelemetry/instrumentation-graphql`, and gateways _must not_ install it.**
+
+As shown, most `@opentelemetry` libraries should maintain a consistent version number to prevent dependency conflicts. As of this article's most recent update, the latest version is `0.22`. 
 
 ### 2. Configure instrumentation
 
 Next, update your application to configure your OpenTelemetry instrumentation _as early as possible in your app's execution_. This _must_ occur before you even import `apollo-server`, `express`, or `http`. Otherwise, your trace data will be incomplete.
 
-**We recommend putting this configuration in its own file**, which you import at the very top of `index.js`.
-
-> Note that for now, this code does _not_ push trace data to an external system. Instead, it prints that data to the console for debugging purposes.
+**We recommend putting this configuration in its own file**, which you import at the very top of `index.js`. A sample file is provided below (note the lines that should either be deleted or uncommented).
 
 ```js:title=open-telemetry.js
 // Import required symbols
 const { HttpInstrumentation } = require ('@opentelemetry/instrumentation-http');
 const { ExpressInstrumentation } = require ('@opentelemetry/instrumentation-express');
-const { GraphQLInstrumentation } = require ('@opentelemetry/instrumentation-graphql');
 const { registerInstrumentations } = require('@opentelemetry/instrumentation');
 const { NodeTracerProvider } = require("@opentelemetry/node");
 const { SimpleSpanProcessor, ConsoleSpanExporter } = require ("@opentelemetry/tracing");
 const { Resource } = require('@opentelemetry/resources');
+// **DELETE IF SETTING UP A GATEWAY, UNCOMMENT OTHERWISE**
+// const { GraphQLInstrumentation } = require ('@opentelemetry/instrumentation-graphql');
 
 // Register server-related instrumentation
 registerInstrumentations({
   instrumentations: [
     new HttpInstrumentation(),
     new ExpressInstrumentation(),
-    new GraphQLInstrumentation()
+    // **DELETE IF SETTING UP A GATEWAY, UNCOMMENT OTHERWISE**
+    //new GraphQLInstrumentation()
   ]
 });
 
@@ -66,6 +85,7 @@ registerInstrumentations({
 // (in this case, we're implementing a federated gateway)
 const provider = new NodeTracerProvider({
   resource: Resource.default().merge(new Resource({
+    // Replace with any string to identify this service in your system
     "service.name": "gateway",
   })),
 });
@@ -79,6 +99,9 @@ provider.addSpanProcessor(
 // Register the provider to begin tracing
 provider.register();
 ```
+
+For now, this code does _not_ push trace data to an external system. Instead, it prints that data to the console for debugging purposes.
+
 
 After you make these changes to your app, start it up locally. It should begin printing trace data similar to the following:
 
@@ -183,13 +206,11 @@ To prepare for production, we probably at least want to conditionally set the `u
 
 You can learn more about the settings available to these and other OpenTelemetry objects in the [getting started guide](https://github.com/open-telemetry/opentelemetry-js/tree/main/getting-started).
 
-## Runnable example
-
-For a complete example of a federated graph that enables OpenTelemetry for the gateway _and_ each subgraph, [see this GitHub repo](https://github.com/apollographql/apollo-server-opentelemetry).
-
 ## GraphQL-specific spans
 
-The `@opentelemetry/instrumentation-graphql` library emits the following spans as part of [OpenTelemetry traces](https://opentelemetry.io/docs/concepts/data-sources/#traces):
+The `@opentelemetry/instrumentation-graphql` library enables subgraphs and monoliths to emit the following spans as part of [OpenTelemetry traces](https://opentelemetry.io/docs/concepts/data-sources/#traces):
+
+> **Reminder:** Federated gateways _must not_ install the `@opentelemetry/instrumentation-graphql` library, so these spans are _not_ included in its traces.
 
 | Name | Description |
 |------|-------------|
@@ -198,7 +219,7 @@ The `@opentelemetry/instrumentation-graphql` library emits the following spans a
 | `graphql.execute` | The total amount of time the server spent executing an operation. |
 | `graphql.resolve` | The amount of time the gateway spent resolving a particular field. |
 
-> Note that not every GraphQL span appears in every operation trace. This is because Apollo server can _skip_ parsing or validating an operation string if that string is available in the operation cache.
+Note that not every GraphQL span appears in every operation trace. This is because Apollo server can _skip_ parsing or validating an operation string if that string is available in the operation cache.
 
 ## Gateway-specific spans
 
