@@ -54,6 +54,10 @@ npm install \
 
 As shown, most `@opentelemetry` libraries should maintain a consistent version number to prevent dependency conflicts. As of this article's most recent update, the latest version is `0.22`. 
 
+#### Update `@apollo/gateway`
+
+If you're using OpenTelemetry in your federated gateway, also update the `@apollo/gateway` library to version `0.31.0` or later to add support for [gateway-specific spans](#gateway-specific-spans).
+
 ### 2. Configure instrumentation
 
 Next, update your application to configure your OpenTelemetry instrumentation _as early as possible in your app's execution_. This _must_ occur before you even import `apollo-server`, `express`, or `http`. Otherwise, your trace data will be incomplete.
