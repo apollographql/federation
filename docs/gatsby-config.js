@@ -37,7 +37,11 @@ module.exports = {
             'enterprise-guide/federation-case-studies',
             'enterprise-guide/additional-resources',
           ],
-          Debugging: ['errors', 'metrics'],
+          'Debugging & Metrics': [
+            'errors', 
+            'metrics',
+            'opentelemetry',
+          ],
           'Third-Party Support': ['other-servers', 'federation-spec'],
           'API Reference': ['api/apollo-federation', 'api/apollo-gateway'],
         },
