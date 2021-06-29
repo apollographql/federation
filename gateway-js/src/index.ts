@@ -119,7 +119,7 @@ export const GCS_RETRY_COUNT = 5;
 
 export const HEALTH_CHECK_QUERY =
   'query __ApolloServiceHealthCheck__ { __typename }';
-export const HEALTH_CHECK_QUERY_OPERATION_NAME = 'ApolloServiceHealthCheck';
+export const HEALTH_CHECK_QUERY_OPERATION_NAME = '__ApolloServiceHealthCheck__';
 export const SERVICE_DEFINITION_QUERY =
   'query __ApolloGetServiceDefinition__ { _service { sdl } }';
 
