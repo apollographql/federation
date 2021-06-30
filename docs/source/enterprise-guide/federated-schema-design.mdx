@@ -474,7 +474,7 @@ union ProductResult = Product | ProductRemovedError
 
 extend type User @key(fields: "id") {
   id: ID! @external
-  suggestedProducts: [Product]
+  suggestedProducts: [ProductResult]
 }
 
 extend type Query {
