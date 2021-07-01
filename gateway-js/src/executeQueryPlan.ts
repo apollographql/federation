@@ -28,11 +28,8 @@ import {
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
-import { default as opentelemetry, SpanStatusCode } from "@opentelemetry/api";
-import { OpenTelemetrySpanNames } from "./utilities/opentelemetry";
-
-const { name, version } = require('../package.json');
-const tracer = opentelemetry.trace.getTracer(`${name}/${version}`);
+import { SpanStatusCode } from "@opentelemetry/api";
+import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;

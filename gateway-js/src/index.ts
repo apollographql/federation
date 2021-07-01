@@ -68,12 +68,8 @@ import {
 import { loadSupergraphSdlFromStorage } from './loadSupergraphSdlFromStorage';
 import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorage';
 import { buildComposedSchema } from '@apollo/query-planner';
-import { default as opentelemetry, SpanStatusCode } from "@opentelemetry/api";
-import { OpenTelemetrySpanNames } from "./utilities/opentelemetry";
-
-const { name, version } = require("../package.json");
-const packageIdentifier = `${name}/${version}`;
-const tracer = opentelemetry.trace.getTracer(packageIdentifier);
+import { SpanStatusCode } from "@opentelemetry/api";
+import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -89,6 +85,7 @@ type WarnedStates = {
 };
 
 export function getDefaultFetcher() {
+  const { name, version } = require('../package.json');
   return fetcher.defaults({
     cacheManager: new HttpRequestCache(),
     // All headers should be lower-cased here, as `make-fetch-happen`
@@ -97,7 +94,7 @@ export function getDefaultFetcher() {
     headers: {
       'apollographql-client-name': name,
       'apollographql-client-version': version,
-      'user-agent': packageIdentifier,
+      'user-agent': `${name}/${version}`,
       'content-type': 'application/json',
     },
     retry: {
