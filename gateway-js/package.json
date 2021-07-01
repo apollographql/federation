@@ -27,6 +27,7 @@
   "dependencies": {
     "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner": "file:../query-planner-js",
+    "@opentelemetry/api": "^1.0.1",
     "@types/node-fetch": "2.5.10",
     "apollo-graphql": "^0.9.3",
     "apollo-reporting-protobuf": "^0.8.0 || ^3.0.0-preview.2",
@@ -40,7 +41,6 @@
     "pretty-format": "^26.0.0"
   },
   "peerDependencies": {
-    "@opentelemetry/api": "^1.0.0",
     "graphql": "^14.5.0 || ^15.0.0"
   }
 }
