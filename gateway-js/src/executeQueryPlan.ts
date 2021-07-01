@@ -29,9 +29,10 @@ import {
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { default as opentelemetry, SpanStatusCode } from "@opentelemetry/api";
-import {OpenTelemetrySpanNames} from "./utilities/opentelemetry";
+import { OpenTelemetrySpanNames } from "./utilities/opentelemetry";
 
-const tracer = opentelemetry.trace.getTracer('default');
+const { name, version } = require('../package.json');
+const tracer = opentelemetry.trace.getTracer(`${name}/${version}`);
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -73,11 +74,11 @@ export async function executeQueryPlan<TContext>(
 
       if (queryPlan.node) {
         const traceNode = await executeNode(
-            context,
-            queryPlan.node,
-            data!,
-            [],
-            captureTraces,
+          context,
+          queryPlan.node,
+          data!,
+          [],
+          captureTraces,
         );
         if (captureTraces) {
           requestContext.metrics!.queryPlanTrace = traceNode;
