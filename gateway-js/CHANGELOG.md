@@ -6,13 +6,17 @@
 
 - _Nothing yet. Stay tuned!_
 
+## v0.32.0
+
+- This release updates dependencies so that it will support the final release of Apollo Server 3 when it is released. (Since 0.29, it has supported preview releases of Apollo Server 3.) There are no code changes.
+
 ## v0.31.1
 
 - Move otel dependencies from `peerDependencies` to actual `dependencies`. Also rename otel trace labels to `@apollo/gateway/0.31.0` (or whatever the current version installed happens to be) [PR #848](https://github.com/apollographql/federation/pull/848)
 
 ## v0.31.0
 
-- OpenTelemetry intrumentation. [PR #836](https://github.com/apollographql/federation/pull/836)
+- OpenTelemetry instrumentation. [PR #836](https://github.com/apollographql/federation/pull/836)
 
 ## v0.30.0
 
