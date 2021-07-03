@@ -39,7 +39,7 @@
   "devDependencies": {
     "@graphql-codegen/cli": "1.21.6",
     "@graphql-codegen/typescript": "1.22.4",
-    "@graphql-codegen/typescript-operations": "1.18.1",
+    "@graphql-codegen/typescript-operations": "1.18.3",
     "@rollup/plugin-commonjs": "19.0.0",
     "@rollup/plugin-node-resolve": "13.0.0",
     "@types/bunyan": "1.8.6",
