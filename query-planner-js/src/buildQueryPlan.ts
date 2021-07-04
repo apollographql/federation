@@ -184,12 +184,15 @@ function executionNodeForGroup(
     operation: stripIgnoredCharacters(print(operation)),
   };
 
+  const rootFieldNames = requires && rootEntityFieldNames(selectionSet);
+
   const node: PlanNode =
     mergeAt && mergeAt.length > 0
       ? {
           kind: 'Flatten',
           path: mergeAt,
           node: fetchNode,
+          rootEntityFieldNames: rootFieldNames,
         }
       : fetchNode;
 
@@ -304,6 +307,23 @@ function operationForEntitiesFetch({
       ...internalFragments,
     ],
   };
+}
+
+function rootEntityFieldNames(selectionSet: SelectionSetNode) {
+  const node = selectionSet.selections[0];
+
+  if (
+    node.kind === "InlineFragment"
+    && node.selectionSet.kind === "SelectionSet"
+  ) {
+    const fieldNames = node.selectionSet.selections.map((selection) => {
+      return selection.kind === "Field" ? selection.name.value : undefined;
+    });
+
+    return fieldNames.filter((value) => value) as string[];
+  }
+
+  return undefined;
 }
 
 // Wraps the given nodes in a ParallelNode or SequenceNode, unless there's only

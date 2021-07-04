@@ -36,6 +36,7 @@ export interface FlattenNode {
   kind: 'Flatten';
   path: ResponsePath;
   node: PlanNode;
+  rootEntityFieldNames?: string[];
 }
 
 /**
