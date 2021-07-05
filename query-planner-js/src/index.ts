@@ -14,6 +14,8 @@ import {
 import { GraphQLSchema } from 'graphql';
 export { BuildQueryPlanOptions, buildOperationContext };
 
+export * from './buildPlan';
+
 // There isn't much in this class yet, and I didn't want to make too many
 // changes at once, but since we were already storing a pointer to a
 // Rust query planner instance in the gateway, I think it makes sense to retain
