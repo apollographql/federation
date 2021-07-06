@@ -29,7 +29,7 @@ import {
   DirectiveNode,
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
-import { assert, isNotNullOrUndefined } from '../utilities';
+import { assert } from '../utilities';
 import { CoreDirective } from '../coreSpec';
 import { getJoinDefinitions } from '../joinSpec';
 import { printFieldSet } from '../composition/utils';
@@ -177,16 +177,15 @@ function printCoreDirectives(schema: GraphQLSchema) {
   const appliedDirectivesToInclude = schemaDirectiveNames.filter((name) =>
     appliedDirectiveNames.includes(name),
   );
+  const appliedDirectiveSpecUrls = appliedDirectivesToInclude.map(
+    (name) => `https://specs.apollo.dev/${name}/v0.1`,
+  );
 
   return [
     'https://specs.apollo.dev/core/v0.1',
     'https://specs.apollo.dev/join/v0.1',
-    ...appliedDirectivesToInclude.map(
-      (name) => `https://specs.apollo.dev/${name}/v0.1`,
-    ),
-  ]
-    .filter(isNotNullOrUndefined)
-    .map((feature) => `\n  @core(feature: ${printStringLiteral(feature)})`);
+    ...appliedDirectiveSpecUrls,
+  ].map((feature) => `\n  @core(feature: ${printStringLiteral(feature)})`);
 }
 
 export function printType(

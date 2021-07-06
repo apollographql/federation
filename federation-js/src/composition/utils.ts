@@ -43,7 +43,8 @@ import {
   ServiceDefinition,
 } from './types';
 import apolloTypeSystemDirectives, {
-  ASTNodeWithDirectives, federationDirectives,
+  ASTNodeWithDirectives,
+  federationDirectives,
 } from '../directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
 
