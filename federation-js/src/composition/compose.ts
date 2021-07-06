@@ -21,7 +21,7 @@ import {
   DirectiveNode,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
-import apolloTypeSystemDirectives from '../directives';
+import apolloTypeSystemDirectives, { appliedDirectives, federationDirectives } from '../directives';
 import {
   findDirectivesOnNode,
   isStringValueNode,
@@ -35,7 +35,7 @@ import {
   getFederationMetadata,
   CompositionResult,
   isDirectiveDefinitionNode,
-  isApolloTypeSystemDirective
+  isFederationDirective
 } from './utils';
 import {
   ServiceDefinition,
@@ -130,6 +130,11 @@ type FieldDirectivesMap = Map<string, DirectiveNode[]>;
 type TypeNameToFieldDirectivesMap = Map<string, FieldDirectivesMap>;
 
 /**
+ * A set of directive names that have been used at least once
+ */
+type AppliedDirectiveUsages = Set<string>;
+
+/**
  * Loop over each service and process its typeDefs (`definitions`)
  * - build up typeToServiceMap
  * - push individual definitions onto either typeDefinitionsMap or typeExtensionsMap
@@ -143,6 +148,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
   const keyDirectivesMap: KeyDirectivesMap = Object.create(null);
   const valueTypes: ValueTypes = new Set();
   const typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap = new Map();
+  const appliedDirectiveUsages: AppliedDirectiveUsages = new Set();
 
   for (const { typeDefs, name: serviceName } of serviceList) {
     // Build a new SDL with @external fields removed, as well as information about
@@ -190,19 +196,24 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
         for (const field of definition.fields ?? []) {
           const fieldName = field.name.value;
 
-          const tagAndInaccessibleDirectives = [
-            ...findDirectivesOnNode(field, 'tag'),
-            ...findDirectivesOnNode(field, 'inaccessible'),
-          ];
+          const tagUsages = findDirectivesOnNode(field, 'tag');
+          const inaccessibleUsages = findDirectivesOnNode(
+            field,
+            'inaccessible',
+          );
 
-          if (tagAndInaccessibleDirectives.length > 0) {
+          if (tagUsages.length > 0) appliedDirectiveUsages.add('tag');
+          if (inaccessibleUsages.length > 0)
+            appliedDirectiveUsages.add('inaccessible');
+
+          if (tagUsages.length > 0 || inaccessibleUsages.length > 0) {
             const fieldToDirectivesMap = mapGetOrSet(
               typeNameToFieldDirectivesMap,
               typeName,
               new Map(),
             );
             const directives = mapGetOrSet(fieldToDirectivesMap, fieldName, []);
-            directives.push(...tagAndInaccessibleDirectives);
+            directives.push(...[...tagUsages, ...inaccessibleUsages]);
           }
         }
       }
@@ -386,6 +397,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     keyDirectivesMap,
     valueTypes,
     typeNameToFieldDirectivesMap,
+    appliedDirectiveUsages,
   };
 }
 
@@ -393,18 +405,27 @@ export function buildSchemaFromDefinitionsAndExtensions({
   typeDefinitionsMap,
   typeExtensionsMap,
   directiveDefinitionsMap,
+  appliedDirectiveUsages,
 }: {
   typeDefinitionsMap: TypeDefinitionsMap;
   typeExtensionsMap: TypeExtensionsMap;
   directiveDefinitionsMap: DirectiveDefinitionsMap;
+  appliedDirectiveUsages: AppliedDirectiveUsages;
 }) {
   let errors: GraphQLError[] | undefined = undefined;
+
+  // We only want to include the definitions of applied directives (currently
+  // just @tag and @include) if there are usages.
+  const appliedDirectivesToInclude = appliedDirectives.filter((directive) =>
+    appliedDirectiveUsages.has(directive.name),
+  );
 
   let schema = new GraphQLSchema({
     query: undefined,
     directives: [
       ...specifiedDirectives,
-      ...apolloTypeSystemDirectives,
+      ...federationDirectives,
+      ...appliedDirectivesToInclude,
     ],
   });
 
@@ -425,23 +446,19 @@ export function buildSchemaFromDefinitionsAndExtensions({
   const definitionsDocument: DocumentNode = {
     kind: Kind.DOCUMENT,
     definitions: [
-      ...Object.values(typeDefinitionsMap).flatMap(typeDefinitions => {
+      ...Object.values(typeDefinitionsMap).flatMap((typeDefinitions) => {
         // See if any of our Objects or Interfaces implement any interfaces at all.
         // If not, we can return early.
         if (!typeDefinitions.some(nodeHasInterfaces)) return typeDefinitions;
 
-        const uniqueInterfaces: Map<
-          string,
-          NamedTypeNode
-        > = (typeDefinitions as HasInterfaces[]).reduce(
-          (map, objectTypeDef) => {
-            objectTypeDef.interfaces?.forEach((iface) =>
-              map.set(iface.name.value, iface),
-            );
-            return map;
-          },
-          new Map(),
-        );
+        const uniqueInterfaces: Map<string, NamedTypeNode> = (
+          typeDefinitions as HasInterfaces[]
+        ).reduce((map, objectTypeDef) => {
+          objectTypeDef.interfaces?.forEach((iface) =>
+            map.set(iface.name.value, iface),
+          );
+          return map;
+        }, new Map());
 
         // No interfaces, no aggregation - just return what we got.
         if (uniqueInterfaces.size === 0) return typeDefinitions;
@@ -455,10 +472,9 @@ export function buildSchemaFromDefinitionsAndExtensions({
             interfaces: Array.from(uniqueInterfaces.values()),
           },
         ];
-
       }),
       ...Object.values(directiveDefinitionsMap).map(
-        definitions => Object.values(definitions)[0],
+        (definitions) => Object.values(definitions)[0],
       ),
     ],
   };
@@ -489,7 +505,7 @@ export function buildSchemaFromDefinitionsAndExtensions({
   schema = new GraphQLSchema({
     ...schema.toConfig(),
     directives: [
-      ...schema.getDirectives().filter((x) => !isApolloTypeSystemDirective(x)),
+      ...schema.getDirectives().filter((x) => !isFederationDirective(x)),
     ],
   });
 
@@ -705,12 +721,14 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     keyDirectivesMap,
     valueTypes,
     typeNameToFieldDirectivesMap,
+    appliedDirectiveUsages,
   } = buildMapsFromServiceList(services);
 
   let { schema, errors } = buildSchemaFromDefinitionsAndExtensions({
     typeDefinitionsMap,
     typeExtensionsMap,
     directiveDefinitionsMap,
+    appliedDirectiveUsages,
   });
 
   // TODO: We should fix this to take non-default operation root types in

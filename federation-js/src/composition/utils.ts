@@ -43,7 +43,7 @@ import {
   ServiceDefinition,
 } from './types';
 import apolloTypeSystemDirectives, {
-  ASTNodeWithDirectives,
+  ASTNodeWithDirectives, federationDirectives,
 } from '../directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
 
@@ -631,6 +631,10 @@ export const executableDirectiveLocations = [
 
 export function isApolloTypeSystemDirective(directive: GraphQLDirective): boolean {
   return apolloTypeSystemDirectives.some(({ name }) => name === directive.name);
+}
+
+export function isFederationDirective(directive: GraphQLDirective): boolean {
+  return federationDirectives.some(({ name }) => name === directive.name);
 }
 
 export const reservedRootFields = ['_service', '_entities'];
