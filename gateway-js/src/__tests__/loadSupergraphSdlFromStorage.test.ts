@@ -37,7 +37,9 @@ describe('loadSupergraphSdlFromStorage', () => {
         "id": "originalId-1234",
         "supergraphSdl": "schema
         @core(feature: \\"https://specs.apollo.dev/core/v0.1\\"),
-        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\")
+        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\"),
+        @core(feature: \\"https://specs.apollo.dev/inaccessible/v0.1\\"),
+        @core(feature: \\"https://specs.apollo.dev/tag/v0.1\\")
       {
         query: Query
         mutation: Mutation
@@ -53,11 +55,11 @@ describe('loadSupergraphSdlFromStorage', () => {
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
-      directive @tag(name: String!) repeatable on FIELD_DEFINITION
-
       directive @inaccessible on FIELD_DEFINITION
 
       directive @stream on FIELD
+
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION
 
       directive @transform(from: String!) on FIELD
 
