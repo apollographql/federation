@@ -6,7 +6,7 @@
 
 ## v0.26.0
 
-- Capture and propagate `@tag` and `@inaccessible` directives during composition from subgraph to supergraph SDL. This blocks upcoming work for schema construction and enables schema filtering. [PR #756](https://github.com/apollographql/federation/pull/756)
+- Capture and propagate `@tag` and `@inaccessible` directives during composition from subgraph to supergraph SDL. This unblocks upcoming work for schema construction, schema filtering (API schemas), and future Studio features. [PR #756](https://github.com/apollographql/federation/pull/756)
 
 ## v0.25.2
 
