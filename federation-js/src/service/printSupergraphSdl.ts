@@ -33,7 +33,7 @@ import { assert } from '../utilities';
 import { CoreDirective } from '../coreSpec';
 import { getJoinDefinitions } from '../joinSpec';
 import { printFieldSet } from '../composition/utils';
-import { InaccessibleDirective, TagDirective } from '../directives';
+import { appliedDirectives } from '../directives';
 
 type Options = {
   /**
@@ -86,8 +86,6 @@ export function printSupergraphSdl(
       JoinTypeDirective,
       JoinOwnerDirective,
       JoinGraphDirective,
-      TagDirective,
-      InaccessibleDirective,
       ...config.directives,
     ],
     types: [FieldSetScalar, JoinGraphEnum, ...config.types],
@@ -168,15 +166,25 @@ function printSchemaDefinition(schema: GraphQLSchema): string {
   return (
     'schema' +
     // Core change: print @core directive usages on schema node
-    printCoreDirectives() +
+    printCoreDirectives(schema) +
     `\n{\n${operationTypes.join('\n')}\n}`
   );
 }
 
-function printCoreDirectives() {
+function printCoreDirectives(schema: GraphQLSchema) {
+  const appliedDirectiveNames = appliedDirectives.map(({name}) => name);
+  const schemaDirectiveNames = schema.getDirectives().map(({ name }) => name);
+  const appliedDirectivesToInclude = schemaDirectiveNames.filter((name) =>
+    appliedDirectiveNames.includes(name),
+  );
+  const appliedDirectiveSpecUrls = appliedDirectivesToInclude.map(
+    (name) => `https://specs.apollo.dev/${name}/v0.1`,
+  );
+
   return [
     'https://specs.apollo.dev/core/v0.1',
     'https://specs.apollo.dev/join/v0.1',
+    ...appliedDirectiveSpecUrls,
   ].map((feature) => `\n  @core(feature: ${printStringLiteral(feature)})`);
 }
 
