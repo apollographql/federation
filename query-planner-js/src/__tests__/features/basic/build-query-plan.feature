@@ -666,6 +666,28 @@ Scenario: when requesting a relationship field with extension subfields from a d
     }
     """
 
+Scenario: for abstract types, it shouldn't add not owning types on interface unpacking
+  Given query
+    """
+    query {
+      vehicle(id: "xc60") {
+        ...on Vehicle { id }
+      }
+    }
+    """
+  Then query plan
+    """
+    {
+      "kind": "QueryPlan",
+      "node": {
+        "kind": "Fetch",
+        "serviceName": "product",
+        "variableUsages": [],
+        "operation": "{vehicle(id:\"xc60\"){__typename ...on Car{id}...on Van{id}...on Bicycle{id}}}"
+      }
+    }
+    """
+
 Scenario: for abstract types, it should add __typename when fetching objects of an interface type from a service
   Given query
     """
