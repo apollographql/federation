@@ -64,6 +64,7 @@ import {
   SupergraphSdlUpdate,
   CompositionUpdate,
   isPrecomposedManagedConfig,
+  isLegacyManagedConfig,
 } from './config';
 import { loadSupergraphSdlFromStorage } from './loadSupergraphSdlFromStorage';
 import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorage';
@@ -203,7 +204,7 @@ export class ApolloGateway implements GraphQLService {
   // Configure the endpoint by which gateway will access its precomposed schema.
   // For now, `null` is default and means to continue using the legacy managed mode.
   // TODO(trevor:cloudconfig): `null` should be disallowed in the future.
-  private experimental_schemaConfigDeliveryEndpoint: string | null;
+  private schemaConfigDeliveryEndpoint: string | null;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -230,17 +231,21 @@ export class ApolloGateway implements GraphQLService {
 
     this.experimental_pollInterval = config?.experimental_pollInterval;
 
-    // Do not use this unless advised by Apollo staff to do so
-    // 1. If config is explicitly set to a `string` or `null` in code, use it
-    // 2. Else, if the env var is set, use that
-    // 3. Else, default to `null`
-    this.experimental_schemaConfigDeliveryEndpoint = isPrecomposedManagedConfig(
-      this.config,
-    )
-      ? this.config.experimental_schemaConfigDeliveryEndpoint
-      : this.config.experimental_schemaConfigDeliveryEndpoint === null
-      ? null
-      : process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT ?? null;
+    // 1. If config is set to a `string`, use it
+    // 2. If config is `undefined`, use the default uplink URL
+    // 3. If config is explicitly set to `null`, fallback to GCS
+    // 4. If the env var is set, use that
+    this.schemaConfigDeliveryEndpoint = 'https://uplink.api.apollographql.com/';
+    if (isPrecomposedManagedConfig(this.config)) {
+      this.schemaConfigDeliveryEndpoint =
+        this.config.schemaConfigDeliveryEndpoint ??
+        this.schemaConfigDeliveryEndpoint;
+    } else if (isLegacyManagedConfig(this.config)) {
+      this.schemaConfigDeliveryEndpoint = null;
+    } else {
+      const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
+      if (envEndpoint) this.schemaConfigDeliveryEndpoint = envEndpoint;
+    }
 
     if (isManuallyManagedConfig(this.config)) {
       // Use the provided updater function if provided by the user, else default
@@ -912,7 +917,7 @@ export class ApolloGateway implements GraphQLService {
 
     // TODO(trevor:cloudconfig): This condition goes away completely
     if (
-      !this.experimental_schemaConfigDeliveryEndpoint &&
+      !this.schemaConfigDeliveryEndpoint &&
       !isPrecomposedManagedConfig(config)
     ) {
       return getServiceDefinitionsFromStorage({
@@ -926,7 +931,7 @@ export class ApolloGateway implements GraphQLService {
     return loadSupergraphSdlFromStorage({
       graphRef: this.apolloConfig!.graphRef!,
       apiKey: this.apolloConfig!.key!,
-      endpoint: this.experimental_schemaConfigDeliveryEndpoint!,
+      endpoint: this.schemaConfigDeliveryEndpoint!,
       fetcher: this.fetcher,
     });
   }
