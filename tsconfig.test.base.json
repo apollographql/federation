@@ -2,6 +2,6 @@
   "extends": "./tsconfig.base",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["node", "jest", "apollo-server-env/dist/global"]
+    "types": ["node", "jest"]
   }
 }

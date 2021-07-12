@@ -79,8 +79,6 @@ const gateway = new ApolloGateway({
 
 const server = new ApolloServer({
   gateway,
-  // Subscriptions are not currently supported in Apollo Federation
-  subscriptions: false
 });
 
 server.listen().then(({ url }) => {
@@ -383,8 +381,6 @@ const gateway = new ApolloGateway({
 
 const server = new ApolloServer({
   gateway,
-  // Subscriptions are not currently supported in Apollo Federation
-  subscriptions: false
 });
 
 server.listen().then(({ url }) => {

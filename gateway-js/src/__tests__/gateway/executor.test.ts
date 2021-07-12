@@ -100,7 +100,6 @@ describe('ApolloGateway executor', () => {
 
     const server = new ApolloServer({
       gateway,
-      subscriptions: false,
       logger,
     });
 

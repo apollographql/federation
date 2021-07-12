@@ -8,8 +8,6 @@ async function getSupergraphSdlGatewayServer() {
     gateway: new ApolloGateway({
       supergraphSdl: getTestingSupergraphSdl(),
     }),
-    subscriptions: false,
-    engine: false,
   });
 
   await server.listen({ port: 0 });
