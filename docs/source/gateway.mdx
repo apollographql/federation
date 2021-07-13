@@ -38,9 +38,6 @@ const gateway = new ApolloGateway({
 // Pass the ApolloGateway to the ApolloServer constructor
 const server = new ApolloServer({
   gateway,
-
-  // Disable subscriptions (not currently supported with ApolloGateway)
-  subscriptions: false,
 });
 
 server.listen().then(({ url }) => {
@@ -104,9 +101,6 @@ const gateway = new ApolloGateway({
 
 const server = new ApolloServer({
   gateway,
-
-  // Disable subscriptions (not currently supported with ApolloGateway)
-  subscriptions: false,
 
   context: ({ req }) => {
     // Get the user token from the headers
@@ -187,7 +181,6 @@ const gateway = new ApolloGateway({
 
 const server = new ApolloServer({
   gateway,
-  subscriptions: false, // Must be disabled with the gateway; see above.
   context() {
     return { serverIds: [] };
   },
