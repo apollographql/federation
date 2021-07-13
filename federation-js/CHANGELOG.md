@@ -4,6 +4,8 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- Skip missing types while iterating over field directive usages. It's possible to capture directive usages on fields whose types don't actually exist in the schema (due to invalid composition). See PR for more details. [PR #868](https://github.com/apollographql/federation/pull/868)
+
 ## v0.26.0
 
 - Capture and propagate `@tag` and `@inaccessible` directives during composition from subgraph to supergraph SDL. This unblocks upcoming work for schema construction, schema filtering (API schemas), and future Studio features. [PR #756](https://github.com/apollographql/federation/pull/756)
