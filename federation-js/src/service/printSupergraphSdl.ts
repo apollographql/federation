@@ -33,7 +33,7 @@ import { assert } from '../utilities';
 import { CoreDirective } from '../coreSpec';
 import { getJoinDefinitions } from '../joinSpec';
 import { printFieldSet } from '../composition/utils';
-import { otherKnownDirectives } from '../directives';
+import { otherKnownDirectiveDefinitions } from '../directives';
 
 type Options = {
   /**
@@ -172,19 +172,22 @@ function printSchemaDefinition(schema: GraphQLSchema): string {
 }
 
 function printCoreDirectives(schema: GraphQLSchema) {
-  const otherKnownDirectiveNames = otherKnownDirectives.map(({ name }) => name);
+  const otherKnownDirectiveNames = otherKnownDirectiveDefinitions.map(
+    ({ name }) => name,
+  );
   const schemaDirectiveNames = schema.getDirectives().map(({ name }) => name);
-  const otherKnownDirectivesToInclude = schemaDirectiveNames.filter((name) =>
-    otherKnownDirectiveNames.includes(name),
+  const otherKnownDirectiveDefinitionsToInclude = schemaDirectiveNames.filter(
+    (name) => otherKnownDirectiveNames.includes(name),
   );
-  const otherKnownDirectivesSpecUrls = otherKnownDirectivesToInclude.map(
-    (name) => `https://specs.apollo.dev/${name}/v0.1`,
-  );
+  const otherKnownDirectiveSpecUrls =
+    otherKnownDirectiveDefinitionsToInclude.map(
+      (name) => `https://specs.apollo.dev/${name}/v0.1`,
+    );
 
   return [
     'https://specs.apollo.dev/core/v0.1',
     'https://specs.apollo.dev/join/v0.1',
-    ...otherKnownDirectivesSpecUrls,
+    ...otherKnownDirectiveSpecUrls,
   ].map((feature) => `\n  @core(feature: ${printStringLiteral(feature)})`);
 }
 
@@ -367,7 +370,7 @@ function printFields(
       // We don't want to print field owner directives on fields belonging to an interface type
       (isObjectType(type)
         ? printJoinFieldDirectives(f, type, context) +
-          printOtherKnownDirectives(f)
+          printOtherKnownDirectiveUsages(f)
         : ''),
   );
 
@@ -440,13 +443,13 @@ function printJoinFieldDirectives(
 
 // Core addition: print `@tag` and `@inaccessible` directives found in subgraph
 // SDL into the supergraph SDL
-function printOtherKnownDirectives(field: GraphQLField<any, any>) {
-  const otherKnownDirectives = (
-    field.extensions?.federation?.otherKnownDirectives ?? []
+function printOtherKnownDirectiveUsages(field: GraphQLField<any, any>) {
+  const otherKnownDirectiveUsages = (
+    field.extensions?.federation?.otherKnownDirectiveUsages ?? []
   ) as DirectiveNode[];
 
-  if (otherKnownDirectives.length < 1) return '';
-  return ` ${otherKnownDirectives
+  if (otherKnownDirectiveUsages.length < 1) return '';
+  return ` ${otherKnownDirectiveUsages
     .slice()
     .sort((a, b) => a.name.value.localeCompare(b.name.value))
     .map(print)

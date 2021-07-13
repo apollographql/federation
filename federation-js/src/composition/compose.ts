@@ -22,7 +22,7 @@ import {
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
 import apolloTypeSystemDirectives, {
-  otherKnownDirectives,
+  otherKnownDirectiveDefinitions,
   federationDirectives,
 } from '../directives';
 import {
@@ -391,16 +391,17 @@ export function buildSchemaFromDefinitionsAndExtensions({
 
   // We only want to include the definitions of other known directives (currently
   // just `@tag` and `@include`) if there are usages.
-  const otherKnownDirectivesToInclude = otherKnownDirectives.filter(
-    (directive) => otherKnownDirectiveUsages.has(directive.name),
-  );
+  const otherKnownDirectiveDefinitionsToInclude =
+    otherKnownDirectiveDefinitions.filter((directive) =>
+      otherKnownDirectiveUsages.has(directive.name),
+    );
 
   let schema = new GraphQLSchema({
     query: undefined,
     directives: [
       ...specifiedDirectives,
       ...federationDirectives,
-      ...otherKnownDirectivesToInclude,
+      ...otherKnownDirectiveDefinitionsToInclude,
     ],
   });
 
@@ -661,25 +662,29 @@ export function addFederationMetadataToSchemaNodes({
 
     for (const [
       fieldName,
-      otherKnownDirectives,
+      otherKnownDirectiveUsages,
     ] of fieldsToDirectivesMap.entries()) {
       const field = type.getFields()[fieldName];
 
       const seenNonRepeatableDirectives: Record<string, boolean> = {};
-      const filteredDirectives = otherKnownDirectives.filter(directive => {
-        const name = directive.name.value;
-        const matchingDirective = apolloTypeSystemDirectives.find(d => d.name === name);
-        if (matchingDirective?.isRepeatable) return true;
-        if (seenNonRepeatableDirectives[name]) return false;
-        seenNonRepeatableDirectives[name] = true;
-        return true;
-      });
+      const filteredDirectives = otherKnownDirectiveUsages.filter(
+        (directive) => {
+          const name = directive.name.value;
+          const matchingDirective = apolloTypeSystemDirectives.find(
+            (d) => d.name === name,
+          );
+          if (matchingDirective?.isRepeatable) return true;
+          if (seenNonRepeatableDirectives[name]) return false;
+          seenNonRepeatableDirectives[name] = true;
+          return true;
+        },
+      );
 
       // TODO: probably don't need to recreate these objects
       const existingMetadata = getFederationMetadata(field);
       const fieldFederationMetadata: FederationField = {
         ...existingMetadata,
-        otherKnownDirectives: filteredDirectives,
+        otherKnownDirectiveUsages: filteredDirectives,
       };
 
       field.extensions = {
