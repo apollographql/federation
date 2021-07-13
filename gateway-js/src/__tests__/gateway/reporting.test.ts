@@ -119,7 +119,7 @@ describe('reporting', () => {
       executor,
       apollo: {
         key: 'service:foo:bar',
-        graphVariant: 'current',
+        graphRef: 'foo@current',
       },
       plugins: [
         ApolloServerPluginUsageReporting({
