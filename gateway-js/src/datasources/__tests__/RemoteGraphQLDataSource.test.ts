@@ -459,12 +459,7 @@ describe('didEncounterError', () => {
     class MyDataSource extends RemoteGraphQLDataSource<MyContext> {
       url = 'https://api.example.com/foo';
 
-      didEncounterError(
-        _error: Error,
-        _fetchRequest: Request,
-        _fetchResponse?: Response,
-        _context?: MyContext,
-      ) {
+      didEncounterError() {
         // a timestamp a la `Date.now()`
         context.timingData.push({ time: 1616446845234 });
       }
