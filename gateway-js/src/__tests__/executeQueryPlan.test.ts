@@ -1,4 +1,10 @@
-import { buildClientSchema, getIntrospectionQuery, GraphQLObjectType, GraphQLSchema } from 'graphql';
+import {
+  buildClientSchema,
+  getIntrospectionQuery,
+  GraphQLObjectType,
+  GraphQLSchema,
+  parse,
+} from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { GraphQLRequestContext } from 'apollo-server-types';
@@ -6,14 +12,16 @@ import { AuthenticationError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
-import { getFederatedTestingSchema } from './execution-utils';
-import { QueryPlanner } from '@apollo/query-planner';
-
-import { buildFederatedSchema } from '@apollo/federation';
+import {
+  astSerializer,
+  queryPlanSerializer,
+} from 'apollo-federation-integration-testsuite';
+import { buildComposedSchema, QueryPlanner } from '@apollo/query-planner';
+import { buildFederatedSchema, composeAndValidate } from '@apollo/federation';
 import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { fixtures } from 'apollo-federation-integration-testsuite';
+import { buildLocalService } from './execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -39,20 +47,26 @@ describe('executeQueryPlan', () => {
 
   let schema: GraphQLSchema;
   let queryPlanner: QueryPlanner;
-
   beforeEach(() => {
-    expect(
-      () =>
-        ({
-          serviceMap,
-          schema,
-          queryPlanner,
-        } = getFederatedTestingSchema()),
-    ).not.toThrow();
+    // expect(
+    //   () =>
+    //     ({
+    //       serviceMap,
+    //       schema,
+    //       queryPlanner,
+    // } = getFederatedTestingSchema()),
+    // ).not.toThrow();
+    let compositionResult = composeAndValidate(fixtures);
+
+    schema = buildComposedSchema(parse(compositionResult.supergraphSdl!));
+    queryPlanner = new QueryPlanner(schema);
+    serviceMap = Object.fromEntries(
+      fixtures.map((f) => [f.name, buildLocalService([f])]),
+    );
   });
 
   function buildRequestContext(): GraphQLRequestContext {
-     // @ts-ignore
+    // @ts-ignore
     return {
       cache: undefined as any,
       context: {},
@@ -151,9 +165,8 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {
-      const accountsEntitiesResolverSpy = spyOnEntitiesResolverInService(
-        'accounts',
-      );
+      const accountsEntitiesResolverSpy =
+        spyOnEntitiesResolverInService('accounts');
 
       const operationString = `#graphql
         query {
@@ -229,9 +242,8 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should send a request to downstream services for the remaining entities when some entities are undefined`, async () => {
-      const accountsEntitiesResolverSpy = spyOnEntitiesResolverInService(
-        'accounts',
-      );
+      const accountsEntitiesResolverSpy =
+        spyOnEntitiesResolverInService('accounts');
 
       const operationString = `#graphql
         query {
@@ -339,9 +351,8 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should not send request to downstream service when entities don't match type conditions`, async () => {
-      const reviewsEntitiesResolverSpy = spyOnEntitiesResolverInService(
-        'reviews',
-      );
+      const reviewsEntitiesResolverSpy =
+        spyOnEntitiesResolverInService('reviews');
 
       const operationString = `#graphql
         query {
@@ -388,9 +399,8 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should send a request to downstream services for the remaining entities when some entities don't match type conditions`, async () => {
-      const reviewsEntitiesResolverSpy = spyOnEntitiesResolverInService(
-        'reviews',
-      );
+      const reviewsEntitiesResolverSpy =
+        spyOnEntitiesResolverInService('reviews');
 
       const operationString = `#graphql
         query {
