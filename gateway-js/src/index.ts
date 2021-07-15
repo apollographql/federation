@@ -236,6 +236,7 @@ export class ApolloGateway implements GraphQLService {
     // 3. If config is explicitly set to `null`, fallback to GCS
     // 4. If the env var is set, use that
     this.schemaConfigDeliveryEndpoint = 'https://uplink.api.apollographql.com/';
+    // This if case unobviously handles both 1 and 2.
     if (isPrecomposedManagedConfig(this.config)) {
       this.schemaConfigDeliveryEndpoint =
         this.config.schemaConfigDeliveryEndpoint ??
