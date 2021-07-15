@@ -75,11 +75,11 @@ export const federationDirectives = [
   ProvidesDirective,
 ];
 
-export const appliedDirectives = [TagDirective];
+export const otherKnownDirectiveDefinitions = [TagDirective];
 
 const apolloTypeSystemDirectives = [
   ...federationDirectives,
-  ...appliedDirectives,
+  ...otherKnownDirectiveDefinitions,
 ];
 
 export default apolloTypeSystemDirectives;

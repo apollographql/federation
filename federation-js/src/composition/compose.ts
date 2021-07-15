@@ -21,7 +21,10 @@ import {
   DirectiveNode,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
-import apolloTypeSystemDirectives, { appliedDirectives, federationDirectives } from '../directives';
+import apolloTypeSystemDirectives, {
+  otherKnownDirectiveDefinitions,
+  federationDirectives,
+} from '../directives';
 import {
   findDirectivesOnNode,
   isStringValueNode,
@@ -132,7 +135,7 @@ type TypeNameToFieldDirectivesMap = Map<string, FieldDirectivesMap>;
 /**
  * A set of directive names that have been used at least once
  */
-type AppliedDirectiveUsages = Set<string>;
+type OtherKnownDirectiveUsages = Set<string>;
 
 /**
  * Loop over each service and process its typeDefs (`definitions`)
@@ -148,7 +151,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
   const keyDirectivesMap: KeyDirectivesMap = Object.create(null);
   const valueTypes: ValueTypes = new Set();
   const typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap = new Map();
-  const appliedDirectiveUsages: AppliedDirectiveUsages = new Set();
+  const otherKnownDirectiveUsages: OtherKnownDirectiveUsages = new Set();
 
   for (const { typeDefs, name: serviceName } of serviceList) {
     // Build a new SDL with @external fields removed, as well as information about
@@ -198,7 +201,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
             field,
             typeName,
             typeNameToFieldDirectivesMap,
-            appliedDirectiveUsages,
+            otherKnownDirectiveUsages,
           );
         }
       }
@@ -344,7 +347,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
       field,
       parentTypeName,
       typeNameToFieldDirectivesMap,
-      appliedDirectiveUsages,
+      otherKnownDirectiveUsages,
     );
   }
 
@@ -368,7 +371,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     keyDirectivesMap,
     valueTypes,
     typeNameToFieldDirectivesMap,
-    appliedDirectiveUsages,
+    otherKnownDirectiveUsages,
   };
 }
 
@@ -376,12 +379,12 @@ function captureTagUsages(
   field: FieldDefinitionNode,
   typeName: string,
   typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap,
-  appliedDirectiveUsages: AppliedDirectiveUsages,
+  otherKnownDirectiveUsages: OtherKnownDirectiveUsages,
 ) {
   const tagUsages = findDirectivesOnNode(field, 'tag');
 
   if (tagUsages.length > 0) {
-    appliedDirectiveUsages.add('tag');
+    otherKnownDirectiveUsages.add('tag');
     const fieldToDirectivesMap = mapGetOrSet(
       typeNameToFieldDirectivesMap,
       typeName,
@@ -400,27 +403,28 @@ export function buildSchemaFromDefinitionsAndExtensions({
   typeDefinitionsMap,
   typeExtensionsMap,
   directiveDefinitionsMap,
-  appliedDirectiveUsages,
+  otherKnownDirectiveUsages,
 }: {
   typeDefinitionsMap: TypeDefinitionsMap;
   typeExtensionsMap: TypeExtensionsMap;
   directiveDefinitionsMap: DirectiveDefinitionsMap;
-  appliedDirectiveUsages: AppliedDirectiveUsages;
+  otherKnownDirectiveUsages: OtherKnownDirectiveUsages;
 }) {
   let errors: GraphQLError[] | undefined = undefined;
 
-  // We only want to include the definitions of applied directives (currently
-  // just @tag) if there are usages.
-  const appliedDirectivesToInclude = appliedDirectives.filter((directive) =>
-    appliedDirectiveUsages.has(directive.name),
-  );
+  // We only want to include the definitions of other known Apollo directives
+  // (currently just @tag) if there are usages.
+  const otherKnownDirectiveDefinitionsToInclude =
+    otherKnownDirectiveDefinitions.filter((directive) =>
+      otherKnownDirectiveUsages.has(directive.name),
+    );
 
   let schema = new GraphQLSchema({
     query: undefined,
     directives: [
       ...specifiedDirectives,
       ...federationDirectives,
-      ...appliedDirectivesToInclude,
+      ...otherKnownDirectiveDefinitionsToInclude,
     ],
   });
 
@@ -681,25 +685,29 @@ export function addFederationMetadataToSchemaNodes({
 
     for (const [
       fieldName,
-      appliedDirectives,
+      otherKnownDirectiveUsages,
     ] of fieldsToDirectivesMap.entries()) {
       const field = type.getFields()[fieldName];
 
       const seenNonRepeatableDirectives: Record<string, boolean> = {};
-      const filteredDirectives = appliedDirectives.filter(directive => {
-        const name = directive.name.value;
-        const matchingDirective = apolloTypeSystemDirectives.find(d => d.name === name);
-        if (matchingDirective?.isRepeatable) return true;
-        if (seenNonRepeatableDirectives[name]) return false;
-        seenNonRepeatableDirectives[name] = true;
-        return true;
-      });
+      const filteredDirectives = otherKnownDirectiveUsages.filter(
+        (directive) => {
+          const name = directive.name.value;
+          const matchingDirective = apolloTypeSystemDirectives.find(
+            (d) => d.name === name,
+          );
+          if (matchingDirective?.isRepeatable) return true;
+          if (seenNonRepeatableDirectives[name]) return false;
+          seenNonRepeatableDirectives[name] = true;
+          return true;
+        },
+      );
 
       // TODO: probably don't need to recreate these objects
       const existingMetadata = getFederationMetadata(field);
       const fieldFederationMetadata: FederationField = {
         ...existingMetadata,
-        appliedDirectives: filteredDirectives,
+        otherKnownDirectiveUsages: filteredDirectives,
       };
 
       field.extensions = {
@@ -721,14 +729,14 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     keyDirectivesMap,
     valueTypes,
     typeNameToFieldDirectivesMap,
-    appliedDirectiveUsages,
+    otherKnownDirectiveUsages,
   } = buildMapsFromServiceList(services);
 
   let { schema, errors } = buildSchemaFromDefinitionsAndExtensions({
     typeDefinitionsMap,
     typeExtensionsMap,
     directiveDefinitionsMap,
-    appliedDirectiveUsages,
+    otherKnownDirectiveUsages,
   });
 
   // TODO: We should fix this to take non-default operation root types in
