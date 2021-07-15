@@ -21,7 +21,10 @@ import {
   DirectiveNode,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
-import apolloTypeSystemDirectives, { appliedDirectives, federationDirectives } from '../directives';
+import apolloTypeSystemDirectives, {
+  otherKnownDirectiveDefinitions,
+  federationDirectives,
+} from '../directives';
 import {
   findDirectivesOnNode,
   isStringValueNode,
@@ -132,7 +135,7 @@ type TypeNameToFieldDirectivesMap = Map<string, FieldDirectivesMap>;
 /**
  * A set of directive names that have been used at least once
  */
-type AppliedDirectiveUsages = Set<string>;
+type OtherKnownDirectiveUsages = Set<string>;
 
 /**
  * Loop over each service and process its typeDefs (`definitions`)
@@ -148,7 +151,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
   const keyDirectivesMap: KeyDirectivesMap = Object.create(null);
   const valueTypes: ValueTypes = new Set();
   const typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap = new Map();
-  const appliedDirectiveUsages: AppliedDirectiveUsages = new Set();
+  const otherKnownDirectiveUsages: OtherKnownDirectiveUsages = new Set();
 
   for (const { typeDefs, name: serviceName } of serviceList) {
     // Build a new SDL with @external fields removed, as well as information about
@@ -192,29 +195,14 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
           }
         }
 
-        // Capture `@tag` and `@inaccessible` directive applications
+        // Capture `@tag` directive usages
         for (const field of definition.fields ?? []) {
-          const fieldName = field.name.value;
-
-          const tagUsages = findDirectivesOnNode(field, 'tag');
-          const inaccessibleUsages = findDirectivesOnNode(
+          captureTagUsages(
             field,
-            'inaccessible',
+            typeName,
+            typeNameToFieldDirectivesMap,
+            otherKnownDirectiveUsages,
           );
-
-          if (tagUsages.length > 0) appliedDirectiveUsages.add('tag');
-          if (inaccessibleUsages.length > 0)
-            appliedDirectiveUsages.add('inaccessible');
-
-          if (tagUsages.length > 0 || inaccessibleUsages.length > 0) {
-            const fieldToDirectivesMap = mapGetOrSet(
-              typeNameToFieldDirectivesMap,
-              typeName,
-              new Map(),
-            );
-            const directives = mapGetOrSet(fieldToDirectivesMap, fieldName, []);
-            directives.push(...[...tagUsages, ...inaccessibleUsages]);
-          }
         }
       }
 
@@ -352,29 +340,15 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     }
   }
 
-  // We need to capture applied directives from the external fields as well,
+  // We need to capture @tag usages from the @external fields as well,
   // which are stripped and excluded from the main loop over the typeDefs
   for (const { parentTypeName, field } of externalFields) {
-    const tagDirectivesOnField = findDirectivesOnNode(field, 'tag');
-    const inaccessibleDirectivesOnField = findDirectivesOnNode(field, 'inaccessible');
-
-    const appliedDirectivesOnField = [
-      ...tagDirectivesOnField,
-      ...inaccessibleDirectivesOnField,
-    ];
-    if (appliedDirectivesOnField.length > 0) {
-      const fieldToDirectivesMap = mapGetOrSet(
-        typeNameToFieldDirectivesMap,
-        parentTypeName,
-        new Map(),
-      );
-      const directives = mapGetOrSet(
-        fieldToDirectivesMap,
-        field.name.value,
-        [],
-      );
-      directives.push(...appliedDirectivesOnField);
-    }
+    captureTagUsages(
+      field,
+      parentTypeName,
+      typeNameToFieldDirectivesMap,
+      otherKnownDirectiveUsages,
+    );
   }
 
   // Since all Query/Mutation definitions in service schemas are treated as
@@ -397,35 +371,60 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     keyDirectivesMap,
     valueTypes,
     typeNameToFieldDirectivesMap,
-    appliedDirectiveUsages,
+    otherKnownDirectiveUsages,
   };
+}
+
+function captureTagUsages(
+  field: FieldDefinitionNode,
+  typeName: string,
+  typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap,
+  otherKnownDirectiveUsages: OtherKnownDirectiveUsages,
+) {
+  const tagUsages = findDirectivesOnNode(field, 'tag');
+
+  if (tagUsages.length > 0) {
+    otherKnownDirectiveUsages.add('tag');
+    const fieldToDirectivesMap = mapGetOrSet(
+      typeNameToFieldDirectivesMap,
+      typeName,
+      new Map(),
+    );
+    const directives = mapGetOrSet(
+      fieldToDirectivesMap,
+      field.name.value,
+      [],
+    );
+    directives.push(...tagUsages);
+  }
 }
 
 export function buildSchemaFromDefinitionsAndExtensions({
   typeDefinitionsMap,
   typeExtensionsMap,
   directiveDefinitionsMap,
-  appliedDirectiveUsages,
+  otherKnownDirectiveUsages,
 }: {
   typeDefinitionsMap: TypeDefinitionsMap;
   typeExtensionsMap: TypeExtensionsMap;
   directiveDefinitionsMap: DirectiveDefinitionsMap;
-  appliedDirectiveUsages: AppliedDirectiveUsages;
+  otherKnownDirectiveUsages: OtherKnownDirectiveUsages;
 }) {
   let errors: GraphQLError[] | undefined = undefined;
 
-  // We only want to include the definitions of applied directives (currently
-  // just @tag and @include) if there are usages.
-  const appliedDirectivesToInclude = appliedDirectives.filter((directive) =>
-    appliedDirectiveUsages.has(directive.name),
-  );
+  // We only want to include the definitions of other known Apollo directives
+  // (currently just @tag) if there are usages.
+  const otherKnownDirectiveDefinitionsToInclude =
+    otherKnownDirectiveDefinitions.filter((directive) =>
+      otherKnownDirectiveUsages.has(directive.name),
+    );
 
   let schema = new GraphQLSchema({
     query: undefined,
     directives: [
       ...specifiedDirectives,
       ...federationDirectives,
-      ...appliedDirectivesToInclude,
+      ...otherKnownDirectiveDefinitionsToInclude,
     ],
   });
 
@@ -686,25 +685,29 @@ export function addFederationMetadataToSchemaNodes({
 
     for (const [
       fieldName,
-      appliedDirectives,
+      otherKnownDirectiveUsages,
     ] of fieldsToDirectivesMap.entries()) {
       const field = type.getFields()[fieldName];
 
       const seenNonRepeatableDirectives: Record<string, boolean> = {};
-      const filteredDirectives = appliedDirectives.filter(directive => {
-        const name = directive.name.value;
-        const matchingDirective = apolloTypeSystemDirectives.find(d => d.name === name);
-        if (matchingDirective?.isRepeatable) return true;
-        if (seenNonRepeatableDirectives[name]) return false;
-        seenNonRepeatableDirectives[name] = true;
-        return true;
-      });
+      const filteredDirectives = otherKnownDirectiveUsages.filter(
+        (directive) => {
+          const name = directive.name.value;
+          const matchingDirective = apolloTypeSystemDirectives.find(
+            (d) => d.name === name,
+          );
+          if (matchingDirective?.isRepeatable) return true;
+          if (seenNonRepeatableDirectives[name]) return false;
+          seenNonRepeatableDirectives[name] = true;
+          return true;
+        },
+      );
 
       // TODO: probably don't need to recreate these objects
       const existingMetadata = getFederationMetadata(field);
       const fieldFederationMetadata: FederationField = {
         ...existingMetadata,
-        appliedDirectives: filteredDirectives,
+        otherKnownDirectiveUsages: filteredDirectives,
       };
 
       field.extensions = {
@@ -726,14 +729,14 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     keyDirectivesMap,
     valueTypes,
     typeNameToFieldDirectivesMap,
-    appliedDirectiveUsages,
+    otherKnownDirectiveUsages,
   } = buildMapsFromServiceList(services);
 
   let { schema, errors } = buildSchemaFromDefinitionsAndExtensions({
     typeDefinitionsMap,
     typeExtensionsMap,
     directiveDefinitionsMap,
-    appliedDirectiveUsages,
+    otherKnownDirectiveUsages,
   });
 
   // TODO: We should fix this to take non-default operation root types in

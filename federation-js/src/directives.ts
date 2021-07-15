@@ -56,11 +56,6 @@ export const ProvidesDirective = new GraphQLDirective({
   },
 });
 
-export const InaccessibleDirective = new GraphQLDirective({
-  name: 'inaccessible',
-  locations: [DirectiveLocation.FIELD_DEFINITION],
-});
-
 export const TagDirective = new GraphQLDirective({
   name: 'tag',
   locations: [DirectiveLocation.FIELD_DEFINITION],
@@ -80,11 +75,11 @@ export const federationDirectives = [
   ProvidesDirective,
 ];
 
-export const appliedDirectives = [InaccessibleDirective, TagDirective];
+export const otherKnownDirectiveDefinitions = [TagDirective];
 
 const apolloTypeSystemDirectives = [
   ...federationDirectives,
-  ...appliedDirectives,
+  ...otherKnownDirectiveDefinitions,
 ];
 
 export default apolloTypeSystemDirectives;
