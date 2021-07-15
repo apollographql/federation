@@ -284,7 +284,7 @@ function printFields(
       String(f.type) +
       printDeprecated(f) +
       printFederationDirectives(f) +
-      printAppliedDirectives(f),
+      printOtherKnownDirectiveUsages(f),
   );
   return printBlock(fields);
 }
@@ -306,15 +306,15 @@ function printFederationDirectives(
   return dedupedDirectives.length > 0 ? ' ' + dedupedDirectives.join(' ') : '';
 }
 
-// Core addition: print `@tag` and `@inaccessible` directives found in subgraph
-// SDL into the supergraph SDL
-function printAppliedDirectives(field: GraphQLField<any, any>) {
-  const appliedDirectives = (
-    field.extensions?.federation?.appliedDirectives ?? []
+// Core addition: print `@tag` directive usages (and possibly other future known
+// directive usages) found in subgraph SDL.
+function printOtherKnownDirectiveUsages(field: GraphQLField<any, any>) {
+  const otherKnownDirectiveUsages = (
+    field.extensions?.federation?.otherKnownDirectiveUsages ?? []
   ) as DirectiveNode[];
 
-  if (appliedDirectives.length < 1) return '';
-  return ` ${appliedDirectives
+  if (otherKnownDirectiveUsages.length < 1) return '';
+  return ` ${otherKnownDirectiveUsages
     .slice()
     .sort((a, b) => a.name.value.localeCompare(b.name.value))
     .map(print)

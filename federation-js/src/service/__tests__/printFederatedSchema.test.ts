@@ -186,12 +186,12 @@ describe('printFederatedSchema', () => {
         birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         goodAddress: Boolean @requires(fields: \\"metadata { address }\\")
         goodDescription: Boolean @requires(fields: \\"metadata { description }\\")
-        id: ID! @inaccessible @tag(name: \\"accounts\\") @tag(name: \\"reviews\\")
+        id: ID! @tag(name: \\"accounts\\") @tag(name: \\"on external\\")
         metadata: [UserMetadata]
         name: Name
         numberOfReviews: Int!
         reviews: [Review]
-        ssn: String @inaccessible
+        ssn: String
         thing: Thing
         username: String
         vehicle: Vehicle
