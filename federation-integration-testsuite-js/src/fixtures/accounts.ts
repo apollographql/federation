@@ -34,13 +34,13 @@ export const typeDefs = gql`
   }
 
   type User @key(fields: "id") @key(fields: "username name { first last }") {
-    id: ID! @tag(name: "accounts") @inaccessible
+    id: ID! @tag(name: "accounts")
     name: Name
     username: String
     birthDate(locale: String): String @tag(name: "admin") @tag(name: "dev")
     account: AccountType
     metadata: [UserMetadata]
-    ssn: String @inaccessible
+    ssn: String
   }
 
   type Name {

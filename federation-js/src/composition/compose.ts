@@ -192,29 +192,14 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
           }
         }
 
-        // Capture `@tag` and `@inaccessible` directive applications
+        // Capture `@tag` directive usages
         for (const field of definition.fields ?? []) {
-          const fieldName = field.name.value;
-
-          const tagUsages = findDirectivesOnNode(field, 'tag');
-          const inaccessibleUsages = findDirectivesOnNode(
+          captureTagUsages(
             field,
-            'inaccessible',
+            typeName,
+            typeNameToFieldDirectivesMap,
+            appliedDirectiveUsages,
           );
-
-          if (tagUsages.length > 0) appliedDirectiveUsages.add('tag');
-          if (inaccessibleUsages.length > 0)
-            appliedDirectiveUsages.add('inaccessible');
-
-          if (tagUsages.length > 0 || inaccessibleUsages.length > 0) {
-            const fieldToDirectivesMap = mapGetOrSet(
-              typeNameToFieldDirectivesMap,
-              typeName,
-              new Map(),
-            );
-            const directives = mapGetOrSet(fieldToDirectivesMap, fieldName, []);
-            directives.push(...[...tagUsages, ...inaccessibleUsages]);
-          }
         }
       }
 
@@ -352,29 +337,15 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     }
   }
 
-  // We need to capture applied directives from the external fields as well,
+  // We need to capture @tag usages from the @external fields as well,
   // which are stripped and excluded from the main loop over the typeDefs
   for (const { parentTypeName, field } of externalFields) {
-    const tagDirectivesOnField = findDirectivesOnNode(field, 'tag');
-    const inaccessibleDirectivesOnField = findDirectivesOnNode(field, 'inaccessible');
-
-    const appliedDirectivesOnField = [
-      ...tagDirectivesOnField,
-      ...inaccessibleDirectivesOnField,
-    ];
-    if (appliedDirectivesOnField.length > 0) {
-      const fieldToDirectivesMap = mapGetOrSet(
-        typeNameToFieldDirectivesMap,
-        parentTypeName,
-        new Map(),
-      );
-      const directives = mapGetOrSet(
-        fieldToDirectivesMap,
-        field.name.value,
-        [],
-      );
-      directives.push(...appliedDirectivesOnField);
-    }
+    captureTagUsages(
+      field,
+      parentTypeName,
+      typeNameToFieldDirectivesMap,
+      appliedDirectiveUsages,
+    );
   }
 
   // Since all Query/Mutation definitions in service schemas are treated as
@@ -401,6 +372,30 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
   };
 }
 
+function captureTagUsages(
+  field: FieldDefinitionNode,
+  typeName: string,
+  typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap,
+  appliedDirectiveUsages: AppliedDirectiveUsages,
+) {
+  const tagUsages = findDirectivesOnNode(field, 'tag');
+
+  if (tagUsages.length > 0) {
+    appliedDirectiveUsages.add('tag');
+    const fieldToDirectivesMap = mapGetOrSet(
+      typeNameToFieldDirectivesMap,
+      typeName,
+      new Map(),
+    );
+    const directives = mapGetOrSet(
+      fieldToDirectivesMap,
+      field.name.value,
+      [],
+    );
+    directives.push(...tagUsages);
+  }
+}
+
 export function buildSchemaFromDefinitionsAndExtensions({
   typeDefinitionsMap,
   typeExtensionsMap,
@@ -415,7 +410,7 @@ export function buildSchemaFromDefinitionsAndExtensions({
   let errors: GraphQLError[] | undefined = undefined;
 
   // We only want to include the definitions of applied directives (currently
-  // just @tag and @include) if there are usages.
+  // just @tag) if there are usages.
   const appliedDirectivesToInclude = appliedDirectives.filter((directive) =>
     appliedDirectiveUsages.has(directive.name),
   );

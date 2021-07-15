@@ -438,8 +438,8 @@ function printJoinFieldDirectives(
   return ` @join__field(${directiveArgs.join(', ')})`;
 }
 
-// Core addition: print `@tag` and `@inaccessible` directives found in subgraph
-// SDL into the supergraph SDL
+// Core addition: print `@tag` directives (and possibly other future known
+// directives) found in subgraph SDL into the supergraph SDL
 function printAppliedDirectives(field: GraphQLField<any, any>) {
   const appliedDirectives = (
     field.extensions?.federation?.appliedDirectives ?? []

@@ -53,8 +53,7 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
       !(
         feature === 'https://specs.apollo.dev/core/v0.1' ||
         feature === 'https://specs.apollo.dev/join/v0.1' ||
-        feature === 'https://specs.apollo.dev/tag/v0.1' ||
-        feature === 'https://specs.apollo.dev/inaccessible/v0.1'
+        feature === 'https://specs.apollo.dev/tag/v0.1'
       )
     ) {
       throw new GraphQLError(

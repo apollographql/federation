@@ -306,8 +306,8 @@ function printFederationDirectives(
   return dedupedDirectives.length > 0 ? ' ' + dedupedDirectives.join(' ') : '';
 }
 
-// Core addition: print `@tag` and `@inaccessible` directives found in subgraph
-// SDL into the supergraph SDL
+// Core addition: print `@tag` directive usages (and possibly other future known
+// directive usages) found in subgraph SDL.
 function printAppliedDirectives(field: GraphQLField<any, any>) {
   const appliedDirectives = (
     field.extensions?.federation?.appliedDirectives ?? []
