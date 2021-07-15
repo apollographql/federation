@@ -270,7 +270,7 @@ describe('printSupergraphSdl', () => {
         birthDate(locale: String): String @join__field(graph: ACCOUNTS) @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         goodAddress: Boolean @join__field(graph: REVIEWS, requires: \\"metadata{address}\\")
         goodDescription: Boolean @join__field(graph: INVENTORY, requires: \\"metadata{description}\\")
-        id: ID! @join__field(graph: ACCOUNTS) @tag(name: \\"accounts\\") @tag(name: \\"reviews\\")
+        id: ID! @join__field(graph: ACCOUNTS) @tag(name: \\"accounts\\") @tag(name: \\"on external\\")
         metadata: [UserMetadata] @join__field(graph: ACCOUNTS)
         name: Name @join__field(graph: ACCOUNTS)
         numberOfReviews: Int! @join__field(graph: REVIEWS)
@@ -310,9 +310,7 @@ describe('printSupergraphSdl', () => {
 
   it('prints a fully composed schema without @tag orcorrectly', () => {
     // composeAndValidate calls `printSupergraphSdl` to return `supergraphSdl`
-    const compositionResult = composeAndValidate(
-      fixturesWithoutTag,
-    );
+    const compositionResult = composeAndValidate(fixturesWithoutTag);
     if (compositionHasErrors(compositionResult)) {
       errors = compositionResult.errors;
     } else {

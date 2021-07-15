@@ -29,7 +29,7 @@ export const typeDefs = gql`
   }
 
   extend type User @key(fields: "id") {
-    id: ID! @external @tag(name: "reviews")
+    id: ID! @external @tag(name: "on external")
     username: String @external
     reviews: [Review]
     numberOfReviews: Int!
