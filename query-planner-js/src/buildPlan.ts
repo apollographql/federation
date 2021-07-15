@@ -101,6 +101,9 @@ class QueryPlanningTaversal<RV extends Vertex> {
   private handleFinalPathSet(pathSet: OpPathTree<RV>) {
     const dependencyGraph = computeFetchGroups(pathSet);
     const cost =  dependencyGraph.process(this.costFunction, this.rootGroupsAreParallel);
+    //if (isRootVertex(pathSet.vertex)) {
+    //  console.log(`[PLAN] cost: ${cost}, path: ${pathSet}`);
+    //}
     if (!this.bestPlan || cost < this.bestPlan[2]) {
       this.bestPlan = [dependencyGraph, pathSet, cost];
     }
@@ -111,22 +114,28 @@ function sum(arr: number[]): number {
   return arr.reduce((a, b) => a + b, 0);
 }
 
-type CostFunction = FetchGroupProcessor<number, number[], number, number>;
+type CostFunction = FetchGroupProcessor<number, number[]>;
 
 const fetchCost = 1000;
 const pipeliningCost = 10;
 
 const defaultCostFunction: CostFunction = {
-    onFetchGroup: (_group: FetchGroup) => 1,
-    reduceStage: (stage: number[]) => stage,
-    // That math goes the following way:
-    // - each stage is done sequentially, so we add their cost (the `acc + ...`)
-    // - within a stage, the groups are done in parallel, hence the `Math.max(...)`
-    // - but each group in a stage require a fetch, so we add a cost proportional to how many we have
-    // - each group within a stage has its own cost plus a flat cost associated to doing that fetch (`fetchCost + s`).
-    // - lastly, we also want to minimize the number of steps in the pipeline, so later stages are more costly (`(stages.length - idx) * ...`)
-    reduceRoot: (stages: number[][]) => stages.reduceRight((acc, stage, idx) => acc + ((stages.length - idx) * pipeliningCost) * (fetchCost * stage.length) *  Math.max(...stage), 0),
-    finalize: (roots: number[], rootsAreParallel: boolean) => rootsAreParallel ? Math.max(...roots) : sum(roots)
+  onFetchGroup: (_group: FetchGroup) => 1,
+  reduceParallel: (values: number[]) => values,
+  // That math goes the following way:
+  // - we add the costs in a sequence (the `acc + ...`)
+  // - within a stage of the sequence, the groups are done in parallel, hence the `Math.max(...)`
+  // - but each group in a stage require a fetch, so we add a cost proportional to how many we have
+  // - each group within a stage has its own cost plus a flat cost associated to doing that fetch (`fetchCost + s`).
+  // - lastly, we also want to minimize the number of steps in the pipeline, so later stages are more costly (`idx * pipelineCost`)
+  reduceSequence: (values: (number[] | number)[]) => values.reduceRight(
+    (acc: number, value, idx) => {
+      const valueArray = Array.isArray(value) ? value : [value];
+      return acc + (idx * pipeliningCost) * (fetchCost * valueArray.length) *  Math.max(...valueArray)
+    },
+    0
+  ),
+  finalize: (roots: number[], rootsAreParallel: boolean) => rootsAreParallel ? Math.max(...roots) : sum(roots)
 };
 
 export function computeQueryPlan(supergraphSchema: Schema, subgraphs: Graph, operation: Operation): QueryPlan {
@@ -148,12 +157,12 @@ export function computeQueryPlan(supergraphSchema: Schema, subgraphs: Graph, ope
   return toQueryPlan(operation.rootKind, dependencyGraph);
 }
 
-function fetchGroupToPlanProcessor(operationKind: OperationTypeNode): FetchGroupProcessor<PlanNode, PlanNode, PlanNode, PlanNode | undefined> {
+function fetchGroupToPlanProcessor(operationKind: OperationTypeNode): FetchGroupProcessor<PlanNode, PlanNode> {
   return {
     onFetchGroup: (group: FetchGroup) => group.toPlanNode(operationKind),
-    reduceStage: (stage: PlanNode[]) => flatWrap('Parallel', stage),
-    reduceRoot: (stages: PlanNode[]) => flatWrap('Sequence', stages),
-    finalize: (roots: PlanNode[], rootsAreParallel) => roots.length == 0 ? undefined : flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)
+    reduceParallel: (values: PlanNode[]) => flatWrap('Parallel', values),
+    reduceSequence: (values: PlanNode[]) => flatWrap('Sequence', values),
+    finalize: (roots: PlanNode[], rootsAreParallel) => flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)
   };
 }
 
@@ -283,12 +292,15 @@ function removeInPlace(value: number, array: number[]) {
   }
 }
 
-interface FetchGroupProcessor<G, S, R, F> {
+interface FetchGroupProcessor<G, P> {
   onFetchGroup(group: FetchGroup): G;
-  reduceStage(stage: G[]): S;
-  reduceRoot(stages: S[]): R;
-  finalize(roots: R[], isParallel: boolean): F
+  reduceParallel(values: G[]): P;
+  reduceSequence(values: (G | P)[]): G;
+  finalize(roots: G[], isParallel: boolean): G
 }
+
+type UnhandledGroups = [FetchGroup, UnhandledInEdges][];
+type UnhandledInEdges = number[];
 
 class FetchDependencyGraph {
   private readonly rootGroups: Map<string, FetchGroup> = new Map();
@@ -417,109 +429,101 @@ class FetchDependencyGraph {
     }
   }
 
-  // Creates a topological sorting of the groups using the Coffman-Graham algorithm (https://en.wikipedia.org/wiki/Coffman%E2%80%93Graham_algorithm)
-  // (which is a variation of the Kahn's algorithm (https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm))
-  private topologicalSortGroups(rootGroup: FetchGroup): FetchGroup[] {
-    const sorted: FetchGroup[] = [];
-    const incomingPositions: number[][] = new Array(this.groups.length).fill([]);
-    const noIncoming: FetchGroup[] = [rootGroup];
-    // We make a deep copy of the in-edges so we can remove from it.
-    const inEdges: number[][] = this.inEdges.map(edges => [...edges]);
-
-    let cmp = function (g1: FetchGroup, g2: FetchGroup): number {
-      const g1InPos = incomingPositions[g1.index];
-      const g2InPos = incomingPositions[g2.index];
-      const g1Len = g1InPos.length;
-      const g2Len = g2InPos.length;
-      const minLen = Math.min(g1Len, g2Len);
-      // We want to first compare the "most recently added incoming neighbor" positions of g1 and g2, and so
-      // we start at the end of g1InPos and g2InPos.
-      // We then want to "pick" first the one whose incoming neighbor position is the smallest (we're trying to
-      // maximize the distance between whomever we pick and it's "most recenly added neighbot"). But since
-      // we "pick" the last element of the sorted array (we use `pop()`), we want the smallest position to
-      // sort last (so we do g2 - g1, which is the same as - (g1 - g2)).
-      // And when the most recently incoming neighbor was the same (same position), we check the 2nd most
-      // recent, etc...
-      for (let i = 0; i < minLen; i++) {
-        const c = g2InPos[g2Len - 1 - i] - g1InPos[g1Len - 1 - i];
-        if (c !== 0) {
-          return c;
-        }
-      }
-      // g1 and g2 have the same most recent incoming neighbors. But if one has a few more neighbors, we want
-      // to pick it last (inituitively, give more time to its additional dependencies to return). Again,
-      // as we pick the "bigger" element, that mean we the one with the smallest length should be the bigger
-      // one.
-      return g1Len === g2Len ? 0 : g2Len - g1Len;
-    };
-
-    while (noIncoming.length > 0) {
-      // Re-sorting the list of incoming at every step is somewhat inefficent. We could use a binary heap instead for instance.
-      // But performance is not the biggest concern for now (both because dependencies graph are like to be small and because
-      // query planning is usually not a hot path since query plans are cached), so keeping it simple.
-      noIncoming.sort(cmp);
-      const next = noIncoming.pop()!;
-      const nextPos = sorted.length;
-      sorted.push(next);
-      for (const v of this.adjacencies[next.index]) {
-        // next is an incoming neighbor of v and just got added to sorted.
-        incomingPositions[v].push(nextPos);
-        removeInPlace(next.index, inEdges[v]);
-        if (inEdges[v].length == 0) {
-          noIncoming.push(this.groups[v]);
-        }
-      }
-    }
-    return sorted;
+  private outGroups(group: FetchGroup): FetchGroup[] {
+    return this.adjacencies[group.index].map(i => this.groups[i]);
   }
 
-  private processStages<G, S, R>(sortedGroups: FetchGroup[], processor: FetchGroupProcessor<G, S, R, any>): R {
-    const stages: S[] = [];
-    let prevStage: FetchGroup[] = [];
-    for (const group of sortedGroups) {
-      if (prevStage.every(g => !this.inEdges[group.index].includes(g.index))) {
-        prevStage.push(group);
+  private inGroups(group: FetchGroup): FetchGroup[] {
+    return this.inEdges[group.index].map(i => this.groups[i]);
+  }
+
+  private processGroup<G, P>(processor: FetchGroupProcessor<G, P>, group: FetchGroup): [G, UnhandledGroups] {
+    const outGroups = this.outGroups(group);
+    const processed = processor.onFetchGroup(group);
+    if (outGroups.length == 0) {
+      return [processed, []];
+    }
+
+    const allOutGroupsHaveThisAsIn = outGroups.every(g => this.inGroups(g).length === 1);
+    if (allOutGroupsHaveThisAsIn) {
+      const nodes: (G | P)[] = [processed];
+
+      let nextNodes = outGroups;
+      let remainingNext: UnhandledGroups = [];
+      while (nextNodes.length > 0) {
+        const [node, toHandle, remaining] = this.processParallelGroups(processor, nextNodes, remainingNext);
+        nodes.push(node);
+        const [canHandle, newRemaining] = this.mergeRemainings(remainingNext, remaining);
+        remainingNext = newRemaining;
+        nextNodes = canHandle.concat(toHandle);
+      }
+      return [processor.reduceSequence(nodes), remainingNext];
+    } else {
+      // We return just the group, with all other groups to be handled after, but remembering that
+      // this group edge has been handled.
+      return [processed, outGroups.map(g => [g, this.inEdges[g.index].filter(e => e !== group.index)])];
+    }
+  }
+
+  private processParallelGroups<G, P>(
+    processor: FetchGroupProcessor<G, P>,
+    groups: FetchGroup[],
+    remaining: UnhandledGroups
+  ): [P, FetchGroup[], UnhandledGroups] {
+    const parallelNodes: G[] = [];
+    let remainingNext = remaining;
+    const toHandleNext: FetchGroup[] = [];
+    for (const group of groups) {
+      const [node, remaining] = this.processGroup(processor, group);
+      parallelNodes.push(node);
+      const [canHandle, newRemaining] = this.mergeRemainings(remainingNext, remaining);
+      toHandleNext.push(...canHandle);
+      remainingNext = newRemaining;
+    }
+    return [
+      processor.reduceParallel(parallelNodes),
+      toHandleNext,
+      remainingNext
+    ];
+  }
+
+  private mergeRemainings(r1: UnhandledGroups, r2: UnhandledGroups): [FetchGroup[], UnhandledGroups] {
+    const unhandled: UnhandledGroups = [];
+    const toHandle: FetchGroup[] = [];
+    for (const [g, edges] of r1) {
+      const newEdges = this.mergeRemaingsAndRemoveIfFound(g, edges, r2);
+      if (newEdges.length == 0) {
+        toHandle.push(g);
       } else {
-        stages.push(processor.reduceStage(prevStage.map(g => processor.onFetchGroup(g))));
-        prevStage = [ group ];
+        unhandled.push([g, newEdges])
       }
     }
-    stages.push(processor.reduceStage(prevStage.map(g => processor.onFetchGroup(g))));
-    return processor.reduceRoot(stages);
+    unhandled.push(...r2);
+    return [toHandle, unhandled];
   }
 
-  /*
-   * TODO: this method is sub-optimal. As mentioned above, it uses the Coffman-Graham algorithm to schedule the groups, but
-   * that essentially work on the assumption all tasks take the exact same time, which is not true. More precisely, this
-   * will create plan, for a given root, that are strictly just 1 sequence of groups of parallel nodes.
-   * To take an example, suppose we have a single root group, and the depencies looks like:
-   *    ___ B __ D
-   *   / 
-   *  A
-   *   \__ C
-   *
-   * Then this method will compute a plan that:
-   *   1. fetches A
-   *   2. fetches B and C in parallel
-   *   3. fetches D
-   * But this might end up less efficient than is ideal because D ends up waiting on C, and if it's longer than B,
-   * the overall query will take longer than necessary.
-   *
-   * We should update the algorithm so that in the plan created is:
-   *   1. fetches A
-   *   2. fetches (B and then D) and C in parallel
-   * But my brain (Sylvain) messed that up and I didn't wanted to lose too much on it so I punted on it for now.
-   * I think we can do better with some proper recursive calls...
-   */
-  process<G, S, R, F>(processor: FetchGroupProcessor<G, S, R, F>, rootsAreParallel: boolean): F {
+  private mergeRemaingsAndRemoveIfFound(group: FetchGroup, inEdges: UnhandledInEdges, otherGroups: UnhandledGroups): UnhandledInEdges {
+    const idx = otherGroups.findIndex(g => g[0].index === group.index);
+    if (idx < 0) {
+      return inEdges;
+    } else {
+      const otherEdges = otherGroups[idx][1];
+      otherGroups.splice(idx, 1);
+      // The uhandled are the one that are unhandled on both side.
+      return inEdges.filter(e => otherEdges.includes(e))
+    }
+  }
+
+  process<G, P>(processor: FetchGroupProcessor<G, P>, rootsAreParallel: boolean): G {
     this.reduce();
 
-    const rootStages: R[] = [...this.rootGroups.values()].map(rootGroup => {
-      const sortedGroups = this.topologicalSortGroups(rootGroup);
-      return this.processStages(sortedGroups, processor);
+    const rootNodes: G[] = [...this.rootGroups.values()].map(rootGroup => {
+      const [node, remaining] = this.processGroup(processor, rootGroup);
+      assert(remaining.length == 0, `A root group should have no remaining groups unhandled`);
+      return node;
     });
 
-    return processor.finalize(rootStages, rootsAreParallel);
+    return processor.finalize(rootNodes, rootsAreParallel);
   }
 
   dumpOnConsole() {
