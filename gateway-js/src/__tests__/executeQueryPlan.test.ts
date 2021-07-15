@@ -4,6 +4,7 @@ import {
   GraphQLObjectType,
   GraphQLSchema,
   parse,
+  print,
 } from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
@@ -15,9 +16,10 @@ import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import {
   astSerializer,
   queryPlanSerializer,
+  superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
-import { buildComposedSchema, QueryPlanner } from '@apollo/query-planner';
-import { buildFederatedSchema, composeAndValidate } from '@apollo/federation';
+import { buildComposedSchema, QueryPlanner, toAPISchema } from '@apollo/query-planner';
+import { composeAndValidate } from '@apollo/federation';
 import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { fixtures } from 'apollo-federation-integration-testsuite';
@@ -1196,6 +1198,9 @@ describe('executeQueryPlan', () => {
 
   describe('@inaccessible', () => {
     it(`should not include @inaccessible fields in introspection`, async () => {
+      schema = buildComposedSchema(superGraphWithInaccessible);
+      queryPlanner = new QueryPlanner(schema);
+
       const operationContext = buildOperationContext({
         schema,
         operationDocument: gql`
@@ -1242,6 +1247,9 @@ describe('executeQueryPlan', () => {
         operationDocument,
       });
 
+      schema = buildComposedSchema(superGraphWithInaccessible);
+      schema = toAPISchema(schema);
+      queryPlanner = new QueryPlanner(schema);
       const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
       const response = await executeQueryPlan(
@@ -1298,13 +1306,8 @@ describe('executeQueryPlan', () => {
       // But note that this is only one possible initialization path for the
       // gateway, and with the current duplication of logic we'd actually need
       // to test other scenarios (like loading from supergraph SDL) separately.
-
       const gateway = new ApolloGateway({
-        localServiceList: fixtures,
-        buildService: (service) => {
-          // @ts-ignore
-          return new LocalGraphQLDataSource(buildFederatedSchema([service]));
-        },
+        supergraphSdl: print(superGraphWithInaccessible),
       });
 
       const { schema, executor } = await gateway.load();

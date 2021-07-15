@@ -8,6 +8,8 @@ import * as reviewsWithUpdate from './special-cases/reviewsWithUpdate';
 import * as accountsWithoutTag from './special-cases/accountsWithoutTag';
 import * as reviewsWithoutTag from './special-cases/reviewsWithoutTag';
 
+export { superGraphWithInaccessible } from './supergraphWithInaccessible';
+
 export {
   accounts,
   books,
