@@ -30,7 +30,8 @@ import {
   isFederationType,
   isFederationDirective,
   Directive,
-  isNamedType
+  isNamedType,
+  isFederationField
 } from "@apollo/core";
 import { ASTNode, GraphQLError } from "graphql";
 import { CompositionHint } from "../hints";
@@ -126,12 +127,18 @@ function copyTypeReference(source: Type, dest: Schema): Type {
     case 'NonNullType':
       return new NonNullType(copyTypeReference(source.ofType, dest) as NullableType);
     default:
-      return dest.type(source.name)!;
+      const type = dest.type(source.name);
+      assert(type, `Cannot find type ${source} in destination schema (with types: ${[...dest.types()].join(', ')})`);
+      return type;
   }
 }
 
 function isNonMergedType(type: Type): boolean {
   return isNamedType(type) && isFederationType(type);
+}
+
+function isNonMergedField(field: InputFieldDefinition | FieldDefinition<ObjectType | InterfaceType>): boolean {
+  return field.kind === 'FieldDefinition' && isFederationField(field);
 }
 
 function isNonMergedDirective(definition: DirectiveDefinition | Directive): boolean {
@@ -169,6 +176,11 @@ class Merger {
       this.mergeUnion(this.subgraphsTypes(unionType), unionType);
     }
 
+    // We merge the roots first as it only depend on the type existing, not being fully merged, and when
+    // we merge types next, we actually rely on this having been called to detect the "query root type"
+    // (in order to skip the _entities and _service fields on that particular type).
+    this.mergeSchemaDefinition(this.subgraphs.map(s => s.schemaDefinition), this.merged.schemaDefinition);
+
     for (const type of this.merged.types()) {
       if (type.kind == 'UnionType') {
         continue;
@@ -180,9 +192,8 @@ class Merger {
       this.mergeDirectiveDefinition(this.subgraphs.map(s => s.directive(definition.name)), definition);
     }
 
-    this.mergeSchemaDefinition(this.subgraphs.map(s => s.schemaDefinition), this.merged.schemaDefinition);
 
-    // Let's not leave federation directives that aren't use.
+    // Let's not leave federation directives that aren't used.
     for (const federationDirective of MERGED_FEDERATION_DIRECTIVES) {
       const directive = this.merged.directive(federationDirective);
       if (directive && directive.applications().length === 0) {
@@ -398,7 +409,7 @@ class Merger {
       }
       for (const field of source.fields.values()) {
         // This will mostly just exclude the _entities and _service but no reason to make it a bit more general.
-        if (isNonMergedType(field.type!)) {
+        if (isNonMergedField(field)) {
           continue;
         }
         if (!dest.fields.has(field.name)) {

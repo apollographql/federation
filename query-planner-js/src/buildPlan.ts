@@ -1,7 +1,7 @@
-import { assert, FragmentElement, FragmentSelection, isListType, isNamedType, isSelectableType, ObjectType, Operation, OperationPath, Schema, SelectableType, Selection, SelectionSet, selectionSetOfPath, Type } from "@apollo/core";
+import { assert, Field, FieldSelection, FragmentElement, FragmentSelection, isListType, isNamedType, isSelectableType, ListType, NonNullType, ObjectType, Operation, OperationPath, operationToAST, Schema, SchemaRootKind, SelectableType, Selection, SelectionSet, selectionSetOfPath, Type, Variable, VariableDefinition, VariableDefinitions } from "@apollo/core";
 import { advanceSimultaneousPathsWithOperation, Edge, ExcludedEdges, FieldCollection, Graph, GraphPath, isRootVertex, OpGraphPath, OpPathTree, PathTree, requireEdgeAdditionalConditions, Vertex } from "@apollo/query-graphs";
 import deepEqual from "deep-equal";
-import { SelectionSetNode, Kind, DocumentNode, VariableDefinitionNode, OperationTypeNode, stripIgnoredCharacters, print } from "graphql";
+import { Kind, DocumentNode, stripIgnoredCharacters, print } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 class State<RV extends Vertex> {
@@ -40,6 +40,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     readonly supergraphSchema: Schema,
     readonly subgraphs: Graph,
     selectionSet: SelectionSet,
+    readonly variableDefinitions: VariableDefinitions,
     startVertex: RV,
     readonly costFunction: CostFunction,
     readonly rootGroupsAreParallel: boolean,
@@ -92,14 +93,23 @@ class QueryPlanningTaversal<RV extends Vertex> {
   }
 
   private resolveConditionPlan(conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges): OpPathTree | null {
-    const bestPlan = new QueryPlanningTaversal(this.supergraphSchema, this.subgraphs, conditions, vertex, this.costFunction, true, excludedEdges, false).findBestPlan();
+    const bestPlan = new QueryPlanningTaversal(
+      this.supergraphSchema,
+      this.subgraphs,
+      conditions,
+      this.variableDefinitions,
+      vertex,
+      this.costFunction,
+      true,
+      excludedEdges,
+      false).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
     return bestPlan ? bestPlan[1] : null;
   }
 
   private handleFinalPathSet(pathSet: OpPathTree<RV>) {
-    const dependencyGraph = computeFetchGroups(pathSet);
+    const dependencyGraph = computeFetchGroups(this.subgraphs.sources, pathSet);
     const cost =  dependencyGraph.process(this.costFunction, this.rootGroupsAreParallel);
     //if (isRootVertex(pathSet.vertex)) {
     //  console.log(`[PLAN] cost: ${cost}, path: ${pathSet}`);
@@ -145,6 +155,7 @@ export function computeQueryPlan(supergraphSchema: Schema, subgraphs: Graph, ope
     supergraphSchema,
     subgraphs,
     operation.selectionSet,
+    operation.variableDefinitions,
     root,
     defaultCostFunction,
     operation.rootKind !== 'mutation'
@@ -154,20 +165,20 @@ export function computeQueryPlan(supergraphSchema: Schema, subgraphs: Graph, ope
     throw new Error("Wasn't able to compute a valid plan. This shouldn't have happened.");
   }
   const dependencyGraph: FetchDependencyGraph = bestPlan[0];
-  return toQueryPlan(operation.rootKind, dependencyGraph);
+  return toQueryPlan(operation.rootKind, operation.variableDefinitions, dependencyGraph);
 }
 
-function fetchGroupToPlanProcessor(operationKind: OperationTypeNode): FetchGroupProcessor<PlanNode, PlanNode> {
+function fetchGroupToPlanProcessor(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions): FetchGroupProcessor<PlanNode, PlanNode> {
   return {
-    onFetchGroup: (group: FetchGroup) => group.toPlanNode(operationKind),
+    onFetchGroup: (group: FetchGroup) => group.toPlanNode(rootKind, variableDefinitions),
     reduceParallel: (values: PlanNode[]) => flatWrap('Parallel', values),
     reduceSequence: (values: PlanNode[]) => flatWrap('Sequence', values),
     finalize: (roots: PlanNode[], rootsAreParallel) => flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)
   };
 }
 
-function toQueryPlan(operationKind: OperationTypeNode, dependencyGraph: FetchDependencyGraph): QueryPlan {
-  const rootNode = dependencyGraph.process(fetchGroupToPlanProcessor(operationKind), operationKind !== 'mutation');
+function toQueryPlan(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions, dependencyGraph: FetchDependencyGraph): QueryPlan {
+  const rootNode = dependencyGraph.process(fetchGroupToPlanProcessor(rootKind, variableDefinitions), rootKind !== 'mutation');
   return { kind: 'QueryPlan', node: rootNode };
 }
 
@@ -248,24 +259,19 @@ class FetchGroup {
     this.dependencyGraph.onMergedIn(this, toMerge);
   }
 
-  toPlanNode(operationKind: OperationTypeNode) : PlanNode {
-    const selections = this._selection.toSelectionSetNode();
+  toPlanNode(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions) : PlanNode {
     const inputs = this._inputs ? this._inputs.toSelectionSetNode() : undefined;
-    // TODO: handle variable usages.
-    //const variableUsages = context.getVariableUsages(
-    //  selectionSet,
-    //  internalFragments,
-    //);
+    // TODO: Handle internalFragments? (and collect their variables if so)
 
     const operation = this.isTopLevel
-      ? operationForRootFetch(selections, operationKind)
-      : operationForEntitiesFetch(selections);
+      ? operationForRootFetch(rootKind, this.selection, variableDefinitions)
+      : operationForEntitiesFetch(this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!, this.selection, variableDefinitions);
 
     const fetchNode: FetchNode = {
       kind: 'Fetch',
       serviceName: this.subgraphName,
       requires: inputs ? trimSelectionNodes(inputs.selections) : undefined,
-      //variableUsages: Object.keys(variableUsages),
+      variableUsages: this.selection.usedVariables().map(v => v.name),
       operation: stripIgnoredCharacters(print(operation)),
     };
 
@@ -308,7 +314,7 @@ class FetchDependencyGraph {
   private readonly adjacencies: number[][] = [];
   private readonly inEdges: number[][] = []
 
-  constructor() {}
+  constructor(readonly subgraphSchemas: ReadonlyMap<String, Schema>) {}
 
   getOrCreateRootFetchGroup(subgraphName: string, parentType: SelectableType): FetchGroup {
     let group = this.rootGroups.get(subgraphName);
@@ -553,8 +559,8 @@ class FetchDependencyGraph {
   }
 }
 
-function computeFetchGroups<RV extends Vertex>(pathTree: OpPathTree<RV>): FetchDependencyGraph {
-  const dependencyGraph = new FetchDependencyGraph();
+function computeFetchGroups<RV extends Vertex>(subgraphSchemas: ReadonlyMap<string, Schema>, pathTree: OpPathTree<RV>): FetchDependencyGraph {
+  const dependencyGraph = new FetchDependencyGraph(subgraphSchemas);
   if (isRootVertex(pathTree.vertex)) {
     // The root of the pathTree is one of the "fake" root of the subgraphs graph, which belongs to no subgraph but points to each ones.
     // So we "unpack" the first level of the tree to find out our top level groups (and initialize our stack).
@@ -731,65 +737,42 @@ function handleRequires(
   }
 }
 
+const representationsVariable = new Variable('representations');
+function representationsVariableDefinition(schema: Schema): VariableDefinition {
+  const anyType = schema.type('_Any');
+  assert(anyType, `Cannot find _Any type in schema`);
+  const representationsType = new NonNullType(new ListType(new NonNullType(anyType)));
+  return new VariableDefinition(schema, representationsVariable, representationsType);
+}
+
 function operationForEntitiesFetch(
-  selectionSet: SelectionSetNode,
-  //variableUsages: VariableUsages
+  subgraphSchema: Schema,
+  selectionSet: SelectionSet,
+  allVariableDefinitions: VariableDefinitions
   //internalFragments: Set<FragmentDefinitionNode>,
 ): DocumentNode {
-  const representationsVariable = {
-    kind: Kind.VARIABLE,
-    name: { kind: Kind.NAME, value: 'representations' },
-  };
+  const variableDefinitions = allVariableDefinitions.filter(selectionSet.usedVariables());
+  variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
+  const queryType = subgraphSchema.schemaDefinition.rootType('query');
+  assert(queryType, `Subgraphs should always have a query root (they should at least provides _entities)`);
+
+  const entities = queryType.field('_entities');
+  assert(entities, `Subgraphs should always have the _entities field`);
+
+  const entitiesCall: SelectionSet = new SelectionSet(queryType);
+  entitiesCall.add(new FieldSelection(
+    new Field(entities, { 'representations': representationsVariable }, variableDefinitions),
+    selectionSet
+  ));
 
   return {
     kind: Kind.DOCUMENT,
     definitions: [
-      {
-        kind: Kind.OPERATION_DEFINITION,
-        operation: 'query',
-        variableDefinitions: ([
-          {
-            kind: Kind.VARIABLE_DEFINITION,
-            variable: representationsVariable,
-            type: {
-              kind: Kind.NON_NULL_TYPE,
-              type: {
-                kind: Kind.LIST_TYPE,
-                type: {
-                  kind: Kind.NON_NULL_TYPE,
-                  type: {
-                    kind: Kind.NAMED_TYPE,
-                    name: { kind: Kind.NAME, value: '_Any' },
-                  },
-                },
-              },
-            },
-          },
-        ] as VariableDefinitionNode[]),
-        //.concat(
-        //  mapFetchNodeToVariableDefinitions(variableUsages),
-        //),
-        selectionSet: {
-          kind: Kind.SELECTION_SET,
-          selections: [
-            {
-              kind: Kind.FIELD,
-              name: { kind: Kind.NAME, value: '_entities' },
-              arguments: [
-                {
-                  kind: Kind.ARGUMENT,
-                  name: {
-                    kind: Kind.NAME,
-                    value: representationsVariable.name.value,
-                  },
-                  value: representationsVariable,
-                },
-              ],
-              selectionSet,
-            },
-          ],
-        },
-      },
+      operationToAST({
+        rootKind: 'query',
+        selectionSet: entitiesCall,
+        variableDefinitions
+      }),
       //...internalFragments,
     ],
   };
@@ -815,20 +798,20 @@ function flatWrap(
 }
 
 function operationForRootFetch(
-  selectionSet: SelectionSetNode,
-  //variableUsages: VariableUsages
+  rootKind: SchemaRootKind,
+  selectionSet: SelectionSet,
+  allVariableDefinitions: VariableDefinitions
   //internalFragments: Set<FragmentDefinitionNode>,
-  operation: OperationTypeNode
 ): DocumentNode {
+  // TODO: do we want to include internal fragments?
   return {
     kind: Kind.DOCUMENT,
     definitions: [
-      {
-        kind: Kind.OPERATION_DEFINITION,
-        operation,
+      operationToAST({
+        rootKind,
         selectionSet,
-        //variableDefinitions: mapFetchNodeToVariableDefinitions(variableUsages),
-      },
+        variableDefinitions: allVariableDefinitions.filter(selectionSet.usedVariables())
+      }),
       //...internalFragments,
     ],
   };

@@ -13,7 +13,8 @@ import {
   SchemaRootKind,
   SelectableType,
   Selection,
-  SelectionSet
+  SelectionSet,
+  VariableDefinitions
 } from "@apollo/core";
 import {
   Edge,
@@ -51,7 +52,8 @@ function buildWitnessOperation(witness: RootPath<Transition>): Operation {
   const root = witness.root;
   return {
     rootKind: root.rootKind,
-    selectionSet: buildWitnessNextStep([...witness.elements()].map(e => e[0]), 0)!
+    selectionSet: buildWitnessNextStep([...witness.elements()].map(e => e[0]), 0)!,
+    variableDefinitions: Object.create(null)
   };
 }
 
@@ -106,7 +108,7 @@ function buildWitnessField(definition: FieldDefinition<any>): Field {
   for (const argDef of definition.arguments()) {
     args[argDef.name] = generateWitnessValue(argDef.type!);
   }
-  return new Field(definition, args);
+  return new Field(definition, args, new VariableDefinitions());
 }
 
 function generateWitnessValue(type: InputType): any {

@@ -1,15 +1,19 @@
-import { BuiltIns, Schema, DirectiveDefinition, NonNullType, NamedType, Directive, UnionType, ObjectType } from "./definitions";
+import { BuiltIns, Schema, DirectiveDefinition, NonNullType, NamedType, Directive, UnionType, ObjectType, ListType, FieldDefinition, InterfaceType } from "./definitions";
+import { assert } from "./utils";
 
-const entityTypeName = '_Entity';
-const serviceTypeName = '_Service';
-const anyTypeName = '_Any';
+export const entityTypeName = '_Entity';
+export const serviceTypeName = '_Service';
+export const anyTypeName = '_Any';
 
-const keyDirectiveName = 'key';
-const extendsDirectiveName = 'extends';
-const externalDirectiveName = 'external';
-const requiresDirectiveName = 'requires';
-const providesDirectiveName = 'provides';
-const inaccessibleDirectiveName = 'inaccessible';
+export const keyDirectiveName = 'key';
+export const extendsDirectiveName = 'extends';
+export const externalDirectiveName = 'external';
+export const requiresDirectiveName = 'requires';
+export const providesDirectiveName = 'provides';
+export const inaccessibleDirectiveName = 'inaccessible';
+
+export const serviceFieldName = '_service';
+export const entitiesFieldName = '_entities';
 
 const FEDERATION_TYPES = [
   entityTypeName,
@@ -23,6 +27,10 @@ const FEDERATION_DIRECTIVES = [
   requiresDirectiveName,
   providesDirectiveName,
   inaccessibleDirectiveName
+];
+const FEDERATION_ROOT_FIELDS = [
+  serviceFieldName,
+  entitiesFieldName
 ];
 
 export class FederationBuiltIns extends BuiltIns {
@@ -76,9 +84,12 @@ export class FederationBuiltIns extends BuiltIns {
     const queryRoot = schema.schemaDefinition.root("query");
     const queryType = queryRoot ? queryRoot.type : schema.addType(new ObjectType("Query"));
     if (hasEntities) {
-      queryType.addField("_entities").type = entityType;
+      const anyType = schema.type(anyTypeName);
+      assert(anyType, `The schema should have the _Any type`);
+      queryType.addField(entitiesFieldName, new NonNullType(new ListType(entityType)))
+        .addArgument('representations', new NonNullType(new ListType(new NonNullType(anyType))));
     }
-    queryType.addField("_service").type = schema.type(serviceTypeName) as ObjectType;
+    queryType.addField(serviceFieldName, schema.type(serviceTypeName) as ObjectType);
   }
 
   keyDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
@@ -116,10 +127,17 @@ export function isFederationType(type: NamedType): boolean {
   return FEDERATION_TYPES.includes(type.name);
 }
 
+export function isFederationField(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
+  if (field.parent === field.schema()!.schemaDefinition.root("query")?.type) {
+    return FEDERATION_ROOT_FIELDS.includes(field.name);
+  }
+  return false;
+}
+
 export function isFederationDirective(directive: DirectiveDefinition | Directive): boolean {
   return FEDERATION_DIRECTIVES.includes(directive.name);
 }
 
 export function isEntityType(type: NamedType): boolean {
-  return type.kind == "ObjectType" && type.hasAppliedDirective('key');
+  return type.kind == "ObjectType" && type.hasAppliedDirective(keyDirectiveName);
 }

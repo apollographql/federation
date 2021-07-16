@@ -3,12 +3,18 @@ import {
   ASTNode,
   DirectiveLocation,
   DirectiveLocationEnum,
+  DirectiveNode,
   GraphQLError,
-  Kind
+  Kind,
+  ListTypeNode,
+  NamedTypeNode,
+  TypeNode,
+  VariableDefinitionNode,
+  VariableNode
 } from "graphql";
-import { OperationElement, SelectableType } from "./operations";
+import { SelectableType } from "./operations";
 import { assert } from "./utils";
-import { withDefaultValues, valueEquals, valueToString, valueToAST } from "./values";
+import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
 
 export type QueryRootKind = 'query';
 export type MutationRootKind = 'mutation';
@@ -139,6 +145,46 @@ export function runtimeTypesIntersects(t1: SelectableType, t2: SelectableType): 
   return false;
 }
 
+/**
+ * Converts a type to an AST of a "reference" to that type, one corresponding to the type `toString()` (and thus never a type definition).
+ *
+ * To print a type definition, see the `printTypeDefinitionAndExtensions` method.
+ */
+export function typeToAST(type: Type): TypeNode {
+  switch (type.kind) {
+    case 'ListType':
+      return {
+        kind: 'ListType',
+        type: typeToAST(type.ofType)
+      };
+    case 'NonNullType':
+      return {
+        kind: 'NonNullType',
+        type: typeToAST(type.ofType) as NamedTypeNode | ListTypeNode
+      };
+    default:
+      return {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: type.name }
+      };
+  }
+}
+
+export function typeFromAST(schema: Schema, node: TypeNode): Type {
+  switch (node.kind) {
+    case 'ListType':
+      return new ListType(typeFromAST(schema, node.type));
+    case 'NonNullType':
+      return new NonNullType(typeFromAST(schema, node.type) as NullableType);
+    default:
+      const type = schema.type(node.name.value);
+      if (!type) {
+        throw new GraphQLError(`Unknown type "${node.name.value}"`, node);
+      }
+      return type;
+  }
+}
+
 export type LeafType = ScalarType | EnumType;
 
 export function isLeafType(type: Type): type is LeafType {
@@ -151,9 +197,75 @@ export interface Named {
 
 export type ExtendableElement = SchemaDefinition | NamedType;
 
+export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
+  public readonly appliedDirectives: Directive<T>[] = [];
+
+  constructor(private readonly _schema: Schema) {}
+
+  schema(): Schema {
+    return this._schema;
+  }
+
+  appliedDirectivesOf(name: string): Directive<T>[];
+  appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(definition: DirectiveDefinition<TApplicationArgs>): Directive<T, TApplicationArgs>[];
+  appliedDirectivesOf(nameOrDefinition: string | DirectiveDefinition): Directive<T>[] {
+    const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
+    return this.appliedDirectives.filter(d => d.name == directiveName);
+  }
+
+  applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
+    defOrDirective: Directive<T, TApplicationArgs> | DirectiveDefinition<TApplicationArgs>,
+    args?: TApplicationArgs
+  ): Directive<T, TApplicationArgs> {
+    let toAdd: Directive<T, TApplicationArgs>;
+    if (defOrDirective instanceof Directive) {
+      if (defOrDirective.schema() && defOrDirective.schema() != this.schema()) {
+        throw new Error(`Cannot add directive ${defOrDirective} to ${this} as it is attached to another schema`);
+      }
+      toAdd = defOrDirective;
+      if (args) {
+        toAdd.setArguments(args);
+      }
+    } else {
+      toAdd = new Directive<T, TApplicationArgs>(defOrDirective.name, args ?? Object.create(null));
+    }
+    Element.prototype['setParent'].call(toAdd, this);
+    // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
+    this.appliedDirectives.push(toAdd);
+    return toAdd;
+  }
+
+  appliedDirectivesToDirectiveNodes() : DirectiveNode[] | undefined {
+    if (this.appliedDirectives.length == 0) {
+      return undefined;
+    }
+
+    return this.appliedDirectives.map(directive => {
+      return {
+        kind: 'Directive',
+        name: {
+          kind: Kind.NAME,
+          value: directive.name,
+        },
+        arguments: directive.argumentsToAST()
+      };
+    });
+  }
+
+  appliedDirectivesToString(): string {
+    return this.appliedDirectives.length == 0
+      ? ''
+      : ' ' + this.appliedDirectives.join(' ');
+  }
+
+  variablesInAppliedDirectives(): Variables {
+    return this.appliedDirectives.reduce((acc: Variables, d) => mergeVariables(acc, variablesInArguments(d.arguments())), []);
+  }
+}
+
 // Not exposed: mostly about avoid code duplication between SchemaElement and Directive (which is not a SchemaElement as it can't
 // have applied directives or a description
-abstract class Element<TParent extends SchemaElement<any> | Schema | OperationElement> {
+abstract class Element<TParent extends SchemaElement<any> | Schema | DirectiveTargetElement<any>> {
   protected _parent?: TParent;
   sourceAST?: ASTNode;
 
@@ -167,7 +279,7 @@ abstract class Element<TParent extends SchemaElement<any> | Schema | OperationEl
       // 'A & B' should always be assignable to both 'A' and 'B').
       return this._parent as any;
     } else {
-      return (this._parent as SchemaElement<any> | OperationElement).schema();
+      return (this._parent as SchemaElement<any> | DirectiveTargetElement<any>).schema();
     }
   }
 
@@ -780,6 +892,10 @@ export class SchemaDefinition extends SchemaElement<Schema>  {
     return this._roots.get(rootKind);
   }
 
+  rootType(rootKind: SchemaRootKind): ObjectType | undefined {
+    return this.root(rootKind)?.type;
+  }
+
   setRoot(rootKind: SchemaRootKind, nameOrType: ObjectType | string): RootType {
     let toSet: RootType;
     if (typeof nameOrType === 'string') {
@@ -1179,7 +1295,9 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
 }
 
 class BaseWrapperType<T extends Type> {
-  protected constructor(protected _type: T) {}
+  protected constructor(protected _type: T) {
+    assert(this._type, 'Cannot wrap an undefined/null type');
+  }
 
   schema(): Schema | undefined {
     return this.baseType().schema();
@@ -1563,7 +1681,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
 }
 
 export class Directive<
-  TParent extends SchemaElement<any> | OperationElement = SchemaElement<any>,
+  TParent extends SchemaElement<any> | DirectiveTargetElement<any> = SchemaElement<any>,
   TArgs extends {[key: string]: any} = {[key: string]: any}
 > extends Element<TParent> implements Named {
   // Note that _extension will only be set for directive directly applied to an extendable element. Meaning that if a directive is
@@ -1673,17 +1791,168 @@ export class Directive<
     return true;
   }
 
-  // We need to set the parent of directives on operations in `AbstractOperationElement` (operations.ts) and `Element` is not exposed
-  // as a class there so we use this indirection.
-  protected setParent(parent: TParent) {
-    super.setParent(parent);
-  }
-
   toString(): string {
     const entries = Object.entries(this._args);
     const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v)}`).join(', ') + ')';
     return `@${this.name}${args}`;
   }
+}
+
+export class Variable {
+  constructor(readonly name: string) {}
+
+  toVariableNode(): VariableNode {
+    return {
+      kind: 'Variable',
+      name: { kind: 'Name', value: this.name },
+    }
+  }
+
+  toString(): string {
+    return '$' + this.name;
+  }
+}
+
+export type Variables = readonly Variable[];
+
+export function mergeVariables(v1s: Variables, v2s: Variables): Variables {
+  if (v1s.length == 0) {
+    return v2s;
+  }
+  if (v2s.length == 0) {
+    return v1s;
+  }
+  const res: Variable[] = [...v1s];
+  for (const v of v2s) {
+    if (!containsVariable(v1s, v)) {
+      res.push(v);
+    }
+  }
+  return res;
+}
+
+export function containsVariable(variables: Variables, toCheck: Variable): boolean {
+  return variables.some(v => v.name == toCheck.name);
+}
+
+export function isVariable(v: any): v is Variable {
+  return v instanceof Variable;
+}
+
+export function variablesInArguments(args: {[key: string]: any}): Variables {
+  let variables: Variables = [];
+  for (const value of Object.values(args)) {
+    variables = mergeVariables(variables, variablesInValue(value));
+  }
+  return variables;
+}
+
+export class VariableDefinition extends DirectiveTargetElement<VariableDefinition> {
+  constructor(
+    schema: Schema,
+    readonly variable: Variable,
+    readonly type: InputType,
+    readonly defaultValue?: any,
+  ) {
+    super(schema);
+  }
+
+  toVariableDefinitionNode(): VariableDefinitionNode {
+    return {
+      kind: 'VariableDefinition',
+      variable: this.variable.toVariableNode(),
+      type: typeToAST(this.type),
+      defaultValue: valueToAST(this.defaultValue, this.type),
+      directives: this.appliedDirectivesToDirectiveNodes()
+    }
+  }
+
+  toString() {
+    let base = this.variable + ': ' + this.type;
+    if (this.defaultValue) {
+      base = base + ' = ' + valueToString(this.defaultValue);
+    }
+    return base + this.appliedDirectivesToString();
+  }
+}
+
+export class VariableDefinitions {
+  private readonly _definitions: Map<string, VariableDefinition> = new Map();
+
+  add(definition: VariableDefinition): boolean {
+    if (this._definitions.has(definition.variable.name)) {
+      return false;
+    }
+    this._definitions.set(definition.variable.name, definition);
+    return true;
+  }
+
+  definition(variable: Variable | string): VariableDefinition | undefined {
+    const varName = typeof variable === 'string' ? variable : variable.name;
+    return this._definitions.get(varName);
+  }
+
+  isEmpty(): boolean {
+    return this._definitions.size === 0;
+  }
+
+  definitions(): VariableDefinition[] {
+    return [...this._definitions.values()];
+  }
+
+  filter(variables: Variables): VariableDefinitions {
+    if (variables.length === 0) {
+      return new VariableDefinitions();
+    }
+
+    const newDefs = new VariableDefinitions();
+    for (const variable of variables) {
+      const def = this.definition(variable);
+      if (!def) {
+        throw new Error(`Cannot find variable ${variable} in definitions ${this}`);
+      }
+      newDefs.add(def);
+    }
+    return newDefs;
+  }
+
+  toVariableDefinitionNodes(): readonly VariableDefinitionNode[] | undefined {
+    if (this._definitions.size === 0) {
+      return undefined;
+    }
+
+    return this.definitions().map(def => def.toVariableDefinitionNode());
+  }
+
+  toString() {
+    return '(' + this.definitions().join(', ') + ')';
+  }
+}
+
+export function variableDefinitionsFromAST(schema: Schema, definitionNodes: readonly VariableDefinitionNode[]): VariableDefinitions {
+  const definitions = new VariableDefinitions();
+  for (const definitionNode of definitionNodes) {
+    if (!definitions.add(variableDefinitionFromAST(schema, definitionNode))) {
+      const name = definitionNode.variable.name.value;
+      throw new GraphQLError(`Duplicate definition for variable ${name}`, definitionNodes.filter(n => n.variable.name.value === name));
+    }
+  }
+  return definitions;
+}
+
+export function variableDefinitionFromAST(schema: Schema, definitionNode: VariableDefinitionNode): VariableDefinition {
+  const variable = new Variable(definitionNode.variable.name.value);
+  const type = typeFromAST(schema, definitionNode.type);
+  if (!isInputType(type)) {
+    throw new GraphQLError(`Invalid type "${type}" for variable $${variable}: not an input type`, definitionNode.type);
+  }
+  const def = new VariableDefinition(
+    schema,
+    variable,
+    type,
+    definitionNode.defaultValue ?  valueFromAST(definitionNode.defaultValue) : undefined
+  );
+  return def;
 }
 
 export const graphQLBuiltIns = new BuiltIns();

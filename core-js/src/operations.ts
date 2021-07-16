@@ -13,8 +13,7 @@ import {
 } from "graphql";
 import {
   baseType,
-  Directive,
-  DirectiveDefinition,
+  DirectiveTargetElement,
   FieldDefinition,
   InterfaceType,
   isInterfaceType,
@@ -27,10 +26,15 @@ import {
   Schema,
   SchemaRootKind,
   Type,
-  UnionType
+  UnionType,
+  mergeVariables,
+  Variables,
+  variablesInArguments,
+  VariableDefinitions,
+  variableDefinitionsFromAST
 } from "./definitions";
 import { MultiMap } from "./utils";
-import { astArgumentsToValues, isValidValue, valueToAST, valueToString } from "./values";
+import { argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
 function buildError(message: string): Error {
   // Maybe not the right error for this?
@@ -40,68 +44,6 @@ function buildError(message: string): Error {
 function validate(condition: any, message: string): asserts condition {
   if (!condition) {
     throw buildError(message);
-  }
-}
-
-class AbstractOperationElement {
-  public readonly appliedDirectives: Directive<OperationElement>[] = [];
-
-  constructor(private readonly _schema: Schema) {}
-
-  schema(): Schema {
-    return this._schema;
-  }
-
-  appliedDirectivesOf(name: string): Directive<OperationElement>[];
-  appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(definition: DirectiveDefinition<TApplicationArgs>): Directive<OperationElement, TApplicationArgs>[];
-  appliedDirectivesOf(nameOrDefinition: string | DirectiveDefinition): Directive<OperationElement>[] {
-    const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
-    return this.appliedDirectives.filter(d => d.name == directiveName);
-  }
-
-  applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
-    defOrDirective: Directive<OperationElement, TApplicationArgs> | DirectiveDefinition<TApplicationArgs>,
-    args?: TApplicationArgs
-  ): Directive<OperationElement, TApplicationArgs> {
-    let toAdd: Directive<OperationElement, TApplicationArgs>;
-    if (defOrDirective instanceof Directive) {
-      if (defOrDirective.schema() && defOrDirective.schema() != this.schema()) {
-        throw new Error(`Cannot add directive ${defOrDirective} to ${this} as it is attached to another schema`);
-      }
-      toAdd = defOrDirective;
-      if (args) {
-        toAdd.setArguments(args);
-      }
-    } else {
-      toAdd = new Directive<OperationElement, TApplicationArgs>(defOrDirective.name, args ?? Object.create(null));
-    }
-    Directive.prototype['setParent'].call(toAdd, this);
-    // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
-    this.appliedDirectives.push(toAdd);
-    return toAdd;
-  }
-
-  directivesToDirectiveNodes() : DirectiveNode[] | undefined {
-    if (this.appliedDirectives.length == 0) {
-      return undefined;
-    }
-
-    return this.appliedDirectives.map(directive => {
-      return {
-        kind: 'Directive',
-        name: {
-          kind: Kind.NAME,
-          value: directive.name,
-        },
-        arguments: directive.argumentsToAST()
-      };
-    });
-  }
-
-  protected directivesToString(): string {
-    return this.appliedDirectives.length == 0 
-      ? ''
-      : ' ' + this.appliedDirectives.join(' ');
   }
 }
 
@@ -118,15 +60,29 @@ function haveSameDirectives<TElement extends OperationElement>(op1: TElement, op
   return true;
 }
 
-export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> extends AbstractOperationElement {
+class AbstractOperationElement<T extends AbstractOperationElement<T>> extends DirectiveTargetElement<T> {
+  public readonly variables: Variables
+
+  constructor(
+    schema: Schema,
+    variablesInElement: Variables
+  ) {
+    super(schema);
+    this.variables = mergeVariables(variablesInElement, this.variablesInAppliedDirectives());
+  }
+}
+
+export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> extends AbstractOperationElement<Field<TArgs>> {
   readonly kind = 'Field' as const;
 
   constructor(
     readonly definition: FieldDefinition<any>,
     readonly args: TArgs,
+    readonly variableDefinitions: VariableDefinitions,
     readonly alias?: string
   ) {
-    super(definition.schema()!);
+    super(definition.schema()!, variablesInArguments(args));
+    this.validateSelects(this.definition, this.variableDefinitions);
   }
 
   get name(): string {
@@ -142,7 +98,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   }
 
   withUpdatedDefinition(newDefinition: FieldDefinition<any>): Field<TArgs> {
-    const newField = new Field<TArgs>(newDefinition, this.args, this.alias);
+    const newField = new Field<TArgs>(newDefinition, this.args, this.variableDefinitions, this.alias);
     for (const directive of this.appliedDirectives) {
       newField.applyDirective(directive.definition!, directive.arguments());
     }
@@ -156,14 +112,14 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
   selects(definition: FieldDefinition<any>): boolean {
     try {
-      this.validateSelects(definition);
+      this.validateSelects(definition, this.variableDefinitions);
       return true;
     } catch (_) {
       return false;
     }
   }
 
-  validateSelects(definition: FieldDefinition<any>) {
+  private validateSelects(definition: FieldDefinition<any>, variableDefinitions: VariableDefinitions) {
     validate(this.name === definition.name, `Field name "${this.name}" cannot select field "${definition.coordinate}: name mismatch"`);
 
     // We need to make sure the field has valid values for every non-optional argument.
@@ -175,7 +131,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
           `Missing mandatory value "${argDef.name}" in field selection "${this}"`);
       } else {
         validate(
-          isValidValue(appliedValue, argDef.type!),
+          isValidValue(appliedValue, argDef.type!, variableDefinitions),
           `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
       }
     }
@@ -205,11 +161,11 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     const args = entries.length == 0 
       ? '' 
       : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v)}`).join(', ') + ')';
-    return alias + this.name + args + this.directivesToString();
+    return alias + this.name + args + this.appliedDirectivesToString();
   }
 }
 
-export class FragmentElement extends AbstractOperationElement {
+export class FragmentElement extends AbstractOperationElement<FragmentElement> {
   readonly kind = 'FragmentElement' as const;
   readonly typeCondition?: SelectableType;
 
@@ -219,7 +175,7 @@ export class FragmentElement extends AbstractOperationElement {
   ) {
     // TODO: we should do some validation here (remove the ! with proper error, and ensure we have some intersection between
     // the source type and the type condition)
-    super(sourceType.schema()!);
+    super(sourceType.schema()!, []);
     this.typeCondition = typeCondition !== undefined && typeof typeCondition === 'string'
       ? this.schema().type(typeCondition)! as SelectableType
       : typeCondition;
@@ -247,7 +203,7 @@ export class FragmentElement extends AbstractOperationElement {
   }
 
   toString(): string {
-    return '...' + (this.typeCondition ? ' on ' + this.typeCondition : '') + this.directivesToString();
+    return '...' + (this.typeCondition ? ' on ' + this.typeCondition : '') + this.appliedDirectivesToString();
   }
 }
 
@@ -273,10 +229,24 @@ export function isSelectableType(type: Type): type is SelectableType {
   }
 }
 
-// TODO Operations can also have directives, arguments, names ...
-export type Operation = {
-  rootKind: SchemaRootKind,
-  selectionSet: SelectionSet
+// TODO Operations can also have directives
+export class Operation {
+  constructor(
+    readonly rootKind: SchemaRootKind,
+    readonly selectionSet: SelectionSet,
+    readonly variableDefinitions: VariableDefinitions,
+    readonly name?: string) {
+  }
+
+  toString(): string {
+    if (this.rootKind == "query" && !this.name && this.variableDefinitions.isEmpty) {
+      return this.selectionSet.toString();
+    }
+    const nameAndVariables = this.name
+      ? " " + (this.name + (this.variableDefinitions.isEmpty() ? "" : this.variableDefinitions.toString()))
+      : (this.variableDefinitions.isEmpty() ? "" : " " + this.variableDefinitions.toString());
+    return this.rootKind + nameAndVariables + " " + this.selectionSet;
+  }
 }
 
 function elementKey(elt: OperationElement): string {
@@ -291,7 +261,7 @@ function addDirectiveNodesToElement(directiveNodes: readonly DirectiveNode[] | u
   for (const node of directiveNodes) {
     const directiveDef = schema.directive(node.name.value);
     validate(directiveDef, `Unknown directive "@${node.name.value}" in selection`)
-    element.applyDirective(directiveDef, astArgumentsToValues(node.arguments));
+    element.applyDirective(directiveDef, argumentsFromAST(node.arguments));
   }
 }
 
@@ -299,13 +269,19 @@ export class SelectionSet {
   // The argument is either the responseName (for fields), or the type name (for fragments), with the empty string being used as a special
   // case for a fragment with no type condition.
   private readonly _selections = new MultiMap<string, Selection>();
+  private _usedVariables: Variables;
 
   constructor(readonly parentType: SelectableType) {
     validate(!isLeafType(parentType), `Cannot have selection on non-leaf type ${parentType}`);
+    this._usedVariables = [];
   }
 
   selections(): readonly Selection[] {
     return [...this._selections.values()].flat();
+  }
+
+  usedVariables(): Variables {
+    return this._usedVariables;
   }
 
   mergeIn(selectionSet: SelectionSet) {
@@ -328,12 +304,14 @@ export class SelectionSet {
           validate(existingSelection.element().equals(toAdd.element()), `Field "${existingSelection}" and "${toAdd}" have the same response name but different name and/or arguments`);
           if (toAdd.selectionSet) {
             existingSelection.selectionSet!.mergeIn(toAdd.selectionSet);
+            this._usedVariables = mergeVariables(this._usedVariables, toAdd.selectionSet.usedVariables());
           }
           return existingSelection;
         }
       }
     }
     this._selections.add(key, toAdd);
+    this._usedVariables = mergeVariables(this._usedVariables, toAdd.usedVariables());
     return selection;
   }
 
@@ -348,42 +326,42 @@ export class SelectionSet {
     }
   }
 
-  addSelectionSetNode(node: SelectionSetNode | undefined, fragments: Map<string, FragmentDefinitionNode> = new Map()) {
+  addSelectionSetNode(node: SelectionSetNode | undefined, variableDefinitions: VariableDefinitions, fragments: Map<string, FragmentDefinitionNode> = new Map()) {
     if (!node) {
       return;
     }
     for (const selectionNode of node.selections) {
-      this.addSelectionNode(selectionNode, fragments);
+      this.addSelectionNode(selectionNode, variableDefinitions, fragments);
     }
   }
 
-  addSelectionNode(node: SelectionNode, fragments: Map<string, FragmentDefinitionNode> = new Map()) {
-    this.add(this.nodeToSelection(node, fragments));
+  addSelectionNode(node: SelectionNode, variableDefinitions: VariableDefinitions, fragments: Map<string, FragmentDefinitionNode> = new Map()) {
+    this.add(this.nodeToSelection(node, variableDefinitions, fragments));
   }
 
-  private nodeToSelection(node: SelectionNode, fragments: Map<string, FragmentDefinitionNode>): Selection {
+  private nodeToSelection(node: SelectionNode, variableDefinitions: VariableDefinitions, fragments: Map<string, FragmentDefinitionNode>): Selection {
     let selection: Selection;
     switch (node.kind) {
       case 'Field':
         validate(!isUnionType(this.parentType), `Cannot find field ${node.name.value} in union type ${this.parentType}`);
         const definition: FieldDefinition<any> | undefined  = this.parentType.field(node.name.value);
         validate(definition, `Cannot find field ${node.name.value} in type ${this.parentType}`);
-        selection = new FieldSelection(new Field(definition, astArgumentsToValues(node.arguments), node.alias?.value));
+        selection = new FieldSelection(new Field(definition, argumentsFromAST(node.arguments), variableDefinitions, node.alias?.value));
         if (node.selectionSet) {
           validate(selection.selectionSet, `Unexpected selection set on leaf field "${selection.element()}"`);
-          selection.selectionSet.addSelectionSetNode(node.selectionSet);
+          selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions);
         }
         break;
       case 'InlineFragment':
         selection = new FragmentSelection(new FragmentElement(this.parentType, node.typeCondition?.name.value));
-        selection.selectionSet.addSelectionSetNode(node.selectionSet);
+        selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions);
         break;
       case 'FragmentSpread':
         const fragmentName = node.name.value;
         const fragmentDef = fragments.get(fragmentName);
         validate(fragmentDef, `Unknown fragment "...${fragmentName}"`);
         selection = new FragmentSelection(new FragmentElement(this.parentType, fragmentDef.typeCondition.name.value));
-        selection.selectionSet.addSelectionSetNode(fragmentDef.selectionSet);
+        selection.selectionSet.addSelectionSetNode(fragmentDef.selectionSet, variableDefinitions);
         addDirectiveNodesToElement(fragmentDef.directives, selection.element());
         break;
     }
@@ -512,6 +490,10 @@ export class FieldSelection {
     return this.field;
   }
 
+  usedVariables(): Variables {
+    return mergeVariables(this.element().variables, this.selectionSet?.usedVariables() ?? []);
+  }
+
   private fieldArgumentsToAST(): ArgumentNode[] | undefined {
     const entries = Object.entries(this.field.args);
     if (entries.length === 0) {
@@ -565,7 +547,7 @@ export class FieldSelection {
         value: this.field.name,
       },
       arguments: this.fieldArgumentsToAST(),
-      directives: this.element().directivesToDirectiveNodes(),
+      directives: this.element().appliedDirectivesToDirectiveNodes(),
       selectionSet: this.selectionSet?.toSelectionSetNode()
     };
   }
@@ -617,6 +599,10 @@ export class FragmentSelection {
     );
   }
 
+  usedVariables(): Variables {
+    return mergeVariables(this.element().variables, this.selectionSet.usedVariables());
+  }
+
   updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
     const selectionParent = selectionSet.parentType;
     const fragmentParent = this.fragmentElement.parentType;
@@ -644,7 +630,7 @@ export class FragmentSelection {
           },
         }
         : undefined,
-      directives: this.fragmentElement.directivesToDirectiveNodes(),
+      directives: this.fragmentElement.appliedDirectivesToDirectiveNodes(),
       selectionSet: this.selectionSet.toSelectionSetNode()
     };
   }
@@ -671,10 +657,13 @@ export function operationFromAST(
 ) : Operation {
   const rootType = schema.schemaDefinition.root(operation.operation);
   validate(rootType, `The schema has no "${operation.operation}" root type defined`);
-  return {
-    rootKind: operation.operation,
-    selectionSet: parseSelectionSet(rootType.type, operation.selectionSet, fragments)
-  };
+  const variableDefinitions = operation.variableDefinitions ? variableDefinitionsFromAST(schema, operation.variableDefinitions) : new VariableDefinitions();
+  return new Operation(
+    operation.operation,
+    parseSelectionSet(rootType.type, operation.selectionSet, variableDefinitions, fragments),
+    variableDefinitions,
+    operation.name?.value
+  );
 }
 
 export function parseOperation(schema: Schema, operation: string): Operation {
@@ -684,6 +673,7 @@ export function parseOperation(schema: Schema, operation: string): Operation {
 export function parseSelectionSet(
   parentType: SelectableType,
   source: string | SelectionSetNode,
+  variableDefinitions: VariableDefinitions = new VariableDefinitions(),
   fragments?: Map<string, FragmentDefinitionNode>
 ): SelectionSet {
   // TODO: we sould maybe allow the selection, when a string, to contain fragment definitions?
@@ -691,7 +681,7 @@ export function parseSelectionSet(
     ? parseOperationAST(source.trim().startsWith('{') ? source : `{${source}}`).selectionSet
     : source;
   const selectionSet = new SelectionSet(parentType);
-  selectionSet.addSelectionSetNode(node, fragments);
+  selectionSet.addSelectionSetNode(node, variableDefinitions, fragments);
   selectionSet.validate();
   return selectionSet;
 }
@@ -708,6 +698,7 @@ export function operationToAST(operation: Operation): OperationDefinitionNode {
   return {
     kind: 'OperationDefinition',
     operation: operation.rootKind,
-    selectionSet: operation.selectionSet.toSelectionSetNode()
+    selectionSet: operation.selectionSet.toSelectionSetNode(),
+    variableDefinitions: operation.variableDefinitions.toVariableDefinitionNodes()
   };
 }

@@ -1,12 +1,29 @@
 import deepEqual from 'deep-equal';
-import { ArgumentDefinition, InputType, isEnumType, isInputObjectType, isListType, isNonNullType, isScalarType } from './definitions';
-import { ArgumentNode, GraphQLError, Kind, valueFromASTUntyped, ValueNode } from 'graphql';
+import {
+  ArgumentDefinition,
+  InputType,
+  isEnumType,
+  isInputObjectType,
+  isListType,
+  isNonNullType,
+  isScalarType,
+  isVariable,
+  Variable,
+  VariableDefinitions,
+  Variables
+} from './definitions';
+import { ArgumentNode, GraphQLError, Kind, ValueNode } from 'graphql';
 import { didYouMean, suggestionList } from './suggestions';
 import { inspect } from 'util';
+import { sameType } from './types';
 
 export function valueToString(v: any): string {
   if (v === undefined || v === null) {
     return "null";
+  }
+
+  if (isVariable(v)) {
+    return v.toString();
   }
 
   if (Array.isArray(v)) {
@@ -33,7 +50,11 @@ function buildError(message: string): Error {
   return new Error(message);
 }
 
-export function applyDefaultValues(value: any, type: InputType): any {
+function applyDefaultValues(value: any, type: InputType): any {
+  if (isVariable(value)) {
+    return value;
+  }
+
   if (value === null) {
     if (isNonNullType(type)) {
       throw new GraphQLError(`Invalid null value for non-null type ${type} while computing default values`);
@@ -93,7 +114,7 @@ export function withDefaultValues(value: any, argument: ArgumentDefinition<any>)
   }
   if (value === undefined) {
     if (argument.defaultValue) {
-      return applyDefaultValues(argument.defaultValue ?? null, argument.type);
+      return applyDefaultValues(argument.defaultValue, argument.type);
     }
   }
   return applyDefaultValues(value, argument.type);
@@ -102,10 +123,17 @@ export function withDefaultValues(value: any, argument: ArgumentDefinition<any>)
 const integerStringRegExp = /^-?(?:0|[1-9][0-9]*)$/;
 
 // Adapted from the `astFromValue` function in graphQL-js
-export function valueToAST(value: any, type: InputType): ValueNode | null {
+export function valueToAST(value: any, type: InputType): ValueNode | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
   if (isNonNullType(type)) {
     const astValue = valueToAST(value, type.ofType);
-    return astValue?.kind === Kind.NULL ? null : astValue;
+    if (astValue?.kind === Kind.NULL) {
+      throw buildError(`Invalid null value ${valueToString(value)} for non-null type ${type}`);
+    }
+     return astValue;
   }
 
   // only explicit null, not undefined, NaN
@@ -113,8 +141,8 @@ export function valueToAST(value: any, type: InputType): ValueNode | null {
     return { kind: Kind.NULL };
   }
 
-  if (value === undefined) {
-    return null;
+  if (isVariable(value)) {
+    return { kind: Kind.VARIABLE, name: { kind: Kind.NAME, value: value.name } };
   }
 
   // Convert JavaScript array to GraphQL list. If the GraphQLType is a list, but
@@ -139,12 +167,12 @@ export function valueToAST(value: any, type: InputType): ValueNode | null {
   // in the JavaScript object according to the fields in the input type.
   if (isInputObjectType(type)) {
     if (typeof value !== 'object') {
-      return null;
+      throw buildError(`Invalid non-objet value for input type ${type}, cannot be converted to AST: ${inspect(value)}`);
     }
     const fieldNodes = [];
     for (const field of type.fields.values()) {
       if (!field.type) {
-        return null;
+        throw buildError(`Cannot convert value ${valueToString(value)} as field ${field} has no type set`);
       }
       const fieldValue = valueToAST(value[field.name], field.type);
       if (fieldValue) {
@@ -189,12 +217,18 @@ export function valueToAST(value: any, type: InputType): ValueNode | null {
     };
   }
 
-  throw new Error("Invalid value, cannot be converted to AST: " + inspect(value));
+  throw buildError(`Invalid value for type ${type}, cannot be converted to AST: ${inspect(value)}`);
 }
 
-export function isValidValue(value: any, type: InputType): boolean {
+export function isValidValue(value: any, type: InputType, variableDefinitions: VariableDefinitions): boolean {
+  // Note that this needs to be first, or the recursive call within 'isNonNullType' would break for variables
+  if (isVariable(value)) {
+    const definition = variableDefinitions.definition(value);
+    return !!definition && sameType(type, definition.type);
+  }
+
   if (isNonNullType(type)) {
-    return value !== null && isValidValue(value, type.ofType);
+    return value !== null && isValidValue(value, type.ofType, variableDefinitions);
   }
 
   if (value === null) {
@@ -204,17 +238,17 @@ export function isValidValue(value: any, type: InputType): boolean {
   if (isListType(type)) {
     const itemType: InputType = type.ofType;
     if (Array.isArray(value)) {
-      return value.every(item => isValidValue(item, itemType));
+      return value.every(item => isValidValue(item, itemType, variableDefinitions));
     }
     // Equivalent of coercing non-null element as a list of one.
-    return isValidValue(value, itemType);
+    return isValidValue(value, itemType, variableDefinitions);
   }
 
   if (isInputObjectType(type)) {
     if (typeof value !== 'object') {
       return false;
     }
-    return [...type.fields.values()].every(field => isValidValue(value[field.name], field.type!));
+    return [...type.fields.values()].every(field => isValidValue(value[field.name], field.type!, variableDefinitions));
   }
 
   // TODO: we may have to handle some coercions (not sure it matters in our use case
@@ -244,12 +278,59 @@ export function isValidValue(value: any, type: InputType): boolean {
   return false;
 }
 
-export function astArgumentsToValues(args: readonly ArgumentNode[] | undefined): {[key: string]: any} {
+export function valueFromAST(node: ValueNode): any {
+  switch (node.kind) {
+    case Kind.NULL:
+      return null;
+    case Kind.INT:
+      return parseInt(node.value, 10);
+    case Kind.FLOAT:
+      return parseFloat(node.value);
+    case Kind.STRING:
+    case Kind.ENUM:
+    case Kind.BOOLEAN:
+      return node.value;
+    case Kind.LIST:
+      return node.values.map(valueFromAST);
+    case Kind.OBJECT:
+      const obj = Object.create(null);
+      node.fields.forEach(f => obj[f.name.value] = valueFromAST(f.value));
+      return obj;
+    case Kind.VARIABLE:
+      return new Variable(node.name.value);
+  }
+}
+
+export function argumentsFromAST(args: readonly ArgumentNode[] | undefined): {[key: string]: any} {
   const values = Object.create(null);
   if (args) {
     for (const argNode of args) {
-      values[argNode.name.value] = valueFromASTUntyped(argNode.value);
+      values[argNode.name.value] = valueFromAST(argNode.value);
     }
   }
   return values;
 }
+
+export function variablesInValue(value: any): Variables {
+  const variables: Variable[] = [];
+  collectVariables(value, variables);
+  return variables;
+}
+
+function collectVariables(value: any, variables: Variable[]) {
+  if (isVariable(value)) {
+    if (!variables.some(v => v.name === value.name)) {
+      variables.push(value);
+    }
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach(v => collectVariables(v, variables));
+  }
+
+  if (typeof value === 'object') {
+    Object.keys(value).forEach(k => collectVariables(value[k], variables));
+  }
+}
+
