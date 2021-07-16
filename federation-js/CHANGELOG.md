@@ -6,6 +6,7 @@
 
 - Skip missing types while iterating over field directive usages. It's possible to capture directive usages on fields whose types don't actually exist in the schema (due to invalid composition). See PR for more details. [PR #868](https://github.com/apollographql/federation/pull/868)
 - Disregard @inaccessible directive in subgraphs. This is a bit of a retrace on a previous decision. @inaccessible will now be achieved strictly through a combination of @tag and Studio usage. [PR #880](https://github.com/apollographql/federation/pull/880)
+- Require a @tag directive definition in subgraphs when there are @tag usages. [PR #882](https://github.com/apollographql/federation/pull/882)
 
 ## v0.26.0
 
