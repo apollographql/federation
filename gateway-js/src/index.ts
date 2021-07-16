@@ -202,7 +202,9 @@ export class ApolloGateway implements GraphQLService {
   // how often service defs should be loaded/updated (in ms)
   private experimental_pollInterval?: number;
   // Configure the endpoint by which gateway will access its precomposed schema.
-  // `null` will revert the gateway to legacy mode (polling GCS and composing the schema itself).
+  // * `string` means use that endpoint
+  // * `null` will revert the gateway to legacy mode (polling GCS and composing the schema itself).
+  // * `undefined` means the gateway is not using managed federation
   // TODO(trevor:cloudconfig): `null` should be disallowed in the future.
   private schemaConfigDeliveryEndpoint?: string | null;
 
@@ -915,25 +917,26 @@ export class ApolloGateway implements GraphQLService {
       );
     }
 
+    config;
+
     // TODO(trevor:cloudconfig): This condition goes away completely
-    if (
-      !this.schemaConfigDeliveryEndpoint &&
-      !isPrecomposedManagedConfig(config)
-    ) {
+    if (isPrecomposedManagedConfig(config)) {
+      return loadSupergraphSdlFromStorage({
+        graphRef: this.apolloConfig!.graphRef!,
+        apiKey: this.apolloConfig!.key!,
+        endpoint: this.schemaConfigDeliveryEndpoint!,
+        fetcher: this.fetcher,
+      });
+    } else if (isLegacyManagedConfig(config)) {
       return getServiceDefinitionsFromStorage({
         graphRef: this.apolloConfig!.graphRef!,
         apiKeyHash: this.apolloConfig!.keyHash!,
         federationVersion: config.federationVersion || 1,
         fetcher: this.fetcher,
       });
+    } else {
+      throw new Error('Programming error: unhandled configuration');
     }
-
-    return loadSupergraphSdlFromStorage({
-      graphRef: this.apolloConfig!.graphRef!,
-      apiKey: this.apolloConfig!.key!,
-      endpoint: this.schemaConfigDeliveryEndpoint!,
-      fetcher: this.fetcher,
-    });
   }
 
   private maybeWarnOnConflictingConfig() {
