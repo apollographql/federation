@@ -58,6 +58,7 @@ export const tagDirective = ({
           'TAG_DIRECTIVE_DEFINITION_INVALID',
           logDirective('tag') +
             `Found @tag definition in service ${serviceName}, but the @tag directive definition was invalid. Please ensure the directive definition in your schema's type definitions matches the following:\n\t${printedTagDefinition}`,
+          tagDirectiveDefinition,
         ),
       );
     }
