@@ -21,6 +21,8 @@ export const tagDirective = ({
   name: serviceName,
   typeDefs,
 }: ServiceDefinition) => {
+  // TODO(#884): Remove this bit once we start running all the graphql-js validations
+  // together, separate from this validator.
   const directiveRules = [
     KnownArgumentNamesOnDirectivesRule,
     KnownDirectivesRule,
