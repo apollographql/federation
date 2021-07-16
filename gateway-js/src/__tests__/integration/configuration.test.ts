@@ -111,7 +111,7 @@ describe('gateway configuration warnings', () => {
     gateway = new ApolloGateway({
       logger,
       // TODO(trevor:cloudconfig): remove
-      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
     });
 
     await gateway.load(mockApolloConfig);
@@ -309,10 +309,10 @@ describe('gateway config / env behavior', () => {
 
       gateway = new ApolloGateway({
         logger,
-        experimental_schemaConfigDeliveryEndpoint: 'code-config',
+        schemaConfigDeliveryEndpoint: 'code-config',
       });
 
-      expect(gateway['experimental_schemaConfigDeliveryEndpoint']).toEqual(
+      expect(gateway['schemaConfigDeliveryEndpoint']).toEqual(
         'code-config',
       );
 
@@ -326,10 +326,10 @@ describe('gateway config / env behavior', () => {
 
       gateway = new ApolloGateway({
         logger,
-        experimental_schemaConfigDeliveryEndpoint: null,
+        schemaConfigDeliveryEndpoint: null,
       });
 
-      expect(gateway['experimental_schemaConfigDeliveryEndpoint']).toEqual(
+      expect(gateway['schemaConfigDeliveryEndpoint']).toEqual(
         null,
       );
 
