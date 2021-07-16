@@ -10,7 +10,7 @@ import { KnownArgumentNamesOnDirectivesRule } from 'graphql/validation/rules/Kno
 import { ProvidedRequiredArgumentsOnDirectivesRule } from 'graphql/validation/rules/ProvidedRequiredArgumentsRule';
 import { validateSDL } from 'graphql/validation/validate';
 import { ServiceDefinition } from '../../types';
-import { errorWithCode, logDirective } from '../../utils';
+import { errorWithCode, logDirective, stripDescriptions } from '../../utils';
 
 const errorsToFilter = federationDirectives.map((directive) => directive.name);
 /**
@@ -46,7 +46,7 @@ export const tagDirective = ({
     const printedTagDefinition =
       'directive @tag(name: String!) repeatable on FIELD_DEFINITION';
 
-    if (print(tagDirectiveDefinition) !== printedTagDefinition) {
+    if (print(stripDescriptions(tagDirectiveDefinition)) !== printedTagDefinition) {
       errors.push(
         errorWithCode(
           'TAG_DIRECTIVE_DEFINITION_INVALID',

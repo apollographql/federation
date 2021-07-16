@@ -40,6 +40,25 @@ describe('tagDirective', () => {
       const errors = tagDirective(serviceA);
       expect(errors).toHaveLength(0);
     });
+
+    it('permits descriptions in the @tag definition', () => {
+      const serviceA = {
+        typeDefs: gql`
+          """description"""
+          directive @tag(
+            """description"""
+            name: String!
+          ) repeatable on FIELD_DEFINITION
+          type Query {
+            hello: String @tag(name: "hello")
+          }
+        `,
+        name: 'serviceA',
+      };
+
+      const errors = tagDirective(serviceA);
+      expect(errors).toHaveLength(0);
+    });
   });
 
   describe('reports errors', () => {
