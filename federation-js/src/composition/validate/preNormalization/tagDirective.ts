@@ -12,7 +12,12 @@ import { validateSDL } from 'graphql/validation/validate';
 import { ServiceDefinition } from '../../types';
 import { errorWithCode, logDirective, stripDescriptions } from '../../utils';
 
-const errorsToFilter = federationDirectives.map((directive) => directive.name);
+// Likely brittle but also will be very obvious if this breaks. Based on the
+// content of the error message itself to remove expected errors related to
+// omitted federation directives.
+const errorsMessagesToFilter = federationDirectives.map(
+  (directive) => `Unknown directive "@${directive.name}".`,
+);
 /**
  * If there are tag usages in the service definition, check that the tag directive
  * definition is included and correct.
@@ -46,7 +51,9 @@ export const tagDirective = ({
     const printedTagDefinition =
       'directive @tag(name: String!) repeatable on FIELD_DEFINITION';
 
-    if (print(stripDescriptions(tagDirectiveDefinition)) !== printedTagDefinition) {
+    if (
+      print(stripDescriptions(tagDirectiveDefinition)) !== printedTagDefinition
+    ) {
       errors.push(
         errorWithCode(
           'TAG_DIRECTIVE_DEFINITION_INVALID',
@@ -58,7 +65,8 @@ export const tagDirective = ({
     }
   }
 
-  return errors.filter(({ message }) => {
-    return !errorsToFilter.some((keyWord) => message.includes(keyWord));
-  });
+  return errors.filter(
+    ({ message }) =>
+      !errorsMessagesToFilter.some((keyWord) => message === keyWord),
+  );
 };
