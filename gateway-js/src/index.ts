@@ -204,7 +204,7 @@ export class ApolloGateway implements GraphQLService {
   // Configure the endpoint by which gateway will access its precomposed schema.
   // `null` will revert the gateway to legacy mode (polling GCS and composing the schema itself).
   // TODO(trevor:cloudconfig): `null` should be disallowed in the future.
-  private schemaConfigDeliveryEndpoint: string | null;
+  private schemaConfigDeliveryEndpoint?: string | null;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -232,10 +232,9 @@ export class ApolloGateway implements GraphQLService {
     this.experimental_pollInterval = config?.experimental_pollInterval;
 
     // 1. If config is set to a `string`, use it
-    // 2. If config is `undefined`, use the default uplink URL
-    // 3. If config is explicitly set to `null`, fallback to GCS
-    // 4. If the env var is set, use that
-    this.schemaConfigDeliveryEndpoint = 'https://uplink.api.apollographql.com/';
+    // 2. If config is explicitly set to `null`, fallback to GCS
+    // 3. If the env var is set, use that
+    // 4. If config is `undefined`, use the default uplink URL
 
     // This if case unobviously handles 1, 2, and 4.
     if (isPrecomposedManagedConfig(this.config)) {
@@ -243,7 +242,7 @@ export class ApolloGateway implements GraphQLService {
       this.schemaConfigDeliveryEndpoint =
         this.config.schemaConfigDeliveryEndpoint ??
         envEndpoint ??
-        this.schemaConfigDeliveryEndpoint;
+        'https://uplink.api.apollographql.com/';
     } else if (isLegacyManagedConfig(this.config)) {
       this.schemaConfigDeliveryEndpoint = null;
     }

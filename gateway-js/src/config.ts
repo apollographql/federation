@@ -138,11 +138,20 @@ export interface RemoteGatewayConfig extends GatewayConfigBase {
 // TODO(trevor:cloudconfig): This type goes away
 export interface LegacyManagedGatewayConfig extends GatewayConfigBase {
   federationVersion?: number;
+  /**
+   * Setting this to null will cause the gateway to use the old mechanism for
+   * managed federation via GCS + composition.
+   */
   schemaConfigDeliveryEndpoint: null;
 }
 
 // TODO(trevor:cloudconfig): This type becomes the only managed config
 export interface PrecomposedManagedGatewayConfig extends GatewayConfigBase {
+  /**
+   * This configuration option shouldn't be used unless by recommendation from
+   * Apollo staff. This can also be set to `null` (see above) in order to revert
+   * to the previous mechanism for managed federation.
+   */
   schemaConfigDeliveryEndpoint?: string;
 }
 
