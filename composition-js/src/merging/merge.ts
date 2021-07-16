@@ -182,6 +182,14 @@ class Merger {
 
     this.mergeSchemaDefinition(this.subgraphs.map(s => s.schemaDefinition), this.merged.schemaDefinition);
 
+    // Let's not leave federation directives that aren't use.
+    for (const federationDirective of MERGED_FEDERATION_DIRECTIVES) {
+      const directive = this.merged.directive(federationDirective);
+      if (directive && directive.applications().length === 0) {
+        directive.remove();
+      }
+    }
+
     if (this.errors.length > 0) {
       return { errors: this.errors };
     } else {

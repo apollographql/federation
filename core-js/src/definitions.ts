@@ -1524,6 +1524,10 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     return this;
   }
 
+  applications(): readonly Directive<SchemaElement<any>, TApplicationArgs>[] {
+    return [...this._referencers];
+  }
+
   private addReferencer(referencer: Directive<SchemaElement<any>, TApplicationArgs>) {
     assert(referencer, 'Referencer should exists');
     this._referencers.add(referencer);
