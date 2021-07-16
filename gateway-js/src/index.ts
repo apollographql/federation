@@ -236,16 +236,16 @@ export class ApolloGateway implements GraphQLService {
     // 3. If config is explicitly set to `null`, fallback to GCS
     // 4. If the env var is set, use that
     this.schemaConfigDeliveryEndpoint = 'https://uplink.api.apollographql.com/';
-    // This if case unobviously handles both 1 and 2.
+
+    // This if case unobviously handles 1, 2, and 4.
     if (isPrecomposedManagedConfig(this.config)) {
+      const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
       this.schemaConfigDeliveryEndpoint =
         this.config.schemaConfigDeliveryEndpoint ??
+        envEndpoint ??
         this.schemaConfigDeliveryEndpoint;
     } else if (isLegacyManagedConfig(this.config)) {
       this.schemaConfigDeliveryEndpoint = null;
-    } else {
-      const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
-      if (envEndpoint) this.schemaConfigDeliveryEndpoint = envEndpoint;
     }
 
     if (isManuallyManagedConfig(this.config)) {
