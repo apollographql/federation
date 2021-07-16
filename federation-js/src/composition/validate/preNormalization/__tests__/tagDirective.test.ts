@@ -104,5 +104,75 @@ describe('tagDirective', () => {
         ]
       `);
     });
+
+    it('when @tag usage is missing args', () => {
+      const serviceA = {
+        typeDefs: gql`
+          directive @tag(name: String!) repeatable on FIELD_DEFINITION
+
+          type Query {
+            hello: String @tag
+          }
+        `,
+        name: 'serviceA',
+      };
+
+      const errors = tagDirective(serviceA);
+
+      expect(errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "code": "MISSING_ERROR",
+            "locations": Array [
+              Object {
+                "column": 17,
+                "line": 5,
+              },
+            ],
+            "message": "Directive \\"@tag\\" argument \\"name\\" of type \\"String!\\" is required, but it was not provided.",
+          },
+        ]
+      `);
+    });
+
+    it('when @tag usage has invalid args', () => {
+      const serviceA = {
+        typeDefs: gql`
+          directive @tag(name: String!) repeatable on FIELD_DEFINITION
+
+          type Query {
+            hello: String @tag(invalid: 1)
+          }
+        `,
+        name: 'serviceA',
+      };
+
+      const errors = tagDirective(serviceA);
+
+      expect(errors).toMatchInlineSnapshot(`
+        Array [
+          Object {
+            "code": "MISSING_ERROR",
+            "locations": Array [
+              Object {
+                "column": 22,
+                "line": 5,
+              },
+            ],
+            "message": "Unknown argument \\"invalid\\" on directive \\"@tag\\".",
+          },
+          Object {
+            "code": "MISSING_ERROR",
+            "locations": Array [
+              Object {
+                "column": 17,
+                "line": 5,
+              },
+            ],
+            "message": "Directive \\"@tag\\" argument \\"name\\" of type \\"String!\\" is required, but it was not provided.",
+          },
+        ]
+      `);
+    });
   });
 });
