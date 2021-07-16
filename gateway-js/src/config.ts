@@ -215,12 +215,13 @@ export function isPrecomposedManagedConfig(
   config: GatewayConfig,
 ): config is PrecomposedManagedGatewayConfig {
   return (
-    ('schemaConfigDeliveryEndpoint' in config &&
+    !isLegacyManagedConfig(config) &&
+    (('schemaConfigDeliveryEndpoint' in config &&
       typeof config.schemaConfigDeliveryEndpoint === 'string') ||
-    (!isRemoteConfig(config) &&
-      !isLocalConfig(config) &&
-      !isSupergraphSdlConfig(config) &&
-      !isManuallyManagedConfig(config))
+      (!isRemoteConfig(config) &&
+        !isLocalConfig(config) &&
+        !isSupergraphSdlConfig(config) &&
+        !isManuallyManagedConfig(config)))
   );
 }
 
