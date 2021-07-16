@@ -1,13 +1,18 @@
+import { federationDirectives } from '../../../directives';
 import {
-  BREAK,
   DirectiveDefinitionNode,
-  GraphQLError,
-  print,
+  KnownDirectivesRule,
   visit,
+  BREAK,
+  print,
 } from 'graphql';
+import { KnownArgumentNamesOnDirectivesRule } from 'graphql/validation/rules/KnownArgumentNamesRule';
+import { ProvidedRequiredArgumentsOnDirectivesRule } from 'graphql/validation/rules/ProvidedRequiredArgumentsRule';
+import { validateSDL } from 'graphql/validation/validate';
 import { ServiceDefinition } from '../../types';
 import { errorWithCode, logDirective } from '../../utils';
 
+const errorsToFilter = federationDirectives.map((directive) => directive.name);
 /**
  * If there are tag usages in the service definition, check that the tag directive
  * definition is included and correct.
@@ -16,42 +21,29 @@ export const tagDirective = ({
   name: serviceName,
   typeDefs,
 }: ServiceDefinition) => {
-  let tagUsed = false;
+  const directiveRules = [
+    KnownArgumentNamesOnDirectivesRule,
+    KnownDirectivesRule,
+    ProvidedRequiredArgumentsOnDirectivesRule,
+  ];
+
+  const errors = validateSDL(typeDefs, undefined, directiveRules);
+
+  let tagDirectiveDefinition: DirectiveDefinitionNode | undefined;
   visit(typeDefs, {
-    Directive(node) {
+    DirectiveDefinition(node) {
       if (node.name.value === 'tag') {
-        tagUsed = true;
+        tagDirectiveDefinition = node;
         return BREAK;
       }
     },
   });
 
-  const errors: GraphQLError[] = [];
-  let tagDirectiveDefinition: DirectiveDefinitionNode | undefined;
-  if (!tagUsed) {
-    return [];
-  } else {
-    visit(typeDefs, {
-      DirectiveDefinition(node) {
-        if (node.name.value === 'tag') {
-          tagDirectiveDefinition = node;
-          return BREAK;
-        }
-      },
-    });
-  }
+  // Ensure the tag directive definition is correct
+  if (tagDirectiveDefinition) {
+    const printedTagDefinition =
+      'directive @tag(name: String!) repeatable on FIELD_DEFINITION';
 
-  const printedTagDefinition =
-    'directive @tag(name: String!) repeatable on FIELD_DEFINITION';
-  if (!tagDirectiveDefinition) {
-    errors.push(
-      errorWithCode(
-        'TAG_DIRECTIVE_DEFINITION_MISSING',
-        logDirective('tag') +
-          `Found @tag usages in service ${serviceName}, but the @tag directive definition wasn't included. Please include the following directive definition in your schema's type definitions:\n\t${printedTagDefinition}`,
-      ),
-    );
-  } else {
     if (print(tagDirectiveDefinition) !== printedTagDefinition) {
       errors.push(
         errorWithCode(
@@ -63,5 +55,8 @@ export const tagDirective = ({
       );
     }
   }
-  return errors;
+
+  return errors.filter(({ message }) => {
+    return !errorsToFilter.some((keyWord) => message.includes(keyWord));
+  });
 };

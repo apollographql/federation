@@ -59,15 +59,19 @@ describe('tagDirective', () => {
 
       const errors = tagDirective(serviceA);
       expect(errors).toMatchInlineSnapshot(`
-              Array [
-                Object {
-                  "code": "TAG_DIRECTIVE_DEFINITION_MISSING",
-                  "locations": undefined,
-                  "message": "[@tag] -> Found @tag usages in service serviceA, but the @tag directive definition wasn't included. Please include the following directive definition in your schema's type definitions:
-              	directive @tag(name: String!) repeatable on FIELD_DEFINITION",
-                },
-              ]
-          `);
+        Array [
+          Object {
+            "code": "MISSING_ERROR",
+            "locations": Array [
+              Object {
+                "column": 15,
+                "line": 7,
+              },
+            ],
+            "message": "Unknown directive \\"@tag\\".",
+          },
+        ]
+      `);
     });
 
     it('when @tag usage and definition exist, but definition is incorrect', () => {

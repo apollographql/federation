@@ -56,7 +56,6 @@ If Apollo Gateway encounters an error, composition fails. This document lists co
 ## `@tag`
 | Code | Description |
 |---|---|
-| `TAG_DIRECTIVE_DEFINITION_MISSING` | The `@tag` directive is used but not defined in the subgraph. Please include the @tag directive definition in your type definitions: `directive @tag(name: String!) repeatable on FIELD_DEFINITION` |
 | `TAG_DIRECTIVE_DEFINITION_INVALID` | The `@tag` directive definition is included but defined incorrectly. Please include the correct `@tag` directive definition: `directive @tag(name: String!) repeatable on FIELD_DEFINITION`|
 
 ## Custom directives
