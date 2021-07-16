@@ -202,7 +202,7 @@ export class ApolloGateway implements GraphQLService {
   // how often service defs should be loaded/updated (in ms)
   private experimental_pollInterval?: number;
   // Configure the endpoint by which gateway will access its precomposed schema.
-  // For now, `null` is default and means to continue using the legacy managed mode.
+  // `null` will revert the gateway to legacy mode (polling GCS and composing the schema itself).
   // TODO(trevor:cloudconfig): `null` should be disallowed in the future.
   private schemaConfigDeliveryEndpoint: string | null;
 
