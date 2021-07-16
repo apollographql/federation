@@ -554,7 +554,7 @@ class Merger {
         `${kind} "${dest.coordinate}" has a default value in only some subgraphs: `,
         dest,
         sources,
-        arg => arg.defaultValue? undefined : valueToString(arg.defaultValue),
+        arg => arg.defaultValue ? valueToString(arg.defaultValue) : undefined,
         (elt, subgraphs) => `will use default value ${elt} from ${subgraphs} in supergraph but `,
         (_, subgraphs) => `no default value is defined in ${subgraphs}`
       );
