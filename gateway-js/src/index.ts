@@ -917,8 +917,6 @@ export class ApolloGateway implements GraphQLService {
       );
     }
 
-    config;
-
     // TODO(trevor:cloudconfig): This condition goes away completely
     if (isPrecomposedManagedConfig(config)) {
       return loadSupergraphSdlFromStorage({
