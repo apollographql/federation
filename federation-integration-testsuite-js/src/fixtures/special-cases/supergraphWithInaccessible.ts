@@ -2,50 +2,38 @@ import { composeAndValidate } from '@apollo/federation';
 import { assertCompositionSuccess } from '@apollo/federation/dist/composition/utils';
 import {
   DirectiveDefinitionNode,
-  DirectiveNode,
+  SchemaDefinitionNode,
   DocumentNode,
+  DirectiveNode,
   parse,
   visit,
 } from 'graphql';
-import * as accounts from './accounts';
-import * as books from './books';
-import * as documents from './documents';
-import * as inventory from './inventory';
-import * as product from './product';
-import * as reviews from './reviews';
+import { fixtures } from '..';
 
-const fixtures = [accounts, books, documents, inventory, product, reviews];
 const compositionResult = composeAndValidate(fixtures);
 assertCompositionSuccess(compositionResult);
 const parsed = parse(compositionResult.supergraphSdl);
 
-const inaccessibleDefinition: DirectiveDefinitionNode = {
-  kind: 'DirectiveDefinition',
-  name: { kind: 'Name', value: 'inaccessible' },
-  locations: [{ kind: 'Name', value: "FIELD_DEFINITION" }],
-  repeatable: false,
-};
+// We need to collect the AST for the inaccessible definition as well
+// as the @core and @inaccessible usages. Parsing SDL is a fairly
+// clean approach to this and easier to update than handwriting the AST.
+const [inaccessibleDefinition, schemaDefinition] = parse(`#graphql
+  # inaccessibleDefinition
+  directive @inaccessible on FIELD_DEFINITION
+  schema
+    # inaccessibleCoreUsage
+    @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
+    # inaccessibleUsage
+    @inaccessible {
+      query: Query
+    }
+  `).definitions as [DirectiveDefinitionNode, SchemaDefinitionNode];
 
-const inaccessibleUsage: DirectiveNode = {
-  kind: 'Directive',
-  name: { kind: 'Name', value: 'inaccessible' },
-};
+const [inaccessibleCoreUsage, inaccessibleUsage] =
+  schemaDefinition.directives as [DirectiveNode, DirectiveNode];
 
-const inaccessibleCoreUsage: DirectiveNode = {
-  kind: 'Directive',
-  name: { kind: 'Name', value: 'core' },
-  arguments: [
-    {
-      kind: 'Argument',
-      name: { kind: 'Name', value: 'feature' },
-      value: {
-        kind: 'StringValue',
-        value: 'https://specs.apollo.dev/inaccessible/v0.1',
-      },
-    },
-  ],
-};
-
+// Append the AST with the inaccessible definition,
+// @core inaccessible usage, and @inaccessible usage on the `ssn` field
 const superGraphWithInaccessible: DocumentNode = visit(parsed, {
   Document(node) {
     return {
