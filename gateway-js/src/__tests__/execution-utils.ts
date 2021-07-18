@@ -93,12 +93,7 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
     ]),
   );
 
-  const compositionResult = composeAndValidate(
-    Object.entries(serviceMap).map(([serviceName, dataSource]) => ({
-      name: serviceName,
-      typeDefs: dataSource.sdl(),
-    })),
-  );
+  const compositionResult = composeAndValidate(services);
 
   if (compositionHasErrors(compositionResult)) {
     throw new GraphQLSchemaValidationError(compositionResult.errors);

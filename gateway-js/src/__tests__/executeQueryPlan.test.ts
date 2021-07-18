@@ -3,7 +3,6 @@ import {
   getIntrospectionQuery,
   GraphQLObjectType,
   GraphQLSchema,
-  parse,
   print,
 } from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
@@ -19,11 +18,9 @@ import {
   superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
 import { buildComposedSchema, QueryPlanner } from '@apollo/query-planner';
-import { composeAndValidate } from '@apollo/federation';
 import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
-import { fixtures } from 'apollo-federation-integration-testsuite';
-import { buildLocalService } from './execution-utils';
+import { getFederatedTestingSchema } from './execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -50,21 +47,17 @@ describe('executeQueryPlan', () => {
   let schema: GraphQLSchema;
   let queryPlanner: QueryPlanner;
   beforeEach(() => {
-    // expect(
-    //   () =>
-    //     ({
-    //       serviceMap,
-    //       schema,
-    //       queryPlanner,
-    // } = getFederatedTestingSchema()),
-    // ).not.toThrow();
-    let compositionResult = composeAndValidate(fixtures);
+    expect(
+      () =>
+        ({ serviceMap, schema, queryPlanner } = getFederatedTestingSchema()),
+    ).not.toThrow();
+    // let compositionResult = composeAndValidate(fixtures);
 
-    schema = buildComposedSchema(parse(compositionResult.supergraphSdl!));
-    queryPlanner = new QueryPlanner(schema);
-    serviceMap = Object.fromEntries(
-      fixtures.map((f) => [f.name, buildLocalService([f])]),
-    );
+    // schema = buildComposedSchema(parse(compositionResult.supergraphSdl!));
+    // queryPlanner = new QueryPlanner(schema);
+    // serviceMap = Object.fromEntries(
+    //   fixtures.map((f) => [f.name, buildLocalService([f])]),
+    // );
   });
 
   function buildRequestContext(): GraphQLRequestContext {
