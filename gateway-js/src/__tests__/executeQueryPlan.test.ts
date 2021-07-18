@@ -18,7 +18,7 @@ import {
   queryPlanSerializer,
   superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
-import { buildComposedSchema, QueryPlanner, toAPISchema } from '@apollo/query-planner';
+import { buildComposedSchema, QueryPlanner } from '@apollo/query-planner';
 import { composeAndValidate } from '@apollo/federation';
 import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
@@ -1227,7 +1227,7 @@ describe('executeQueryPlan', () => {
       expect(userType.getFields()['ssn']).toBeUndefined();
     });
 
-    it(`should not return @inaccessible fields`, async () => {
+    fit(`should not return @inaccessible fields`, async () => {
       const operationString = `#graphql
         query {
           topReviews {
@@ -1242,13 +1242,13 @@ describe('executeQueryPlan', () => {
 
       const operationDocument = gql(operationString);
 
+      schema = buildComposedSchema(superGraphWithInaccessible);
+
       const operationContext = buildOperationContext({
         schema,
         operationDocument,
       });
 
-      schema = buildComposedSchema(superGraphWithInaccessible);
-      schema = toAPISchema(schema);
       queryPlanner = new QueryPlanner(schema);
       const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
