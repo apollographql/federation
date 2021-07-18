@@ -15,7 +15,7 @@ import {
   addResolversToSchema,
   GraphQLResolverMap,
 } from 'apollo-graphql';
-import apolloTypeSystemDirectives, { typeIncludesDirective } from '../directives';
+import { federationDirectives, typeIncludesDirective } from '../directives';
 
 import { serviceField, entitiesField, EntityType } from '../types';
 
@@ -65,7 +65,7 @@ export function buildFederatedSchema(
     modules,
     new GraphQLSchema({
       query: undefined,
-      directives: [...specifiedDirectives, ...apolloTypeSystemDirectives],
+      directives: [...specifiedDirectives, ...federationDirectives],
     }),
   );
 
