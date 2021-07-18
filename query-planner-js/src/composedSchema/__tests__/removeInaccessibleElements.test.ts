@@ -1,4 +1,4 @@
-import { buildSchema, assertValidSchema } from 'graphql';
+import { buildSchema, assertValidSchema, GraphQLObjectType } from 'graphql';
 import { removeInaccessibleElements } from '../removeInaccessibleElements';
 
 describe('removeInaccessibleElements', () => {
@@ -87,6 +87,10 @@ describe('removeInaccessibleElements', () => {
     schema = removeInaccessibleElements(schema);
 
     expect(schema.getType('Foo')).toBeUndefined();
+    const barType = schema.getType('Bar') as GraphQLObjectType | undefined;
+    expect(barType).toBeDefined();
+    expect(barType?.getFields()['someField']).toBeDefined();
+    expect(barType?.getInterfaces()).toHaveLength(0);
   });
 
   it(`removes @inaccessible union types`, () => {
