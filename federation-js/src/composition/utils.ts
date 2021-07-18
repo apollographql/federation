@@ -139,11 +139,11 @@ export function stripExternalFieldsFromTypeDefs(
   return { typeDefsWithoutExternalFields, strippedFields };
 }
 
-export function stripDescriptions(node: ASTNode) {
-  return visit(node, {
+export function stripDescriptions(astNode: ASTNode) {
+  return visit(astNode, {
     enter(node) {
       return 'description' in node ? { ...node, description: undefined } : node;
-    }
+    },
   });
 }
 
