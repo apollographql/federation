@@ -53,7 +53,7 @@ For either monolithic scenario, its high-level architecture looks like this:
 
 ### Pattens 4: Multiple overlapping graphs
 
-Enterprise teams may also independently develop their own service-specific GraphQL APIs in tandem. With this approach, teams may delineate each service API based on types or use cases, but there will often be overlap between the graphs due to the interconnected nature of data. 
+Enterprise teams may also independently develop their own service-specific GraphQL APIs in tandem. With this approach, teams may delineate each service API based on types or use cases, but there will often be overlap between the graphs due to the interconnected nature of data.
 
 An example of this architecture could look like this:
 
@@ -61,7 +61,7 @@ An example of this architecture could look like this:
 
 ### Where do these patterns break down?
 
-After taking stock of who uses GraphQL and how in your company, the patterns the various teams have implemented can provide insight into what kinds of problems they initially tried to solve. Similarly, these choices can help highlight what GraphQL pain points the teams currently face in their tech stacks.
+After taking stock of who uses GraphQL and how in your company, patterns implemented by various teams can provide insight into what kinds of problems they initially tried to solve. Similarly, these choices can help highlight what GraphQL pain points the teams currently face in their tech stacks.
 
 #### Client-only graphQL
 
@@ -77,7 +77,7 @@ However, there's an inherent tradeoff in building and maintaining BFFs. When eve
 
 The challenges that emerge from shared BFFs are intensified with monolithic GraphQL servers that have shared ownership. Portions of a graph may be well-designed to suit the needs of certain client teams only, while other clients must find workarounds or create overlapping types for their own use. At the same time, standardization becomes an issue because the shape of the graph evolves myopically on a client-by-client or a feature-by-feature basis.
 
-Even in scenarios where a dedicated server team maintains ownership of the graph challenges, quickly arise when more than one graph definition is required for a single product in order to support the needs of multiple clients. A server team may also find itself burdened with the task of building and maintaining the necessary tooling to evolve the schema over time to meet new product needs without breaking compatibility for any clients that are actively consuming data from the graph.
+Even in scenarios where a dedicated server team maintains ownership of the graph, challenges quickly arise when more than one graph definition is required for a single product in order to support the needs of multiple clients. A server team may also find itself burdened with the task of building and maintaining the necessary tooling to evolve the schema over time to meet new product needs without breaking compatibility for any clients that are actively consuming data from the graph.
 
 #### Multiple overlapping graphs
 
@@ -141,7 +141,7 @@ Additionally, whatever portion of the data graph you scope into an initial subgr
 
 The second core principle is also one of its main architectural advantages of consolidating GraphQL APIs. Federation allows teams to partition the schema of the unified data graph using **concern-based separation** rather than type-based separation. This distinction sets federation apart from other consolidation approaches like schema stitching and allows teams to collaborate on and contribute to the data graph in a more organic and productive way.
 
-While dividing a GraphQL schema across teams based on types may initially make sense, in practice, types will often contain fields that cannot be neatly encapsulated within a single service's boundaries. For example, where one team maintains a products service and another maintains a reviews services, how do you define the relationship that a list of reviews has to a given product or that a product has to a specific review in these portions of the schema? 
+While dividing a GraphQL schema across teams based on types may initially make sense, in practice, types will often contain fields that cannot be neatly encapsulated within a single service's boundaries. For example, where one team maintains a products service and another maintains a reviews services, how do you define the relationship that a list of reviews has to a given product or that a product has to a specific review in these portions of the schema?
 
 In these instances, foreign key-like fields may find their way into the types, which reduces the expressiveness of relationships between nodes in the graph and exposes underlying implementation details instead of serving product use cases. Alternatively, a non-trivial amount of imperative code would be required to link the types together in a stitched schema.
 
@@ -151,9 +151,9 @@ Separation of concerns allows each service to define the types and fields that i
 
 At this point, you may have a sense that your company could benefit from consolidating its data graph, so the next important question to answer is _when_ should it move toward consolidation?
 
-GraphQL, from a pure engineering standpoint, is one means to achieve a common set of business goals: horizontal scalability, rapid product iteration, increased service delivery capacity, and reduced time-to-market. When placed in the hands of architects and engineering leaders, common questions emerge about how GraphQL can and will change the organization.  
+GraphQL, from a pure engineering standpoint, is one means to achieve a common set of business goals: horizontal scalability, rapid product iteration, increased service delivery capacity, and reduced time-to-market. When placed in the hands of architects and engineering leaders, common questions emerge about how GraphQL can and will change the organization.
 
-At a fundamental level, a conversation about consolidation can begin **as soon as it seems logical for multiple teams to manage different parts of the data graph.** While each company may have unique considerations in answering the question of when and how to consolidate, Apollo has recognized patterns of success and failure when making this shift. 
+At a fundamental level, a conversation about consolidation can begin **as soon as it seems logical for multiple teams to manage different parts of the data graph.** While each company may have unique considerations in answering the question of when and how to consolidate, Apollo has recognized patterns of success and failure when making this shift.
 
 Historically at Apollo, we have seen that federation usually isn't a starting point for most enterprises in the early stages of adopting GraphQL. While it can be in some cases, implementing federation before running GraphQL in production with one of pre-consolidation patterns we previously discussed will likely require large-scale education and integration efforts for the teams who will be responsible for managing portions of the data graph. It may also skew the focus of this process heavily toward data modelling across subgraphs instead of product delivery.
 
@@ -190,7 +190,7 @@ If the answers to **any** these questions are unclear or “no,” then leaders 
 |Concern|Yes/No|Remediation/Guidance|
 |---|---|---|
 |Consensus|Are multiple teams contributing to your graph?|If this is an initial federated implementation, identify your "Graph Champions" and establish education, review, and governance processes.|
-|Responsibility|Are contributions to your graph by multiple teams regularly causing conflicts with one another?|If teams are collaborating well together, consider the potential switching cost of diving teams or adding new teams.|
+|Responsibility|Are contributions to your graph by multiple teams regularly causing conflicts with one another?|If teams are collaborating well together, consider the potential switching cost of dividing teams or adding new teams.|
 |Delivery|Is there a measurable slowdown or downward trend in GraphQL service change delivery?|If there isn’t a measurable, negative impact to product or service delivery, consider the additional complexity and support for this change.|
 |Delivery|Is there a concrete security, performance, or product development need to deliver portions of your existing schema by different teams or different services?|If consumers or internal stakeholders are not currently affected, consider revisiting the driving factors for this change.|
 |Consensus|Is there a single source of governance for your GraphQL schema within the organization?|An initial Federated implementation, or an early expansion of Federation, are good opportunities to create support systems for education, consensus-building, governance, and quality control.|
@@ -211,4 +211,3 @@ Because GraphQL can be an organizationally transformative technology, care shoul
 ## Summary
 
 Consolidating GraphQL APIs across the enterprise can help bring a much-needed measure of consistency to how this technology is implemented for both data graph contributors and consumers alike. Moving toward a unified, federated approach allows a company to scale its GraphQL APIs, obtain new perspectives on its data graph, reuse infrastructure, and enable teams to ship code faster. When the time is right to move toward a consolidated data graph, enforcing proper separation of concerns in the underlying services will allow teams to continue to rapidly iterate while adhering to the constraints imposed by the federated implementation.
-

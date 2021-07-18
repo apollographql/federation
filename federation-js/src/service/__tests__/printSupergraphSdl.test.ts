@@ -308,7 +308,7 @@ describe('printSupergraphSdl', () => {
     `);
   });
 
-  it('prints a fully composed schema without @tag orcorrectly', () => {
+  it('prints a fully composed schema without @tag correctly', () => {
     // composeAndValidate calls `printSupergraphSdl` to return `supergraphSdl`
     const compositionResult = composeAndValidate(fixturesWithoutTag);
     if (compositionHasErrors(compositionResult)) {
