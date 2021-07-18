@@ -1227,7 +1227,7 @@ describe('executeQueryPlan', () => {
       expect(userType.getFields()['ssn']).toBeUndefined();
     });
 
-    fit(`should not return @inaccessible fields`, async () => {
+    it(`should not return @inaccessible fields`, async () => {
       const operationString = `#graphql
         query {
           topReviews {
