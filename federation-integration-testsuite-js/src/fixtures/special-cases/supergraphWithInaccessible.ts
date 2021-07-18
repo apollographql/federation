@@ -19,7 +19,7 @@ const parsed = parse(compositionResult.supergraphSdl);
 // clean approach to this and easier to update than handwriting the AST.
 const [inaccessibleDefinition, schemaDefinition] = parse(`#graphql
   # inaccessibleDefinition
-  directive @inaccessible on FIELD_DEFINITION
+  directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
   schema
     # inaccessibleCoreUsage
     @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")

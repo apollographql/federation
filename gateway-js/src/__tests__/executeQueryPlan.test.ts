@@ -51,13 +51,6 @@ describe('executeQueryPlan', () => {
       () =>
         ({ serviceMap, schema, queryPlanner } = getFederatedTestingSchema()),
     ).not.toThrow();
-    // let compositionResult = composeAndValidate(fixtures);
-
-    // schema = buildComposedSchema(parse(compositionResult.supergraphSdl!));
-    // queryPlanner = new QueryPlanner(schema);
-    // serviceMap = Object.fromEntries(
-    //   fixtures.map((f) => [f.name, buildLocalService([f])]),
-    // );
   });
 
   function buildRequestContext(): GraphQLRequestContext {
