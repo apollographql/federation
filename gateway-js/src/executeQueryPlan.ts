@@ -24,7 +24,8 @@ import {
   ResponsePath,
   QueryPlanSelectionNode,
   QueryPlanFieldNode,
-  getResponseName
+  getResponseName,
+  toAPISchema
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
@@ -90,7 +91,7 @@ export async function executeQueryPlan<TContext>(
         // It is also used to allow execution of introspection queries though.
         try {
           const executionResult = await execute({
-            schema: operationContext.schema,
+            schema: toAPISchema(operationContext.schema),
             document: {
               kind: Kind.DOCUMENT,
               definitions: [

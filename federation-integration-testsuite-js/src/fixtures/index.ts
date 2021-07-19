@@ -8,26 +8,9 @@ import * as reviewsWithUpdate from './special-cases/reviewsWithUpdate';
 import * as accountsWithoutTag from './special-cases/accountsWithoutTag';
 import * as reviewsWithoutTag from './special-cases/reviewsWithoutTag';
 
-export {
-  accounts,
-  books,
-  documents,
-  inventory,
-  product,
-  reviews,
-  reviewsWithUpdate,
-};
+const fixtures = [accounts, books, documents, inventory, product, reviews];
 
-export const fixtures = [
-  accounts,
-  books,
-  documents,
-  inventory,
-  product,
-  reviews,
-];
-
-export const fixturesWithUpdate = [
+const fixturesWithUpdate = [
   accounts,
   books,
   documents,
@@ -36,7 +19,7 @@ export const fixturesWithUpdate = [
   reviewsWithUpdate,
 ];
 
-export const fixturesWithoutTag = [
+const fixturesWithoutTag = [
   accountsWithoutTag,
   books,
   documents,
@@ -45,7 +28,7 @@ export const fixturesWithoutTag = [
   reviewsWithoutTag,
 ];
 
-export const fixtureNames = [
+const fixtureNames = [
   accounts.name,
   product.name,
   inventory.name,
@@ -53,3 +36,18 @@ export const fixtureNames = [
   books.name,
   documents.name,
 ];
+
+export { superGraphWithInaccessible } from './special-cases/supergraphWithInaccessible';
+export {
+  accounts,
+  books,
+  documents,
+  inventory,
+  product,
+  reviews,
+  reviewsWithUpdate,
+  fixtures,
+  fixturesWithUpdate,
+  fixturesWithoutTag,
+  fixtureNames,
+};
