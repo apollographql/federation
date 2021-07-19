@@ -47,7 +47,6 @@ export function toAPISchema(schema: GraphQLSchema): GraphQLSchema {
 
   return apiSchema;
 
-  // TODO: Implement the IsExported algorithm from the Core Schema spec.
   function isExported(element: NamedSchemaElement) {
     for (const featureName of featureNames) {
       // For now, we skip any element that is associated with a feature.
