@@ -1,4 +1,4 @@
-import { URL } from "apollo-server-env";
+import { URL } from "url";
 
 export interface ParsedFeatureURL {
   identity: string;
