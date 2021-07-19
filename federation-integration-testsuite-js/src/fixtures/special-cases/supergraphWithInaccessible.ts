@@ -64,4 +64,28 @@ const superGraphWithInaccessible: DocumentNode = visit(parsed, {
   },
 });
 
-export { superGraphWithInaccessible };
+const withInaccessibleCarType: DocumentNode = visit(
+  superGraphWithInaccessible,
+  {
+    ObjectTypeDefinition(node) {
+      if (node.name.value === 'Car') {
+        return {
+          ...node,
+          directives: [...(node.directives ?? []), inaccessibleUsage],
+        };
+      }
+      return node;
+    },
+    FieldDefinition(node) {
+      if (node.name.value === 'topCars') {
+        return {
+          ...node,
+          directives: [...(node.directives ?? []), inaccessibleUsage],
+        };
+      }
+      return node;
+    }
+  },
+);
+
+export { withInaccessibleCarType as superGraphWithInaccessible };
