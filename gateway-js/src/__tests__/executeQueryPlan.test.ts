@@ -1357,7 +1357,7 @@ describe('executeQueryPlan', () => {
       expect(response.data?.vehicle).toEqual(null);
       expect(response.errors).toMatchInlineSnapshot(`
         Array [
-          [GraphQLError: Abstract type "Vehicle" was resolve to a type "Car" that does not exist inside schema.],
+          [GraphQLError: Abstract type "Vehicle" was resolve to a type [inaccessible type] that does not exist inside schema.],
         ]
       `);
     });

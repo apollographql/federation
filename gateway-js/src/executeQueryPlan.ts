@@ -90,8 +90,9 @@ export async function executeQueryPlan<TContext>(
         // the original query.
         // It is also used to allow execution of introspection queries though.
         try {
+          const { schema, removedTypes } = toAPISchema(operationContext.schema);
           const executionResult = await execute({
-            schema: toAPISchema(operationContext.schema),
+            schema,
             document: {
               kind: Kind.DOCUMENT,
               definitions: [
@@ -106,7 +107,22 @@ export async function executeQueryPlan<TContext>(
           });
           data = executionResult.data;
           if (executionResult.errors?.length) {
-            errors.push(...executionResult.errors)
+            if (removedTypes && removedTypes.size > 0) {
+              const anyInaccessibleTypename = new RegExp(
+                [...removedTypes]
+                  .map((namedType) => '("' + namedType.name + '")')
+                  .join('|'),
+                'g',
+              );
+              executionResult.errors.forEach(
+                (e) =>
+                  (e.message = e.message.replace(
+                    anyInaccessibleTypename,
+                    '[inaccessible type]',
+                  )),
+              );
+            }
+            errors.push(...executionResult.errors);
           }
         } catch (error) {
           span.setStatus({ code:SpanStatusCode.ERROR });

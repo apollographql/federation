@@ -435,7 +435,7 @@ export class ApolloGateway implements GraphQLService {
       throw e;
     }
 
-    this.schema = toAPISchema(schema);
+    this.schema = toAPISchema(schema).schema;
     // TODO(trevor): #580 redundant parse
     this.parsedSupergraphSdl = parse(supergraphSdl);
     this.queryPlanner = new QueryPlanner(schema);
@@ -515,7 +515,7 @@ export class ApolloGateway implements GraphQLService {
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
-      this.schema = toAPISchema(schema);
+      this.schema = toAPISchema(schema).schema;
       this.queryPlanner = new QueryPlanner(schema);
 
       // Notify the schema listeners of the updated schema
@@ -588,7 +588,7 @@ export class ApolloGateway implements GraphQLService {
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
-      this.schema = toAPISchema(schema);
+      this.schema = toAPISchema(schema).schema;
       this.queryPlanner = new QueryPlanner(schema);
 
       // Notify the schema listeners of the updated schema
