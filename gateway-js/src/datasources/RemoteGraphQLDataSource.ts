@@ -3,21 +3,20 @@ import {
   GraphQLResponse,
   ValueOrPromise,
   GraphQLRequest,
+  CacheHint,
+  CacheScope,
+  CachePolicy,
 } from 'apollo-server-types';
 import {
   ApolloError,
   AuthenticationError,
   ForbiddenError,
 } from 'apollo-server-errors';
-import {
-  fetch,
-  Request,
-  Headers,
-  Response,
-} from 'apollo-server-env';
+import { fetch, Request, Headers, Response } from 'apollo-server-env';
 import { isObject } from '../utilities/predicates';
-import { GraphQLDataSource, GraphQLDataSourceProcessOptions } from './types';
+import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
 import createSHA from 'apollo-server-core/dist/utils/createSHA';
+import { parseCacheControlHeader } from './parseCacheControlHeader';
 
 export class RemoteGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
@@ -57,6 +56,12 @@ export class RemoteGraphQLDataSource<
    */
   apq: boolean = false;
 
+  /**
+   * Should cache-control response headers from subgraphs affect the operation's
+   * cache policy? If it shouldn't, set this to false.
+   */
+  honorSubgraphCacheControlHeader: boolean = true;
+
   async process(
     options: GraphQLDataSourceProcessOptions<TContext>,
   ): Promise<GraphQLResponse> {
@@ -90,10 +95,15 @@ export class RemoteGraphQLDataSource<
 
     const { query, ...requestWithoutQuery } = request;
 
-    const respond = (response: GraphQLResponse, request: GraphQLRequest) =>
-      typeof this.didReceiveResponse === 'function'
-        ? this.didReceiveResponse({ response, request, context })
-        : response;
+    // Special handling of cache-control headers in response. Requires
+    // Apollo Server 3, so we check to make sure the method we want is
+    // there.
+    const overallCachePolicy =
+      this.honorSubgraphCacheControlHeader &&
+      options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION &&
+      options.incomingRequestContext.overallCachePolicy?.restrict
+        ? options.incomingRequestContext.overallCachePolicy
+        : null;
 
     if (this.apq) {
       const apqHash = createSHA('sha256').update(request.query).digest('hex');
@@ -121,7 +131,12 @@ export class RemoteGraphQLDataSource<
           (error) => error.message === 'PersistedQueryNotFound',
         )
       ) {
-        return respond(apqOptimisticResponse, requestWithoutQuery);
+        return this.respond({
+          response: apqOptimisticResponse,
+          request: requestWithoutQuery,
+          context,
+          overallCachePolicy,
+        });
       }
     }
 
@@ -133,7 +148,12 @@ export class RemoteGraphQLDataSource<
       ...requestWithoutQuery,
     };
     const response = await this.sendRequest(requestWithQuery, context);
-    return respond(response, requestWithQuery);
+    return this.respond({
+      response,
+      request: requestWithQuery,
+      context,
+      overallCachePolicy,
+    });
   }
 
   private async sendRequest(
@@ -189,6 +209,48 @@ export class RemoteGraphQLDataSource<
   public willSendRequest?(
     options: GraphQLDataSourceProcessOptions<TContext>,
   ): ValueOrPromise<void>;
+
+  private async respond({
+    response,
+    request,
+    context,
+    overallCachePolicy,
+  }: {
+    response: GraphQLResponse;
+    request: GraphQLRequest;
+    context: TContext;
+    overallCachePolicy: CachePolicy | null;
+  }): Promise<GraphQLResponse> {
+    const processedResponse =
+      typeof this.didReceiveResponse === 'function'
+        ? await this.didReceiveResponse({ response, request, context })
+        : response;
+
+    if (overallCachePolicy) {
+      const parsed = parseCacheControlHeader(
+        response.http?.headers.get('cache-control'),
+      );
+
+      // If the subgraph does not specify a max-age, we assume its response (and
+      // thus the overall response) is uncacheable. (If you don't like this, you
+      // can tweak the `cache-control` header in your `didReceiveResponse`
+      // method.)
+      const hint: CacheHint = { maxAge: 0 };
+      const maxAge = parsed['max-age'];
+      if (typeof maxAge === 'string' && maxAge.match(/^[0-9]+$/)) {
+        hint.maxAge = +maxAge;
+      }
+      if (parsed['private'] === true) {
+        hint.scope = CacheScope.Private;
+      }
+      if (parsed['public'] === true) {
+        hint.scope = CacheScope.Public;
+      }
+      overallCachePolicy.restrict(hint);
+    }
+
+    return processedResponse;
+  }
 
   public didReceiveResponse?(
     requestContext: Required<
