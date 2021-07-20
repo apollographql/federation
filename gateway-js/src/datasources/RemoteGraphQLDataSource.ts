@@ -16,10 +16,13 @@ import {
   Response,
 } from 'apollo-server-env';
 import { isObject } from '../utilities/predicates';
-import { GraphQLDataSource } from './types';
+import { GraphQLDataSource, GraphQLDataSourceProcessOptions } from './types';
 import createSHA from 'apollo-server-core/dist/utils/createSHA';
 
-export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Record<string, any>> implements GraphQLDataSource<TContext> {
+export class RemoteGraphQLDataSource<
+  TContext extends Record<string, any> = Record<string, any>,
+> implements GraphQLDataSource<TContext>
+{
   fetcher: typeof fetch = fetch;
 
   constructor(
@@ -54,12 +57,19 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
    */
   apq: boolean = false;
 
-  async process({
-    request,
-    context,
-  }: Pick<GraphQLRequestContext<TContext>, 'request' | 'context'>): Promise<
-    GraphQLResponse
-  > {
+  async process(
+    options: GraphQLDataSourceProcessOptions<TContext>,
+  ): Promise<GraphQLResponse> {
+    const { request, context: originalContext } = options;
+    // Deal with a bit of a hairy situation in typings: when doing health checks
+    // and schema checks we always pass in `{}` as the context even though it's
+    // not really guaranteed to be a `TContext`, and then we pass it to various
+    // methods on this object. The reason this "works" is that the DataSourceMap
+    // and Service types aren't generic-ized on TContext at all (so `{}` is in
+    // practice always legal there)... ie, the genericness of this class is
+    // questionable in the first place.
+    const context = originalContext as TContext;
+
     // Respect incoming http headers (eg, apollo-federation-include-trace).
     const headers = (request.http && request.http.headers) || new Headers();
     headers.set('Content-Type', 'application/json');
@@ -71,24 +81,22 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
     };
 
     if (this.willSendRequest) {
-      await this.willSendRequest({ request, context });
+      await this.willSendRequest(options);
     }
 
     if (!request.query) {
-      throw new Error("Missing query");
+      throw new Error('Missing query');
     }
 
     const { query, ...requestWithoutQuery } = request;
 
     const respond = (response: GraphQLResponse, request: GraphQLRequest) =>
-      typeof this.didReceiveResponse === "function"
+      typeof this.didReceiveResponse === 'function'
         ? this.didReceiveResponse({ response, request, context })
         : response;
 
     if (this.apq) {
-      const apqHash = createSHA('sha256')
-        .update(request.query)
-        .digest('hex');
+      const apqHash = createSHA('sha256').update(request.query).digest('hex');
 
       // Take the original extensions and extend them with
       // the necessary "extensions" for APQ handshaking.
@@ -100,15 +108,18 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
         },
       };
 
-      const apqOptimisticResponse =
-        await this.sendRequest(requestWithoutQuery, context);
+      const apqOptimisticResponse = await this.sendRequest(
+        requestWithoutQuery,
+        context,
+      );
 
       // If we didn't receive notice to retry with APQ, then let's
       // assume this is the best result we'll get and return it!
       if (
         !apqOptimisticResponse.errors ||
-        !apqOptimisticResponse.errors.find(error =>
-          error.message === 'PersistedQueryNotFound')
+        !apqOptimisticResponse.errors.find(
+          (error) => error.message === 'PersistedQueryNotFound',
+        )
       ) {
         return respond(apqOptimisticResponse, requestWithoutQuery);
       }
@@ -129,11 +140,10 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
     request: GraphQLRequest,
     context: TContext,
   ): Promise<GraphQLResponse> {
-
     // This would represent an internal programming error since this shouldn't
     // be possible in the way that this method is invoked right now.
     if (!request.http) {
-      throw new Error("Internal error: Only 'http' requests are supported.")
+      throw new Error("Internal error: Only 'http' requests are supported.");
     }
 
     // We don't want to serialize the `http` properties into the body that is
@@ -177,16 +187,12 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
   }
 
   public willSendRequest?(
-    requestContext: Pick<
-      GraphQLRequestContext<TContext>,
-      'request' | 'context'
-    >,
+    options: GraphQLDataSourceProcessOptions<TContext>,
   ): ValueOrPromise<void>;
 
   public didReceiveResponse?(
-    requestContext: Required<Pick<
-      GraphQLRequestContext<TContext>,
-      'request' | 'response' | 'context'>
+    requestContext: Required<
+      Pick<GraphQLRequestContext<TContext>, 'request' | 'response' | 'context'>
     >,
   ): ValueOrPromise<GraphQLResponse>;
 
