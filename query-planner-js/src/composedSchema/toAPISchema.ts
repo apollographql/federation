@@ -14,23 +14,17 @@ declare module 'graphql' {
   }
 }
 
-export function toAPISchema(schema: GraphQLSchema): {
-  schema: GraphQLSchema;
-  removedTypes?: Set<GraphQLNamedType>;
-} {
+export function toAPISchema(schema: GraphQLSchema): GraphQLSchema {
   // Similar to `validateSchema()` caching its result in `__validationErrors`,
   // we cache the API schema to avoid recomputing it unnecessarily.
 
   if (schema.__apiSchema) {
-    return {
-      schema: schema.__apiSchema,
-    };
+    return schema.__apiSchema;
   }
 
   assertValidSchema(schema);
 
-  const { schema: filteredSchema, removedTypes } =
-    removeInaccessibleElements(schema);
+  schema = removeInaccessibleElements(schema);
 
   // TODO: We should get a list of feature names from the schema itself, rather
   // than relying on a static list of supported features.
@@ -38,7 +32,9 @@ export function toAPISchema(schema: GraphQLSchema): {
 
   // We filter out schema elements that should not be exported to get to the
   // API schema.
-  const schemaConfig = filteredSchema.toConfig();
+
+  const schemaConfig = schema.toConfig();
+
   const apiSchema = new GraphQLSchema({
     ...schemaConfig,
     types: schemaConfig.types.filter(isExported),
@@ -47,9 +43,9 @@ export function toAPISchema(schema: GraphQLSchema): {
 
   assertValidSchema(apiSchema);
 
-  filteredSchema.__apiSchema = apiSchema;
+  schema.__apiSchema = apiSchema;
 
-  return { schema: apiSchema, removedTypes };
+  return apiSchema;
 
   function isExported(element: NamedSchemaElement) {
     for (const featureName of featureNames) {

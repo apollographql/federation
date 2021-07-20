@@ -17,7 +17,7 @@ describe('toAPISchema', () => {
     );
     const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
 
-    schema = toAPISchema(buildComposedSchema(parse(supergraphSdl))).schema;
+    schema = toAPISchema(buildComposedSchema(parse(supergraphSdl)));
   });
 
   it(`doesn't include core directives`, () => {

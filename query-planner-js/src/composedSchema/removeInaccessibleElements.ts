@@ -17,12 +17,11 @@ import {
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
 
-export function removeInaccessibleElements(schema: GraphQLSchema): {
-  schema: GraphQLSchema;
-  removedTypes?: Set<GraphQLNamedType>;
-} {
+export function removeInaccessibleElements(
+  schema: GraphQLSchema,
+): GraphQLSchema {
   const inaccessibleDirective = schema.getDirective('inaccessible');
-  if (!inaccessibleDirective) return { schema };
+  if (!inaccessibleDirective) return schema;
 
   // We need to compute the types to remove beforehand, because we also need
   // to remove any fields that return a removed type. Otherwise, GraphQLSchema
@@ -41,41 +40,38 @@ export function removeInaccessibleElements(schema: GraphQLSchema): {
 
   removeRootTypesIfNeeded();
 
-  return {
-    schema: transformSchema(schema, (type) => {
-      // Remove the type.
-      if (typesToRemove.has(type)) return null;
+  return transformSchema(schema, (type) => {
+    // Remove the type.
+    if (typesToRemove.has(type)) return null;
 
-      if (isObjectType(type)) {
-        const typeConfig = type.toConfig();
+    if (isObjectType(type)) {
+      const typeConfig = type.toConfig();
 
-        return new GraphQLObjectType({
-          ...typeConfig,
-          fields: removeInaccessibleFields(type, typeConfig.fields),
-          interfaces: removeInaccessibleTypes(typeConfig.interfaces),
-        });
-      } else if (isInterfaceType(type)) {
-        const typeConfig = type.toConfig();
+      return new GraphQLObjectType({
+        ...typeConfig,
+        fields: removeInaccessibleFields(type, typeConfig.fields),
+        interfaces: removeInaccessibleTypes(typeConfig.interfaces),
+      });
+    } else if (isInterfaceType(type)) {
+      const typeConfig = type.toConfig();
 
-        return new GraphQLInterfaceType({
-          ...typeConfig,
-          fields: removeInaccessibleFields(type, typeConfig.fields),
-          interfaces: removeInaccessibleTypes(typeConfig.interfaces),
-        });
-      } else if (isUnionType(type)) {
-        const typeConfig = type.toConfig();
+      return new GraphQLInterfaceType({
+        ...typeConfig,
+        fields: removeInaccessibleFields(type, typeConfig.fields),
+        interfaces: removeInaccessibleTypes(typeConfig.interfaces),
+      });
+    } else if (isUnionType(type)) {
+      const typeConfig = type.toConfig();
 
-        return new GraphQLUnionType({
-          ...typeConfig,
-          types: removeInaccessibleTypes(typeConfig.types),
-        });
-      } else {
-        // Keep the type as is.
-        return undefined;
-      }
-    }),
-    removedTypes: typesToRemove,
-  };
+      return new GraphQLUnionType({
+        ...typeConfig,
+        types: removeInaccessibleTypes(typeConfig.types),
+      });
+    } else {
+      // Keep the type as is.
+      return undefined;
+    }
+  });
 
   function removeRootTypesIfNeeded() {
     let schemaConfig = schema.toConfig();

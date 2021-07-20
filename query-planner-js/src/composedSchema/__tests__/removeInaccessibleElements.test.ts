@@ -21,7 +21,7 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    schema = removeInaccessibleElements(schema).schema;
+    schema = removeInaccessibleElements(schema);
 
     const queryType = schema.getQueryType()!;
 
@@ -53,12 +53,9 @@ describe('removeInaccessibleElements', () => {
       union Bar = Foo
     `);
 
-    let removedTypes;
-    ({ schema, removedTypes } = removeInaccessibleElements(schema));
-    const removedType = Array.from([...removedTypes!])[0];
+    schema = removeInaccessibleElements(schema);
 
     expect(schema.getType('Foo')).toBeUndefined();
-    expect(removedType.name).toEqual('Foo');
   });
 
   it(`removes @inaccessible interface types`, () => {
@@ -87,16 +84,13 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    let removedTypes;
-    ({ schema, removedTypes } = removeInaccessibleElements(schema));
-    const removedType = Array.from([...removedTypes!])[0];
+    schema = removeInaccessibleElements(schema);
 
     expect(schema.getType('Foo')).toBeUndefined();
     const barType = schema.getType('Bar') as GraphQLObjectType | undefined;
     expect(barType).toBeDefined();
     expect(barType?.getFields()['someField']).toBeDefined();
     expect(barType?.getInterfaces()).toHaveLength(0);
-    expect(removedType.name).toEqual('Foo');
   });
 
   it(`removes @inaccessible union types`, () => {
@@ -127,14 +121,11 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    let removedTypes;
-    ({ schema, removedTypes } = removeInaccessibleElements(schema));
-    const removedType = Array.from([...removedTypes!])[0];
+    schema = removeInaccessibleElements(schema);
 
     expect(schema.getType('Foo')).toBeUndefined();
     expect(schema.getType('Bar')).toBeDefined();
     expect(schema.getType('Baz')).toBeDefined();
-    expect(removedType.name).toEqual('Foo');
   });
 
   it(`throws when a field returning an @inaccessible type isn't marked @inaccessible itself`, () => {
@@ -190,7 +181,7 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    schema = removeInaccessibleElements(schema).schema;
+    schema = removeInaccessibleElements(schema);
 
     expect(schema.getQueryType()).toBeUndefined();
     expect(schema.getType('Query')).toBeUndefined();
@@ -225,7 +216,7 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    schema = removeInaccessibleElements(schema).schema;
+    schema = removeInaccessibleElements(schema);
 
     expect(schema.getMutationType()).toBeUndefined();
     expect(schema.getType('Mutation')).toBeUndefined();
@@ -258,7 +249,7 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    schema = removeInaccessibleElements(schema).schema;
+    schema = removeInaccessibleElements(schema);
 
     expect(schema.getSubscriptionType()).toBeUndefined();
     expect(schema.getType('Subscription')).toBeUndefined();
