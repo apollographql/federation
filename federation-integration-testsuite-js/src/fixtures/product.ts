@@ -7,10 +7,21 @@ export const typeDefs = gql`
   directive @stream on FIELD
   directive @transform(from: String!) on FIELD
 
+  enum CacheControlScope {
+    PUBLIC
+    PRIVATE
+  }
+
+  directive @cacheControl(
+    maxAge: Int
+    scope: CacheControlScope
+    inheritMaxAge: Boolean
+  ) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
   extend type Query {
     product(upc: String!): Product
     vehicle(id: String!): Vehicle
-    topProducts(first: Int = 5): [Product]
+    topProducts(first: Int = 5): [Product] @cacheControl(maxAge: 40)
     topCars(first: Int = 5): [Car]
   }
 
@@ -49,7 +60,7 @@ export const typeDefs = gql`
   type Furniture implements Product @key(fields: "upc") @key(fields: "sku") {
     upc: String!
     sku: String!
-    name: String
+    name: String @cacheControl(maxAge: 30)
     price: String
     brand: Brand
     metadata: [MetadataOrError]
@@ -184,7 +195,10 @@ export const resolvers: GraphQLResolverMap<any> = {
     },
   },
   Book: {
-    __resolveReference(object) {
+    __resolveReference(object, _context, info) {
+      // For testing dynamic cache control; use `?.` because we don't always run
+      // this fixture in a real ApolloServer.
+      info.cacheControl?.cacheHint?.restrict({ maxAge: 30 });
       if (object.isbn) {
         const fetchedObject = products.find(
           product => product.isbn === object.isbn,

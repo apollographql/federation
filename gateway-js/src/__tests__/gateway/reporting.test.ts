@@ -233,6 +233,10 @@ describe('reporting', () => {
       {me{name{first last}}topProducts{name}}": Object {
             "trace": Array [
               Object {
+                "cachePolicy": Object {
+                  "maxAgeNs": "30000000000",
+                  "scope": "PRIVATE",
+                },
                 "clientName": "",
                 "clientReferenceId": "",
                 "clientVersion": "",

@@ -43,6 +43,11 @@ describe('printFederatedSchema', () => {
 
       union Brand = Amazon | Ikea
 
+      enum CacheControlScope {
+        PRIVATE
+        PUBLIC
+      }
+
       type Car implements Vehicle @key(fields: \\"id\\") {
         description: String
         id: String!
