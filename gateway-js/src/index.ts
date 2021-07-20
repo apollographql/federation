@@ -430,12 +430,12 @@ export class ApolloGateway implements GraphQLService {
       ({ schema, supergraphSdl } = isLocalConfig(config)
         ? this.createSchemaFromServiceList(config.localServiceList)
         : this.createSchemaFromSupergraphSdl(config.supergraphSdl));
+        this.schema = toAPISchema(schema);
     } catch (e) {
       this.state = { phase: 'failed to load' };
       throw e;
     }
 
-    this.schema = toAPISchema(schema);
     // TODO(trevor): #580 redundant parse
     this.parsedSupergraphSdl = parse(supergraphSdl);
     this.queryPlanner = new QueryPlanner(schema);
