@@ -1323,5 +1323,43 @@ describe('executeQueryPlan', () => {
         ]
       `);
     });
+
+    it(`doesn't leak @inaccessible typenames in error messages`, async () => {
+      const operationString = `#graphql
+        query {
+          vehicle(id: "1") {
+            id
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      // Vehicle ID #1 is a "Car" type.
+      // This supergraph marks the "Car" type as inaccessible.
+      schema = buildComposedSchema(superGraphWithInaccessible);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      queryPlanner = new QueryPlanner(schema);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(response.data?.vehicle).toEqual(null);
+      expect(response.errors).toMatchInlineSnapshot(`
+        Array [
+          [GraphQLError: Abstract type "Vehicle" was resolve to a type [inaccessible type] that does not exist inside schema.],
+        ]
+      `);
+    });
   });
 });

@@ -28,7 +28,7 @@ export function toAPISchema(schema: GraphQLSchema): GraphQLSchema {
 
   // TODO: We should get a list of feature names from the schema itself, rather
   // than relying on a static list of supported features.
-  const featureNames = supportedFeatures.map(feature => feature.name);
+  const featureNames = supportedFeatures.map((feature) => feature.name);
 
   // We filter out schema elements that should not be exported to get to the
   // API schema.

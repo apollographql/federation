@@ -50,7 +50,7 @@ export function removeInaccessibleElements(
       return new GraphQLObjectType({
         ...typeConfig,
         fields: removeInaccessibleFields(type, typeConfig.fields),
-        interfaces: removeInaccessibleTypes(typeConfig.interfaces)
+        interfaces: removeInaccessibleTypes(typeConfig.interfaces),
       });
     } else if (isInterfaceType(type)) {
       const typeConfig = type.toConfig();
@@ -58,14 +58,14 @@ export function removeInaccessibleElements(
       return new GraphQLInterfaceType({
         ...typeConfig,
         fields: removeInaccessibleFields(type, typeConfig.fields),
-        interfaces: removeInaccessibleTypes(typeConfig.interfaces)
+        interfaces: removeInaccessibleTypes(typeConfig.interfaces),
       });
     } else if (isUnionType(type)) {
       const typeConfig = type.toConfig();
 
       return new GraphQLUnionType({
         ...typeConfig,
-        types: removeInaccessibleTypes(typeConfig.types)
+        types: removeInaccessibleTypes(typeConfig.types),
       });
     } else {
       // Keep the type as is.
@@ -131,7 +131,7 @@ export function removeInaccessibleElements(
   }
 
   function removeInaccessibleTypes<T extends GraphQLNamedType>(types: T[]) {
-    return types.filter(type => !typesToRemove.has(type))
+    return types.filter((type) => !typesToRemove.has(type));
   }
 }
 

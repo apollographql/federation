@@ -31,6 +31,7 @@ import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
+import { cleanErrorOfInaccessibleNames } from './utilities/cleanErrorOfInaccessibleNames';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -90,8 +91,9 @@ export async function executeQueryPlan<TContext>(
         // the original query.
         // It is also used to allow execution of introspection queries though.
         try {
+          const schema = toAPISchema(operationContext.schema);
           const executionResult = await execute({
-            schema: toAPISchema(operationContext.schema),
+            schema,
             document: {
               kind: Kind.DOCUMENT,
               definitions: [
@@ -106,7 +108,10 @@ export async function executeQueryPlan<TContext>(
           });
           data = executionResult.data;
           if (executionResult.errors?.length) {
-            errors.push(...executionResult.errors)
+            const cleanedErrors = executionResult.errors.map((error) =>
+              cleanErrorOfInaccessibleNames(schema, error),
+            );
+            errors.push(...cleanedErrors);
           }
         } catch (error) {
           span.setStatus({ code:SpanStatusCode.ERROR });

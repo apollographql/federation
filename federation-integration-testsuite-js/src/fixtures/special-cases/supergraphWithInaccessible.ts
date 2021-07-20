@@ -32,9 +32,8 @@ const [inaccessibleDefinition, schemaDefinition] = parse(`#graphql
 const [inaccessibleCoreUsage, inaccessibleUsage] =
   schemaDefinition.directives as [DirectiveNode, DirectiveNode];
 
-// Append the AST with the inaccessible definition,
-// @core inaccessible usage, and @inaccessible usage on the `ssn` field
-const superGraphWithInaccessible: DocumentNode = visit(parsed, {
+// Append the AST with the inaccessible definition, and @core inaccessible usage
+let superGraphWithInaccessible: DocumentNode = visit(parsed, {
   Document(node) {
     return {
       ...node,
@@ -47,21 +46,37 @@ const superGraphWithInaccessible: DocumentNode = visit(parsed, {
       directives: [...(node.directives ?? []), inaccessibleCoreUsage],
     };
   },
-  ObjectTypeDefinition(node) {
-    return {
-      ...node,
-      fields:
-        node.fields?.map((field) => {
-          if (field.name.value === 'ssn') {
-            return {
-              ...field,
-              directives: [...(field.directives ?? []), inaccessibleUsage],
-            };
-          }
-          return field;
-        }) ?? [],
-    };
-  },
 });
+
+// Append @inaccessible usage to the `Car` type, `ssn` field, and `topCars` field
+superGraphWithInaccessible = visit(
+  superGraphWithInaccessible,
+  {
+    ObjectTypeDefinition(node) {
+      if (node.name.value === 'Car') {
+        return {
+          ...node,
+          directives: [...(node.directives ?? []), inaccessibleUsage],
+        };
+      }
+      return node;
+    },
+    FieldDefinition(node) {
+      if (node.name.value === 'ssn') {
+        return {
+          ...node,
+          directives: [...(node.directives ?? []), inaccessibleUsage],
+        };
+      }
+      if (node.name.value === 'topCars') {
+        return {
+          ...node,
+          directives: [...(node.directives ?? []), inaccessibleUsage],
+        };
+      }
+      return node;
+    }
+  },
+);
 
 export { superGraphWithInaccessible };
