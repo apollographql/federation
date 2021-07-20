@@ -11,6 +11,7 @@ import {
 } from './nockMocks';
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { MockService } from './networkRequests.test';
+import { ApolloServer } from 'apollo-server';
 
 let logger: Logger;
 
@@ -46,14 +47,22 @@ beforeEach(() => {
   };
 });
 
+let gateway: ApolloGateway | null = null;
+let cleanUp: (() => void) | null = null;
+afterEach(async () => {
+  if (gateway) {
+    await gateway.stop();
+    gateway = null;
+  }
+
+  if (cleanUp) {
+    cleanUp();
+    cleanUp = null;
+  }
+});
+
 describe('gateway configuration warnings', () => {
-  let gateway: ApolloGateway | null = null;
-  afterEach(async () => {
-    if (gateway) {
-      await gateway.stop();
-      gateway = null;
-    }
-  });
+
   it('warns when both supergraphSdl and studio configuration are provided', async () => {
     gateway = new ApolloGateway({
       supergraphSdl: getTestingSupergraphSdl(),
@@ -138,6 +147,26 @@ describe('gateway configuration warnings', () => {
     // which triggers a different error that we're not testing for here.
     gateway = null;
   });
+
+  it('starts successfully using env variables for configuration', async () => {
+    cleanUp = mockedEnv({
+      APOLLO_GRAPH_VARIANT: 'env-config',
+      APOLLO_KEY: 'service:envtests'
+    });
+
+    gateway = new ApolloGateway({
+      logger,
+    });
+
+    const server = new ApolloServer({
+      gateway,
+    });
+
+    await expect(server.listen(0)).resolves.toBeTruthy();
+    await server.stop();
+    await gateway.stop();
+    gateway = null;
+  })
 });
 
 describe('gateway startup errors', () => {
@@ -191,20 +220,6 @@ describe('gateway startup errors', () => {
 });
 
 describe('gateway config / env behavior', () => {
-  let gateway: ApolloGateway | null = null;
-  let cleanUp: (() => void) | null = null;
-  afterEach(async () => {
-    if (gateway) {
-      await gateway.stop();
-      gateway = null;
-    }
-
-    if (cleanUp) {
-      cleanUp();
-      cleanUp = null;
-    }
-  });
-
   describe('introspection headers', () => {
     it('should allow not passing introspectionHeaders', async () => {
       const receivedHeaders = jest.fn();
@@ -215,6 +230,7 @@ describe('gateway config / env behavior', () => {
 
       gateway = new ApolloGateway({
         serviceList: [{ name: 'accounts', url: service.url }],
+        logger,
       });
 
       await gateway.load(mockApolloConfig);
@@ -238,6 +254,7 @@ describe('gateway config / env behavior', () => {
         introspectionHeaders: {
           Authorization: 'Bearer static',
         },
+        logger,
       });
 
       await gateway.load(mockApolloConfig);
@@ -262,6 +279,7 @@ describe('gateway config / env behavior', () => {
           Authorization: 'Bearer dynamic-async',
           'X-Service-Name': name,
         }),
+        logger,
       });
 
       await gateway.load(mockApolloConfig);
@@ -287,6 +305,7 @@ describe('gateway config / env behavior', () => {
           Authorization: 'Bearer dynamic-sync',
           'X-Service-Name': name,
         }),
+        logger,
       });
 
       await gateway.load(mockApolloConfig);
