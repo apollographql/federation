@@ -4,6 +4,10 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- _Nothing yet! Stay tuned!_
+
+## v0.34.0
+
 - Change default managed federation mechanism over to use Apollo's new Uplink service. This service handles composition and sends the entire supergraph to the gateway. Previously the gateway was responsible for downloading each service's SDL from GCS and handling the composition itself. If you have any issues trying to use this new behavior, you may use the gateway config option `schemaConfigDeliveryEndpoint: null` to continue using the previous mechanism for the time being. If you were previously setting the `experimental_schemaConfigDeliveryEndpoint` config option, you will need to update the name of the option itself (or you can remove it entirely if you were using Apollo's Uplink service). [PR #881](https://github.com/apollographql/federation/pull/881)
 - Introduce support for removing @inaccessible elements from the API schema. [PR #807](https://github.com/apollographql/federation/pull/859)
 - Call `toAPISchema` within the try/catch block in `loadStatic`. [PR #894](https://github.com/apollographql/federation/pull/894)
