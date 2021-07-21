@@ -53,17 +53,14 @@ Like your subgraphs, your gateway uses an API key to identify itself to Studio.
 
 <ObtainGraphApiKey />
 
-After obtaining your graph API key, you set three environment variables in your gateway's environment. If you're using a `.env` file with a library like [`dotenv`](https://www.npmjs.com/package/dotenv), those environment variables look like this:
+After obtaining your graph API key, you set two environment variables in your gateway's environment. If you're using a `.env` file with a library like [`dotenv`](https://www.npmjs.com/package/dotenv), those environment variables look like this:
 
 ```sh:title=.env
 APOLLO_KEY=<YOUR_GRAPH_API_KEY>
-APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://uplink.api.apollographql.com/
 APOLLO_GRAPH_REF=<YOUR_GRAPH_ID>@<VARIANT>
 ```
 
-You can also set these values directly in the command you use to start your gateway.
-
-The second environment variable, `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT`, instructs the gateway to fetch its configuration from a new (and recommended) Apollo-hosted endpoint called the **uplink**. If you don't set this value, the gateway instead fetches its configuration from a file hosted in Google Cloud Storage.
+You can also set this value directly in the command you use to start your gateway.
 
 The third environment variable, `APOLLO_GRAPH_REF`, tells the gateway which graph to use and with which variant. You would supply your graph id and the variant you want to use (for example, `current`). You can always find a a graph's ref at the top of its Schema Reference page in Studio.
 

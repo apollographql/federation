@@ -4,7 +4,14 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- _Nothing yet. Stay tuned!_
+- _Nothing yet! Stay tuned!_
+
+## v0.34.0
+
+- Change default managed federation mechanism over to use Apollo's new Uplink service. This service handles composition and sends the entire supergraph to the gateway. Previously the gateway was responsible for downloading each service's SDL from GCS and handling the composition itself. If you have any issues trying to use this new behavior, you may use the gateway config option `schemaConfigDeliveryEndpoint: null` to continue using the previous mechanism for the time being. If you were previously setting the `experimental_schemaConfigDeliveryEndpoint` config option, you will need to update the name of the option itself (or you can remove it entirely if you were using Apollo's Uplink service). [PR #881](https://github.com/apollographql/federation/pull/881)
+- Introduce support for removing @inaccessible elements from the API schema. [PR #807](https://github.com/apollographql/federation/pull/859)
+- Call `toAPISchema` within the try/catch block in `loadStatic`. [PR #894](https://github.com/apollographql/federation/pull/894)
+- Remove `query` and `variables` from downstream subgraph error extensions, as well as path from the error itself in the final response. This affects specifically errors with the code `DOWNSTREAM_SERVICE_ERROR`. The `message` and `serviceName` will continue to exist on the error. These can also be redacted (within ApolloServer) using [`formatError`](https://www.apollographql.com/docs/apollo-server/data/errors/#for-client-responses) or the [`willSendResponse`](https://www.apollographql.com/docs/apollo-server/integrations/plugins-event-reference/#willsendresponse) and [`didEncounterError`](https://www.apollographql.com/docs/apollo-server/integrations/plugins-event-reference/#didencountererrors) plugin hooks. If you wish to bring back the existing behavior you may change your downstream service implementation to add `query`, `variables`, and `path` (all of which are available to the downstream service; on Apollo Server, this can be done with a plugin that implements `didEncounterError` and `willSendResponse` hooks that pluck the properties from the `requestContext` and put them back on the `extensions`. [PR #900](https://github.com/apollographql/federation/pull/900)
 
 ## v0.33.0
 

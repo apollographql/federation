@@ -126,13 +126,6 @@ interface GatewayConfigBase {
   experimental_autoFragmentization?: boolean;
   fetcher?: typeof fetch;
   serviceHealthCheck?: boolean;
-  /**
-   * Enable an upcoming mechanism for fetching a graph’s schema and
-   * configuration when using managed federation. This mechanism is currently in
-   * a preview state and should not be used in production graphs.
-   * See https://go.apollo.dev/g/supergraph-preview for details.
-   */
-  experimental_schemaConfigDeliveryEndpoint?: null | string;
 }
 
 export interface RemoteGatewayConfig extends GatewayConfigBase {
@@ -145,17 +138,21 @@ export interface RemoteGatewayConfig extends GatewayConfigBase {
 // TODO(trevor:cloudconfig): This type goes away
 export interface LegacyManagedGatewayConfig extends GatewayConfigBase {
   federationVersion?: number;
+  /**
+   * Setting this to null will cause the gateway to use the old mechanism for
+   * managed federation via GCS + composition.
+   */
+  schemaConfigDeliveryEndpoint: null;
 }
 
 // TODO(trevor:cloudconfig): This type becomes the only managed config
 export interface PrecomposedManagedGatewayConfig extends GatewayConfigBase {
   /**
-   * @deprecated This configuration option shouldn't be used unless by
-   *             recommendation from Apollo staff. This behavior will be
-   *             defaulted in a future release and this option will strictly be
-   *             used as an override.
+   * This configuration option shouldn't be used unless by recommendation from
+   * Apollo staff. This can also be set to `null` (see above) in order to revert
+   * to the previous mechanism for managed federation.
    */
-  experimental_schemaConfigDeliveryEndpoint: string;
+  schemaConfigDeliveryEndpoint?: string;
 }
 
 // TODO(trevor:cloudconfig): This union is no longer needed
@@ -219,13 +216,7 @@ export function isManuallyManagedConfig(
 export function isManagedConfig(
   config: GatewayConfig,
 ): config is ManagedGatewayConfig {
-  return (
-    isPrecomposedManagedConfig(config) ||
-    (!isRemoteConfig(config) &&
-      !isLocalConfig(config) &&
-      !isSupergraphSdlConfig(config) &&
-      !isManuallyManagedConfig(config))
-  );
+  return isPrecomposedManagedConfig(config) || isLegacyManagedConfig(config);
 }
 
 // TODO(trevor:cloudconfig): This merges with `isManagedConfig`
@@ -233,8 +224,22 @@ export function isPrecomposedManagedConfig(
   config: GatewayConfig,
 ): config is PrecomposedManagedGatewayConfig {
   return (
-    'experimental_schemaConfigDeliveryEndpoint' in config &&
-    config.experimental_schemaConfigDeliveryEndpoint !== null
+    !isLegacyManagedConfig(config) &&
+    (('schemaConfigDeliveryEndpoint' in config &&
+      typeof config.schemaConfigDeliveryEndpoint === 'string') ||
+      (!isRemoteConfig(config) &&
+        !isLocalConfig(config) &&
+        !isSupergraphSdlConfig(config) &&
+        !isManuallyManagedConfig(config)))
+  );
+}
+
+export function isLegacyManagedConfig(
+  config: GatewayConfig,
+): config is LegacyManagedGatewayConfig {
+  return (
+    'schemaConfigDeliveryEndpoint' in config &&
+    config.schemaConfigDeliveryEndpoint === null
   );
 }
 

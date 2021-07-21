@@ -175,6 +175,7 @@ describe('unknown types', () => {
     const inventory = {
       name: 'inventory',
       typeDefs: gql`
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION
         extend type Product @key(fields: "id") {
           id: ID! @external @tag(name: "hi from inventory")
         }
@@ -189,7 +190,7 @@ describe('unknown types', () => {
         "locations": Array [
           Object {
             "column": 1,
-            "line": 2,
+            "line": 3,
           },
         ],
         "message": "[inventory] Product -> \`Product\` is an extension type, but \`Product\` is not defined in any service",
