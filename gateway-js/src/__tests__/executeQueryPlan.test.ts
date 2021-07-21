@@ -145,11 +145,8 @@ describe('executeQueryPlan', () => {
         'errors.0.extensions.serviceName',
         'accounts',
       );
-      expect(response).toHaveProperty(
-        'errors.0.extensions.query',
-        '{me{name{first last}}}',
-      );
-      expect(response).toHaveProperty('errors.0.extensions.variables', {});
+      expect(response).not.toHaveProperty('errors.0.extensions.query');
+      expect(response).not.toHaveProperty('errors.0.extensions.variables');
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {
