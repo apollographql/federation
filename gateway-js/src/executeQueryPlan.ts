@@ -383,13 +383,8 @@ async function executeFetch<TContext>(
     });
 
     if (response.errors) {
-      const errors = response.errors.map(error =>
-        downstreamServiceError(
-          error,
-          fetch.serviceName,
-          source,
-          variables,
-        ),
+      const errors = response.errors.map((error) =>
+        downstreamServiceError(error, fetch.serviceName),
       );
       context.errors.push(...errors);
     }
@@ -551,14 +546,8 @@ function flattenResultsAtPath(value: any, path: ResponsePath): any {
 function downstreamServiceError(
   originalError: GraphQLFormattedError,
   serviceName: string,
-  query: string,
-  variables?: Record<string, any>,
 ) {
-  let {
-    message,
-    extensions,
-    path,
-  } = originalError
+  let { message, extensions } = originalError;
 
   if (!message) {
     message = `Error while fetching subquery from service "${serviceName}"`;
@@ -568,8 +557,6 @@ function downstreamServiceError(
     // XXX The presence of a serviceName in extensions is used to
     // determine if this error should be captured for metrics reporting.
     serviceName,
-    query,
-    variables,
     ...extensions,
   };
   return new GraphQLError(
@@ -577,7 +564,7 @@ function downstreamServiceError(
     undefined,
     undefined,
     undefined,
-    path,
+    undefined,
     originalError as Error,
     extensions,
   );
