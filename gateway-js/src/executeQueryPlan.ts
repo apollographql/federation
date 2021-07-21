@@ -547,7 +547,7 @@ function downstreamServiceError(
   originalError: GraphQLFormattedError,
   serviceName: string,
 ) {
-  let { message, extensions, path } = originalError;
+  let { message, extensions } = originalError;
 
   if (!message) {
     message = `Error while fetching subquery from service "${serviceName}"`;
@@ -564,7 +564,7 @@ function downstreamServiceError(
     undefined,
     undefined,
     undefined,
-    path,
+    undefined,
     originalError as Error,
     extensions,
   );

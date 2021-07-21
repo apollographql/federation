@@ -137,6 +137,7 @@ describe('executeQueryPlan', () => {
         'errors.0.message',
         'Something went wrong',
       );
+      expect(response).toHaveProperty('errors.0.path', undefined);
       expect(response).toHaveProperty(
         'errors.0.extensions.code',
         'UNAUTHENTICATED',
