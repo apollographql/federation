@@ -57,12 +57,9 @@ After obtaining your graph API key, you set two environment variables in your ga
 
 ```sh:title=.env
 APOLLO_KEY=<YOUR_GRAPH_API_KEY>
-APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://uplink.api.apollographql.com/
 ```
 
 You can also set these values directly in the command you use to start your gateway.
-
-The second environment variable, `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT`, instructs the gateway to fetch its configuration from a new (and recommended) Apollo-hosted endpoint called the **uplink**. If you don't set this value, the gateway instead fetches its configuration from a file hosted in Google Cloud Storage.
 
 > When running your gateway in an environment where outbound traffic to the internet is restricted, consult the [directions for configuring a proxy](https://www.apollographql.com/docs/apollo-server/proxy-configuration/) within Apollo Server.
 
