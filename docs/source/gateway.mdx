@@ -63,6 +63,26 @@ As a recommended alternative, you can use the [Rover CLI](https://www.apollograp
 
 For an example of this, see the [Federation quickstart](./quickstart/).
 
+## Updating the gateway
+
+> Before updating your gateway's version, check the [changelog](https://github.com/apollographql/federation/blob/main/gateway-js/CHANGELOG.md) for potential breaking changes.
+>
+> We strongly recommend updating your gateway in local and test environments before deploying updates to staging or production.
+
+To update your version of the `@apollo/gateway` library, use the [`npm update`](https://docs.npmjs.com/cli/v7/commands/npm-update) command:
+
+```bash
+npm update @apollo/gateway
+```
+
+This updates the library to the latest version allowed by your `package.json` file. [Learn more about dependency constraints.](https://docs.npmjs.com/cli/v7/commands/npm-update#example)
+
+To update to a particular version that _exceeds_ your depedency constraints, use `npm install` like so:
+
+```bash
+npm install @apollo/gateway@0.34.0
+```
+
 ## Customizing requests and responses
 
 The gateway can modify the details of an incoming request before executing it across your subgraphs. For example, your subgraphs might all use the same authorization token to associate an incoming request with a particular user. The gateway can add that token to each operation it sends to your subgraphs.
