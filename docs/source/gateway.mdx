@@ -63,6 +63,20 @@ As a recommended alternative, you can use the [Rover CLI](https://www.apollograp
 
 For an example of this, see the [Federation quickstart](./quickstart/).
 
+## Updating
+
+To update the `@apollo/gateway` package to the latest version:
+
+```
+npm update @apollo/gateway --latest
+```
+
+Similarly, to update to a specific version:
+
+```
+npm update @apollo/gateway@0.34.0
+```
+
 ## Customizing requests and responses
 
 The gateway can modify the details of an incoming request before executing it across your subgraphs. For example, your subgraphs might all use the same authorization token to associate an incoming request with a particular user. The gateway can add that token to each operation it sends to your subgraphs.
