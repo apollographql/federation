@@ -69,15 +69,21 @@ For an example of this, see the [Federation quickstart](./quickstart/).
 >
 > We strongly recommend updating your gateway in local and test environments before deploying updates to staging or production.
 
-To update your version of the `@apollo/gateway` library, use the [`npm update`](https://docs.npmjs.com/cli/v7/commands/npm-update) command:
+You can confirm the currently installed version of `@apollo/gateway` library with the `npm list` command:
+
+```bash
+npm list @apollo/gateway
+```
+
+To update the library, use the [`npm update`](https://docs.npmjs.com/cli/v7/commands/npm-update) command:
 
 ```bash
 npm update @apollo/gateway
 ```
 
-This updates the library to the latest version allowed by your `package.json` file. [Learn more about dependency constraints.](https://docs.npmjs.com/cli/v7/commands/npm-update#example)
+This updates the library to the most recent version allowed by your `package.json` file. [Learn more about dependency constraints.](https://docs.npmjs.com/cli/v7/commands/npm-update#example)
 
-To update to a particular version that _exceeds_ your depedency constraints, use `npm install` like so:
+To update to a particular version (including a version that _exceeds_ your dependency constraints), use `npm install` instead:
 
 ```bash
 npm install @apollo/gateway@0.34.0
