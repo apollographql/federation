@@ -1,5 +1,5 @@
 import { LocalGraphQLDataSource } from '../LocalGraphQLDataSource';
-import { buildFederatedSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/federation';
 import gql from 'graphql-tag';
 import { GraphQLResolverMap } from 'apollo-graphql';
 
@@ -29,7 +29,7 @@ describe('constructing requests', () => {
         },
       },
     };
-    const schema = buildFederatedSchema([{ typeDefs, resolvers }]);
+    const schema = buildSubgraphSchema([{ typeDefs, resolvers }]);
 
     const DataSource = new LocalGraphQLDataSource(schema);
 

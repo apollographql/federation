@@ -4,7 +4,7 @@ import {fixtures, spanSerializer} from 'apollo-federation-integration-testsuite'
 import {fetch} from '../../__mocks__/apollo-server-env';
 import {InMemorySpanExporter, SimpleSpanProcessor} from '@opentelemetry/tracing'
 import {NodeTracerProvider} from '@opentelemetry/node';
-import { buildFederatedSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/federation';
 
 expect.addSnapshotSerializer(spanSerializer);
 
@@ -39,7 +39,7 @@ describe('opentelemetry', () => {
         localServiceList: fixtures,
         buildService: service => {
           // @ts-ignore
-          return new LocalGraphQLDataSource(buildFederatedSchema([service]));
+          return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
         },
       });
 
