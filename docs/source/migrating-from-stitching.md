@@ -43,14 +43,14 @@ If your implementing services use Apollo Server, add federation support to them 
 npm install @apollo/federation
 ```
 
-Then use the `buildFederatedSchema` function to augment your schema with fields that are necessary for federation support:
+Then use the `buildSubgraphSchema` function to augment your schema with fields that are necessary for federation support:
 
 ```js
 const { ApolloServer } = require('apollo-server');
-const { buildFederatedSchema } = require('@apollo/federation');
+const { buildSubgraphSchema } = require('@apollo/federation');
 
 const server = new ApolloServer({
-  schema: buildFederatedSchema([
+  schema: buildSubgraphSchema([
     {
       typeDefs,
       resolvers,

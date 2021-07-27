@@ -2,7 +2,7 @@ import { gunzipSync } from 'zlib';
 import nock from 'nock';
 import { GraphQLSchemaModule } from 'apollo-graphql';
 import gql from 'graphql-tag';
-import { buildFederatedSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/federation';
 import { ApolloServer } from 'apollo-server';
 import { ApolloServerPluginUsageReporting } from 'apollo-server-core';
 import { execute, toPromise } from 'apollo-link';
@@ -78,7 +78,7 @@ expect.addSnapshotSerializer(
 );
 
 async function startFederatedServer(modules: GraphQLSchemaModule[]) {
-  const schema = buildFederatedSchema(modules);
+  const schema = buildSubgraphSchema(modules);
   const server = new ApolloServer({ schema });
   const { url } = await server.listen({ port: 0 });
   return { url, server };
