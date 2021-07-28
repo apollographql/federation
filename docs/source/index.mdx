@@ -5,10 +5,9 @@ description: Implement a single data graph across multiple services
 ---
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
-
-> **Implementing services** are now known as **subgraphs**.
->
-> If you find an outdated use of "implementing service," please submit article feedback or a pull request using the links on the right.
+import {
+  ExpansionPanel,
+} from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
 
 To get the most out of GraphQL, your organization should expose a [single data graph](https://principledgraphql.com/integrity#1-one-graph) that provides a unified interface for querying any combination of your backing data sources. However, it can be challenging to represent an enterprise-scale data graph with a single, monolithic GraphQL server.
 
@@ -25,7 +24,7 @@ Apollo Federation also supports a free [managed mode with Apollo Studio](https:/
 An Apollo Federation architecture consists of:
 
 * A collection of **subgraphs** (usually represented by different back-end services) that each define a distinct GraphQL schema
-* A **gateway** that composes the subgraphs into a **federated data graph** and executes queries across multiple subgraphs
+* A **gateway** that composes the subgraphs into a **federated supergraph** and executes queries across multiple subgraphs
 
 Apollo Server provides libraries for acting both as a subgraph and as a gateway, but these components can be implemented in any language and framework.
 
@@ -35,7 +34,7 @@ The following presentation by [Mandi Wise](https://twitter.com/mandiwise) furthe
 
 <iframe width="560" height="315" src="https://www.youtube.com/embed/v_1bn2sHdk4?start=81" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-## Core principles
+## Design principles
 
 ### Incremental adoption
 
@@ -76,18 +75,19 @@ The difference is that now, each subgraph defines the types and fields that it i
 
 The result is the best of both worlds: an implementation that keeps all the code for a given feature in a single subgraph and separated from unrelated concerns, and a product-centric schema with rich types that reflects the natural way an application developer would want to consume the graph.
 
-## Apollo Server libraries
+## Federated schemas
 
-Apollo Server supports Apollo Federation via two open-source extension libraries:
+A federated graph uses multiple "types" of GraphQL schemas:
 
-* `@apollo/federation` provides primitives that subgraphs use to make their individual GraphQL schemas composable.
-* `@apollo/gateway` enables you to set up an instance of Apollo Server as a **gateway** that distributes incoming GraphQL operations across one or more  subgraphs.
+* **Subgraph schemas.** Each of your **subgraphs** has its own schema that represents the types and fields of your **supergraph** that it's responsible for resolving.
+* **Supergraph schema.** This schema is the result of performing **composition** on your collection of subgraph schemas. It combines all of the types and fields from your subgraph schemas, _plus_ some federation-specific directives that tell your gateway which subgraphs are responsible for resolving which fields.
+* **API schema.** This schema is like the supergraph schema, but it _omits_ federation-specific directives. This is the schema that your gateway exposes to your GraphQL API's consumers, who don't need to know any federation-specific details about your graph.
 
-## Federated schema example
+Let's look at an example!
 
-Let's look at an example. Below, we define the schema for a basic e-commerce
-application as three subgraphs, each of which is implemented as
-a standalone service:
+### Subgraph schemas
+
+Below, we define the schemas for three subgraphs in a basic e-commerce application. Each subgraph is implemented as a standalone back-end service:
 
 ```graphql:title=accounts
 extend type Query {
@@ -121,6 +121,7 @@ type Review {
 
 extend type User @key(fields: "id") {
   id: ID! @external
+  username: String! @external
   reviews: [Review]
 }
 
@@ -130,7 +131,7 @@ extend type Product @key(fields: "upc") {
 }
 ```
 
-These schemas illustrate several important conventions of Apollo Federation:
+These subgraph schemas illustrate several important conventions of Apollo Federation:
 
 * A subgraph can reference a type that's defined by
 _another_ subgraph. For example, the `Review` type includes a
@@ -140,32 +141,139 @@ _another_ subgraph. For example, the `Review` type includes a
 subgraph. For example, the `reviews` subgraph extends the `User`
 type by adding a `reviews` field to it.
 
-* A subgraph must add the `@key` directive to a type's definition in order for _other_ subgraphs to be able to reference or extend that type. This directive tells other subgraphs which fields to use to uniquely identify a
-particular instance of the type.
+* A subgraph must add the `@key` directive to an object type's definition in order for _other_ subgraphs to be able to reference or extend that type. This directive makes an object type an [entity](./entities/).
+
+### Supergraph schema
+
+To create our supergraph schema, we perform **composition** on our collection of [subgraph schemas](#subgraph-schemas). With [managed federation](./managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs registers an updated schema.
+
+We can also perform composition manually with the Rover CLI:
+
+```bash
+rover supergraph compose --config ./supergraph.yaml
+```
+
+> For an example configuration file, [see the Rover docs](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema).
+
+This outputs the following supergraph schema that our gateway can use to route queries to the correct subgraphs:
+
+<ExpansionPanel title="Click to expand">
+
+```graphql
+schema
+  @core(feature: "https://specs.apollo.dev/core/v0.1"),
+  @core(feature: "https://specs.apollo.dev/join/v0.1")
+{
+  query: Query
+}
+
+directive @core(feature: String!) repeatable on SCHEMA
+
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
+
+directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on OBJECT | INTERFACE
+
+directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+scalar join__FieldSet
+
+enum join__Graph {
+  ACCOUNTS @join__graph(name: "accounts" url: "http://localhost:4001")
+  PRODUCTS @join__graph(name: "products" url: "http://localhost:4002")
+  REVIEWS @join__graph(name: "reviews" url: "http://localhost:4003")
+}
+
+type Product
+  @join__owner(graph: PRODUCTS)
+  @join__type(graph: PRODUCTS, key: "upc")
+  @join__type(graph: REVIEWS, key: "upc")
+{
+  name: String! @join__field(graph: PRODUCTS)
+  price: Int @join__field(graph: PRODUCTS)
+  reviews: [Review] @join__field(graph: REVIEWS)
+  upc: String! @join__field(graph: PRODUCTS)
+}
+
+type Query {
+  me: User @join__field(graph: ACCOUNTS)
+  topProducts(first: Int = 5): [Product] @join__field(graph: PRODUCTS)
+}
+
+type Review {
+  author: User @join__field(graph: REVIEWS, provides: "username")
+  body: String
+  product: Product
+}
+
+type User
+  @join__owner(graph: ACCOUNTS)
+  @join__type(graph: ACCOUNTS, key: "id")
+  @join__type(graph: REVIEWS, key: "id")
+{
+  id: ID! @join__field(graph: ACCOUNTS)
+  reviews: [Review] @join__field(graph: REVIEWS)
+  username: String! @join__field(graph: ACCOUNTS)
+}
+```
+
+</ExpansionPanel>
+
+As you can see, the supergraph schema includes a lot of federation-specific additions! These additions are used only by the gateway, and you'll never need to add them manually.
+
+### API schema
+
+The gateway uses its [supergraph schema](#supergraph-schema) to produce an _API schema_, which is what's exposed to clients as your actual GraphQL API. This schema cleanly and logically represents the combination of your [subgraph schemas](#subgraph-schemas):
+
+<ExpansionPanel title="Click to expand">
+
+```graphql
+type Product {
+  name: String!
+  price: Int
+  reviews: [Review]
+  upc: String!
+}
+
+type Query {
+  me: User
+  topProducts(first: Int = 5): [Product]
+}
+
+type Review {
+  author: User
+  body: String
+  product: Product
+}
+
+type User {
+  id: ID!
+  reviews: [Review]
+  username: String!
+}
+```
+
+</ExpansionPanel>
 
 ## Gateway example
 
-The gateway for our federated data graph fetches the schema from each
-subgraph and composes those schemas into a single graph:
+The gateway for a federated data graph provides its composed [supergraph schema](#supergraph-schema) to the `ApolloGateway` constructor:
 
-```js
+```js{4}
+const supergraphSchema = readFileSync('./supergraph.graphql').toString();
+
 const gateway = new ApolloGateway({
-  serviceList: [
-    { name: 'accounts', url: 'http://localhost:4001' },
-    { name: 'products', url: 'http://localhost:4002' },
-    { name: 'reviews', url: 'http://localhost:4003' }
-  ]
+  supergraphSdl: supergraphSchema
 });
 
 const server = new ApolloServer({ gateway });
 server.listen();
 ```
 
-That’s it! With Apollo Federation, schemas and resolvers live in your
-subgraphs. The gateway serves only to plan and execute GraphQL
-operations across those subgraphs.
+That’s it! With Apollo Federation, resolvers live in your subgraphs. The gateway serves only to plan and execute GraphQL operations across those subgraphs.
 
-Now we can execute GraphQL operations against our composed schema just as if it were implemented as a single, monolithic service:
+Now we can execute GraphQL operations against our gateway just as if it were implemented as a single, monolithic GraphQL server:
 
 ```graphql
 # A query that the gateway resolves by calling all three services
@@ -185,10 +293,17 @@ query GetCurrentUserReviews {
 
 ### Managed federation
 
-In addition to running a gateway with a static list of services, Apollo Gateway can operate in **managed federation** mode, where [Apollo Studio](https://www.apollographql.com/docs/studio/) acts as the source of truth for each subgraph's schema.
+In addition to providing its supergraph schema on startup, Apollo Gateway can operate in **managed federation** mode, where [Apollo Studio](https://www.apollographql.com/docs/studio/) acts as the source of truth for each subgraph's schema.
 
 This mode enables multiple teams working on a data graph to coordinate when and how underlying subgraphs change. It's recommended for all federated graphs. For more information, read [Managed federation overview](https://www.apollographql.com/docs/studio/managed-federation/overview/).
 
+## Apollo Server libraries
+
+Apollo Server supports Apollo Federation via two open-source extension libraries:
+
+* [`@apollo/federation`](./api/apollo-federation/) provides primitives that subgraphs use to make their individual GraphQL schemas composable.
+* [`@apollo/gateway`](./api/apollo-gateway) enables you to set up an instance of Apollo Server as a **gateway** that distributes incoming GraphQL operations across one or more  subgraphs.
+
 ---
 
-Next, learn how to [define a subgraph](./subgraphs/).
+Ready to try out Apollo Federation? Jump into the [Quickstart](./quickstart/)!
