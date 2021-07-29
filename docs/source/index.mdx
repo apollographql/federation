@@ -11,7 +11,7 @@ import {
 
 To get the most out of GraphQL, your organization should expose a [single data graph](https://principledgraphql.com/integrity#1-one-graph) that provides a unified interface for querying any combination of your backing data sources. However, it can be challenging to represent an enterprise-scale data graph with a single, monolithic GraphQL server.
 
-To remedy this, you can divide your graph's implementation across multiple composable services with **Apollo Federation**:
+To remedy this, you can divide your graph's implementation across multiple back-end services with **Apollo Federation**:
 
 <FederationArchitecture />
 
@@ -24,7 +24,7 @@ Apollo Federation also supports a free [managed mode with Apollo Studio](https:/
 An Apollo Federation architecture consists of:
 
 * A collection of **subgraphs** (usually represented by different back-end services) that each define a distinct GraphQL schema
-* A **gateway** that composes the subgraphs into a **federated supergraph** and executes queries across multiple subgraphs
+* A **gateway** that uses a **supergraph schema** (composed from all subgraph schemas) to execute queries across multiple subgraphs
 
 Apollo Server provides libraries for acting both as a subgraph and as a gateway, but these components can be implemented in any language and framework.
 
@@ -81,7 +81,8 @@ A federated graph uses multiple "types" of GraphQL schemas:
 
 * **Subgraph schemas.** Each of your **subgraphs** has its own schema that represents the types and fields of your **supergraph** that it's responsible for resolving.
 * **Supergraph schema.** This schema is the result of performing **composition** on your collection of subgraph schemas. It combines all of the types and fields from your subgraph schemas, _plus_ some federation-specific directives that tell your gateway which subgraphs are responsible for resolving which fields.
-* **API schema.** This schema is like the supergraph schema, but it _omits_ federation-specific directives. This is the schema that your gateway exposes to your GraphQL API's consumers, who don't need to know any federation-specific details about your graph.
+* **API schema.** This schema is like the supergraph schema, but it _omits_ types, fields, and directives that are considered "machinery" and are not part of your public API (this includes federation-specific directives).
+    * This is the schema that your gateway exposes to your GraphQL API's consumers, who don't need to know any internal implementation details about your graph.
 
 Let's look at an example!
 
