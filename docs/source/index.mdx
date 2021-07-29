@@ -11,11 +11,11 @@ import {
 
 To get the most out of GraphQL, your organization should expose a [single data graph](https://principledgraphql.com/integrity#1-one-graph) that provides a unified interface for querying any combination of your backing data sources. However, it can be challenging to represent an enterprise-scale data graph with a single, monolithic GraphQL server.
 
-To remedy this, you can divide your graph's implementation across multiple back-end services with **Apollo Federation**:
+To remedy this, you can use **Apollo Federation** to divide your graph's implementation across multiple back-end services (called **subgraphs**):
 
 <FederationArchitecture />
 
-Unlike other distributed GraphQL architectures (such as schema stitching), Apollo Federation uses a declarative programming model that enables each **subgraph** to implement _only_ the part of your composed **supergraph** that it's responsible for.
+Unlike other distributed GraphQL architectures (such as schema stitching), Apollo Federation uses a declarative programming model that enables each subgraph to implement _only_ the part of your composed **supergraph** that it's responsible for.
 
 Apollo Federation also supports a free [managed mode with Apollo Studio](https://www.apollographql.com/docs/studio/managed-federation/overview/), which enables you to add, remove, and refactor your subgraphs without requiring any downtime for your production graph.
 
@@ -79,10 +79,21 @@ The result is the best of both worlds: an implementation that keeps all the code
 
 A federated graph uses multiple "types" of GraphQL schemas:
 
-* **Subgraph schemas.** Each of your **subgraphs** has its own schema that represents the types and fields of your **supergraph** that it's responsible for resolving.
+* **Subgraph schemas.** Each of your **subgraphs** has a distinct schema that indicates _which_ types and fields of your composed **supergraph** it's responsible for resolving.
 * **Supergraph schema.** This schema is the result of performing **composition** on your collection of subgraph schemas. It combines all of the types and fields from your subgraph schemas, _plus_ some federation-specific directives that tell your gateway which subgraphs are responsible for resolving which fields.
 * **API schema.** This schema is like the supergraph schema, but it _omits_ types, fields, and directives that are considered "machinery" and are not part of your public API (this includes federation-specific directives).
     * This is the schema that your gateway exposes to your GraphQL API's consumers, who don't need to know any internal implementation details about your graph.
+
+```mermaid
+graph BT;
+  api(["API schema<br/>(A + B + C)"]);
+  supergraph{{"Supergraph schema<br/>(A + B + C + routing machinery)"}};
+  serviceA[Subgraph schema<br>A];
+  serviceB[Subgraph schema<br>B];
+  serviceC[Subgraph schema<br>C];
+  supergraph --- serviceA & serviceB & serviceC;
+  api-- "(Remove routing machinery)" ---supergraph;
+```
 
 Let's look at an example!
 
@@ -259,13 +270,13 @@ type User {
 
 ## Gateway example
 
-The gateway for a federated data graph provides its composed [supergraph schema](#supergraph-schema) to the `ApolloGateway` constructor:
+You provide a composed [supergraph schema](#supergraph-schema) to the `ApolloGateway` constructor, like so:
 
-```js{4}
-const supergraphSchema = readFileSync('./supergraph.graphql').toString();
+```js{1,4}
+const supergraphSdl = readFileSync('./supergraph.graphql').toString();
 
 const gateway = new ApolloGateway({
-  supergraphSdl: supergraphSchema
+  supergraphSdl
 });
 
 const server = new ApolloServer({ gateway });
