@@ -121,37 +121,34 @@ export function buildQueryPlan(
   debug.groupedValues(fields, debugPrintField);
 
   debug.group('Splitting root fields:');
-  // Mutations are a bit more specific in how FetchGroups can be built, as some
-  // calls to the same service may need to be executed serially.
 
-  // 1. Map schema to SchemaDependencyGraph. Further operations on schema nodes will use references to these objects due to
-  // how javascript calculates object equality.
+  // 1. Map GraphQLSchema to SchemaDependencyGraph. Further operations on schema nodes will use references to these objects due to how javascript calculates object equality.
   const schemaDependencyGraph: SchemaDependencyGraph = SchemaDependencyGraph.fromSchema(context.schema);
 
-  // 2. Traverse SchemaGraph dependencies to construct the subset of SchemaDependencyGraph needed to to fulfill the operation
+  // 2. Calculate the schema subgraph needed to to fulfill the operation
   const {subgraph, paths} = schemaDependencyGraph.getDependencySubgraph(fields);
 
-  // 3. Toposort OperationDependencyGraph
-  let toposortedFields: any[] = subgraph.getSortedNodes();
+  // 3. Toposort the subgraph
+  const toposortedFields: any[] = subgraph.getSortedNodes();
 
   // 4. Map to PlanNodes
   const operationField = toposortedFields.pop();
 
-  const idFieldDef: GraphQLField<any, any> = toposortedFields.shift()
+  const idFieldDef: GraphQLField<any, any> = toposortedFields.shift();
   const idNode = {
     kind: "Fetch",
     serviceName: idFieldDef.extensions!.federation!.graphName,
     variableUsages: [],
     operation: `{${operationField.name}{${idFieldDef.name} __typename}}`
-  }
+  };
 
   const fieldNodes = toposortedFields.map((fieldDef: GraphQLField<any, any>) => {
     const selections = subgraph.getDependencies(fieldDef).map(dep => {
       return {
         kind: "Field",
         name: dep.name
-      }
-    })
+      };
+    });
     const fetchNode: any = {
       kind: "Fetch",
       serviceName: fieldDef.extensions!.federation!.graphName,
@@ -170,8 +167,8 @@ export function buildQueryPlan(
       ],
       variableUsages: [],
       operation: `query($representations:[_Any!]!){_entities(representations:$representations){...on A{${fieldDef.name}}}}`
-    }
-    const path = paths.get(fieldDef)
+    };
+    const path = paths.get(fieldDef);
     if(path) {
       return {
         kind: "Flatten",
@@ -180,9 +177,9 @@ export function buildQueryPlan(
       }
     } else {
       return fetchNode
-    }
+    };
 
-  })
+  });
   const queryPlan: QueryPlan = {
     kind: "QueryPlan",
     node: {

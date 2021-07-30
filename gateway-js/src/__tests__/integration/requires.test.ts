@@ -1,6 +1,9 @@
 import gql from 'graphql-tag';
 import { execute } from '../execution-utils';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  queryPlanSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -159,32 +162,27 @@ it('supports transitive requires', async () => {
     }
   `;
 
-  const { data, queryPlan } = await execute({
-        query,
-      },
-      [
-          serviceA,
-          serviceB,
-          serviceC,
-          serviceD,
-          serviceE,
-          serviceF
-      ]
+  const { data, queryPlan } = await execute(
+    {
+      query,
+    },
+    [serviceA, serviceB, serviceC, serviceD, serviceE, serviceF],
   );
 
   expect(data).toEqual({
     getA: {
-      id: "1",
-      extendedbyF: "extendedbyF calculated using " +
-          "a.extendedbyE = {extendedbyE calculated using " +
-          "a.extendedbyD = {extendedbyD calculated using " +
-          "a.extendedbyC = {extendedbyC calculated using " +
-          "a.extendedbyB = {extendedbyB calculated using " +
-          "a.id = 1}}}} AND {" +
-          "extendedbyD calculated using " +
-          "a.extendedbyC = {extendedbyC calculated using " +
-          "a.extendedbyB = {extendedbyB calculated using " +
-          "a.id = 1}}}"
+      id: '1',
+      extendedbyF:
+        'extendedbyF calculated using ' +
+        'a.extendedbyE = {extendedbyE calculated using ' +
+        'a.extendedbyD = {extendedbyD calculated using ' +
+        'a.extendedbyC = {extendedbyC calculated using ' +
+        'a.extendedbyB = {extendedbyB calculated using ' +
+        'a.id = 1}}}} AND {' +
+        'extendedbyD calculated using ' +
+        'a.extendedbyC = {extendedbyC calculated using ' +
+        'a.extendedbyB = {extendedbyB calculated using ' +
+        'a.id = 1}}}',
     },
   });
 
