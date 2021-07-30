@@ -56,8 +56,8 @@ describe('ApolloGateway executor', () => {
     );
   });
 
-  it('should not crash if no variables are not provided', async () => {
-    const me = { id: '1', birthDate: '1988-10-21'};
+  it('should not crash if variables are not provided', async () => {
+    const me = { birthDate: '1988-10-21'};
     fetch.mockJSONResponseOnce({ data: { me } });
     const gateway = new ApolloGateway({
       localServiceList: fixtures,
@@ -68,7 +68,6 @@ describe('ApolloGateway executor', () => {
     const source = `#graphql
       query Me($locale: String) {
         me {
-          id
           birthDate(locale: $locale)
         }
       }

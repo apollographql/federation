@@ -107,7 +107,7 @@ it('Extracts service definitions from remote storage', async () => {
   mockImplementingServicesSuccess(service);
   mockRawPartialSchemaSuccess(service);
 
-  gateway = new ApolloGateway({ logger });
+  gateway = new ApolloGateway({ logger, schemaConfigDeliveryEndpoint: null });
 
   await gateway.load({
     apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
@@ -137,7 +137,11 @@ it(`Retries GCS (up to ${GCS_RETRY_COUNT} times) on failure for each request and
   failNTimes(GCS_RETRY_COUNT, () => mockRawPartialSchema(service));
   mockRawPartialSchemaSuccess(service);
 
-  gateway = new ApolloGateway({ fetcher, logger });
+  gateway = new ApolloGateway({
+    fetcher,
+    logger,
+    schemaConfigDeliveryEndpoint: null,
+  });
 
   await gateway.load({
     apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
@@ -155,7 +159,11 @@ describe('Managed mode', () => {
 
     mockServiceHealthCheckSuccess(service);
 
-    gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
+    gateway = new ApolloGateway({
+      serviceHealthCheck: true,
+      logger,
+      schemaConfigDeliveryEndpoint: null,
+    });
 
     await gateway.load({
       apollo: { keyHash: apiKeyHash, graphId, graphVariant: 'current' },
@@ -174,7 +182,11 @@ describe('Managed mode', () => {
 
     mockServiceHealthCheck(service).reply(500);
 
-    const gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
+    const gateway = new ApolloGateway({
+      serviceHealthCheck: true,
+      logger,
+      schemaConfigDeliveryEndpoint: null,
+    });
 
     await expect(
       gateway.load({
@@ -205,7 +217,11 @@ describe('Managed mode', () => {
     let resolve: () => void;
     const schemaChangeBlocker = new Promise<void>((res) => (resolve = res));
 
-    gateway = new ApolloGateway({ serviceHealthCheck: true, logger });
+    gateway = new ApolloGateway({
+      serviceHealthCheck: true,
+      logger,
+      schemaConfigDeliveryEndpoint: null,
+    });
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 

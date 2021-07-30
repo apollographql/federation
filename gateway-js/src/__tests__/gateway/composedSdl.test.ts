@@ -19,17 +19,16 @@ describe('Using supergraphSdl configuration', () => {
     const server = await getSupergraphSdlGatewayServer();
 
     fetch.mockJSONResponseOnce({
-      data: { me: { id: 1, username: '@jbaxleyiii' } },
+      data: { me: { username: '@jbaxleyiii' } },
     });
 
     const result = await server.executeOperation({
-      query: '{ me { id username } }',
+      query: '{ me { username } }',
     });
 
     expect(result.data).toMatchInlineSnapshot(`
       Object {
         "me": Object {
-          "id": "1",
           "username": "@jbaxleyiii",
         },
       }
@@ -38,7 +37,7 @@ describe('Using supergraphSdl configuration', () => {
     const [url, request] = fetch.mock.calls[0];
     expect(url).toEqual('https://accounts.api.com');
     expect(request?.body).toEqual(
-      JSON.stringify({ query: '{me{id username}}', variables: {} }),
+      JSON.stringify({ query: '{me{username}}', variables: {} }),
     );
     await server.stop();
   });
