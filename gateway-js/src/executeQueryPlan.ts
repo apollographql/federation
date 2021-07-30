@@ -24,12 +24,14 @@ import {
   ResponsePath,
   QueryPlanSelectionNode,
   QueryPlanFieldNode,
-  getResponseName
+  getResponseName,
+  toAPISchema
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
+import { cleanErrorOfInaccessibleNames } from './utilities/cleanErrorOfInaccessibleNames';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -89,8 +91,9 @@ export async function executeQueryPlan<TContext>(
         // the original query.
         // It is also used to allow execution of introspection queries though.
         try {
+          const schema = toAPISchema(operationContext.schema);
           const executionResult = await execute({
-            schema: operationContext.schema,
+            schema,
             document: {
               kind: Kind.DOCUMENT,
               definitions: [
@@ -105,7 +108,10 @@ export async function executeQueryPlan<TContext>(
           });
           data = executionResult.data;
           if (executionResult.errors?.length) {
-            errors.push(...executionResult.errors)
+            const cleanedErrors = executionResult.errors.map((error) =>
+              cleanErrorOfInaccessibleNames(schema, error),
+            );
+            errors.push(...cleanedErrors);
           }
         } catch (error) {
           span.setStatus({ code:SpanStatusCode.ERROR });
@@ -377,13 +383,8 @@ async function executeFetch<TContext>(
     });
 
     if (response.errors) {
-      const errors = response.errors.map(error =>
-        downstreamServiceError(
-          error,
-          fetch.serviceName,
-          source,
-          variables,
-        ),
+      const errors = response.errors.map((error) =>
+        downstreamServiceError(error, fetch.serviceName),
       );
       context.errors.push(...errors);
     }
@@ -545,14 +546,8 @@ function flattenResultsAtPath(value: any, path: ResponsePath): any {
 function downstreamServiceError(
   originalError: GraphQLFormattedError,
   serviceName: string,
-  query: string,
-  variables?: Record<string, any>,
 ) {
-  let {
-    message,
-    extensions,
-    path,
-  } = originalError
+  let { message, extensions } = originalError;
 
   if (!message) {
     message = `Error while fetching subquery from service "${serviceName}"`;
@@ -562,8 +557,6 @@ function downstreamServiceError(
     // XXX The presence of a serviceName in extensions is used to
     // determine if this error should be captured for metrics reporting.
     serviceName,
-    query,
-    variables,
     ...extensions,
   };
   return new GraphQLError(
@@ -571,7 +564,7 @@ function downstreamServiceError(
     undefined,
     undefined,
     undefined,
-    path,
+    undefined,
     originalError as Error,
     extensions,
   );
