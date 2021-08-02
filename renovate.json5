@@ -36,7 +36,7 @@
       groupName: "all non-major dependencies",
       matchUpdateTypes: ["patch", "minor"],
       groupSlug: "all-npm-minor-patch",
-      matchManagers: [ "npm" ]],
+      matchManagers: [ "npm" ],
     },
     {
       "matchPaths": [
