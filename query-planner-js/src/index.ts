@@ -15,6 +15,7 @@ import { GraphQLSchema } from 'graphql';
 export { BuildQueryPlanOptions, buildOperationContext };
 
 export * from './buildPlan';
+export { NewQueryPlanner } from './new';
 
 // There isn't much in this class yet, and I didn't want to make too many
 // changes at once, but since we were already storing a pointer to a

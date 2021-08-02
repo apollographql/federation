@@ -14,14 +14,17 @@ import {
   executeQueryPlan,
   buildOperationContext,
 } from '@apollo/gateway';
-import { buildComposedSchema, QueryPlanner, QueryPlan } from '@apollo/query-planner';
+import { QueryPlan, NewQueryPlanner, QueryPlanner } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from 'apollo-utilities';
 
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import * as graphql from 'graphql';
+import { mergeSubgraphs, validateGraphComposition } from '@apollo/composition';
+import { buildSchemaFromAST, federationBuiltIns, printSchema, Schema } from '@apollo/core';
+import { buildGraph, buildSubgraphsFederation } from '@apollo/query-graphs';
 
 const prettyFormat = require('pretty-format');
 
@@ -92,15 +95,35 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
     ]),
   );
 
-  const compositionResult = composeAndValidate(services);
-
-  if (compositionHasErrors(compositionResult)) {
-    throw new GraphQLSchemaValidationError(compositionResult.errors);
+  const subgraphMap = new Map<string, Schema>();
+  for (const [name, dataSource] of Object.entries(serviceMap)) {
+    const schema = buildSchemaFromAST(dataSource.sdl(), federationBuiltIns);
+    schema.validate();
+    subgraphMap.set(name, schema);
   }
 
-  const schema = buildComposedSchema(parse(compositionResult.supergraphSdl))
+  const mergeResult = mergeSubgraphs(subgraphMap);
+  if (mergeResult.errors) {
+    throw new GraphQLSchemaValidationError(mergeResult.errors);
+  }
 
-  const queryPlanner = new QueryPlanner(schema);
+  const supergraphSchema = mergeResult.supergraph;
+
+  const queryGraph = buildSubgraphsFederation(supergraphSchema, subgraphMap);
+
+  const supergraphGraph = buildGraph("supergraph", supergraphSchema);
+  const compositionResult = validateGraphComposition(supergraphGraph, queryGraph);
+  if (compositionResult.error) {
+    throw compositionResult.error;
+  }
+
+  if (compositionResult.error) {
+    throw compositionResult.error;
+  }
+
+  const schema = graphql.buildSchema(printSchema(supergraphSchema));
+
+  const queryPlanner = new NewQueryPlanner(supergraphSchema, queryGraph) as unknown as QueryPlanner;
 
   return { serviceMap, schema, queryPlanner };
 }
