@@ -2,6 +2,7 @@
   "extends": [
     "apollo-open-source"
   ],
+  schedule: null,
   "dependencyDashboard": true,
   // The "circleci" manager is intentionally disabled right now (e.g., not
   // included in this list).  While we do benefit from its updating of "Orb"
@@ -27,10 +28,15 @@
       "matchPackageNames": ["@types/node"],
       "allowedVersions": "12.x"
     },
-    // Put all Apollo Server upgrades into one PR (eg, don't separate out apollo-server-env).
+    // Bunch up all non-major npm dependencies into a single PR.  In the common case
+    // where the upgrades apply cleanly, this causes less noise and is resolved faster
+    // than starting a bunch of upgrades in parallel for what may turn out to be
+    // a suite of related packages all released at once.
     {
-      matchPackagePrefixes: ["apollo-server"],
-      groupName: "all Apollo Server",
+      groupName: "all non-major dependencies",
+      matchUpdateTypes: ["patch", "minor"],
+      groupSlug: "all-npm-minor-patch",
+      matchManagers: [ "npm" ],
     },
     {
       "matchPaths": [
