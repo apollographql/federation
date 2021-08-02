@@ -34,6 +34,14 @@
       "matchPackageNames": ["make-fetch-happen"],
       "allowedVersions": "8.x"
     },
+    // strip-indent v4 can only be imported from ESM modules, and we don't currently
+    // build as ESM. Maybe we'll change our build strategy eventually, but until then
+    // we can continue using an old version of a simple indentation stripper in our tests.
+    // See https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c
+    {
+      matchPackageNames: ["strip-indent"],
+      allowedVersions: "3.x",
+    },
     // Bunch up all non-major npm dependencies into a single PR.  In the common case
     // where the upgrades apply cleanly, this causes less noise and is resolved faster
     // than starting a bunch of upgrades in parallel for what may turn out to be
