@@ -30,7 +30,7 @@
     // Put all Apollo Server upgrades into one PR (eg, don't separate out apollo-server-env).
     {
       matchPackagePrefixes: ["apollo-server"],
-      groupSlug: "all-apollo-server",
+      groupName: "all Apollo Server",
     },
     {
       "matchPaths": [
