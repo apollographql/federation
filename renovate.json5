@@ -1,6 +1,11 @@
 {
   "extends": [
-    "apollo-open-source"
+    // Our default configuration. See
+    // https://github.com/apollographql/renovate-config-apollo-open-source/blob/master/package.json
+    "apollo-open-source",
+    // Bundle together Jest/TS-Jest updates (even major ones).
+    "group:jestMonorepo",
+    "group:jestPlusTSJest",
   ],
   schedule: null,
   "dependencyDashboard": true,
