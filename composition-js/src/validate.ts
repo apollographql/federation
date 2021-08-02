@@ -9,6 +9,7 @@ import {
   isLeafType,
   isNullableType,
   Operation,
+  operationToAST,
   Schema,
   SchemaRootKind,
   SelectableType,
@@ -30,6 +31,7 @@ import {
   ExcludedEdges,
   GraphState
 } from "@apollo/query-graphs";
+import { print } from "graphql";
 
 export class ValidationError extends Error {
   constructor(
@@ -39,13 +41,18 @@ export class ValidationError extends Error {
     readonly witness: Operation
   ) {
     super(message);
+    this.name = 'ValidationError';
   }
 }
 
 function validationError(unsatisfiablePath: RootPath<Transition>, subgraphsPaths: RootPath<Transition>[]): ValidationError {
-  // TODO: build a proper error message. This probably needs to look the type of the last edge to adapt the message.
-  const message = 'TODO';
-  return new ValidationError(message, unsatisfiablePath, subgraphsPaths, buildWitnessOperation(unsatisfiablePath));
+  const witness = buildWitnessOperation(unsatisfiablePath);
+
+  // TODO: we should build a more detailed error message, not just the unsatisfiable query. Doing that well is likely a tad
+  // involved though as there may be a lot of different reason why it doesn't validate. But by looking at the last edge on the
+  // supergraph and the subgraphsPath, we should be able to roughly infer what's going on. 
+  const message = `Example unsatisfiable query:\n${print(operationToAST(witness))}`;
+  return new ValidationError(message, unsatisfiablePath, subgraphsPaths, witness);
 }
 
 function buildWitnessOperation(witness: RootPath<Transition>): Operation {
@@ -60,7 +67,7 @@ function buildWitnessOperation(witness: RootPath<Transition>): Operation {
 
 function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | undefined  {
   if (index >= edges.length) {
-    // We're at the end of our counter-example, meaning that we're at a point of traversing the supergraph where we know 
+    // We're at the end of our counter-example, meaning that we're at a point of traversing the supergraph where we know
     // there is no valid equivalent subgraph traversals.
     // That said, we may well not be on a terminal vertex (the type may not be a leaf), meaning that returning 'undefined'
     // may be invalid.
