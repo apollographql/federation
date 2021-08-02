@@ -28,6 +28,12 @@
       "matchPackageNames": ["@types/node"],
       "allowedVersions": "12.x"
     },
+    // make-fetch-happen is used by the HttpRequestCache in gateway, which uses
+    // a cache API that is removed in v9.
+    {
+      "matchPackageNames": ["make-fetch-happen"],
+      "allowedVersions": "8.x"
+    },
     // Bunch up all non-major npm dependencies into a single PR.  In the common case
     // where the upgrades apply cleanly, this causes less noise and is resolved faster
     // than starting a bunch of upgrades in parallel for what may turn out to be
