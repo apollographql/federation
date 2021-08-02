@@ -27,6 +27,11 @@
       "matchPackageNames": ["@types/node"],
       "allowedVersions": "12.x"
     },
+    // Put all Apollo Server upgrades into one PR (eg, don't separate out apollo-server-env).
+    {
+      matchPackagePrefixes: ["apollo-server"],
+      groupSlug: "all-apollo-server",
+    },
     {
       "matchPaths": [
         "docs/package.json"
