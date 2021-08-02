@@ -41,7 +41,7 @@
     "@graphql-codegen/typescript": "1.23.0",
     "@graphql-codegen/typescript-operations": "1.18.4",
     "@opentelemetry/node": "0.24.0",
-    "@rollup/plugin-commonjs": "19.0.2",
+    "@rollup/plugin-commonjs": "20.0.0",
     "@rollup/plugin-node-resolve": "13.0.4",
     "@types/bunyan": "1.8.7",
     "@types/deep-equal": "1.0.1",
