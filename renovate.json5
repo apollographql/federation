@@ -57,6 +57,15 @@
       "baseBranches": [
         "main"
       ]
-    }
+    },
+    // The current Apollo Gatsby theme does not support a version of Gatsby
+    // that supports React 17.
+    {
+      "matchPaths": [
+        "docs/package.json"
+      ],
+      "matchPackageNames": ["react", "react-dom"],
+      "allowedVersions": "16.x",
+    },
   ]
 }
