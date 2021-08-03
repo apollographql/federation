@@ -4,6 +4,10 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+-_Nothing yet! Stay tuned_.
+
+## v0.36.0
+
 - In `RemoteGraphQLDataSource`, if the subgraph response has a `cache-control` header, use it to affect the current request's overall cache policy. You can disable this by passing `honorSubgraphCacheControlHeader: false` to the `RemoteGraphQLDataSource constructor`. This feature is only enabled when your subgraph is running Apollo Server 3.0.2 or later. [PR #870](https://github.com/apollographql/apollo-server/pull/870) [Related docs PR](https://github.com/apollographql/apollo-server/pull/5536)
 - Provide the full incoming `GraphQLRequestContext` to `GraphQLDataSource.process`, as well as a `kind` allowing your implementation to differentiate between requests that come from incoming GraphQL operations, health checks, and schema fetches. [PR #870](https://github.com/apollographql/apollo-server/pull/870) [Issue #419](https://github.com/apollographql/apollo-server/issues/419) [Issue #835](https://github.com/apollographql/apollo-server/issues/835)
 
