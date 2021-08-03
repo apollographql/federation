@@ -6,6 +6,8 @@
     // Bundle together Jest/TS-Jest updates (even major ones).
     "group:jestMonorepo",
     "group:jestPlusTSJest",
+    // Bundle together graphql-codegen updates (even major ones).
+    "group:graphqlcodegeneratorMonorepo",
   ],
   schedule: null,
   "dependencyDashboard": true,
