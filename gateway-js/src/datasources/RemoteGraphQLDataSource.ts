@@ -3,23 +3,25 @@ import {
   GraphQLResponse,
   ValueOrPromise,
   GraphQLRequest,
+  CacheHint,
+  CacheScope,
+  CachePolicy,
 } from 'apollo-server-types';
 import {
   ApolloError,
   AuthenticationError,
   ForbiddenError,
 } from 'apollo-server-errors';
-import {
-  fetch,
-  Request,
-  Headers,
-  Response,
-} from 'apollo-server-env';
+import { fetch, Request, Headers, Response } from 'apollo-server-env';
 import { isObject } from '../utilities/predicates';
-import { GraphQLDataSource } from './types';
+import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
 import createSHA from 'apollo-server-core/dist/utils/createSHA';
+import { parseCacheControlHeader } from './parseCacheControlHeader';
 
-export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Record<string, any>> implements GraphQLDataSource<TContext> {
+export class RemoteGraphQLDataSource<
+  TContext extends Record<string, any> = Record<string, any>,
+> implements GraphQLDataSource<TContext>
+{
   fetcher: typeof fetch = fetch;
 
   constructor(
@@ -54,12 +56,25 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
    */
   apq: boolean = false;
 
-  async process({
-    request,
-    context,
-  }: Pick<GraphQLRequestContext<TContext>, 'request' | 'context'>): Promise<
-    GraphQLResponse
-  > {
+  /**
+   * Should cache-control response headers from subgraphs affect the operation's
+   * cache policy? If it shouldn't, set this to false.
+   */
+  honorSubgraphCacheControlHeader: boolean = true;
+
+  async process(
+    options: GraphQLDataSourceProcessOptions<TContext>,
+  ): Promise<GraphQLResponse> {
+    const { request, context: originalContext } = options;
+    // Deal with a bit of a hairy situation in typings: when doing health checks
+    // and schema checks we always pass in `{}` as the context even though it's
+    // not really guaranteed to be a `TContext`, and then we pass it to various
+    // methods on this object. The reason this "works" is that the DataSourceMap
+    // and Service types aren't generic-ized on TContext at all (so `{}` is in
+    // practice always legal there)... ie, the genericness of this class is
+    // questionable in the first place.
+    const context = originalContext as TContext;
+
     // Respect incoming http headers (eg, apollo-federation-include-trace).
     const headers = (request.http && request.http.headers) || new Headers();
     headers.set('Content-Type', 'application/json');
@@ -71,24 +86,27 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
     };
 
     if (this.willSendRequest) {
-      await this.willSendRequest({ request, context });
+      await this.willSendRequest(options);
     }
 
     if (!request.query) {
-      throw new Error("Missing query");
+      throw new Error('Missing query');
     }
 
     const { query, ...requestWithoutQuery } = request;
 
-    const respond = (response: GraphQLResponse, request: GraphQLRequest) =>
-      typeof this.didReceiveResponse === "function"
-        ? this.didReceiveResponse({ response, request, context })
-        : response;
+    // Special handling of cache-control headers in response. Requires
+    // Apollo Server 3, so we check to make sure the method we want is
+    // there.
+    const overallCachePolicy =
+      this.honorSubgraphCacheControlHeader &&
+      options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION &&
+      options.incomingRequestContext.overallCachePolicy?.restrict
+        ? options.incomingRequestContext.overallCachePolicy
+        : null;
 
     if (this.apq) {
-      const apqHash = createSHA('sha256')
-        .update(request.query)
-        .digest('hex');
+      const apqHash = createSHA('sha256').update(request.query).digest('hex');
 
       // Take the original extensions and extend them with
       // the necessary "extensions" for APQ handshaking.
@@ -100,17 +118,25 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
         },
       };
 
-      const apqOptimisticResponse =
-        await this.sendRequest(requestWithoutQuery, context);
+      const apqOptimisticResponse = await this.sendRequest(
+        requestWithoutQuery,
+        context,
+      );
 
       // If we didn't receive notice to retry with APQ, then let's
       // assume this is the best result we'll get and return it!
       if (
         !apqOptimisticResponse.errors ||
-        !apqOptimisticResponse.errors.find(error =>
-          error.message === 'PersistedQueryNotFound')
+        !apqOptimisticResponse.errors.find(
+          (error) => error.message === 'PersistedQueryNotFound',
+        )
       ) {
-        return respond(apqOptimisticResponse, requestWithoutQuery);
+        return this.respond({
+          response: apqOptimisticResponse,
+          request: requestWithoutQuery,
+          context,
+          overallCachePolicy,
+        });
       }
     }
 
@@ -122,18 +148,22 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
       ...requestWithoutQuery,
     };
     const response = await this.sendRequest(requestWithQuery, context);
-    return respond(response, requestWithQuery);
+    return this.respond({
+      response,
+      request: requestWithQuery,
+      context,
+      overallCachePolicy,
+    });
   }
 
   private async sendRequest(
     request: GraphQLRequest,
     context: TContext,
   ): Promise<GraphQLResponse> {
-
     // This would represent an internal programming error since this shouldn't
     // be possible in the way that this method is invoked right now.
     if (!request.http) {
-      throw new Error("Internal error: Only 'http' requests are supported.")
+      throw new Error("Internal error: Only 'http' requests are supported.");
     }
 
     // We don't want to serialize the `http` properties into the body that is
@@ -177,16 +207,54 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
   }
 
   public willSendRequest?(
-    requestContext: Pick<
-      GraphQLRequestContext<TContext>,
-      'request' | 'context'
-    >,
+    options: GraphQLDataSourceProcessOptions<TContext>,
   ): ValueOrPromise<void>;
 
+  private async respond({
+    response,
+    request,
+    context,
+    overallCachePolicy,
+  }: {
+    response: GraphQLResponse;
+    request: GraphQLRequest;
+    context: TContext;
+    overallCachePolicy: CachePolicy | null;
+  }): Promise<GraphQLResponse> {
+    const processedResponse =
+      typeof this.didReceiveResponse === 'function'
+        ? await this.didReceiveResponse({ response, request, context })
+        : response;
+
+    if (overallCachePolicy) {
+      const parsed = parseCacheControlHeader(
+        response.http?.headers.get('cache-control'),
+      );
+
+      // If the subgraph does not specify a max-age, we assume its response (and
+      // thus the overall response) is uncacheable. (If you don't like this, you
+      // can tweak the `cache-control` header in your `didReceiveResponse`
+      // method.)
+      const hint: CacheHint = { maxAge: 0 };
+      const maxAge = parsed['max-age'];
+      if (typeof maxAge === 'string' && maxAge.match(/^[0-9]+$/)) {
+        hint.maxAge = +maxAge;
+      }
+      if (parsed['private'] === true) {
+        hint.scope = CacheScope.Private;
+      }
+      if (parsed['public'] === true) {
+        hint.scope = CacheScope.Public;
+      }
+      overallCachePolicy.restrict(hint);
+    }
+
+    return processedResponse;
+  }
+
   public didReceiveResponse?(
-    requestContext: Required<Pick<
-      GraphQLRequestContext<TContext>,
-      'request' | 'response' | 'context'>
+    requestContext: Required<
+      Pick<GraphQLRequestContext<TContext>, 'request' | 'response' | 'context'>
     >,
   ): ValueOrPromise<GraphQLResponse>;
 

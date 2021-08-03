@@ -15,7 +15,7 @@ import {
 } from 'graphql';
 import { Trace, google } from 'apollo-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
-import { GraphQLDataSource } from './datasources/types';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
 import { OperationContext } from './operationContext';
 import {
   FetchNode,
@@ -374,11 +374,13 @@ async function executeFetch<TContext>(
     }
 
     const response = await service.process({
+      kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION,
       request: {
         query: source,
         variables,
         http,
       },
+      incomingRequestContext: context.requestContext,
       context: context.requestContext.context,
     });
 

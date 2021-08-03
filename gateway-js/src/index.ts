@@ -29,7 +29,7 @@ import {
 } from './executeQueryPlan';
 
 import { getServiceDefinitionsFromRemoteEndpoint } from './loadServicesFromRemoteEndpoint';
-import { GraphQLDataSource } from './datasources/types';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
@@ -699,7 +699,11 @@ export class ApolloGateway implements GraphQLService {
     return Promise.all(
       Object.entries(serviceMap).map(([name, { dataSource }]) =>
         dataSource
-          .process({ request: { query: HEALTH_CHECK_QUERY }, context: {} })
+          .process({
+            kind: GraphQLDataSourceRequestKind.HEALTH_CHECK,
+            request: { query: HEALTH_CHECK_QUERY },
+            context: {},
+          })
           .then((response) => ({ name, response }))
           .catch((e) => {
             throw new Error(`[${name}]: ${e.message}`);

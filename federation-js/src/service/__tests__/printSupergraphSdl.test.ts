@@ -86,6 +86,11 @@ describe('printSupergraphSdl', () => {
 
       union Brand = Amazon | Ikea
 
+      enum CacheControlScope {
+        PRIVATE
+        PUBLIC
+      }
+
       type Car implements Vehicle
         @join__owner(graph: PRODUCT)
         @join__type(graph: PRODUCT, key: \\"id\\")
@@ -372,6 +377,11 @@ describe('printSupergraphSdl', () => {
       }
 
       union Brand = Amazon | Ikea
+
+      enum CacheControlScope {
+        PRIVATE
+        PUBLIC
+      }
 
       type Car implements Vehicle
         @join__owner(graph: PRODUCT)

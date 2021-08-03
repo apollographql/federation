@@ -8,6 +8,17 @@ export const typeDefs = gql`
   directive @transform(from: String!) on FIELD
   directive @tag(name: String!) repeatable on FIELD_DEFINITION
 
+  enum CacheControlScope {
+    PUBLIC
+    PRIVATE
+  }
+
+  directive @cacheControl(
+    maxAge: Int
+    scope: CacheControlScope
+    inheritMaxAge: Boolean
+  ) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
   schema {
     query: RootQuery
     mutation: Mutation
@@ -15,7 +26,7 @@ export const typeDefs = gql`
 
   extend type RootQuery {
     user(id: ID!): User
-    me: User
+    me: User @cacheControl(maxAge: 1000, scope: PRIVATE)
   }
 
   type PasswordAccount @key(fields: "email") {
@@ -36,7 +47,7 @@ export const typeDefs = gql`
 
   type User @key(fields: "id") @key(fields: "username name { first last }") {
     id: ID! @tag(name: "accounts")
-    name: Name
+    name: Name @cacheControl(inheritMaxAge: true)
     username: String
     birthDate(locale: String): String @tag(name: "admin") @tag(name: "dev")
     account: AccountType
