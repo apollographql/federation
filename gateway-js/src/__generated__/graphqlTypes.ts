@@ -124,24 +124,11 @@ export type SupergraphSdlQueryVariables = Exact<{
 }>;
 
 
-export type SupergraphSdlQuery = (
-  { __typename?: 'Query' }
-  & { routerConfig: (
-    { __typename: 'RouterConfigResult' }
-    & Pick<RouterConfigResult, 'id'>
-    & { supergraphSdl: RouterConfigResult['supergraphSDL'] }
-  ) | (
-    { __typename: 'FetchError' }
-    & Pick<FetchError, 'code' | 'message'>
-  ) }
-);
+export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'RouterConfigResult', id: string, supergraphSdl: string } | { __typename: 'FetchError', code: FetchErrorCode, message: string } };
 
 export type OobReportMutationVariables = Exact<{
   input?: Maybe<ApiMonitoringReport>;
 }>;
 
 
-export type OobReportMutation = (
-  { __typename?: 'Mutation' }
-  & Pick<Mutation, 'reportError'>
-);
+export type OobReportMutation = { __typename?: 'Mutation', reportError: boolean };
