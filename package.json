@@ -37,7 +37,7 @@
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
-    "@graphql-codegen/cli": "1.21.8",
+    "@graphql-codegen/cli": "2.0.1",
     "@graphql-codegen/typescript": "1.23.0",
     "@graphql-codegen/typescript-operations": "1.18.4",
     "@opentelemetry/node": "0.24.0",
