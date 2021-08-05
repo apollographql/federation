@@ -41,7 +41,7 @@ export const typeDefs = gql`
     number: String
   }
 
-  union AccountType = PasswordAccount | SMSAccount
+  union AccountType @tag(name: "from accounts") = PasswordAccount | SMSAccount
 
   type UserMetadata {
     name: String

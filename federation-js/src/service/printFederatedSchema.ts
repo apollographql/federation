@@ -255,7 +255,13 @@ function printInterface(type: GraphQLInterfaceType, options?: Options): string {
 function printUnion(type: GraphQLUnionType, options?: Options): string {
   const types = type.getTypes();
   const possibleTypes = types.length ? ' = ' + types.join(' | ') : '';
-  return printDescription(options, type) + 'union ' + type.name + possibleTypes;
+  return (
+    printDescription(options, type) +
+    'union ' +
+    type.name +
+    printKnownDirectiveUsagesOnType(type) +
+    possibleTypes
+  );
 }
 
 function printEnum(type: GraphQLEnumType, options?: Options): string {

@@ -324,8 +324,17 @@ function printInterface(
 
 function printUnion(type: GraphQLUnionType, options?: Options): string {
   const types = type.getTypes();
-  const possibleTypes = types.length ? ' = ' + types.join(' | ') : '';
-  return printDescription(options, type) + 'union ' + type.name + possibleTypes;
+  const knownDirectiveUsages = printKnownDirectiveUsagesOnType(type);
+  const possibleTypes = types.length
+    ? `${knownDirectiveUsages.length ? '\n' : ' '}= ` + types.join(' | ')
+    : '';
+  return (
+    printDescription(options, type) +
+    'union ' +
+    type.name +
+    knownDirectiveUsages +
+    possibleTypes
+  );
 }
 
 function printEnum(type: GraphQLEnumType, options?: Options): string {

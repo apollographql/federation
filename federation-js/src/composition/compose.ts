@@ -23,6 +23,8 @@ import {
   ObjectTypeExtensionNode,
   InterfaceTypeDefinitionNode,
   InterfaceTypeExtensionNode,
+  UnionTypeDefinitionNode,
+  UnionTypeExtensionNode,
   GraphQLFieldMap,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
@@ -172,6 +174,8 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
       ObjectTypeExtension: objectLikeDirectivesVisitor,
       InterfaceTypeDefinition: objectLikeDirectivesVisitor,
       InterfaceTypeExtension: objectLikeDirectivesVisitor,
+      UnionTypeDefinition: objectLikeDirectivesVisitor,
+      UnionTypeExtension: objectLikeDirectivesVisitor,
     });
 
     function objectLikeDirectivesVisitor(
@@ -179,7 +183,9 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
         | ObjectTypeDefinitionNode
         | ObjectTypeExtensionNode
         | InterfaceTypeDefinitionNode
-        | InterfaceTypeExtensionNode,
+        | InterfaceTypeExtensionNode
+        | UnionTypeDefinitionNode
+        | UnionTypeExtensionNode
     ) {
       for (const directive of node.directives ?? []) {
         const { directives: usagesByDirectiveName } = mapGetOrSet(
@@ -198,27 +204,29 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
         usages.push(directive);
       }
 
-      for (const field of node.fields ?? []) {
-        for (const directive of field.directives ?? []) {
-          const { fields: usagesByFieldName } = mapGetOrSet(
-            directiveUsagesPerType,
-            node.name.value,
-            {
-              directives: new Map<string, DirectiveNode[]>(),
-              fields: new Map<string, DirectiveUsages>(),
-            },
-          );
-          const usagesByDirectiveName = mapGetOrSet(
-            usagesByFieldName,
-            field.name.value,
-            new Map<string, DirectiveNode[]>(),
-          );
-          const usages = mapGetOrSet(
-            usagesByDirectiveName,
-            directive.name.value,
-            [],
-          );
-          usages.push(directive);
+      if ('fields' in node && node.fields) {
+        for (const field of node.fields) {
+          for (const directive of field.directives ?? []) {
+            const { fields: usagesByFieldName } = mapGetOrSet(
+              directiveUsagesPerType,
+              node.name.value,
+              {
+                directives: new Map<string, DirectiveNode[]>(),
+                fields: new Map<string, DirectiveUsages>(),
+              },
+            );
+            const usagesByDirectiveName = mapGetOrSet(
+              usagesByFieldName,
+              field.name.value,
+              new Map<string, DirectiveNode[]>(),
+            );
+            const usages = mapGetOrSet(
+              usagesByDirectiveName,
+              directive.name.value,
+              [],
+            );
+            usages.push(directive);
+          }
         }
       }
     }
@@ -745,10 +753,8 @@ export function addFederationMetadataToSchemaNodes({
       if (directiveUsages) {
         for (const [directiveName, usages] of directiveUsages.entries()) {
           usages.push(...directives.get(directiveName) ?? []);
-          // console.log(usages.map(print).join(' '));
         }
       } else {
-        // console.log(directives);
         directiveUsages = directives;
       }
 

@@ -53,7 +53,9 @@ describe('printSupergraphSdl', () => {
 
       directive @transform(from: String!) on FIELD
 
-      union AccountType = PasswordAccount | SMSAccount
+      union AccountType
+        @tag(name: \\"from accounts\\")
+      = PasswordAccount | SMSAccount
 
       type Amazon {
         referrer: String
