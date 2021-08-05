@@ -197,7 +197,9 @@ describe('loadSupergraphSdlFromStorage', () => {
         email: String! @join__field(graph: ACCOUNTS)
       }
 
-      interface Product {
+      interface Product
+        @tag(name: \\"from reviews\\")
+      {
         details: ProductDetails
         inStock: Boolean
         name: String
@@ -277,6 +279,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         @join__type(graph: INVENTORY, key: \\"id\\")
         @join__type(graph: PRODUCT, key: \\"id\\")
         @join__type(graph: REVIEWS, key: \\"id\\")
+        @tag(name: \\"from accounts\\")
+        @tag(name: \\"from reviews\\")
       {
         account: AccountType @join__field(graph: ACCOUNTS)
         birthDate(locale: String): String @join__field(graph: ACCOUNTS) @tag(name: \\"admin\\") @tag(name: \\"dev\\")

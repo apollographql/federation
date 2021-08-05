@@ -238,7 +238,9 @@ function printObject(
   );
 }
 
-function printKnownDirectiveUsagesOnType(type: GraphQLObjectType): string {
+function printKnownDirectiveUsagesOnType(
+  type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
+): string {
   const directiveUsages = (type.extensions?.federation as FederationType)
     ?.directiveUsages;
 
@@ -315,6 +317,7 @@ function printInterface(
     `interface ${type.name}` +
     // Core addition for printing @join__owner and @join__type usages
     printTypeJoinDirectives(type, context) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type, context)
   );
 }
@@ -387,8 +390,11 @@ function printFields(
   // Core change: for entities, we want to print the block on a new line.
   // This is just a formatting nice-to-have.
   const isEntity = Boolean(type.extensions?.federation?.keys);
+  const hasTags = Boolean(
+    type.extensions?.federation?.directiveUsages?.get('tag')?.length,
+  );
 
-  return printBlock(fields, isEntity);
+  return printBlock(fields, isEntity || hasTags);
 }
 
 /**

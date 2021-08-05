@@ -119,7 +119,7 @@ describe('printFederatedSchema', () => {
         email: String!
       }
 
-      interface Product {
+      interface Product @tag(name: \\"from reviews\\") {
         details: ProductDetails
         inStock: Boolean
         name: String

@@ -219,7 +219,9 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
   );
 }
 
-function printKnownDirectiveUsagesOnType(type: GraphQLObjectType): string {
+function printKnownDirectiveUsagesOnType(
+  type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
+): string {
   const directiveUsages = (type.extensions?.federation as FederationType)
     ?.directiveUsages;
 
@@ -245,6 +247,7 @@ function printInterface(type: GraphQLInterfaceType, options?: Options): string {
     // Federation change: graphql@14 doesn't support interfaces implementing interfaces
     // printImplementedInterfaces(type) +
     printFederationDirectives(type) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type)
   );
 }

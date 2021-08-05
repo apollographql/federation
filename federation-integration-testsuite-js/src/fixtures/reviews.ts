@@ -42,7 +42,7 @@ export const typeDefs = gql`
     goodAddress: Boolean @requires(fields: "metadata { address }")
   }
 
-  extend interface Product {
+  extend interface Product @tag(name: "from reviews") {
     reviews: [Review]
   }
 
