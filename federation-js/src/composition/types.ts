@@ -5,7 +5,7 @@ import {
   DirectiveDefinitionNode,
   DirectiveNode,
 } from 'graphql';
-import { DirectiveUsages } from './compose';
+import { DirectiveUsages } from './DirectiveMetadata';
 
 export type Maybe<T> = null | undefined | T;
 
