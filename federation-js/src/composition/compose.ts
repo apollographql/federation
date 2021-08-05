@@ -19,9 +19,14 @@ import {
   NamedTypeNode,
   lexicographicSortSchema,
   DirectiveNode,
+  visit,
+  ObjectTypeExtensionNode,
+  InterfaceTypeDefinitionNode,
+  InterfaceTypeExtensionNode,
+  GraphQLFieldMap,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
-import apolloTypeSystemDirectives, {
+import {
   otherKnownDirectiveDefinitions,
   federationDirectives,
 } from '../directives';
@@ -80,6 +85,19 @@ interface DirectiveDefinitionsMap {
   [name: string]: { [serviceName: string]: DirectiveDefinitionNode };
 }
 
+// key is name of directive
+export type DirectiveUsages = Map<string, DirectiveNode[]>;
+
+// key is field or type name the usages are found on
+type DirectiveUsagesPerField = Map<string, DirectiveUsages>;
+
+type DirectiveUsagesPerType = Map<
+  string,
+  { directives: DirectiveUsages; fields: DirectiveUsagesPerField }
+>;
+
+type DirectiveUsagesPerSubgraph = Map<string, DirectiveUsagesPerType>;
+
 /**
  * A map of base types to their owning service. Used by query planner to direct traffic.
  * This contains the base type's "owner". Any fields that extend this type in another service
@@ -127,16 +145,6 @@ export interface KeyDirectivesMap {
  */
 type ValueTypes = Set<string>;
 
-type FieldDirectivesMap = Map<string, DirectiveNode[]>;
-
-// TODO: rename?
-type TypeNameToFieldDirectivesMap = Map<string, FieldDirectivesMap>;
-
-/**
- * A set of directive names that have been used at least once
- */
-type OtherKnownDirectiveUsages = Set<string>;
-
 /**
  * Loop over each service and process its typeDefs (`definitions`)
  * - build up typeToServiceMap
@@ -150,10 +158,88 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
   const externalFields: ExternalFieldDefinition[] = [];
   const keyDirectivesMap: KeyDirectivesMap = Object.create(null);
   const valueTypes: ValueTypes = new Set();
-  const typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap = new Map();
-  const otherKnownDirectiveUsages: OtherKnownDirectiveUsages = new Set();
+  const directiveUsagesPerSubgraph: DirectiveUsagesPerSubgraph = new Map();
 
   for (const { typeDefs, name: serviceName } of serviceList) {
+    const directiveUsagesPerType: DirectiveUsagesPerType = mapGetOrSet(
+      directiveUsagesPerSubgraph,
+      serviceName,
+      new Map(),
+    );
+
+    visit(typeDefs, {
+      ObjectTypeDefinition: objectLikeDirectivesVisitor,
+      ObjectTypeExtension: objectLikeDirectivesVisitor,
+      InterfaceTypeDefinition: objectLikeDirectivesVisitor,
+      InterfaceTypeExtension: objectLikeDirectivesVisitor,
+    });
+
+    function objectLikeDirectivesVisitor(
+      node:
+        | ObjectTypeDefinitionNode
+        | ObjectTypeExtensionNode
+        | InterfaceTypeDefinitionNode
+        | InterfaceTypeExtensionNode,
+    ) {
+      for (const directive of node.directives ?? []) {
+        const { directives: usagesByDirectiveName } = mapGetOrSet(
+          directiveUsagesPerType,
+          node.name.value,
+          {
+            directives: new Map<string, DirectiveNode[]>(),
+            fields: new Map<string, DirectiveUsages>(),
+          },
+        );
+        const usages = mapGetOrSet(
+          usagesByDirectiveName,
+          directive.name.value,
+          [],
+        );
+        usages.push(directive);
+      }
+
+      for (const field of node.fields ?? []) {
+        for (const directive of field.directives ?? []) {
+          const { fields: usagesByFieldName } = mapGetOrSet(
+            directiveUsagesPerType,
+            node.name.value,
+            {
+              directives: new Map<string, DirectiveNode[]>(),
+              fields: new Map<string, DirectiveUsages>(),
+            },
+          );
+          const usagesByDirectiveName = mapGetOrSet(
+            usagesByFieldName,
+            field.name.value,
+            new Map<string, DirectiveNode[]>(),
+          );
+          const usages = mapGetOrSet(
+            usagesByDirectiveName,
+            directive.name.value,
+            [],
+          );
+          usages.push(directive);
+        }
+      }
+    }
+
+    // console.log(directiveUsagesPerSubgraph);
+    // for (const [
+    //   subgraphName,
+    //   directiveUsagesPerType,
+    // ] of directiveUsagesPerSubgraph.entries()) {
+    //   for (const [typeName, { fields }] of directiveUsagesPerType.entries()) {
+    //     if (typeName === 'User') {
+    //       for (const [fieldName, directiveUsages] of fields.entries()) {
+    //         if (fieldName === 'id' && directiveUsages.get('tag')) {
+
+    //           console.log(subgraphName, typeName, fieldName);
+    //           console.log(directiveUsages.get('tag')!.map(print).join('\n'));
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
     // Build a new SDL with @external fields removed, as well as information about
     // the fields that were removed.
     const {
@@ -193,16 +279,6 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
               parseSelections(keyDirective.arguments[0].value.value),
             );
           }
-        }
-
-        // Capture `@tag` directive usages
-        for (const field of definition.fields ?? []) {
-          captureTagUsages(
-            field,
-            typeName,
-            typeNameToFieldDirectivesMap,
-            otherKnownDirectiveUsages,
-          );
         }
       }
 
@@ -340,17 +416,6 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     }
   }
 
-  // We need to capture @tag usages from the @external fields as well,
-  // which are stripped and excluded from the main loop over the typeDefs
-  for (const { parentTypeName, field } of externalFields) {
-    captureTagUsages(
-      field,
-      parentTypeName,
-      typeNameToFieldDirectivesMap,
-      otherKnownDirectiveUsages,
-    );
-  }
-
   // Since all Query/Mutation definitions in service schemas are treated as
   // extensions, we don't have a Query or Mutation DEFINITION in the definitions
   // list. Without a Query/Mutation definition, we can't _extend_ the type.
@@ -370,54 +435,40 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     externalFields,
     keyDirectivesMap,
     valueTypes,
-    typeNameToFieldDirectivesMap,
-    otherKnownDirectiveUsages,
+    directiveUsagesPerSubgraph,
   };
-}
-
-function captureTagUsages(
-  field: FieldDefinitionNode,
-  typeName: string,
-  typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap,
-  otherKnownDirectiveUsages: OtherKnownDirectiveUsages,
-) {
-  const tagUsages = findDirectivesOnNode(field, 'tag');
-
-  if (tagUsages.length > 0) {
-    otherKnownDirectiveUsages.add('tag');
-    const fieldToDirectivesMap = mapGetOrSet(
-      typeNameToFieldDirectivesMap,
-      typeName,
-      new Map(),
-    );
-    const directives = mapGetOrSet(
-      fieldToDirectivesMap,
-      field.name.value,
-      [],
-    );
-    directives.push(...tagUsages);
-  }
 }
 
 export function buildSchemaFromDefinitionsAndExtensions({
   typeDefinitionsMap,
   typeExtensionsMap,
   directiveDefinitionsMap,
-  otherKnownDirectiveUsages,
+  directiveUsagesPerSubgraph,
 }: {
   typeDefinitionsMap: TypeDefinitionsMap;
   typeExtensionsMap: TypeExtensionsMap;
   directiveDefinitionsMap: DirectiveDefinitionsMap;
-  otherKnownDirectiveUsages: OtherKnownDirectiveUsages;
+  directiveUsagesPerSubgraph: DirectiveUsagesPerSubgraph;
 }) {
   let errors: GraphQLError[] | undefined = undefined;
 
   // We only want to include the definitions of other known Apollo directives
   // (currently just @tag) if there are usages.
   const otherKnownDirectiveDefinitionsToInclude =
-    otherKnownDirectiveDefinitions.filter((directive) =>
-      otherKnownDirectiveUsages.has(directive.name),
-    );
+    otherKnownDirectiveDefinitions.filter((directive) => {
+      for (const directiveUsagesPerType of directiveUsagesPerSubgraph.values()) {
+        for (const { directives, fields } of directiveUsagesPerType.values()) {
+          const usagesOnType = directives.get(directive.name);
+          if (usagesOnType && usagesOnType.length > 0) return true;
+
+          for (const directiveUsages of fields.values()) {
+            const usagesOnField = directiveUsages.get(directive.name);
+            if (usagesOnField && usagesOnField.length > 0) return true;
+          }
+        }
+      }
+      return false;
+    });
 
   let schema = new GraphQLSchema({
     query: undefined,
@@ -522,7 +573,7 @@ export function addFederationMetadataToSchemaNodes({
   keyDirectivesMap,
   valueTypes,
   directiveDefinitionsMap,
-  typeNameToFieldDirectivesMap,
+  directiveUsagesPerSubgraph,
 }: {
   schema: GraphQLSchema;
   typeToServiceMap: TypeToServiceMap;
@@ -530,7 +581,7 @@ export function addFederationMetadataToSchemaNodes({
   keyDirectivesMap: KeyDirectivesMap;
   valueTypes: ValueTypes;
   directiveDefinitionsMap: DirectiveDefinitionsMap;
-  typeNameToFieldDirectivesMap: TypeNameToFieldDirectivesMap;
+  directiveUsagesPerSubgraph: DirectiveUsagesPerSubgraph;
 }) {
   for (const [
     typeName,
@@ -675,47 +726,70 @@ export function addFederationMetadataToSchemaNodes({
     };
   }
 
-  for (const [typeName, fieldsToDirectivesMap] of typeNameToFieldDirectivesMap.entries()) {
-    // It's plausible we're dealing with an incomplete schema here which might not
-    // account for all the types we saw when inspecting SDL. In the case that a
-    // type is extended with no base definition anywhere, it won't exist in the schema.
-    // There will be relevant composition errors for that case.
-    const type = schema.getType(typeName) as GraphQLObjectType | undefined;
-    if (!type) continue;
-
+  // TODO: only capture usages of non-repeatable directives once.
+  // might be a printer concern instead.
+  for (const [
+    _subgraphName,
+    directiveUsagesPerType,
+  ] of directiveUsagesPerSubgraph.entries()) {
     for (const [
-      fieldName,
-      otherKnownDirectiveUsages,
-    ] of fieldsToDirectivesMap.entries()) {
-      const field = type.getFields()[fieldName];
+      typeName,
+      { directives, fields },
+    ] of directiveUsagesPerType.entries()) {
+      const namedType = schema.getType(typeName) as GraphQLNamedType | undefined;
+      if (!namedType) continue;
 
-      const seenNonRepeatableDirectives: Record<string, boolean> = {};
-      const filteredDirectives = otherKnownDirectiveUsages.filter(
-        (directive) => {
-          const name = directive.name.value;
-          const matchingDirective = apolloTypeSystemDirectives.find(
-            (d) => d.name === name,
-          );
-          if (matchingDirective?.isRepeatable) return true;
-          if (seenNonRepeatableDirectives[name]) return false;
-          seenNonRepeatableDirectives[name] = true;
-          return true;
-        },
-      );
+      const existingMetadata = getFederationMetadata(namedType);
+      let directiveUsages = existingMetadata?.directiveUsages;
 
-      // TODO: probably don't need to recreate these objects
-      const existingMetadata = getFederationMetadata(field);
-      const fieldFederationMetadata: FederationField = {
+      if (directiveUsages) {
+        for (const [directiveName, usages] of directiveUsages.entries()) {
+          usages.push(...directives.get(directiveName) ?? []);
+          // console.log(usages.map(print).join(' '));
+        }
+      } else {
+        // console.log(directives);
+        directiveUsages = directives;
+      }
+
+      const typeFederationMetadata: FederationType = {
         ...existingMetadata,
-        otherKnownDirectiveUsages: filteredDirectives,
+        directiveUsages,
+      };
+      namedType.extensions = {
+        ...namedType.extensions,
+        federation: typeFederationMetadata,
       };
 
-      field.extensions = {
-        ...field.extensions,
-        federation: fieldFederationMetadata,
-      };
+      interface HasFields {
+        getFields(): GraphQLFieldMap<any, any>;
+      }
+
+      for (const [fieldName, usagesPerDirective] of fields.entries()) {
+        const field = (namedType as HasFields).getFields()[fieldName];
+        if (!field) continue;
+
+        const originalMetadata = getFederationMetadata(field);
+        let directiveUsages = originalMetadata?.directiveUsages;
+        if (directiveUsages) {
+          for (const [directiveName, usages] of directiveUsages.entries()) {
+            usages.push(...usagesPerDirective.get(directiveName) ?? []);
+          }
+        } else {
+          directiveUsages = usagesPerDirective;
+        }
+
+        const fieldFederationMetadata: FederationField = {
+          ...originalMetadata,
+          directiveUsages,
+        };
+
+        field.extensions = {
+          ...field.extensions,
+          federation: fieldFederationMetadata,
+        };
+      }
     }
-
   }
 }
 
@@ -728,15 +802,14 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     externalFields,
     keyDirectivesMap,
     valueTypes,
-    typeNameToFieldDirectivesMap,
-    otherKnownDirectiveUsages,
+    directiveUsagesPerSubgraph,
   } = buildMapsFromServiceList(services);
 
   let { schema, errors } = buildSchemaFromDefinitionsAndExtensions({
     typeDefinitionsMap,
     typeExtensionsMap,
     directiveDefinitionsMap,
-    otherKnownDirectiveUsages,
+    directiveUsagesPerSubgraph,
   });
 
   // TODO: We should fix this to take non-default operation root types in
@@ -777,7 +850,7 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     keyDirectivesMap,
     valueTypes,
     directiveDefinitionsMap,
-    typeNameToFieldDirectivesMap,
+    directiveUsagesPerSubgraph,
   });
 
   if (errors.length > 0) {

@@ -21,7 +21,7 @@ describe('loadSupergraphSdlFromStorage', () => {
     }
   });
 
-  it('fetches Supergraph SDL as expected', async () => {
+  fit('fetches Supergraph SDL as expected', async () => {
     mockSupergraphSdlRequestSuccess();
 
     const fetcher = getDefaultFetcher();
@@ -56,7 +56,7 @@ describe('loadSupergraphSdlFromStorage', () => {
 
       directive @stream on FIELD
 
-      directive @tag(name: String!) repeatable on FIELD_DEFINITION
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
 
       directive @transform(from: String!) on FIELD
 

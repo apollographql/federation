@@ -186,7 +186,7 @@ describe('printFederatedSchema', () => {
         id: ID!
       }
 
-      type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") {
+      type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") @tag(name: \\"from accounts\\") @tag(name: \\"from reviews\\") {
         account: AccountType
         birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         goodAddress: Boolean @requires(fields: \\"metadata { address }\\")

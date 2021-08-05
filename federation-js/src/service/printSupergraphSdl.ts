@@ -26,7 +26,6 @@ import {
   GraphQLString,
   DEFAULT_DEPRECATION_REASON,
   SelectionNode,
-  DirectiveNode,
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
 import { assert } from '../utilities';
@@ -234,8 +233,20 @@ function printObject(
     implementedInterfaces +
     // Core addition for printing @join__owner and @join__type usages
     printTypeJoinDirectives(type, context) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type, context)
   );
+}
+
+function printKnownDirectiveUsagesOnType(type: GraphQLObjectType): string {
+  const directiveUsages = (type.extensions?.federation as FederationType)
+    ?.directiveUsages;
+
+  if (!directiveUsages) return '';
+  const tagUsages = directiveUsages.get('tag');
+  if (!tagUsages || tagUsages.length === 0) return '';
+
+  return '\n  ' + tagUsages.map(print).join('\n  ');
 }
 
 // Core change: print @join__owner and @join__type usages
@@ -369,7 +380,7 @@ function printFields(
       // We don't want to print field owner directives on fields belonging to an interface type
       (isObjectType(type)
         ? printJoinFieldDirectives(f, type, context) +
-          printOtherKnownDirectiveUsages(f)
+          printKnownDirectiveUsagesOnFields(f)
         : ''),
   );
 
@@ -442,12 +453,12 @@ function printJoinFieldDirectives(
 
 // Core addition: print `@tag` directives (and possibly other future known
 // directives) found in subgraph SDL into the supergraph SDL
-function printOtherKnownDirectiveUsages(field: GraphQLField<any, any>) {
-  const otherKnownDirectiveUsages = (field.extensions?.federation
-    ?.otherKnownDirectiveUsages ?? []) as DirectiveNode[];
-
-  if (otherKnownDirectiveUsages.length < 1) return '';
-  return ` ${otherKnownDirectiveUsages
+function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
+  const directiveUsages = (field.extensions?.federation as FederationField)
+    ?.directiveUsages;
+  const tagUsages = directiveUsages?.get('tag');
+  if (!tagUsages || tagUsages.length < 1) return '';
+  return ` ${tagUsages
     .slice()
     .sort((a, b) => a.name.value.localeCompare(b.name.value))
     .map(print)

@@ -58,7 +58,12 @@ export const ProvidesDirective = new GraphQLDirective({
 
 export const TagDirective = new GraphQLDirective({
   name: 'tag',
-  locations: [DirectiveLocation.FIELD_DEFINITION],
+  locations: [
+    DirectiveLocation.FIELD_DEFINITION,
+    DirectiveLocation.OBJECT,
+    DirectiveLocation.INTERFACE,
+    DirectiveLocation.UNION,
+  ],
   isRepeatable: true,
   args: {
     name: {

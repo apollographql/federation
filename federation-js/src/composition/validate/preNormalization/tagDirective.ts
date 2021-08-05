@@ -49,8 +49,9 @@ export const tagDirective = ({
   // Ensure the tag directive definition is correct
   if (tagDirectiveDefinition) {
     const printedTagDefinition =
-      'directive @tag(name: String!) repeatable on FIELD_DEFINITION';
+      'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION';
 
+    // TODO: sort locations
     if (
       print(stripDescriptions(tagDirectiveDefinition)) !== printedTagDefinition
     ) {

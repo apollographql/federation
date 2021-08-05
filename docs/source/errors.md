@@ -56,7 +56,7 @@ If Apollo Gateway encounters an error, composition fails. This document lists co
 ## `@tag`
 | Code | Description |
 |---|---|
-| `TAG_DIRECTIVE_DEFINITION_INVALID` | The `@tag` directive definition is included but defined incorrectly. Please include the correct `@tag` directive definition: `directive @tag(name: String!) repeatable on FIELD_DEFINITION`|
+| `TAG_DIRECTIVE_DEFINITION_INVALID` | The `@tag` directive definition is included but defined incorrectly. Please include the correct `@tag` directive definition: `directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION`|
 
 ## Custom directives
 

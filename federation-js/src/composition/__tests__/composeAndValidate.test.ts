@@ -175,7 +175,7 @@ describe('unknown types', () => {
     const inventory = {
       name: 'inventory',
       typeDefs: gql`
-        directive @tag(name: String!) repeatable on FIELD_DEFINITION
+        directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
         extend type Product @key(fields: "id") {
           id: ID! @external @tag(name: "hi from inventory")
         }

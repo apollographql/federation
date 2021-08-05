@@ -49,7 +49,7 @@ describe('printSupergraphSdl', () => {
 
       directive @stream on FIELD
 
-      directive @tag(name: String!) repeatable on FIELD_DEFINITION
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
 
       directive @transform(from: String!) on FIELD
 
@@ -270,6 +270,8 @@ describe('printSupergraphSdl', () => {
         @join__type(graph: INVENTORY, key: \\"id\\")
         @join__type(graph: PRODUCT, key: \\"id\\")
         @join__type(graph: REVIEWS, key: \\"id\\")
+        @tag(name: \\"from accounts\\")
+        @tag(name: \\"from reviews\\")
       {
         account: AccountType @join__field(graph: ACCOUNTS)
         birthDate(locale: String): String @join__field(graph: ACCOUNTS) @tag(name: \\"admin\\") @tag(name: \\"dev\\")

@@ -29,7 +29,9 @@ describe('tagDirective', () => {
     it('when there are @tag usages and a correct @tag definition', () => {
       const serviceA = {
         typeDefs: gql`
-          directive @tag(name: String!) repeatable on FIELD_DEFINITION
+          directive @tag(
+            name: String!
+          ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
           type Query {
             hello: String @tag(name: "hello")
           }
@@ -44,11 +46,15 @@ describe('tagDirective', () => {
     it('permits descriptions in the @tag definition', () => {
       const serviceA = {
         typeDefs: gql`
-          """description"""
+          """
+          description
+          """
           directive @tag(
-            """description"""
+            """
+            description
+            """
             name: String!
-          ) repeatable on FIELD_DEFINITION
+          ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
           type Query {
             hello: String @tag(name: "hello")
           }
@@ -118,7 +124,7 @@ describe('tagDirective', () => {
               },
             ],
             "message": "[@tag] -> Found @tag definition in service serviceA, but the @tag directive definition was invalid. Please ensure the directive definition in your schema's type definitions matches the following:
-        	directive @tag(name: String!) repeatable on FIELD_DEFINITION",
+        	directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION",
           },
         ]
       `);
@@ -127,7 +133,9 @@ describe('tagDirective', () => {
     it('when @tag usage is missing args', () => {
       const serviceA = {
         typeDefs: gql`
-          directive @tag(name: String!) repeatable on FIELD_DEFINITION
+          directive @tag(
+            name: String!
+          ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
 
           type Query {
             hello: String @tag
@@ -145,7 +153,7 @@ describe('tagDirective', () => {
             "locations": Array [
               Object {
                 "column": 17,
-                "line": 5,
+                "line": 7,
               },
             ],
             "message": "Directive \\"@tag\\" argument \\"name\\" of type \\"String!\\" is required, but it was not provided.",
@@ -157,7 +165,9 @@ describe('tagDirective', () => {
     it('when @tag usage has invalid args', () => {
       const serviceA = {
         typeDefs: gql`
-          directive @tag(name: String!) repeatable on FIELD_DEFINITION
+          directive @tag(
+            name: String!
+          ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
 
           type Query {
             hello: String @tag(invalid: 1)
@@ -175,7 +185,7 @@ describe('tagDirective', () => {
             "locations": Array [
               Object {
                 "column": 22,
-                "line": 5,
+                "line": 7,
               },
             ],
             "message": "Unknown argument \\"invalid\\" on directive \\"@tag\\".",
@@ -185,7 +195,7 @@ describe('tagDirective', () => {
             "locations": Array [
               Object {
                 "column": 17,
-                "line": 5,
+                "line": 7,
               },
             ],
             "message": "Directive \\"@tag\\" argument \\"name\\" of type \\"String!\\" is required, but it was not provided.",

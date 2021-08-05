@@ -6,7 +6,11 @@ export const url = `https://${name}.api.com`;
 export const typeDefs = gql`
   directive @stream on FIELD
   directive @transform(from: String!) on FIELD
-  directive @tag(name: String!) repeatable on FIELD_DEFINITION
+  directive @tag(name: String!) repeatable on
+    | FIELD_DEFINITION
+    | INTERFACE
+    | OBJECT
+    | UNION
 
   extend type Query {
     topReviews(first: Int = 5): [Review]
@@ -29,7 +33,7 @@ export const typeDefs = gql`
     address: String @external
   }
 
-  extend type User @key(fields: "id") {
+  extend type User @key(fields: "id") @tag(name: "from reviews") {
     id: ID! @external @tag(name: "on external")
     username: String @external
     reviews: [Review]
