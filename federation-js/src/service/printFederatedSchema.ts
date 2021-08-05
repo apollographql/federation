@@ -222,11 +222,10 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
 function printKnownDirectiveUsagesOnType(
   type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
 ): string {
-  const directiveUsages = (type.extensions?.federation as FederationType)
-    ?.directiveUsages;
-
-  if (!directiveUsages) return '';
-  const tagUsages = directiveUsages.get('tag');
+  const tagUsages =
+    (type.extensions?.federation as FederationType)?.directiveUsages?.get(
+      'tag',
+    ) ?? [];
   if (!tagUsages || tagUsages.length === 0) return '';
 
   return ' ' + tagUsages.map(print).join(' ');
@@ -329,9 +328,9 @@ function printFederationDirectives(
 // Core addition: print `@tag` directive usages (and possibly other future known
 // directive usages) found in subgraph SDL.
 function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
-  const directiveUsages = (field.extensions?.federation as FederationField)
-    ?.directiveUsages;
-  const tagUsages = directiveUsages?.get('tag');
+ const tagUsages = (
+   field.extensions?.federation as FederationField
+ )?.directiveUsages?.get('tag');
   if (!tagUsages || tagUsages.length < 1) return '';
   return ` ${tagUsages
     .slice()

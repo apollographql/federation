@@ -241,11 +241,9 @@ function printObject(
 function printKnownDirectiveUsagesOnType(
   type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
 ): string {
-  const directiveUsages = (type.extensions?.federation as FederationType)
-    ?.directiveUsages;
-
-  if (!directiveUsages) return '';
-  const tagUsages = directiveUsages.get('tag');
+  const tagUsages = (
+    type.extensions?.federation as FederationField
+  )?.directiveUsages?.get('tag');
   if (!tagUsages || tagUsages.length === 0) return '';
 
   return '\n  ' + tagUsages.map(print).join('\n  ');
@@ -469,9 +467,9 @@ function printJoinFieldDirectives(
 // Core addition: print `@tag` directives (and possibly other future known
 // directives) found in subgraph SDL into the supergraph SDL
 function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
-  const directiveUsages = (field.extensions?.federation as FederationField)
-    ?.directiveUsages;
-  const tagUsages = directiveUsages?.get('tag');
+  const tagUsages = (
+    field.extensions?.federation as FederationField
+  )?.directiveUsages?.get('tag');
   if (!tagUsages || tagUsages.length < 1) return '';
   return ` ${tagUsages
     .slice()
