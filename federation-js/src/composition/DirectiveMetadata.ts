@@ -1,28 +1,37 @@
 import {
   DirectiveNode,
-  FieldDefinitionNode,
-  GraphQLFieldMap,
-  GraphQLNamedType,
+  GraphQLInterfaceType,
+  GraphQLObjectType,
   GraphQLSchema,
-  TypeDefinitionNode,
-  TypeExtensionNode,
+  GraphQLUnionType,
+  InterfaceTypeDefinitionNode,
+  InterfaceTypeExtensionNode,
+  ObjectTypeDefinitionNode,
+  ObjectTypeExtensionNode,
+  UnionTypeDefinitionNode,
+  UnionTypeExtensionNode,
   visit,
 } from 'graphql';
 import { mapGetOrSet } from '../utilities';
 import { FederationField, FederationType, ServiceDefinition } from './types';
 import { getFederationMetadata } from './utils';
 
-// key is name of directive
+// directive name => usages
 export type DirectiveUsages = Map<string, DirectiveNode[]>;
 
-// key is field or type name the usages are found on
+// field name => directive name => usages
 type DirectiveUsagesPerField = Map<string, DirectiveUsages>;
 
+// type name => {
+//   directives: DirectiveUsages,
+//   fields: DirectiveUsagesPerField
+// }
 type DirectiveUsagesPerType = Map<
   string,
   { directives: DirectiveUsages; fields: DirectiveUsagesPerField }
 >;
 
+// subgraph name => DirectiveUsagesPerType
 type DirectiveUsagesPerSubgraph = Map<string, DirectiveUsagesPerType>;
 
 export class DirectiveMetadata {
@@ -31,10 +40,8 @@ export class DirectiveMetadata {
   constructor(subgraphs: ServiceDefinition[]) {
     this.directiveUsagesPerSubgraph = new Map();
     for (const subgraph of subgraphs) {
-      const visitor = objectLikeDirectivesVisitor(
-        subgraph.name,
-        this.directiveUsagesPerSubgraph,
-      );
+      const visitor = this.getTypeVisitor(subgraph.name);
+      // visit each object-like type to build the map of directive usages
       visit(subgraph.typeDefs, {
         ObjectTypeDefinition: visitor,
         ObjectTypeExtension: visitor,
@@ -46,6 +53,70 @@ export class DirectiveMetadata {
     }
   }
 
+  getTypeVisitor(subgraphName: string) {
+    return <
+      T extends
+        | ObjectTypeDefinitionNode
+        | ObjectTypeExtensionNode
+        | InterfaceTypeDefinitionNode
+        | InterfaceTypeExtensionNode
+        | UnionTypeDefinitionNode
+        | UnionTypeExtensionNode,
+    >(
+      node: T,
+    ) => {
+      const directiveUsagesPerType: DirectiveUsagesPerType = mapGetOrSet(
+        this.directiveUsagesPerSubgraph,
+        subgraphName,
+        new Map(),
+      );
+
+      for (const directive of node.directives ?? []) {
+        const { directives: usagesByDirectiveName } = mapGetOrSet(
+          directiveUsagesPerType,
+          node.name.value,
+          {
+            directives: new Map<string, DirectiveNode[]>(),
+            fields: new Map<string, DirectiveUsages>(),
+          },
+        );
+        const usages = mapGetOrSet(
+          usagesByDirectiveName,
+          directive.name.value,
+          [],
+        );
+        usages.push(directive);
+      }
+
+      if ('fields' in node && node.fields) {
+        for (const field of node.fields) {
+          for (const directive of field.directives ?? []) {
+            const { fields: usagesByFieldName } = mapGetOrSet(
+              directiveUsagesPerType,
+              node.name.value,
+              {
+                directives: new Map<string, DirectiveNode[]>(),
+                fields: new Map<string, DirectiveUsages>(),
+              },
+            );
+            const usagesByDirectiveName = mapGetOrSet(
+              usagesByFieldName,
+              field.name.value,
+              new Map<string, DirectiveNode[]>(),
+            );
+            const usages = mapGetOrSet(
+              usagesByDirectiveName,
+              directive.name.value,
+              [],
+            );
+            usages.push(directive);
+          }
+        }
+      }
+    };
+  }
+
+  // visit the entire map for any usages of a directive
   hasUsages(directiveName: string) {
     for (const directiveUsagesPerType of this.directiveUsagesPerSubgraph.values()) {
       for (const { directives, fields } of directiveUsagesPerType.values()) {
@@ -61,19 +132,18 @@ export class DirectiveMetadata {
     return false;
   }
 
+  // traverse the map of directive usages and apply metadata to the corresponding
+  // `extensions` fields on the provided schema.
   applyMetadataToSupergraphSchema(schema: GraphQLSchema) {
-    // TODO: only capture usages of non-repeatable directives once.
-    // might be a printer concern instead.
-    for (const [
-      _subgraphName,
-      directiveUsagesPerType,
-    ] of this.directiveUsagesPerSubgraph.entries()) {
+    for (const directiveUsagesPerType of this.directiveUsagesPerSubgraph.values()) {
       for (const [
         typeName,
         { directives, fields },
       ] of directiveUsagesPerType.entries()) {
         const namedType = schema.getType(typeName) as
-          | GraphQLNamedType
+          | GraphQLObjectType
+          | GraphQLInterfaceType
+          | GraphQLUnionType
           | undefined;
         if (!namedType) continue;
 
@@ -97,12 +167,9 @@ export class DirectiveMetadata {
           federation: typeFederationMetadata,
         };
 
-        interface HasFields {
-          getFields(): GraphQLFieldMap<any, any>;
-        }
-
         for (const [fieldName, usagesPerDirective] of fields.entries()) {
-          const field = (namedType as HasFields).getFields()[fieldName];
+          if (!('getFields' in namedType)) continue;
+          const field = namedType.getFields()[fieldName];
           if (!field) continue;
 
           const originalMetadata = getFederationMetadata(field);
@@ -128,65 +195,4 @@ export class DirectiveMetadata {
       }
     }
   }
-}
-
-function objectLikeDirectivesVisitor(
-  subgraphName: string,
-  directiveUsagesPerSubgraph: DirectiveUsagesPerSubgraph,
-) {
-  return function <
-    T extends (TypeDefinitionNode | TypeExtensionNode) & {
-      directives?: readonly DirectiveNode[];
-      fields?: readonly FieldDefinitionNode[] | undefined;
-    },
-  >(node: T) {
-    const directiveUsagesPerType: DirectiveUsagesPerType = mapGetOrSet(
-      directiveUsagesPerSubgraph,
-      subgraphName,
-      new Map(),
-    );
-
-    for (const directive of node.directives ?? []) {
-      const { directives: usagesByDirectiveName } = mapGetOrSet(
-        directiveUsagesPerType,
-        node.name.value,
-        {
-          directives: new Map<string, DirectiveNode[]>(),
-          fields: new Map<string, DirectiveUsages>(),
-        },
-      );
-      const usages = mapGetOrSet(
-        usagesByDirectiveName,
-        directive.name.value,
-        [],
-      );
-      usages.push(directive);
-    }
-
-    if ('fields' in node && node.fields) {
-      for (const field of node.fields) {
-        for (const directive of field.directives ?? []) {
-          const { fields: usagesByFieldName } = mapGetOrSet(
-            directiveUsagesPerType,
-            node.name.value,
-            {
-              directives: new Map<string, DirectiveNode[]>(),
-              fields: new Map<string, DirectiveUsages>(),
-            },
-          );
-          const usagesByDirectiveName = mapGetOrSet(
-            usagesByFieldName,
-            field.name.value,
-            new Map<string, DirectiveNode[]>(),
-          );
-          const usages = mapGetOrSet(
-            usagesByDirectiveName,
-            directive.name.value,
-            [],
-          );
-          usages.push(directive);
-        }
-      }
-    }
-  };
 }
