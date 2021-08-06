@@ -16,7 +16,7 @@ describe('printFederatedSchema', () => {
 
       directive @transform(from: String!) on FIELD
 
-      union AccountType @tag(name: \\"from accounts\\") = PasswordAccount | SMSAccount
+      union AccountType @tag(name: \\"from-accounts\\") = PasswordAccount | SMSAccount
 
       type Amazon {
         referrer: String
@@ -119,7 +119,7 @@ describe('printFederatedSchema', () => {
         email: String!
       }
 
-      interface Product @tag(name: \\"from reviews\\") {
+      interface Product @tag(name: \\"from-reviews\\") {
         details: ProductDetails
         inStock: Boolean
         name: String
@@ -186,12 +186,12 @@ describe('printFederatedSchema', () => {
         id: ID!
       }
 
-      type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") @tag(name: \\"from accounts\\") @tag(name: \\"from reviews\\") {
+      type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") @tag(name: \\"from-accounts\\") @tag(name: \\"from-reviews\\") {
         account: AccountType
         birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         goodAddress: Boolean @requires(fields: \\"metadata { address }\\")
         goodDescription: Boolean @requires(fields: \\"metadata { description }\\")
-        id: ID! @tag(name: \\"accounts\\") @tag(name: \\"on external\\")
+        id: ID! @tag(name: \\"accounts\\") @tag(name: \\"on-external\\")
         metadata: [UserMetadata]
         name: Name
         numberOfReviews: Int!

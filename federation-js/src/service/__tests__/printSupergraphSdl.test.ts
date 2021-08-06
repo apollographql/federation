@@ -54,7 +54,7 @@ describe('printSupergraphSdl', () => {
       directive @transform(from: String!) on FIELD
 
       union AccountType
-        @tag(name: \\"from accounts\\")
+        @tag(name: \\"from-accounts\\")
       = PasswordAccount | SMSAccount
 
       type Amazon {
@@ -193,7 +193,7 @@ describe('printSupergraphSdl', () => {
       }
 
       interface Product
-        @tag(name: \\"from reviews\\")
+        @tag(name: \\"from-reviews\\")
       {
         details: ProductDetails
         inStock: Boolean
@@ -274,14 +274,14 @@ describe('printSupergraphSdl', () => {
         @join__type(graph: INVENTORY, key: \\"id\\")
         @join__type(graph: PRODUCT, key: \\"id\\")
         @join__type(graph: REVIEWS, key: \\"id\\")
-        @tag(name: \\"from accounts\\")
-        @tag(name: \\"from reviews\\")
+        @tag(name: \\"from-accounts\\")
+        @tag(name: \\"from-reviews\\")
       {
         account: AccountType @join__field(graph: ACCOUNTS)
         birthDate(locale: String): String @join__field(graph: ACCOUNTS) @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         goodAddress: Boolean @join__field(graph: REVIEWS, requires: \\"metadata{address}\\")
         goodDescription: Boolean @join__field(graph: INVENTORY, requires: \\"metadata{description}\\")
-        id: ID! @join__field(graph: ACCOUNTS) @tag(name: \\"accounts\\") @tag(name: \\"on external\\")
+        id: ID! @join__field(graph: ACCOUNTS) @tag(name: \\"accounts\\") @tag(name: \\"on-external\\")
         metadata: [UserMetadata] @join__field(graph: ACCOUNTS)
         name: Name @join__field(graph: ACCOUNTS)
         numberOfReviews: Int! @join__field(graph: REVIEWS)
