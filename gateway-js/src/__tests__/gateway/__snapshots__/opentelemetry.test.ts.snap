@@ -4,7 +4,9 @@ exports[`opentelemetry receives spans on fetch failure 1`] = `
 [
   {
     "name": "gateway.request",
-    "attributes": {},
+    "attributes": {
+      "operationName": "GetProduct"
+    },
     "children": [
       {
         "name": "gateway.validate",
@@ -61,7 +63,9 @@ exports[`opentelemetry with local data receives spans on plan failure 1`] = `
 [
   {
     "name": "gateway.request",
-    "attributes": {},
+    "attributes": {
+      "operationName": "GetProduct"
+    },
     "children": [
       {
         "name": "gateway.validate",
@@ -91,7 +95,9 @@ exports[`opentelemetry with local data receives spans on success 1`] = `
 [
   {
     "name": "gateway.request",
-    "attributes": {},
+    "attributes": {
+      "operationName": "GetProduct"
+    },
     "children": [
       {
         "name": "gateway.validate",
@@ -168,7 +174,9 @@ exports[`opentelemetry with local data receives spans on validation failure 1`] 
 [
   {
     "name": "gateway.request",
-    "attributes": {},
+    "attributes": {
+      "operationName": "InvalidVariables"
+    },
     "children": [
       {
         "name": "gateway.validate",

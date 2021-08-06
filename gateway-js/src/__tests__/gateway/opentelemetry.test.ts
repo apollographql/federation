@@ -19,13 +19,14 @@ beforeEach(() => {
 });
 
 describe('opentelemetry', () => {
-  async function execute(executor: any, source: string, variables: any) {
+  async function execute(executor: any, source: string, variables: any, operationName: string) {
     await executor({
       source,
       document: gql(source),
       request: {
-        variables: variables,
+        variables,
       },
+      operationName,
       queryHash: 'hashed',
       context: null,
       cache: {} as any,
@@ -58,7 +59,7 @@ describe('opentelemetry', () => {
       }
     `;
 
-      await execute(executor, source, {upc: '1'});
+      await execute(executor, source, {upc: '1'}, 'GetProduct');
       expect(inMemorySpans.getFinishedSpans()).toMatchSnapshot();
     });
 
@@ -72,7 +73,7 @@ describe('opentelemetry', () => {
       }
     `;
 
-      await execute(executor, source, {upc: '1'});
+      await execute(executor, source, { upc: '1' }, 'InvalidVariables');
       expect(inMemorySpans.getFinishedSpans()).toMatchSnapshot();
     });
 
@@ -87,7 +88,7 @@ describe('opentelemetry', () => {
     `;
 
       try {
-        await execute(executor, source, {upc: '1'});
+        await execute(executor, source, {upc: '1'}, 'GetProduct');
       }
       catch(err) {}
       expect(inMemorySpans.getFinishedSpans()).toMatchSnapshot();
@@ -115,7 +116,7 @@ describe('opentelemetry', () => {
     }
     `;
 
-    await execute(executor, source, {upc: '1'});
+    await execute(executor, source, {upc: '1'}, 'GetProduct');
     expect(inMemorySpans.getFinishedSpans()).toMatchSnapshot();
   });
 });
