@@ -7,8 +7,8 @@ export const typeDefs = gql`
   directive @stream on FIELD
   directive @transform(from: String!) on FIELD
   directive @tag(name: String!) repeatable on
-    | FIELD_DEFINITION
     | INTERFACE
+    | FIELD_DEFINITION
     | OBJECT
     | UNION
 
