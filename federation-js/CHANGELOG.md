@@ -4,11 +4,11 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
--_Nothing yet! Stay tuned_.
+- Rename `buildFederatedSchema` to `buildSubgraphSchema`. The previous name will continue to be supported but is deprecated. No functional change, usages of `buildFederatedSchema` should just be replaced with `buildSubgraphSchema`. [PR #915](https://github.com/apollographql/federation/pull/913)
 
 ## v0.28.0
 
-- When resolving the `Query._entities` field, honor `@cacheControl` directives on the object types that are members of the `_Entity` union. This feature is only enabled when your subgraph is running Apollo Server 3.0.2 or later. [PR #870](https://github.com/apollographql/apollo-server/pull/870) [Related docs PR](https://github.com/apollographql/apollo-server/pull/5536)
+- When resolving the `Query._entities` field, honor `@cacheControl` directives on the object types that are members of the `_Entity` union. This feature is only enabled when your subgraph is running Apollo Server 3.0.2 or later. [PR #870](https://github.com/apollographql/federation/pull/870) [Related docs PR](https://github.com/apollographql/apollo-server/pull/5536)
 
 ## v0.27.1
 
