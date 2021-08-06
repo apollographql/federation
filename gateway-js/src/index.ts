@@ -1018,8 +1018,13 @@ export class ApolloGateway implements GraphQLService {
   public executor = async <TContext>(
     requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
   ): Promise<GraphQLExecutionResult> => {
+    const spanAttributes = requestContext.operationName
+      ? { operationName: requestContext.operationName }
+      : {};
+
     return tracer.startActiveSpan(
       OpenTelemetrySpanNames.REQUEST,
+      { attributes: spanAttributes },
       async (span) => {
         try {
           const { request, document, queryHash } = requestContext;
