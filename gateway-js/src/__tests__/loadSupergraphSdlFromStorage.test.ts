@@ -21,7 +21,7 @@ describe('loadSupergraphSdlFromStorage', () => {
     }
   });
 
-  fit('fetches Supergraph SDL as expected', async () => {
+  it('fetches Supergraph SDL as expected', async () => {
     mockSupergraphSdlRequestSuccess();
 
     const fetcher = getDefaultFetcher();

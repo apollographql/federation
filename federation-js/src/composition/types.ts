@@ -3,7 +3,6 @@ import {
   DocumentNode,
   FieldDefinitionNode,
   DirectiveDefinitionNode,
-  DirectiveNode,
 } from 'graphql';
 import { DirectiveUsages } from './DirectiveMetadata';
 
@@ -41,7 +40,6 @@ export interface FederationField {
   requires?: ReadonlyArray<SelectionNode>;
   provides?: ReadonlyArray<SelectionNode>;
   belongsToValueType?: boolean;
-  otherKnownDirectiveUsages?: DirectiveNode[]
   directiveUsages?: DirectiveUsages
 }
 

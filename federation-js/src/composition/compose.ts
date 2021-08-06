@@ -143,7 +143,6 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
   const directiveMetadata = new DirectiveMetadata(serviceList);
 
   for (const { typeDefs, name: serviceName } of serviceList) {
-
     // Build a new SDL with @external fields removed, as well as information about
     // the fields that were removed.
     const {
@@ -619,8 +618,8 @@ export function addFederationMetadataToSchemaNodes({
     };
   }
 
-  // TODO: only capture usages of non-repeatable directives once.
-  // might be a printer concern instead.
+  // currently this is only used to capture @tag metadata but could be used
+  // for others directives in the future
   directiveMetadata.applyMetadataToSupergraphSchema(schema);
 }
 
