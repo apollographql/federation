@@ -41,7 +41,7 @@ export const typeDefs = gql`
     number: String
   }
 
-  union AccountType @tag(name: "from accounts") = PasswordAccount | SMSAccount
+  union AccountType @tag(name: "from-accounts") = PasswordAccount | SMSAccount
 
   type UserMetadata {
     name: String
@@ -49,7 +49,7 @@ export const typeDefs = gql`
     description: String
   }
 
-  type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from accounts") {
+  type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {
     id: ID! @tag(name: "accounts")
     name: Name @cacheControl(inheritMaxAge: true)
     username: String

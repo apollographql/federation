@@ -33,8 +33,8 @@ export const typeDefs = gql`
     address: String @external
   }
 
-  extend type User @key(fields: "id") @tag(name: "from reviews") {
-    id: ID! @external @tag(name: "on external")
+  extend type User @key(fields: "id") @tag(name: "from-reviews") {
+    id: ID! @external @tag(name: "on-external")
     username: String @external
     reviews: [Review]
     numberOfReviews: Int!
@@ -42,7 +42,7 @@ export const typeDefs = gql`
     goodAddress: Boolean @requires(fields: "metadata { address }")
   }
 
-  extend interface Product @tag(name: "from reviews") {
+  extend interface Product @tag(name: "from-reviews") {
     reviews: [Review]
   }
 
