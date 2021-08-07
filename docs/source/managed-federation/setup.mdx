@@ -28,20 +28,19 @@ If you haven't yet, complete the first two steps from the Apollo Studio getting 
 
 > This section assumes you are using Apollo Server with the `@apollo/gateway` library as your gateway.
 
-If you've already set up Apollo Federation _without_ Apollo Studio, the constructor of your `ApolloGateway` instance probably includes a `serviceList` option, like this:
+If you've already set up Apollo Federation _without_ Apollo Studio, the constructor of your `ApolloGateway` instance probably includes a `supergraphSdl` or `serviceList` option, like this:
 
-```js
+```js{2}
 const gateway = new ApolloGateway({
-  serviceList: [
-    { name: 'Products', url: 'http://products-graphql.svc.cluster.local:4001/' },
-    // Additional services defined here
-  ],
+  supergraphSdl
 });
 ```
 
-This option specifies the name and URL for each of your graph's subgraphs. With managed federation, this information is no longer hardcoded in the gateway's constructor! Instead, the gateway regularly polls Apollo for this information. This enables you to add and remove subgraphs _without_ needing to restart your gateway.
+These two options are specific to _non_-managed federation, in which supergraph schema composition is performed via the Rover CLI (`supergraphSdl`), or in the gateway itself (`serviceList`).
 
-Remove the `serviceList` argument from your `ApolloGateway` constructor entirely:
+With managed federation, composition is instead performed by _Apollo_, and the gateway regularly polls Apollo for an updated schema. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your gateway.
+
+Remove the `supergraphSdl` or `serviceList` argument from your `ApolloGateway` constructor entirely:
 
 ```js
 const gateway = new ApolloGateway();
