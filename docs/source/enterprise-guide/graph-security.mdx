@@ -54,7 +54,7 @@ In the sections that follow, we will explore measures that can help mitigate the
 GraphQL allows clients to traverse through a data graph and express complex relationships between the nodes in an operation's selection set. But as far as backing data sources are concerned, this can quickly turn into too much of a good thing when there are no guardrails to restrict how deeply queries can be nested. For example:
 
 ```graphql
-query {
+query DeepBlogQuery {
   author(id: 42) {
     posts {
       author {
@@ -122,6 +122,9 @@ Timeouts are another useful tool for stopping GraphQL operations that are consum
 The second level where you may configure timeouts is on the gateway's requests to subgraph services. This can be done by defining a custom fetcher for `ApolloGateway` in a `RemoteGraphQLDataSource` as follows:
 
 ```js
+import { ApolloGateway, RemoteGraphQLDataSource } from "@apollo/gateway";
+import fetch from "node-fetch";
+
 const gateway = new ApolloGateway({
   // ...
   buildService({ name, url }) {
@@ -211,7 +214,6 @@ However, one key question to address with federation is the matter of where you 
 ```javascript
 const server = ApolloServer({
   gateway,
-  subscriptions: false,
   context: ({ req }) => {
     const userId = req.user?.sub || null;
     return { userId };
@@ -245,7 +247,7 @@ Apart from protecting your GraphQL API from bad actors and locking down private 
 
 ### Know who’s using your graph (and how)
 
-To enhance the utility of traces collected in your observability tooling, it's a best practice to require clients to identify themselves and that they consistently name operations. The web and mobile versions of Apollo Client make it easy to set custom headers for the name and version of a specific client to [segment traces in Apollo Studio](https://www.apollographql.com/docs/studio/client-awareness/and metrics by client). Other API clients can set the `apollographql-client-name` and `apollographql-client-version` request headers manually to provide client awareness as well. (As a bonus, client awareness also makes it easier to identify what clients may be impacted by a proposed breaking change to your API when running schema checks.)
+To enhance the utility of traces collected in your observability tooling, it's a best practice to require clients to identify themselves and that they consistently name operations. The web and mobile versions of Apollo Client make it easy to set custom headers for the name and version of a specific client to [segment traces and metrics in Apollo Studio by client](https://www.apollographql.com/docs/studio/client-awareness/). Other API clients can set the `apollographql-client-name` and `apollographql-client-version` request headers manually to provide client awareness as well. (As a bonus, client awareness also makes it easier to identify what clients may be impacted by a proposed breaking change to your API when running schema checks.)
 
 Additionally, tracing data in Apollo Studio can be used to monitor API performance and errors. You can also configure alerts to push notifications to your team when something goes wrong, whether it’s an increase in requests per minute, changes in your p50, p95, or p99 response times, or errors in operations run against your graph. For example, a notification about a sudden increase in the error percentage may indicate that a bad actor is trying to get around disabled introspection and learn about a data graph's schema by rapidly guessing and testing different field names. And if you want to leverage error data outside of Studio as well, you can also use Apollo Server's support for [OpenTelemetry](https://www.apollographql.com/docs/federation/opentelemetry/) or Apollo Server plugins to integrate with other APM tools.
 
