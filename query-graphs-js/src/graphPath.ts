@@ -180,7 +180,7 @@ export function advancePathWithTransition<V extends Vertex>(
   excludedNonCollectingEdges: ExcludedEdges = []
 ) : GraphPath<Transition, V>[] {
   let options = advancePathWithDirectTransition(subgraphPath, transition, targetType.name, conditionResolver);
-  // If we can fullfill the transition directly (without taking an edge) and the target type is "terminal", then ther is
+  // If we can fullfill the transition directly (without taking an edge) and the target type is "terminal", then there is
   // no point in computing all the options.
   if (options.length > 0 && isLeafType(targetType)) {
     return options;
@@ -228,7 +228,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
 ): GraphPath<TTrigger, V, TNullEdge>[] {
   const updatedPaths = [ ];
   const typeName = isFederatedGraphRootType(path.tail.type) ? undefined : path.tail.type.name;
-  const originalSource = path.tail.source;
+  const sources = [ path.tail.source ];
   const toTry = [ path ];
   let excluded = excludedEdges;
   while (toTry.length > 0) {
@@ -245,9 +245,12 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       // We can only take a non-collecting transition that preserves the current type (typically,
       // jumping subgraphs through a key), with the exception of the federated graph roots, where
       // the type is fake and jumping to any given subgraph is ok and desirable.
-      if ((typeName && typeName != edge.tail.type.name) || originalSource === edge.tail.source) {
+      // Also, there is no point in taking an edge that bring up to a subgraph we also reached
+      // though a previous (and likely shorter) path
+      if ((typeName && typeName != edge.tail.type.name) || sources.includes(edge.tail.source)) {
         continue;
       }
+      sources.push(edge.tail.source);
       const [isSatisfied, conditionTree] = canSatisfyConditions(toAdvance, edge, conditionResolver, excluded);
       if (isSatisfied) {
         const updatedPath = toAdvance.add(convertTransitionWithCondition(edge.transition), edge, conditionTree);

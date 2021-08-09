@@ -231,7 +231,7 @@ export class ValidationState {
     // A state is a configuration that points to a particular type/vertex in the supergraph and to
     // a number of subgraph vertex _for the same type_. So if any of the subgraph state is such that
     // the current vertex (in the subgraph) has already been visited, then we've cycled (in a particular
-    // subgraph, but that aslo imply in the supergraph).
+    // subgraph, but that also imply in the supergraph).
     return this.subgraphPaths.some(p => p.hasJustCycled());
   }
 
