@@ -33,6 +33,7 @@ module.exports = {
             'enterprise-guide/graphql-consolidation',
             'enterprise-guide/federated-schema-design',
             'enterprise-guide/graph-administration',
+            'enterprise-guide/graph-security',
             'enterprise-guide/federation-case-studies',
             'enterprise-guide/additional-resources',
           ],
