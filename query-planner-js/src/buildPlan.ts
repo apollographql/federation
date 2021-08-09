@@ -1,5 +1,5 @@
 import { assert, Field, FieldSelection, FragmentElement, FragmentSelection, isListType, isNamedType, isSelectableType, ListType, NonNullType, ObjectType, Operation, OperationPath, operationToAST, Schema, SchemaRootKind, SelectableType, Selection, SelectionSet, selectionSetOfPath, Type, Variable, VariableDefinition, VariableDefinitions } from "@apollo/core";
-import { advanceSimultaneousPathsWithOperation, Edge, ExcludedEdges, FieldCollection, Graph, GraphPath, isRootVertex, OpGraphPath, OpPathTree, PathTree, requireEdgeAdditionalConditions, Vertex } from "@apollo/query-graphs";
+import { advanceSimultaneousPathsWithOperation, Edge, ExcludedEdges, FieldCollection, Graph, GraphPath, GraphState, isRootVertex, OpGraphPath, OpPathTree, PathTree, requireEdgeAdditionalConditions, Vertex } from "@apollo/query-graphs";
 import deepEqual from "deep-equal";
 import { Kind, DocumentNode, stripIgnoredCharacters, print } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -44,6 +44,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     startVertex: RV,
     readonly costFunction: CostFunction,
     readonly rootGroupsAreParallel: boolean,
+    private readonly cache: GraphState<OpGraphPath[]>,
     private readonly excludedEdges: ExcludedEdges = [],
     readonly isTopLevel: boolean = true
   ) {
@@ -80,6 +81,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       path,
       trigger,
       (conditions, vertex, excluded) => this.resolveConditionPlan(conditions, vertex, excluded),
+      this.cache,
       this.excludedEdges
     );
     for (const possiblePath of newPaths) {
@@ -101,6 +103,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       vertex,
       this.costFunction,
       true,
+      this.cache,
       excludedEdges,
       false).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
@@ -158,7 +161,8 @@ export function computeQueryPlan(supergraphSchema: Schema, subgraphs: Graph, ope
     operation.variableDefinitions,
     root,
     defaultCostFunction,
-    operation.rootKind !== 'mutation'
+    operation.rootKind !== 'mutation',
+    new GraphState<OpGraphPath[]>(subgraphs)
   );
   const bestPlan = planningTraversal.findBestPlan();
   if (!bestPlan) {

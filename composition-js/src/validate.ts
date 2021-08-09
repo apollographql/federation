@@ -27,7 +27,8 @@ import {
   Transition,
   OpGraphPath,
   advanceSimultaneousPathsWithOperation,
-  ExcludedEdges
+  ExcludedEdges,
+  GraphState
 } from "@apollo/query-graphs";
 
 export class ValidationError extends Error {
@@ -172,7 +173,9 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
     assert(!supergraphPath.hasAnyEdgeConditions(), `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = [...supergraphPath.graph.sources.values()][0];
     let initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
-    const traversal = supergraphPath.reduceMainPath((state, edge) => state.validateTransition(supergraphSchema, edge), initialState);
+    const cache = new GraphState<GraphPath<Transition>[]>(subgraphs);
+    const conditionsCache = new GraphState<OpGraphPath[]>(subgraphs);
+    const traversal = supergraphPath.reduceMainPath((state, edge) => state.validateTransition(supergraphSchema, edge, cache, conditionsCache), initialState);
     return {traversal};
   } catch (error) {
     if (error instanceof ValidationError) {
@@ -209,7 +212,7 @@ export class ValidationState {
   }
 
   // Either throw or return a new state.
-  validateTransition(supergraphSchema: Schema, supergraphEdge: Edge): ValidationState {
+  validateTransition(supergraphSchema: Schema, supergraphEdge: Edge, cache: GraphState<GraphPath<Transition>[]>, conditionCache: GraphState<OpGraphPath[]>): ValidationState {
     assert(!supergraphEdge.conditions, `Supergraph edges should not have conditions (${supergraphEdge})`);
 
     const transition = supergraphEdge.transition;
@@ -218,7 +221,8 @@ export class ValidationState {
       path,
       transition,
       targetType,
-      (conditions, vertex, excluded) => validateConditions(supergraphSchema, conditions, GraphPath.create(path.graph, vertex), excluded)
+      (conditions, vertex, excluded) => validateConditions(supergraphSchema, conditions, GraphPath.create(path.graph, vertex), conditionCache, excluded),
+      cache
     ));
     const newPath = this.supergraphPath.add(transition, supergraphEdge);
     if (newSubgraphPaths.length == 0) {
@@ -244,10 +248,14 @@ class ValidationTaversal {
   private readonly supergraphSchema: Schema;
   // The stack contains all states that aren't terminal.
   private readonly stack: ValidationState[] = [];
+  private readonly cache: GraphState<GraphPath<Transition>[]>;
+  private readonly conditionsCache: GraphState<OpGraphPath[]>;
 
   constructor(supergraph: Graph, subgraphs: Graph) {
     this.supergraphSchema = [...supergraph.sources.values()][0];
     supergraph.rootKinds().forEach(k => this.stack.push(ValidationState.initial(supergraph, k, subgraphs)));
+    this.cache = new GraphState(subgraphs);
+    this.conditionsCache = new GraphState(subgraphs);
   }
 
   //private dumpStack(message?: string) {
@@ -268,7 +276,7 @@ class ValidationTaversal {
     // Note that if supergraphVertex is terminal, this method is a no-op, which is expected/desired as
     // it means we've successfully "validate" a path to its end.
     for (const edge of state.supergraphPath.nextEdges()) {
-      const newState = state.validateTransition(this.supergraphSchema, edge);
+      const newState = state.validateTransition(this.supergraphSchema, edge, this.cache, this.conditionsCache);
       // The check for `isTerminal` is not strictly necessary as if we add a terminal
       // state to the stack this method, `handleState`, will do nothing later. But it's
       // worth checking it now and save some memory/cycles.
@@ -288,12 +296,13 @@ class ConditionValidationState {
     readonly subgraphPaths: OpGraphPath[][]
   ) {}
 
-  validateCurrentSelection(supergraphSchema: Schema, excludedEdges: ExcludedEdges): ConditionValidationState[] | null {
+  validateCurrentSelection(supergraphSchema: Schema, cache: GraphState<OpGraphPath[]>, excludedEdges: ExcludedEdges): ConditionValidationState[] | null {
     const newPaths = this.subgraphPaths.flatMap(path => advanceSimultaneousPathsWithOperation(
       supergraphSchema,
       path,
       this.selection.element(),
-      (conditions, vertex, excluded) => validateConditions(supergraphSchema, conditions, GraphPath.create(path[0].graph, vertex), excluded),
+      (conditions, vertex, excluded) => validateConditions(supergraphSchema, conditions, GraphPath.create(path[0].graph, vertex), cache, excluded),
+      cache,
       excludedEdges)
     );
 
@@ -313,7 +322,7 @@ class ConditionValidationState {
   }
 }
 
-function validateConditions(supergraphSchema: Schema, conditions: SelectionSet, initialPath: OpGraphPath, excludedEdges: ExcludedEdges): null | undefined {
+function validateConditions(supergraphSchema: Schema, conditions: SelectionSet, initialPath: OpGraphPath, cache: GraphState<OpGraphPath[]>, excludedEdges: ExcludedEdges): null | undefined {
   const stack: ConditionValidationState[] = [];
   for (const selection of conditions.selections()) {
     stack.push(new ConditionValidationState(selection, [[initialPath]]));
@@ -321,7 +330,7 @@ function validateConditions(supergraphSchema: Schema, conditions: SelectionSet, 
 
   while (stack.length > 0) {
     const state = stack.pop()!;
-    const newStates = state.validateCurrentSelection(supergraphSchema, excludedEdges);
+    const newStates = state.validateCurrentSelection(supergraphSchema, cache, excludedEdges);
     if (newStates === null) {
       return null;
     }

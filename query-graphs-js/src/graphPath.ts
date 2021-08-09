@@ -1,6 +1,6 @@
 import { assert, Field, FragmentElement, InterfaceType, NamedType, OperationElement, possibleRuntimeTypes, Schema, SchemaRootKind, SelectableType, SelectionSet, isLeafType, baseType, parseSelectionSet } from "@apollo/core";
 import { OpPathTree, traversePathTree } from "./pathTree";
-import { Vertex, Graph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType } from "./querygraph";
+import { Vertex, Graph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, GraphState } from "./querygraph";
 import { Transition } from "./transition";
 
 export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> {
@@ -57,7 +57,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   }
 
   add(trigger: TTrigger, edge: Edge | TNullEdge, conditions?: OpPathTree): GraphPath<TTrigger, RV, TNullEdge> {
-    const p = new GraphPath(
+    return new GraphPath(
       this.graph,
       this.root,
       edge ? edge.tail : this.tail,
@@ -65,7 +65,18 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       [...this.edgeIndexes, (edge ? edge.index : null) as number | TNullEdge],
       [...this.edgeConditions, conditions ?? null]
     );
-    return p;
+  }
+
+  concat(tailPath: GraphPath<TTrigger, Vertex, TNullEdge>): GraphPath<TTrigger, RV, TNullEdge> {
+    assert(this.tail.index === tailPath.root.index, `Cannot concat ${tailPath} after ${this}`);
+    return new GraphPath(
+      this.graph,
+      this.root,
+      tailPath.tail,
+      this.edgeTriggers.concat(tailPath.edgeTriggers),
+      this.edgeIndexes.concat(tailPath.edgeIndexes),
+      this.edgeConditions.concat(tailPath.edgeConditions)
+    );
   }
 
   nextEdges(): readonly Edge[] {
@@ -177,6 +188,7 @@ export function advancePathWithTransition<V extends Vertex>(
   transition: Transition,
   targetType: NamedType,
   conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  cache: GraphState<GraphPath<Transition>[]>,
   excludedNonCollectingEdges: ExcludedEdges = []
 ) : GraphPath<Transition, V>[] {
   let options = advancePathWithDirectTransition(subgraphPath, transition, targetType.name, conditionResolver);
@@ -186,7 +198,7 @@ export function advancePathWithTransition<V extends Vertex>(
     return options;
   }
   // Otherwise, let's try non-collecting edges and see if we can find some (more) options there.
-  const pathsWithNonCollecting = advancePathWithNonCollectingAndTypePreservingTransitions(subgraphPath, conditionResolver, excludedNonCollectingEdges, t => t);
+  const pathsWithNonCollecting = advancePathWithNonCollectingAndTypePreservingTransitions(subgraphPath, conditionResolver, excludedNonCollectingEdges, t => t, cache);
   if (pathsWithNonCollecting.length > 0) {
     options = options.concat(pathsWithNonCollecting.flatMap(p => advancePathWithDirectTransition(p, transition, targetType.name, conditionResolver)));
   }
@@ -202,6 +214,18 @@ function isExcluded(edge: Edge, excluded: ExcludedEdges): boolean {
 
 function addExclusion(excluded: ExcludedEdges, newExclusion: Edge): ExcludedEdges {
   return [...excluded, [newExclusion.head.index, newExclusion.index]];
+}
+
+function isPathExcluded<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
+  path: GraphPath<TTrigger, V, TNullEdge>,
+  excluded: ExcludedEdges
+): boolean {
+  for (const [e] of path.elements()) {
+    if (e && isExcluded(e, excluded)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function popMin<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
@@ -225,6 +249,39 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
   excludedEdges: ExcludedEdges,
   convertTransitionWithCondition: (transition: Transition) => TTrigger,
+  cache: GraphState<GraphPath<TTrigger, Vertex, TNullEdge>[]>,
+): GraphPath<TTrigger, V, TNullEdge>[] {
+  let cachedPaths = cache.getVertexState(path.tail);
+  if (!cachedPaths) {
+    // We only cache where there was no excluded edges.
+    if (excludedEdges.length !== 0) {
+      return advancePathWithNonCollectingAndTypePreservingTransitionsNoCache(
+        path,
+        conditionResolver,
+        excludedEdges,
+        convertTransitionWithCondition
+      );
+    }
+
+    cachedPaths = advancePathWithNonCollectingAndTypePreservingTransitionsNoCache(
+      GraphPath.create(path.graph, path.tail),
+      conditionResolver,
+      excludedEdges,
+      convertTransitionWithCondition
+    );
+    cache.setVertexState(path.tail, cachedPaths);
+  }
+  if (excludedEdges.length > 0) {
+    cachedPaths = cachedPaths.filter(p => isPathExcluded(p, excludedEdges));
+  }
+  return cachedPaths.map(p => path.concat(p));
+}
+
+function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
+  path: GraphPath<TTrigger, V, TNullEdge>,
+  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  excludedEdges: ExcludedEdges,
+  convertTransitionWithCondition: (transition: Transition) => TTrigger,
 ): GraphPath<TTrigger, V, TNullEdge>[] {
   const updatedPaths = [ ];
   const typeName = isFederatedGraphRootType(path.tail.type) ? undefined : path.tail.type.name;
@@ -234,7 +291,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   while (toTry.length > 0) {
     // Note that through `excluded` we avoid taking the same edge from multiple options. But that means it's important we try
     // the smallest paths first. That is, if we could in theory have path A -> B and A -> C -> B, and we can do B -> D,
-    // then we want to keep A -> B -> C, not A -> C -> B -> D.
+    // then we want to keep A -> B -> D, not A -> C -> B -> D.
     const toAdvance = popMin(toTry);
     const nextEdges =  toAdvance.nextEdges().filter(e => !e.transition.collectOperationElements);
     for (const edge of nextEdges) {
@@ -335,9 +392,10 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   subgraphSimultaneousPaths: OpGraphPath<V>[],
   operation: OperationElement,
   conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  cache: GraphState<OpGraphPath[]>,
   excludedNonCollectingEdges: ExcludedEdges = []
 ) : OpGraphPath<V>[][] {
-  let options = advanceWithOperation(supergraphSchema, subgraphSimultaneousPaths, operation, conditionResolver);
+  let options = advanceWithOperation(supergraphSchema, subgraphSimultaneousPaths, operation, conditionResolver, cache);
   // Like with transitions, if we can find a terminal field with a direct edge, there is no point in trying to
   // take indirect paths (this is not true for non-terminal, because for those, the direct paths may be dead ends,
   // but for terminal, we're at the end so ...).
@@ -345,9 +403,9 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     return options;
   }
   // Then adds whatever options can be obtained by taking some non-collecting edges first.
-  const pathsWithNonCollecting = advanceAllWithNonCollectingAndTypePreservingTransitions(subgraphSimultaneousPaths, conditionResolver, excludedNonCollectingEdges);
+  const pathsWithNonCollecting = advanceAllWithNonCollectingAndTypePreservingTransitions(subgraphSimultaneousPaths, conditionResolver, excludedNonCollectingEdges, cache);
   if (pathsWithNonCollecting.length > 0) {
-    options = options.concat(pathsWithNonCollecting.flatMap(p => advanceWithOperation(supergraphSchema, p, operation, conditionResolver)));
+    options = options.concat(pathsWithNonCollecting.flatMap(p => advanceWithOperation(supergraphSchema, p, operation, conditionResolver, cache)));
   }
   return options;
 }
@@ -355,7 +413,8 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
 function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Vertex>(
   paths: OpGraphPath<V>[],
   conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
-  excludedEdges: ExcludedEdges
+  excludedEdges: ExcludedEdges,
+  cache: GraphState<OpGraphPath[]>,
 ): OpGraphPath<V>[][] {
   const optionsForEachPaths = paths.map(p => 
     advancePathWithNonCollectingAndTypePreservingTransitions(
@@ -363,7 +422,8 @@ function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Verte
       conditionResolver,
       excludedEdges,
       // the transition taken by this function are non collecting transitions, so we use null as trigger.
-      _t => null
+      _t => null,
+      cache
     )
   );
   // optionsForEachPaths[i] is all the possible paths we could go from paths[i]. As each paths[i] is a set of "simultaneous" paths,
@@ -375,11 +435,12 @@ function advanceWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   simultaneousPaths: OpGraphPath<V>[], 
   operation: OperationElement,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined
+  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  cache: GraphState<OpGraphPath[]>
 ): OpGraphPath<V>[][] {
   const newPaths: OpGraphPath<V>[][][] = [];
   for (const path of simultaneousPaths) {
-    const updated = advanceOneWithOperation(supergraphSchema, path, operation, conditionResolver);
+    const updated = advanceOneWithOperation(supergraphSchema, path, operation, conditionResolver, cache);
     // We must be able to apply the operation on all the simultaneous paths, otherwise the whole set of simultaneous paths canno fullfill
     // the operation and we can abort early (return "no options").
     if (!updated) {
@@ -406,7 +467,8 @@ function advanceOneWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   path: OpGraphPath<V>,
   operation: OperationElement,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined
+  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  cache: GraphState<OpGraphPath[]>
 ) : OpGraphPath<V>[][] | undefined {
   const currentType = path.tail.type;
   if (operation.kind === 'Field') {
@@ -441,7 +503,8 @@ function advanceOneWithOperation<V extends Vertex>(
             supergraphSchema,
             [path],
             castOp,
-            conditionResolver
+            conditionResolver,
+            cache
           );
           if (implemOptions.length === 0) {
             return undefined;
@@ -450,7 +513,8 @@ function advanceOneWithOperation<V extends Vertex>(
             supergraphSchema,
             optPaths,
             operation,
-            conditionResolver
+            conditionResolver,
+            cache
           ));
           if (withField.length === 0) {
             return undefined;
@@ -493,7 +557,8 @@ function advanceOneWithOperation<V extends Vertex>(
             supergraphSchema,
             [path],
             castOp,
-            conditionResolver
+            conditionResolver,
+            cache
           );
           if (implemOptions.length === 0) {
             return undefined;

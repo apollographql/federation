@@ -210,7 +210,7 @@ export class Graph {
   }
 }
 
-export class GraphState<VertexState, EdgeState> {
+export class GraphState<VertexState, EdgeState = undefined> {
   // Store some "user" state for each vertex (accessed by index)
   private readonly verticesStates: (VertexState | null)[];
   private readonly adjacenciesStates: (EdgeState | null)[][];
