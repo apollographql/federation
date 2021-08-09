@@ -82,7 +82,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     readonly alias?: string
   ) {
     super(definition.schema()!, variablesInArguments(args));
-    this.validateSelects(this.definition, this.variableDefinitions);
+    this.validate();
   }
 
   get name(): string {
@@ -110,20 +110,45 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return !!definition && this.selects(definition);
   }
 
-  selects(definition: FieldDefinition<any>): boolean {
-    try {
-      this.validateSelects(definition, this.variableDefinitions);
-      return true;
-    } catch (_) {
+  selects(definition: FieldDefinition<any>, assumeValid: boolean = false): boolean {
+    // This code largely mirrors validate, so we could generalize that and return false on exception, but this
+    // method is called fairly often and that has been shown to impact peformance quite a lot. So a little
+    // bit of code duplication is ok.
+
+    if (this.name !== definition.name) {
       return false;
     }
-  }
-
-  private validateSelects(definition: FieldDefinition<any>, variableDefinitions: VariableDefinitions) {
-    validate(this.name === definition.name, `Field name "${this.name}" cannot select field "${definition.coordinate}: name mismatch"`);
 
     // We need to make sure the field has valid values for every non-optional argument.
     for (const argDef of definition.arguments()) {
+      const appliedValue = this.args[argDef.name];
+      if (appliedValue === undefined) {
+        if (argDef.defaultValue === undefined && !isNullableType(argDef.type!)) {
+          return false;
+        }
+      } else {
+        if (!assumeValid && !isValidValue(appliedValue, argDef.type!, this.variableDefinitions)) {
+          return false;
+        }
+      }
+    }
+
+    // We also make sure the field application does not have non-null values for field that are not part of the definition.
+    if (!assumeValid) {
+      for (const [name, value] of Object.entries(this.args)) {
+        if (value !== null && definition.argument(name) === undefined) {
+          return false
+        }
+      }
+    }
+    return true;
+  }
+
+  private validate() {
+    validate(this.name === this.definition.name, `Field name "${this.name}" cannot select field "${this.definition.coordinate}: name mismatch"`);
+
+    // We need to make sure the field has valid values for every non-optional argument.
+    for (const argDef of this.definition.arguments()) {
       const appliedValue = this.args[argDef.name];
       if (appliedValue === undefined) {
         validate(
@@ -131,7 +156,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
           `Missing mandatory value "${argDef.name}" in field selection "${this}"`);
       } else {
         validate(
-          isValidValue(appliedValue, argDef.type!, variableDefinitions),
+          isValidValue(appliedValue, argDef.type!, this.variableDefinitions),
           `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
       }
     }
@@ -139,7 +164,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     // We also make sure the field application does not have non-null values for field that are not part of the definition.
     for (const [name, value] of Object.entries(this.args)) {
       validate(
-        value === null || definition.argument(name) !== undefined,
+        value === null || this.definition.argument(name) !== undefined,
         `Unknown argument "${name}" in field application of "${this.name}"`);
     }
   }

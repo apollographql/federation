@@ -236,7 +236,8 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
     // the smallest paths first. That is, if we could in theory have path A -> B and A -> C -> B, and we can do B -> D,
     // then we want to keep A -> B -> C, not A -> C -> B -> D.
     const toAdvance = popMin(toTry);
-    for (const edge of toAdvance.nextEdges().filter(e => !e.transition.collectOperationElements)) {
+    const nextEdges =  toAdvance.nextEdges().filter(e => !e.transition.collectOperationElements);
+    for (const edge of nextEdges) {
       if (isExcluded(edge, excluded)) {
         continue;
       }
@@ -523,7 +524,7 @@ function edgeForField<V extends Vertex>(
   path: OpGraphPath<V>,
   field: Field<any>
 ): Edge | undefined {
-  const candidates = path.nextEdges().filter(e => e.transition.kind === 'FieldCollection' && field.selects(e.transition.definition));
+  const candidates = path.nextEdges().filter(e => e.transition.kind === 'FieldCollection' && field.selects(e.transition.definition, true));
   assert(candidates.length <= 1, `Vertex ${path.tail} has multiple edges matching ${field} (${candidates})`);
   return candidates.length === 0 ? undefined : candidates[0];
 }
