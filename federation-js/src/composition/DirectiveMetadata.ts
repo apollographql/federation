@@ -1,4 +1,5 @@
 import {
+  ASTNode,
   DirectiveNode,
   GraphQLInterfaceType,
   GraphQLObjectType,
@@ -11,6 +12,7 @@ import {
   UnionTypeDefinitionNode,
   UnionTypeExtensionNode,
   visit,
+  VisitFn,
 } from 'graphql';
 import { mapGetOrSet } from '../utilities';
 import { FederationField, FederationType, ServiceDefinition } from './types';
@@ -34,6 +36,13 @@ type DirectiveUsagesPerType = Map<
 // subgraph name => DirectiveUsagesPerType
 type DirectiveUsagesPerSubgraph = Map<string, DirectiveUsagesPerType>;
 
+type ObjectInterfaceOrUnionTypeNode =
+  | ObjectTypeDefinitionNode
+  | ObjectTypeExtensionNode
+  | InterfaceTypeDefinitionNode
+  | InterfaceTypeExtensionNode
+  | UnionTypeDefinitionNode
+  | UnionTypeExtensionNode;
 export class DirectiveMetadata {
   directiveUsagesPerSubgraph: DirectiveUsagesPerSubgraph;
 
@@ -53,18 +62,14 @@ export class DirectiveMetadata {
     }
   }
 
-  getTypeVisitor(subgraphName: string) {
-    return <
-      T extends
-        | ObjectTypeDefinitionNode
-        | ObjectTypeExtensionNode
-        | InterfaceTypeDefinitionNode
-        | InterfaceTypeExtensionNode
-        | UnionTypeDefinitionNode
-        | UnionTypeExtensionNode,
-    >(
-      node: T,
-    ) => {
+  // Returns a visitor which is capable of visiting object, interface, and
+  // union nodes (and their extensions). The visitor returned from this function
+  // collects all directive usages in the data structure
+  // `this.directiveUsagesPerSubgraph`.
+  getTypeVisitor(
+    subgraphName: string,
+  ): VisitFn<ASTNode, ObjectInterfaceOrUnionTypeNode> {
+    return (node) => {
       const directiveUsagesPerType: DirectiveUsagesPerType = mapGetOrSet(
         this.directiveUsagesPerSubgraph,
         subgraphName,
