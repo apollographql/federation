@@ -1,5 +1,4 @@
 import {
-  ArgumentDefinition,
   assert,
   MultiMap,
   InterfaceType,
@@ -69,26 +68,6 @@ function toRootVertex(vertex: Vertex, rootKind: SchemaRootKind): RootVertex {
 
 export function isRootVertex(vertex: Vertex): vertex is RootVertex {
   return vertex instanceof RootVertex;
-}
-
-export class FieldSpec {
-  readonly args: ReadonlyMap<string, ArgumentDefinition<any>>;
-
-  constructor(readonly name: string, args: ArgumentDefinition<any>[] = []) {
-    const m = new Map<string, ArgumentDefinition<any>>();
-    for (const arg of args) {
-      m.set(arg.name, arg);
-    }
-    this.args = m;
-  }
-
-  toString(): string {
-    let str = this.name;
-    if (this.args.size > 0) {
-      str = str + '(' + [...this.args.values()].map(arg => `${arg.name}: ${arg.type}`) + ')';
-    }
-    return str;
-  }
 }
 
 export class Edge {

@@ -1,4 +1,5 @@
-import { FieldSpec, freeTransition } from "@apollo/query-graphs";
+import { ObjectType } from "@apollo/core";
+import { FieldCollection, freeTransition } from "@apollo/query-graphs";
 import { namedEdges, testGraphFromSchemaString } from './testUtils';
 
 test('building query graphs from schema handles object types', () => {
@@ -32,13 +33,12 @@ test('building query graphs from schema handles object types', () => {
   expect(rootEdge.index).toBe(0);
   expect(rootEdge.head).toStrictEqual(root);
   expect(graph.outEdge(root, rootEdge.index)).toStrictEqual(rootEdge);
-  expect(graph.outEdges(root, freeTransition)).toStrictEqual([]);
-  expect(graph.outEdges(root, new FieldSpec('t1'))).toStrictEqual(rootEdges);
-  expect(graph.outEdges(root, new FieldSpec('t'))).toStrictEqual([]);
 
   expect(rootEdge.label()).toBe('t1');
-  expect(rootEdge.matches(new FieldSpec('t1'))).toBe(true);
-  expect(rootEdge.matches(freeTransition)).toBe(false);
+  const schema = [...graph.sources.values()][0];
+  const t1Field = (schema.type('Query')! as ObjectType).field('t1')!;
+  expect(rootEdge.matchesTransition(new FieldCollection(t1Field))).toBe(true);
+  expect(rootEdge.matchesTransition(freeTransition)).toBe(false);
 
   const t1 = rootEdge.tail;
   expect(t1.type.name).toBe('T1');
