@@ -4,8 +4,12 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- Rename `buildFederatedSchema` to `buildSubgraphSchema`. The previous name will continue to be supported but is deprecated. No functional change, usages of `buildFederatedSchema` should just be replaced with `buildSubgraphSchema`. [PR #915](https://github.com/apollographql/federation/pull/913)
-- Support @tag directive on Object, Interface, and Union types. This is a breaking change for current @tag users, as one of the validations was updated. Existing @tag definitions must now accomodate the additional locations `OBJECT | INTERFACE | UNION`. Usages of the @tag directive are rolled up indiscriminately during composition, just as they currently are with fields. For example, a @tag usage on an entity extension will end up in the supergraph alongside any other @tag usages on the same entity in other subgraphs. [PR #945](https://github.com/apollographql/federation/pull/945) 
+- _Nothing yet! Stay tuned!_
+
+## v0.29.0
+
+- __DEPRECATION__: Rename `buildFederatedSchema` to `buildSubgraphSchema`. The previous name will continue to be supported but is deprecated. No functional change, usages of `buildFederatedSchema` should just be replaced with `buildSubgraphSchema`. [PR #915](https://github.com/apollographql/federation/pull/913)
+- __BREAKING__: Support @tag directive on Object, Interface, and Union types. This is a breaking change for current @tag users, as one of the validations was updated. Existing @tag definitions must now accomodate the additional locations `OBJECT | INTERFACE | UNION`. Usages of the @tag directive are rolled up indiscriminately during composition, just as they currently are with fields. For example, a @tag usage on an entity extension will end up in the supergraph alongside any other @tag usages on the same entity in other subgraphs. [PR #945](https://github.com/apollographql/federation/pull/945) 
 
 ## v0.28.0
 
