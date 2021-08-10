@@ -5,6 +5,7 @@ import {
   visit,
   BREAK,
   print,
+  NameNode,
 } from 'graphql';
 import { KnownArgumentNamesOnDirectivesRule } from 'graphql/validation/rules/KnownArgumentNamesRule';
 import { ProvidedRequiredArgumentsOnDirectivesRule } from 'graphql/validation/rules/ProvidedRequiredArgumentsRule';
@@ -49,10 +50,11 @@ export const tagDirective = ({
   // Ensure the tag directive definition is correct
   if (tagDirectiveDefinition) {
     const printedTagDefinition =
-      'directive @tag(name: String!) repeatable on FIELD_DEFINITION';
+      'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION';
 
     if (
-      print(stripDescriptions(tagDirectiveDefinition)) !== printedTagDefinition
+      print(normalizeDirectiveDefinitionNode(tagDirectiveDefinition)) !==
+      printedTagDefinition
     ) {
       errors.push(
         errorWithCode(
@@ -70,3 +72,11 @@ export const tagDirective = ({
       !errorsMessagesToFilter.some((keyWord) => message === keyWord),
   );
 };
+
+function normalizeDirectiveDefinitionNode(node: DirectiveDefinitionNode) {
+  // Remove descriptions from the AST
+  node = stripDescriptions(node);
+  // Sort locations alphabetically
+  (node.locations as NameNode[]).sort((a, b) => a.value.localeCompare(b.value));
+  return node;
+}

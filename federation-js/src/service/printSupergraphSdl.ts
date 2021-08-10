@@ -26,7 +26,6 @@ import {
   GraphQLString,
   DEFAULT_DEPRECATION_REASON,
   SelectionNode,
-  DirectiveNode,
 } from 'graphql';
 import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
 import { assert } from '../utilities';
@@ -234,8 +233,21 @@ function printObject(
     implementedInterfaces +
     // Core addition for printing @join__owner and @join__type usages
     printTypeJoinDirectives(type, context) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type, context)
   );
+}
+
+function printKnownDirectiveUsagesOnType(
+  type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
+): string {
+  const tagUsages =
+    (type.extensions?.federation as FederationType)?.directiveUsages?.get(
+      'tag',
+    ) ?? [];
+  if (tagUsages.length === 0) return '';
+
+  return '\n  ' + tagUsages.map(print).join('\n  ');
 }
 
 // Core change: print @join__owner and @join__type usages
@@ -304,14 +316,24 @@ function printInterface(
     `interface ${type.name}` +
     // Core addition for printing @join__owner and @join__type usages
     printTypeJoinDirectives(type, context) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type, context)
   );
 }
 
 function printUnion(type: GraphQLUnionType, options?: Options): string {
   const types = type.getTypes();
-  const possibleTypes = types.length ? ' = ' + types.join(' | ') : '';
-  return printDescription(options, type) + 'union ' + type.name + possibleTypes;
+  const knownDirectiveUsages = printKnownDirectiveUsagesOnType(type);
+  const possibleTypes = types.length
+    ? `${knownDirectiveUsages.length ? '\n' : ' '}= ` + types.join(' | ')
+    : '';
+  return (
+    printDescription(options, type) +
+    'union ' +
+    type.name +
+    knownDirectiveUsages +
+    possibleTypes
+  );
 }
 
 function printEnum(type: GraphQLEnumType, options?: Options): string {
@@ -369,15 +391,18 @@ function printFields(
       // We don't want to print field owner directives on fields belonging to an interface type
       (isObjectType(type)
         ? printJoinFieldDirectives(f, type, context) +
-          printOtherKnownDirectiveUsages(f)
+          printKnownDirectiveUsagesOnFields(f)
         : ''),
   );
 
   // Core change: for entities, we want to print the block on a new line.
   // This is just a formatting nice-to-have.
   const isEntity = Boolean(type.extensions?.federation?.keys);
+  const hasTags = Boolean(
+    type.extensions?.federation?.directiveUsages?.get('tag')?.length,
+  );
 
-  return printBlock(fields, isEntity);
+  return printBlock(fields, isEntity || hasTags);
 }
 
 /**
@@ -442,12 +467,12 @@ function printJoinFieldDirectives(
 
 // Core addition: print `@tag` directives (and possibly other future known
 // directives) found in subgraph SDL into the supergraph SDL
-function printOtherKnownDirectiveUsages(field: GraphQLField<any, any>) {
-  const otherKnownDirectiveUsages = (field.extensions?.federation
-    ?.otherKnownDirectiveUsages ?? []) as DirectiveNode[];
-
-  if (otherKnownDirectiveUsages.length < 1) return '';
-  return ` ${otherKnownDirectiveUsages
+function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
+  const tagUsages = (
+    field.extensions?.federation as FederationField
+  )?.directiveUsages?.get('tag');
+  if (!tagUsages || tagUsages.length < 1) return '';
+  return ` ${tagUsages
     .slice()
     .sort((a, b) => a.name.value.localeCompare(b.name.value))
     .map(print)

@@ -1076,6 +1076,11 @@ describe('composeServices', () => {
           .toMatchInlineSnapshot(`
           Object {
             "belongsToValueType": false,
+            "directiveUsages": Map {
+              "provides" => Array [
+                @provides(fields: "sku"),
+              ],
+            },
             "provides": sku,
             "serviceName": "serviceA",
           }
@@ -1159,6 +1164,11 @@ describe('composeServices', () => {
           .toMatchInlineSnapshot(`
           Object {
             "belongsToValueType": false,
+            "directiveUsages": Map {
+              "provides" => Array [
+                @provides(fields: "sku"),
+              ],
+            },
             "provides": sku,
             "serviceName": "serviceA",
           }
