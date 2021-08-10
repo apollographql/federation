@@ -1,6 +1,7 @@
 import {
   ASTNode,
   DirectiveNode,
+  FieldDefinitionNode,
   GraphQLInterfaceType,
   GraphQLObjectType,
   GraphQLSchema,
@@ -62,13 +63,24 @@ export class DirectiveMetadata {
     }
   }
 
-  // Returns a visitor which is capable of visiting object, interface, and
+  // Returns a visitor function which is capable of visiting object, interface, and
   // union nodes (and their extensions). The visitor returned from this function
   // collects all directive usages in the data structure
   // `this.directiveUsagesPerSubgraph`.
   getTypeVisitor(
     subgraphName: string,
   ): VisitFn<ASTNode, ObjectInterfaceOrUnionTypeNode> {
+    function collectDirectiveUsages(
+      node: ObjectInterfaceOrUnionTypeNode | FieldDefinitionNode,
+      usagesOnNode: DirectiveUsages,
+    ) {
+      for (const directive of node.directives ?? []) {
+        const usages = mapGetOrSet(usagesOnNode, directive.name.value, []);
+        usages.push(directive);
+      }
+    }
+
+    // Return a visitor function
     return (node) => {
       const directiveUsagesPerType: DirectiveUsagesPerType = mapGetOrSet(
         this.directiveUsagesPerSubgraph,
@@ -76,46 +88,24 @@ export class DirectiveMetadata {
         new Map(),
       );
 
-      for (const directive of node.directives ?? []) {
-        const { directives: usagesByDirectiveName } = mapGetOrSet(
-          directiveUsagesPerType,
-          node.name.value,
-          {
-            directives: new Map<string, DirectiveNode[]>(),
-            fields: new Map<string, DirectiveUsages>(),
-          },
-        );
-        const usages = mapGetOrSet(
-          usagesByDirectiveName,
-          directive.name.value,
-          [],
-        );
-        usages.push(directive);
-      }
+      const { directives: usagesOnType, fields: usagesByFieldName } =
+        mapGetOrSet(directiveUsagesPerType, node.name.value, {
+          directives: new Map<string, DirectiveNode[]>(),
+          fields: new Map<string, DirectiveUsages>(),
+        });
 
+      // Collect directive usages on the type node
+      collectDirectiveUsages(node, usagesOnType);
+
+      // Collect directive usages on each field node
       if ('fields' in node && node.fields) {
         for (const field of node.fields) {
-          for (const directive of field.directives ?? []) {
-            const { fields: usagesByFieldName } = mapGetOrSet(
-              directiveUsagesPerType,
-              node.name.value,
-              {
-                directives: new Map<string, DirectiveNode[]>(),
-                fields: new Map<string, DirectiveUsages>(),
-              },
-            );
-            const usagesByDirectiveName = mapGetOrSet(
-              usagesByFieldName,
-              field.name.value,
-              new Map<string, DirectiveNode[]>(),
-            );
-            const usages = mapGetOrSet(
-              usagesByDirectiveName,
-              directive.name.value,
-              [],
-            );
-            usages.push(directive);
-          }
+          const usagesOnField = mapGetOrSet(
+            usagesByFieldName,
+            field.name.value,
+            new Map<string, DirectiveNode[]>(),
+          );
+          collectDirectiveUsages(field, usagesOnField);
         }
       }
     };
@@ -155,7 +145,7 @@ export class DirectiveMetadata {
         const existingMetadata = getFederationMetadata(namedType);
         let directiveUsages = existingMetadata?.directiveUsages;
 
-        if (directiveUsages) {
+        if (directiveUsages && directiveUsages.size > 0) {
           for (const [directiveName, usages] of directiveUsages.entries()) {
             usages.push(...(directives.get(directiveName) ?? []));
           }
@@ -179,7 +169,7 @@ export class DirectiveMetadata {
 
           const originalMetadata = getFederationMetadata(field);
           let directiveUsages = originalMetadata?.directiveUsages;
-          if (directiveUsages) {
+          if (directiveUsages && directiveUsages.size > 0) {
             for (const [directiveName, usages] of directiveUsages.entries()) {
               usages.push(...(usagesPerDirective.get(directiveName) ?? []));
             }

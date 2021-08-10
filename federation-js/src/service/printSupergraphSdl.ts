@@ -241,10 +241,11 @@ function printObject(
 function printKnownDirectiveUsagesOnType(
   type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
 ): string {
-  const tagUsages = (
-    type.extensions?.federation as FederationField
-  )?.directiveUsages?.get('tag');
-  if (!tagUsages || tagUsages.length === 0) return '';
+  const tagUsages =
+    (type.extensions?.federation as FederationType)?.directiveUsages?.get(
+      'tag',
+    ) ?? [];
+  if (tagUsages.length === 0) return '';
 
   return '\n  ' + tagUsages.map(print).join('\n  ');
 }

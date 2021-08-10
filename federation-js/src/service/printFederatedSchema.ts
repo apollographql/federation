@@ -226,7 +226,7 @@ function printKnownDirectiveUsagesOnType(
     (type.extensions?.federation as FederationType)?.directiveUsages?.get(
       'tag',
     ) ?? [];
-  if (!tagUsages || tagUsages.length === 0) return '';
+  if (tagUsages.length === 0) return '';
 
   return ' ' + tagUsages.map(print).join(' ');
 }
