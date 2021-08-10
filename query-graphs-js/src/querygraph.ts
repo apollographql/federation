@@ -18,7 +18,8 @@ import {
   DirectiveDefinition,
   isFederationSubgraphSchema,
   FieldDefinition,
-  SelectableType
+  SelectableType,
+  FieldSelection
 } from '@apollo/core';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, freeTransition, FreeTransition, Transition, KeyResolution } from './transition';
@@ -582,6 +583,7 @@ class GraphBuilder {
 class GraphBuilderFromSchema extends GraphBuilder {
   private readonly isFederatedSubgraph: boolean;
   private readonly externalDirective?: DirectiveDefinition<{}>;
+  private readonly keyDirective?: DirectiveDefinition<{ fields: string }>;
 
   constructor(
     private readonly name: string,
@@ -591,6 +593,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     super();
     this.isFederatedSubgraph = isFederationSubgraphSchema(schema); 
     this.externalDirective = this.isFederatedSubgraph ? federationBuiltIns.externalDirective(schema) : undefined; 
+    this.keyDirective = this.isFederatedSubgraph ? federationBuiltIns.keyDirective(schema) : undefined; 
     assert(!this.isFederatedSubgraph || supergraphSchema, `Missing supergraph schema for building the federated subgraph graph`);
   }
 
@@ -626,8 +629,29 @@ class GraphBuilderFromSchema extends GraphBuilder {
     return vertex;
   }
 
-  private isExternal(field: FieldDefinition<any>): boolean {
-    return this.externalDirective !== undefined && field.hasAppliedDirective(this.externalDirective);
+  private isExternal(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
+    // Historically, @external was required on key fields for type extensions, even though it's arguably not entirely 
+    // right (the subgraph does always provides its keys, so they are not external). So for backward compatibility, we
+    // just ignore an @external if it is on a field that is part of a key.
+    return this.externalDirective !== undefined
+      && field.hasAppliedDirective(this.externalDirective)
+      && !this.isPartOfAKey(field);
+  }
+
+  private isPartOfAKey(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
+    if (!this.keyDirective) {
+      return false;
+    }
+    const parentType = field.parent!;
+    for (const keyApplication of parentType.appliedDirectivesOf(this.keyDirective)) {
+      const selections = parseSelectionSet(parentType, keyApplication.arguments().fields);
+      for (const selection of selections.selections()) {
+        if (selection instanceof FieldSelection && selection.element().selects(field, true)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private addObjectTypeEdges(type: ObjectType, head: Vertex) {

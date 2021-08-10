@@ -111,10 +111,14 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   }
 
   selects(definition: FieldDefinition<any>, assumeValid: boolean = false): boolean {
+    // We've already validated that the field selects the definition on which it was built.
+    if (definition == this.definition) {
+      return true;
+    }
+
     // This code largely mirrors validate, so we could generalize that and return false on exception, but this
     // method is called fairly often and that has been shown to impact peformance quite a lot. So a little
     // bit of code duplication is ok.
-
     if (this.name !== definition.name) {
       return false;
     }
