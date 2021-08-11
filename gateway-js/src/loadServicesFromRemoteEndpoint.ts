@@ -30,6 +30,11 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
   let isNewSchema = false;
   // for each service, fetch its introspection schema
   const promiseOfServiceList = serviceList.map(async ({ name, url, dataSource }) => {
+    if (!name) {
+      throw new Error(
+        `Tried to load schema for service but no 'name' was specified.`);
+    }
+
     if (!url) {
       throw new Error(
         `Tried to load schema for '${name}' but no 'url' was specified.`);

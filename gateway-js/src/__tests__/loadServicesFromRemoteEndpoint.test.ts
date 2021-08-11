@@ -17,6 +17,23 @@ describe('getServiceDefinitionsFromRemoteEndpoint', () => {
     );
   });
 
+  it("errors when no name was specified", async () => {
+    const serviceSdlCache = new Map<string, string>();
+    const url = 'http://api.example.com/graphql';
+
+    const dataSource = new RemoteGraphQLDataSource({ url });
+    const serviceList = [{ url, dataSource }];
+    await expect(
+      getServiceDefinitionsFromRemoteEndpoint({
+        serviceList,
+        serviceSdlCache,
+        getServiceIntrospectionHeaders: async () => ({})
+      }),
+    ).rejects.toThrowError(
+      "Tried to load schema for service but no 'name' was specified.",
+    );
+  });
+
   it('throws when the downstream service returns errors', async () => {
     const serviceSdlCache = new Map<string, string>();
     const host = 'http://host-which-better-not-resolve';
