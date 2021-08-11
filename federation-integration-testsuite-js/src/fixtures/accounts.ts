@@ -6,7 +6,11 @@ export const url = `https://${name}.api.com`;
 export const typeDefs = gql`
   directive @stream on FIELD
   directive @transform(from: String!) on FIELD
-  directive @tag(name: String!) repeatable on FIELD_DEFINITION
+  directive @tag(name: String!) repeatable on
+    | FIELD_DEFINITION
+    | INTERFACE
+    | OBJECT
+    | UNION
 
   enum CacheControlScope {
     PUBLIC
@@ -37,7 +41,7 @@ export const typeDefs = gql`
     number: String
   }
 
-  union AccountType = PasswordAccount | SMSAccount
+  union AccountType @tag(name: "from-accounts") = PasswordAccount | SMSAccount
 
   type UserMetadata {
     name: String
@@ -45,7 +49,7 @@ export const typeDefs = gql`
     description: String
   }
 
-  type User @key(fields: "id") @key(fields: "username name { first last }") {
+  type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {
     id: ID! @tag(name: "accounts")
     name: Name @cacheControl(inheritMaxAge: true)
     username: String

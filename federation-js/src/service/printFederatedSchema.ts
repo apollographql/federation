@@ -31,9 +31,8 @@ import {
   GraphQLEnumValue,
   GraphQLString,
   DEFAULT_DEPRECATION_REASON,
-  DirectiveNode,
 } from 'graphql';
-import { Maybe } from '../composition';
+import { FederationField, FederationType, Maybe } from '../composition';
 import { isFederationType } from '../types';
 import { isApolloTypeSystemDirective } from '../composition/utils';
 import { federationDirectives, gatherDirectives } from '../directives';
@@ -215,8 +214,21 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
     `type ${type.name}${implementedInterfaces}` +
     // Federation addition for printing @key usages
     printFederationDirectives(type) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type)
   );
+}
+
+function printKnownDirectiveUsagesOnType(
+  type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
+): string {
+  const tagUsages =
+    (type.extensions?.federation as FederationType)?.directiveUsages?.get(
+      'tag',
+    ) ?? [];
+  if (tagUsages.length === 0) return '';
+
+  return ' ' + tagUsages.map(print).join(' ');
 }
 
 function printInterface(type: GraphQLInterfaceType, options?: Options): string {
@@ -234,6 +246,7 @@ function printInterface(type: GraphQLInterfaceType, options?: Options): string {
     // Federation change: graphql@14 doesn't support interfaces implementing interfaces
     // printImplementedInterfaces(type) +
     printFederationDirectives(type) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type)
   );
 }
@@ -241,7 +254,13 @@ function printInterface(type: GraphQLInterfaceType, options?: Options): string {
 function printUnion(type: GraphQLUnionType, options?: Options): string {
   const types = type.getTypes();
   const possibleTypes = types.length ? ' = ' + types.join(' | ') : '';
-  return printDescription(options, type) + 'union ' + type.name + possibleTypes;
+  return (
+    printDescription(options, type) +
+    'union ' +
+    type.name +
+    printKnownDirectiveUsagesOnType(type) +
+    possibleTypes
+  );
 }
 
 function printEnum(type: GraphQLEnumType, options?: Options): string {
@@ -284,7 +303,7 @@ function printFields(
       String(f.type) +
       printDeprecated(f) +
       printFederationDirectives(f) +
-      printOtherKnownDirectiveUsages(f),
+      printKnownDirectiveUsagesOnFields(f),
   );
   return printBlock(fields);
 }
@@ -308,13 +327,12 @@ function printFederationDirectives(
 
 // Core addition: print `@tag` directive usages (and possibly other future known
 // directive usages) found in subgraph SDL.
-function printOtherKnownDirectiveUsages(field: GraphQLField<any, any>) {
-  const otherKnownDirectiveUsages = (
-    field.extensions?.federation?.otherKnownDirectiveUsages ?? []
-  ) as DirectiveNode[];
-
-  if (otherKnownDirectiveUsages.length < 1) return '';
-  return ` ${otherKnownDirectiveUsages
+function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
+ const tagUsages = (
+   field.extensions?.federation as FederationField
+ )?.directiveUsages?.get('tag');
+  if (!tagUsages || tagUsages.length < 1) return '';
+  return ` ${tagUsages
     .slice()
     .sort((a, b) => a.name.value.localeCompare(b.name.value))
     .map(print)

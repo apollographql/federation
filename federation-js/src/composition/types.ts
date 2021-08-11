@@ -3,8 +3,8 @@ import {
   DocumentNode,
   FieldDefinitionNode,
   DirectiveDefinitionNode,
-  DirectiveNode,
 } from 'graphql';
+import { DirectiveUsages } from './DirectiveMetadata';
 
 export type Maybe<T> = null | undefined | T;
 
@@ -32,6 +32,7 @@ export interface FederationType {
     [serviceName: string]: ExternalFieldDefinition[];
   };
   isValueType?: boolean;
+  directiveUsages?: DirectiveUsages
 }
 
 export interface FederationField {
@@ -39,7 +40,7 @@ export interface FederationField {
   requires?: ReadonlyArray<SelectionNode>;
   provides?: ReadonlyArray<SelectionNode>;
   belongsToValueType?: boolean;
-  otherKnownDirectiveUsages?: DirectiveNode[]
+  directiveUsages?: DirectiveUsages
 }
 
 export interface FederationDirective {
