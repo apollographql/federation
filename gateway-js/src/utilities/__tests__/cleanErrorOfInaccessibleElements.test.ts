@@ -4,15 +4,24 @@ import { cleanErrorOfInaccessibleNames } from "../cleanErrorOfInaccessibleNames"
 
 describe('cleanErrorOfInaccessibleNames', () => {
   let schema = buildSchema(`
-    directive @core(feature: String!) repeatable on SCHEMA
+    directive @core(
+      feature: String!,
+      as: String,
+      for: core__Purpose
+    ) repeatable on SCHEMA
 
     directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
     schema
-      @core(feature: "https://specs.apollo.dev/core/v0.1")
+      @core(feature: "https://specs.apollo.dev/core/v0.2")
       @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
     {
       query: Query
+    }
+
+    enum core__Purpose {
+      EXECUTION
+      SECURITY
     }
 
     type Query {

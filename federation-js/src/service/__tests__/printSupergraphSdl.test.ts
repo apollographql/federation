@@ -29,15 +29,15 @@ describe('printSupergraphSdl', () => {
   it('prints a fully composed schema correctly', () => {
     expect(supergraphSdl).toMatchInlineSnapshot(`
       "schema
-        @core(feature: \\"https://specs.apollo.dev/core/v0.1\\"),
-        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\"),
+        @core(feature: \\"https://specs.apollo.dev/core/v0.2\\"),
+        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\", for: EXECUTION),
         @core(feature: \\"https://specs.apollo.dev/tag/v0.1\\")
       {
         query: Query
         mutation: Mutation
       }
 
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
 
@@ -102,6 +102,18 @@ describe('printSupergraphSdl', () => {
         id: String! @join__field(graph: PRODUCT)
         price: String @join__field(graph: PRODUCT)
         retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
+      }
+
+      enum core__Purpose {
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary to for operation execution.
+        \\"\\"\\"
+        EXECUTION
+
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
       }
 
       type Error {
@@ -330,14 +342,14 @@ describe('printSupergraphSdl', () => {
 
     expect(supergraphSdl).toMatchInlineSnapshot(`
       "schema
-        @core(feature: \\"https://specs.apollo.dev/core/v0.1\\"),
-        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\")
+        @core(feature: \\"https://specs.apollo.dev/core/v0.2\\"),
+        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\", for: EXECUTION)
       {
         query: Query
         mutation: Mutation
       }
 
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
 
@@ -398,6 +410,18 @@ describe('printSupergraphSdl', () => {
         id: String! @join__field(graph: PRODUCT)
         price: String @join__field(graph: PRODUCT)
         retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
+      }
+
+      enum core__Purpose {
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary to for operation execution.
+        \\"\\"\\"
+        EXECUTION
+
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
       }
 
       type Error {

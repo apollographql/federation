@@ -4,15 +4,20 @@ import { removeInaccessibleElements } from '../removeInaccessibleElements';
 describe('removeInaccessibleElements', () => {
   it(`removes @inaccessible fields`, () => {
     let schema = buildSchema(`
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
-        @core(feature: "https://specs.apollo.dev/core/v0.1")
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
       {
         query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
       }
 
       type Query {
@@ -31,15 +36,20 @@ describe('removeInaccessibleElements', () => {
 
   it(`removes @inaccessible object types`, () => {
     let schema = buildSchema(`
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
-        @core(feature: "https://specs.apollo.dev/core/v0.1")
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
       {
         query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
       }
 
       type Query {
@@ -60,15 +70,20 @@ describe('removeInaccessibleElements', () => {
 
   it(`removes @inaccessible interface types`, () => {
     let schema = buildSchema(`
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
-        @core(feature: "https://specs.apollo.dev/core/v0.1")
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
       {
         query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
       }
 
       type Query {
@@ -95,15 +110,20 @@ describe('removeInaccessibleElements', () => {
 
   it(`removes @inaccessible union types`, () => {
     let schema = buildSchema(`
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
-        @core(feature: "https://specs.apollo.dev/core/v0.1")
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
       {
         query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
       }
 
       type Query {
@@ -130,15 +150,20 @@ describe('removeInaccessibleElements', () => {
 
   it(`throws when a field returning an @inaccessible type isn't marked @inaccessible itself`, () => {
     let schema = buildSchema(`
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
-        @core(feature: "https://specs.apollo.dev/core/v0.1")
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
       {
         query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
       }
 
       type Query {
@@ -161,15 +186,20 @@ describe('removeInaccessibleElements', () => {
 
   it(`removes @inaccessible query root type`, () => {
     let schema = buildSchema(`
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
-        @core(feature: "https://specs.apollo.dev/core/v0.1")
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
       {
         query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
       }
 
       type Query @inaccessible {
@@ -191,16 +221,21 @@ describe('removeInaccessibleElements', () => {
 
   it(`removes @inaccessible mutation root type`, () => {
     let schema = buildSchema(`
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
-        @core(feature: "https://specs.apollo.dev/core/v0.1")
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
       {
         query: Query
         mutation: Mutation
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
       }
 
       type Query {
@@ -224,16 +259,21 @@ describe('removeInaccessibleElements', () => {
 
   it(`removes @inaccessible subscription root type`, () => {
     let schema = buildSchema(`
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       schema
-        @core(feature: "https://specs.apollo.dev/core/v0.1")
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
       {
         query: Query
         subscription: Subscription
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
       }
 
       type Query {
