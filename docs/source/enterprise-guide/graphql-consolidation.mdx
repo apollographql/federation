@@ -19,7 +19,7 @@ When developers begin to experiment with GraphQL, they often begin with a founda
 
 ![Diagram of a basic GraphQL architecture](../images/enterprise-guide/basic-graphql-server.jpg)
 
-As different teams begin to adopt GraphQL, their approach will usually be adapted from this basic architecture, but the implementation details may vary from from team to team. At Apollo, we've typically seen that those initial, unconsolidated efforts resemble one of the following four patterns.
+As different teams begin to adopt GraphQL, their approach will usually be adapted from this basic architecture, but the implementation details may vary from team to team. At Apollo, we've typically seen that those initial, unconsolidated efforts resemble one of the following four patterns.
 
 ### Pattern 1: Client-only graphQL
 
@@ -51,7 +51,7 @@ For either monolithic scenario, its high-level architecture looks like this:
 
 ![Monolithic GraphQL API pattern](../images/enterprise-guide/pattern-monolith.jpg)
 
-### Pattens 4: Multiple overlapping graphs
+### Pattern 4: Multiple overlapping graphs
 
 Enterprise teams may also independently develop their own service-specific GraphQL APIs in tandem. With this approach, teams may delineate each service API based on types or use cases, but there will often be overlap between the graphs due to the interconnected nature of data.
 
