@@ -25,6 +25,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@apollo/core-schema": "github:apollographql/core-schema-js",
     "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner": "file:../query-planner-js",
     "@opentelemetry/api": "^1.0.1",

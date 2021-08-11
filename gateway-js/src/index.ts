@@ -13,6 +13,7 @@ import {
   DocumentNode,
   print,
   parse,
+  Source,
 } from 'graphql';
 import {
   composeAndValidate,
@@ -72,6 +73,8 @@ import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorag
 import { buildComposedSchema } from '@apollo/query-planner';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
+import { CoreSchema } from '@apollo/core-schema';
+import { featureSupport } from './core';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -774,8 +777,12 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private createSchemaFromSupergraphSdl(supergraphSdl: string) {
+    const core = CoreSchema.fromSource(new Source(supergraphSdl))
+      .check() // run basic core schema compliance checks
+      .check(featureSupport); // run supported feature check
+
     // TODO(trevor): #580 redundant parse
-    this.parsedSupergraphSdl = parse(supergraphSdl);
+    this.parsedSupergraphSdl = core.document;
 
     const schema = buildComposedSchema(this.parsedSupergraphSdl);
 
