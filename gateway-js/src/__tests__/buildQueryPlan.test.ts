@@ -88,7 +88,9 @@ describe('buildQueryPlan', () => {
     const operationString = `#graphql
       query {
         me {
-          name
+          name {
+            first
+          }
         }
       }
     `;
@@ -107,7 +109,9 @@ describe('buildQueryPlan', () => {
         Fetch(service: "accounts") {
           {
             me {
-              name
+              name {
+                first
+              }
             }
           }
         },
@@ -119,7 +123,9 @@ describe('buildQueryPlan', () => {
     const operationString = `#graphql
       query {
         me {
-          name
+          name {
+            first
+          }
         }
         topProducts {
           name
@@ -142,7 +148,9 @@ describe('buildQueryPlan', () => {
           Fetch(service: "accounts") {
             {
               me {
-                name
+                name {
+                  first
+                }
               }
             }
           },
@@ -420,7 +428,9 @@ describe('buildQueryPlan', () => {
       const operationString = `#graphql
         query {
           me {
-            name
+            name {
+              first
+            }
             reviews {
               body
             }
@@ -443,7 +453,9 @@ describe('buildQueryPlan', () => {
             Fetch(service: "accounts") {
               {
                 me {
-                  name
+                  name {
+                    first
+                  }
                   __typename
                   id
                 }
@@ -590,7 +602,9 @@ describe('buildQueryPlan', () => {
           topReviews {
             body
             author {
-              name
+              name {
+                first
+              }
             }
           }
         }
@@ -629,7 +643,9 @@ describe('buildQueryPlan', () => {
                 } =>
                 {
                   ... on User {
-                    name
+                    name {
+                      first
+                    }
                   }
                 }
               },
@@ -698,7 +714,9 @@ describe('buildQueryPlan', () => {
           query {
             topReviews {
               author {
-                name
+                name {
+                  first
+                }
               }
             }
           }
@@ -736,7 +754,9 @@ describe('buildQueryPlan', () => {
                   } =>
                   {
                     ... on User {
-                      name
+                      name {
+                        first
+                      }
                     }
                   }
                 },
@@ -979,7 +999,7 @@ describe('buildQueryPlan', () => {
 
     it(`should preserve directives on inline fragments even if the fragment is otherwise useless`, () => {
       const operationString = `#graphql
-        query myQuery($b: Boolean) {
+        query myQuery($b: Boolean!) {
           body {
             ... on Image {
               ... on NamedObject @include(if: $b) {
@@ -1200,7 +1220,7 @@ describe('buildQueryPlan', () => {
         query {
           topReviews {
             body
-            author
+            id
             product {
               name
               price
@@ -1234,7 +1254,7 @@ describe('buildQueryPlan', () => {
               
               fragment __QueryPlanFragment_1__ on Review {
                 body
-                author
+                id
                 product {
                   ...__QueryPlanFragment_0__
                 }
@@ -1330,7 +1350,7 @@ describe('buildQueryPlan', () => {
         query {
           topReviews {
             body
-            author
+            id
           }
         }
       `;
@@ -1351,7 +1371,7 @@ describe('buildQueryPlan', () => {
             {
               topReviews {
                 body
-                author
+                id
               }
             }
           },
@@ -1365,7 +1385,9 @@ describe('buildQueryPlan', () => {
           topReviews {
             id
             body
-            author
+            author {
+              username
+            }
           }
         }
       `;
@@ -1392,7 +1414,9 @@ describe('buildQueryPlan', () => {
             fragment __QueryPlanFragment_0__ on Review {
               id
               body
-              author
+              author {
+                username
+              }
             }
           },
         }
@@ -1404,7 +1428,7 @@ describe('buildQueryPlan', () => {
         query {
           reviews: topReviews {
             content: body
-            author
+            id
             product {
               name
               cost: price
@@ -1438,7 +1462,7 @@ describe('buildQueryPlan', () => {
               
               fragment __QueryPlanFragment_1__ on Review {
                 content: body
-                author
+                id
                 product {
                   ...__QueryPlanFragment_0__
                 }
@@ -1595,13 +1619,6 @@ describe('buildQueryPlan', () => {
       const operationString = `#graphql
         query {
           body {
-            ... on Image {
-              ... on Text {
-                attributes {
-                  bold
-                }
-              }
-            }
             ... on Body {
               ... on Text {
                 attributes {
@@ -1659,9 +1676,6 @@ describe('buildQueryPlan', () => {
 
         query {
           body {
-            ... on Image {
-              ...TextFragment
-            }
             ... on Body {
               ...TextFragment
             }
