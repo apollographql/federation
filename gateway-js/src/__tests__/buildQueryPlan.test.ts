@@ -1,4 +1,4 @@
-import { GraphQLSchema } from 'graphql';
+import { DocumentNode, GraphQLSchema, validate } from 'graphql';
 import gql from 'graphql-tag';
 import { buildOperationContext } from '../operationContext';
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
@@ -8,9 +8,23 @@ import { QueryPlanner } from '@apollo/query-planner';
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
+
 describe('buildQueryPlan', () => {
   let schema: GraphQLSchema;
   let queryPlanner: QueryPlanner;
+
+  let parseOp = (operation: string): DocumentNode => {
+    const doc = gql(operation);
+
+    // Validating the operation, to avoid having them silently becoming invalid
+    // due to change to the fixtures.
+    const validationErrors = validate(schema, doc);
+    if (validationErrors.length > 0) {
+      throw new Error(validationErrors.map(error => error.message).join("\n\n"));
+    }
+
+    return doc;
+  };
 
   beforeEach(() => {
     expect(
@@ -37,7 +51,7 @@ describe('buildQueryPlan', () => {
         }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
@@ -79,7 +93,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
@@ -113,7 +127,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
@@ -200,7 +214,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
@@ -331,7 +345,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
@@ -373,7 +387,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
@@ -414,7 +428,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -469,7 +483,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const operationDocument = gql(operationString);
+        const operationDocument = parseOp(operationString);
 
         const queryPlan = queryPlanner.buildQueryPlan(
           buildOperationContext({
@@ -525,7 +539,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -582,7 +596,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -635,7 +649,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const operationDocument = gql(operationString);
+        const operationDocument = parseOp(operationString);
 
         const queryPlan = queryPlanner.buildQueryPlan(
           buildOperationContext({
@@ -690,7 +704,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const operationDocument = gql(operationString);
+        const operationDocument = parseOp(operationString);
 
         const queryPlan = queryPlanner.buildQueryPlan(
           buildOperationContext({
@@ -745,7 +759,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -801,7 +815,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -848,7 +862,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -895,7 +909,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -936,7 +950,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -976,7 +990,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -1019,7 +1033,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
@@ -1093,7 +1107,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
@@ -1148,7 +1162,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
@@ -1198,7 +1212,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -1321,7 +1335,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -1356,7 +1370,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -1402,7 +1416,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -1544,7 +1558,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const queryPlan = queryPlanner.buildQueryPlan(
       buildOperationContext({
@@ -1606,7 +1620,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
@@ -1656,7 +1670,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const queryPlan = queryPlanner.buildQueryPlan(
         buildOperationContext({
