@@ -518,7 +518,9 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType> extends Na
     // types while this wouldn't be dangerous, but it's probably not a big deal (the API is designed
     // in such a way that you probably should avoid reusing detached elements).
     this.checkUpdate();
+    const oldName = this._name;
     this._name = newName;
+    Schema.prototype['renameTypeInternal'].call(this._parent, oldName, newName);
   }
 
   /**
@@ -719,6 +721,11 @@ export class Schema {
     this.isConstructed = false;
     fct();
     this.isConstructed = wasConstructed;
+  }
+
+  private renameTypeInternal(oldName: string, newName: string) {
+    this._types.set(newName, this._types.get(oldName)!);
+    this._types.delete(oldName);
   }
 
   private removeTypeInternal(type: BaseNamedType<any, any>) {
