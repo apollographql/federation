@@ -29,7 +29,8 @@ import {
   OpGraphPath,
   advanceSimultaneousPathsWithOperation,
   ExcludedEdges,
-  GraphState
+  GraphState,
+  SimultaneousPaths
 } from "@apollo/query-graphs";
 import { print } from "graphql";
 
@@ -300,25 +301,31 @@ class ConditionValidationState {
     // Selection that belongs to the condition we're validating.
     readonly selection: Selection,
     // All the possible "simultaneous paths" we could be in the subgraph when we reach this state selection.
-    readonly subgraphPaths: OpGraphPath[][]
+    readonly subgraphPaths: SimultaneousPaths[]
   ) {}
 
   validateCurrentSelection(supergraphSchema: Schema, cache: GraphState<OpGraphPath[]>, excludedEdges: ExcludedEdges): ConditionValidationState[] | null {
-    const newPaths = this.subgraphPaths.flatMap(path => advanceSimultaneousPathsWithOperation(
-      supergraphSchema,
-      path,
-      this.selection.element(),
-      (conditions, vertex, excluded) => validateConditions(supergraphSchema, conditions, GraphPath.create(path[0].graph, vertex), cache, excluded),
-      cache,
-      excludedEdges)
-    );
+    let newPaths: SimultaneousPaths[] = [];
+    for (const path of this.subgraphPaths) {
+      const pathOptions = advanceSimultaneousPathsWithOperation(
+        supergraphSchema,
+        path,
+        this.selection.element(),
+        (conditions, vertex, excluded) => validateConditions(supergraphSchema, conditions, GraphPath.create(path[0].graph, vertex), cache, excluded),
+        cache,
+        excludedEdges
+      );
+      if (!pathOptions) {
+        continue;
+      }
+      newPaths = newPaths.concat(pathOptions);
+    }
 
     // If we got no paths, it means that particular selection of the conditions cannot be satisfied, so the
     // overall condition cannot.
     if (newPaths.length === 0) {
       return null;
     }
-
     return this.selection.selectionSet
       ? [...this.selection.selectionSet.selections()].map(s => new ConditionValidationState(s, newPaths))
       : [];

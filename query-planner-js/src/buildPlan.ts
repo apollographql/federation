@@ -75,22 +75,39 @@ class QueryPlanningTaversal<RV extends Vertex> {
 
   private handleState(state: State<RV>) {
     const [selection, path] = state.openPaths.pop()!;
-    const trigger = selection.element();
+    const operation = selection.element();
     const newPaths = advanceSimultaneousPathsWithOperation(
       this.supergraphSchema,
       path,
-      trigger,
+      operation,
       (conditions, vertex, excluded) => this.resolveConditionPlan(conditions, vertex, excluded),
       this.cache,
       this.excludedEdges
     );
-    for (const possiblePath of newPaths) {
-      const updatedState = state.addPaths(selection.selectionSet, possiblePath);
-      if (updatedState.isTerminal()) {
-        this.handleFinalPathSet(updatedState.closedPaths);
-      } else {
-        this.stack.push(updatedState);
+    if (!newPaths) {
+      // This means there is no valid way to advance the current `operation`. Which in turns means the whole state is
+      // a dead end, it cannot yield a proper query plan. Since we've already pop'ed the state from the stack, we
+      // simply return (and we'll try other states if there is more).
+      return;
+    }
+    if (newPaths.length === 0) {
+      // This `operation` is valid from that state but is guarantee to yield no result (it's a type condition that, along
+      // with prior condition, has no intersection). So we can essentially ignore the operation (which we've already
+      // pop'ed from the state) and continue with the rest of the state.
+      this.onUpdatedState(state);
+    } else {
+      for (const possiblePath of newPaths) {
+        const updatedState = state.addPaths(selection.selectionSet, possiblePath);
+        this.onUpdatedState(updatedState);
       }
+    }
+  }
+
+  private onUpdatedState(state: State<RV>) {
+    if (state.isTerminal()) {
+      this.handleFinalPathSet(state.closedPaths);
+    } else {
+      this.stack.push(state);
     }
   }
 
@@ -127,7 +144,7 @@ function sum(arr: number[]): number {
   return arr.reduce((a, b) => a + b, 0);
 }
 
-type CostFunction = FetchGroupProcessor<number, number[]>;
+type CostFunction = FetchGroupProcessor<number, number[], number>;
 
 const fetchCost = 1000;
 const pipeliningCost = 10;
@@ -148,7 +165,7 @@ const defaultCostFunction: CostFunction = {
     },
     0
   ),
-  finalize: (roots: number[], rootsAreParallel: boolean) => rootsAreParallel ? Math.max(...roots) : sum(roots)
+  finalize: (roots: number[], rootsAreParallel: boolean) => roots.length === 0 ? 0 : (rootsAreParallel ? Math.max(...roots) : sum(roots))
 };
 
 export function computeQueryPlan(supergraphSchema: Schema, subgraphs: Graph, operation: Operation): QueryPlan {
@@ -172,12 +189,12 @@ export function computeQueryPlan(supergraphSchema: Schema, subgraphs: Graph, ope
   return toQueryPlan(operation.rootKind, operation.variableDefinitions, dependencyGraph);
 }
 
-function fetchGroupToPlanProcessor(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions): FetchGroupProcessor<PlanNode, PlanNode> {
+function fetchGroupToPlanProcessor(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions): FetchGroupProcessor<PlanNode, PlanNode, PlanNode | undefined> {
   return {
     onFetchGroup: (group: FetchGroup) => group.toPlanNode(rootKind, variableDefinitions),
     reduceParallel: (values: PlanNode[]) => flatWrap('Parallel', values),
     reduceSequence: (values: PlanNode[]) => flatWrap('Sequence', values),
-    finalize: (roots: PlanNode[], rootsAreParallel) => flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)
+    finalize: (roots: PlanNode[], rootsAreParallel) => roots.length == 0 ? undefined : flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)
   };
 }
 
@@ -304,11 +321,11 @@ function removeInPlace(value: number, array: number[]) {
   }
 }
 
-interface FetchGroupProcessor<G, P> {
+interface FetchGroupProcessor<G, P, F> {
   onFetchGroup(group: FetchGroup): G;
   reduceParallel(values: G[]): P;
   reduceSequence(values: (G | P)[]): G;
-  finalize(roots: G[], isParallel: boolean): G
+  finalize(roots: G[], isParallel: boolean): F
 }
 
 type UnhandledGroups = [FetchGroup, UnhandledInEdges][];
@@ -449,7 +466,7 @@ class FetchDependencyGraph {
     return this.inEdges[group.index].map(i => this.groups[i]);
   }
 
-  private processGroup<G, P>(processor: FetchGroupProcessor<G, P>, group: FetchGroup): [G, UnhandledGroups] {
+  private processGroup<G, P, F>(processor: FetchGroupProcessor<G, P, F>, group: FetchGroup): [G, UnhandledGroups] {
     const outGroups = this.outGroups(group);
     const processed = processor.onFetchGroup(group);
     if (outGroups.length == 0) {
@@ -477,8 +494,8 @@ class FetchDependencyGraph {
     }
   }
 
-  private processParallelGroups<G, P>(
-    processor: FetchGroupProcessor<G, P>,
+  private processParallelGroups<G, P, F>(
+    processor: FetchGroupProcessor<G, P, F>,
     groups: FetchGroup[],
     remaining: UnhandledGroups
   ): [P, FetchGroup[], UnhandledGroups] {
@@ -526,7 +543,7 @@ class FetchDependencyGraph {
     }
   }
 
-  process<G, P>(processor: FetchGroupProcessor<G, P>, rootsAreParallel: boolean): G {
+  process<G, P, F>(processor: FetchGroupProcessor<G, P, F>, rootsAreParallel: boolean): F {
     this.reduce();
 
     const rootNodes: G[] = [...this.rootGroups.values()].map(rootGroup => {
@@ -633,10 +650,12 @@ function computeGroupsForTree(
 
           stack.push([child, newGroup, mergeAt, [typeCast]]);
         } else if (edge === null) {
-          // The only case that should yield no edge right now is a fragment with no type condition.
-          assert(operation.kind === 'FragmentElement' && !operation.typeCondition, `Unexpected null edge for operation ${operation}`);
-          // The fragment only matters for the sake of the directives it may have on it, but doesn't change anything else.
-          stack.push([child, group, mergeAt, [...path, operation]]);
+          // A null edge means that the operation does nothing but may contain directives to preserve.
+          // If it does contains directives, we preserve the operation, otherwise, we just skip it
+          // as a minor optimization (it makes the query slighly smaller, but on complex queries, it
+          // might also deduplicate similar selections).
+          const newPath = operation.appliedDirectives.length === 0 ? path : [...path, operation];
+          stack.push([child, group, mergeAt, newPath]);
         } else {
           assert(edge.head.source === edge.tail.source, `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
           let updatedGroup = group;

@@ -1,4 +1,4 @@
-import { assert, Field, FragmentElement, InterfaceType, NamedType, OperationElement, possibleRuntimeTypes, Schema, SchemaRootKind, SelectionSet, isLeafType, baseType, parseSelectionSet, CompositeType } from "@apollo/core";
+import { assert, Field, FragmentElement, InterfaceType, NamedType, OperationElement, possibleRuntimeTypes, Schema, SchemaRootKind, SelectionSet, isLeafType, baseType, parseSelectionSet, CompositeType, isAbstractType } from "@apollo/core";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, Graph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, GraphState } from "./querygraph";
 import { Transition } from "./transition";
@@ -387,35 +387,55 @@ function isTerminalOperation(operation: OperationElement): boolean {
   return operation.kind === 'Field' && isLeafType(baseType(operation.definition.type!));
 }
 
+export type SimultaneousPaths<V extends Vertex = Vertex> = OpGraphPath<V>[];
+
+// Returns undefined if the operation cannot be dealt with/advanced. Otherwise, it returns a list of options we can be in after advancing the operation, each option
+// being a set of simultaneous paths in the subgraphs (a single path in the simple case, but type explosing may make us explore multiple paths simultaneously).
+// The lists of options can be empty, which has the special meaning that the operation is guaranteed to have no results (it corresponds to unsatisfiable conditions),
+// meaning that as far as query planning goes, we can just ignore the operation but otherwise continue.
 export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
-  subgraphSimultaneousPaths: OpGraphPath<V>[],
+  subgraphSimultaneousPaths: SimultaneousPaths<V>,
   operation: OperationElement,
   conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
   cache: GraphState<OpGraphPath[]>,
   excludedNonCollectingEdges: ExcludedEdges = []
-) : OpGraphPath<V>[][] {
+) : SimultaneousPaths<V>[] | undefined {
   let options = advanceWithOperation(supergraphSchema, subgraphSimultaneousPaths, operation, conditionResolver, cache);
   // Like with transitions, if we can find a terminal field with a direct edge, there is no point in trying to
   // take indirect paths (this is not true for non-terminal, because for those, the direct paths may be dead ends,
   // but for terminal, we're at the end so ...).
-  if (options.length > 0 && isTerminalOperation(operation)) {
+  // Similarly, if we gets options but an empty set, it means the operation correspond to unsatisfiable conditions and we
+  // can essentially ignore it. So no point in trying to take non-collecting edges.
+  if (options && (options.length === 0 || isTerminalOperation(operation))) {
     return options;
   }
+  // If there was not valid direct path, that's ok, we'll just try with non-collecting edges.
+  options = options ?? [];
   // Then adds whatever options can be obtained by taking some non-collecting edges first.
   const pathsWithNonCollecting = advanceAllWithNonCollectingAndTypePreservingTransitions(subgraphSimultaneousPaths, conditionResolver, excludedNonCollectingEdges, cache);
-  if (pathsWithNonCollecting.length > 0) {
-    options = options.concat(pathsWithNonCollecting.flatMap(p => advanceWithOperation(supergraphSchema, p, operation, conditionResolver, cache)));
+  for (const pathWithNonCollecting of pathsWithNonCollecting) {
+    const pathWithOperation = advanceWithOperation(supergraphSchema, pathWithNonCollecting, operation, conditionResolver, cache);
+    // If we can't advance the operation after that path, ignore it, it's just not an option.
+    if (!pathWithOperation) {
+      continue;
+    }
+    // advancedWithOperation can return an empty list only if the operation if a fragment with a condition that, on top of the "current" type
+    // is unsatisfiable. But as we've only taken type preserving transitions, we cannot get an empty results at this point if we haven't
+    // had one when testing direct transitions above (in which case we have exited the method early).
+    assert(pathWithOperation.length > 0, `Unexpected empty options after non-collecting path ${pathWithNonCollecting} for ${operation}`);
+    options = options.concat(pathWithOperation);
   }
-  return options;
+  // At this point, if options is empty, it means we found no ways to advance the operation, so we should return undefined.
+  return options.length === 0 ? undefined : options;
 }
 
 function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Vertex>(
-  paths: OpGraphPath<V>[],
+  paths: SimultaneousPaths<V>,
   conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
   excludedEdges: ExcludedEdges,
   cache: GraphState<OpGraphPath[]>,
-): OpGraphPath<V>[][] {
+): SimultaneousPaths<V>[] {
   const optionsForEachPaths = paths.map(p => 
     advancePathWithNonCollectingAndTypePreservingTransitions(
       p,
@@ -431,27 +451,36 @@ function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Verte
   return cartesianProduct(optionsForEachPaths);
 }
 
+
+// The result has the same meaning than in advanceSimultaneousPathsWithOperation.
 function advanceWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
-  simultaneousPaths: OpGraphPath<V>[], 
+  simultaneousPaths: SimultaneousPaths<V>,
   operation: OperationElement,
   conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
   cache: GraphState<OpGraphPath[]>
-): OpGraphPath<V>[][] {
-  const newPaths: OpGraphPath<V>[][][] = [];
+): SimultaneousPaths<V>[] | undefined {
+  const newPaths: SimultaneousPaths<V>[][] = [];
   for (const path of simultaneousPaths) {
     const updated = advanceOneWithOperation(supergraphSchema, path, operation, conditionResolver, cache);
-    // We must be able to apply the operation on all the simultaneous paths, otherwise the whole set of simultaneous paths canno fullfill
-    // the operation and we can abort early (return "no options").
+    // We must be able to apply the operation on all the simultaneous paths, otherwise the whole set of simultaneous paths cannot fullfill
+    // the operation and we can abort early.
     if (!updated) {
-      return [];
+      return undefined;
     }
-    newPaths.push(updated);
+    if (updated.length > 0) {
+      newPaths.push(updated);
+    }
   }
+  // Each entry of newPaths is all the options for 1 of our simultaneous path. So what we want to return is all the options
+  // composed of taking one of each element of newPaths. In other words, we want the cartesian product.
   return cartesianProduct(newPaths).map(v => v.flat());
 }
 
 function cartesianProduct<V>(arr:V[][]): V[][] {
+  if (arr.length === 0) {
+    return [];
+  }
   const first: V[] = arr[0];
   const initialAcc: V[][] = first.map(v => [v]);
   const remainder: V[][] = arr.slice(1);
@@ -461,6 +490,7 @@ function cartesianProduct<V>(arr:V[][]): V[][] {
   );
 }
 
+// The result has the same meaning than in advanceSimultaneousPathsWithOperation.
 // We also actually need to return a set of options of simultaneous paths. Cause when we type explode, we create simultaneous paths, but
 // as a field might be resolve by multiple subgraphs, we may have options created.
 function advanceOneWithOperation<V extends Vertex>(
@@ -469,7 +499,7 @@ function advanceOneWithOperation<V extends Vertex>(
   operation: OperationElement,
   conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
   cache: GraphState<OpGraphPath[]>
-) : OpGraphPath<V>[][] | undefined {
+) : SimultaneousPaths<V>[] | undefined {
   const currentType = path.tail.type;
   if (operation.kind === 'Field') {
     switch (currentType.kind) {
@@ -493,9 +523,7 @@ function advanceOneWithOperation<V extends Vertex>(
         const supergraphType = supergraphSchema.type(currentType.name) as InterfaceType;
         const implementations = supergraphType.possibleRuntimeTypes();
         // For all implementations, We need to call advanceSimultaneousPathsWithOperation on a made-up Fragment. If any
-        // gives use empty options, we bail. Otherwise, for each option, we call advanceSimultaneousPathsWithOperation again
-        // on our own operation (the field), which gives us some more options (or not and we bail).
-        // Do we cartesian product all the implems?
+        // gives use empty options, we bail.
         const optionsByImplems: OpGraphPath<V>[][][] = [];
         for (const implemType of implementations) {
           const castOp = new FragmentElement(supergraphType, implemType.name);
@@ -506,16 +534,33 @@ function advanceOneWithOperation<V extends Vertex>(
             conditionResolver,
             cache
           );
-          if (implemOptions.length === 0) {
+          if (!implemOptions) {
             return undefined;
           }
-          const withField = implemOptions.flatMap(optPaths => advanceSimultaneousPathsWithOperation(
-            supergraphSchema,
-            optPaths,
-            operation,
-            conditionResolver,
-            cache
-          ));
+          // If the new fragment makes it so that we're on an unsatisfiable branch, we just ignore that implementation.
+          if (implemOptions.length === 0) {
+            continue;
+          }
+          // For each option, we call advanceSimultaneousPathsWithOperation again on our own operation (the field),
+          // which gives us some options (or not and we bail).
+          let withField: SimultaneousPaths<V>[] = [];
+          for (const optPaths of implemOptions) {
+            const withFieldOptions = advanceSimultaneousPathsWithOperation(
+              supergraphSchema,
+              optPaths,
+              operation,
+              conditionResolver,
+              cache
+            );
+            if (!withFieldOptions) {
+              continue;
+            }
+            // Advancing a field should never get us into an unsatisfiable condition. Only fragments can.
+            assert(withFieldOptions.length > 0, `Unexpected unsatisfiable path after ${optPaths} for ${operation}`);
+            withField = withField.concat(withFieldOptions);
+          }
+          // If we find no option to advance that implementation, we bail (as we need to simultaneously advance all
+          // implementations).
           if (withField.length === 0) {
             return undefined;
           }
@@ -528,9 +573,10 @@ function advanceOneWithOperation<V extends Vertex>(
     }
   } else {
     assert(operation.kind === 'FragmentElement', "Unhandled operation kind: " + operation.kind);
-    if (!operation.typeCondition) {
-      // If there is no typename, it means we're essentially just applying some directives (could be
-      // a @skip/@include for instance). This doesn't make us take any edge, we just record the operation.
+    if (!operation.typeCondition || currentType.name === operation.typeCondition.name) {
+      // If there is no typename (or the condition is the type we're already one), it means we're essentially
+      // just applying some directives (could be a @skip/@include for instance). This doesn't make us take any
+      // edge, we just record the operation.
       return [[ path.add(operation, null) ]];
     }
     const typeName = operation.typeCondition.name;
@@ -560,17 +606,32 @@ function advanceOneWithOperation<V extends Vertex>(
             conditionResolver,
             cache
           );
-          if (implemOptions.length === 0) {
+          if (!implemOptions) {
             return undefined;
+          }
+          // If the new fragment makes it so that we're on an unsatisfiable branch, we just ignore that implementation.
+          if (implemOptions.length === 0) {
+            continue;
           }
           optionsByImplems.push(implemOptions);
         }
         return cartesianProduct(optionsByImplems).map(opt => opt.flat());
       case 'ObjectType':
-        // This can only happen if the type condition is the type we're already on (otherwise the query is
-        // invalid and should have been rejected). So essentially, this is the same than a fragment with no type
-        // condition on only matters for its potential directives.
-        return [[ path.add(operation, null) ]];
+        // We've already handled the case of a fragment whose condition is this type. But the fragment might
+        // be for either:
+        // - a super-type of the current type: in which case, we're pretty much in the same case than if there
+        //   were no particular condition.
+        // - another, incompatible type. This can happen for a type that intersects a super-type of the
+        //   current type (since graphQL allows a fragment as long as there is an intersection). In that
+        //   case, the whole operation simply cannot ever return anything.
+        const conditionType = supergraphSchema.type(typeName)!;
+        if (isAbstractType(conditionType) && possibleRuntimeTypes(conditionType).some(t => t.name == currentType.name)) {
+          return [[ path.add(operation, null) ]];
+        }
+        // The operation we're dealing with can never return results (the type conditions applies have no intersection).
+        // This means we _can_ fullfill this operation (by doing nothing and returning an empty result), which we indicate
+        // by return an empty list of options.
+        return [];
       default:
         // We shouldn't have a fragment on a non-selectable type
         assert(false, `Unexpected ${currentType.kind} type ${currentType} from ${path.tail} given operation ${operation}`);

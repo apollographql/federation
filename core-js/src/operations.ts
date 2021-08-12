@@ -364,19 +364,19 @@ export class SelectionSet {
         selection = new FieldSelection(new Field(definition, argumentsFromAST(node.arguments), variableDefinitions, node.alias?.value));
         if (node.selectionSet) {
           validate(selection.selectionSet, `Unexpected selection set on leaf field "${selection.element()}"`);
-          selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions);
+          selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments);
         }
         break;
       case 'InlineFragment':
         selection = new FragmentSelection(new FragmentElement(this.parentType, node.typeCondition?.name.value));
-        selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions);
+        selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments);
         break;
       case 'FragmentSpread':
         const fragmentName = node.name.value;
         const fragmentDef = fragments.get(fragmentName);
         validate(fragmentDef, `Unknown fragment "...${fragmentName}"`);
         selection = new FragmentSelection(new FragmentElement(this.parentType, fragmentDef.typeCondition.name.value));
-        selection.selectionSet.addSelectionSetNode(fragmentDef.selectionSet, variableDefinitions);
+        selection.selectionSet.addSelectionSetNode(fragmentDef.selectionSet, variableDefinitions, fragments);
         addDirectiveNodesToElement(fragmentDef.directives, selection.element());
         break;
     }
