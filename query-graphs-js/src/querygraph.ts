@@ -18,9 +18,9 @@ import {
   DirectiveDefinition,
   isFederationSubgraphSchema,
   FieldDefinition,
-  SelectableType,
   FieldSelection,
-  prepareSubgraphsForFederation
+  prepareSubgraphsForFederation,
+  CompositeType
 } from '@apollo/core';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, freeTransition, FreeTransition, Transition, KeyResolution } from './transition';
@@ -124,7 +124,7 @@ export class Edge {
 
   addToConditions(newConditions: SelectionSet) {
     if (!this._conditions) {
-      this._conditions = new SelectionSet(this.head.type as SelectableType);
+      this._conditions = new SelectionSet(this.head.type as CompositeType);
     }
     this._conditions.mergeIn(newConditions);
   }
@@ -662,7 +662,10 @@ class GraphBuilderFromSchema extends GraphBuilder {
   }
 
   private addObjectTypeEdges(type: ObjectType, head: Vertex) {
-    for (const field of type.fields.values()) {
+    // We do want all fields, including built-in. For instance, it's perfectly valid to query __typename manually, so we want
+    // to have an edge for it. Also, the fact we handle the _entities field ensure that all entities are part of the graph,
+    // even if they are not reachable by any other user operations.
+    for (const field of type.allFields()) {
       // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't really exist as far as federation goes.
       if (this.isExternal(field)) {
         continue;
@@ -694,7 +697,9 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // come from the current subgraph". Most likely, _if_ an interface has a key, then we should return early from this
     // function (add no field edges at all) if subgraph don't know of at least one implementation.
     const localRuntimeTypes = supergraphRuntimeTypes.map(t => this.schema.type(t) as ObjectType).filter(t => t !== undefined);
-    for (const field of type.fields.values()) {
+    // Same as for objects, we want `allFields` so we capture __typename (which will never be external and always provided
+    // by all local runtime types, so will always have an edge added, which we want).
+    for (const field of type.allFields()) {
       // To include the field, it must not be external himself, and it must be present (and non-external) on every of the runtime types
       if (this.isExternal(field) || localRuntimeTypes.some(t => !this.isProvidedByType(t, field.name))) {
         continue;

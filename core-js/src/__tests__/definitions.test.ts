@@ -61,7 +61,7 @@ expect.extend({
     const field = parentType.field(name);
     if (!field) {
       return {
-        message: () => `Cannot find field '${name}' in Object Type ${parentType} with fields [${[...parentType.fields.keys()]}]`,
+        message: () => `Cannot find field '${name}' in Object Type ${parentType} with fields [${[...parentType.fields()]}]`,
         pass: false
       };
     }

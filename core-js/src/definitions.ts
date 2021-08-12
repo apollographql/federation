@@ -12,9 +12,10 @@ import {
   VariableDefinitionNode,
   VariableNode
 } from "graphql";
-import { SelectableType } from "./operations";
 import { assert } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
+
+export const typenameFieldName = '__typename';
 
 export type QueryRootKind = 'query';
 export type MutationRootKind = 'mutation';
@@ -44,6 +45,8 @@ export type NamedType = ScalarType | ObjectType | InterfaceType | UnionType | En
 export type OutputType = ScalarType | ObjectType | InterfaceType | UnionType | EnumType | ListType<any> | NonNullType<any>;
 export type InputType = ScalarType | EnumType | InputObjectType | ListType<any> | NonNullType<any>;
 export type WrapperType = ListType<any> | NonNullType<any>;
+export type AbstractType = InterfaceType | UnionType;
+export type CompositeType = ObjectType | InterfaceType | UnionType;
 
 export type OutputTypeReferencer = FieldDefinition<any>;
 export type InputTypeReferencer = InputFieldDefinition | ArgumentDefinition<any>;
@@ -126,7 +129,15 @@ export function isNullableType(type: Type): boolean {
   return !isNonNullType(type);
 }
 
-export function possibleRuntimeTypes(type: SelectableType): readonly ObjectType[] {
+export function isAbstractType(type: Type): type is AbstractType {
+  return isInterfaceType(type) || isUnionType(type);
+}
+
+export function isCompositeType(type: Type): type is CompositeType {
+  return isObjectType(type) || isInterfaceType(type) || isUnionType(type);
+}
+
+export function possibleRuntimeTypes(type: CompositeType): readonly ObjectType[] {
   switch (type.kind) {
     case 'InterfaceType': return type.possibleRuntimeTypes();
     case 'UnionType': return [...type.members()].map(m => m.type);
@@ -134,7 +145,7 @@ export function possibleRuntimeTypes(type: SelectableType): readonly ObjectType[
   }
 }
 
-export function runtimeTypesIntersects(t1: SelectableType, t2: SelectableType): boolean {
+export function runtimeTypesIntersects(t1: CompositeType, t2: CompositeType): boolean {
   const rt1 = possibleRuntimeTypes(t1);
   const rt2 = possibleRuntimeTypes(t2);
   for (const obj1 of rt1) {
@@ -287,9 +298,15 @@ abstract class Element<TParent extends SchemaElement<any> | Schema | DirectiveTa
     return this._parent;
   }
 
-  protected setParent(parent: TParent) {
+  // Accessed only through Element.prototype['setParent'] (so we don't mark it protected as an override wouldn't be properly called).
+  private setParent(parent: TParent) {
     assert(!this._parent, "Cannot set parent of an already attached element");
     this._parent = parent;
+    this.onAttached();
+  }
+
+  protected onAttached() {
+    // Nothing by default, but can be overriden.
   }
 
   protected checkUpdate() {
@@ -644,6 +661,10 @@ export class BuiltIns {
     return schema.addDirectiveDefinition(new DirectiveDefinition(name, true));
   }
 
+  protected addBuiltInField(parentType: ObjectType, name: string, type: OutputType): FieldDefinition<ObjectType> {
+    return parentType.addField(new FieldDefinition(name, true), type);
+  }
+
   protected getTypedDirective<TApplicationArgs extends {[key: string]: any}>(
     schema: Schema,
     name: string
@@ -691,6 +712,13 @@ export class Schema {
 
   private canModifyBuiltIn(): boolean {
     return !this.isConstructed;
+  }
+
+  private runWithBuiltInModificationAllowed(fct: () => void) {
+    const wasConstructed = this.isConstructed;
+    this.isConstructed = false;
+    fct();
+    this.isConstructed = wasConstructed;
   }
 
   private removeTypeInternal(type: BaseNamedType<any, any>) {
@@ -870,9 +898,7 @@ export class Schema {
     }
     // TODO: we should actually do validation here.
 
-    this.isConstructed = false;
-    this.builtIns.onValidation(this);
-    this.isConstructed = true;
+    this.runWithBuiltInModificationAllowed(() => this.builtIns.onValidation(this));
     this.isValidated = true;
   }
 
@@ -1012,6 +1038,9 @@ export class InterfaceImplementation<T extends ObjectType | InterfaceType> exten
   }
 }
 
+// Abstract class for ObjectType and InterfaceType as they share most of their structure. Note that UnionType also
+// technically has one field (__typename), but because it's only one, it is special cased and UnionType is not a
+// subclass of this class.
 abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends BaseNamedType<R, T> {
   // Note that we only keep one InterfaceImplementation per interface name, and so each `implements X` belong
   // either to the main type definition _or_ to a single extension. In theory, a document could have `implements X`
@@ -1019,6 +1048,15 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
   // feels like a very minor limitation with little practical impact, and it avoids additional complexity.
   protected readonly _interfaceImplementations: Map<string, InterfaceImplementation<T>> = new Map();
   protected readonly _fields: Map<string, FieldDefinition<T>> = new Map();
+
+  protected onAttached() {
+    // Note that we can only add the __typename built-in field when we're attached, because we need access to the
+    // schema string type. Also, we're effectively modifying a built-in (to add the type), so we
+    // need to let the schema accept it.
+    Schema.prototype['runWithBuiltInModificationAllowed'].call(this.schema()!, () => {
+      this.addField(new FieldDefinition(typenameFieldName, true), new NonNullType(this.schema()!.stringType()));
+    });
+  }
 
   private removeFieldInternal(field: FieldDefinition<T>) {
     this._fields.delete(field.name);
@@ -1067,12 +1105,48 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
     return toAdd;
   }
 
-  get fields(): ReadonlyMap<string, FieldDefinition<T>> {
-    return this._fields;
+  /**
+   * All the fields of this type, excluding the built-in ones.
+   */
+  *fields(): Generator<FieldDefinition<T>, void, undefined> {
+    for (const field of this._fields.values()) {
+      if (!field.isBuiltIn) {
+        yield field;
+      }
+    }
+  }
+
+  /**
+   * All the built-in fields for this type (those that are not displayed when printing the schema).
+   */
+  *builtInFields(): Generator<FieldDefinition<T>, void, undefined> {
+    for (const field of this._fields.values()) {
+      if (field.isBuiltIn) {
+        yield field;
+      }
+    }
+  }
+
+  /**
+    * All the fields of this type, including the built-in ones.
+    */
+  *allFields(): Generator<FieldDefinition<T>, void, undefined> {
+    yield* this.builtInFields();
+    yield* this.fields();
   }
 
   field(name: string): FieldDefinition<T> | undefined {
     return this._fields.get(name);
+  }
+
+  /**
+   * A shortcut to access the __typename field.
+   *
+   * Note that an _attached_ (field-based) type will always have this field, but _detached_ types won't, so this method
+   * will only return `undefined` on detached objects.
+   */
+  typenameField(): FieldDefinition<T> | undefined {
+    return this.field(typenameFieldName);
   }
 
   addField(nameOrField: string | FieldDefinition<T>, type?: OutputType): FieldDefinition<T> {
@@ -1157,6 +1231,18 @@ export class UnionMember extends BaseExtensionMember<UnionType> {
 export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
   readonly kind = 'UnionType' as const;
   protected readonly _members: Map<string, UnionMember> = new Map();
+  private _typenameField?: FieldDefinition<UnionType>;
+
+  protected onAttached() {
+    // Note that we can only create the __typename built-in field when we're attached, because we need access to the
+    // schema string type. Also, we're effectively modifying a built-in (to add the type), so we
+    // need to let the schema accept it.
+    Schema.prototype['runWithBuiltInModificationAllowed'].call(this.schema()!, () => {
+      this._typenameField = new FieldDefinition(typenameFieldName, true);
+      Element.prototype['setParent'].call(this._typenameField, this);
+      this._typenameField.type = new NonNullType(this.schema()!.stringType());
+    });
+  }
 
   *types(): Generator<ObjectType, void, undefined> {
     for (const member of this._members.values()) {
@@ -1206,6 +1292,27 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
     for (const type of this.types()) {
       this.removeMember(type);
     }
+  }
+
+  /**
+   * Access a field of the union by name.
+   * As the only field that can be acessed on an union is the __typename one, this method will always return undefined unless called
+   * on "__typename". However, this exists to allow code working on CompositeType to be more generic.
+   */
+  field(name: string): FieldDefinition<UnionType> | undefined {
+    if (name === typenameFieldName && this._typenameField) {
+      return this._typenameField;
+    }
+    return undefined;
+  }
+
+  /**
+   * The __typename field (and only field of a union).
+   *
+   * Note that _attached_ unions always have this field, so this method will only return `undefined` on detached objects.
+   */
+  typenameField(): FieldDefinition<UnionType> | undefined {
+    return this._typenameField;
   }
 
   private removeMember(type: ObjectType) {
@@ -1274,8 +1381,11 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
   readonly kind = 'InputObjectType' as const;
   private readonly _fields: Map<string, InputFieldDefinition> = new Map();
 
-  get fields(): ReadonlyMap<string, InputFieldDefinition> {
-    return this._fields;
+  /**
+   * All the fields of this input type.
+   */
+  *fields(): Generator<InputFieldDefinition, void, undefined> {
+    yield* this._fields.values();
   }
 
   field(name: string): InputFieldDefinition | undefined {
@@ -1360,10 +1470,18 @@ export class NonNullType<T extends NullableType> extends BaseWrapperType<T> {
   }
 }
 
-export class FieldDefinition<TParent extends ObjectType | InterfaceType> extends NamedSchemaElementWithType<OutputType, TParent, never> {
+export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaElementWithType<OutputType, TParent, never> {
   readonly kind = 'FieldDefinition' as const;
   private readonly _args: Map<string, ArgumentDefinition<FieldDefinition<TParent>>> = new Map();
   private _extension?: Extension<TParent>;
+
+  constructor(name: string, readonly isBuiltIn: boolean = false) {
+    super(name);
+  }
+
+  protected isElementBuiltIn(): boolean {
+    return this.isBuiltIn;
+  }
 
   get coordinate(): string {
     const parent = this.parent;
@@ -2106,7 +2224,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
     case 'ObjectType':
     case 'InterfaceType':
       const destFieldBasedType = dest as FieldBasedType<any, any>;
-      for (const sourceField of source.fields.values()) {
+      for (const sourceField of source.fields()) {
         const destField = destFieldBasedType.addField(new FieldDefinition(sourceField.name));
         copyOfExtension(extensionsMap, sourceField, destField);
         copyFieldDefinitionInner(sourceField, destField);
@@ -2132,7 +2250,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
       break
     case 'InputObjectType':
       const destInputType = dest as InputObjectType;
-      for (const sourceField of source.fields.values()) {
+      for (const sourceField of source.fields()) {
         const destField = destInputType.addField(new InputFieldDefinition(sourceField.name));
         copyOfExtension(extensionsMap, sourceField, destField);
         copyInputFieldDefinitionInner(sourceField, destField);

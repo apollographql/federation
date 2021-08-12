@@ -186,7 +186,7 @@ function printImplementedInterfaces(implementations: readonly InterfaceImplement
 function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType | InterfaceType, options: Options, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
   const interfaces = forExtension([...type.interfaceImplementations()], extension);
-  const fields = forExtension([...type.fields.values()], extension);
+  const fields = forExtension([...(options.showBuiltIns ? type.allFields() : type.fields())], extension);
   if (!directives.length && !interfaces.length && !fields.length) {
     return undefined;
   }
@@ -232,7 +232,7 @@ function printEnumDefinitionOrExtension(type: EnumType, options: Options, extens
 
 function printInputDefinitionOrExtension(type: InputObjectType, options: Options, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
-  const fields = forExtension([...type.fields.values()], extension);
+  const fields = forExtension([...type.fields()], extension);
   if (!directives.length && !fields.length) {
     return undefined;
   }

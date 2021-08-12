@@ -25,13 +25,13 @@ import {
   runtimeTypesIntersects,
   Schema,
   SchemaRootKind,
-  Type,
-  UnionType,
   mergeVariables,
   Variables,
   variablesInArguments,
   VariableDefinitions,
-  variableDefinitionsFromAST
+  variableDefinitionsFromAST,
+  CompositeType,
+  typenameFieldName,
 } from "./definitions";
 import { MultiMap } from "./utils";
 import { argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
@@ -76,9 +76,9 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   readonly kind = 'Field' as const;
 
   constructor(
-    readonly definition: FieldDefinition<any>,
-    readonly args: TArgs,
-    readonly variableDefinitions: VariableDefinitions,
+    readonly definition: FieldDefinition<CompositeType>,
+    readonly args: TArgs = Object.create(null),
+    readonly variableDefinitions: VariableDefinitions = new VariableDefinitions(),
     readonly alias?: string
   ) {
     super(definition.schema()!, variablesInArguments(args));
@@ -93,8 +93,8 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return this.alias ? this.alias : this.name;
   }
 
-  get parentType(): ObjectType | InterfaceType {
-    return this.definition.parent;
+  get parentType(): CompositeType {
+    return this.definition.parent!;
   }
 
   withUpdatedDefinition(newDefinition: FieldDefinition<any>): Field<TArgs> {
@@ -196,25 +196,25 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
 export class FragmentElement extends AbstractOperationElement<FragmentElement> {
   readonly kind = 'FragmentElement' as const;
-  readonly typeCondition?: SelectableType;
+  readonly typeCondition?: CompositeType;
 
   constructor(
-    private readonly sourceType: SelectableType,
-    typeCondition?: string | SelectableType,
+    private readonly sourceType: CompositeType,
+    typeCondition?: string | CompositeType,
   ) {
     // TODO: we should do some validation here (remove the ! with proper error, and ensure we have some intersection between
     // the source type and the type condition)
     super(sourceType.schema()!, []);
     this.typeCondition = typeCondition !== undefined && typeof typeCondition === 'string'
-      ? this.schema().type(typeCondition)! as SelectableType
+      ? this.schema().type(typeCondition)! as CompositeType
       : typeCondition;
   }
 
-  get parentType(): SelectableType {
+  get parentType(): CompositeType {
     return this.sourceType;
   }
 
-  withUpdatedSourceType(newSourceType: SelectableType): FragmentElement {
+  withUpdatedSourceType(newSourceType: CompositeType): FragmentElement {
     const newFragment = new FragmentElement(newSourceType, this.typeCondition);
     for (const directive of this.appliedDirectives) {
       newFragment.applyDirective(directive.definition!, directive.arguments());
@@ -243,19 +243,6 @@ export type OperationPath = OperationElement[];
 export type RootOperationPath = {
   rootKind: SchemaRootKind,
   path: OperationPath
-}
-
-export type SelectableType = ObjectType | InterfaceType | UnionType;
-
-export function isSelectableType(type: Type): type is SelectableType {
-  switch (type.kind) {
-    case 'ObjectType':
-    case 'InterfaceType':
-    case 'UnionType':
-      return true;
-    default:
-      return false;
-  }
 }
 
 // TODO Operations can also have directives
@@ -300,7 +287,7 @@ export class SelectionSet {
   private readonly _selections = new MultiMap<string, Selection>();
   private _usedVariables: Variables;
 
-  constructor(readonly parentType: SelectableType) {
+  constructor(readonly parentType: CompositeType) {
     validate(!isLeafType(parentType), `Cannot have selection on non-leaf type ${parentType}`);
     this._usedVariables = [];
   }
@@ -372,7 +359,6 @@ export class SelectionSet {
     let selection: Selection;
     switch (node.kind) {
       case 'Field':
-        validate(!isUnionType(this.parentType), `Cannot find field ${node.name.value} in union type ${this.parentType}`);
         const definition: FieldDefinition<any> | undefined  = this.parentType.field(node.name.value);
         validate(definition, `Cannot find field ${node.name.value} in type ${this.parentType}`);
         selection = new FieldSelection(new Field(definition, argumentsFromAST(node.arguments), variableDefinitions, node.alias?.value));
@@ -447,7 +433,19 @@ export class SelectionSet {
     }
     return {
       kind: Kind.SELECTION_SET,
-      selections: Array.from(this.selections(), s => s.toSelectionNode())
+      selections: Array.from(this.selectionsInPrintOrder(), s => s.toSelectionNode())
+    }
+  }
+
+  private selectionsInPrintOrder(): readonly Selection[] {
+    // By default, we will print the selection the order in which things were added to it.
+    // If __typename is selected however, we put it first. It's a detail but as __typename is a bit special it looks better,
+    // and it happens to mimick prior behavior on the query plan side so it saves us from changing tests for no good reasons.
+    const typenameSelection = this._selections.get(typenameFieldName);
+    if (typenameSelection) {
+      return typenameSelection.concat(this.selections().filter(s => s.kind != 'FieldSelection' || s.field.name !== typenameFieldName));
+    } else {
+      return this.selections();
     }
   }
 
@@ -512,7 +510,7 @@ export class FieldSelection {
   ) {
     const type = baseType(field.definition.type!);
     // Field types are output type, and a named typethat is an output one and isn't a leat is guaranteed to be selectable.
-    this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet : new SelectionSet(type as SelectableType));
+    this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet : new SelectionSet(type as CompositeType));
   }
 
   element(): Field<any> {
@@ -547,8 +545,8 @@ export class FieldSelection {
 
   updateForAddingTo(selectionSet: SelectionSet): FieldSelection {
     const selectionParent = selectionSet.parentType;
-    const fieldParent = this.field.definition.parent;
-    if (selectionParent !== fieldParent) {
+    const fieldParent = this.field.definition.parent!;
+    if (selectionParent.name !== fieldParent.name) {
       // We accept adding a selection of an interface field to a selection of one of its subtype. But otherwise, it's invalid.
       // Do note that the field might come from a supergraph while the selection is on a subgraph, so we avoid relying on isDirectSubtype (because
       // isDirectSubtype relies on the subtype knowing which interface it implements, but the one of the subgraph might not declare implementing
@@ -700,7 +698,7 @@ export function parseOperation(schema: Schema, operation: string): Operation {
 }
 
 export function parseSelectionSet(
-  parentType: SelectableType,
+  parentType: CompositeType,
   source: string | SelectionSetNode,
   variableDefinitions: VariableDefinitions = new VariableDefinitions(),
   fragments?: Map<string, FragmentDefinitionNode>

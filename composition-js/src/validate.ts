@@ -1,5 +1,6 @@
 import {
   assert,
+  CompositeType,
   Field,
   FieldDefinition,
   FieldSelection,
@@ -12,7 +13,6 @@ import {
   operationToAST,
   Schema,
   SchemaRootKind,
-  SelectableType,
   Selection,
   SelectionSet,
   VariableDefinitions
@@ -83,7 +83,7 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
     // elipsis instead make it immediately clear after which part of the query there is an issue.
     const lastType = edges[edges.length -1].tail.type;
     // Note that vertex types are named type and output ones, so if it's not a leaf it is guaranteed to be selectable.
-    return isLeafType(lastType) ? undefined : new SelectionSet(lastType as SelectableType);
+    return isLeafType(lastType) ? undefined : new SelectionSet(lastType as CompositeType);
   }
 
   const edge = edges[index];
@@ -106,7 +106,7 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
       return subSelection;
   }
   // If we get here, the edge is either a downcast or a field, so the edge head must be selectable.
-  const selectionSet = new SelectionSet(edge.head.type as SelectableType);
+  const selectionSet = new SelectionSet(edge.head.type as CompositeType);
   selectionSet.add(selection);
   return selectionSet;
 }
@@ -145,7 +145,7 @@ function generateWitnessValue(type: InputType): any {
       return type.values[0].name;
     case 'InputObjectType':
       const obj = Object.create(null);
-      for (const field of type.fields.values()) {
+      for (const field of type.fields()) {
         // We don't bother with non-mandatory fields.
         if (field.defaultValue || isNullableType(field.type!)) {
           continue;

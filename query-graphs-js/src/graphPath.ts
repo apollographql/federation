@@ -1,4 +1,4 @@
-import { assert, Field, FragmentElement, InterfaceType, NamedType, OperationElement, possibleRuntimeTypes, Schema, SchemaRootKind, SelectableType, SelectionSet, isLeafType, baseType, parseSelectionSet } from "@apollo/core";
+import { assert, Field, FragmentElement, InterfaceType, NamedType, OperationElement, possibleRuntimeTypes, Schema, SchemaRootKind, SelectionSet, isLeafType, baseType, parseSelectionSet, CompositeType } from "@apollo/core";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, Graph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, GraphState } from "./querygraph";
 import { Transition } from "./transition";
@@ -340,7 +340,7 @@ export function requireEdgeAdditionalConditions(edge: Edge): SelectionSet {
   // We need to add _one_ of the current entity key as condition. We pick the first one we find,
   // which is not perfect, as maybe we can't satisfy that key but we could another, but this ensure
   // query planning later knows which keys to use. We'd have to communicate that somehow otherwise.
-  const type = edge.head.type as SelectableType;
+  const type = edge.head.type as CompositeType;
   const keyDirectives = type.appliedDirectivesOf('key');
   assert(keyDirectives.length > 0, `We should have a require on ${edge} if ${type} has no key directive`);
   return parseSelectionSet(type, keyDirectives[0].arguments()['fields']);
@@ -368,7 +368,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     // We need to add _one_ of the current entity key as condition. We pick the first one we find,
     // which is not perfect, as maybe we can't satisfy that key but we could another, but this ensure
     // query planning later knows which keys to use. We'd have to communicate that somehow otherwise.
-    const type = edge.head.type as SelectableType;
+    const type = edge.head.type as CompositeType;
     const keyDirectives = type.appliedDirectivesOf('key');
     assert(keyDirectives.length > 0, `We should have a require on ${edge} if ${type} has no key directive`);
     const additionalConditions = requireEdgeAdditionalConditions(edge);
@@ -546,9 +546,9 @@ function advanceOneWithOperation<V extends Vertex>(
         }
         // Otherwise, checks what is the intersection between the possible runtime types of the current type
         // and the ones of the cast. We need to be able to go into all those types simultaneously.
-        const supergraphCurrentType = supergraphSchema.type(currentType.name) as SelectableType;
+        const supergraphCurrentType = supergraphSchema.type(currentType.name) as CompositeType;
         const parentTypes = possibleRuntimeTypes(currentType);
-        const castedTypes = possibleRuntimeTypes(supergraphSchema.type(typeName) as SelectableType);
+        const castedTypes = possibleRuntimeTypes(supergraphSchema.type(typeName) as CompositeType);
         const intersection = parentTypes.filter(t1 => castedTypes.some(t2 => t1.name === t2.name)).map(t => t.name);
         const optionsByImplems: OpGraphPath<V>[][][] = [];
         for (const tName of intersection) {

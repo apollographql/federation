@@ -33,7 +33,8 @@ import {
   isNamedType,
   isFederationField,
   SchemaRootKind,
-  prepareSubgraphsForFederation
+  prepareSubgraphsForFederation,
+  CompositeType
 } from "@apollo/core";
 import { ASTNode, GraphQLError } from "graphql";
 import { CompositionHint } from "../hints";
@@ -141,7 +142,7 @@ function isNonMergedType(type: Type): boolean {
   return isNamedType(type) && isFederationType(type);
 }
 
-function isNonMergedField(field: InputFieldDefinition | FieldDefinition<ObjectType | InterfaceType>): boolean {
+function isNonMergedField(field: InputFieldDefinition | FieldDefinition<CompositeType>): boolean {
   return field.kind === 'FieldDefinition' && isFederationField(field);
 }
 
@@ -161,7 +162,7 @@ function filteredRoot(def: SchemaDefinition, rootKind: SchemaRootKind): ObjectTy
 }
 
 function hasMergedFields(type: ObjectType): boolean {
-  return [...type.fields.values()].some(f => !isNonMergedField(f));
+  return [...type.fields()].some(f => !isNonMergedField(f));
 }
 
 class Merger {
@@ -413,14 +414,14 @@ class Merger {
 
   private mergeObject(sources: (ObjectType | undefined)[], dest: ObjectType) {
     this.addFieldsShallow(sources, dest);
-    if (dest.fields.size === 0) {
+    if ([...dest.fields()].length === 0) {
       // This can happen for a type that existing in the subgraphs but had only non-merged fields
       // (currently, this can only be the 'Query' type, in the rare case where the federated schema
       // exposes no queries) .
       dest.remove();
     } else {
-      for (const destField of dest.fields.values()) {
-        const subgraphFields = sources.map(t => t?.fields.get(destField.name));
+      for (const destField of dest.fields()) {
+        const subgraphFields = sources.map(t => t?.field(destField.name));
         this.mergeField(subgraphFields, destField);
       }
     }
@@ -431,12 +432,11 @@ class Merger {
       if (!source) {
         continue;
       }
-      for (const field of source.fields.values()) {
-        // This will mostly just exclude the _entities and _service but no reason to make it a bit more general.
+      for (const field of source.fields()) {
         if (isNonMergedField(field)) {
           continue;
         }
-        if (!dest.fields.has(field.name)) {
+        if (!dest.field(field.name)) {
           dest.addField(field.name);
         }
       }
@@ -594,8 +594,8 @@ class Merger {
 
   private mergeInterface(sources: (InterfaceType | undefined)[], dest: InterfaceType) {
     this.addFieldsShallow(sources, dest);
-    for (const destField of dest.fields.values()) {
-      const subgraphFields = sources.map(t => t?.fields.get(destField.name));
+    for (const destField of dest.fields()) {
+      const subgraphFields = sources.map(t => t?.field(destField.name));
       this.mergeField(subgraphFields, destField);
     }
   }
@@ -631,8 +631,8 @@ class Merger {
 
   private mergeInput(sources: (InputObjectType | undefined)[], dest: InputObjectType) {
     this.addFieldsShallow(sources, dest);
-    for (const destField of dest.fields.values()) {
-      const subgraphFields = sources.map(t => t?.fields.get(destField.name));
+    for (const destField of dest.fields()) {
+      const subgraphFields = sources.map(t => t?.field(destField.name));
       this.mergeInputField(subgraphFields, destField);
     }
   }

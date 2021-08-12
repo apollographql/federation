@@ -9,9 +9,9 @@ import {
   ObjectType,
   ListType,
   FieldDefinition,
-  InterfaceType,
   allSchemaRootKinds,
-  defaultRootName
+  defaultRootName,
+  CompositeType
 } from "./definitions";
 import { assert } from "./utils";
 import { ASTNode, GraphQLError } from "graphql";
@@ -101,11 +101,11 @@ export class FederationBuiltIns extends BuiltIns {
     if (hasEntities && !queryType.field(entitiesFieldName)) {
       const anyType = schema.type(anyTypeName);
       assert(anyType, `The schema should have the _Any type`);
-      queryType.addField(entitiesFieldName, new NonNullType(new ListType(entityType)))
+      this.addBuiltInField(queryType, entitiesFieldName, new NonNullType(new ListType(entityType)))
         .addArgument('representations', new NonNullType(new ListType(new NonNullType(anyType))));
     }
     if (!queryType.field(serviceFieldName)) {
-      queryType.addField(serviceFieldName, schema.type(serviceTypeName) as ObjectType);
+      this.addBuiltInField(queryType, serviceFieldName, schema.type(serviceTypeName) as ObjectType);
     }
   }
 
@@ -144,7 +144,7 @@ export function isFederationType(type: NamedType): boolean {
   return FEDERATION_TYPES.includes(type.name);
 }
 
-export function isFederationField(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
+export function isFederationField(field: FieldDefinition<CompositeType>): boolean {
   if (field.parent === field.schema()!.schemaDefinition.root("query")?.type) {
     return FEDERATION_ROOT_FIELDS.includes(field.name);
   }

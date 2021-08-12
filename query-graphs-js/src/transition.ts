@@ -1,4 +1,4 @@
-import { FieldDefinition, SelectableType } from "@apollo/core";
+import { FieldDefinition, CompositeType } from "@apollo/core";
 
 export type Transition = FieldCollection | DownCast | KeyResolution | FreeTransition;
 
@@ -29,7 +29,7 @@ export class DownCast {
   readonly kind = 'DownCast' as const;
   readonly collectOperationElements = true as const;
 
-  constructor(readonly sourceType: SelectableType, readonly castedType: SelectableType) {}
+  constructor(readonly sourceType: CompositeType, readonly castedType: CompositeType) {}
 
   toString() {
     return '... on ' + this.castedType.name;

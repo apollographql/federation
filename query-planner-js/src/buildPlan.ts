@@ -1,4 +1,4 @@
-import { assert, Field, FieldSelection, FragmentElement, FragmentSelection, isListType, isNamedType, isSelectableType, ListType, NonNullType, ObjectType, Operation, OperationPath, operationToAST, Schema, SchemaRootKind, SelectableType, Selection, SelectionSet, selectionSetOfPath, Type, Variable, VariableDefinition, VariableDefinitions } from "@apollo/core";
+import { assert, baseType, CompositeType, Field, FieldSelection, FragmentElement, FragmentSelection, isAbstractType, isCompositeType, isListType, isNamedType, ListType, NonNullType, ObjectType, Operation, OperationPath, operationToAST, Schema, SchemaRootKind, Selection, SelectionSet, selectionSetOfPath, Type, Variable, VariableDefinition, VariableDefinitions } from "@apollo/core";
 import { advanceSimultaneousPathsWithOperation, Edge, ExcludedEdges, FieldCollection, Graph, GraphPath, GraphState, isRootVertex, OpGraphPath, OpPathTree, PathTree, requireEdgeAdditionalConditions, Vertex } from "@apollo/query-graphs";
 import deepEqual from "deep-equal";
 import { Kind, DocumentNode, stripIgnoredCharacters, print } from "graphql";
@@ -205,7 +205,7 @@ class FetchGroup {
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
     readonly subgraphName: string,
-    readonly parentType: SelectableType,
+    readonly parentType: CompositeType,
     readonly mergeAt?: ResponsePath,
     readonly directParent?: FetchGroup,
     readonly pathInParent?: OperationPath
@@ -264,6 +264,8 @@ class FetchGroup {
   }
 
   toPlanNode(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions) : PlanNode {
+    addTypenameFieldForAbstractTypes(this.selection);
+
     const inputs = this._inputs ? this._inputs.toSelectionSetNode() : undefined;
     // TODO: Handle internalFragments? (and collect their variables if so)
 
@@ -320,7 +322,7 @@ class FetchDependencyGraph {
 
   constructor(readonly subgraphSchemas: ReadonlyMap<String, Schema>) {}
 
-  getOrCreateRootFetchGroup(subgraphName: string, parentType: SelectableType): FetchGroup {
+  getOrCreateRootFetchGroup(subgraphName: string, parentType: CompositeType): FetchGroup {
     let group = this.rootGroups.get(subgraphName);
     if (!group) {
       group = this.newFetchGroup(subgraphName, parentType);
@@ -331,7 +333,7 @@ class FetchDependencyGraph {
 
   newFetchGroup(
     subgraphName: string,
-    parentType: SelectableType,
+    parentType: CompositeType,
     mergeAt?: ResponsePath,
     directParent?: FetchGroup,
     pathInParent?: OperationPath
@@ -581,7 +583,7 @@ function computeFetchGroups<RV extends Vertex>(subgraphSchemas: ReadonlyMap<stri
     const source = pathTree.vertex.source;
     // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
     const rootType = pathTree.vertex.type;
-    assert(isSelectableType(rootType), `Should not have condition on non-selectable type ${rootType}`);
+    assert(isCompositeType(rootType), `Should not have condition on non-selectable type ${rootType}`);
     let group = dependencyGraph.getOrCreateRootFetchGroup(source, rootType);
     computeGroupsForTree(dependencyGraph, pathTree, group);
   }
@@ -615,13 +617,20 @@ function computeGroupsForTree(
           const groupsForConditions = computeGroupsForTree(dependencyGraph, conditions, group, mergeAt, path);
           // Then we can "take the edge", creating a new group. That group depends
           // on the condition ones.
-          const type = edge.tail.type as SelectableType; // We shouldn't have a key on a non-selectable type
+          const type = edge.tail.type as CompositeType; // We shouldn't have a key on a non-composite type
           const newGroup = dependencyGraph.newFetchGroup(edge.tail.source, type, mergeAt, group, path);
           createdGroups.push(newGroup);
           // The new group depends on the current group but 'newFetchGroup' already handled that.
           newGroup.addDependencyOn(groupsForConditions);
+          const inputSelections = new SelectionSet(type);
+          inputSelections.add(new FieldSelection(new Field(type.typenameField()!)));
+          inputSelections.mergeIn(edge.conditions!);
           const typeCast = new FragmentElement(type, type.name);
-          newGroup.addInputs(new FragmentSelection(typeCast, edge.conditions!));
+          newGroup.addInputs(new FragmentSelection(typeCast, inputSelections));
+
+          // We also ensure to get the __typename of the current type in the "original" group.
+          group.addSelection([...path, new Field((edge.head.type as CompositeType).typenameField()!)]);
+
           stack.push([child, newGroup, mergeAt, [typeCast]]);
         } else if (edge === null) {
           // The only case that should yield no edge right now is a fragment with no type condition.
@@ -654,6 +663,22 @@ function computeGroupsForTree(
     }
   }
   return createdGroups;
+}
+
+function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet) {
+  for (const selection of selectionSet.selections()) {
+    if (selection.kind == 'FieldSelection') {
+      const fieldBaseType = baseType(selection.field.definition.type!);
+      if (isAbstractType(fieldBaseType)) {
+        selection.selectionSet!.add(new FieldSelection(new Field(fieldBaseType.typenameField()!)));
+      }
+      if (selection.selectionSet) {
+        addTypenameFieldForAbstractTypes(selection.selectionSet);
+      }
+    } else {
+      addTypenameFieldForAbstractTypes(selection.selectionSet);
+    }
+  }
 }
 
 function handleRequires(
@@ -772,11 +797,7 @@ function operationForEntitiesFetch(
   return {
     kind: Kind.DOCUMENT,
     definitions: [
-      operationToAST({
-        rootKind: 'query',
-        selectionSet: entitiesCall,
-        variableDefinitions
-      }),
+      operationToAST(new Operation('query', entitiesCall, variableDefinitions)),
       //...internalFragments,
     ],
   };
@@ -811,11 +832,9 @@ function operationForRootFetch(
   return {
     kind: Kind.DOCUMENT,
     definitions: [
-      operationToAST({
-        rootKind,
-        selectionSet,
-        variableDefinitions: allVariableDefinitions.filter(selectionSet.usedVariables())
-      }),
+      operationToAST(
+        new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()))
+      ),
       //...internalFragments,
     ],
   };

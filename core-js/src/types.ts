@@ -3,6 +3,7 @@
  */
 
 import {
+    AbstractType,
   InterfaceType,
   isInterfaceType,
   isListType,
@@ -68,7 +69,7 @@ export function sameType(t1: Type, t2: Type): boolean {
  *
  */
 export function isDirectSubtype(
-  type: InterfaceType | UnionType,
+  type: AbstractType,
   maybeSubType: ObjectType | InterfaceType,
   unionMembershipTester: (union: UnionType, maybeMember: ObjectType) => boolean = (u, m) => u.hasTypeMember(m),
   implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i),

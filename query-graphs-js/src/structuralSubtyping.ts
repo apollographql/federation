@@ -60,10 +60,10 @@ function isObjectInputSubtype(objectInputType: InputObjectType, maybeSubType: In
   if (objectInputType.name != maybeSubType.name) {
     return false;
   }
-  return [...maybeSubType.fields.values()]
+  return [...maybeSubType.fields()]
     .filter(isAccessible)
     .every(subtypeField => {
-      const field = objectInputType.fields.get(subtypeField.name);
+      const field = objectInputType.field(subtypeField.name);
       return field && isAccessible(field) ? isStructuralInputSubType(field.type!, subtypeField.type!) : false;
     });
 }

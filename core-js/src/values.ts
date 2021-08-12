@@ -80,7 +80,7 @@ function applyDefaultValues(value: any, type: InputType): any {
     }
 
     const updated = Object.create(null);
-    for (const field of type.fields.values()) {
+    for (const field of type.fields()) {
       if (!field.type) {
         throw buildError(`Cannot compute default value for field ${field.name} of ${type} as the field type is undefined`);
       }
@@ -98,8 +98,8 @@ function applyDefaultValues(value: any, type: InputType): any {
 
     // Ensure every provided field is defined.
     for (const fieldName of Object.keys(value)) {
-      if (!type.fields.has(fieldName)) {
-        const suggestions = suggestionList(fieldName, [...type.fields.keys()]);
+      if (!type.field(fieldName)) {
+        const suggestions = suggestionList(fieldName, [...type.fields()].map(f => f.name));
         throw new GraphQLError(`Field "${fieldName}" is not defined by type "${type}".` + didYouMean(suggestions));
       }
     }
@@ -170,7 +170,7 @@ export function valueToAST(value: any, type: InputType): ValueNode | undefined {
       throw buildError(`Invalid non-objet value for input type ${type}, cannot be converted to AST: ${inspect(value)}`);
     }
     const fieldNodes = [];
-    for (const field of type.fields.values()) {
+    for (const field of type.fields()) {
       if (!field.type) {
         throw buildError(`Cannot convert value ${valueToString(value)} as field ${field} has no type set`);
       }
@@ -248,7 +248,7 @@ export function isValidValue(value: any, type: InputType, variableDefinitions: V
     if (typeof value !== 'object') {
       return false;
     }
-    return [...type.fields.values()].every(field => isValidValue(value[field.name], field.type!, variableDefinitions));
+    return [...type.fields()].every(field => isValidValue(value[field.name], field.type!, variableDefinitions));
   }
 
   // TODO: we may have to handle some coercions (not sure it matters in our use case
