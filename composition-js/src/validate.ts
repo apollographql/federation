@@ -58,11 +58,11 @@ function validationError(unsatisfiablePath: RootPath<Transition>, subgraphsPaths
 function buildWitnessOperation(witness: RootPath<Transition>): Operation {
   assert(witness.size > 0, "unsatisfiablePath should contain at least one edge/transition");
   const root = witness.root;
-  return {
-    rootKind: root.rootKind,
-    selectionSet: buildWitnessNextStep([...witness.elements()].map(e => e[0]), 0)!,
-    variableDefinitions: Object.create(null)
-  };
+  return new Operation(
+    root.rootKind,
+    buildWitnessNextStep([...witness.elements()].map(e => e[0]), 0)!,
+    new VariableDefinitions()
+  );
 }
 
 function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | undefined  {

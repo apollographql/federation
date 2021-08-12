@@ -31,7 +31,9 @@ import {
   isFederationDirective,
   Directive,
   isNamedType,
-  isFederationField
+  isFederationField,
+  SchemaRootKind,
+  prepareSubgraphsForFederation
 } from "@apollo/core";
 import { ASTNode, GraphQLError } from "graphql";
 import { CompositionHint } from "../hints";
@@ -74,9 +76,11 @@ export function isMergeFailure(mergeResult: MergeResult): mergeResult is MergeFa
 }
 
 export function mergeSubgraphs(subgraphs: Map<string, Schema>, options: CompositionOptions = {}): MergeResult {
-  // TODO: we should remove the federation types from subgraphs as they are irrelevant for the
-  // supergraph.
-  return new Merger(subgraphs, { ...defaultCompositionOptions, ...options }).merge();
+  const preparedSubgraphsOrErrors = prepareSubgraphsForFederation(subgraphs);
+  if (Array.isArray(preparedSubgraphsOrErrors)) {
+    return { errors: preparedSubgraphsOrErrors };
+  }
+  return new Merger(preparedSubgraphsOrErrors, { ...defaultCompositionOptions, ...options }).merge();
 }
 
 function join(toJoin: string[], sep: string = ', ', firstSep?: string, lastSep: string = ' and ') {
@@ -143,6 +147,21 @@ function isNonMergedField(field: InputFieldDefinition | FieldDefinition<ObjectTy
 
 function isNonMergedDirective(definition: DirectiveDefinition | Directive): boolean {
   return isFederationDirective(definition) && !MERGED_FEDERATION_DIRECTIVES.includes(definition.name);
+}
+
+// Access the type set as a particular root in the provided `SchemaDefinition`, but ignoring "query" type
+// that only exists due to federation operations. In other words, if a subgraph don't have a query type,
+// but one was automatically added for _entities and _services, this method returns 'undefined'.
+// This mainly avoid us trying to set the supergraph root in the rare case where the supergraph has
+// no actual queries (knowning that subgraphs will _always_ have a queries since they have at least
+// the federation ones).
+function filteredRoot(def: SchemaDefinition, rootKind: SchemaRootKind): ObjectType | undefined {
+  const type = def.root(rootKind)?.type;
+  return type && hasMergedFields(type) ? type : undefined;
+}
+
+function hasMergedFields(type: ObjectType): boolean {
+  return [...type.fields.values()].some(f => !isNonMergedField(f));
 }
 
 class Merger {
@@ -256,39 +275,36 @@ class Merger {
       `Type "${mismatchedType}" has mismatched kind: it is defined as `,
       supergraphType,
       this.subgraphsTypes(supergraphType),
-      t => t.kind,
-      kind => kind
+      t => t.kind
     );
   }
 
-  private reportMismatchError<TMismatched extends SchemaElement<any>, TMismatch>(
+  private reportMismatchError<TMismatched extends SchemaElement<any>>(
     message: string,
     mismatchedElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
-    mismatchAcessor: (elt: TMismatched) => TMismatch,
-    mismatchPrinter: (elt: TMismatch) => string,
-    ignorePredicate?: (elt: TMismatch) => boolean, 
+    mismatchAcessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined
   ) {
     this.reportMismatch(
       mismatchedElement,
       subgraphElements,
       mismatchAcessor,
-      (elt, names) => `${mismatchPrinter(elt)} in ${names}`,
-      (elt, names) => `${mismatchPrinter(elt)} in ${names}`,
+      (elt, names) => `${elt} in ${names}`,
+      (elt, names) => `${elt} in ${names}`,
       (distribution, astNodes) => {
         this.errors.push(new GraphQLError(message + join(distribution, ' and ', ' but '), astNodes));
       },
-      ignorePredicate
+      elt => !elt
     );
   }
 
-  private reportMismatchHint<TMismatched extends SchemaElement<any>, TMismatch>(
+  private reportMismatchHint<TMismatched extends SchemaElement<any>>(
     message: string,
     supergraphElement: TMismatched,
     subgraphElements: (TMismatched | undefined)[],
-    mismatchAcessor: (elt: TMismatched) => TMismatch,
-    supergraphElementPrinter: (elt: TMismatch, subgraphs: string) => string,
-    otherElementsPrinter: (elt: TMismatch, subgraphs: string) => string,
+    mismatchAcessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
+    supergraphElementPrinter: (elt: string, subgraphs: string) => string,
+    otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
   ) {
     this.reportMismatch(
       supergraphElement,
@@ -303,31 +319,32 @@ class Merger {
     );
   }
 
-  private reportMismatch<TMismatched extends SchemaElement<any>, TMismatch>(
+  private reportMismatch<TMismatched extends SchemaElement<any>>(
     supergraphElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
-    mismatchAcessor: (element: TMismatched) => TMismatch,
-    supergraphElementPrinter: (elt: TMismatch, subgraphs: string) => string,
-    otherElementsPrinter: (elt: TMismatch, subgraphs: string) => string,
+    mismatchAcessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
+    supergraphElementPrinter: (elt: string, subgraphs: string) => string,
+    otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     reporter: (distribution: string[], astNode: ASTNode[]) => void,
-    ignorePredicate?: (elt: TMismatch) => boolean, 
+    ignorePredicate?: (elt: string | undefined) => boolean,
   ) {
-    const distributionMap = new MultiMap<TMismatch, string>();
+    const distributionMap = new MultiMap<string, string>();
     const astNodes: ASTNode[] = [];
     for (const [i, subgraphElt] of subgraphElements.entries()) {
       if (!subgraphElt) {
         continue;
       }
-      const elt = mismatchAcessor(subgraphElt);
+      const elt = mismatchAcessor(subgraphElt, false);
       if (ignorePredicate && ignorePredicate(elt)) {
         continue;
       }
-      distributionMap.add(elt, this.names[i]);
+      distributionMap.add(elt ?? '', this.names[i]);
       if (subgraphElt.sourceAST) {
         astNodes.push(subgraphElt.sourceAST);
       }
     }
-    const supergraphMismatch = mismatchAcessor(supergraphElement);
+    const supergraphMismatch = mismatchAcessor(supergraphElement, true);
+    assert(supergraphMismatch, `The accessor on ${supergraphElement} returned undefined/null`);
     assert(distributionMap.size > 1, `Should not have been called for ${supergraphElement}`);
     const distribution = [];
     // We always add the "supergraph" first (proper formatting of hints rely on this in particular).
@@ -336,7 +353,7 @@ class Merger {
       if (v === supergraphMismatch) {
         continue;
       }
-      distribution.push(otherElementsPrinter(v, printSubgraphNames(names)));
+      distribution.push(otherElementsPrinter(v === '' ? undefined : v, printSubgraphNames(names)));
     }
     reporter(distribution, astNodes);
   }
@@ -396,9 +413,16 @@ class Merger {
 
   private mergeObject(sources: (ObjectType | undefined)[], dest: ObjectType) {
     this.addFieldsShallow(sources, dest);
-    for (const destField of dest.fields.values()) {
-      const subgraphFields = sources.map(t => t?.fields.get(destField.name));
-      this.mergeField(subgraphFields, destField);
+    if (dest.fields.size === 0) {
+      // This can happen for a type that existing in the subgraphs but had only non-merged fields
+      // (currently, this can only be the 'Query' type, in the rare case where the federated schema
+      // exposes no queries) .
+      dest.remove();
+    } else {
+      for (const destField of dest.fields.values()) {
+        const subgraphFields = sources.map(t => t?.fields.get(destField.name));
+        this.mergeField(subgraphFields, destField);
+      }
     }
   }
 
@@ -469,9 +493,7 @@ class Merger {
         `Field "${dest.coordinate}" has incompatible types accross subgraphs: it has `,
         dest,
         sources,
-        field => `type "${field.type}"`,
-        type => String(type),
-        type => !type
+        field => `type "${field.type}"`
       );
     } else if (hasSubtypes) {
       // Note that we use the type `toString` representation as a way to group which subgraphs have the exact same type.
@@ -556,9 +578,7 @@ class Merger {
         `${kind} "${dest.coordinate}" has incompatible default values accross subgraphs: it has default value `,
         dest,
         sources,
-        arg => arg.defaultValue ? valueToString(arg.defaultValue) : undefined,
-        v => String(v),
-        arg => !arg,
+        arg => arg.defaultValue ? valueToString(arg.defaultValue) : undefined
       );
     } else if (isInconsistent) {
       this.reportMismatchHint(
@@ -718,17 +738,23 @@ class Merger {
 
   private mergeSchemaDefinition(sources: SchemaDefinition[], dest: SchemaDefinition) {
     this.mergeAppliedDirectives(sources, dest);
+    // Before merging, we actually rename all the root types to their default name
+    // in subgraphs (see federation.ts, `prepareSubgraphsForFederation`), so this
+    // method should never report an error in practice as there should never be
+    // a name disrepancy. That said, it's easy enough to double-check this, which
+    // might at least help debugging case where we forgot to call
+    // `prepareSubgraphsForFederation`.
     for (const rootKind of allSchemaRootKinds) {
       let rootType: string | undefined;
       let isIncompatible: boolean = false;
-      for (const sourceType of sources.map(s => s.root(rootKind))) {
+      for (const sourceType of sources.map(s => filteredRoot(s, rootKind))) {
         if (!sourceType) {
           continue;
         }
         if (rootType) {
-          isIncompatible = isIncompatible || rootType !== sourceType.type.name;
+          isIncompatible = isIncompatible || rootType !== sourceType.name;
         } else {
-          rootType = sourceType.type.name;
+          rootType = sourceType.name;
         }
       }
       if (!rootType) {
@@ -741,9 +767,7 @@ class Merger {
           `Schema root "${rootKind}" is inconsistent accross subgraphs: it is set to type `,
           dest,
           sources,
-          def => def.root(rootKind)?.type,
-          type => String(type),
-          type => !type
+          (def, isSupergraph) => isSupergraph ? def.root(rootKind)!.type.toString() : filteredRoot(def, rootKind)?.toString()
         );
       }
     }

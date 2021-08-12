@@ -19,7 +19,8 @@ import {
   isFederationSubgraphSchema,
   FieldDefinition,
   SelectableType,
-  FieldSelection
+  FieldSelection,
+  prepareSubgraphsForFederation
 } from '@apollo/core';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, freeTransition, FreeTransition, Transition, KeyResolution } from './transition';
@@ -256,8 +257,14 @@ export function buildGraphInternal(name: string, schema: Schema, supergraphSchem
 }
 
 export function buildSubgraphsFederation(supergraph: Schema, subgraphs: Map<string, Schema>): Graph {
+  const preparedSubgraphs = prepareSubgraphsForFederation(subgraphs);
+  // We shouldn't get errors at this stage since since we've already called this during merging.
+  assert(
+    !Array.isArray(preparedSubgraphs),
+    `Unexpected errors preparing subgraphs: [${preparedSubgraphs}]`
+  );
   let graphs = [];
-  for (let [name, subgraph] of subgraphs) {
+  for (let [name, subgraph] of preparedSubgraphs) {
     graphs.push(buildGraphInternal(name, subgraph, supergraph));;
   }
   return federateSubgraphs(graphs);

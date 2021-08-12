@@ -1,5 +1,20 @@
-import { BuiltIns, Schema, DirectiveDefinition, NonNullType, NamedType, Directive, UnionType, ObjectType, ListType, FieldDefinition, InterfaceType } from "./definitions";
+import {
+  BuiltIns,
+  Schema,
+  DirectiveDefinition,
+  NonNullType,
+  NamedType,
+  Directive,
+  UnionType,
+  ObjectType,
+  ListType,
+  FieldDefinition,
+  InterfaceType,
+  allSchemaRootKinds,
+  defaultRootName
+} from "./definitions";
 import { assert } from "./utils";
+import { ASTNode, GraphQLError } from "graphql";
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -83,13 +98,15 @@ export class FederationBuiltIns extends BuiltIns {
     // Adds the _entities and _service fields to the root query type.
     const queryRoot = schema.schemaDefinition.root("query");
     const queryType = queryRoot ? queryRoot.type : schema.addType(new ObjectType("Query"));
-    if (hasEntities) {
+    if (hasEntities && !queryType.field(entitiesFieldName)) {
       const anyType = schema.type(anyTypeName);
       assert(anyType, `The schema should have the _Any type`);
       queryType.addField(entitiesFieldName, new NonNullType(new ListType(entityType)))
         .addArgument('representations', new NonNullType(new ListType(new NonNullType(anyType))));
     }
-    queryType.addField(serviceFieldName, schema.type(serviceTypeName) as ObjectType);
+    if (!queryType.field(serviceFieldName)) {
+      queryType.addField(serviceFieldName, schema.type(serviceTypeName) as ObjectType);
+    }
   }
 
   keyDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
@@ -140,4 +157,58 @@ export function isFederationDirective(directive: DirectiveDefinition | Directive
 
 export function isEntityType(type: NamedType): boolean {
   return type.kind == "ObjectType" && type.hasAppliedDirective(keyDirectiveName);
+}
+
+/**
+ * Prepare a subgraph schema pre-merging.
+ *
+ * Currently, this only look for non-default root type names and rename them into
+ * their default names.
+ */
+function prepareSubgraph(name: string, subgraph: Schema): Schema | GraphQLError {
+  const onlyDefautRoots = allSchemaRootKinds.every(k => {
+    const type = subgraph.schemaDefinition.root(k)?.type;
+    return !type || type.name === defaultRootName(k);
+  });
+
+  if (onlyDefautRoots) {
+    return subgraph;
+  }
+
+  const updated = subgraph.clone();
+  for (const k of allSchemaRootKinds) {
+    const type = updated.schemaDefinition.root(k)?.type;
+    const defaultName = defaultRootName(k);
+    if (type && type.name !== defaultName) {
+      // We first ensure there is no other type using the default root name. If there is, this is a
+      // composition error.
+      const existing = updated.type(defaultName);
+      if (existing) {
+        const nodes: ASTNode[] = [];
+        if (type.sourceAST) nodes.push(type.sourceAST);
+        if (existing.sourceAST) nodes.push(existing.sourceAST);
+        return new GraphQLError(
+          `Subgraph ${name} has a type named ${defaultName} but it is not set as the ${k} root type (${type.name} is instead). `
+          + 'If a root type does not use its default name, there should be no other type with that default name',
+          nodes
+        );
+      }
+      type.rename(defaultName);
+    }
+  }
+  return updated;
+}
+
+export function prepareSubgraphsForFederation(subgraphs: Map<string, Schema>): Map<string, Schema> | GraphQLError[] {
+  const preparedSubgraphs = new Map<string, Schema>();
+  const errors: GraphQLError[] = [];
+  for (const [name, subgraph] of subgraphs.entries()) {
+    const schemaOrError = prepareSubgraph(name, subgraph);
+    if (schemaOrError instanceof GraphQLError) {
+      errors.push(schemaOrError);
+    } else {
+      preparedSubgraphs.set(name, schemaOrError);
+    }
+  }
+  return errors.length > 0 ? errors : preparedSubgraphs;
 }

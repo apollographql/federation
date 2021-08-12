@@ -426,8 +426,19 @@ export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema>
 
 // TODO: ideally, we should hide the ctor of this class as we rely in places on the fact the no-one external defines new implementations.
 export abstract class NamedSchemaElement<TParent extends NamedSchemaElement<any, any> | Schema, TReferencer> extends SchemaElement<TParent> implements Named {
-  constructor(readonly name: string) {
+  // We want to be able to rename some elements, but we prefer offering that through a `rename`
+  // method rather than exposing a name setter, as this feel more explicit (but that's arguably debatable).
+  // We also currently only offer renames on types (because that's the only one we currently need),
+  // though we could expand that.
+  protected _name: string;
+
+  constructor(name: string) {
     super();
+    this._name = name;
+  }
+
+  get name(): string {
+    return this._name;
   }
 
   abstract coordinate: string;
@@ -483,6 +494,14 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType> extends Na
 
   protected isElementBuiltIn(): boolean {
     return this.isBuiltIn;
+  }
+
+  rename(newName: string) {
+    // Mostly called to ensure we don't rename built-in types. It does mean we can't renamed detached
+    // types while this wouldn't be dangerous, but it's probably not a big deal (the API is designed
+    // in such a way that you probably should avoid reusing detached elements).
+    this.checkUpdate();
+    this._name = newName;
   }
 
   /**
@@ -860,6 +879,11 @@ export class Schema {
   clone(builtIns?: BuiltIns): Schema {
     const cloned = new Schema(builtIns ?? this.builtIns);
     copy(this, cloned);
+    if (this.isValidated) {
+      // TODO: when we do actual validation, no point in redoing it, but we should
+      // at least call builtIns.onValidation() and set the proper isConstructed/isValidated flags.
+      cloned.validate();
+    }
     return cloned;
   }
 }
@@ -2023,7 +2047,7 @@ function *directivesToCopy(source: Schema, dest: Schema): Generator<DirectiveDef
 }
 
 function copy(source: Schema, dest: Schema) {
-  // We shallow copy types and directives (which we can actually fully copy directly) first so any future reference to any of them can be dereferenced.
+  // We shallow copy types first so any future reference to any of them can be dereferenced.
   for (const type of typesToCopy(source, dest)) {
     dest.addType(newNamedType(type.kind, type.name));
   }
@@ -2062,16 +2086,20 @@ function copySchemaDefinitionInner(source: SchemaDefinition, dest: SchemaDefinit
   for (const rootType of source.roots()) {
     copyOfExtension(extensionsMap, rootType, dest.setRoot(rootType.rootKind, rootType.type.name));
   }
+  // Same as copyAppliedDirectives, but as the directive applies to the schema definition, we need to remember if the application
+  // is for the extension or not.
   for (const directive of source.appliedDirectives) {
-    copyOfExtension(extensionsMap, directive, dest.applyDirective(directive.name, { ...directive.arguments}));
+    copyOfExtension(extensionsMap, directive, dest.applyDirective(directive.name, { ...directive.arguments() }));
   }
   dest.sourceAST = source.sourceAST;
 }
 
 function copyNamedTypeInner(source: NamedType, dest: NamedType) {
   const extensionsMap = copyExtensions(source, dest);
+  // Same as copyAppliedDirectives, but as the directive applies to the type, we need to remember if the application
+  // is for the extension or not.
   for (const directive of source.appliedDirectives) {
-    copyOfExtension(extensionsMap, directive, dest.applyDirective(directive.name, { ...directive.arguments}));
+    copyOfExtension(extensionsMap, directive, dest.applyDirective(directive.name, { ...directive.arguments() }));
   }
   dest.sourceAST = source.sourceAST;
   switch (source.kind) {
@@ -2114,7 +2142,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
 
 function copyAppliedDirectives(source: SchemaElement<any>, dest: SchemaElement<any>) {
   for (const directive of source.appliedDirectives) {
-    dest.applyDirective(directive.name, { ...directive.arguments});
+    dest.applyDirective(directive.name, { ...directive.arguments() });
   }
 }
 

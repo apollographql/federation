@@ -25,13 +25,15 @@ export type Options = {
   definitionsOrder: ('schema' | 'types' | 'directives')[],
   typeCompareFn?: (t1: NamedType, t2: NamedType) => number;
   directiveCompareFn?: (d1: DirectiveDefinition, d2: DirectiveDefinition) => number;
-  mergeTypesAndExtensions: boolean
+  mergeTypesAndExtensions: boolean;
+  showBuiltIns: boolean
 }
 
 export const defaultOptions: Options = {
   indentString: "  ",
   definitionsOrder: ['schema', 'directives', 'types'],
-  mergeTypesAndExtensions: false
+  mergeTypesAndExtensions: false,
+  showBuiltIns: false,
 }
 
 function isDefinitionOrderValid(options: Options): boolean {
@@ -49,11 +51,11 @@ function validateOptions(options: Options) {
 
 export function printSchema(schema: Schema, options: Options = defaultOptions): string {
   validateOptions(options);
-  let directives = [...schema.directives()];
+  let directives = [...(options.showBuiltIns ? schema.allDirectives() : schema.directives())];
   if (options.directiveCompareFn) {
     directives = directives.sort(options.directiveCompareFn);
   }
-  let types = [...schema.types()];
+  let types = [...(options.showBuiltIns ? schema.allTypes() : schema.types())];
   if (options.typeCompareFn) {
     types = types.sort(options.typeCompareFn);
   }
@@ -218,6 +220,7 @@ function printEnumDefinitionOrExtension(type: EnumType, options: Options, extens
   }
   const vals = values.map((v, i) => 
     printDescription(v, options.indentString, !i)
+    + options.indentString
     + v
     + printAppliedDirectives(v.appliedDirectives));
   return printDescription(type)
