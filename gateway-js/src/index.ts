@@ -777,7 +777,9 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private createSchemaFromSupergraphSdl(supergraphSdl: string) {
-    const core = CoreSchema.fromSource(new Source(supergraphSdl))
+    const core = CoreSchema.fromSource(
+      new Source(supergraphSdl, 'supergraphSdl'),
+    )
       .check() // run basic core schema compliance checks
       .check(featureSupport); // run supported feature check
 
