@@ -8,7 +8,7 @@ describe('core v0.1', () => {
     const supergraphSdl = `#graphql
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.1")
-        @core(feature: "https://specs.apollo.dev/join/v0.1")
+        @core(feature: "https://specs.apollo.dev/join/v0.1") {
         query: Query
       }
 

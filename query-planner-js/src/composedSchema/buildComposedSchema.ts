@@ -1,7 +1,6 @@
 import {
   buildASTSchema,
   DocumentNode,
-  GraphQLError,
   GraphQLSchema,
   isEnumType,
   isIntrospectionType,
@@ -28,6 +27,7 @@ import {
 // of differentiating between features that require runtime support and those
 // that can be silently ignored, without enumerating features explicitly.
 export const supportedFeatures: ParsedFeatureURL[] = [
+  'https://specs.apollo.dev/core/v0.1',
   'https://specs.apollo.dev/core/v0.2',
   'https://specs.apollo.dev/join/v0.1',
   'https://specs.apollo.dev/inaccessible/v0.1',
@@ -48,30 +48,6 @@ export function buildComposedSchema(document: DocumentNode): GraphQLSchema {
   // TODO: We should follow the CollectFeatures algorithm from the Core Schema
   // spec here, and use the collected features to validate feature
   // versions and handle renames.
-
-  const coreDirectivesArgs = getArgumentValuesForRepeatableDirective(
-    coreDirective,
-    schema.astNode!,
-  );
-
-  for (const coreDirectiveArgs of coreDirectivesArgs) {
-    const feature = parseFeatureURL(coreDirectiveArgs['feature']);
-
-    // TODO: Replace strict feature matching with version satisfaction from the
-    // Core Schema spec.
-    if (
-      !supportedFeatures.some(
-        (supportedFeature) =>
-          supportedFeature.identity === feature.identity &&
-          supportedFeature.version === feature.version,
-      )
-    ) {
-      throw new GraphQLError(
-        `Unsupported core schema feature and/or version: ${feature}`,
-        schema.astNode!,
-      );
-    }
-  }
 
   const joinName = 'join';
 
