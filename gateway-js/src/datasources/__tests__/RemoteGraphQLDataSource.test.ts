@@ -304,6 +304,7 @@ describe('makeRequest', () => {
     fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
     const { data } = await DataSource.process({
+      ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
         variables: { id: '1' },
@@ -339,6 +340,7 @@ describe('makeRequest', () => {
     fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
     const { data } = await DataSource.process({
+      ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
         variables: { id: '1' },
