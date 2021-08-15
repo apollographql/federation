@@ -10,10 +10,19 @@ import {
 import { RemoteGraphQLDataSource } from '../RemoteGraphQLDataSource';
 import { Headers } from 'apollo-server-env';
 import { GraphQLRequestContext } from 'apollo-server-types';
+import { GraphQLDataSourceRequestKind } from '../types';
 
 beforeEach(() => {
   fetch.mockReset();
 });
+
+// Right now, none of these tests care what's on incomingRequestContext, so we
+// pass this fake one in.
+const defaultProcessOptions = {
+  kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION,
+  incomingRequestContext: {} as any,
+  context: {},
+};
 
 describe('constructing requests', () => {
   describe('without APQ', () => {
@@ -26,8 +35,8 @@ describe('constructing requests', () => {
       fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
       const { data } = await DataSource.process({
+        ...defaultProcessOptions,
         request: { query: '{ me { name } }' },
-        context: {},
       });
 
       expect(data).toEqual({ me: 'james' });
@@ -46,11 +55,11 @@ describe('constructing requests', () => {
       fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
       const { data } = await DataSource.process({
+        ...defaultProcessOptions,
         request: {
           query: '{ me { name } }',
           variables: { id: '1' },
         },
-        context: {},
       });
 
       expect(data).toEqual({ me: 'james' });
@@ -96,8 +105,8 @@ describe('constructing requests', () => {
         fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
         const { data } = await DataSource.process({
+          ...defaultProcessOptions,
           request: { query },
-          context: {},
         });
 
         expect(data).toEqual({ me: 'james' });
@@ -135,11 +144,11 @@ describe('constructing requests', () => {
         fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
         const { data } = await DataSource.process({
+          ...defaultProcessOptions,
           request: {
             query,
             variables: { id: '1' },
           },
-          context: {},
         });
 
         expect(data).toEqual({ me: 'james' });
@@ -180,8 +189,8 @@ describe('constructing requests', () => {
         fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
         const { data } = await DataSource.process({
+          ...defaultProcessOptions,
           request: { query },
-          context: {},
         });
 
         expect(data).toEqual({ me: 'james' });
@@ -207,11 +216,11 @@ describe('constructing requests', () => {
         fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
         const { data } = await DataSource.process({
+          ...defaultProcessOptions,
           request: {
             query,
             variables: { id: '1' },
           },
-          context: {},
         });
 
         expect(data).toEqual({ me: 'james' });
@@ -243,11 +252,11 @@ describe('fetcher', () => {
     });
 
     const { data } = await DataSource.process({
+      ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
         variables: { id: '1' },
       },
-      context: {},
     });
 
     expect(injectedFetch).toHaveBeenCalled();
@@ -264,11 +273,11 @@ describe('fetcher', () => {
     });
 
     const { data } = await DataSource.process({
+      ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
         variables: { id: '1' },
       },
-      context: {},
     });
 
     expect(injectedFetch).toHaveBeenCalled();
@@ -360,11 +369,11 @@ describe('willSendRequest', () => {
     fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
     const { data } = await DataSource.process({
+      ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
         variables: { id: '1' },
       },
-      context: {},
     });
 
     expect(data).toEqual({ me: 'james' });
@@ -379,14 +388,20 @@ describe('willSendRequest', () => {
   it('accepts context', async () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
-      willSendRequest: ({ request, context }) => {
-        request.http?.headers.set('x-user-id', context.userId);
+      willSendRequest: (options) => {
+        if (options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION) {
+          options.request.http?.headers.set(
+            'x-user-id',
+            options.context.userId,
+          );
+        }
       },
     });
 
     fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
     const { data } = await DataSource.process({
+      ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
         variables: { id: '1' },
@@ -440,6 +455,7 @@ describe('didReceiveResponse', () => {
 
     const context: MyContext = { surrogateKeys: [] };
     await DataSource.process({
+      ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
         variables: { id: '1' },
@@ -477,11 +493,11 @@ describe('didReceiveResponse', () => {
     fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
     await DataSource.process({
+      ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
         variables: { id: '1' },
       },
-      context: {},
     });
 
     expect(spyDidReceiveResponse).toHaveBeenCalledTimes(1);
@@ -511,11 +527,11 @@ describe('didReceiveResponse', () => {
     fetch.mockJSONResponseOnce({ data: { me: 'james' } });
 
     await DataSource.process({
+      ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
         variables: { id: '1' },
       },
-      context: {},
     });
 
     expect(spyDidReceiveResponse).toHaveBeenCalledTimes(1);
@@ -531,12 +547,7 @@ describe('didEncounterError', () => {
     class MyDataSource extends RemoteGraphQLDataSource<MyContext> {
       url = 'https://api.example.com/foo';
 
-      didEncounterError(
-        _error: Error,
-        _fetchRequest: Request,
-        _fetchResponse?: Response,
-        _context?: MyContext,
-      ) {
+      didEncounterError() {
         // a timestamp a la `Date.now()`
         context.timingData.push({ time: 1616446845234 });
       }
@@ -548,15 +559,19 @@ describe('didEncounterError', () => {
 
     const context: MyContext = { timingData: [] };
     const result = DataSource.process({
+      ...defaultProcessOptions,
       request: {
         query: '{ me { name } }',
       },
+      incomingRequestContext: {
+        context,
+      } as GraphQLRequestContext<MyContext>,
       context,
     });
 
     await expect(result).rejects.toThrow(AuthenticationError);
     expect(context).toMatchObject({
-      timingData: [{ time: 1616446845234 }]
+      timingData: [{ time: 1616446845234 }],
     });
   });
 });
@@ -570,8 +585,8 @@ describe('error handling', () => {
     fetch.mockResponseOnce('Invalid token', undefined, 401);
 
     const result = DataSource.process({
+      ...defaultProcessOptions,
       request: { query: '{ me { name } }' },
-      context: {},
     });
     await expect(result).rejects.toThrow(AuthenticationError);
     await expect(result).rejects.toMatchObject({
@@ -593,8 +608,8 @@ describe('error handling', () => {
     fetch.mockResponseOnce('No access', undefined, 403);
 
     const result = DataSource.process({
+      ...defaultProcessOptions,
       request: { query: '{ me { name } }' },
-      context: {},
     });
     await expect(result).rejects.toThrow(ForbiddenError);
     await expect(result).rejects.toMatchObject({
@@ -616,8 +631,8 @@ describe('error handling', () => {
     fetch.mockResponseOnce('Oops', undefined, 500);
 
     const result = DataSource.process({
+      ...defaultProcessOptions,
       request: { query: '{ me { name } }' },
-      context: {},
     });
     await expect(result).rejects.toThrow(ApolloError);
     await expect(result).rejects.toMatchObject({
@@ -648,8 +663,8 @@ describe('error handling', () => {
     );
 
     const result = DataSource.process({
+      ...defaultProcessOptions,
       request: { query: '{ me { name } }' },
-      context: {},
     });
     await expect(result).rejects.toThrow(ApolloError);
     await expect(result).rejects.toMatchObject({

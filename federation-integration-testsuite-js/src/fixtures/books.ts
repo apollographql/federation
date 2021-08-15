@@ -7,6 +7,18 @@ export const typeDefs = gql`
   directive @stream on FIELD
   directive @transform(from: String!) on FIELD
 
+  enum CacheControlScope {
+    PUBLIC
+    PRIVATE
+  }
+
+  directive @cacheControl(
+    maxAge: Int
+    scope: CacheControlScope
+    inheritMaxAge: Boolean
+  ) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+
   extend type Query {
     book(isbn: String!): Book
     books: [Book]
@@ -26,7 +38,7 @@ export const typeDefs = gql`
 
   # extend union AccountType = LibraryAccount
 
-  type Book @key(fields: "isbn") {
+  type Book @key(fields: "isbn") @cacheControl(maxAge: 700) {
     isbn: String!
     title: String
     year: Int

@@ -7,13 +7,14 @@ api_reference: true
 
 This API reference documents the exports from the `@apollo/federation` package.
 
-## `buildFederatedSchema`
+## `buildSubgraphSchema`
+> This method was renamed from `buildFederatedSchema` after @apollo/federation v0.28.0 (the previous name still works but might be removed in a future release).
 
 A function that takes an array of GraphQL schema modules and returns a federation-ready schema based on those modules:
 
 ```js{2}
 const server = new ApolloServer({
-  schema: buildFederatedSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
 });
 ```
 
@@ -83,13 +84,13 @@ const resolvers = {
 };
 
 const server = new ApolloServer({
-  schema: buildFederatedSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
 });
 ```
 
 ## `__resolveReference`
 
-The name of a special **reference resolver** function you can define for every [entity](../entities/) in a resolver map, _if_ that resolver map is part of a [federated schema](#buildfederatedschema).
+The name of a special **reference resolver** function you can define for every [entity](../entities/) in a resolver map, _if_ that resolver map is part of a [subgraph schema](#buildSubgraphSchema).
 
 The `__resolveReference` function enables your gateway's query planner to resolve a particular entity by whatever unique identifier your other subgraphs use to reference it. For details, see [Entities: Resolving](../entities/#resolving).
 

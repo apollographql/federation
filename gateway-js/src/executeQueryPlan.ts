@@ -15,7 +15,7 @@ import {
 } from 'graphql';
 import { Trace, google } from 'apollo-reporting-protobuf';
 import { defaultRootOperationNameLookup } from '@apollo/federation';
-import { GraphQLDataSource } from './datasources/types';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
 import { OperationContext } from './operationContext';
 import {
   FetchNode,
@@ -24,10 +24,14 @@ import {
   ResponsePath,
   QueryPlanSelectionNode,
   QueryPlanFieldNode,
-  getResponseName
+  getResponseName,
+  toAPISchema
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
+import { SpanStatusCode } from "@opentelemetry/api";
+import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
+import { cleanErrorOfInaccessibleNames } from './utilities/cleanErrorOfInaccessibleNames';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -49,63 +53,92 @@ export async function executeQueryPlan<TContext>(
   requestContext: GraphQLRequestContext<TContext>,
   operationContext: OperationContext,
 ): Promise<GraphQLExecutionResult> {
-  const errors: GraphQLError[] = [];
+  return tracer.startActiveSpan(OpenTelemetrySpanNames.EXECUTE, async span => {
+    try {
+      const errors: GraphQLError[] = [];
 
-  const context: ExecutionContext<TContext> = {
-    queryPlan,
-    operationContext,
-    serviceMap,
-    requestContext,
-    errors,
-  };
+      const context: ExecutionContext<TContext> = {
+        queryPlan,
+        operationContext,
+        serviceMap,
+        requestContext,
+        errors,
+      };
 
-  let data: ResultMap | undefined | null = Object.create(null);
+      let data: ResultMap | undefined | null = Object.create(null);
 
-  const captureTraces = !!(
-    requestContext.metrics && requestContext.metrics.captureTraces
-  );
+      const captureTraces = !!(
+          requestContext.metrics && requestContext.metrics.captureTraces
+      );
 
-  if (queryPlan.node) {
-    const traceNode = await executeNode(
-      context,
-      queryPlan.node,
-      data!,
-      [],
-      captureTraces,
-    );
-    if (captureTraces) {
-      requestContext.metrics!.queryPlanTrace = traceNode;
+      if (queryPlan.node) {
+        const traceNode = await executeNode(
+          context,
+          queryPlan.node,
+          data!,
+          [],
+          captureTraces,
+        );
+        if (captureTraces) {
+          requestContext.metrics!.queryPlanTrace = traceNode;
+        }
+      }
+
+      let result = await tracer.startActiveSpan(OpenTelemetrySpanNames.POST_PROCESSING, async (span) => {
+
+        // FIXME: Re-executing the query is a pretty heavy handed way of making sure
+        // only explicitly requested fields are included and field ordering follows
+        // the original query.
+        // It is also used to allow execution of introspection queries though.
+        try {
+          const schema = toAPISchema(operationContext.schema);
+          const executionResult = await execute({
+            schema,
+            document: {
+              kind: Kind.DOCUMENT,
+              definitions: [
+                operationContext.operation,
+                ...Object.values(operationContext.fragments),
+              ],
+            },
+            rootValue: data,
+            variableValues: requestContext.request.variables,
+            // See also `wrapSchemaWithAliasResolver` in `gateway-js/src/index.ts`.
+            fieldResolver: defaultFieldResolverWithAliasSupport,
+          });
+          data = executionResult.data;
+          if (executionResult.errors?.length) {
+            const cleanedErrors = executionResult.errors.map((error) =>
+              cleanErrorOfInaccessibleNames(schema, error),
+            );
+            errors.push(...cleanedErrors);
+          }
+        } catch (error) {
+          span.setStatus({ code:SpanStatusCode.ERROR });
+          return { errors: [error] };
+        }
+        finally {
+          span.end()
+        }
+        if(errors.length > 0) {
+          span.setStatus({ code:SpanStatusCode.ERROR });
+        }
+        return errors.length === 0 ? { data } : { errors, data };
+      });
+
+      if(result.errors) {
+        span.setStatus({ code:SpanStatusCode.ERROR });
+      }
+      return result;
     }
-  }
-
-  // FIXME: Re-executing the query is a pretty heavy handed way of making sure
-  // only explicitly requested fields are included and field ordering follows
-  // the original query.
-  // It is also used to allow execution of introspection queries though.
-  try {
-    const executionResult = await execute({
-      schema: operationContext.schema,
-      document: {
-        kind: Kind.DOCUMENT,
-        definitions: [
-          operationContext.operation,
-          ...Object.values(operationContext.fragments),
-        ],
-      },
-      rootValue: data,
-      variableValues: requestContext.request.variables,
-      // See also `wrapSchemaWithAliasResolver` in `gateway-js/src/index.ts`.
-      fieldResolver: defaultFieldResolverWithAliasSupport,
-    });
-    data = executionResult.data;
-    if (executionResult.errors?.length) {
-      errors.push(...executionResult.errors)
+    catch (err) {
+      span.setStatus({ code:SpanStatusCode.ERROR });
+      throw err;
     }
-  } catch (error) {
-    return { errors: [error] };
-  }
-
-  return errors.length === 0 ? { data } : { errors, data };
+    finally {
+      span.end();
+    }
+  });
 }
 
 // Note: this function always returns a protobuf QueryPlanNode tree, even if
@@ -203,50 +236,54 @@ async function executeFetch<TContext>(
   _path: ResponsePath,
   traceNode: Trace.QueryPlanNode.FetchNode | null,
 ): Promise<void> {
+
   const logger = context.requestContext.logger || console;
   const service = context.serviceMap[fetch.serviceName];
-  if (!service) {
-    throw new Error(`Couldn't find service with name "${fetch.serviceName}"`);
-  }
 
-  let entities: ResultMap[];
-  if (Array.isArray(results)) {
-    // Remove null or undefined entities from the list
-    entities = results.filter(isNotNullOrUndefined);
-  } else {
-    entities = [results];
-  }
-
-  if (entities.length < 1) return;
-
-  let variables = Object.create(null);
-  if (fetch.variableUsages) {
-    for (const variableName of fetch.variableUsages) {
-      const providedVariables = context.requestContext.request.variables;
-      if (
-        providedVariables &&
-        typeof providedVariables[variableName] !== 'undefined'
-      ) {
-        variables[variableName] = providedVariables[variableName];
+  return tracer.startActiveSpan(OpenTelemetrySpanNames.FETCH, {attributes:{service:fetch.serviceName}}, async span => {
+    try {
+      if (!service) {
+        throw new Error(`Couldn't find service with name "${fetch.serviceName}"`);
       }
-    }
-  }
 
-  if (!fetch.requires) {
-    const dataReceivedFromService = await sendOperation(
-      context,
-      fetch.operation,
-      variables,
-    );
+      let entities: ResultMap[];
+      if (Array.isArray(results)) {
+        // Remove null or undefined entities from the list
+        entities = results.filter(isNotNullOrUndefined);
+      } else {
+        entities = [results];
+      }
 
-    for (const entity of entities) {
-      deepMerge(entity, dataReceivedFromService);
-    }
-  } else {
-    const requires = fetch.requires;
+      if (entities.length < 1) return;
 
-    const representations: ResultMap[] = [];
-    const representationToEntity: number[] = [];
+      let variables = Object.create(null);
+      if (fetch.variableUsages) {
+        for (const variableName of fetch.variableUsages) {
+          const providedVariables = context.requestContext.request.variables;
+          if (
+              providedVariables &&
+              typeof providedVariables[variableName] !== 'undefined'
+          ) {
+            variables[variableName] = providedVariables[variableName];
+          }
+        }
+      }
+
+      if (!fetch.requires) {
+        const dataReceivedFromService = await sendOperation(
+            context,
+            fetch.operation,
+            variables,
+        );
+
+        for (const entity of entities) {
+          deepMerge(entity, dataReceivedFromService);
+        }
+      } else {
+        const requires = fetch.requires;
+
+        const representations: ResultMap[] = [];
+        const representationToEntity: number[] = [];
 
     entities.forEach((entity, index) => {
       const representation = executeSelectionSet(
@@ -260,46 +297,55 @@ async function executeFetch<TContext>(
       }
     });
 
-    // If there are no representations, that means the type conditions in
-    // the requires don't match any entities.
-    if (representations.length < 1) return;
+        // If there are no representations, that means the type conditions in
+        // the requires don't match any entities.
+        if (representations.length < 1) return;
 
-    if ('representations' in variables) {
-      throw new Error(`Variables cannot contain key "representations"`);
+        if ('representations' in variables) {
+          throw new Error(`Variables cannot contain key "representations"`);
+        }
+
+        const dataReceivedFromService = await sendOperation(
+            context,
+            fetch.operation,
+            {...variables, representations},
+        );
+
+        if (!dataReceivedFromService) {
+          return;
+        }
+
+        if (
+            !(
+                dataReceivedFromService._entities &&
+                Array.isArray(dataReceivedFromService._entities)
+            )
+        ) {
+          throw new Error(`Expected "data._entities" in response to be an array`);
+        }
+
+        const receivedEntities = dataReceivedFromService._entities;
+
+        if (receivedEntities.length !== representations.length) {
+          throw new Error(
+              `Expected "data._entities" to contain ${representations.length} elements`,
+          );
+        }
+
+        for (let i = 0; i < entities.length; i++) {
+          deepMerge(entities[representationToEntity[i]], receivedEntities[i]);
+        }
+      }
     }
-
-    const dataReceivedFromService = await sendOperation(
-      context,
-      fetch.operation,
-      { ...variables, representations },
-    );
-
-    if (!dataReceivedFromService) {
-      return;
+    catch (err) {
+      span.setStatus({ code:SpanStatusCode.ERROR });
+      throw err;
     }
-
-    if (
-      !(
-        dataReceivedFromService._entities &&
-        Array.isArray(dataReceivedFromService._entities)
-      )
-    ) {
-      throw new Error(`Expected "data._entities" in response to be an array`);
+    finally
+    {
+      span.end();
     }
-
-    const receivedEntities = dataReceivedFromService._entities;
-
-    if (receivedEntities.length !== representations.length) {
-      throw new Error(
-        `Expected "data._entities" to contain ${representations.length} elements`,
-      );
-    }
-
-    for (let i = 0; i < entities.length; i++) {
-      deepMerge(entities[representationToEntity[i]], receivedEntities[i]);
-    }
-  }
-
+  });
   async function sendOperation(
     context: ExecutionContext<TContext>,
     source: string,
@@ -328,22 +374,19 @@ async function executeFetch<TContext>(
     }
 
     const response = await service.process({
+      kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION,
       request: {
         query: source,
         variables,
         http,
       },
+      incomingRequestContext: context.requestContext,
       context: context.requestContext.context,
     });
 
     if (response.errors) {
-      const errors = response.errors.map(error =>
-        downstreamServiceError(
-          error,
-          fetch.serviceName,
-          source,
-          variables,
-        ),
+      const errors = response.errors.map((error) =>
+        downstreamServiceError(error, fetch.serviceName),
       );
       context.errors.push(...errors);
     }
@@ -505,14 +548,8 @@ function flattenResultsAtPath(value: any, path: ResponsePath): any {
 function downstreamServiceError(
   originalError: GraphQLFormattedError,
   serviceName: string,
-  query: string,
-  variables?: Record<string, any>,
 ) {
-  let {
-    message,
-    extensions,
-    path,
-  } = originalError
+  let { message, extensions } = originalError;
 
   if (!message) {
     message = `Error while fetching subquery from service "${serviceName}"`;
@@ -522,8 +559,6 @@ function downstreamServiceError(
     // XXX The presence of a serviceName in extensions is used to
     // determine if this error should be captured for metrics reporting.
     serviceName,
-    query,
-    variables,
     ...extensions,
   };
   return new GraphQLError(
@@ -531,7 +566,7 @@ function downstreamServiceError(
     undefined,
     undefined,
     undefined,
-    path,
+    undefined,
     originalError as Error,
     extensions,
   );

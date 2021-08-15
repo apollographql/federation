@@ -2,7 +2,7 @@ import { gunzipSync } from 'zlib';
 import nock from 'nock';
 import { GraphQLSchemaModule } from 'apollo-graphql';
 import gql from 'graphql-tag';
-import { buildFederatedSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/federation';
 import { ApolloServer } from 'apollo-server';
 import { ApolloServerPluginUsageReporting } from 'apollo-server-core';
 import { execute, toPromise } from 'apollo-link';
@@ -12,15 +12,6 @@ import { ApolloGateway } from '../..';
 import { Plugin, Config, Refs } from 'pretty-format';
 import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-
-// TODO: We should fix this another way, but for now adding this
-// type declaration here to avoid a typing error in `apollo-link-http-common`
-// due to us not dependeing on `dom` (or `webworker`) types.
-declare global {
-  interface WindowOrWorkerGlobalScope {
-    fetch: typeof import('apollo-server-env')['fetch'];
-  }
-}
 
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally
@@ -87,7 +78,7 @@ expect.addSnapshotSerializer(
 );
 
 async function startFederatedServer(modules: GraphQLSchemaModule[]) {
-  const schema = buildFederatedSchema(modules);
+  const schema = buildSubgraphSchema(modules);
   const server = new ApolloServer({ schema });
   const { url } = await server.listen({ port: 0 });
   return { url, server };
@@ -128,7 +119,7 @@ describe('reporting', () => {
       executor,
       apollo: {
         key: 'service:foo:bar',
-        graphVariant: 'current',
+        graphRef: 'foo@current',
       },
       plugins: [
         ApolloServerPluginUsageReporting({
@@ -242,6 +233,10 @@ describe('reporting', () => {
       {me{name{first last}}topProducts{name}}": Object {
             "trace": Array [
               Object {
+                "cachePolicy": Object {
+                  "maxAgeNs": "30000000000",
+                  "scope": "PRIVATE",
+                },
                 "clientName": "",
                 "clientReferenceId": "",
                 "clientVersion": "",

@@ -33,114 +33,13 @@ This architecture enables clients to query data from multiple services simultane
 
 Now that we have a high-level understanding of federation concepts, let's jump in.
 
-## 1. Install the Rover CLI
+## Example subgraphs
 
-**Rover** is Apollo's CLI for managing data graphs, including federated ones.
+This tutorial uses two Apollo-hosted subgraphs for an example application: a Products subgraph and a Reviews subgraph. Here are their schemas for reference:
 
-Install it like so:
+<ExpansionPanel title="Products">
 
-```shell
-npm install -g @apollo/rover
-```
-
-After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully. We'll use various Rover commands in later steps.
-
-## 2. Create a gateway
-
-> You can also [clone our example gateway on GitHub](https://github.com/apollographql/supergraph-demo). The GitHub example is **not** identical to the gateway you create in this tutorial, but it demonstrates the same concepts.
-
-As mentioned [above](#federation-concepts), your federated supergraph is represented by a **gateway** that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up our own gateway in front of them.
-
-With the help of the `@apollo/gateway` library, [Apollo Server](https://www.apollographql.com/docs/apollo-server/) can act as our federated gateway.
-
-On your development machine, first create a new project directory for your Node.js gateway. Then inside that directory, run the following to create a `package.json` file:
-
-```shell
-npm init
-```
-
-Next, install the following required libraries:
-
-```shell
-npm install apollo-server @apollo/gateway graphql
-```
-
-Finally, create a file named `index.js` and paste the following into it as a minimal (not-yet-functional) gateway implementation:
-
-```js{4,7}:title=index.js
-const { ApolloServer } = require('apollo-server');
-const { ApolloGateway } = require('@apollo/gateway');
-
-const supergraphSchema = ''; // TODO!
-
-const gateway = new ApolloGateway({
-  supergraphSdl: supergraphSchema
-});
-
-const server = new ApolloServer({
-  gateway,
-  // Subscriptions are not currently supported in Apollo Federation
-  subscriptions: false
-});
-
-server.listen().then(({ url }) => {
-  console.log(`🚀 Gateway ready at ${url}`);
-}).catch(err => {console.error(err)});
-```
-
-This code demonstrates the basic flow for creating a gateway:
-
-1. We initialize an `ApolloGateway` instance and pass it the complete composed schema for our supergraph.
-    * _Note the `TODO`. We'll obtain the composed schema in the next section._
-
-2. We initialize an `ApolloServer` instance and pass it our gateway via the `gateway` option.
-    * _We also disable `subscriptions` because they aren't yet supported in Apollo Federation._
-
-3. We call `listen` on our server instance to begin listening for incoming requests.
-
-If we run this code as-is with `node index.js`, we get an error:
-
-```
-This data graph is missing a valid configuration. Syntax Error: Unexpected <EOF>.
-```
-
-That's because our `supergraphSchema` is currently empty! Next, we'll compose that schema.
-
-## 3. Compose the supergraph schema
-
-As a best practice, your gateway should _not_ be responsible for composing its own supergraph schema. Instead, a separate process should compose the schema and provide it to the gateway. This helps improve reliability and reduce downtime when you make changes to a subgraph.
-
-There are multiple ways to compose a supergraph schema from our subgraph schemas:
-
-* On our local machine using the Rover CLI (we'll start with this)
-* Via managed federation in Apollo Studio (we'll switch to this in [Part 2](./quickstart-pt-2/))
-
-Using managed federation is strongly recommended for production environments. We'll start with local composition just to get up and running.
-
-### Obtaining subgraph details
-
-To compose our supergraph schema, we need the following information about each of our subgraphs:
-
-* The subgraph's schema
-* The URL of the subgraph's GraphQL endpoint (which must be accessible by the gateway)
-
-We'll start with just two subgraphs. Because we're using Apollo-hosted example services for our subgraphs, we know their endpoint URLs. We _don't_ have their schemas, however.
-
-#### Fetching subgraph schemas
-
-We can fetch a running subgraph's schema by executing an enhanced introspection query on it. The Rover CLI provides a command to do exactly that.
-
-From your project directory, run the following command in your terminal:
-
-```shell
-rover subgraph introspect https://rover.apollo.dev/quickstart/products/graphql
-```
-
-Rover introspects Apollo's example `products` service and outputs the following schema:
-
-<ExpansionPanel title="Click to expand">
-
-```graphql
+```graphql:title=Products
 enum CURRENCY_CODE {
   USD
 }
@@ -201,43 +100,150 @@ extend type Query {
 
 </ExpansionPanel>
 
-Now run that same command, but this time append ` > products.graphql`:
+<ExpansionPanel title="Reviews">
 
-```shell
-rover subgraph introspect https://rover.apollo.dev/quickstart/products/graphql > products.graphql
+```graphql:title=Reviews
+extend type Product @key(fields: "id") {
+  id: ID! @external
+  reviews: [Review]
+  reviewSummary: ReviewSummary
+}
+
+"""
+This is an Entity, docs:https://www.apollographql.com/docs/federation/entities/
+You will need to define a __resolveReference resolver for the type you define, docs: https://www.apollographql.com/docs/federation/entities/#resolving
+"""
+type Review @key(fields: "id") {
+  id: ID!
+  rating: Float
+  content: String
+}
+
+type ReviewSummary {
+  totalReviews: Int
+  averageRating: Float
+}
 ```
 
-This writes the subgraph's schema to a file instead of printing it to your terminal.
+</ExpansionPanel>
 
-Next, do the same thing for the _second_ subgraph (`reviews`), this time writing it to `reviews.graphql`:
+## 1. Install the Rover CLI
+
+**Rover** is Apollo's CLI for managing data graphs, including federated ones.
+
+Install it like so:
 
 ```shell
-rover subgraph introspect https://rover.apollo.dev/quickstart/reviews/graphql > reviews.graphql
+npm install -g @apollo/rover
 ```
 
-Great! We now have the schemas for our two subgraphs.
+After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully. We'll use various Rover commands in later steps.
+
+## 2. Create a gateway
+
+> You can also [clone our example gateway on GitHub](https://github.com/apollographql/supergraph-demo). The GitHub example is **not** identical to the gateway you create in this tutorial, but it demonstrates the same concepts.
+
+As mentioned [above](#federation-concepts), your federated supergraph is represented by a **gateway** that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up our own gateway in front of them.
+
+With the help of the `@apollo/gateway` library, [Apollo Server](https://www.apollographql.com/docs/apollo-server/) can act as our federated gateway.
+
+On your development machine, first create a new project directory for your Node.js gateway. Then inside that directory, run the following to create a `package.json` file:
+
+```shell
+npm init
+```
+
+Next, install the following required libraries:
+
+```shell
+npm install apollo-server @apollo/gateway graphql
+```
+
+Finally, create a file named `index.js` and paste the following into it as a minimal (not-yet-functional) gateway implementation:
+
+```js{4,7}:title=index.js
+const { ApolloServer } = require('apollo-server');
+const { ApolloGateway } = require('@apollo/gateway');
+
+const supergraphSdl = ''; // TODO!
+
+const gateway = new ApolloGateway({
+  supergraphSdl
+});
+
+const server = new ApolloServer({
+  gateway,
+});
+
+server.listen().then(({ url }) => {
+  console.log(`🚀 Gateway ready at ${url}`);
+}).catch(err => {console.error(err)});
+```
+
+This code demonstrates the basic flow for creating a gateway:
+
+1. We initialize an `ApolloGateway` instance and pass it the complete composed SDL for our supergraph.
+    * _Note the `TODO`. We'll obtain the composed schema in the next section._
+
+2. We initialize an `ApolloServer` instance and pass it our gateway via the `gateway` option.
+    * _We also disable `subscriptions` because they aren't yet supported in Apollo Federation._
+
+3. We call `listen` on our server instance to begin listening for incoming requests.
+
+If we run this code as-is with `node index.js`, we get an error:
+
+```
+GraphQLError [Object]: Syntax Error: Unexpected <EOF>.
+```
+
+That's because our `supergraphSdl` is currently empty! Next, we'll compose that schema.
+
+## 3. Compose the supergraph schema
+
+As a best practice, your gateway should _not_ be responsible for composing its own supergraph schema. Instead, a separate process should compose the schema and provide it to the gateway. This helps improve reliability and reduce downtime when you make changes to a subgraph.
+
+There are multiple ways to compose a supergraph schema from our subgraph schemas:
+
+* On our local machine using the Rover CLI (we'll start with this)
+* Via managed federation in Apollo Studio (we'll switch to this in [Part 2](./quickstart-pt-2/))
+
+Using managed federation is strongly recommended for production environments. We'll start with local composition to get up and running.
 
 ### Providing subgraph details
 
-After we obtain our subgraph schemas and URLs, we need to provide them to the Rover CLI. To do that, we add them to a YAML file in our project directory.
+To compose our supergraph schema, the Rover CLI needs the following information about each of our subgraphs:
 
-Create a file called `supergraph-config.yaml` and paste the following into it:
+* The subgraph's schema
+* The URL of the subgraph's GraphQL endpoint (which must be accessible by the gateway)
+
+Because we're using Apollo-hosted example subgraphs, we know their endpoint URLs. And Rover can use those URLs to fetch their schemas via a special introspection query.
+
+#### Configuration file
+
+We provide subgraph details to the Rover CLI in a YAML file. In your project directory, create a file called `supergraph-config.yaml` and paste the following into it:
 
 ```yaml:title=supergraph-config.yaml
 subgraphs:
   products:
     routing_url: https://rover.apollo.dev/quickstart/products/graphql
     schema:
-      file: ./products.graphql
+      subgraph_url: https://rover.apollo.dev/quickstart/products/graphql
   reviews:
     routing_url: https://rover.apollo.dev/quickstart/reviews/graphql
     schema:
-      file: ./reviews.graphql
+      subgraph_url: https://rover.apollo.dev/quickstart/reviews/graphql
 ```
+
+As you can see, we're providing the same URL as the value of two different fields. These fields serve different purposes:
+
+* `routing_url` is the URL the _gateway_ will use to send GraphQL operations to the subgraph at runtime.
+* `schema.subgraph_url` is the URL that _Rover_ will use to fetch the subgraph schema during composition.
+
+These URLs might theoretically differ. The YAML file also supports providing a subgraph's schema as a local file path, or as a registered graph ref that Rover can fetch from Apollo (for details, [see the Rover docs](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema)).
 
 ### Performing composition
 
-Now that we have all of the information we need, we can compose our supergraph schema. To do that, we'll use another Rover command: `supergraph compose`.
+Now that our configuration file is ready, we can compose our supergraph schema. To do that, we'll use Rover's `supergraph compose` command.
 
 From your project directory, run the following command in your terminal:
 
@@ -245,14 +251,14 @@ From your project directory, run the following command in your terminal:
 rover supergraph compose --config ./supergraph-config.yaml
 ```
 
-This time, Rover outputs the following schema:
+Rover outputs the following schema:
 
 <ExpansionPanel title="Click to expand">
 
 ```graphql
 schema
-  @core(feature: "https://lib.apollo.dev/core/v0.1"),
-  @core(feature: "https://lib.apollo.dev/join/v0.1")
+  @core(feature: "https://specs.apollo.dev/core/v0.1"),
+  @core(feature: "https://specs.apollo.dev/join/v0.1")
 {
   query: Query
 }
@@ -306,29 +312,29 @@ type Product
   @join__type(graph: PRODUCTS, key: "id")
   @join__type(graph: REVIEWS, key: "id")
 {
+  category: ProductCategory @join__field(graph: PRODUCTS)
+  description: String @join__field(graph: PRODUCTS)
   id: ID! @join__field(graph: PRODUCTS)
+  images(size: Int = 1000): [String] @join__field(graph: PRODUCTS)
+  price: Price @join__field(graph: PRODUCTS)
+  primaryImage(size: Int = 1000): String @join__field(graph: PRODUCTS)
+  reviewSummary: ReviewSummary @join__field(graph: REVIEWS)
+  reviews: [Review] @join__field(graph: REVIEWS)
+  salesRank(category: ProductCategory = ALL): Int @join__field(graph: PRODUCTS)
+  salesRankInCategory: Int @join__field(graph: PRODUCTS)
+  salesRankOverall: Int @join__field(graph: PRODUCTS)
   title: String @join__field(graph: PRODUCTS)
   url: String @join__field(graph: PRODUCTS)
-  description: String @join__field(graph: PRODUCTS)
-  price: Price @join__field(graph: PRODUCTS)
-  salesRank(category: ProductCategory = ALL): Int @join__field(graph: PRODUCTS)
-  salesRankOverall: Int @join__field(graph: PRODUCTS)
-  salesRankInCategory: Int @join__field(graph: PRODUCTS)
-  category: ProductCategory @join__field(graph: PRODUCTS)
-  images(size: Int = 1000): [String] @join__field(graph: PRODUCTS)
-  primaryImage(size: Int = 1000): String @join__field(graph: PRODUCTS)
-  reviews: [Review] @join__field(graph: REVIEWS)
-  reviewSummary: ReviewSummary @join__field(graph: REVIEWS)
 }
 
 enum ProductCategory {
   ALL
-  GIFT_CARDS
-  ELECTRONICS
-  CAMERA_N_PHOTO
-  VIDEO_GAMES
   BOOKS
+  CAMERA_N_PHOTO
   CLOTHING
+  ELECTRONICS
+  GIFT_CARDS
+  VIDEO_GAMES
 }
 
 type Query {
@@ -345,14 +351,14 @@ type Review
   @join__owner(graph: REVIEWS)
   @join__type(graph: REVIEWS, key: "id")
 {
+  content: String @join__field(graph: REVIEWS)
   id: ID! @join__field(graph: REVIEWS)
   rating: Float @join__field(graph: REVIEWS)
-  content: String @join__field(graph: REVIEWS)
 }
 
 type ReviewSummary {
-  totalReviews: Int
   averageRating: Float
+  totalReviews: Int
 }
 ```
 
@@ -360,7 +366,7 @@ type ReviewSummary {
 
 As you can see, this composed schema includes all of the types and fields from our subgraph schemas, along with many additional directives that the gateway uses to support our federated architecture.
 
-Similar to what we did with our subgraph schemas, now append ` > supergraph.graphql` to the above command to write the composed schema to a file:
+Now, append ` > supergraph.graphql` to the above command to write the composed schema to a file:
 
 ```shell
 rover supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
@@ -375,16 +381,14 @@ const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFileSync } = require('fs');
 
-const supergraphSchema = readFileSync('./supergraph.graphql').toString();
+const supergraphSdl = readFileSync('./supergraph.graphql').toString();
 
 const gateway = new ApolloGateway({
-  supergraphSdl: supergraphSchema
+  supergraphSdl
 });
 
 const server = new ApolloServer({
   gateway,
-  // Subscriptions are not currently supported in Apollo Federation
-  subscriptions: false
 });
 
 server.listen().then(({ url }) => {
@@ -392,7 +396,7 @@ server.listen().then(({ url }) => {
 }).catch(err => {console.error(err)});
 ```
 
-Now with our `supergraphSchema` properly populated, let's start up the gateway again with `node index.js`. This time, there's no error!
+Now with our `supergraphSdl` properly populated, let's start up the gateway again with `node index.js`. This time, there's no error!
 
 We can quickly open our browser to [studio.apollographql.com/sandbox](https://studio.apollographql.com/sandbox) to explore our composed schema in Apollo Sandbox:
 

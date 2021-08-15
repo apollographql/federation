@@ -32,10 +32,10 @@ import {
   GraphQLString,
   DEFAULT_DEPRECATION_REASON,
 } from 'graphql';
-import { Maybe } from '../composition';
+import { FederationField, FederationType, Maybe } from '../composition';
 import { isFederationType } from '../types';
-import { isFederationDirective } from '../composition/utils';
-import federationDirectives, { gatherDirectives } from '../directives';
+import { isApolloTypeSystemDirective } from '../composition/utils';
+import { federationDirectives, gatherDirectives } from '../directives';
 
 type Options = {
   /**
@@ -62,7 +62,7 @@ export function printSchema(schema: GraphQLSchema, options?: Options): string {
     // Federation change: treat the directives defined by the federation spec
     // similarly to the directives defined by the GraphQL spec (ie, don't print
     // their definitions).
-    (n) => !isSpecifiedDirective(n) && !isFederationDirective(n),
+    (n) => !isSpecifiedDirective(n) && !isApolloTypeSystemDirective(n),
     isDefinedType,
     options,
   );
@@ -214,8 +214,21 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
     `type ${type.name}${implementedInterfaces}` +
     // Federation addition for printing @key usages
     printFederationDirectives(type) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type)
   );
+}
+
+function printKnownDirectiveUsagesOnType(
+  type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
+): string {
+  const tagUsages =
+    (type.extensions?.federation as FederationType)?.directiveUsages?.get(
+      'tag',
+    ) ?? [];
+  if (tagUsages.length === 0) return '';
+
+  return ' ' + tagUsages.map(print).join(' ');
 }
 
 function printInterface(type: GraphQLInterfaceType, options?: Options): string {
@@ -233,6 +246,7 @@ function printInterface(type: GraphQLInterfaceType, options?: Options): string {
     // Federation change: graphql@14 doesn't support interfaces implementing interfaces
     // printImplementedInterfaces(type) +
     printFederationDirectives(type) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type)
   );
 }
@@ -240,7 +254,13 @@ function printInterface(type: GraphQLInterfaceType, options?: Options): string {
 function printUnion(type: GraphQLUnionType, options?: Options): string {
   const types = type.getTypes();
   const possibleTypes = types.length ? ' = ' + types.join(' | ') : '';
-  return printDescription(options, type) + 'union ' + type.name + possibleTypes;
+  return (
+    printDescription(options, type) +
+    'union ' +
+    type.name +
+    printKnownDirectiveUsagesOnType(type) +
+    possibleTypes
+  );
 }
 
 function printEnum(type: GraphQLEnumType, options?: Options): string {
@@ -282,27 +302,42 @@ function printFields(
       ': ' +
       String(f.type) +
       printDeprecated(f) +
-      printFederationDirectives(f),
+      printFederationDirectives(f) +
+      printKnownDirectiveUsagesOnFields(f),
   );
   return printBlock(fields);
 }
 
 // Federation change: *do* print the usages of federation directives.
 function printFederationDirectives(
-  type: GraphQLNamedType | GraphQLField<any, any>,
+  typeOrField: GraphQLNamedType | GraphQLField<any, any>,
 ): string {
-  if (!type.astNode) return '';
-  if (isInputObjectType(type)) return '';
+  if (!typeOrField.astNode) return '';
+  if (isInputObjectType(typeOrField)) return '';
 
-  const allDirectives = gatherDirectives(type)
+  const federationDirectivesOnTypeOrField = gatherDirectives(typeOrField)
     .filter((n) =>
       federationDirectives.some((fedDir) => fedDir.name === n.name.value),
     )
     .map(print);
-  const dedupedDirectives = [...new Set(allDirectives)];
+  const dedupedDirectives = [...new Set(federationDirectivesOnTypeOrField)];
 
   return dedupedDirectives.length > 0 ? ' ' + dedupedDirectives.join(' ') : '';
 }
+
+// Core addition: print `@tag` directive usages (and possibly other future known
+// directive usages) found in subgraph SDL.
+function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
+ const tagUsages = (
+   field.extensions?.federation as FederationField
+ )?.directiveUsages?.get('tag');
+  if (!tagUsages || tagUsages.length < 1) return '';
+  return ` ${tagUsages
+    .slice()
+    .sort((a, b) => a.name.value.localeCompare(b.name.value))
+    .map(print)
+    .join(' ')}`;
+};
 
 function printBlock(items: string[]) {
   return items.length !== 0 ? ' {\n' + items.join('\n') + '\n}' : '';

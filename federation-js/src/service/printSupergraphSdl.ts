@@ -32,6 +32,7 @@ import { assert } from '../utilities';
 import { CoreDirective } from '../coreSpec';
 import { getJoinDefinitions } from '../joinSpec';
 import { printFieldSet } from '../composition/utils';
+import { otherKnownDirectiveDefinitions } from '../directives';
 
 type Options = {
   /**
@@ -164,15 +165,27 @@ function printSchemaDefinition(schema: GraphQLSchema): string {
   return (
     'schema' +
     // Core change: print @core directive usages on schema node
-    printCoreDirectives() +
+    printCoreDirectives(schema) +
     `\n{\n${operationTypes.join('\n')}\n}`
   );
 }
 
-function printCoreDirectives() {
+function printCoreDirectives(schema: GraphQLSchema) {
+  const otherKnownDirectiveNames = otherKnownDirectiveDefinitions.map(
+    ({ name }) => name,
+  );
+  const schemaDirectiveNames = schema.getDirectives().map(({ name }) => name);
+  const otherKnownDirectivesToInclude = schemaDirectiveNames.filter((name) =>
+    otherKnownDirectiveNames.includes(name),
+  );
+  const otherKnownDirectiveSpecUrls = otherKnownDirectivesToInclude.map(
+    (name) => `https://specs.apollo.dev/${name}/v0.1`,
+  );
+
   return [
     'https://specs.apollo.dev/core/v0.1',
     'https://specs.apollo.dev/join/v0.1',
+    ...otherKnownDirectiveSpecUrls,
   ].map((feature) => `\n  @core(feature: ${printStringLiteral(feature)})`);
 }
 
@@ -220,8 +233,21 @@ function printObject(
     implementedInterfaces +
     // Core addition for printing @join__owner and @join__type usages
     printTypeJoinDirectives(type, context) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type, context)
   );
+}
+
+function printKnownDirectiveUsagesOnType(
+  type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
+): string {
+  const tagUsages =
+    (type.extensions?.federation as FederationType)?.directiveUsages?.get(
+      'tag',
+    ) ?? [];
+  if (tagUsages.length === 0) return '';
+
+  return '\n  ' + tagUsages.map(print).join('\n  ');
 }
 
 // Core change: print @join__owner and @join__type usages
@@ -290,14 +316,24 @@ function printInterface(
     `interface ${type.name}` +
     // Core addition for printing @join__owner and @join__type usages
     printTypeJoinDirectives(type, context) +
+    printKnownDirectiveUsagesOnType(type) +
     printFields(options, type, context)
   );
 }
 
 function printUnion(type: GraphQLUnionType, options?: Options): string {
   const types = type.getTypes();
-  const possibleTypes = types.length ? ' = ' + types.join(' | ') : '';
-  return printDescription(options, type) + 'union ' + type.name + possibleTypes;
+  const knownDirectiveUsages = printKnownDirectiveUsagesOnType(type);
+  const possibleTypes = types.length
+    ? `${knownDirectiveUsages.length ? '\n' : ' '}= ` + types.join(' | ')
+    : '';
+  return (
+    printDescription(options, type) +
+    'union ' +
+    type.name +
+    knownDirectiveUsages +
+    possibleTypes
+  );
 }
 
 function printEnum(type: GraphQLEnumType, options?: Options): string {
@@ -353,14 +389,20 @@ function printFields(
       String(f.type) +
       printDeprecated(f) +
       // We don't want to print field owner directives on fields belonging to an interface type
-      (isObjectType(type) ? printJoinFieldDirectives(f, type, context) : ''),
+      (isObjectType(type)
+        ? printJoinFieldDirectives(f, type, context) +
+          printKnownDirectiveUsagesOnFields(f)
+        : ''),
   );
 
   // Core change: for entities, we want to print the block on a new line.
   // This is just a formatting nice-to-have.
   const isEntity = Boolean(type.extensions?.federation?.keys);
+  const hasTags = Boolean(
+    type.extensions?.federation?.directiveUsages?.get('tag')?.length,
+  );
 
-  return printBlock(fields, isEntity);
+  return printBlock(fields, isEntity || hasTags);
 }
 
 /**
@@ -375,55 +417,67 @@ function printJoinFieldDirectives(
   // Core addition - see `PrintingContext` type for details
   context: PrintingContext,
 ): string {
-  let printed = ' @join__field(';
-  // Fields on the owning service do not have any federation metadata applied
-  // TODO: maybe make this metadata available? Though I think this is intended and we may depend on that implicity.
+  const directiveArgs: string[] = [];
 
-  if (!field.extensions?.federation) {
-    // FIXME: We should change the way we detect value types. If a type is
-    // defined in only one service, we currently don't consider it a value type
-    // even if it doesn't specify any keys.
-    // Because we print `@join__type` directives based on the keys, but only used to
-    // look at the owning service here, that meant we would print `@join__field`
-    // without a corresponding `@join__type`, which is invalid according to the spec.
-    const { serviceName, keys } = parentType.extensions?.federation;
-    if (serviceName && keys) {
-      const enumValue = context.graphNameToEnumValueName?.[serviceName];
-      assert(
-        enumValue,
-        `Unexpected enum value missing for subgraph ${serviceName}`,
-      );
-      return printed + `graph: ${enumValue})`;
-    }
-    return '';
+  const fieldMetadata: FederationField | undefined =
+    field.extensions?.federation;
+
+  let serviceName = fieldMetadata?.serviceName;
+
+  // For entities (which we detect through the existence of `keys`),
+  // although the join spec doesn't currently require `@join__field(graph:)` when
+  // a field can be resolved from the owning service, the code we used
+  // previously did include it in those cases. And especially since we want to
+  // remove type ownership, I think it makes to keep the same behavior.
+  if (!serviceName && parentType.extensions?.federation.keys) {
+    serviceName = parentType.extensions?.federation.serviceName;
   }
 
-  const {
-    serviceName,
-    requires = [],
-    provides = [],
-  }: FederationField = field.extensions.federation;
+  if (serviceName) {
+    const enumValue = context.graphNameToEnumValueName?.[serviceName];
+    assert(
+      enumValue,
+      `Unexpected enum value missing for subgraph ${serviceName}`,
+    );
 
-  let directiveArgs: string[] = [];
+    directiveArgs.push(`graph: ${enumValue}`);
+  }
 
-  if (serviceName && serviceName.length > 0) {
+  const requires = fieldMetadata?.requires;
+
+  if (requires && requires.length > 0) {
     directiveArgs.push(
-      `graph: ${context.graphNameToEnumValueName?.[serviceName] ?? serviceName}`,
+      `requires: ${printStringLiteral(printFieldSet(requires))}`,
     );
   }
 
-  if (requires.length > 0) {
-    directiveArgs.push(`requires: ${printStringLiteral(printFieldSet(requires))}`);
+  const provides = fieldMetadata?.provides;
+
+  if (provides && provides.length > 0) {
+    directiveArgs.push(
+      `provides: ${printStringLiteral(printFieldSet(provides))}`,
+    );
   }
 
-  if (provides.length > 0) {
-    directiveArgs.push(`provides: ${printStringLiteral(printFieldSet(provides))}`);
-  }
+  // A directive without arguments isn't valid (nor useful).
+  if (directiveArgs.length < 1) return '';
 
-  printed += directiveArgs.join(', ');
-
-  return (printed += ')');
+  return ` @join__field(${directiveArgs.join(', ')})`;
 }
+
+// Core addition: print `@tag` directives (and possibly other future known
+// directives) found in subgraph SDL into the supergraph SDL
+function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
+  const tagUsages = (
+    field.extensions?.federation as FederationField
+  )?.directiveUsages?.get('tag');
+  if (!tagUsages || tagUsages.length < 1) return '';
+  return ` ${tagUsages
+    .slice()
+    .sort((a, b) => a.name.value.localeCompare(b.name.value))
+    .map(print)
+    .join(' ')}`;
+};
 
 // Core change: `onNewLine` is a formatting nice-to-have for printing
 // types that have a list of directives attached, i.e. an entity.

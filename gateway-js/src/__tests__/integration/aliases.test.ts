@@ -1,6 +1,6 @@
 import { execute } from '../execution-utils';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
-import { buildFederatedSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/federation';
 import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
@@ -145,7 +145,7 @@ it('supports aliases when using ApolloServer', async () => {
     localServiceList: fixtures,
     buildService: service => {
       // @ts-ignore
-      return new LocalGraphQLDataSource(buildFederatedSchema([service]));
+      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
     },
   });
 

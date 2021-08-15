@@ -1,5 +1,5 @@
 ---
-title: "Federation quickstart (preview)"
+title: "Federation quickstart"
 sidebar_title: "Part 3 - Working with subgraphs"
 description: "Part 3 - Working with subgraphs"
 ---
@@ -25,21 +25,21 @@ First, install the `@apollo/federation` library in your project:
 npm install @apollo/federation
 ```
 
-Next, import the `buildFederatedSchema` function in the file where you initialize `ApolloServer`:
+Next, import the `buildSubgraphSchema` function in the file where you initialize `ApolloServer`:
 
 ```js:title=index.js
-const { buildFederatedSchema } = require('@apollo/federation');
+const { buildSubgraphSchema } = require('@apollo/federation');
 ```
 
 Finally, modify your `ApolloServer` constructor by passing it a `schema` option instead of `typeDefs` and `resolvers`, like so:
 
 ```js:title=index.js
 const server = new ApolloServer({ 
-  schema: buildFederatedSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
 });
 ```
 
-(As shown, you now pass your `typeDefs` and `resolvers` to `buildFederatedSchema`.)
+(As shown, you now pass your `typeDefs` and `resolvers` to `buildSubgraphSchema`.)
 
 And that's it! You can now perform all of the same subgraph setup on your _own_ service (introspection, schema registration, etc.) that you did with the Apollo-hosted services we used in the first two parts. Refer to those parts for guidance.
 

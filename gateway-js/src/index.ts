@@ -1,8 +1,4 @@
-import {
-  GraphQLService,
-  SchemaChangeCallback,
-  Unsubscriber,
-} from 'apollo-server-core';
+import { GraphQLService, Unsubscriber } from 'apollo-server-core';
 import {
   GraphQLExecutionResult,
   Logger,
@@ -33,13 +29,18 @@ import {
 } from './executeQueryPlan';
 
 import { getServiceDefinitionsFromRemoteEndpoint } from './loadServicesFromRemoteEndpoint';
-import { GraphQLDataSource } from './datasources/types';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
 import { HttpRequestCache } from './cache';
 import { fetch } from 'apollo-server-env';
-import { QueryPlanner, QueryPlan, prettyFormatQueryPlan } from '@apollo/query-planner';
+import {
+  QueryPlanner,
+  QueryPlan,
+  prettyFormatQueryPlan,
+  toAPISchema,
+} from '@apollo/query-planner';
 import {
   ServiceEndpointDefinition,
   Experimental_DidFailCompositionCallback,
@@ -64,10 +65,13 @@ import {
   SupergraphSdlUpdate,
   CompositionUpdate,
   isPrecomposedManagedConfig,
+  isLegacyManagedConfig,
 } from './config';
 import { loadSupergraphSdlFromStorage } from './loadSupergraphSdlFromStorage';
 import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorage';
 import { buildComposedSchema } from '@apollo/query-planner';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -109,12 +113,12 @@ export function getDefaultFetcher() {
 /**
  * TODO(trevor:cloudconfig): Stop exporting this
  * @deprecated This will be removed in a future version of @apollo/gateway
-*/
+ */
 export const getDefaultGcsFetcher = getDefaultFetcher;
 /**
  * TODO(trevor:cloudconfig): Stop exporting this
  * @deprecated This will be removed in a future version of @apollo/gateway
-*/
+ */
 export const GCS_RETRY_COUNT = 5;
 
 export const HEALTH_CHECK_QUERY =
@@ -161,8 +165,7 @@ interface GraphQLServiceEngineConfig {
   apiKeyHash: string;
   graphId: string;
   graphVariant?: string;
-};
-
+}
 
 export class ApolloGateway implements GraphQLService {
   public schema?: GraphQLSchema;
@@ -171,7 +174,13 @@ export class ApolloGateway implements GraphQLService {
   private logger: Logger;
   private queryPlanStore: InMemoryLRUCache<QueryPlan>;
   private apolloConfig?: ApolloConfigFromAS3;
-  private onSchemaChangeListeners = new Set<SchemaChangeCallback>();
+  private onSchemaChangeListeners = new Set<(schema: GraphQLSchema) => void>();
+  private onSchemaLoadOrUpdateListeners = new Set<
+    (schemaContext: {
+      apiSchema: GraphQLSchema;
+      coreSupergraphSdl: string;
+    }) => void
+  >();
   private serviceDefinitions: ServiceDefinition[] = [];
   private compositionMetadata?: CompositionMetadata;
   private serviceSdlCache = new Map<string, string>();
@@ -199,9 +208,11 @@ export class ApolloGateway implements GraphQLService {
   // how often service defs should be loaded/updated (in ms)
   private experimental_pollInterval?: number;
   // Configure the endpoint by which gateway will access its precomposed schema.
-  // For now, `null` is default and means to continue using the legacy managed mode.
+  // * `string` means use that endpoint
+  // * `null` will revert the gateway to legacy mode (polling GCS and composing the schema itself).
+  // * `undefined` means the gateway is not using managed federation
   // TODO(trevor:cloudconfig): `null` should be disallowed in the future.
-  private experimental_schemaConfigDeliveryEndpoint: string | null;
+  private schemaConfigDeliveryEndpoint?: string | null;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -228,24 +239,30 @@ export class ApolloGateway implements GraphQLService {
 
     this.experimental_pollInterval = config?.experimental_pollInterval;
 
-    // Do not use this unless advised by Apollo staff to do so
-    // 1. If config is explicitly set to a `string` or `null` in code, use it
-    // 2. Else, if the env var is set, use that
-    // 3. Else, default to `null`
-    this.experimental_schemaConfigDeliveryEndpoint = isPrecomposedManagedConfig(
-      this.config,
-    )
-      ? this.config.experimental_schemaConfigDeliveryEndpoint
-      : this.config.experimental_schemaConfigDeliveryEndpoint === null
-      ? null
-      : process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT ?? null;
+    // 1. If config is set to a `string`, use it
+    // 2. If config is explicitly set to `null`, fallback to GCS
+    // 3. If the env var is set, use that
+    // 4. If config is `undefined`, use the default uplink URL
+
+    // This if case unobviously handles 1, 2, and 4.
+    if (isPrecomposedManagedConfig(this.config)) {
+      const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
+      this.schemaConfigDeliveryEndpoint =
+        this.config.schemaConfigDeliveryEndpoint ??
+        envEndpoint ??
+        'https://uplink.api.apollographql.com/';
+    } else if (isLegacyManagedConfig(this.config)) {
+      this.schemaConfigDeliveryEndpoint = null;
+    }
 
     if (isManuallyManagedConfig(this.config)) {
       // Use the provided updater function if provided by the user, else default
       if ('experimental_updateSupergraphSdl' in this.config) {
-        this.updateServiceDefinitions = this.config.experimental_updateSupergraphSdl;
+        this.updateServiceDefinitions =
+          this.config.experimental_updateSupergraphSdl;
       } else if ('experimental_updateServiceDefinitions' in this.config) {
-        this.updateServiceDefinitions = this.config.experimental_updateServiceDefinitions;
+        this.updateServiceDefinitions =
+          this.config.experimental_updateServiceDefinitions;
       } else {
         throw Error(
           'Programming error: unexpected manual configuration provided',
@@ -421,15 +438,13 @@ export class ApolloGateway implements GraphQLService {
       ({ schema, supergraphSdl } = isLocalConfig(config)
         ? this.createSchemaFromServiceList(config.localServiceList)
         : this.createSchemaFromSupergraphSdl(config.supergraphSdl));
+      // TODO(trevor): #580 redundant parse
+      this.parsedSupergraphSdl = parse(supergraphSdl);
+      this.updateWithSchemaAndNotify(schema, supergraphSdl, true);
     } catch (e) {
       this.state = { phase: 'failed to load' };
       throw e;
     }
-
-    this.schema = schema;
-    // TODO(trevor): #580 redundant parse
-    this.parsedSupergraphSdl = parse(supergraphSdl);
-    this.queryPlanner = new QueryPlanner(schema);
     this.state = { phase: 'loaded' };
   }
 
@@ -495,8 +510,6 @@ export class ApolloGateway implements GraphQLService {
     this.compositionMetadata = result.compositionMetadata;
     this.serviceDefinitions = result.serviceDefinitions;
 
-    if (this.queryPlanStore) this.queryPlanStore.flush();
-
     const { schema, supergraphSdl } = this.createSchemaFromServiceList(
       result.serviceDefinitions,
     );
@@ -506,27 +519,13 @@ export class ApolloGateway implements GraphQLService {
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
-      this.schema = schema;
-      this.queryPlanner = new QueryPlanner(schema);
-
-      // Notify the schema listeners of the updated schema
-      try {
-        this.onSchemaChangeListeners.forEach((listener) =>
-          listener(this.schema!),
-        );
-      } catch (e) {
-        this.logger.error(
-          "An error was thrown from an 'onSchemaChange' listener. " +
-            'The schema will still update: ' +
-            ((e && e.message) || e),
-        );
-      }
+      this.updateWithSchemaAndNotify(schema, supergraphSdl);
 
       if (this.experimental_didUpdateComposition) {
         this.experimental_didUpdateComposition(
           {
             serviceDefinitions: result.serviceDefinitions,
-            schema: this.schema,
+            schema,
             ...(this.compositionMetadata && {
               compositionMetadata: this.compositionMetadata,
             }),
@@ -544,7 +543,9 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async updateWithSupergraphSdl(result: SupergraphSdlUpdate): Promise<void> {
+  private async updateWithSupergraphSdl(
+    result: SupergraphSdlUpdate,
+  ): Promise<void> {
     if (result.id === this.compositionId) {
       this.logger.debug('No change in composition since last check.');
       return;
@@ -570,37 +571,23 @@ export class ApolloGateway implements GraphQLService {
     this.compositionId = result.id;
     this.parsedSupergraphSdl = parsedSupergraphSdl;
 
-    if (this.queryPlanStore) this.queryPlanStore.flush();
-
-    const { schema, supergraphSdl } = this.createSchemaFromSupergraphSdl(result.supergraphSdl);
+    const { schema, supergraphSdl } = this.createSchemaFromSupergraphSdl(
+      result.supergraphSdl,
+    );
 
     if (!supergraphSdl) {
       this.logger.error(
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
-      this.schema = schema;
-      this.queryPlanner = new QueryPlanner(schema);
-
-      // Notify the schema listeners of the updated schema
-      try {
-        this.onSchemaChangeListeners.forEach((listener) =>
-          listener(this.schema!),
-        );
-      } catch (e) {
-        this.logger.error(
-          "An error was thrown from an 'onSchemaChange' listener. " +
-            'The schema will still update: ' +
-            ((e && e.message) || e),
-        );
-      }
+      this.updateWithSchemaAndNotify(schema, supergraphSdl);
 
       if (this.experimental_didUpdateComposition) {
         this.experimental_didUpdateComposition(
           {
             compositionId: result.id,
             supergraphSdl: result.supergraphSdl,
-            schema: this.schema,
+            schema,
           },
           previousCompositionId && previousSupergraphSdl && previousSchema
             ? {
@@ -612,6 +599,51 @@ export class ApolloGateway implements GraphQLService {
         );
       }
     }
+  }
+
+  // TODO: We should consolidate "schema derived data" state as we've done in Apollo Server to
+  //       ensure we do not forget to update some of that state, and to avoid scenarios where
+  //       concurrently executing code sees partially-updated state.
+  private updateWithSchemaAndNotify(
+    coreSchema: GraphQLSchema,
+    coreSupergraphSdl: string,
+    // Once we remove the deprecated onSchemaChange() method, we can remove this.
+    legacyDontNotifyOnSchemaChangeListeners: boolean = false,
+  ): void {
+    if (this.queryPlanStore) this.queryPlanStore.flush();
+    this.schema = toAPISchema(coreSchema);
+    this.queryPlanner = new QueryPlanner(coreSchema);
+
+    // Notify onSchemaChange listeners of the updated schema
+    if (!legacyDontNotifyOnSchemaChangeListeners) {
+      this.onSchemaChangeListeners.forEach((listener) => {
+        try {
+          listener(this.schema!);
+        } catch (e) {
+          this.logger.error(
+            "An error was thrown from an 'onSchemaChange' listener. " +
+              'The schema will still update: ' +
+              ((e && e.message) || e),
+          );
+        }
+      });
+    }
+
+    // Notify onSchemaLoadOrUpdate listeners of the updated schema
+    this.onSchemaLoadOrUpdateListeners.forEach((listener) => {
+      try {
+        listener({
+          apiSchema: this.schema!,
+          coreSupergraphSdl,
+        });
+      } catch (e) {
+        this.logger.error(
+          "An error was thrown from an 'onSchemaLoadOrUpdate' listener. " +
+            'The schema will still update: ' +
+            ((e && e.message) || e),
+        );
+      }
+    });
   }
 
   private async maybePerformServiceHealthCheck(update: CompositionUpdate) {
@@ -667,7 +699,11 @@ export class ApolloGateway implements GraphQLService {
     return Promise.all(
       Object.entries(serviceMap).map(([name, { dataSource }]) =>
         dataSource
-          .process({ request: { query: HEALTH_CHECK_QUERY }, context: {} })
+          .process({
+            kind: GraphQLDataSourceRequestKind.HEALTH_CHECK,
+            request: { query: HEALTH_CHECK_QUERY },
+            context: {},
+          })
           .then((response) => ({ name, response }))
           .catch((e) => {
             throw new Error(`[${name}]: ${e.message}`);
@@ -721,7 +757,9 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private serviceListFromSupergraphSdl(supergraphSdl: DocumentNode): Omit<ServiceDefinition, 'typeDefs'>[] {
+  private serviceListFromSupergraphSdl(
+    supergraphSdl: DocumentNode,
+  ): Omit<ServiceDefinition, 'typeDefs'>[] {
     const schema = buildComposedSchema(supergraphSdl);
     return this.serviceListFromComposedSchema(schema);
   }
@@ -751,11 +789,29 @@ export class ApolloGateway implements GraphQLService {
     };
   }
 
-  public onSchemaChange(callback: SchemaChangeCallback): Unsubscriber {
+  /**
+   * @deprecated Please use `onSchemaLoadOrUpdate` instead.
+   */
+  public onSchemaChange(
+    callback: (schema: GraphQLSchema) => void,
+  ): Unsubscriber {
     this.onSchemaChangeListeners.add(callback);
 
     return () => {
       this.onSchemaChangeListeners.delete(callback);
+    };
+  }
+
+  public onSchemaLoadOrUpdate(
+    callback: (schemaContext: {
+      apiSchema: GraphQLSchema;
+      coreSupergraphSdl: string;
+    }) => void,
+  ): Unsubscriber {
+    this.onSchemaLoadOrUpdateListeners.add(callback);
+
+    return () => {
+      this.onSchemaLoadOrUpdateListeners.delete(callback);
     };
   }
 
@@ -909,24 +965,23 @@ export class ApolloGateway implements GraphQLService {
     }
 
     // TODO(trevor:cloudconfig): This condition goes away completely
-    if (
-      !this.experimental_schemaConfigDeliveryEndpoint &&
-      !isPrecomposedManagedConfig(config)
-    ) {
+    if (isPrecomposedManagedConfig(config)) {
+      return loadSupergraphSdlFromStorage({
+        graphRef: this.apolloConfig!.graphRef!,
+        apiKey: this.apolloConfig!.key!,
+        endpoint: this.schemaConfigDeliveryEndpoint!,
+        fetcher: this.fetcher,
+      });
+    } else if (isLegacyManagedConfig(config)) {
       return getServiceDefinitionsFromStorage({
         graphRef: this.apolloConfig!.graphRef!,
         apiKeyHash: this.apolloConfig!.keyHash!,
         federationVersion: config.federationVersion || 1,
         fetcher: this.fetcher,
       });
+    } else {
+      throw new Error('Programming error: unhandled configuration');
     }
-
-    return loadSupergraphSdlFromStorage({
-      graphRef: this.apolloConfig!.graphRef!,
-      apiKey: this.apolloConfig!.key!,
-      endpoint: this.experimental_schemaConfigDeliveryEndpoint!,
-      fetcher: this.fetcher,
-    });
   }
 
   private maybeWarnOnConflictingConfig() {
@@ -963,140 +1018,186 @@ export class ApolloGateway implements GraphQLService {
   public executor = async <TContext>(
     requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
   ): Promise<GraphQLExecutionResult> => {
-    const { request, document, queryHash } = requestContext;
-    const queryPlanStoreKey = queryHash + (request.operationName || '');
-    const operationContext = buildOperationContext({
-      schema: this.schema!,
-      operationDocument: document,
-      operationName: request.operationName,
-    });
+    const spanAttributes = requestContext.operationName
+      ? { operationName: requestContext.operationName }
+      : {};
 
-    // No need to build a query plan if we know the request is invalid beforehand
-    // In the future, this should be controlled by the requestPipeline
-    const validationErrors = this.validateIncomingRequest(
-      requestContext,
-      operationContext,
-    );
+    return tracer.startActiveSpan(
+      OpenTelemetrySpanNames.REQUEST,
+      { attributes: spanAttributes },
+      async (span) => {
+        try {
+          const { request, document, queryHash } = requestContext;
+          const queryPlanStoreKey = queryHash + (request.operationName || '');
+          const operationContext = buildOperationContext({
+            schema: this.schema!,
+            operationDocument: document,
+            operationName: request.operationName,
+          });
 
-    if (validationErrors.length > 0) {
-      return { errors: validationErrors };
-    }
+          // No need to build a query plan if we know the request is invalid beforehand
+          // In the future, this should be controlled by the requestPipeline
+          const validationErrors = this.validateIncomingRequest(
+            requestContext,
+            operationContext,
+          );
 
-    let queryPlan: QueryPlan | undefined;
-    if (this.queryPlanStore) {
-      queryPlan = await this.queryPlanStore.get(queryPlanStoreKey);
-    }
+          if (validationErrors.length > 0) {
+            span.setStatus({ code: SpanStatusCode.ERROR });
+            return { errors: validationErrors };
+          }
 
-    if (!queryPlan) {
-      // TODO(#631): Can we be sure the query planner has been initialized here?
-      queryPlan = this.queryPlanner!.buildQueryPlan(operationContext, {
-        autoFragmentization: Boolean(
-          this.config.experimental_autoFragmentization,
-        ),
-      });
-      if (this.queryPlanStore) {
-        // The underlying cache store behind the `documentStore` returns a
-        // `Promise` which is resolved (or rejected), eventually, based on the
-        // success or failure (respectively) of the cache save attempt.  While
-        // it's certainly possible to `await` this `Promise`, we don't care about
-        // whether or not it's successful at this point.  We'll instead proceed
-        // to serve the rest of the request and just hope that this works out.
-        // If it doesn't work, the next request will have another opportunity to
-        // try again.  Errors will surface as warnings, as appropriate.
-        //
-        // While it shouldn't normally be necessary to wrap this `Promise` in a
-        // `Promise.resolve` invocation, it seems that the underlying cache store
-        // is returning a non-native `Promise` (e.g. Bluebird, etc.).
-        Promise.resolve(
-          this.queryPlanStore.set(queryPlanStoreKey, queryPlan),
-        ).catch((err) =>
-          this.logger.warn(
-            'Could not store queryPlan' + ((err && err.message) || err),
-          ),
-        );
-      }
-    }
+          let queryPlan: QueryPlan | undefined;
+          if (this.queryPlanStore) {
+            queryPlan = await this.queryPlanStore.get(queryPlanStoreKey);
+          }
 
-    const serviceMap: ServiceMap = Object.entries(this.serviceMap).reduce(
-      (serviceDataSources, [serviceName, { dataSource }]) => {
-        serviceDataSources[serviceName] = dataSource;
-        return serviceDataSources;
+          if (!queryPlan) {
+            queryPlan = tracer.startActiveSpan(
+              OpenTelemetrySpanNames.PLAN,
+              (span) => {
+                try {
+                  // TODO(#631): Can we be sure the query planner has been initialized here?
+                  return this.queryPlanner!.buildQueryPlan(operationContext, {
+                    autoFragmentization: Boolean(
+                      this.config.experimental_autoFragmentization,
+                    ),
+                  });
+                } catch (err) {
+                  span.setStatus({ code: SpanStatusCode.ERROR });
+                  throw err;
+                } finally {
+                  span.end();
+                }
+              },
+            );
+
+            if (this.queryPlanStore) {
+              // The underlying cache store behind the `documentStore` returns a
+              // `Promise` which is resolved (or rejected), eventually, based on the
+              // success or failure (respectively) of the cache save attempt.  While
+              // it's certainly possible to `await` this `Promise`, we don't care about
+              // whether or not it's successful at this point.  We'll instead proceed
+              // to serve the rest of the request and just hope that this works out.
+              // If it doesn't work, the next request will have another opportunity to
+              // try again.  Errors will surface as warnings, as appropriate.
+              //
+              // While it shouldn't normally be necessary to wrap this `Promise` in a
+              // `Promise.resolve` invocation, it seems that the underlying cache store
+              // is returning a non-native `Promise` (e.g. Bluebird, etc.).
+              Promise.resolve(
+                this.queryPlanStore.set(queryPlanStoreKey, queryPlan),
+              ).catch((err) =>
+                this.logger.warn(
+                  'Could not store queryPlan' + ((err && err.message) || err),
+                ),
+              );
+            }
+          }
+
+          const serviceMap: ServiceMap = Object.entries(this.serviceMap).reduce(
+            (serviceDataSources, [serviceName, { dataSource }]) => {
+              serviceDataSources[serviceName] = dataSource;
+              return serviceDataSources;
+            },
+            Object.create(null) as ServiceMap,
+          );
+
+          if (this.experimental_didResolveQueryPlan) {
+            this.experimental_didResolveQueryPlan({
+              queryPlan,
+              serviceMap,
+              requestContext,
+              operationContext,
+            });
+          }
+
+          const response = await executeQueryPlan<TContext>(
+            queryPlan,
+            serviceMap,
+            requestContext,
+            operationContext,
+          );
+
+          const shouldShowQueryPlan =
+            this.config.__exposeQueryPlanExperimental &&
+            request.http &&
+            request.http.headers &&
+            request.http.headers.get('Apollo-Query-Plan-Experimental');
+
+          // We only want to serialize the query plan if we're going to use it, which is
+          // in two cases:
+          // 1) non-empty query plan and config.debug === true
+          // 2) non-empty query plan and shouldShowQueryPlan === true
+          const serializedQueryPlan =
+            queryPlan.node && (this.config.debug || shouldShowQueryPlan)
+              ? // FIXME: I disabled printing the query plan because this lead to a
+                // circular dependency between the `@apollo/gateway` and
+                // `apollo-federation-integration-testsuite` packages.
+                // We should either solve that or switch Playground to
+                // the JSON serialization format.
+                prettyFormatQueryPlan(queryPlan)
+              : null;
+
+          if (this.config.debug && serializedQueryPlan) {
+            this.logger.debug(serializedQueryPlan);
+          }
+
+          if (shouldShowQueryPlan) {
+            // TODO: expose the query plan in a more flexible JSON format in the future
+            // and rename this to `queryPlan`. Playground should cutover to use the new
+            // option once we've built a way to print that representation.
+
+            // In the case that `serializedQueryPlan` is null (on introspection), we
+            // still want to respond to Playground with something truthy since it depends
+            // on this to decide that query plans are supported by this gateway.
+            response.extensions = {
+              __queryPlanExperimental: serializedQueryPlan || true,
+            };
+          }
+          if (response.errors) {
+            span.setStatus({ code: SpanStatusCode.ERROR });
+          }
+          return response;
+        } catch (err) {
+          span.setStatus({ code: SpanStatusCode.ERROR });
+          throw err;
+        } finally {
+          span.end();
+        }
       },
-      Object.create(null) as ServiceMap,
     );
-
-    if (this.experimental_didResolveQueryPlan) {
-      this.experimental_didResolveQueryPlan({
-        queryPlan,
-        serviceMap,
-        requestContext,
-        operationContext,
-      });
-    }
-
-    const response = await executeQueryPlan<TContext>(
-      queryPlan,
-      serviceMap,
-      requestContext,
-      operationContext,
-    );
-
-    const shouldShowQueryPlan =
-      this.config.__exposeQueryPlanExperimental &&
-      request.http &&
-      request.http.headers &&
-      request.http.headers.get('Apollo-Query-Plan-Experimental');
-
-    // We only want to serialize the query plan if we're going to use it, which is
-    // in two cases:
-    // 1) non-empty query plan and config.debug === true
-    // 2) non-empty query plan and shouldShowQueryPlan === true
-    const serializedQueryPlan =
-      queryPlan.node && (this.config.debug || shouldShowQueryPlan)
-        ? // FIXME: I disabled printing the query plan because this lead to a
-          // circular dependency between the `@apollo/gateway` and
-          // `apollo-federation-integration-testsuite` packages.
-          // We should either solve that or switch Playground to
-          // the JSON serialization format.
-          prettyFormatQueryPlan(queryPlan)
-        : null;
-
-    if (this.config.debug && serializedQueryPlan) {
-      this.logger.debug(serializedQueryPlan);
-    }
-
-    if (shouldShowQueryPlan) {
-      // TODO: expose the query plan in a more flexible JSON format in the future
-      // and rename this to `queryPlan`. Playground should cutover to use the new
-      // option once we've built a way to print that representation.
-
-      // In the case that `serializedQueryPlan` is null (on introspection), we
-      // still want to respond to Playground with something truthy since it depends
-      // on this to decide that query plans are supported by this gateway.
-      response.extensions = {
-        __queryPlanExperimental: serializedQueryPlan || true,
-      };
-    }
-    return response;
   };
 
   private validateIncomingRequest<TContext>(
     requestContext: GraphQLRequestContextExecutionDidStart<TContext>,
     operationContext: OperationContext,
   ) {
-    // casting out of `readonly`
-    const variableDefinitions = operationContext.operation
-      .variableDefinitions as VariableDefinitionNode[] | undefined;
+    return tracer.startActiveSpan(OpenTelemetrySpanNames.VALIDATE, (span) => {
+      try {
+        // casting out of `readonly`
+        const variableDefinitions = operationContext.operation
+          .variableDefinitions as VariableDefinitionNode[] | undefined;
 
-    if (!variableDefinitions) return [];
+        if (!variableDefinitions) return [];
 
-    const { errors } = getVariableValues(
-      operationContext.schema,
-      variableDefinitions,
-      requestContext.request.variables || {},
-    );
+        const { errors } = getVariableValues(
+          operationContext.schema,
+          variableDefinitions,
+          requestContext.request.variables || {},
+        );
 
-    return errors || [];
+        if (errors) {
+          span.setStatus({ code: SpanStatusCode.ERROR });
+        }
+        return errors || [];
+      } catch (err) {
+        span.setStatus({ code: SpanStatusCode.ERROR });
+        throw err;
+      } finally {
+        span.end();
+      }
+    });
   }
 
   // Stops all processes involved with the gateway (for now, just background

@@ -17,9 +17,13 @@ import {
   TypeExtensionNode,
   ObjectTypeDefinitionNode,
   NamedTypeNode,
+  lexicographicSortSchema,
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
-import federationDirectives from '../directives';
+import {
+  otherKnownDirectiveDefinitions,
+  federationDirectives,
+} from '../directives';
 import {
   findDirectivesOnNode,
   isStringValueNode,
@@ -27,12 +31,13 @@ import {
   mapFieldNamesToServiceName,
   stripExternalFieldsFromTypeDefs,
   typeNodesAreEquivalent,
-  isFederationDirective,
   executableDirectiveLocations,
   stripTypeSystemDirectivesFromTypeDefs,
   defaultRootOperationNameLookup,
   getFederationMetadata,
-  CompositionResult
+  CompositionResult,
+  isDirectiveDefinitionNode,
+  isFederationDirective
 } from './utils';
 import {
   ServiceDefinition,
@@ -46,6 +51,7 @@ import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
 import { printSupergraphSdl } from '../service/printSupergraphSdl';
 import { mapValues } from '../utilities';
+import { DirectiveMetadata } from './DirectiveMetadata';
 
 const EmptyQueryDefinition = {
   kind: Kind.OBJECT_TYPE_DEFINITION,
@@ -134,6 +140,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
   const externalFields: ExternalFieldDefinition[] = [];
   const keyDirectivesMap: KeyDirectivesMap = Object.create(null);
   const valueTypes: ValueTypes = new Set();
+  const directiveMetadata = new DirectiveMetadata(serviceList);
 
   for (const { typeDefs, name: serviceName } of serviceList) {
     // Build a new SDL with @external fields removed, as well as information about
@@ -279,7 +286,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
         } else {
           typeExtensionsMap[typeName] = [{ ...definition, serviceName }];
         }
-      } else if (definition.kind === Kind.DIRECTIVE_DEFINITION) {
+      } else if (isDirectiveDefinitionNode(definition)) {
         const directiveName = definition.name.value;
 
         // The composed schema should only contain directives and their
@@ -331,6 +338,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
     externalFields,
     keyDirectivesMap,
     valueTypes,
+    directiveMetadata
   };
 }
 
@@ -338,16 +346,29 @@ export function buildSchemaFromDefinitionsAndExtensions({
   typeDefinitionsMap,
   typeExtensionsMap,
   directiveDefinitionsMap,
+  directiveMetadata,
 }: {
   typeDefinitionsMap: TypeDefinitionsMap;
   typeExtensionsMap: TypeExtensionsMap;
   directiveDefinitionsMap: DirectiveDefinitionsMap;
+  directiveMetadata: DirectiveMetadata;
 }) {
   let errors: GraphQLError[] | undefined = undefined;
 
+  // We only want to include the definitions of other known Apollo directives
+  // (currently just @tag) if there are usages.
+  const otherKnownDirectiveDefinitionsToInclude =
+    otherKnownDirectiveDefinitions.filter((directive) =>
+      directiveMetadata.hasUsages(directive.name),
+    );
+
   let schema = new GraphQLSchema({
     query: undefined,
-    directives: [...specifiedDirectives, ...federationDirectives],
+    directives: [
+      ...specifiedDirectives,
+      ...federationDirectives,
+      ...otherKnownDirectiveDefinitionsToInclude,
+    ],
   });
 
   // This interface and predicate is a TS / graphql-js workaround for now while
@@ -367,23 +388,19 @@ export function buildSchemaFromDefinitionsAndExtensions({
   const definitionsDocument: DocumentNode = {
     kind: Kind.DOCUMENT,
     definitions: [
-      ...Object.values(typeDefinitionsMap).flatMap(typeDefinitions => {
+      ...Object.values(typeDefinitionsMap).flatMap((typeDefinitions) => {
         // See if any of our Objects or Interfaces implement any interfaces at all.
         // If not, we can return early.
         if (!typeDefinitions.some(nodeHasInterfaces)) return typeDefinitions;
 
-        const uniqueInterfaces: Map<
-          string,
-          NamedTypeNode
-        > = (typeDefinitions as HasInterfaces[]).reduce(
-          (map, objectTypeDef) => {
-            objectTypeDef.interfaces?.forEach((iface) =>
-              map.set(iface.name.value, iface),
-            );
-            return map;
-          },
-          new Map(),
-        );
+        const uniqueInterfaces: Map<string, NamedTypeNode> = (
+          typeDefinitions as HasInterfaces[]
+        ).reduce((map, objectTypeDef) => {
+          objectTypeDef.interfaces?.forEach((iface) =>
+            map.set(iface.name.value, iface),
+          );
+          return map;
+        }, new Map());
 
         // No interfaces, no aggregation - just return what we got.
         if (uniqueInterfaces.size === 0) return typeDefinitions;
@@ -397,10 +414,9 @@ export function buildSchemaFromDefinitionsAndExtensions({
             interfaces: Array.from(uniqueInterfaces.values()),
           },
         ];
-
       }),
       ...Object.values(directiveDefinitionsMap).map(
-        definitions => Object.values(definitions)[0],
+        (definitions) => Object.values(definitions)[0],
       ),
     ],
   };
@@ -427,11 +443,11 @@ export function buildSchemaFromDefinitionsAndExtensions({
     });
   } catch {}
 
-  // Remove federation directives from the final schema
+  // Remove apollo type system directives from the final schema
   schema = new GraphQLSchema({
     ...schema.toConfig(),
     directives: [
-      ...schema.getDirectives().filter(x => !isFederationDirective(x)),
+      ...schema.getDirectives().filter((x) => !isFederationDirective(x)),
     ],
   });
 
@@ -449,6 +465,7 @@ export function addFederationMetadataToSchemaNodes({
   keyDirectivesMap,
   valueTypes,
   directiveDefinitionsMap,
+  directiveMetadata,
 }: {
   schema: GraphQLSchema;
   typeToServiceMap: TypeToServiceMap;
@@ -456,6 +473,7 @@ export function addFederationMetadataToSchemaNodes({
   keyDirectivesMap: KeyDirectivesMap;
   valueTypes: ValueTypes;
   directiveDefinitionsMap: DirectiveDefinitionsMap;
+  directiveMetadata: DirectiveMetadata;
 }) {
   for (const [
     typeName,
@@ -476,7 +494,7 @@ export function addFederationMetadataToSchemaNodes({
       ...(keyDirectivesMap[typeName] && {
         keys: keyDirectivesMap[typeName],
       }),
-    }
+    };
 
     namedType.extensions = {
       ...namedType.extensions,
@@ -503,11 +521,11 @@ export function addFederationMetadataToSchemaNodes({
               providesDirective.arguments[0].value.value,
             ),
             belongsToValueType: isValueType,
-          }
+          };
 
           field.extensions = {
             ...field.extensions,
-            federation: fieldFederationMetadata
+            federation: fieldFederationMetadata,
           };
         }
       }
@@ -529,7 +547,7 @@ export function addFederationMetadataToSchemaNodes({
         const fieldFederationMetadata: FederationField = {
           ...getFederationMetadata(field),
           serviceName: extendingServiceName,
-        }
+        };
 
         field.extensions = {
           ...field.extensions,
@@ -551,7 +569,7 @@ export function addFederationMetadataToSchemaNodes({
             requires: parseSelections(
               requiresDirective.arguments[0].value.value,
             ),
-          }
+          };
 
           field.extensions = {
             ...field.extensions,
@@ -592,13 +610,17 @@ export function addFederationMetadataToSchemaNodes({
     const directiveFederationMetadata: FederationDirective = {
       ...getFederationMetadata(directive),
       directiveDefinitions: directiveDefinitionsMap[directiveName],
-    }
+    };
 
     directive.extensions = {
       ...directive.extensions,
       federation: directiveFederationMetadata,
-    }
+    };
   }
+
+  // currently this is only used to capture @tag metadata but could be used
+  // for others directives in the future
+  directiveMetadata.applyMetadataToSupergraphSchema(schema);
 }
 
 export function composeServices(services: ServiceDefinition[]): CompositionResult {
@@ -610,12 +632,14 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     externalFields,
     keyDirectivesMap,
     valueTypes,
+    directiveMetadata,
   } = buildMapsFromServiceList(services);
 
   let { schema, errors } = buildSchemaFromDefinitionsAndExtensions({
     typeDefinitionsMap,
     typeExtensionsMap,
     directiveDefinitionsMap,
+    directiveMetadata,
   });
 
   // TODO: We should fix this to take non-default operation root types in
@@ -647,6 +671,8 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     return undefined;
   });
 
+  schema = lexicographicSortSchema(schema);
+
   addFederationMetadataToSchemaNodes({
     schema,
     typeToServiceMap,
@@ -654,6 +680,7 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     keyDirectivesMap,
     valueTypes,
     directiveDefinitionsMap,
+    directiveMetadata,
   });
 
   if (errors.length > 0) {

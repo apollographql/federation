@@ -13,6 +13,7 @@ import {
   isObjectType,
 } from 'graphql';
 import { PromiseOrValue } from 'graphql/jsutils/PromiseOrValue';
+import { CacheHint } from 'apollo-server-types';
 
 export const EntityType = new GraphQLUnionType({
   name: '_Entity',
@@ -85,6 +86,19 @@ export const entitiesField: GraphQLFieldConfig<any, any> = {
         throw new Error(
           `The _entities resolver tried to load an entity for type "${__typename}", but no object type of that name was found in the schema`,
         );
+      }
+
+      // Note that while our TypeScript types (as of apollo-server-types@3.0.2)
+      // tell us that cacheControl and restrict are always defined, we want to
+      // avoid throwing when used with Apollo Server 2 which doesn't have
+      // `restrict`, or if the cache control plugin has been disabled.
+      if (info.cacheControl?.cacheHint?.restrict) {
+        const cacheHint: CacheHint | undefined =
+          info.cacheControl.cacheHintFromType(type);
+
+        if (cacheHint) {
+          info.cacheControl.cacheHint.restrict(cacheHint);
+        }
       }
 
       const resolveReference = type.resolveReference

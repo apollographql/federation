@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
-import { buildFederatedSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/federation';
 
 import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
 import { ApolloGateway } from '../../';
@@ -13,7 +13,7 @@ it('caches the query plan for a request', async () => {
     localServiceList: fixtures,
     buildService: service => {
       // @ts-ignore
-      return new LocalGraphQLDataSource(buildFederatedSchema([service]));
+      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
     },
   });
 
@@ -69,7 +69,7 @@ it('supports multiple operations and operationName', async () => {
     localServiceList: fixtures,
     buildService: service => {
       // @ts-ignore
-      return new LocalGraphQLDataSource(buildFederatedSchema([service]));
+      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
     },
   });
 
@@ -174,7 +174,7 @@ it('does not corrupt cached queryplan data across requests', async () => {
     localServiceList: [serviceA, serviceB],
     buildService: service => {
       // @ts-ignore
-      return new LocalGraphQLDataSource(buildFederatedSchema([service]));
+      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
     },
   });
 

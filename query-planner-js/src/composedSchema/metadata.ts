@@ -1,4 +1,9 @@
-import { FieldNode, InlineFragmentNode, GraphQLField, GraphQLObjectType } from 'graphql';
+import {
+  FieldNode,
+  InlineFragmentNode,
+  GraphQLField,
+  GraphQLObjectType,
+} from 'graphql';
 import { MultiMap } from '../utilities/MultiMap';
 
 declare module 'graphql' {
@@ -13,7 +18,7 @@ declare module 'graphql' {
   interface GraphQLFieldExtensions<
     _TSource,
     _TContext,
-    _TArgs = { [argName: string]: any }
+    _TArgs = { [argName: string]: any },
   > {
     federation?: FederationFieldMetadata;
   }
@@ -55,7 +60,7 @@ export type FederationTypeMetadata =
 
 export interface FederationEntityTypeMetadata {
   graphName: GraphName;
-  keys: MultiMap<GraphName, FieldSet>,
+  keys: MultiMap<GraphName, FieldSet>;
   isValueType: false;
 }
 

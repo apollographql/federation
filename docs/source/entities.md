@@ -3,10 +3,6 @@ title: Entities
 description: Reference and extend types across subgraphs
 ---
 
-> **Implementing services** are now known as **subgraphs**.
->
-> If you find an outdated use of "implementing service," please submit article feedback or a pull request using the links on the right.
-
 In Apollo Federation, an **entity** is an object type that you define canonically in _one_ subgraph and can then reference and extend in _other_ subgraphs. Entities are the core building block of a federated graph.
 
 > Types _besides_ object types (unions, interfaces, etc.) _cannot_ be entities.

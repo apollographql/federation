@@ -4,11 +4,40 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- _Nothing yet! Stay tuned!_
+
+## v0.29.0
+
+- __DEPRECATION__: Rename `buildFederatedSchema` to `buildSubgraphSchema`. The previous name will continue to be supported but is deprecated. No functional change, usages of `buildFederatedSchema` should just be replaced with `buildSubgraphSchema`. [PR #915](https://github.com/apollographql/federation/pull/913)
+- __BREAKING__: Support @tag directive on Object, Interface, and Union types. This is a breaking change for current @tag users, as one of the validations was updated. Existing @tag definitions must now accomodate the additional locations `OBJECT | INTERFACE | UNION`. Usages of the @tag directive are rolled up indiscriminately during composition, just as they currently are with fields. For example, a @tag usage on an entity extension will end up in the supergraph alongside any other @tag usages on the same entity in other subgraphs. [PR #945](https://github.com/apollographql/federation/pull/945) 
+
+## v0.28.0
+
+- When resolving the `Query._entities` field, honor `@cacheControl` directives on the object types that are members of the `_Entity` union. This feature is only enabled when your subgraph is running Apollo Server 3.0.2 or later. [PR #870](https://github.com/apollographql/federation/pull/870) [Related docs PR](https://github.com/apollographql/apollo-server/pull/5536)
+
+## v0.27.1
+
+- Narrow `graphql` peer dependency to a more fitting range `^15.4.0` based on our current usage of the package. This requirement was introduced by, but not captured in, changes within the recently released `@apollo/federation@0.27.0`. As such, this change will be released as a `patch` since the breaking change already accidentally happened and this is a correction to that oversight. [PR #913](https://github.com/apollographql/federation/pull/913)
+## v0.27.0
+
+- Skip missing types while iterating over field directive usages. It's possible to capture directive usages on fields whose types don't actually exist in the schema (due to invalid composition). See PR for more details. [PR #868](https://github.com/apollographql/federation/pull/868)
+- Disregard @inaccessible directive in subgraphs. This is a bit of a retrace on a previous decision. @inaccessible will now be achieved strictly through a combination of @tag and Studio usage. [PR #880](https://github.com/apollographql/federation/pull/880)
+- Require a @tag directive definition in subgraphs when there are @tag usages. [PR #882](https://github.com/apollographql/federation/pull/882)
+
+## v0.26.0
+
+- Capture and propagate `@tag` and `@inaccessible` directives during composition from subgraph to supergraph SDL. This unblocks upcoming work for schema construction, schema filtering (API schemas), and future Studio features. [PR #756](https://github.com/apollographql/federation/pull/756)
+
+## v0.25.2
+
+- Sort composed schema using graphql-js's `lexicographicSortSchema` for schema ordering determinism independent of serviceList ordering. [PR #824](https://github.com/apollographql/federation/pull/824)
+
 ## v0.25.1
 
 -  `ASTNodeWithDirectives` now includes all AST nodes with the `directives` field on it. [PR #755](https://github.com/apollographql/federation/pull/755)
 
 ## Update spec
+
 - Add `repeatable` keyword to the @key directive in federation spec. [PR #758](https://github.com/apollographql/federation/pull/758)
 
 ## v0.25.0

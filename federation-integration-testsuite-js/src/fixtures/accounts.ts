@@ -6,6 +6,22 @@ export const url = `https://${name}.api.com`;
 export const typeDefs = gql`
   directive @stream on FIELD
   directive @transform(from: String!) on FIELD
+  directive @tag(name: String!) repeatable on
+    | FIELD_DEFINITION
+    | INTERFACE
+    | OBJECT
+    | UNION
+
+  enum CacheControlScope {
+    PUBLIC
+    PRIVATE
+  }
+
+  directive @cacheControl(
+    maxAge: Int
+    scope: CacheControlScope
+    inheritMaxAge: Boolean
+  ) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
   schema {
     query: RootQuery
@@ -14,7 +30,7 @@ export const typeDefs = gql`
 
   extend type RootQuery {
     user(id: ID!): User
-    me: User
+    me: User @cacheControl(maxAge: 1000, scope: PRIVATE)
   }
 
   type PasswordAccount @key(fields: "email") {
@@ -25,7 +41,7 @@ export const typeDefs = gql`
     number: String
   }
 
-  union AccountType = PasswordAccount | SMSAccount
+  union AccountType @tag(name: "from-accounts") = PasswordAccount | SMSAccount
 
   type UserMetadata {
     name: String
@@ -33,13 +49,14 @@ export const typeDefs = gql`
     description: String
   }
 
-  type User @key(fields: "id") @key(fields: "username name { first last }"){
-    id: ID!
-    name: Name
+  type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {
+    id: ID! @tag(name: "accounts")
+    name: Name @cacheControl(inheritMaxAge: true)
     username: String
-    birthDate(locale: String): String
+    birthDate(locale: String): String @tag(name: "admin") @tag(name: "dev")
     account: AccountType
     metadata: [UserMetadata]
+    ssn: String
   }
 
   type Name {
@@ -63,21 +80,23 @@ const users = [
     id: '1',
     name: {
       first: 'Ada',
-      last: 'Lovelace'
+      last: 'Lovelace',
     },
     birthDate: '1815-12-10',
     username: '@ada',
     account: { __typename: 'LibraryAccount', id: '1' },
+    ssn: '123-45-6789',
   },
   {
     id: '2',
     name: {
       first: 'Alan',
-      last: 'Turing'
+      last: 'Turing',
     },
     birthDate: '1912-06-23',
     username: '@complete',
     account: { __typename: 'SMSAccount', number: '8675309' },
+    ssn: '987-65-4321',
   },
 ];
 

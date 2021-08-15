@@ -3,7 +3,7 @@ title: Federated schema design best practices
 sidebar_title: Federated schema design
 ---
 
-GraphQL is a relatively new technology, but from its rapid and widespread adoption has emerged a host of common schema design best practices—both from the large, notable companies that use it at scale every day, as well as the broader developer community. The majority of best practices that apply to non-federated GraphQL schema design also apply when designing service schemas within a federated data graph. However, federated schema design rewards some additional best practices when extracting portions of a data graph into subgraphs and determining what extension points to expose between service boundaries.
+GraphQL is a relatively new technology, but from its rapid and widespread adoption has emerged a host of common schema design best practices—both from the large, notable companies that use it at scale every day, as well as from the broader developer community. The majority of best practices that apply to non-federated GraphQL schema design also apply when designing service schemas within a federated data graph. However, federated schema design rewards some additional best practices when extracting portions of a data graph into subgraphs and determining what extension points to expose between service boundaries.
 
 Throughout this section, we'll explore some proven best practices for GraphQL schema design with a specific lens on how these practices relate to federated data graphs, as well as any special considerations and trade-offs to keep in mind when designing and evolving schemas across a distributed GraphQL architecture.
 
@@ -13,7 +13,7 @@ Throughout this section, we'll explore some proven best practices for GraphQL sc
 
 ### Define, reference, and extend entities as needed
 
-The [Apollo Federation specificaiton](/federation-spec/) indicates that an Object or Interface type can be made into an entity by adding the `@key` directive to its defintion in a subgraph schema. The `@key` directive defines a **primary key** for the entity and its `fields` argument will contain one or more of the type's fields. In the following example, the `Product` entity's primary key would be its `upc` field:
+The [Apollo Federation specification](/federation-spec/) indicates that an Object or Interface type can be made into an entity by adding the `@key` directive to its definition in a subgraph schema. The `@key` directive defines a **primary key** for the entity and its `fields` argument will contain one or more of the type's fields. In the following example, the `Product` entity's primary key would be its `upc` field:
 
 ```graphql:title=Products%20Subgraph
 type Product @key(fields: "upc") {
@@ -110,8 +110,8 @@ As another common example of exposed implementation details, here we can see how
 extend type Mutation {
   postProduct(name: String!, description: String): Product
   patchProduct(
-    id: ID!, 
-    name: String, 
+    id: ID!,
+    name: String,
     description: String
   ): Product
 }
@@ -124,7 +124,7 @@ extend type Mutation {
   createProduct(name: String!, description: String): Product
   updateProductName(id: ID!, name: String!): Product
   updateProductDescription(
-    id: ID!, 
+    id: ID!,
     description: String!
   ): Product
 }
@@ -261,9 +261,9 @@ When adding fields to a schema that are resolved with data from third-party data
 
 The matter of whether you should make referenced entities nullable in a subgraph's schema will depend on your existing architecture and internal SLAs and will likely need to be assessed on a case-by-case basis. Keep in mind the implication that nullability has on error handling—specifically, when a value cannot be resolved for a non-null field, then the null result bubbles up to the nearest nullable parent—and consider whether it's better to have a partial result or no result at all if a request for an entity fails.
 
-## Best practice #5: Use abstract type judiciously
+## Best practice #5: Use abstract types judiciously
 
-The GraphQL specification currently offers two abstract types in the type system—interfaces and unions. Both interfaces and unions are powerful tools to express relationships between types in a schema. However, when adding interfaces and unions to a schema—and in particular, a federated schema—it's important to do so with a clear-eyed understanding of the longer-term implications of managing these types. 
+The GraphQL specification currently offers two abstract types in the type system: interfaces and unions. Both interfaces and unions are powerful tools to express relationships between types in a schema. However, when adding interfaces and unions to a schema—and in particular, a federated schema—it's important to do so with a clear-eyed understanding of the longer-term implications of managing these types.
 
 As a prerequisite to using an abstract type in a subgraph, that subgraph must be able to resolve all possible concrete types that may be returned by a field that uses the abstract type as its output. Beyond that requirement, we must also ensure that we're using interfaces and unions in semantically purposeful ways. Additionally, we must help prepare client developers to handle changes to these types as the schema evolves.
 
@@ -379,7 +379,7 @@ The GraphQL specification outlines certain error handling procedures in response
 At a minimum, a single error map in the `errors` list will contain a `message` key with a description of the error, but it may also contain `location` and `path` keys if the error can be attributed to a specific point in the operation document. For example, for the following query operation:
 
 ```graphql
-query GetUserByLogin { 
+query GetUserByLogin {
   user(login: "incorrect_login") {
     name
   }
@@ -474,7 +474,7 @@ union ProductResult = Product | ProductRemovedError
 
 extend type User @key(fields: "id") {
   id: ID! @external
-  suggestedProducts: [Product]
+  suggestedProducts: [ProductResult]
 }
 
 extend type Query {
@@ -534,7 +534,7 @@ type PageInfo {
 
 It wouldn't make sense to expose `PageInfo` as an entity for several reasons, not the least of which is that there is no obvious primary key that identifies these objects. Further, the fields in this object type will be relatively stable across subgraphs and over time, so the likelihood of complications arising from evolving this type is minimal.
 
-There's no simple formula for evaluating the overhead added by a single value type or executable directive in a federated GraphQL API. While they may impact teams' abilities to manage and iterate their portions of the data graph because services may no longer be independently deployable, the long-term cost may be minimal if the types or directives rarely change. 
+There's no simple formula for evaluating the overhead added by a single value type or executable directive in a federated GraphQL API. While they may impact teams' abilities to manage and iterate their portions of the data graph because services may no longer be independently deployable, the long-term cost may be minimal if the types or directives rarely change.
 
 As a best practice, your data graph governance group should establish internal guidelines about when to introduce and how to work with value types and executable directives in the data graph, and drive adoption of new measures in your CI/CD pipeline to help manage the composition errors may result from these cross-cutting concerns during deployment.
 

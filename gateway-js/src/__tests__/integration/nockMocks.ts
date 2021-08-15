@@ -67,6 +67,9 @@ function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
 export const mockCloudConfigUrl =
   'https://example.cloud-config-url.com/cloudconfig/';
 
+export const mockOutOfBandReporterUrl =
+  'https://example.outofbandreporter.com/monitoring/';
+
 export function mockSupergraphSdlRequest() {
   return gatewayNock(mockCloudConfigUrl).post('/', {
     query: SUPERGRAPH_SDL_QUERY,
@@ -90,6 +93,21 @@ export function mockSupergraphSdlRequestSuccess(
           id,
           supergraphSdl,
         },
+      },
+    }),
+  );
+}
+
+export function mockOutOfBandReportRequest() {
+  return gatewayNock(mockOutOfBandReporterUrl).post('/', () => true);
+}
+
+export function mockOutOfBandReportRequestSuccess() {
+  return mockOutOfBandReportRequest().reply(
+    200,
+    JSON.stringify({
+      data: {
+        reportError: true
       },
     }),
   );

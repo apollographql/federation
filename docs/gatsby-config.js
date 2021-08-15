@@ -24,7 +24,6 @@ module.exports = {
           'Managed Federation': [
             'managed-federation/overview',
             'managed-federation/setup',
-            'managed-federation/monitoring',
             'managed-federation/federated-schema-checks',
             'managed-federation/deployment',
             '[Studio features](https://www.apollographql.com/docs/studio/federated-graphs/)',
@@ -34,10 +33,19 @@ module.exports = {
             'enterprise-guide/graphql-consolidation',
             'enterprise-guide/federated-schema-design',
             'enterprise-guide/graph-administration',
+            'enterprise-guide/graph-security',
             'enterprise-guide/federation-case-studies',
             'enterprise-guide/additional-resources',
           ],
-          Debugging: ['errors', 'metrics'],
+          'Performance': [
+            'performance/caching',
+            'performance/monitoring',
+          ],
+          'Debugging & Metrics': [
+            'errors', 
+            'metrics',
+            'opentelemetry',
+          ],
           'Third-Party Support': ['other-servers', 'federation-spec'],
           'API Reference': ['api/apollo-federation', 'api/apollo-gateway'],
         },
