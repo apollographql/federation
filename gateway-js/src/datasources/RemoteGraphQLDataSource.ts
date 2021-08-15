@@ -15,6 +15,7 @@ import {
   Headers,
   Response,
 } from 'apollo-server-env';
+import url from 'url';
 import { isObject } from '../utilities/predicates';
 import { GraphQLDataSource } from './types';
 import createSHA from 'apollo-server-core/dist/utils/createSHA';
@@ -60,15 +61,8 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
   }: Pick<GraphQLRequestContext<TContext>, 'request' | 'context'>): Promise<
     GraphQLResponse
   > {
-    // Respect incoming http headers (eg, apollo-federation-include-trace).
-    const headers = (request.http && request.http.headers) || new Headers();
-    headers.set('Content-Type', 'application/json');
 
-    request.http = {
-      method: 'POST',
-      url: this.url,
-      headers,
-    };
+    request.http = this.makeRequest({ request, context });
 
     if (this.willSendRequest) {
       await this.willSendRequest({ request, context });
@@ -141,10 +135,19 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
     // we're accessing (e.g. url) and what we access it with (e.g. headers).
     const { http, ...requestWithoutHttp } = request;
     const stringifiedRequestWithoutHttp = JSON.stringify(requestWithoutHttp);
-    const fetchRequest = new Request(http.url, {
-      ...http,
-      body: stringifiedRequestWithoutHttp,
-    });
+
+    let fetchRequest: Request;
+    if (http.method === 'GET' || http.method === 'HEAD') {
+      const searchParams = new url.URLSearchParams(requestWithoutHttp as any)
+      fetchRequest = new Request(`${http.url}?${searchParams}`, {
+        ...http,
+      });
+    } else {
+      fetchRequest = new Request(http.url, {
+        ...http,
+        body: stringifiedRequestWithoutHttp,
+      });
+    }
 
     let fetchResponse: Response | undefined;
 
@@ -174,6 +177,23 @@ export class RemoteGraphQLDataSource<TContext extends Record<string, any> = Reco
       this.didEncounterError(error, fetchRequest, fetchResponse, context);
       throw error;
     }
+  }
+
+  public makeRequest(
+    { request }: Pick<
+      GraphQLRequestContext<TContext>,
+      'request' | 'context'>)
+    : GraphQLRequest['http'] {
+
+    // Respect incoming http headers (eg, apollo-federation-include-trace).
+    const headers = (request.http && request.http.headers) || new Headers();
+    headers.set('Content-Type', 'application/json');
+
+    return {
+      method: 'POST',
+      url: this.url,
+      headers,
+    };
   }
 
   public willSendRequest?(

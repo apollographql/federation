@@ -276,6 +276,78 @@ describe('fetcher', () => {
   });
 });
 
+describe('makeRequest', () => {
+  it('allows for modifying url', async () => {
+    const DataSource = new RemoteGraphQLDataSource({
+      url: 'https://api.example.com/foo',
+      makeRequest: ({ request }) => {
+        const headers = (request.http && request.http.headers) || new Headers();
+        headers.set('Content-Type', 'application/json');
+
+        return {
+          method: 'POST',
+          url: 'https://api.example.com/bar',
+          headers: headers
+        };
+      },
+    });
+
+    fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+
+    const { data } = await DataSource.process({
+      request: {
+        query: '{ me { name } }',
+        variables: { id: '1' },
+      },
+      context: {},
+    });
+
+    expect(data).toEqual({ me: 'james' });
+    expect(fetch).toHaveFetched('https://api.example.com/bar', {
+      body: {
+        query: '{ me { name } }',
+        variables: { id: '1' },
+      },
+    });
+  });
+
+  it('allows for modifying method', async () => {
+    const DataSource = new RemoteGraphQLDataSource({
+      url: 'https://api.example.com/foo',
+      makeRequest: ({ request }) => {
+
+        const headers = (request.http && request.http.headers) || new Headers();
+        headers.set('Content-Type', 'application/json');
+
+        return {
+          method: 'GET',
+          url: 'https://api.example.com/foo',
+          headers: headers
+        };
+      },
+    });
+
+    fetch.mockJSONResponseOnce({ data: { me: 'james' } });
+
+    const { data } = await DataSource.process({
+      request: {
+        query: '{ me { name } }',
+        variables: { id: '1' },
+      },
+      context: {},
+    });
+
+    expect(data).toEqual({ me: 'james' });
+    expect(fetch).toHaveFetched('https://api.example.com/foo', {
+      method: 'GET',
+      body: {
+        query: '{ me { name } }',
+        variables: { id: '1' },
+      },
+    });
+  });
+});
+
 describe('willSendRequest', () => {
   it('allows for modifying variables', async () => {
     const DataSource = new RemoteGraphQLDataSource({
