@@ -145,26 +145,17 @@ describe('buildQueryPlan', () => {
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Parallel {
-          Fetch(service: "accounts") {
-            {
-              me {
-                name {
-                  first
-                }
-              }
-            }
-          },
           Sequence {
             Fetch(service: "product") {
               {
                 topProducts {
                   __typename
+                  ... on Furniture {
+                    name
+                  }
                   ... on Book {
                     __typename
                     isbn
-                  }
-                  ... on Furniture {
-                    name
                   }
                 }
               }
@@ -179,8 +170,6 @@ describe('buildQueryPlan', () => {
                 } =>
                 {
                   ... on Book {
-                    __typename
-                    isbn
                     title
                     year
                   }
@@ -192,9 +181,9 @@ describe('buildQueryPlan', () => {
                 {
                   ... on Book {
                     __typename
-                    isbn
                     title
                     year
+                    isbn
                   }
                 } =>
                 {
@@ -204,6 +193,15 @@ describe('buildQueryPlan', () => {
                 }
               },
             },
+          },
+          Fetch(service: "accounts") {
+            {
+              me {
+                name {
+                  first
+                }
+              }
+            }
           },
         },
       }
@@ -238,22 +236,22 @@ describe('buildQueryPlan', () => {
             {
               topProducts {
                 __typename
+                ... on Furniture {
+                  name
+                }
                 ... on Book {
                   __typename
                   isbn
-                }
-                ... on Furniture {
-                  name
                 }
               }
               product(upc: "1") {
                 __typename
+                ... on Furniture {
+                  name
+                }
                 ... on Book {
                   __typename
                   isbn
-                }
-                ... on Furniture {
-                  name
                 }
               }
             }
@@ -270,8 +268,6 @@ describe('buildQueryPlan', () => {
                   } =>
                   {
                     ... on Book {
-                      __typename
-                      isbn
                       title
                       year
                     }
@@ -283,9 +279,9 @@ describe('buildQueryPlan', () => {
                   {
                     ... on Book {
                       __typename
-                      isbn
                       title
                       year
+                      isbn
                     }
                   } =>
                   {
@@ -307,8 +303,6 @@ describe('buildQueryPlan', () => {
                   } =>
                   {
                     ... on Book {
-                      __typename
-                      isbn
                       title
                       year
                     }
@@ -320,9 +314,9 @@ describe('buildQueryPlan', () => {
                   {
                     ... on Book {
                       __typename
-                      isbn
                       title
                       year
+                      isbn
                     }
                   } =>
                   {
