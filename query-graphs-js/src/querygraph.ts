@@ -608,11 +608,11 @@ class GraphBuilderFromSchema extends GraphBuilder {
     if (isObjectType(namedType)) {
       this.addObjectTypeEdges(namedType, vertex);
     } else {
-      // For interfaces, we generally don't add direct edges for their fields. Because in general, where a particular field can be
-      // fetched from may depend on the runtime implementation. However, if the subgraph we're currently including "provides" a
-      // particular interface field locally *for all the supergraph interfaces implementations* (in other words, we know we can
-      // always ask the field to that subgraph directly on the interface and will never miss anything), then we can add a direct
-      // edge to the field for the interface in that subgraph (which avoids unecessary type explosing in practice).
+      // For interfaces, we generally don't add direct edges for their fields. Because in general, the subgraph where a particular
+      // field can be fetched from may depend on the runtime implementation. However, if the subgraph we're currently including
+      // "provides" a particular interface field locally *for all the supergraph interfaces implementations* (in other words, we 
+      // know we can always ask the field to that subgraph directly on the interface and will never miss anything), then we can 
+      // add a direct edge to the field for the interface in that subgraph (which avoids unecessary type explosing in practice).
       if (this.isFederatedSubgraph && isInterfaceType(namedType)) {
         this.maybeAddInterfaceFieldsEdges(namedType, vertex);
       }
@@ -639,9 +639,15 @@ class GraphBuilderFromSchema extends GraphBuilder {
     }
   }
 
-  private isProvidedByType(type: ObjectType, fieldName: string) {
+  private isDirectlyProvidedByType(type: ObjectType, fieldName: string) {
     const field = type.field(fieldName);
-    return field && !isExternal(field);
+    // The field is directly provided is:
+    //   1) the type does have it.
+    //   2) it is not external.
+    //   3) it does not have a @require (essentially, this method is called on type implementations of an interface
+    //      to decide if we can avoid type-explosion, but if the field has a @require on an implementation, then we
+    //      need to type-explode to make we handle that @require).
+    return field && !isExternal(field) && !field.hasAppliedDirective('requires');
   }
 
   private maybeAddInterfaceFieldsEdges(type: InterfaceType, head: Vertex) {
@@ -664,8 +670,8 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // Same as for objects, we want `allFields` so we capture __typename (which will never be external and always provided
     // by all local runtime types, so will always have an edge added, which we want).
     for (const field of type.allFields()) {
-      // To include the field, it must not be external himself, and it must be present (and non-external) on every of the runtime types
-      if (isExternal(field) || localRuntimeTypes.some(t => !this.isProvidedByType(t, field.name))) {
+      // To include the field, it must not be external himself, and it must be provided on every of the runtime types
+      if (isExternal(field) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
         continue;
       }
       const tail = this.addTypeRecursively(field.type!);
