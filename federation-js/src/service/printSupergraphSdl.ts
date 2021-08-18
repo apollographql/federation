@@ -179,14 +179,21 @@ function printCoreDirectives(schema: GraphQLSchema) {
     otherKnownDirectiveNames.includes(name),
   );
   const otherKnownDirectiveSpecUrls = otherKnownDirectivesToInclude.map(
-    (name) => `https://specs.apollo.dev/${name}/v0.1`,
+    (name) => ({
+      feature: `https://specs.apollo.dev/${name}/v0.1`,
+    }),
   );
 
   return [
-    'https://specs.apollo.dev/core/v0.1',
-    'https://specs.apollo.dev/join/v0.1',
+    { feature: 'https://specs.apollo.dev/core/v0.2' },
+    { feature: 'https://specs.apollo.dev/join/v0.1', purpose: 'EXECUTION' },
     ...otherKnownDirectiveSpecUrls,
-  ].map((feature) => `\n  @core(feature: ${printStringLiteral(feature)})`);
+  ].map(
+    ({ feature, purpose }) =>
+      `\n  @core(feature: ${printStringLiteral(feature)}${
+        purpose ? `, for: ${purpose}` : ''
+      })`,
+  );
 }
 
 export function printType(
