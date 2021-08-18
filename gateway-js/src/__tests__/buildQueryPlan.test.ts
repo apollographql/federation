@@ -952,7 +952,7 @@ describe('buildQueryPlan', () => {
             `);
     });
 
-    it(`should preserve type conditions for value types`, () => {
+    it(`eliminate unecessary type conditions`, () => {
       const operationString = `#graphql
         query {
           body {
@@ -981,9 +981,7 @@ describe('buildQueryPlan', () => {
                       body {
                         __typename
                         ... on Image {
-                          ... on NamedObject {
-                            name
-                          }
+                          name
                         }
                       }
                     }
