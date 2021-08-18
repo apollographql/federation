@@ -850,12 +850,7 @@ describe('buildQueryPlan', () => {
             {
               topProducts {
                 __typename
-                ... on Book {
-                  price
-                }
-                ... on Furniture {
-                  price
-                }
+                price
               }
             }
           },
@@ -1171,7 +1166,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  it(`interface inside interface should expand into possible types only`, () => {
+  it(`interface inside interface should not type explode if possible`, () => {
     const operationString = `#graphql
       query {
         product(upc: "") {
@@ -1197,15 +1192,9 @@ describe('buildQueryPlan', () => {
           {
             product(upc: "") {
               __typename
-              ... on Book {
-                details {
-                  country
-                }
-              }
-              ... on Furniture {
-                details {
-                  country
-                }
+              details {
+                __typename
+                country
               }
             }
           }
