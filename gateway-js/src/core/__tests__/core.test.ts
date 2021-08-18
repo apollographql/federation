@@ -111,7 +111,8 @@ describe('core v0.1', () => {
 
     expect(() => gateway.load()).rejects.toMatchInlineSnapshot(`
       Array [
-        "The \`for:\` argument is unsupported in @core v0.1 documents. Please upgrade to at least @core v0.2 (https://specs.apollo.dev/core/v0.2).",
+        "the \`for:\` argument is unsupported by version v0.1 of the core spec. Please upgrade to at least @core v0.2 (https://specs.apollo.dev/core/v0.2).",
+        "feature https://specs.apollo.dev/something-unsupported/v0.1 is for: SECURITY but is unsupported",
       ]
     `);
   });

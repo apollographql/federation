@@ -15,12 +15,13 @@ export const ErrUnsupportedFeature = (feature: Feature) =>
     nodes: [feature.directive],
   });
 
-export const ErrForUnsupported = (feature: Feature) =>
+export const ErrForUnsupported = (core: Feature, ...features: readonly Feature[]) =>
   err('ForUnsupported', {
     message:
-      'The `for:` argument is unsupported in @core v0.1 documents. Please upgrade to at least @core v0.2 (https://specs.apollo.dev/core/v0.2).',
-    feature,
-    nodes: [feature.directive],
+      `the \`for:\` argument is unsupported by version ${core.url.version} ` +
+      `of the core spec. Please upgrade to at least @core v0.2 (https://specs.apollo.dev/core/v0.2).`,
+    features,
+    nodes: [core.directive, ...features.map(f => f.directive)]
   });
 
 export function featureSupport(this: CoreSchemaContext) {
@@ -28,16 +29,15 @@ export function featureSupport(this: CoreSchemaContext) {
     'https://specs.apollo.dev/core/v0.1',
     true,
   );
-  // Handle the case where the user is using core v0.1 and the "for" argument
-  // in a @core directive usage.
-  if (!!coreVersionZeroDotOne) {
-    for (const feature of this.features) {
-      if (feature.purpose) {
-        this.report(ErrForUnsupported(coreVersionZeroDotOne));
-        break;
-      }
-    }
-    return;
+
+  // fail with ForUnsupported if the user provides a core directive with the
+  // `for:` argument in a core v0.1 document
+  if (coreVersionZeroDotOne) {
+    const purposefulFeatures = [...this.features].filter(f => f.purpose)
+    if (purposefulFeatures.length > 0)
+      this.report(ErrForUnsupported(coreVersionZeroDotOne, ...purposefulFeatures))
+    // we'll continue onward to report UnsupportedFeature even in core v0.1
+    // documents
   }
 
   for (const feature of this.features) {
