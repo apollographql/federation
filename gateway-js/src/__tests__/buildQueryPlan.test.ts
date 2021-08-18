@@ -453,11 +453,11 @@ describe('buildQueryPlan', () => {
             Fetch(service: "accounts") {
               {
                 me {
+                  __typename
+                  id
                   name {
                     first
                   }
-                  __typename
-                  id
                 }
               }
             },
