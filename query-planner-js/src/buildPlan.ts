@@ -717,7 +717,7 @@ function handleRequires(
   // expected by the user) because required fields will usually come just after a key edge (at
   // the top of a fetch group).
   // In that case (when the path is exactly 1 typeCast), we can put the created groups directly
-  // as depdency of the current group, avoiding to created a new one. Additionally, if the
+  // as dependency of the current group, avoiding to create a new one. Additionally, if the
   // group we're coming from is our "direct parent", we can merge it to said direct parent (which
   // effectively means that the parent group will collect the provides before taking the edge
   // to our current group).
@@ -779,6 +779,7 @@ function handleRequires(
     newGroup.addDependencyOn(createdGroups);
     const typeCast = new FragmentElement(entityType, entityType.name);
     const fullSelectionSet = new SelectionSet(entityType);
+    fullSelectionSet.add(new FieldSelection(new Field(entityType.typenameField()!)));
     fullSelectionSet.mergeIn(edge.conditions!);
     fullSelectionSet.mergeIn(requireEdgeAdditionalConditions(edge));
     newGroup.addInputs(new FragmentSelection(typeCast, fullSelectionSet));
