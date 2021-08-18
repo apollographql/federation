@@ -33,6 +33,100 @@ This architecture enables clients to query data from multiple services simultane
 
 Now that we have a high-level understanding of federation concepts, let's jump in.
 
+## Example subgraphs
+
+This tutorial uses two Apollo-hosted subgraphs for an example application: a Products subgraph and a Reviews subgraph. Here are their schemas for reference:
+
+<ExpansionPanel title="Products">
+
+```graphql:title=Products
+enum CURRENCY_CODE {
+  USD
+}
+
+type Department {
+  category: ProductCategory
+  url: String
+}
+
+type Money {
+  amount: Float
+  currencyCode: CURRENCY_CODE
+}
+
+"""Here are some helpful details about your type"""
+type Price {
+  cost: Money
+
+  """A number between 0 and 1 signifying the % discount"""
+  deal: Float
+  dealSavings: Money
+}
+
+"""
+This is an Entity, docs:https://www.apollographql.com/docs/federation/entities/
+You will need to define a __resolveReference resolver for the type you define, docs: https://www.apollographql.com/docs/federation/entities/#resolving
+"""
+type Product @key(fields: "id") {
+  id: ID!
+  title: String
+  url: String
+  description: String
+  price: Price
+  salesRank(category: ProductCategory = ALL): Int
+  salesRankOverall: Int
+  salesRankInCategory: Int
+  category: ProductCategory
+  images(size: Int = 1000): [String]
+  primaryImage(size: Int = 1000): String
+}
+
+enum ProductCategory {
+  ALL
+  GIFT_CARDS
+  ELECTRONICS
+  CAMERA_N_PHOTO
+  VIDEO_GAMES
+  BOOKS
+  CLOTHING
+}
+
+extend type Query {
+  bestSellers(category: ProductCategory = ALL): [Product]
+  categories: [Department]
+  product(id: ID!): Product
+}
+```
+
+</ExpansionPanel>
+
+<ExpansionPanel title="Reviews">
+
+```graphql:title=Reviews
+extend type Product @key(fields: "id") {
+  id: ID! @external
+  reviews: [Review]
+  reviewSummary: ReviewSummary
+}
+
+"""
+This is an Entity, docs:https://www.apollographql.com/docs/federation/entities/
+You will need to define a __resolveReference resolver for the type you define, docs: https://www.apollographql.com/docs/federation/entities/#resolving
+"""
+type Review @key(fields: "id") {
+  id: ID!
+  rating: Float
+  content: String
+}
+
+type ReviewSummary {
+  totalReviews: Int
+  averageRating: Float
+}
+```
+
+</ExpansionPanel>
+
 ## 1. Install the Rover CLI
 
 **Rover** is Apollo's CLI for managing data graphs, including federated ones.
@@ -99,7 +193,7 @@ This code demonstrates the basic flow for creating a gateway:
 If we run this code as-is with `node index.js`, we get an error:
 
 ```
-This data graph is missing a valid configuration. Syntax Error: Unexpected <EOF>.
+GraphQLError [Object]: Syntax Error: Unexpected <EOF>.
 ```
 
 That's because our `supergraphSdl` is currently empty! Next, we'll compose that schema.
@@ -113,129 +207,43 @@ There are multiple ways to compose a supergraph schema from our subgraph schemas
 * On our local machine using the Rover CLI (we'll start with this)
 * Via managed federation in Apollo Studio (we'll switch to this in [Part 2](./quickstart-pt-2/))
 
-Using managed federation is strongly recommended for production environments. We'll start with local composition just to get up and running.
+Using managed federation is strongly recommended for production environments. We'll start with local composition to get up and running.
 
-### Obtaining subgraph details
+### Providing subgraph details
 
-To compose our supergraph schema, we need the following information about each of our subgraphs:
+To compose our supergraph schema, the Rover CLI needs the following information about each of our subgraphs:
 
 * The subgraph's schema
 * The URL of the subgraph's GraphQL endpoint (which must be accessible by the gateway)
 
-We'll start with just two subgraphs. Because we're using Apollo-hosted example services for our subgraphs, we know their endpoint URLs. We _don't_ have their schemas, however.
+Because we're using Apollo-hosted example subgraphs, we know their endpoint URLs. And Rover can use those URLs to fetch their schemas via a special introspection query.
 
-#### Fetching subgraph schemas
+#### Configuration file
 
-We can fetch a running subgraph's schema by executing an enhanced introspection query on it. The Rover CLI provides a command to do exactly that.
-
-From your project directory, run the following command in your terminal:
-
-```shell
-rover subgraph introspect https://rover.apollo.dev/quickstart/products/graphql
-```
-
-Rover introspects Apollo's example `products` service and outputs the following schema:
-
-<ExpansionPanel title="Click to expand">
-
-```graphql
-enum CURRENCY_CODE {
-  USD
-}
-
-type Department {
-  category: ProductCategory
-  url: String
-}
-
-type Money {
-  amount: Float
-  currencyCode: CURRENCY_CODE
-}
-
-"""Here are some helpful details about your type"""
-type Price {
-  cost: Money
-
-  """A number between 0 and 1 signifying the % discount"""
-  deal: Float
-  dealSavings: Money
-}
-
-"""
-This is an Entity, docs:https://www.apollographql.com/docs/federation/entities/
-You will need to define a __resolveReference resolver for the type you define, docs: https://www.apollographql.com/docs/federation/entities/#resolving
-"""
-type Product @key(fields: "id") {
-  id: ID!
-  title: String
-  url: String
-  description: String
-  price: Price
-  salesRank(category: ProductCategory = ALL): Int
-  salesRankOverall: Int
-  salesRankInCategory: Int
-  category: ProductCategory
-  images(size: Int = 1000): [String]
-  primaryImage(size: Int = 1000): String
-}
-
-enum ProductCategory {
-  ALL
-  GIFT_CARDS
-  ELECTRONICS
-  CAMERA_N_PHOTO
-  VIDEO_GAMES
-  BOOKS
-  CLOTHING
-}
-
-extend type Query {
-  bestSellers(category: ProductCategory = ALL): [Product]
-  categories: [Department]
-  product(id: ID!): Product
-}
-```
-
-</ExpansionPanel>
-
-Now run that same command, but this time append ` > products.graphql`:
-
-```shell
-rover subgraph introspect https://rover.apollo.dev/quickstart/products/graphql > products.graphql
-```
-
-This writes the subgraph's schema to a file instead of printing it to your terminal.
-
-Next, do the same thing for the _second_ subgraph (`reviews`), this time writing it to `reviews.graphql`:
-
-```shell
-rover subgraph introspect https://rover.apollo.dev/quickstart/reviews/graphql > reviews.graphql
-```
-
-Great! We now have the schemas for our two subgraphs.
-
-### Providing subgraph details
-
-After we obtain our subgraph schemas and URLs, we need to provide them to the Rover CLI. To do that, we add them to a YAML file in our project directory.
-
-Create a file called `supergraph-config.yaml` and paste the following into it:
+We provide subgraph details to the Rover CLI in a YAML file. In your project directory, create a file called `supergraph-config.yaml` and paste the following into it:
 
 ```yaml:title=supergraph-config.yaml
 subgraphs:
   products:
     routing_url: https://rover.apollo.dev/quickstart/products/graphql
     schema:
-      file: ./products.graphql
+      subgraph_url: https://rover.apollo.dev/quickstart/products/graphql
   reviews:
     routing_url: https://rover.apollo.dev/quickstart/reviews/graphql
     schema:
-      file: ./reviews.graphql
+      subgraph_url: https://rover.apollo.dev/quickstart/reviews/graphql
 ```
+
+As you can see, we're providing the same URL as the value of two different fields. These fields serve different purposes:
+
+* `routing_url` is the URL the _gateway_ will use to send GraphQL operations to the subgraph at runtime.
+* `schema.subgraph_url` is the URL that _Rover_ will use to fetch the subgraph schema during composition.
+
+These URLs might theoretically differ. The YAML file also supports providing a subgraph's schema as a local file path, or as a registered graph ref that Rover can fetch from Apollo (for details, [see the Rover docs](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema)).
 
 ### Performing composition
 
-Now that we have all of the information we need, we can compose our supergraph schema. To do that, we'll use another Rover command: `supergraph compose`.
+Now that our configuration file is ready, we can compose our supergraph schema. To do that, we'll use Rover's `supergraph compose` command.
 
 From your project directory, run the following command in your terminal:
 
@@ -243,7 +251,7 @@ From your project directory, run the following command in your terminal:
 rover supergraph compose --config ./supergraph-config.yaml
 ```
 
-This time, Rover outputs the following schema:
+Rover outputs the following schema:
 
 <ExpansionPanel title="Click to expand">
 
@@ -309,29 +317,29 @@ type Product
   @join__type(graph: PRODUCTS, key: "id")
   @join__type(graph: REVIEWS, key: "id")
 {
+  category: ProductCategory @join__field(graph: PRODUCTS)
+  description: String @join__field(graph: PRODUCTS)
   id: ID! @join__field(graph: PRODUCTS)
+  images(size: Int = 1000): [String] @join__field(graph: PRODUCTS)
+  price: Price @join__field(graph: PRODUCTS)
+  primaryImage(size: Int = 1000): String @join__field(graph: PRODUCTS)
+  reviewSummary: ReviewSummary @join__field(graph: REVIEWS)
+  reviews: [Review] @join__field(graph: REVIEWS)
+  salesRank(category: ProductCategory = ALL): Int @join__field(graph: PRODUCTS)
+  salesRankInCategory: Int @join__field(graph: PRODUCTS)
+  salesRankOverall: Int @join__field(graph: PRODUCTS)
   title: String @join__field(graph: PRODUCTS)
   url: String @join__field(graph: PRODUCTS)
-  description: String @join__field(graph: PRODUCTS)
-  price: Price @join__field(graph: PRODUCTS)
-  salesRank(category: ProductCategory = ALL): Int @join__field(graph: PRODUCTS)
-  salesRankOverall: Int @join__field(graph: PRODUCTS)
-  salesRankInCategory: Int @join__field(graph: PRODUCTS)
-  category: ProductCategory @join__field(graph: PRODUCTS)
-  images(size: Int = 1000): [String] @join__field(graph: PRODUCTS)
-  primaryImage(size: Int = 1000): String @join__field(graph: PRODUCTS)
-  reviews: [Review] @join__field(graph: REVIEWS)
-  reviewSummary: ReviewSummary @join__field(graph: REVIEWS)
 }
 
 enum ProductCategory {
   ALL
-  GIFT_CARDS
-  ELECTRONICS
-  CAMERA_N_PHOTO
-  VIDEO_GAMES
   BOOKS
+  CAMERA_N_PHOTO
   CLOTHING
+  ELECTRONICS
+  GIFT_CARDS
+  VIDEO_GAMES
 }
 
 type Query {
@@ -348,14 +356,14 @@ type Review
   @join__owner(graph: REVIEWS)
   @join__type(graph: REVIEWS, key: "id")
 {
+  content: String @join__field(graph: REVIEWS)
   id: ID! @join__field(graph: REVIEWS)
   rating: Float @join__field(graph: REVIEWS)
-  content: String @join__field(graph: REVIEWS)
 }
 
 type ReviewSummary {
-  totalReviews: Int
   averageRating: Float
+  totalReviews: Int
 }
 ```
 
@@ -363,7 +371,7 @@ type ReviewSummary {
 
 As you can see, this composed schema includes all of the types and fields from our subgraph schemas, along with many additional directives that the gateway uses to support our federated architecture.
 
-Similar to what we did with our subgraph schemas, now append ` > supergraph.graphql` to the above command to write the composed schema to a file:
+Now, append ` > supergraph.graphql` to the above command to write the composed schema to a file:
 
 ```shell
 rover supergraph compose --config ./supergraph-config.yaml > supergraph.graphql

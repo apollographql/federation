@@ -9,3 +9,5 @@
 [build.environment]
   NODE_VERSION = "14"
   NPM_VERSION  = "7"
+[context.deploy-preview]
+  command = "gatsby build"
