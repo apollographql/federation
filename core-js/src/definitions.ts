@@ -12,6 +12,7 @@ import {
   VariableDefinitionNode,
   VariableNode
 } from "graphql";
+import { CoreDirectiveArgs, CoreSpecDefinition, CORE_VERSIONS, FeatureUrl, isCoreSpecDirectiveApplication } from "./coreSpec";
 import { assert } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
 
@@ -222,6 +223,11 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
   appliedDirectivesOf(nameOrDefinition: string | DirectiveDefinition): Directive<T>[] {
     const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
     return this.appliedDirectives.filter(d => d.name == directiveName);
+  }
+
+  hasAppliedDirective(nameOrDefinition: string | DirectiveDefinition): boolean {
+    const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
+    return this.appliedDirectives.some(d => d.name == directiveName);
   }
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
@@ -695,12 +701,69 @@ export class BuiltIns {
   }
 }
 
+export class CoreFeature {
+  constructor(
+    readonly url: FeatureUrl,
+    readonly nameInSchema: string,
+    readonly purpose?: string
+  ) {
+  }
+}
+
+export class CoreFeatures {
+  readonly coreDefinition: CoreSpecDefinition;
+  private readonly byAlias: Map<string, CoreFeature> = new Map();
+  private readonly byIdentity: Map<string, CoreFeature> = new Map();
+
+  constructor(readonly coreItself: CoreFeature) {
+    this.add(coreItself);
+    const coreDef = CORE_VERSIONS.find(coreItself.url.version);
+    if (!coreDef) {
+      throw buildError(`Schema uses unknown version ${coreItself.url.version} of the core spec (known versions: ${CORE_VERSIONS.versions().join(', ')})`);
+    }
+    this.coreDefinition = coreDef;
+  }
+
+  getByIdentity(identity: string): CoreFeature | undefined {
+    return this.byIdentity.get(identity);
+  }
+
+  private removeFeature(featureIdentity: string) {
+    const feature = this.byIdentity.get(featureIdentity);
+    if (feature) {
+      this.byIdentity.delete(featureIdentity);
+      this.byAlias.delete(feature.nameInSchema);
+    }
+  }
+
+  private maybeAddFeature(directive: Directive<SchemaDefinition>): CoreFeature | undefined {
+    if (directive.definition?.name !== this.coreItself.nameInSchema) {
+      return undefined;
+    }
+    const args = (directive as Directive<SchemaDefinition, CoreDirectiveArgs>).arguments();
+    const url = FeatureUrl.parse(args.feature);
+    const existing = this.byIdentity.get(url.identity);
+    if (existing) {
+      throw buildError(`Duplicate inclusion of feature ${url.identity}`);
+    }
+    const feature = new CoreFeature(url, args.as ?? url.name, args.for);
+    this.add(feature);
+    return feature;
+  }
+
+  private add(feature: CoreFeature) {
+    this.byAlias.set(feature.nameInSchema, feature);
+    this.byIdentity.set(feature.url.identity, feature);
+  }
+}
+
 export class Schema {
   private _schemaDefinition: SchemaDefinition;
   private readonly _builtInTypes: Map<string, NamedType> = new Map();
   private readonly _types: Map<string, NamedType> = new Map();
   private readonly _builtInDirectives: Map<string, DirectiveDefinition> = new Map();
   private readonly _directives: Map<string, DirectiveDefinition> = new Map();
+  private _coreFeatures?: CoreFeatures;
   private isConstructed: boolean = false;
   private isValidated: boolean = false;
 
@@ -734,6 +797,22 @@ export class Schema {
 
   private removeDirectiveInternal(definition: DirectiveDefinition) {
     this._directives.delete(definition.name);
+  }
+
+  private markAsCoreSchema(coreItself: CoreFeature) {
+    this._coreFeatures = new CoreFeatures(coreItself);
+  }
+
+  private unmarkAsCoreSchema() {
+    this._coreFeatures = undefined;
+  }
+
+  isCoreSchema(): boolean {
+    return this.coreFeatures !== undefined;
+  }
+
+  get coreFeatures(): CoreFeatures | undefined {
+    return this._coreFeatures;
   }
 
   get schemaDefinition(): SchemaDefinition {
@@ -943,6 +1022,27 @@ export class SchemaDefinition extends SchemaElement<Schema>  {
 
   *roots(): Generator<RootType, void, undefined> {
     yield* this._roots.values();
+  }
+
+  applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
+    nameOrDefOrDirective: Directive<SchemaDefinition, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
+    args?: TApplicationArgs
+  ): Directive<SchemaDefinition, TApplicationArgs> {
+    const applied = super.applyDirective(nameOrDefOrDirective, args) as Directive<SchemaDefinition, TApplicationArgs>;
+    const schema = this.schema()!;
+    const coreFeatures = schema.coreFeatures;
+    if (isCoreSpecDirectiveApplication(applied)) {
+      if (coreFeatures) {
+        throw buildError(`Invalid duplicate application of the @core feature`);
+      }
+      const args = (applied as Directive<SchemaDefinition, CoreDirectiveArgs>).arguments();
+      const url = FeatureUrl.parse(args.feature);
+      const core = new CoreFeature(url, args.as ?? 'core', args.for);
+      Schema.prototype['markAsCoreSchema'].call(schema, core);
+    } else if (coreFeatures) {
+      CoreFeatures.prototype['maybeAddFeature'].call(coreFeatures, applied);
+    }
+    return applied;
   }
 
   root(rootKind: SchemaRootKind): RootType | undefined {
@@ -1156,7 +1256,7 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
     return this.field(typenameFieldName);
   }
 
-  addField(nameOrField: string | FieldDefinition<T>, type?: OutputType): FieldDefinition<T> {
+  addField(nameOrField: string | FieldDefinition<T>, type?: Type): FieldDefinition<T> {
     let toAdd: FieldDefinition<T>;
     if (typeof nameOrField === 'string') {
       this.checkUpdate();
@@ -1167,6 +1267,9 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
     }
     if (this.field(toAdd.name)) {
       throw buildError(`Field ${toAdd.name} already exists on ${this}`);
+    }
+    if (type && !isOutputType(type)) {
+      throw buildError(`Invalid input type ${type} for field ${toAdd.name}: object and interface field types should be output types.`);
     }
     this._fields.set(toAdd.name, toAdd);
     Element.prototype['setParent'].call(toAdd, this);
@@ -1400,17 +1503,20 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
   }
 
   addField(field: InputFieldDefinition): InputFieldDefinition;
-  addField(name: string, type?: InputType): InputFieldDefinition;
-  addField(nameOrField: string | InputFieldDefinition, type?: InputType): InputFieldDefinition {
+  addField(name: string, type?: Type): InputFieldDefinition;
+  addField(nameOrField: string | InputFieldDefinition, type?: Type): InputFieldDefinition {
     const toAdd = typeof nameOrField === 'string' ? new InputFieldDefinition(nameOrField) : nameOrField;
     this.checkUpdate(toAdd);
     if (this.field(toAdd.name)) {
       throw buildError(`Field ${toAdd.name} already exists on ${this}`);
     }
+    if (type && !isInputType(type)) {
+      throw buildError(`Invalid ouptut type ${type} for field ${toAdd.name}: input field types should be input types.`);
+    }
     this._fields.set(toAdd.name, toAdd);
     Element.prototype['setParent'].call(toAdd, this);
     // Note that we need to wait we have attached the field to set the type.
-    if (typeof nameOrField === 'string') {
+    if (typeof nameOrField === 'string' && type) {
       toAdd.type = type;
     }
     return toAdd;
@@ -1495,6 +1601,10 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
     return `${parent == undefined ? '<detached>' : parent.coordinate}.${this.name}`;
   }
 
+  hasArguments(): boolean {
+    return this._args.size > 0;
+  }
+
   arguments(): IterableIterator<ArgumentDefinition<FieldDefinition<TParent>>> {
     return this._args.values();
   }
@@ -1504,8 +1614,8 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
   }
 
   addArgument(arg: ArgumentDefinition<FieldDefinition<TParent>>): ArgumentDefinition<FieldDefinition<TParent>>;
-  addArgument(name: string, type?: InputType, defaultValue?: any): ArgumentDefinition<FieldDefinition<TParent>>;
-  addArgument(nameOrArg: string | ArgumentDefinition<FieldDefinition<TParent>>, type?: InputType, defaultValue?: any): ArgumentDefinition<FieldDefinition<TParent>> {
+  addArgument(name: string, type?: Type, defaultValue?: any): ArgumentDefinition<FieldDefinition<TParent>>;
+  addArgument(nameOrArg: string | ArgumentDefinition<FieldDefinition<TParent>>, type?: Type, defaultValue?: any): ArgumentDefinition<FieldDefinition<TParent>> {
     let toAdd: ArgumentDefinition<FieldDefinition<TParent>>;
     if (typeof nameOrArg === 'string') {
       this.checkUpdate();
@@ -1517,6 +1627,9 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
     }
     if (this.argument(toAdd.name)) {
       throw buildError(`Argument ${toAdd.name} already exists on field ${this.name}`);
+    }
+    if (type && !isInputType(type)) {
+      throw buildError(`Invalid ouptut type ${type} for argument ${toAdd.name} of ${this}: arguments should be input types.`);
     }
     this._args.set(toAdd.name, toAdd);
     Element.prototype['setParent'].call(toAdd, this);
@@ -1722,7 +1835,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
   }
 
   get coordinate(): string {
-    return `@{this.name}`;
+    return `@${this.name}`;
   }
 
   arguments(): IterableIterator<ArgumentDefinition<DirectiveDefinition>> {
@@ -1825,7 +1938,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
   }
 
   toString(): string {
-    return this.name;
+    return `@${this.name}`;
   }
 }
 
@@ -1931,6 +2044,29 @@ export class Directive<
     if (!this._parent) {
       return false;
     }
+    const coreFeatures = this.schema()?.coreFeatures;
+    if (coreFeatures && this.name === coreFeatures.coreItself.nameInSchema) {
+      // We're removing a @core directive application, so we remove it from the list of core features. And
+      // if it is @core itself, we clean all features (to avoid having thigs too inconcistent).
+      const url = FeatureUrl.parse(this._args['feature']!);
+      if (url.identity === coreFeatures.coreItself.url.identity) {
+        for (const d of this.schema()!.schemaDefinition.appliedDirectivesOf(coreFeatures.coreItself.nameInSchema)) {
+          d.removeInternal();
+        }
+        Schema.prototype['unmarkAsCoreSchema'].call(this.schema()!);
+        // The loop above will already have call removeInternal on this instance, so we can return
+        return true;
+      } else {
+        CoreFeatures.prototype['removeFeature'].call(coreFeatures, url.identity);
+      }
+    }
+    return this.removeInternal();
+  }
+
+  private removeInternal(): boolean {
+    if (!this._parent) {
+      return false;
+    }
     const parentDirectives = this._parent.appliedDirectives as Directive<TParent>[];
     const index = parentDirectives.indexOf(this);
     assert(index >= 0, `Directive ${this} lists ${this._parent} as parent, but that parent doesn't list it as applied directive`);
@@ -1941,7 +2077,7 @@ export class Directive<
   }
 
   toString(): string {
-    const entries = Object.entries(this._args);
+    const entries = Object.entries(this._args).filter(([_, v]) => v !== undefined);
     const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v)}`).join(', ') + ')';
     return `@${this.name}${args}`;
   }

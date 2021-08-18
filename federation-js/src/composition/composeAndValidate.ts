@@ -8,6 +8,7 @@ import { ServiceDefinition } from './types';
 import { normalizeTypeDefs } from './normalize';
 import { compositionHasErrors, CompositionResult } from './utils';
 
+
 export function composeAndValidate(
   serviceList: ServiceDefinition[],
 ): CompositionResult {

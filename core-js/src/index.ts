@@ -6,3 +6,6 @@ export * from './federation';
 export * from './types';
 export * from './operations';
 export * from './utils';
+export * from './coreSpec';
+export * from './joinSpec';
+export * from './extractSubgraphsFromSupergraph';

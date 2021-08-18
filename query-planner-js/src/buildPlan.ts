@@ -1,5 +1,5 @@
 import { assert, baseType, CompositeType, Field, FieldSelection, FragmentElement, FragmentSelection, isAbstractType, isCompositeType, isListType, isNamedType, ListType, NonNullType, ObjectType, Operation, OperationPath, operationToAST, Schema, SchemaRootKind, Selection, SelectionSet, selectionSetOfPath, Type, Variable, VariableDefinition, VariableDefinitions } from "@apollo/core";
-import { advanceSimultaneousPathsWithOperation, Edge, ExcludedEdges, FieldCollection, Graph, GraphPath, GraphState, isRootVertex, OpGraphPath, OpPathTree, PathTree, requireEdgeAdditionalConditions, Vertex } from "@apollo/query-graphs";
+import { advanceSimultaneousPathsWithOperation, buildSubgraphsFederation, Edge, ExcludedEdges, FieldCollection, Graph, GraphPath, GraphState, isRootVertex, OpGraphPath, OpPathTree, PathTree, requireEdgeAdditionalConditions, Vertex } from "@apollo/query-graphs";
 import deepEqual from "deep-equal";
 import { Kind, DocumentNode, stripIgnoredCharacters, print } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -168,18 +168,19 @@ const defaultCostFunction: CostFunction = {
   finalize: (roots: number[], rootsAreParallel: boolean) => roots.length === 0 ? 0 : (rootsAreParallel ? Math.max(...roots) : sum(roots))
 };
 
-export function computeQueryPlan(supergraphSchema: Schema, subgraphs: Graph, operation: Operation): QueryPlan {
-  const root = subgraphs.root(operation.rootKind);
+export function computeQueryPlan(supergraphSchema: Schema, operation: Operation): QueryPlan {
+  const federatedQueryGraph = buildSubgraphsFederation(supergraphSchema);
+  const root = federatedQueryGraph.root(operation.rootKind);
   assert(root, `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
   const planningTraversal = new QueryPlanningTaversal(
     supergraphSchema,
-    subgraphs,
+    federatedQueryGraph,
     operation.selectionSet,
     operation.variableDefinitions,
     root,
     defaultCostFunction,
     operation.rootKind !== 'mutation',
-    new GraphState<OpGraphPath[]>(subgraphs)
+    new GraphState<OpGraphPath[]>(federatedQueryGraph)
   );
   const bestPlan = planningTraversal.findBestPlan();
   if (!bestPlan) {

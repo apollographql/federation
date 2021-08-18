@@ -28,16 +28,23 @@ import {
   InputFieldDefinition,
   allSchemaRootKinds,
   isFederationType,
-  isFederationDirective,
   Directive,
-  isNamedType,
   isFederationField,
   SchemaRootKind,
-  prepareSubgraphsForFederation,
-  CompositeType
+  CompositeType,
+  Subgraphs,
+  federationBuiltIns,
+  isExternal,
+  Subgraph,
+  defaultRootName,
+  CORE_VERSIONS,
+  JOIN_VERSIONS,
 } from "@apollo/core";
 import { ASTNode, GraphQLError } from "graphql";
 import { CompositionHint } from "../hints";
+
+const coreSpec = CORE_VERSIONS.latest()!;
+const joinSpec = JOIN_VERSIONS.latest()!;
 
 // When displaying a list of something in a human readable form, after what size (in 
 // number of characters) we start displaying only a subset of the list.
@@ -52,8 +59,24 @@ export type CompositionOptions = {
   allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
 }
 
+// TODO: we currently cannot really allow the "direct subtyping" rule due to limitation
+// of the supergraph SDL. Namely, it has no information allowing to figure out how a
+// particular subgraph field type differs from the supergraph. Which in practice,
+// means that later on, the query planner will have an imprecise view of the field type
+// for that subgraph: it will think the field has the same type in this subgraph than
+// in the supergraph, even if that is not true. This is ok in some sub-cases, for
+// instance if the field has subtype `!String` in the subgraph but `String` in the
+// supergraph, then querying the subgraph "has if the field may return null" even though
+// it cannot in practice is harmless. But suppose the now that we allow direct subtypings
+// when merging types: we could have a case where a field has type `B` in a subgraph
+// and `A` in the supergraph, where `B` implements `A` _in the supergraph_. However,
+// `A` may not be known of that particular subgraph. So if we query planner "thinks"
+// that the field is of type `A` in the subgraph, it may generate broken queries.
+// So we should improve the supergraph SDL/join-spec to indicate when a field has 
+// a different type in a subgraph than in the supergraph, what that type is in the
+// subgraph.
 const defaultCompositionOptions: CompositionOptions = {
-  allowedFieldTypeMergingSubtypingRules: SUBTYPING_RULES
+  allowedFieldTypeMergingSubtypingRules: SUBTYPING_RULES.filter(r => r !== "direct")
 }
 
 export interface MergeSuccess {
@@ -68,6 +91,60 @@ export interface MergeFailure {
   hints?: undefined;
 }
 
+/**
+ * Prepare a subgraph schema pre-merging.
+ *
+ * Currently, this only look for non-default root type names and rename them into
+ * their default names.
+ */
+function prepareSubgraphForMerging(subgraph: Subgraph): Subgraph | GraphQLError {
+  const onlyDefautRoots = allSchemaRootKinds.every(k => {
+    const type = subgraph.schema.schemaDefinition.root(k)?.type;
+    return !type || type.name === defaultRootName(k);
+  });
+
+  if (onlyDefautRoots) {
+    return subgraph;
+  }
+
+  const updated = subgraph.schema.clone();
+  for (const k of allSchemaRootKinds) {
+    const type = updated.schemaDefinition.root(k)?.type;
+    const defaultName = defaultRootName(k);
+    if (type && type.name !== defaultName) {
+      // We first ensure there is no other type using the default root name. If there is, this is a
+      // composition error.
+      const existing = updated.type(defaultName);
+      if (existing) {
+        const nodes: ASTNode[] = [];
+        if (type.sourceAST) nodes.push(type.sourceAST);
+        if (existing.sourceAST) nodes.push(existing.sourceAST);
+        return new GraphQLError(
+          `Subgraph ${subgraph.name} has a type named ${defaultName} but it is not set as the ${k} root type (${type.name} is instead). `
+          + 'If a root type does not use its default name, there should be no other type with that default name',
+          nodes
+        );
+      }
+      type.rename(defaultName);
+    }
+  }
+  return new Subgraph(subgraph.name, subgraph.url, updated);
+}
+
+function prepareSubgraphsForMerging(subgraphs: Subgraphs): Subgraphs | GraphQLError[] {
+  const preparedSubgraphs: Subgraphs = new Subgraphs();
+  const errors: GraphQLError[] = [];
+  for (const subgraph of subgraphs) {
+    const preparedOrError = prepareSubgraphForMerging(subgraph);
+    if (preparedOrError instanceof GraphQLError) {
+      errors.push(preparedOrError);
+    } else {
+      preparedSubgraphs.add(preparedOrError);
+    }
+  }
+  return errors.length > 0 ? errors : preparedSubgraphs;
+}
+
 export function isMergeSuccessful(mergeResult: MergeResult): mergeResult is MergeSuccess {
   return !isMergeFailure(mergeResult);
 }
@@ -76,8 +153,8 @@ export function isMergeFailure(mergeResult: MergeResult): mergeResult is MergeFa
   return !!mergeResult.errors;
 }
 
-export function mergeSubgraphs(subgraphs: Map<string, Schema>, options: CompositionOptions = {}): MergeResult {
-  const preparedSubgraphsOrErrors = prepareSubgraphsForFederation(subgraphs);
+export function mergeSubgraphs(subgraphs: Subgraphs, options: CompositionOptions = {}): MergeResult {
+  const preparedSubgraphsOrErrors = prepareSubgraphsForMerging(subgraphs);
   if (Array.isArray(preparedSubgraphsOrErrors)) {
     return { errors: preparedSubgraphsOrErrors };
   }
@@ -138,16 +215,18 @@ function copyTypeReference(source: Type, dest: Schema): Type {
   }
 }
 
-function isNonMergedType(type: Type): boolean {
-  return isNamedType(type) && isFederationType(type);
+function isMergedType(type: NamedType): boolean {
+  return !isFederationType(type);
 }
 
-function isNonMergedField(field: InputFieldDefinition | FieldDefinition<CompositeType>): boolean {
-  return field.kind === 'FieldDefinition' && isFederationField(field);
+function isMergedField(field: InputFieldDefinition | FieldDefinition<CompositeType>): boolean {
+  return field.kind !== 'FieldDefinition' || !isFederationField(field);
 }
 
-function isNonMergedDirective(definition: DirectiveDefinition | Directive): boolean {
-  return isFederationDirective(definition) && !MERGED_FEDERATION_DIRECTIVES.includes(definition.name);
+function isMergedDirective(definition: DirectiveDefinition | Directive): boolean {
+  // TODO: Currently, we really only merge a handful of federation directives. We should have have
+  // a way to merge more directive (maybe only the core ones? and if they have a particular flag?).
+  return MERGED_FEDERATION_DIRECTIVES.includes(definition.name);
 }
 
 // Access the type set as a particular root in the provided `SchemaDefinition`, but ignoring "query" type
@@ -162,19 +241,35 @@ function filteredRoot(def: SchemaDefinition, rootKind: SchemaRootKind): ObjectTy
 }
 
 function hasMergedFields(type: ObjectType): boolean {
-  return [...type.fields()].some(f => !isNonMergedField(f));
+  return [...type.fields()].some(f => isMergedField(f));
 }
 
 class Merger {
   readonly names: readonly string[];
-  readonly subgraphs: readonly Schema[];
+  readonly subgraphsSchema: readonly Schema[];
   readonly errors: GraphQLError[] = [];
   readonly hints: CompositionHint[] = [];
   readonly merged: Schema = new Schema();
+  readonly subgraphNamesToJoinSpecName: Map<string, string>;
 
-  constructor(subgraphs: Map<string, Schema>, readonly options: CompositionOptions) {
-    this.names = [...subgraphs.keys()].sort();
-    this.subgraphs = this.names.map(name => subgraphs.get(name)!);
+  constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
+    this.names = subgraphs.names();
+    this.subgraphsSchema = this.names.map(name => subgraphs.get(name)!.schema);
+    this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
+  }
+
+  private prepareSupergraph(): Map<string, string> {
+    // TODO: we will soon need to look for name conflicts for @core and @join with potentially user-defined directives and
+    // pass a `as` to the methods below if necessary. However, as we currently don't propagate any subgraph directives to 
+    // the supergraph outside of a few well-known ones, we don't bother yet.
+    coreSpec.addToSchema(this.merged);
+    coreSpec.applyFeatureToSchema(this.merged, joinSpec);
+
+    return joinSpec.populateGraphEnum(this.merged, this.subgraphs);
+  }
+
+  private joinSpecName(subgraphIndex: number): string {
+    return this.subgraphNamesToJoinSpecName.get(this.names[subgraphIndex])!;
   }
 
   merge(): MergeResult {
@@ -199,19 +294,23 @@ class Merger {
     // We merge the roots first as it only depend on the type existing, not being fully merged, and when
     // we merge types next, we actually rely on this having been called to detect the "query root type"
     // (in order to skip the _entities and _service fields on that particular type).
-    this.mergeSchemaDefinition(this.subgraphs.map(s => s.schemaDefinition), this.merged.schemaDefinition);
+    this.mergeSchemaDefinition(this.subgraphsSchema.map(s => s.schemaDefinition), this.merged.schemaDefinition);
 
     for (const type of this.merged.types()) {
-      if (type.kind == 'UnionType') {
+      // We've already merged unions above
+      if (type.kind === 'UnionType' || joinSpec.isSpecType(type)) {
         continue;
       }
       this.mergeType(this.subgraphsTypes(type), type);
     }
 
     for (const definition of this.merged.directives()) {
-      this.mergeDirectiveDefinition(this.subgraphs.map(s => s.directive(definition.name)), definition);
+      // we should skip the supergraph specific directives, that is the @core and @join directives.
+      if (coreSpec.isSpecDirective(definition) || joinSpec.isSpecDirective(definition)) {
+        continue;
+      }
+      this.mergeDirectiveDefinition(this.subgraphsSchema.map(s => s.directive(definition.name)), definition);
     }
-
 
     // Let's not leave federation directives that aren't used.
     for (const federationDirective of MERGED_FEDERATION_DIRECTIVES) {
@@ -220,6 +319,9 @@ class Merger {
         directive.remove();
       }
     }
+
+    // TODO: currently, this can't really throw. But once it does, we should add the errors to this.errors
+    this.merged.validate();
 
     if (this.errors.length > 0) {
       return { errors: this.errors };
@@ -235,20 +337,18 @@ class Merger {
   // and report errors otherwise.
   private addTypesShallow() {
     const mismatchedTypes = new Set<string>();
-    for (const subgraph of this.subgraphs) {
+    for (const subgraph of this.subgraphsSchema) {
       // We include the built-ins in general (even if we skip some federation specific ones): if a subgraph built-in 
       // is not a supergraph built-in, we should add it as a normal type.
       for (const type of subgraph.allTypes()) {
-        if (isNonMergedType(type)) {
+        if (!isMergedType(type)) {
           continue;
         }
         const previous = this.merged.type(type.name);
         if (!previous) {
           this.merged.addType(newNamedType(type.kind, type.name));
-        } else {
-          if (previous.kind !== type.kind) {
-            mismatchedTypes.add(type.name);
-          }
+        } else if (previous.kind !== type.kind) {
+          mismatchedTypes.add(type.name);
         }
       }
     }
@@ -256,11 +356,9 @@ class Merger {
   }
 
   private addDirectivesShallow() {
-    for (const subgraph of this.subgraphs) {
-      // We include the built-ins in general (even if we skip some federation specific ones): if a subgraph built-in
-      // is not a supergraph built-in, we should add it as a normal directives.
+    for (const subgraph of this.subgraphsSchema) {
       for (const directive of subgraph.allDirectives()) {
-        if (isNonMergedDirective(directive)) {
+        if (!isMergedDirective(directive)) {
           continue;
         }
         if (!this.merged.directive(directive.name)) {
@@ -360,7 +458,7 @@ class Merger {
   }
 
   private subgraphsTypes<T extends NamedType>(supergraphType: T): (T | undefined)[] {
-    return this.subgraphs.map((subgraph) => {
+    return this.subgraphsSchema.map((subgraph) => {
       const type = subgraph.type(supergraphType.name);
       // At this point, we have already reported errors for type mismatches (and so comosition
       // will fail, we just try to gather more errors), so simply ignore versions of the type
@@ -374,10 +472,13 @@ class Merger {
 
   private mergeImplements<T extends ObjectType | InterfaceType>(sources: (T | undefined)[], dest: T) {
     const implemented = new Set<string>();
-    for (const source of sources) {
+    const joinImplementsDirective = joinSpec.implementsDirective(this.merged)!;
+    for (const [idx, source] of sources.entries()) {
       if (source) {
+        const name = this.joinSpecName(idx);
         for (const itf of source.interfaces()) {
           implemented.add(itf.name);
+          dest.applyDirective(joinImplementsDirective, { graph: name, interface: itf.name });
         }
       }
     }
@@ -389,6 +490,7 @@ class Merger {
   // type-casting even if we do, and in fact, using a generic forces a case on `dest` for some reason.
   // So we don't bother.
   private mergeType(sources: (NamedType | undefined)[], dest: NamedType) {
+    this.addJoinType(sources, dest);
     this.mergeAppliedDirectives(sources, dest);
     switch (dest.kind) {
       case 'ScalarType':
@@ -409,6 +511,26 @@ class Merger {
       case 'InputObjectType':
         this.mergeInput(sources as (InputObjectType | undefined)[], dest);
         break;
+    }
+  }
+
+  private addJoinType(sources: (NamedType | undefined)[], dest: NamedType) {
+    const joinTypeDirective = joinSpec.typeDirective(this.merged);
+    for (const [idx, source] of sources.entries()) {
+      if (!source) {
+        continue;
+      }
+
+      //There is either 1 join__type per-key, or if there is no key, just one for the type.
+      const keys = source.appliedDirectivesOf(federationBuiltIns.keyDirective(this.subgraphsSchema[idx]));
+      const name = this.joinSpecName(idx);
+      if (!keys.length) {
+        dest.applyDirective(joinTypeDirective, { graph: name });
+      } else {
+        for (const key of keys) {
+          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields });
+        }
+      }
     }
   }
 
@@ -433,7 +555,7 @@ class Merger {
         continue;
       }
       for (const field of source.fields()) {
-        if (isNonMergedField(field)) {
+        if (!isMergedField(field)) {
           continue;
         }
         if (!dest.field(field.name)) {
@@ -443,15 +565,108 @@ class Merger {
     }
   }
 
+  private withoutExternal(sources: (FieldDefinition<any> | undefined)[]): (FieldDefinition<any> | undefined)[] {
+    return sources.map(s => s !== undefined && isExternal(s) ? undefined : s);
+  }
+
+  private hasExternal(sources: (FieldDefinition<any> | undefined)[]): boolean {
+    return sources.some(s => s !== undefined && isExternal(s));
+  }
+
   private mergeField(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
-    this.mergeAppliedDirectives(sources, dest);
-    this.addArgumentsShallow(sources, dest);
+    const sourcesToMerge = this.withoutExternal(sources);
+    this.addJoinField(sourcesToMerge, dest);
+    this.mergeAppliedDirectives(sourcesToMerge, dest);
+    this.addArgumentsShallow(sourcesToMerge, dest);
     for (const destArg of dest.arguments()) {
-      const subgraphArgs = sources.map(f => f?.argument(destArg.name));
+      const subgraphArgs = sourcesToMerge.map(f => f?.argument(destArg.name));
       this.mergeArgument(subgraphArgs, destArg);
     }
-    this.mergeTypeReference(sources, dest);
+    this.mergeTypeReference(sourcesToMerge, dest);
+
+    if (this.hasExternal(sources)) {
+      this.validateExternalFields(sources, dest);
+    }
   } 
+
+  private validateExternalFields(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
+    // We shouldn't have an @external on a field having arguments: @external is mainly to mark field that are in
+    // @provides and @requires field-set, and it's really unclear how you could require/provide a field only for some
+    // arguments value. So as soon as the merged field has arguments, we reject composition as invalid (even if the
+    // subgraph declarations with @external themselves didn't declare the arguments).
+    if (dest.hasArguments()) {
+      this.reportMismatchError(
+        `Field ${dest.coordinate} cannot have arguments and be marked @external in some subgraphs: it is `, 
+        dest,
+        sources,
+        field => isExternal(field) ? 'marked @external' : (field.hasArguments() ? 'has arguments' : undefined)
+      );
+    }
+
+    let hasInvalid = false;
+    for (const source of sources) {
+      if (!source || !isExternal(source)) {
+        continue;
+      }
+      // To be valid, an external field must use the same type as the merged field (or "at least" a subtype).
+      if (!sameType(dest.type!, source.type!) && !this.isStrictSubtype(dest.type!, source.type!)) {
+        hasInvalid = true;
+        break;
+      }
+    }
+
+    if (hasInvalid) {
+      this.reportMismatchError(
+        `Field "${dest.coordinate}" has incompatible types accross subgraphs (when marked @external): it has `,
+        dest,
+        sources,
+        field => `type "${field.type}"`
+      );
+    }
+  }
+
+  private needsJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(sources: (T | undefined)[], parentName: string): boolean {
+    // We can avoid the join__field if 1) the field exists in all sources having the field parent type and 2) none of the field instance has a @requires or @provides.
+    for (const [idx, source] of sources.entries()) {
+      if (source) {
+        if (source.hasAppliedDirective('provides') || source.hasAppliedDirective('requires')) {
+          return true;
+        }
+      } else {
+        // This subgraph does not have the field, so if it has the field type, we need a join__field.
+        if (this.subgraphsSchema[idx].type(parentName)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private addJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(sources: (T | undefined)[], dest: T) {
+    if (!this.needsJoinField(sources, dest.parent!.name)) {
+      return;
+    }
+    const joinFieldDirective = joinSpec.fieldDirective(this.merged);
+    for (const [idx, source] of sources.entries()) {
+      // We don't put a join__field if the field is marked @external in that subgraph.
+      if (!source || source.appliedDirectivesOf('external').length > 0) {
+        continue;
+      }
+
+      const name = this.joinSpecName(idx);
+      dest.applyDirective(joinFieldDirective, { 
+        graph: name, 
+        requires: this.getFieldSet(source, federationBuiltIns.requiresDirective(this.subgraphsSchema[idx])),
+        provides: this.getFieldSet(source, federationBuiltIns.providesDirective(this.subgraphsSchema[idx]))
+      });
+    }
+  }
+
+  private getFieldSet(element: SchemaElement<any>, directive: DirectiveDefinition<{fields: string}>): string | undefined {
+    const applications = element.appliedDirectivesOf(directive);
+    assert(applications.length <= 1, `Found more than one application of ${directive} on ${element}`);
+    return applications.length === 0 ? undefined : applications[0].arguments().fields;
+  }
 
   private mergeTypeReference<TType extends Type, TElement extends NamedSchemaElementWithType<TType, any, any>>(
     sources: (TElement | undefined)[],
@@ -638,6 +853,7 @@ class Merger {
   }
 
   private mergeInputField(sources: (InputFieldDefinition | undefined)[], dest: InputFieldDefinition) {
+    this.addJoinField(sources, dest);
     this.mergeAppliedDirectives(sources, dest);
     this.mergeTypeReference(sources, dest, true);
     this.mergeDefaultValue(sources, dest, 'Input field');
@@ -673,7 +889,7 @@ class Merger {
     for (const source of sources) {
       if (source) {
         for (const directive of source.appliedDirectives) {
-          if (!isNonMergedDirective(directive)) {
+          if (isMergedDirective(directive)) {
             names.add(directive.name);
           }
         }

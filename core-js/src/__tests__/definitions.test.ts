@@ -8,7 +8,7 @@ import {
   SchemaElement,
   UnionType
 } from '../../dist/definitions';
-import { defaultOptions, printSchema } from '../../dist/print';
+import { defaultPrintOptions, printSchema } from '../../dist/print';
 import { buildSchema } from '../../dist/buildSchema';
 import { federationBuiltIns } from '../../dist/federation';
 
@@ -512,7 +512,7 @@ test('handling of extensions', () => {
   expectUnionType(aunion);
   expect([...aunion.types()].map(t => t.name)).toEqual(['AType', 'AType2', 'AType3']);
 
-  expect(printSchema(schema, { ...defaultOptions, mergeTypesAndExtensions: true })).toMatchString(`
+  expect(printSchema(schema, { ...defaultPrintOptions, mergeTypesAndExtensions: true })).toMatchString(`
     schema {
       query: AType
     }

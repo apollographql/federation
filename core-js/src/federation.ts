@@ -9,12 +9,11 @@ import {
   ObjectType,
   ListType,
   FieldDefinition,
-  allSchemaRootKinds,
-  defaultRootName,
-  CompositeType
+  CompositeType,
+  InterfaceType
 } from "./definitions";
 import { assert } from "./utils";
-import { ASTNode, GraphQLError } from "graphql";
+import { FieldSelection, parseSelectionSet } from "./operations";
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -159,56 +158,94 @@ export function isEntityType(type: NamedType): boolean {
   return type.kind == "ObjectType" && type.hasAppliedDirective(keyDirectiveName);
 }
 
-/**
- * Prepare a subgraph schema pre-merging.
- *
- * Currently, this only look for non-default root type names and rename them into
- * their default names.
- */
-function prepareSubgraph(name: string, subgraph: Schema): Schema | GraphQLError {
-  const onlyDefautRoots = allSchemaRootKinds.every(k => {
-    const type = subgraph.schemaDefinition.root(k)?.type;
-    return !type || type.name === defaultRootName(k);
-  });
+export function isExternal(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
+  // Historically, @external was required on key fields for type extensions, even though it's arguably not entirely 
+  // right (the subgraph does always provides its keys, so they are not external). So for backward compatibility, we
+  // just ignore an @external if it is on a field that is part of a key.
+  return field.hasAppliedDirective(externalDirectiveName)
+    && !isPartOfAKey(field);
+}
 
-  if (onlyDefautRoots) {
-    return subgraph;
+function isPartOfAKey(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
+  const schema = field.schema()!;
+  if (!isFederationSubgraphSchema(schema)) {
+    return false;
   }
-
-  const updated = subgraph.clone();
-  for (const k of allSchemaRootKinds) {
-    const type = updated.schemaDefinition.root(k)?.type;
-    const defaultName = defaultRootName(k);
-    if (type && type.name !== defaultName) {
-      // We first ensure there is no other type using the default root name. If there is, this is a
-      // composition error.
-      const existing = updated.type(defaultName);
-      if (existing) {
-        const nodes: ASTNode[] = [];
-        if (type.sourceAST) nodes.push(type.sourceAST);
-        if (existing.sourceAST) nodes.push(existing.sourceAST);
-        return new GraphQLError(
-          `Subgraph ${name} has a type named ${defaultName} but it is not set as the ${k} root type (${type.name} is instead). `
-          + 'If a root type does not use its default name, there should be no other type with that default name',
-          nodes
-        );
+  const parentType = field.parent!;
+  for (const keyApplication of parentType.appliedDirectivesOf(federationBuiltIns.keyDirective(schema))) {
+    const selections = parseSelectionSet(parentType, keyApplication.arguments().fields);
+    for (const selection of selections.selections()) {
+      if (selection instanceof FieldSelection && selection.element().selects(field, true)) {
+        return true;
       }
-      type.rename(defaultName);
     }
   }
-  return updated;
+  return false;
 }
 
-export function prepareSubgraphsForFederation(subgraphs: Map<string, Schema>): Map<string, Schema> | GraphQLError[] {
-  const preparedSubgraphs = new Map<string, Schema>();
-  const errors: GraphQLError[] = [];
-  for (const [name, subgraph] of subgraphs.entries()) {
-    const schemaOrError = prepareSubgraph(name, subgraph);
-    if (schemaOrError instanceof GraphQLError) {
-      errors.push(schemaOrError);
-    } else {
-      preparedSubgraphs.set(name, schemaOrError);
+// Simple wrapper around a Subraph[] that ensures that 1) we never mistakenly get 2 subgraph with the same name,
+// 2) keep the subgraphs sorted by name (makes iteration more predictable). It also allow convenient access to
+// a subgraph by name so behave like a map<string, Subgraph> in most ways (but with the previously mentioned benefits).
+export class Subgraphs {
+  private readonly subgraphs: Subgraph[] = [];
+
+  private idx(name: string): number {
+    // Note: we could do a binary search if we ever worry that a linear scan is too costly.
+    return this.subgraphs.findIndex(s => s.name === name);
+  }
+
+  add(subgraph: Subgraph): Subgraph;
+  add(name: string, url: string, schema: Schema): Subgraph;
+  add(subgraphOrName: Subgraph | string, url?: string, schema?: Schema): Subgraph {
+    const toAdd: Subgraph = typeof subgraphOrName  === 'string'
+      ? new Subgraph(subgraphOrName, url!, schema!)
+      : subgraphOrName;
+
+    const idx = this.idx(toAdd.name);
+    if (idx >= 0) {
+      throw new Error(`A subgraph named ${toAdd.name} already exists` + (toAdd.url ? ` (with url '${toAdd.url}')` : ''));
+    }
+    this.subgraphs.push(toAdd);
+    this.subgraphs.sort();
+    return toAdd;
+  }
+
+  get(name: string): Subgraph | undefined {
+    const idx = this.idx(name);
+    return idx >= 0 ? this.subgraphs[idx] : undefined;
+  }
+
+  names(): readonly string[] {
+    return this.subgraphs.map(s => s.name);
+  }
+
+  values(): readonly Subgraph[] {
+    return this.subgraphs;
+  }
+
+  [Symbol.iterator]() { 
+    return this.subgraphs.values();
+  }
+
+  toString(): string {
+    return '[' + this.subgraphs.map(s => s.name).join(', ') + ']'
+  }
+}
+
+export class Subgraph {
+  constructor(
+    readonly name: string, 
+    readonly url: string,
+    readonly schema: Schema,
+    validateSchema: boolean = true
+  ) {
+    if (validateSchema) {
+      schema.validate();
     }
   }
-  return errors.length > 0 ? errors : preparedSubgraphs;
+
+  toString() {
+    return `${this.name} (${this.url})`
+  }
 }
+

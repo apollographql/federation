@@ -22,9 +22,8 @@ import { queryPlanSerializer, astSerializer } from 'apollo-federation-integratio
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import * as graphql from 'graphql';
-import { mergeSubgraphs, validateGraphComposition } from '@apollo/composition';
-import { buildSchemaFromAST, federationBuiltIns, printSchema, Schema } from '@apollo/core';
-import { buildGraph, buildSubgraphsFederation } from '@apollo/query-graphs';
+import { compose } from '@apollo/composition';
+import { buildSchemaFromAST, federationBuiltIns,Subgraphs } from '@apollo/core';
 
 const prettyFormat = require('pretty-format');
 
@@ -88,43 +87,26 @@ export function buildLocalService(modules: GraphQLSchemaModule[]) {
 }
 
 export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = fixtures) {
+  const subgraphs = new Subgraphs();
+  for (const service of services) {
+    const subgraphSchema = buildSchemaFromAST(service.typeDefs, federationBuiltIns);
+    subgraphs.add(service.name, service.url ?? `http://${service.name}`, subgraphSchema);
+  }
+
+  const compositionResult = compose(subgraphs);
+  if (compositionResult.errors) {
+    throw new GraphQLSchemaValidationError(compositionResult.errors);
+  }
+
+  const queryPlanner = new NewQueryPlanner(compositionResult.schema) as unknown as QueryPlanner;
+  const schema = graphql.buildSchema(compositionResult.supergraphSdl);
+
   const serviceMap = Object.fromEntries(
     services.map((service) => [
       service.name,
       buildLocalService([service]),
     ]),
   );
-
-  const subgraphMap = new Map<string, Schema>();
-  for (const [name, dataSource] of Object.entries(serviceMap)) {
-    const schema = buildSchemaFromAST(dataSource.sdl(), federationBuiltIns);
-    schema.validate();
-    subgraphMap.set(name, schema);
-  }
-
-  const mergeResult = mergeSubgraphs(subgraphMap);
-  if (mergeResult.errors) {
-    throw new GraphQLSchemaValidationError(mergeResult.errors);
-  }
-
-  const supergraphSchema = mergeResult.supergraph;
-
-  const queryGraph = buildSubgraphsFederation(supergraphSchema, subgraphMap);
-
-  const supergraphGraph = buildGraph("supergraph", supergraphSchema);
-  const compositionResult = validateGraphComposition(supergraphGraph, queryGraph);
-  if (compositionResult.error) {
-    throw compositionResult.error;
-  }
-
-  if (compositionResult.error) {
-    throw compositionResult.error;
-  }
-
-  const schema = graphql.buildSchema(printSchema(supergraphSchema));
-
-  const queryPlanner = new NewQueryPlanner(supergraphSchema, queryGraph) as unknown as QueryPlanner;
-
   return { serviceMap, schema, queryPlanner };
 }
 

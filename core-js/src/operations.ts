@@ -342,41 +342,56 @@ export class SelectionSet {
     }
   }
 
-  addSelectionSetNode(node: SelectionSetNode | undefined, variableDefinitions: VariableDefinitions, fragments: Map<string, FragmentDefinitionNode> = new Map()) {
+  addSelectionSetNode(
+    node: SelectionSetNode | undefined,
+    variableDefinitions: VariableDefinitions,
+    fragments: Map<string, FragmentDefinitionNode> = new Map(),
+    fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
+  ) {
     if (!node) {
       return;
     }
     for (const selectionNode of node.selections) {
-      this.addSelectionNode(selectionNode, variableDefinitions, fragments);
+      this.addSelectionNode(selectionNode, variableDefinitions, fragments, fieldAccessor);
     }
   }
 
-  addSelectionNode(node: SelectionNode, variableDefinitions: VariableDefinitions, fragments: Map<string, FragmentDefinitionNode> = new Map()) {
-    this.add(this.nodeToSelection(node, variableDefinitions, fragments));
+  addSelectionNode(
+    node: SelectionNode,
+    variableDefinitions: VariableDefinitions,
+    fragments: Map<string, FragmentDefinitionNode> = new Map(),
+    fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
+  ) {
+    this.add(this.nodeToSelection(node, variableDefinitions, fragments, fieldAccessor));
   }
 
-  private nodeToSelection(node: SelectionNode, variableDefinitions: VariableDefinitions, fragments: Map<string, FragmentDefinitionNode>): Selection {
+  private nodeToSelection(
+    node: SelectionNode,
+    variableDefinitions: VariableDefinitions,
+    fragments: Map<string, FragmentDefinitionNode>,
+    fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined
+  ): Selection {
     let selection: Selection;
     switch (node.kind) {
       case 'Field':
-        const definition: FieldDefinition<any> | undefined  = this.parentType.field(node.name.value);
+        const definition: FieldDefinition<any> | undefined  = fieldAccessor(this.parentType, node.name.value);
         validate(definition, `Cannot find field ${node.name.value} in type ${this.parentType}`);
         selection = new FieldSelection(new Field(definition, argumentsFromAST(node.arguments), variableDefinitions, node.alias?.value));
         if (node.selectionSet) {
           validate(selection.selectionSet, `Unexpected selection set on leaf field "${selection.element()}"`);
-          selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments);
+          selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments, fieldAccessor);
         }
         break;
       case 'InlineFragment':
         selection = new FragmentSelection(new FragmentElement(this.parentType, node.typeCondition?.name.value));
-        selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments);
+        selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments, fieldAccessor);
         break;
       case 'FragmentSpread':
         const fragmentName = node.name.value;
         const fragmentDef = fragments.get(fragmentName);
         validate(fragmentDef, `Unknown fragment "...${fragmentName}"`);
         selection = new FragmentSelection(new FragmentElement(this.parentType, fragmentDef.typeCondition.name.value));
-        selection.selectionSet.addSelectionSetNode(fragmentDef.selectionSet, variableDefinitions, fragments);
+        selection.selectionSet.addSelectionSetNode(fragmentDef.selectionSet, variableDefinitions, fragments, fieldAccessor);
         addDirectiveNodesToElement(fragmentDef.directives, selection.element());
         break;
     }
@@ -539,7 +554,7 @@ export class FieldSelection {
   validate() {
     validate(
       !(this.selectionSet && this.selectionSet.isEmpty()),
-      `Invalid empty selection set for field "${this.field.name}" of non-leaf type ${this.field.definition.type}`
+      `Invalid empty selection set for field "${this.field.definition.coordinate}" of non-leaf type ${this.field.definition.type}`
     );
   }
 
@@ -701,14 +716,15 @@ export function parseSelectionSet(
   parentType: CompositeType,
   source: string | SelectionSetNode,
   variableDefinitions: VariableDefinitions = new VariableDefinitions(),
-  fragments?: Map<string, FragmentDefinitionNode>
+  fragments?: Map<string, FragmentDefinitionNode>,
+  fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
 ): SelectionSet {
   // TODO: we sould maybe allow the selection, when a string, to contain fragment definitions?
   const node = typeof source === 'string'
     ? parseOperationAST(source.trim().startsWith('{') ? source : `{${source}}`).selectionSet
     : source;
   const selectionSet = new SelectionSet(parentType);
-  selectionSet.addSelectionSetNode(node, variableDefinitions, fragments);
+  selectionSet.addSelectionSetNode(node, variableDefinitions, fragments, fieldAccessor);
   selectionSet.validate();
   return selectionSet;
 }

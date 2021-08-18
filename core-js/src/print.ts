@@ -29,12 +29,21 @@ export type Options = {
   showBuiltIns: boolean
 }
 
-export const defaultOptions: Options = {
+export const defaultPrintOptions: Options = {
   indentString: "  ",
   definitionsOrder: ['schema', 'directives', 'types'],
   mergeTypesAndExtensions: false,
   showBuiltIns: false,
 }
+
+export function orderPrintedDefinitions(options: Options): Options {
+  return {
+    ...options,
+    typeCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
+    directiveCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
+  };
+}
+
 
 function isDefinitionOrderValid(options: Options): boolean {
   return options.definitionsOrder.length === 3
@@ -49,7 +58,7 @@ function validateOptions(options: Options) {
   }
 }
 
-export function printSchema(schema: Schema, options: Options = defaultOptions): string {
+export function printSchema(schema: Schema, options: Options = defaultPrintOptions): string {
   validateOptions(options);
   let directives = [...(options.showBuiltIns ? schema.allDirectives() : schema.directives())];
   if (options.directiveCompareFn) {
@@ -145,7 +154,7 @@ export function printTypeDefinitionAndExtensions(type: NamedType, options: Optio
 
 export function printDirectiveDefinition(directive: DirectiveDefinition): string {
   const locations = directive.locations.join(' | ');
-  return `${printDescription(directive)}directive @${directive}${printArgs([...directive.arguments()])}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
+  return `${printDescription(directive)}directive ${directive}${printArgs([...directive.arguments()])}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
 function printAppliedDirectives(appliedDirectives: readonly Directive<any>[]): string {

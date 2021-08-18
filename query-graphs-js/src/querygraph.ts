@@ -15,12 +15,10 @@ import {
   SelectionSet,
   federationBuiltIns,
   parseSelectionSet,
-  DirectiveDefinition,
   isFederationSubgraphSchema,
-  FieldDefinition,
-  FieldSelection,
-  prepareSubgraphsForFederation,
-  CompositeType
+  CompositeType,
+  isExternal,
+  extractSubgraphsFromSupergraph,
 } from '@apollo/core';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, freeTransition, FreeTransition, Transition, KeyResolution } from './transition';
@@ -248,7 +246,7 @@ export function buildGraph(name: string, schema: Schema): Graph {
   return buildGraphInternal(name, schema);
 }
 
-export function buildGraphInternal(name: string, schema: Schema, supergraphSchema?: Schema): Graph {
+function buildGraphInternal(name: string, schema: Schema, supergraphSchema?: Schema): Graph {
   const builder = new GraphBuilderFromSchema(name, schema, supergraphSchema);
   for (const rootType of schema.schemaDefinition.roots()) {
     builder.addRecursivelyFromRoot(rootType.rootKind, rootType.type);
@@ -256,16 +254,11 @@ export function buildGraphInternal(name: string, schema: Schema, supergraphSchem
   return builder.build();
 }
 
-export function buildSubgraphsFederation(supergraph: Schema, subgraphs: Map<string, Schema>): Graph {
-  const preparedSubgraphs = prepareSubgraphsForFederation(subgraphs);
-  // We shouldn't get errors at this stage since since we've already called this during merging.
-  assert(
-    !Array.isArray(preparedSubgraphs),
-    `Unexpected errors preparing subgraphs: [${preparedSubgraphs}]`
-  );
+export function buildSubgraphsFederation(supergraph: Schema): Graph {
+  const subgraphs = extractSubgraphsFromSupergraph(supergraph);
   let graphs = [];
-  for (let [name, subgraph] of preparedSubgraphs) {
-    graphs.push(buildGraphInternal(name, subgraph, supergraph));;
+  for (let subgraph of subgraphs) {
+    graphs.push(buildGraphInternal(subgraph.name, subgraph.schema, supergraph));;
   }
   return federateSubgraphs(graphs);
 }
@@ -277,7 +270,7 @@ function federatedProperties(subgraphs: Graph[]) : [number, Set<SchemaRootKind>,
   for (let subgraph of subgraphs) {
     vertices += subgraph.verticesCount();
     subgraph.rootKinds().forEach(k => rootKinds.add(k));
-    assert(subgraph.sources.size === 1, `Subgraphs should only have one sources, got ${subgraph.sources.size} ([...${subgraph.sources.keys}])`);
+    assert(subgraph.sources.size === 1, `Subgraphs should only have one sources, got ${subgraph.sources.size} ([${[...subgraph.sources.keys()].join(', ')}])`);
     schemas.push([...subgraph.sources.values()][0]);
   }
   return [vertices + rootKinds.size, rootKinds, schemas];
@@ -589,8 +582,6 @@ class GraphBuilder {
 
 class GraphBuilderFromSchema extends GraphBuilder {
   private readonly isFederatedSubgraph: boolean;
-  private readonly externalDirective?: DirectiveDefinition<{}>;
-  private readonly keyDirective?: DirectiveDefinition<{ fields: string }>;
 
   constructor(
     private readonly name: string,
@@ -599,8 +590,6 @@ class GraphBuilderFromSchema extends GraphBuilder {
   ) {
     super();
     this.isFederatedSubgraph = isFederationSubgraphSchema(schema); 
-    this.externalDirective = this.isFederatedSubgraph ? federationBuiltIns.externalDirective(schema) : undefined; 
-    this.keyDirective = this.isFederatedSubgraph ? federationBuiltIns.keyDirective(schema) : undefined; 
     assert(!this.isFederatedSubgraph || supergraphSchema, `Missing supergraph schema for building the federated subgraph graph`);
   }
 
@@ -636,38 +625,13 @@ class GraphBuilderFromSchema extends GraphBuilder {
     return vertex;
   }
 
-  private isExternal(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
-    // Historically, @external was required on key fields for type extensions, even though it's arguably not entirely 
-    // right (the subgraph does always provides its keys, so they are not external). So for backward compatibility, we
-    // just ignore an @external if it is on a field that is part of a key.
-    return this.externalDirective !== undefined
-      && field.hasAppliedDirective(this.externalDirective)
-      && !this.isPartOfAKey(field);
-  }
-
-  private isPartOfAKey(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
-    if (!this.keyDirective) {
-      return false;
-    }
-    const parentType = field.parent!;
-    for (const keyApplication of parentType.appliedDirectivesOf(this.keyDirective)) {
-      const selections = parseSelectionSet(parentType, keyApplication.arguments().fields);
-      for (const selection of selections.selections()) {
-        if (selection instanceof FieldSelection && selection.element().selects(field, true)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
   private addObjectTypeEdges(type: ObjectType, head: Vertex) {
     // We do want all fields, including built-in. For instance, it's perfectly valid to query __typename manually, so we want
     // to have an edge for it. Also, the fact we handle the _entities field ensure that all entities are part of the graph,
     // even if they are not reachable by any other user operations.
     for (const field of type.allFields()) {
       // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't really exist as far as federation goes.
-      if (this.isExternal(field)) {
+      if (isExternal(field)) {
         continue;
       }
       const tail = this.addTypeRecursively(field.type!);
@@ -677,7 +641,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
 
   private isProvidedByType(type: ObjectType, fieldName: string) {
     const field = type.field(fieldName);
-    return field && !this.isExternal(field);
+    return field && !isExternal(field);
   }
 
   private maybeAddInterfaceFieldsEdges(type: InterfaceType, head: Vertex) {
@@ -701,7 +665,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // by all local runtime types, so will always have an edge added, which we want).
     for (const field of type.allFields()) {
       // To include the field, it must not be external himself, and it must be present (and non-external) on every of the runtime types
-      if (this.isExternal(field) || localRuntimeTypes.some(t => !this.isProvidedByType(t, field.name))) {
+      if (isExternal(field) || localRuntimeTypes.some(t => !this.isProvidedByType(t, field.name))) {
         continue;
       }
       const tail = this.addTypeRecursively(field.type!);

@@ -247,7 +247,9 @@ function buildNamedTypeInner(
     case 'EnumTypeExtension':
       const enumType = type as EnumType;
       for (const enumVal of definitionNode.values ?? []) {
-        enumType.addValue(enumVal.name.value).setOfExtension(extension);
+        const v = enumType.addValue(enumVal.name.value);
+        v.setOfExtension(extension);
+        buildAppliedDirectives(enumVal, v);
       }
       break;
     case 'InputObjectTypeDefinition':

@@ -12,14 +12,13 @@ import {
 } from './buildQueryPlan';
 import { computeQueryPlan } from './buildPlan';
 import { Schema, operationFromAST } from '@apollo/core';
-import { Graph } from '@apollo/query-graphs';
 import { Kind, validate } from 'graphql';
 export { BuildQueryPlanOptions, buildOperationContext };
 
 export * from './buildPlan';
 
 export class NewQueryPlanner {
-  constructor(public readonly supergraphSchema: Schema, public readonly queryGraph: Graph) {}
+  constructor(public readonly supergraphSchema: Schema) {}
 
   buildQueryPlan(
     operationContext: OperationContext,
@@ -33,7 +32,7 @@ export class NewQueryPlanner {
     }
 
     const operation = operationFromAST(this.supergraphSchema, operationContext.operation, new Map(Object.entries(operationContext.fragments)));
-    const queryPlan = computeQueryPlan(this.supergraphSchema, this.queryGraph, operation);
+    const queryPlan = computeQueryPlan(this.supergraphSchema, operation);
     return queryPlan;
   }
 }
