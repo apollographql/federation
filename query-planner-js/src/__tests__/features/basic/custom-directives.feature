@@ -50,6 +50,7 @@ Scenario: successfully passes directives and their variables along in requests t
         {
           "kind": "Flatten",
           "path": ["topReviews", "@", "author"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "accounts",

@@ -54,6 +54,7 @@ Scenario: resolves value types within their respective services
             {
               "kind": "Flatten",
               "path": ["topProducts", "@"],
+              "rootEntityFieldNames": ["metadata"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "books",
@@ -74,6 +75,7 @@ Scenario: resolves value types within their respective services
             {
               "kind": "Flatten",
               "path": ["topProducts", "@"],
+              "rootEntityFieldNames": ["reviews"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "reviews",

@@ -27,6 +27,7 @@ Scenario: supports simple aliases
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
           "node": {
             "kind": "Fetch",
             "serviceName": "books",
@@ -47,6 +48,7 @@ Scenario: supports simple aliases
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["name", "title"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -109,6 +111,7 @@ Scenario: supports aliases of root fields on subservices
                 {
                   "kind": "Flatten",
                   "path": ["product"],
+                  "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
                   "node": {
                     "kind": "Fetch",
                     "serviceName": "books",
@@ -129,6 +132,7 @@ Scenario: supports aliases of root fields on subservices
                 {
                   "kind": "Flatten",
                   "path": ["product"],
+                  "rootEntityFieldNames": ["name", "title"],
                   "node": {
                     "kind": "Fetch",
                     "serviceName": "product",
@@ -153,6 +157,7 @@ Scenario: supports aliases of root fields on subservices
             {
               "kind": "Flatten",
               "path": ["product"],
+              "rootEntityFieldNames": ["reviews", "productReviews"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "reviews",
@@ -227,6 +232,7 @@ Scenario: supports aliases of nested fields on subservices
                 {
                   "kind": "Flatten",
                   "path": ["product"],
+                  "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
                   "node": {
                     "kind": "Fetch",
                     "serviceName": "books",
@@ -247,6 +253,7 @@ Scenario: supports aliases of nested fields on subservices
                 {
                   "kind": "Flatten",
                   "path": ["product"],
+                  "rootEntityFieldNames": ["name", "title"],
                   "node": {
                     "kind": "Fetch",
                     "serviceName": "product",
@@ -271,6 +278,7 @@ Scenario: supports aliases of nested fields on subservices
             {
               "kind": "Flatten",
               "path": ["product"],
+              "rootEntityFieldNames": ["reviews", "productReviews"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "reviews",

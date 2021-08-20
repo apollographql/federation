@@ -27,6 +27,7 @@ Scenario: handles an abstract type from the base service
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
           "node": {
             "kind": "Fetch",
             "serviceName": "books",
@@ -47,6 +48,7 @@ Scenario: handles an abstract type from the base service
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -96,6 +98,7 @@ Scenario: can request fields on extended interfaces
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["inStock"],
           "node": {
             "kind": "Fetch",
             "serviceName": "inventory",
@@ -154,6 +157,7 @@ Scenario: can request fields on extended types that implement an interface
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["inStock", "isHeavy"],
           "node": {
             "kind": "Fetch",
             "serviceName": "inventory",
@@ -215,6 +219,7 @@ Scenario: prunes unfilled type conditions
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["inStock", "isCheckedOut", "isHeavy"],
           "node": {
             "kind": "Fetch",
             "serviceName": "inventory",
@@ -277,6 +282,7 @@ Scenario: fetches interfaces returned from other services
         {
           "kind": "Flatten",
           "path": ["me"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -300,6 +306,7 @@ Scenario: fetches interfaces returned from other services
             {
               "kind": "Flatten",
               "path": ["me", "reviews", "@", "product"],
+              "rootEntityFieldNames": ["price"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "product",
@@ -328,6 +335,7 @@ Scenario: fetches interfaces returned from other services
             {
               "kind": "Flatten",
               "path": ["me", "reviews", "@", "product"],
+              "rootEntityFieldNames": ["title"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "books",
@@ -384,6 +392,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
         {
           "kind": "Flatten",
           "path": ["me"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -407,6 +416,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
             {
               "kind": "Flatten",
               "path": ["me", "reviews", "@", "product"],
+              "rootEntityFieldNames": ["price"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "product",
@@ -438,6 +448,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                 {
                   "kind": "Flatten",
                   "path": ["me", "reviews", "@", "product"],
+                  "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
                   "node": {
                     "kind": "Fetch",
                     "serviceName": "books",
@@ -458,6 +469,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                 {
                   "kind": "Flatten",
                   "path": ["me", "reviews", "@", "product"],
+                  "rootEntityFieldNames": ["name"],
                   "node": {
                     "kind": "Fetch",
                     "serviceName": "product",
@@ -513,6 +525,7 @@ Scenario: allows for extending an interface from another service with fields
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -582,6 +595,7 @@ Scenario: handles unions from the same service
         {
           "kind": "Flatten",
           "path": ["me"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -602,6 +616,7 @@ Scenario: handles unions from the same service
         {
           "kind": "Flatten",
           "path": ["me", "reviews", "@", "product"],
+          "rootEntityFieldNames": ["price", "brand"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",

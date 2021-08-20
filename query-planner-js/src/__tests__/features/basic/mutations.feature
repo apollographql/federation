@@ -29,6 +29,7 @@ Scenario: supports mutations
         {
           "kind": "Flatten",
           "path": ["login"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -49,6 +50,7 @@ Scenario: supports mutations
         {
           "kind": "Flatten",
           "path": ["login", "reviews", "@", "product"],
+          "rootEntityFieldNames": ["upc"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -98,6 +100,7 @@ Scenario: mutations across service boundaries
         {
           "kind": "Flatten",
           "path": ["reviewProduct"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -160,6 +163,7 @@ Scenario: multiple root mutations
         {
           "kind": "Flatten",
           "path": ["login"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -180,6 +184,7 @@ Scenario: multiple root mutations
         {
           "kind": "Flatten",
           "path": ["login", "reviews", "@", "product"],
+          "rootEntityFieldNames": ["upc"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -206,6 +211,7 @@ Scenario: multiple root mutations
         {
           "kind": "Flatten",
           "path": ["reviewProduct"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -281,6 +287,7 @@ Scenario: multiple root mutations with correct service order
         {
           "kind": "Flatten",
           "path": ["login"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -301,6 +308,7 @@ Scenario: multiple root mutations with correct service order
         {
           "kind": "Flatten",
           "path": ["login", "reviews", "@", "product"],
+          "rootEntityFieldNames": ["upc"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",

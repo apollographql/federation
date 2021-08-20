@@ -32,6 +32,7 @@ Scenario: supports passing additional fields defined by a requires
         {
           "kind": "Flatten",
           "path": ["me"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -52,6 +53,7 @@ Scenario: supports passing additional fields defined by a requires
         {
           "kind": "Flatten",
           "path": ["me", "reviews", "@", "product"],
+          "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
           "node": {
             "kind": "Fetch",
             "serviceName": "books",
@@ -72,6 +74,7 @@ Scenario: supports passing additional fields defined by a requires
         {
           "kind": "Flatten",
           "path": ["me", "reviews", "@", "product"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",

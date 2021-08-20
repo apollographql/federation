@@ -29,6 +29,7 @@ Feature: Query Planning > Multiple keys
             {
               "kind": "Flatten",
               "path": ["reviews", "@", "author"],
+              "rootEntityFieldNames": ["name", "__typename", "ssn"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "users",
@@ -49,6 +50,7 @@ Feature: Query Planning > Multiple keys
             {
               "kind": "Flatten",
               "path": ["reviews", "@", "author"],
+              "rootEntityFieldNames": ["risk"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "actuary",

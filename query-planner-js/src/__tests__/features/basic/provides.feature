@@ -53,6 +53,7 @@ Scenario: does not load fields provided even when going to other service
         {
           "kind": "Flatten",
           "path": ["topReviews", "@", "author"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "accounts",
