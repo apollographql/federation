@@ -15,7 +15,7 @@ import {
   addResolversToSchema,
   GraphQLResolverMap,
 } from 'apollo-graphql';
-import federationDirectives, { typeIncludesDirective } from '../directives';
+import { federationDirectives, typeIncludesDirective } from '../directives';
 
 import { serviceField, entitiesField, EntityType } from '../types';
 
@@ -28,7 +28,7 @@ type LegacySchemaModule = {
 
 export { GraphQLSchemaModule };
 
-export function buildFederatedSchema(
+export function buildSubgraphSchema(
   modulesOrSDL:
     | (GraphQLSchemaModule | DocumentNode)[]
     | DocumentNode
@@ -38,9 +38,9 @@ export function buildFederatedSchema(
   // map of resolvers to build a schema. Long term we don't want to support this
   // style anymore as we move towards a more structured approach to modules,
   // however, it has tripped several teams up to not support this signature
-  // in buildFederatedSchema. Especially as teams migrate from
+  // in buildSubgraphSchema. Especially as teams migrate from
   // `new ApolloServer({ typeDefs: DocumentNode[], resolvers })` to
-  // `new ApolloServer({ schema: buildFederatedSchema({ typeDefs: DocumentNode[], resolvers }) })`
+  // `new ApolloServer({ schema: buildSubgraphSchema({ typeDefs: DocumentNode[], resolvers }) })`
   //
   // The last type in the union for `modulesOrSDL` supports this "legacy" input
   // style in a simple manner (by just adding the resolvers to the first typeDefs entry)
@@ -132,3 +132,8 @@ export function buildFederatedSchema(
 
   return schema;
 }
+
+/**
+ * @deprecated Use `buildSubgraphSchema` instead.
+ */
+export const buildFederatedSchema = buildSubgraphSchema;

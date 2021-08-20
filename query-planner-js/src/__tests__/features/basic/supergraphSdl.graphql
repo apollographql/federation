@@ -1,12 +1,12 @@
 schema
-    @core(feature: "https://specs.apollo.dev/core/v0.1"),
-    @core(feature: "https://specs.apollo.dev/join/v0.1")
+    @core(feature: "https://specs.apollo.dev/core/v0.2"),
+    @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
 {
     query: Query
     mutation: Mutation
 }
 
-directive @core(feature: String!) repeatable on SCHEMA
+directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
 directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
 
@@ -67,6 +67,11 @@ type Car implements Vehicle
     price: String @join__field(graph: PRODUCT)
     retailPrice: String @join__field(graph: REVIEWS, requires: "price")
     thing: Thing
+}
+
+enum core__Purpose {
+  EXECUTION
+  SECURITY
 }
 
 type Error {

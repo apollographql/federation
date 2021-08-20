@@ -1,7 +1,7 @@
 import { GraphQLRequest } from 'apollo-server-types';
 import { parse } from 'graphql';
 import { Headers, HeadersInit } from 'node-fetch';
-import { GraphQLDataSource } from './datasources/types';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
 import { SERVICE_DEFINITION_QUERY } from './';
 import { CompositionUpdate, ServiceEndpointDefinition } from './config';
 import { ServiceDefinition } from '@apollo/federation';
@@ -45,7 +45,11 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
     };
 
     return dataSource
-      .process({ request, context: {} })
+      .process({
+        kind: GraphQLDataSourceRequestKind.LOADING_SCHEMA,
+        request,
+        context: {},
+      })
       .then(({ data, errors }): ServiceDefinition => {
         if (data && !errors) {
           const typeDefs = data._service.sdl as string;
@@ -63,12 +67,12 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
           };
         }
 
-        throw new Error(errors?.map(e => e.message).join("\n"));
+        throw new Error(errors?.map((e) => e.message).join('\n'));
       })
-      .catch(err => {
+      .catch((err) => {
         const errorMessage =
           `Couldn't load service definitions for "${name}" at ${url}` +
-          (err && err.message ? ": " + err.message || err : "");
+          (err && err.message ? ': ' + err.message || err : '');
 
         throw new Error(errorMessage);
       });

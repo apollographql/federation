@@ -28,20 +28,19 @@ If you haven't yet, complete the first two steps from the Apollo Studio getting 
 
 > This section assumes you are using Apollo Server with the `@apollo/gateway` library as your gateway.
 
-If you've already set up Apollo Federation _without_ Apollo Studio, the constructor of your `ApolloGateway` instance probably includes a `serviceList` option, like this:
+If you've already set up Apollo Federation _without_ Apollo Studio, the constructor of your `ApolloGateway` instance probably includes a `supergraphSdl` or `serviceList` option, like this:
 
-```js
+```js{2}
 const gateway = new ApolloGateway({
-  serviceList: [
-    { name: 'Products', url: 'http://products-graphql.svc.cluster.local:4001/' },
-    // Additional services defined here
-  ],
+  supergraphSdl
 });
 ```
 
-This option specifies the name and URL for each of your graph's subgraphs. With managed federation, this information is no longer hardcoded in the gateway's constructor! Instead, the gateway regularly polls Apollo for this information. This enables you to add and remove subgraphs _without_ needing to restart your gateway.
+These two options are specific to _non_-managed federation, in which supergraph schema composition is performed via the Rover CLI (`supergraphSdl`), or in the gateway itself (`serviceList`).
 
-Remove the `serviceList` argument from your `ApolloGateway` constructor entirely:
+With managed federation, composition is instead performed by _Apollo_, and the gateway regularly polls Apollo for an updated schema. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your gateway.
+
+Remove the `supergraphSdl` or `serviceList` argument from your `ApolloGateway` constructor entirely:
 
 ```js
 const gateway = new ApolloGateway();
@@ -57,12 +56,12 @@ After obtaining your graph API key, you set two environment variables in your ga
 
 ```sh:title=.env
 APOLLO_KEY=<YOUR_GRAPH_API_KEY>
-APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://uplink.api.apollographql.com/
+APOLLO_GRAPH_REF=<YOUR_GRAPH_ID>@<VARIANT>
 ```
 
-You can also set these values directly in the command you use to start your gateway.
+You can also set this value directly in the command you use to start your gateway.
 
-The second environment variable, `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT`, instructs the gateway to fetch its configuration from a new (and recommended) Apollo-hosted endpoint called the **uplink**. If you don't set this value, the gateway instead fetches its configuration from a file hosted in Google Cloud Storage.
+The third environment variable, `APOLLO_GRAPH_REF`, tells the gateway which graph to use and with which variant. You would supply your graph id and the variant you want to use (for example, `current`). You can always find a a graph's ref at the top of its Schema Reference page in Studio.
 
 > When running your gateway in an environment where outbound traffic to the internet is restricted, consult the [directions for configuring a proxy](https://www.apollographql.com/docs/apollo-server/proxy-configuration/) within Apollo Server.
 

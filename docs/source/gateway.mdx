@@ -10,7 +10,7 @@ After you set up at least one federation-ready [subgraph](./subgraphs/), you can
 
 The `@apollo/gateway` package extends Apollo Server's functionality, enabling it to act as a gateway for an Apollo Federation architecture.
 
-> We recommend against running your gateway in a serverless environment (such as AWS Lambda), because schema composition increases Apollo Server's startup time. If you do run your gateway in a serverless environment, set your function's timeout to at least 10 seconds to prevent unexpected errors.
+> We recommend against running your gateway in a serverless environment (such as AWS Lambda), because schema composition increases Apollo Server's startup time. If you _do_ run your gateway in a serverless environment, set your function's timeout to at least 10 seconds to prevent unexpected errors.
 
 ## Setup
 
@@ -22,25 +22,22 @@ npm install @apollo/gateway apollo-server graphql
 
 The `@apollo/gateway` package includes the [`ApolloGateway` class](/api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
 
-```js
+```js:title=index.js
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
+const { readFileSync } = require('fs');
 
-// Initialize an ApolloGateway instance and pass it an array of
-// your subgraph names and URLs
+const supergraphSdl = readFileSync('./supergraph.graphql').toString();
+
+// Initialize an ApolloGateway instance and pass it
+// the supergraph schema
 const gateway = new ApolloGateway({
-  serviceList: [
-    { name: 'accounts', url: 'http://localhost:4001' },
-    // Define additional services here
-  ],
+  supergraphSdl
 });
 
 // Pass the ApolloGateway to the ApolloServer constructor
 const server = new ApolloServer({
-  gateway,
-
-  // Disable subscriptions (not currently supported with ApolloGateway)
-  subscriptions: false,
+  gateway
 });
 
 server.listen().then(({ url }) => {
@@ -48,15 +45,76 @@ server.listen().then(({ url }) => {
 });
 ```
 
-In the above example, we provide the `serviceList` configuration option to the
-`ApolloGateway` constructor. This array specifies a `name` and `url` for each
-of our subgraphs. You can specify any string value for `name`, which is used primarily for query planner output, error messages, and logging.
+### Composing the supergraph schema
 
-> In production, we recommend running the gateway in a **managed mode** with Apollo Studio, which relies on static files rather than introspection. For details, see [Setting up managed federation](https://www.apollographql.com/docs/studio/managed-federation/setup/).
+In the above example, we provide the `supergraphSdl` option to the `ApolloGateway` constructor. This is the string representation of our [supergraph schema](./#federated-schemas), which is composed from all of our subgraph schemas.
 
-On startup, the gateway fetches each subgraph's schema from its `url` and composes those schemas into a single federated data graph. It then begins accepting incoming requests and creates query plans for them that execute across one or more services.
+To learn how to compose your supergraph schema with the Rover CLI, see the [Federation quickstart](./quickstart/#3-compose-the-supergraph-schema).
 
-> If there are any composition errors, the `new ApolloServer` call throws an exception with a list of [validation errors](/errors/).
+> In production, we strongly recommend running the gateway in a **managed mode** with Apollo Studio, which enables your gateway to update its configuration without a restart. For details, see [Setting up managed federation](https://www.apollographql.com/docs/studio/managed-federation/setup/).
+
+On startup, the gateway processes your `supergraphSdl`, which includes routing information for your subgraphs. It then begins accepting incoming requests and creates query plans for them that execute across one or more subgraphs.
+
+### Composing with `serviceList`
+
+> We strongly recommend _against_ using `serviceList`. For details, [see below](#limitations-of-servicelist).
+
+Alternatively, you can provide a `serviceList` array to the `ApolloGateway` constructor, like so:
+
+```js:title=index.js
+const gateway = new ApolloGateway({
+  serviceList: [
+    { name: 'accounts', url: 'http://localhost:4001' },
+    { name: 'products', url: 'http://localhost:4002' },
+    // ...additional subgraphs...
+  ]
+});
+```
+
+Each item in the array is an object that specifies the `name` and `url` of one of your subgraphs. You can specify any string value for `name`, which is used primarily for query planner output, error messages, and logging.
+
+On startup, the gateway fetches each subgraph's schema from its `url` and composes those schemas into a supergraph schema. It then begins accepting incoming requests and creates query plans for them that execute across one or more subgraphs.
+
+However, the `serviceList` option has important [limitations](#limitations-of-servicelist).
+
+#### Limitations of `serviceList`
+
+The `serviceList` option can sometimes be helpful for local development, but it is strongly discouraged for any other environment. Here are some reasons why:
+
+* **Composition might fail.** With `serviceList`, your gateway performs composition dynamically on startup, which requires network communication with each subgraph. If composition fails, your gateway [throws errors](./errors/) and experiences unplanned downtime.
+    * With `supergraphSdl`, you instead provide a supergraph schema that has _already_ been composed successfully. This prevents composition errors and enables faster startup.
+* **Gateway instances might differ.** If you deploy multiple instances of your gateway _while_ deploying updates to your subgraphs, your gateway instances might fetch different schemas from the _same_ subgraph. This can result in sporadic composition failures or inconsistent supergraph schemas between instances.
+    * When you deploy multiple instances with `supergraphSdl`, you provide the exact same static artifact to each instance, enabling more predictable behavior.
+
+> **We hope to deprecate the `serviceList` option in the coming months**, but we'd love to hear from you if it enables an important use case that either `supergraphSdl` or [managed federation](./managed-federation/overview/) currently doesn't.
+>
+> Please let us know by [creating an issue](https://github.com/apollographql/federation/issues/new/choose) or [replying to this forum topic](https://community.apollographql.com/t/1053).
+
+## Updating the gateway
+
+> Before updating your gateway's version, check the [changelog](https://github.com/apollographql/federation/blob/main/gateway-js/CHANGELOG.md) for potential breaking changes.
+>
+> We strongly recommend updating your gateway in local and test environments before deploying updates to staging or production.
+
+You can confirm the currently installed version of the `@apollo/gateway` library with the `npm list` command:
+
+```bash
+npm list @apollo/gateway
+```
+
+To update the library, use the [`npm update`](https://docs.npmjs.com/cli/v7/commands/npm-update) command:
+
+```bash
+npm update @apollo/gateway
+```
+
+This updates the library to the most recent version allowed by your `package.json` file. [Learn more about dependency constraints.](https://docs.npmjs.com/cli/v7/commands/npm-update#example)
+
+To update to a particular version (including a version that _exceeds_ your dependency constraints), use `npm install` instead:
+
+```bash
+npm install @apollo/gateway@0.34.0
+```
 
 ## Customizing requests and responses
 
@@ -75,6 +133,9 @@ After adding the `userId` to the shared `context` object, the gateway can then a
 ```javascript{4-10,17-19,28-35}
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway, RemoteGraphQLDataSource } = require('@apollo/gateway');
+const { readFileSync } = require('fs');
+
+const supergraphSdl = readFileSync('./supergraph.graphql').toString();
 
 class AuthenticatedDataSource extends RemoteGraphQLDataSource {
   willSendRequest({ request, context }) {
@@ -85,10 +146,7 @@ class AuthenticatedDataSource extends RemoteGraphQLDataSource {
 }
 
 const gateway = new ApolloGateway({
-  serviceList: [
-    { name: 'products', url: 'http://localhost:4001' },
-    // List other subgraphs here
-  ],
+  supergraphSdl,
   buildService({ name, url }) {
     return new AuthenticatedDataSource({ url });
   },
@@ -96,9 +154,6 @@ const gateway = new ApolloGateway({
 
 const server = new ApolloServer({
   gateway,
-
-  // Disable subscriptions (not currently supported with ApolloGateway)
-  subscriptions: false,
 
   context: ({ req }) => {
     // Get the user token from the headers
@@ -149,6 +204,9 @@ To implement this flow, we can use the `didReceiveResponse` callback of the `Rem
 ```javascript
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway, RemoteGraphQLDataSource } = require('@apollo/gateway');
+const { readFileSync } = require('fs');
+
+const supergraphSdl = readFileSync('./supergraph.graphql').toString();
 
 class DataSourceWithServerId extends RemoteGraphQLDataSource {
   // highlight-start
@@ -166,10 +224,7 @@ class DataSourceWithServerId extends RemoteGraphQLDataSource {
 }
 
 const gateway = new ApolloGateway({
-  serviceList: [
-    { name: 'products', url: 'http://localhost:4001' }
-    // other services
-  ],
+  supergraphSdl,
   // highlight-start
   buildService({ url }) {
     return new DataSourceWithServerId({ url });
@@ -179,7 +234,6 @@ const gateway = new ApolloGateway({
 
 const server = new ApolloServer({
   gateway,
-  subscriptions: false, // Must be disabled with the gateway; see above.
   context() {
     return { serverIds: [] };
   },

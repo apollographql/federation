@@ -1,7 +1,9 @@
 import { LocalGraphQLDataSource } from '../LocalGraphQLDataSource';
-import { buildFederatedSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/federation';
 import gql from 'graphql-tag';
 import { GraphQLResolverMap } from 'apollo-graphql';
+import { GraphQLRequestContext } from 'apollo-server-types';
+import { GraphQLDataSourceRequestKind } from '../types';
 
 describe('constructing requests', () => {
   it('accepts context', async () => {
@@ -25,18 +27,22 @@ describe('constructing requests', () => {
               name: 'someoneElse',
             },
           ];
-          return users.find(user => user.id === userId);
+          return users.find((user) => user.id === userId);
         },
       },
     };
-    const schema = buildFederatedSchema([{ typeDefs, resolvers }]);
+    const schema = buildSubgraphSchema([{ typeDefs, resolvers }]);
 
     const DataSource = new LocalGraphQLDataSource(schema);
 
     const { data } = await DataSource.process({
+      kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION,
       request: {
         query: '{ me { name } }',
       },
+      incomingRequestContext: {
+        context: { userId: 2 },
+      } as GraphQLRequestContext<{userId: number}>,
       context: { userId: 2 },
     });
 

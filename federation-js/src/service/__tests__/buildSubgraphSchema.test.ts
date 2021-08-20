@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
 import { Kind, graphql, DocumentNode, execute } from 'graphql';
-import { buildFederatedSchema } from '../buildFederatedSchema';
+import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { typeSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(typeSerializer);
@@ -10,9 +10,9 @@ const EMPTY_DOCUMENT = {
   definitions: [],
 };
 
-describe('buildFederatedSchema', () => {
+describe('buildSubgraphSchema', () => {
   it(`should mark a type with a key field as an entity`, () => {
-    const schema = buildFederatedSchema(gql`
+    const schema = buildSubgraphSchema(gql`
       type Product @key(fields: "upc") {
         upc: String!
         name: String
@@ -34,7 +34,7 @@ type Product {
   });
 
   it(`should mark a type with multiple key fields as an entity`, () => {
-    const schema = buildFederatedSchema(gql`
+    const schema = buildSubgraphSchema(gql`
       type Product @key(fields: "upc") @key(fields: "sku") {
         upc: String!
         sku: String!
@@ -58,7 +58,7 @@ type Product {
   });
 
   it(`should not mark a type without a key field as an entity`, () => {
-    const schema = buildFederatedSchema(gql`
+    const schema = buildSubgraphSchema(gql`
       type Money {
         amount: Int!
         currencyCode: String!
@@ -79,7 +79,7 @@ type Money {
         sdl
       }
     }`;
-    const schema = buildFederatedSchema(gql`
+    const schema = buildSubgraphSchema(gql`
       "A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text"
       type User @key(fields: "id") {
         """
@@ -130,7 +130,7 @@ type User @key(fields: "id") {
 
   describe(`should add an _entities query root field to the schema`, () => {
     it(`when a query root type with the default name has been defined`, () => {
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         type Query {
           rootField: String
         }
@@ -149,7 +149,7 @@ type Query {
     });
 
     it(`when a query root type with a non-default name has been defined`, () => {
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         schema {
           query: QueryRoot
         }
@@ -173,7 +173,7 @@ type QueryRoot {
   });
   describe(`should not add an _entities query root field to the schema`, () => {
     it(`when no query root type has been defined`, () => {
-      const schema = buildFederatedSchema(EMPTY_DOCUMENT);
+      const schema = buildSubgraphSchema(EMPTY_DOCUMENT);
 
       expect(schema.getQueryType()).toMatchInlineSnapshot(`
 type Query {
@@ -182,7 +182,7 @@ type Query {
 `);
     });
     it(`when no types with keys are found`, () => {
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         type Query {
           rootField: String
         }
@@ -196,7 +196,7 @@ type Query {
 `);
     });
     it(`when only an interface with keys are found`, () => {
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         type Query {
           rootField: String
         }
@@ -233,7 +233,7 @@ type Query {
         ],
       };
 
-      const schema = buildFederatedSchema([
+      const schema = buildSubgraphSchema([
         {
           typeDefs: gql`
             type Product @key(fields: "upc") {
@@ -287,7 +287,7 @@ type Query {
         ],
       };
 
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         type Product @key(fields: "upc") {
           upc: Int
           name: String
@@ -311,7 +311,7 @@ type Query {
         sdl
       }
     }`;
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         type Review {
           id: ID
         }
@@ -346,7 +346,7 @@ type Review {
       sdl
     }
   }`;
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         type Review {
           id: ID
         }
@@ -388,7 +388,7 @@ type Review {
         sdl
       }
     }`;
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         type Product @key(fields: "upc") {
           upc: String!
           name: String
@@ -411,7 +411,7 @@ type Review {
         sdl
       }
     }`;
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         type Product @key(fields: "upc") @key(fields: "name") {
           upc: String!
           name: String
@@ -436,7 +436,7 @@ type Review {
         }
       }`;
 
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         type Review @key(fields: "id") {
           id: ID!
           body: String
@@ -483,7 +483,7 @@ extend type User @key(fields: "email") {
         }
       }`;
 
-      const schema = buildFederatedSchema(gql`
+      const schema = buildSubgraphSchema(gql`
         directive @custom on FIELD
 
         extend type User @key(fields: "email") {
@@ -530,7 +530,7 @@ describe('legacy interface', () => {
     `,
   ];
   it('allows legacy schema module interface as an input with an array of typeDefs and resolvers', async () => {
-    const schema = buildFederatedSchema({ typeDefs, resolvers });
+    const schema = buildSubgraphSchema({ typeDefs, resolvers });
     expect(schema.getType('_Entity')).toMatchInlineSnapshot(
       `union _Entity = Product`,
     );
@@ -553,7 +553,7 @@ describe('legacy interface', () => {
     });
   });
   it('allows legacy schema module interface as a single module', async () => {
-    const schema = buildFederatedSchema({
+    const schema = buildSubgraphSchema({
       typeDefs: gql`
         type Query {
           product: Product
@@ -588,7 +588,7 @@ describe('legacy interface', () => {
     });
   });
   it('allows legacy schema module interface as a single module without resolvers', async () => {
-    const schema = buildFederatedSchema({
+    const schema = buildSubgraphSchema({
       typeDefs: gql`
         type Query {
           product: Product
@@ -612,7 +612,7 @@ type Product {
     );
   });
   it('allows legacy schema module interface as a simple array of documents', async () => {
-    const schema = buildFederatedSchema({ typeDefs });
+    const schema = buildSubgraphSchema({ typeDefs });
     expect(schema.getType('Product')).toMatchInlineSnapshot(`
 type Product {
   upc: String!

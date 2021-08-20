@@ -1,4 +1,10 @@
-import { getIntrospectionQuery, GraphQLSchema } from 'graphql';
+import {
+  buildClientSchema,
+  getIntrospectionQuery,
+  GraphQLObjectType,
+  GraphQLSchema,
+  print,
+} from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { GraphQLRequestContext } from 'apollo-server-types';
@@ -6,9 +12,15 @@ import { AuthenticationError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  queryPlanSerializer,
+  superGraphWithInaccessible,
+} from 'apollo-federation-integration-testsuite';
+import { buildComposedSchema, QueryPlanner } from '@apollo/query-planner';
+import { ApolloGateway } from '..';
+import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { getFederatedTestingSchema } from './execution-utils';
-import { QueryPlanner } from '@apollo/query-planner';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -34,20 +46,15 @@ describe('executeQueryPlan', () => {
 
   let schema: GraphQLSchema;
   let queryPlanner: QueryPlanner;
-
   beforeEach(() => {
     expect(
       () =>
-        ({
-          serviceMap,
-          schema,
-          queryPlanner,
-        } = getFederatedTestingSchema()),
+        ({ serviceMap, schema, queryPlanner } = getFederatedTestingSchema()),
     ).not.toThrow();
   });
 
   function buildRequestContext(): GraphQLRequestContext {
-     // @ts-ignore
+    // @ts-ignore
     return {
       cache: undefined as any,
       context: {},
@@ -130,6 +137,7 @@ describe('executeQueryPlan', () => {
         'errors.0.message',
         'Something went wrong',
       );
+      expect(response).toHaveProperty('errors.0.path', undefined);
       expect(response).toHaveProperty(
         'errors.0.extensions.code',
         'UNAUTHENTICATED',
@@ -138,17 +146,13 @@ describe('executeQueryPlan', () => {
         'errors.0.extensions.serviceName',
         'accounts',
       );
-      expect(response).toHaveProperty(
-        'errors.0.extensions.query',
-        '{me{name{first last}}}',
-      );
-      expect(response).toHaveProperty('errors.0.extensions.variables', {});
+      expect(response).not.toHaveProperty('errors.0.extensions.query');
+      expect(response).not.toHaveProperty('errors.0.extensions.variables');
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {
-      const accountsEntitiesResolverSpy = spyOnEntitiesResolverInService(
-        'accounts',
-      );
+      const accountsEntitiesResolverSpy =
+        spyOnEntitiesResolverInService('accounts');
 
       const operationString = `#graphql
         query {
@@ -224,9 +228,8 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should send a request to downstream services for the remaining entities when some entities are undefined`, async () => {
-      const accountsEntitiesResolverSpy = spyOnEntitiesResolverInService(
-        'accounts',
-      );
+      const accountsEntitiesResolverSpy =
+        spyOnEntitiesResolverInService('accounts');
 
       const operationString = `#graphql
         query {
@@ -334,9 +337,8 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should not send request to downstream service when entities don't match type conditions`, async () => {
-      const reviewsEntitiesResolverSpy = spyOnEntitiesResolverInService(
-        'reviews',
-      );
+      const reviewsEntitiesResolverSpy =
+        spyOnEntitiesResolverInService('reviews');
 
       const operationString = `#graphql
         query {
@@ -383,9 +385,8 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should send a request to downstream services for the remaining entities when some entities don't match type conditions`, async () => {
-      const reviewsEntitiesResolverSpy = spyOnEntitiesResolverInService(
-        'reviews',
-      );
+      const reviewsEntitiesResolverSpy =
+        spyOnEntitiesResolverInService('reviews');
 
       const operationString = `#graphql
         query {
@@ -1177,5 +1178,186 @@ describe('executeQueryPlan', () => {
         ],
       }
     `);
+  });
+
+  describe('@inaccessible', () => {
+    it(`should not include @inaccessible fields in introspection`, async () => {
+      schema = buildComposedSchema(superGraphWithInaccessible);
+      queryPlanner = new QueryPlanner(schema);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument: gql`
+          ${getIntrospectionQuery()}
+        `,
+      });
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(response.data).toHaveProperty('__schema');
+      expect(response.errors).toBeUndefined();
+
+      const introspectedSchema = buildClientSchema(response.data as any);
+
+      const userType = introspectedSchema.getType('User') as GraphQLObjectType;
+
+      expect(userType.getFields()['username']).toBeDefined();
+      expect(userType.getFields()['ssn']).toBeUndefined();
+    });
+
+    it(`should not return @inaccessible fields`, async () => {
+      const operationString = `#graphql
+        query {
+          topReviews {
+            body
+            author {
+              username
+              ssn
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      schema = buildComposedSchema(superGraphWithInaccessible);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      queryPlanner = new QueryPlanner(schema);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "topReviews": Array [
+            Object {
+              "author": Object {
+                "username": "@ada",
+              },
+              "body": "Love it!",
+            },
+            Object {
+              "author": Object {
+                "username": "@ada",
+              },
+              "body": "Too expensive.",
+            },
+            Object {
+              "author": Object {
+                "username": "@complete",
+              },
+              "body": "Could be better.",
+            },
+            Object {
+              "author": Object {
+                "username": "@complete",
+              },
+              "body": "Prefer something else.",
+            },
+            Object {
+              "author": Object {
+                "username": "@complete",
+              },
+              "body": "Wish I had read this before.",
+            },
+          ],
+        }
+      `);
+    });
+
+    it(`should return a validation error when an @inaccessible field is requested`, async () => {
+      // Because validation is part of the Apollo Server request pipeline,
+      // we have to construct an instance of ApolloServer and execute the
+      // the operation against it.
+      // This test uses the same `gateway.load()` pattern as existing tests that
+      // execute operations against Apollo Server (like queryPlanCache.test.ts).
+      // But note that this is only one possible initialization path for the
+      // gateway, and with the current duplication of logic we'd actually need
+      // to test other scenarios (like loading from supergraph SDL) separately.
+      const gateway = new ApolloGateway({
+        supergraphSdl: print(superGraphWithInaccessible),
+      });
+
+      const { schema, executor } = await gateway.load();
+
+      const server = new ApolloServer({ schema, executor });
+
+      const query = `#graphql
+        query {
+          topReviews {
+            body
+            author {
+              username
+              ssn
+            }
+          }
+        }
+      `;
+
+      const response = await server.executeOperation({
+        query,
+      });
+
+      expect(response.data).toBeUndefined();
+      expect(response.errors).toMatchInlineSnapshot(`
+        Array [
+          [ValidationError: Cannot query field "ssn" on type "User".],
+        ]
+      `);
+    });
+
+    it(`doesn't leak @inaccessible typenames in error messages`, async () => {
+      const operationString = `#graphql
+        query {
+          vehicle(id: "1") {
+            id
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      // Vehicle ID #1 is a "Car" type.
+      // This supergraph marks the "Car" type as inaccessible.
+      schema = buildComposedSchema(superGraphWithInaccessible);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      queryPlanner = new QueryPlanner(schema);
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(response.data?.vehicle).toEqual(null);
+      expect(response.errors).toMatchInlineSnapshot(`
+        Array [
+          [GraphQLError: Abstract type "Vehicle" was resolve to a type [inaccessible type] that does not exist inside schema.],
+        ]
+      `);
+    });
   });
 });

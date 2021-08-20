@@ -53,6 +53,11 @@ If Apollo Gateway encounters an error, composition fails. This document lists co
 | `REQUIRES_FIELDS_MISSING_ON_BASE` | The `fields` argument of an entity field's `@requires` directive includes a field that is not defined in the entity's originating subgraph.`|
 | `REQUIRES_USED_ON_BASE` | An entity field is marked with `@requires` in the entity's originating subgraph, which is invalid. |
 
+## `@tag`
+| Code | Description |
+|---|---|
+| `TAG_DIRECTIVE_DEFINITION_INVALID` | The `@tag` directive definition is included but defined incorrectly. Please include the correct `@tag` directive definition: `directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION`|
+
 ## Custom directives
 
 | Code | Description |

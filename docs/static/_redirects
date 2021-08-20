@@ -1,5 +1,4 @@
-/ /docs/federation/
-
 /docs/federation/core-concepts/ /docs/federation/implementing-services/
 /docs/federation/implementing-services/ /docs/federation/subgraphs/
 /docs/federation/managed-federation/advanced-topics/ /docs/federation/managed-federation/overview/
+/docs/federation/managed-federation/monitoring/ /docs/federation/performance/monitoring

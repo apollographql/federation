@@ -4,13 +4,13 @@ expression: "compose(vec![ServiceDefinition ::\n             new(\"users\", \"un
 
 ---
 schema
-  @core(feature: "https://specs.apollo.dev/core/v0.1"),
-  @core(feature: "https://specs.apollo.dev/join/v0.1")
+  @core(feature: "https://specs.apollo.dev/core/v0.2"),
+  @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
 {
   query: Query
 }
 
-directive @core(feature: String!) repeatable on SCHEMA
+directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
 directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
 
@@ -20,6 +20,18 @@ directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
 
 directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
+enum core__Purpose {
+  """
+  `EXECUTION` features provide metadata necessary to for operation execution.
+  """
+  EXECUTION
+
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+}
+
 scalar join__FieldSet
 
 enum join__Graph {
@@ -28,18 +40,18 @@ enum join__Graph {
 }
 
 type Movie {
-  title: String
   name: String
+  title: String
 }
 
 type Query {
-  users: [User!] @join__field(graph: USERS)
   movies: [Movie!] @join__field(graph: MOVIES)
+  users: [User!] @join__field(graph: USERS)
 }
 
 type User {
+  favorites: [Movie!] @join__field(graph: MOVIES)
   id: ID
   name: String
-  favorites: [Movie!] @join__field(graph: MOVIES)
 }
 
