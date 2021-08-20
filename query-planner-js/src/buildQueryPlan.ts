@@ -23,6 +23,7 @@ import {
   OperationTypeNode,
   print,
   stripIgnoredCharacters,
+  SelectionNode,
 } from 'graphql';
 import {
   Field,
@@ -309,21 +310,29 @@ function operationForEntitiesFetch({
   };
 }
 
+// Returns root field names for SelectionSetNode which can be used for generating
+// correct error paths if downstream service is unavailable
 function rootEntityFieldNames(selectionSet: SelectionSetNode) {
-  const node = selectionSet.selections[0];
+  const getNodeFieldNames = (rootNode: SelectionNode) => {
+    if (
+      rootNode.kind === "InlineFragment"
+      && rootNode.selectionSet.kind === "SelectionSet"
+    ) {
+      return rootNode.selectionSet.selections.map((nestedNode) => {
+        if (nestedNode.kind !== "Field") return undefined;
 
-  if (
-    node.kind === "InlineFragment"
-    && node.selectionSet.kind === "SelectionSet"
-  ) {
-    const fieldNames = node.selectionSet.selections.map((selection) => {
-      return selection.kind === "Field" ? selection.name.value : undefined;
-    });
+        return nestedNode.alias?.value ?? nestedNode.name.value;
+      });
+    }
 
-    return fieldNames.filter((value) => value) as string[];
-  }
+    return undefined;
+  };
 
-  return undefined;
+  const fieldNames = selectionSet.selections.map(getNodeFieldNames).flat().filter(
+    (value, index, array) => value && array.indexOf(value) === index
+  ) as string[];
+
+  return fieldNames.length ? fieldNames : undefined;
 }
 
 // Wraps the given nodes in a ParallelNode or SequenceNode, unless there's only
