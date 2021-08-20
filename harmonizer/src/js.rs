@@ -81,6 +81,14 @@ impl Js {
             .execute("<init>", include_str!("../js/runtime.js"))
             .expect("unable to initialize bridge runtime environment");
 
+        runtime
+            .execute("url_shim.js", include_str!("../dist/url_shim.js"))
+            .expect("unable to evaluate url_shim module");
+
+        runtime
+            .execute("<url_shim_assignment>", "whatwg_url_1 = url_shim;")
+            .expect("unable to assign url_shim");
+
         // Load the composition library.
         runtime
             .execute("bridge.js", include_str!("../dist/bridge.js"))

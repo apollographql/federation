@@ -20,7 +20,9 @@
   },
   "dependencies": {
     "@apollo/federation": "file:../federation-js",
-    "@apollo/query-planner": "file:../query-planner-js"
+    "@apollo/query-planner": "file:../query-planner-js",
+    "fast-text-encoding": "1.0.3",
+    "whatwg-url": "9.1.0"
   },
   "peerDependencies": {
     "graphql": "^14.5.0 || ^15.0.0"
