@@ -285,11 +285,9 @@ export class SelectionSet {
   // The argument is either the responseName (for fields), or the type name (for fragments), with the empty string being used as a special
   // case for a fragment with no type condition.
   private readonly _selections = new MultiMap<string, Selection>();
-  private _usedVariables: Variables;
 
   constructor(readonly parentType: CompositeType) {
     validate(!isLeafType(parentType), `Cannot have selection on non-leaf type ${parentType}`);
-    this._usedVariables = [];
   }
 
   selections(): readonly Selection[] {
@@ -297,7 +295,13 @@ export class SelectionSet {
   }
 
   usedVariables(): Variables {
-    return this._usedVariables;
+    let variables: Variables = [];
+    for (const byResponseName of this._selections.values()) {
+      for (const selection of byResponseName) {
+        variables = mergeVariables(variables, selection.usedVariables());
+      }
+    }
+    return variables;
   }
 
   mergeIn(selectionSet: SelectionSet) {
@@ -320,14 +324,12 @@ export class SelectionSet {
           validate(existingSelection.element().equals(toAdd.element()), `Field "${existingSelection}" and "${toAdd}" have the same response name but different name and/or arguments`);
           if (toAdd.selectionSet) {
             existingSelection.selectionSet!.mergeIn(toAdd.selectionSet);
-            this._usedVariables = mergeVariables(this._usedVariables, toAdd.selectionSet.usedVariables());
           }
           return existingSelection;
         }
       }
     }
     this._selections.add(key, toAdd);
-    this._usedVariables = mergeVariables(this._usedVariables, toAdd.usedVariables());
     return selection;
   }
 
@@ -582,12 +584,14 @@ export class FieldSelection {
   }
 
   toSelectionNode(): FieldNode {
+    const alias = this.field.alias ? { kind: Kind.NAME, value: this.field.alias, } : undefined;
     return {
       kind: 'Field',
       name: {
         kind: Kind.NAME,
         value: this.field.name,
       },
+      alias,
       arguments: this.fieldArgumentsToAST(),
       directives: this.element().appliedDirectivesToDirectiveNodes(),
       selectionSet: this.selectionSet?.toSelectionSetNode()
