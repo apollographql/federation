@@ -33,9 +33,9 @@ import {
   Edge,
   ExcludedEdges,
   FieldCollection,
-  Graph,
+  QueryGraph,
   GraphPath,
-  GraphState,
+  QueryGraphState,
   isRootVertex,
   OpGraphPath,
   OpPathTree,
@@ -81,13 +81,13 @@ class QueryPlanningTaversal<RV extends Vertex> {
 
   constructor(
     readonly supergraphSchema: Schema,
-    readonly subgraphs: Graph,
+    readonly subgraphs: QueryGraph,
     selectionSet: SelectionSet,
     readonly variableDefinitions: VariableDefinitions,
     startVertex: RV,
     readonly costFunction: CostFunction,
     readonly rootGroupsAreParallel: boolean,
-    private readonly cache: GraphState<OpGraphPath[]>,
+    private readonly cache: QueryGraphState<OpGraphPath[]>,
     private readonly excludedEdges: ExcludedEdges = [],
     readonly isTopLevel: boolean = true
   ) {
@@ -223,7 +223,7 @@ export function computeQueryPlan(supergraphSchema: Schema, operation: Operation)
     root,
     defaultCostFunction,
     operation.rootKind !== 'mutation',
-    new GraphState<OpGraphPath[]>(federatedQueryGraph)
+    new QueryGraphState<OpGraphPath[]>(federatedQueryGraph)
   );
   const bestPlan = planningTraversal.findBestPlan();
   if (!bestPlan) {

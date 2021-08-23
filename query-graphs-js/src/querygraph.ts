@@ -35,6 +35,9 @@ export function isFederatedGraphRootType(type: NamedType) {
   return type.name.startsWith('[') && type.name.endsWith(']');
 }
 
+/**
+ * A vertex of a query graph.
+ */
 export class Vertex {
   constructor(
     readonly index: number,
@@ -132,7 +135,7 @@ export class Edge {
   }
 }
 
-export class Graph {
+export class QueryGraph {
   constructor(
     readonly name: string,
     private readonly vertices: Vertex[],
@@ -189,12 +192,12 @@ export class Graph {
   }
 }
 
-export class GraphState<VertexState, EdgeState = undefined> {
+export class QueryGraphState<VertexState, EdgeState = undefined> {
   // Store some "user" state for each vertex (accessed by index)
   private readonly verticesStates: (VertexState | null)[];
   private readonly adjacenciesStates: (EdgeState | null)[][];
 
-  constructor(readonly graph: Graph) {
+  constructor(readonly graph: QueryGraph) {
     this.verticesStates = new Array(graph.verticesCount());
     this.adjacenciesStates = new Array(graph.verticesCount());
   }
@@ -242,11 +245,11 @@ export class GraphState<VertexState, EdgeState = undefined> {
   }
 }
 
-export function buildGraph(name: string, schema: Schema): Graph {
+export function buildGraph(name: string, schema: Schema): QueryGraph {
   return buildGraphInternal(name, schema);
 }
 
-function buildGraphInternal(name: string, schema: Schema, supergraphSchema?: Schema): Graph {
+function buildGraphInternal(name: string, schema: Schema, supergraphSchema?: Schema): QueryGraph {
   const builder = new GraphBuilderFromSchema(name, schema, supergraphSchema);
   for (const rootType of schema.schemaDefinition.roots()) {
     builder.addRecursivelyFromRoot(rootType.rootKind, rootType.type);
@@ -254,7 +257,7 @@ function buildGraphInternal(name: string, schema: Schema, supergraphSchema?: Sch
   return builder.build();
 }
 
-export function buildSubgraphsFederation(supergraph: Schema): Graph {
+export function buildSubgraphsFederation(supergraph: Schema): QueryGraph {
   const subgraphs = extractSubgraphsFromSupergraph(supergraph);
   let graphs = [];
   for (let subgraph of subgraphs) {
@@ -263,7 +266,7 @@ export function buildSubgraphsFederation(supergraph: Schema): Graph {
   return federateSubgraphs(graphs);
 }
 
-function federatedProperties(subgraphs: Graph[]) : [number, Set<SchemaRootKind>, Schema[]] {
+function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<SchemaRootKind>, Schema[]] {
   let vertices = 0;
   const rootKinds = new Set<SchemaRootKind>();
   const schemas: Schema[] = [];
@@ -276,7 +279,7 @@ function federatedProperties(subgraphs: Graph[]) : [number, Set<SchemaRootKind>,
   return [vertices + rootKinds.size, rootKinds, schemas];
 }
 
-function federateSubgraphs(subgraphs: Graph[]): Graph {
+function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   const [verticesCount, rootKinds, schemas] = federatedProperties(subgraphs);
   const builder = new GraphBuilder(verticesCount);
   rootKinds.forEach(k => builder.createRootVertex(
@@ -500,7 +503,7 @@ class GraphBuilder {
     }
   }
 
-  copyGraph(graph: Graph): SubgraphCopyPointer {
+  copyGraph(graph: QueryGraph): SubgraphCopyPointer {
     const offset = this.nextIndex;
     depthFirstTraversal(
       graph,
@@ -560,7 +563,7 @@ class GraphBuilder {
     return newEdge;
   }
 
-  private getOrCopyVertex(toCopy: Vertex, indexOffset: number, graph: Graph): Vertex {
+  private getOrCopyVertex(toCopy: Vertex, indexOffset: number, graph: QueryGraph): Vertex {
     const index = toCopy.index + indexOffset;
     let v = this.vertices[index];
     if (!v) {
@@ -569,8 +572,8 @@ class GraphBuilder {
     return v;
   }
 
-  build(name: string): Graph {
-    return new Graph(
+  build(name: string): QueryGraph {
+    return new QueryGraph(
       name,
       this.vertices,
       this.adjacencies,
@@ -687,14 +690,14 @@ class GraphBuilderFromSchema extends GraphBuilder {
     }
   }
 
-  build(): Graph {
+  build(): QueryGraph {
     return super.build(this.name);
   }
 }
 
 // A simple depth first traversal of the graph that _ignores_ edge conditions.
 export function depthFirstTraversal(
-  graph: Graph,
+  graph: QueryGraph,
   onVertex: (v: Vertex) => void,
   onEdges: (e: Edge) => boolean
 ) {

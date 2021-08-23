@@ -1,10 +1,10 @@
 import { assert, OperationElement } from "@apollo/core";
 import { GraphPath } from "./graphPath";
-import { Edge, Graph, RootVertex, Vertex } from "./querygraph";
+import { Edge, QueryGraph, RootVertex, Vertex } from "./querygraph";
 
 export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> {
   private constructor(
-    readonly graph: Graph,
+    readonly graph: QueryGraph,
     readonly vertex: RV,
     private readonly triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
     private readonly childs: PathTree<TTrigger, Vertex, TNullEdge>[],
@@ -15,14 +15,14 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
   }
 
   static create<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never>(
-    graph: Graph,
+    graph: QueryGraph,
     root: RV,
     triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean
   ): PathTree<TTrigger, RV, TNullEdge> {
     return new PathTree(graph, root, triggerEquality, [], [], [], []);
   }
 
-  static createOp<RV extends Vertex = Vertex>(graph: Graph, root: RV): OpPathTree<RV> {
+  static createOp<RV extends Vertex = Vertex>(graph: QueryGraph, root: RV): OpPathTree<RV> {
     const opEquals = (op1: OperationElement | null, op2: OperationElement | null) => {
       if (op1 === null) {
         return op2 === null;

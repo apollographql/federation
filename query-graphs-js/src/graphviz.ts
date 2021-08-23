@@ -1,6 +1,6 @@
 /* Functions used to output query graphs as [graphviz dot](https://graphviz.org/doc/info/lang.html) outputs.  */
 
-import { depthFirstTraversal, Edge, Graph, GraphState, Vertex } from "./querygraph";
+import { depthFirstTraversal, Edge, QueryGraph, QueryGraphState, Vertex } from "./querygraph";
 import { attribute, Digraph, digraph, ICluster, IEdge, INode, toDot as graphvizToDot } from 'ts-graphviz';
 import { RootPath, traversePath } from "./graphPath";
 
@@ -8,7 +8,7 @@ function setDefaultGraphAttributes(_: Digraph) {
   //vizGraph.attributes.edge.set(attribute.labelfloat, true);
 }
 
-export function toDot(graph: Graph, config?: DotGraphConfig): string {
+export function toDot(graph: QueryGraph, config?: DotGraphConfig): string {
   const vizGraph = digraph(graph.name);
   setDefaultGraphAttributes(vizGraph);
   addToVizGraphAndHighlight(graph, vizGraph, config);
@@ -17,7 +17,7 @@ export function toDot(graph: Graph, config?: DotGraphConfig): string {
 
 export function groupToDot(
   name: string,
-  graphs: Map<string, Graph>,
+  graphs: Map<string, QueryGraph>,
   configs: Map<string, DotGraphConfig> = new Map(),
 ): string {
   const vizGraph = digraph(name);
@@ -33,7 +33,7 @@ export function groupToDot(
   return graphvizToDot(vizGraph);
 }
 
-function addToVizGraphAndHighlight(graph: Graph, vizGraph: ICluster, config?: DotGraphConfig) {
+function addToVizGraphAndHighlight(graph: QueryGraph, vizGraph: ICluster, config?: DotGraphConfig) {
   const state = addToVizGraph(graph, vizGraph, config?.noTerminal);
   highlightPaths(state, config?.highlightedPaths);
 }
@@ -64,7 +64,7 @@ type HighlitedPath = {
   color: string
 }
 
-function addToVizGraph(graph: Graph, vizGraph: ICluster, noTerminal: boolean = false): GraphState<INode, IEdge> {
+function addToVizGraph(graph: QueryGraph, vizGraph: ICluster, noTerminal: boolean = false): QueryGraphState<INode, IEdge> {
   const vizSubGraphs = new Map();
   for (const source of graph.sources.keys()) {
     if (source != graph.name) {
@@ -100,7 +100,7 @@ function addToVizGraph(graph: Graph, vizGraph: ICluster, noTerminal: boolean = f
     }
     return vizGraph;
   }
-  const state = new GraphState<INode, IEdge>(graph);
+  const state = new QueryGraphState<INode, IEdge>(graph);
   const onEdge = function (edge: Edge): boolean {
     const head = edge.head;
     const tail = edge.tail;
@@ -119,11 +119,11 @@ function addToVizGraph(graph: Graph, vizGraph: ICluster, noTerminal: boolean = f
   return state;
 }
 
-function highlightPaths(state: GraphState<INode, IEdge>, toHighlights?: HighlitedPath[]) {
+function highlightPaths(state: QueryGraphState<INode, IEdge>, toHighlights?: HighlitedPath[]) {
   toHighlights?.forEach(h => highlightPath(state, h));
 }
 
-function highlightPath(state: GraphState<INode, IEdge>, toHighlight: HighlitedPath) {
+function highlightPath(state: QueryGraphState<INode, IEdge>, toHighlight: HighlitedPath) {
   traversePath(toHighlight.path, e => {
     for (const vAttrs of [state.getVertexState(e.head)?.attributes, state.getVertexState(e.tail)?.attributes ]) {
       vAttrs?.set(attribute.color, toHighlight.color);

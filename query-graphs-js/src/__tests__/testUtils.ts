@@ -1,11 +1,11 @@
 import { buildSchema, InterfaceType, ObjectType } from '@apollo/core';
-import { buildGraph, Edge, FieldCollection, Graph, Vertex } from '@apollo/query-graphs';
+import { buildGraph, Edge, FieldCollection, QueryGraph, Vertex } from '@apollo/query-graphs';
 
-export function testGraphFromSchemaString(schemaSDL: string): Graph {
+export function testGraphFromSchemaString(schemaSDL: string): QueryGraph {
   return buildGraph("test", buildSchema(schemaSDL));
 }
 
-function singleEdge(graph: Graph, vertex: Vertex, fieldName: string): Edge {
+function singleEdge(graph: QueryGraph, vertex: Vertex, fieldName: string): Edge {
   const type = vertex.type as (ObjectType | InterfaceType)
   const f = type.field(fieldName);
   expect(f).toBeDefined();
@@ -14,7 +14,7 @@ function singleEdge(graph: Graph, vertex: Vertex, fieldName: string): Edge {
   return edges[0];
 }
 
-export function namedEdges(graph: Graph, vertex: Vertex, ...fieldNames: string[]): Edge[] {
+export function namedEdges(graph: QueryGraph, vertex: Vertex, ...fieldNames: string[]): Edge[] {
   const edges = graph.outEdges(vertex);
   return fieldNames.map(name => {
     const edge = singleEdge(graph, vertex, name);

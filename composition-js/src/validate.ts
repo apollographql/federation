@@ -20,7 +20,7 @@ import {
 import {
   Edge,
   federatedGraphRootTypeName,
-  Graph,
+  QueryGraph,
   freeTransition,
   GraphPath,
   RootPath,
@@ -29,7 +29,7 @@ import {
   OpGraphPath,
   advanceSimultaneousPathsWithOperation,
   ExcludedEdges,
-  GraphState,
+  QueryGraphState,
   SimultaneousPaths
 } from "@apollo/query-graphs";
 import { print } from "graphql";
@@ -164,7 +164,7 @@ function generateWitnessValue(type: InputType): any {
   }
 }
 
-export function validateGraphComposition(supergraph: Graph, subgraphs: Graph): {error? : ValidationError} {
+export function validateGraphComposition(supergraph: QueryGraph, subgraphs: QueryGraph): {error? : ValidationError} {
   try {
     new ValidationTaversal(supergraph, subgraphs).validate();
     return {};
@@ -176,13 +176,13 @@ export function validateGraphComposition(supergraph: Graph, subgraphs: Graph): {
   }
 }
 
-export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgraphs: Graph): {traversal?: ValidationState, error?: ValidationError} {
+export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgraphs: QueryGraph): {traversal?: ValidationState, error?: ValidationError} {
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = [...supergraphPath.graph.sources.values()][0];
     let initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
-    const cache = new GraphState<GraphPath<Transition>[]>(subgraphs);
-    const conditionsCache = new GraphState<OpGraphPath[]>(subgraphs);
+    const cache = new QueryGraphState<GraphPath<Transition>[]>(subgraphs);
+    const conditionsCache = new QueryGraphState<OpGraphPath[]>(subgraphs);
     const traversal = supergraphPath.reduceMainPath((state, edge) => state.validateTransition(supergraphSchema, edge, cache, conditionsCache), initialState);
     return {traversal};
   } catch (error) {
@@ -193,7 +193,7 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
   }
 }
 
-function initialSubgraphPaths(kind: SchemaRootKind, subgraphs: Graph): RootPath<Transition>[] {
+function initialSubgraphPaths(kind: SchemaRootKind, subgraphs: QueryGraph): RootPath<Transition>[] {
   const root = subgraphs.root(kind);
   assert(root, `The supergraph shouldn't have a ${kind} root if no subgraphs have one`);
   assert(
@@ -215,12 +215,12 @@ export class ValidationState {
       `Invalid state ${this}: some subgraphs type don't match the supergraph.`);
   }
 
-  static initial(supergraph: Graph, kind: SchemaRootKind, subgraphs: Graph) {
+  static initial(supergraph: QueryGraph, kind: SchemaRootKind, subgraphs: QueryGraph) {
     return new ValidationState(GraphPath.fromGraphRoot(supergraph, kind)!, initialSubgraphPaths(kind, subgraphs));
   }
 
   // Either throw or return a new state.
-  validateTransition(supergraphSchema: Schema, supergraphEdge: Edge, cache: GraphState<GraphPath<Transition>[]>, conditionCache: GraphState<OpGraphPath[]>): ValidationState {
+  validateTransition(supergraphSchema: Schema, supergraphEdge: Edge, cache: QueryGraphState<GraphPath<Transition>[]>, conditionCache: QueryGraphState<OpGraphPath[]>): ValidationState {
     assert(!supergraphEdge.conditions, `Supergraph edges should not have conditions (${supergraphEdge})`);
 
     const transition = supergraphEdge.transition;
@@ -256,14 +256,14 @@ class ValidationTaversal {
   private readonly supergraphSchema: Schema;
   // The stack contains all states that aren't terminal.
   private readonly stack: ValidationState[] = [];
-  private readonly cache: GraphState<GraphPath<Transition>[]>;
-  private readonly conditionsCache: GraphState<OpGraphPath[]>;
+  private readonly cache: QueryGraphState<GraphPath<Transition>[]>;
+  private readonly conditionsCache: QueryGraphState<OpGraphPath[]>;
 
-  constructor(supergraph: Graph, subgraphs: Graph) {
+  constructor(supergraph: QueryGraph, subgraphs: QueryGraph) {
     this.supergraphSchema = [...supergraph.sources.values()][0];
     supergraph.rootKinds().forEach(k => this.stack.push(ValidationState.initial(supergraph, k, subgraphs)));
-    this.cache = new GraphState(subgraphs);
-    this.conditionsCache = new GraphState(subgraphs);
+    this.cache = new QueryGraphState(subgraphs);
+    this.conditionsCache = new QueryGraphState(subgraphs);
   }
 
   //private dumpStack(message?: string) {
@@ -304,7 +304,7 @@ class ConditionValidationState {
     readonly subgraphPaths: SimultaneousPaths[]
   ) {}
 
-  validateCurrentSelection(supergraphSchema: Schema, cache: GraphState<OpGraphPath[]>, excludedEdges: ExcludedEdges): ConditionValidationState[] | null {
+  validateCurrentSelection(supergraphSchema: Schema, cache: QueryGraphState<OpGraphPath[]>, excludedEdges: ExcludedEdges): ConditionValidationState[] | null {
     let newPaths: SimultaneousPaths[] = [];
     for (const path of this.subgraphPaths) {
       const pathOptions = advanceSimultaneousPathsWithOperation(
@@ -336,7 +336,7 @@ class ConditionValidationState {
   }
 }
 
-function validateConditions(supergraphSchema: Schema, conditions: SelectionSet, initialPath: OpGraphPath, cache: GraphState<OpGraphPath[]>, excludedEdges: ExcludedEdges): null | undefined {
+function validateConditions(supergraphSchema: Schema, conditions: SelectionSet, initialPath: OpGraphPath, cache: QueryGraphState<OpGraphPath[]>, excludedEdges: ExcludedEdges): null | undefined {
   const stack: ConditionValidationState[] = [];
   for (const selection of conditions.selections()) {
     stack.push(new ConditionValidationState(selection, [[initialPath]]));
