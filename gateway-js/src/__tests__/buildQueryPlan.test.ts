@@ -1056,15 +1056,14 @@ describe('buildQueryPlan', () => {
             {
               topProducts {
                 __typename
-                ... on Book {
-                  price
-                  __typename
-                  isbn
-                }
+                price
                 ... on Furniture {
-                  price
                   __typename
                   upc
+                }
+                ... on Book {
+                  __typename
+                  isbn
                 }
               }
             }
@@ -1072,22 +1071,22 @@ describe('buildQueryPlan', () => {
           Flatten(path: "topProducts.@") {
             Fetch(service: "reviews") {
               {
-                ... on Book {
-                  __typename
-                  isbn
-                }
                 ... on Furniture {
                   __typename
                   upc
                 }
+                ... on Book {
+                  __typename
+                  isbn
+                }
               } =>
               {
-                ... on Book {
+                ... on Furniture {
                   reviews {
                     body
                   }
                 }
-                ... on Furniture {
+                ... on Book {
                   reviews {
                     body
                   }
