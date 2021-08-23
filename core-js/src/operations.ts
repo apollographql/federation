@@ -131,7 +131,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
           return false;
         }
       } else {
-        if (!assumeValid && !isValidValue(appliedValue, argDef.type!, this.variableDefinitions)) {
+        if (!assumeValid && !isValidValue(appliedValue, argDef, this.variableDefinitions)) {
           return false;
         }
       }
@@ -160,7 +160,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
           `Missing mandatory value "${argDef.name}" in field selection "${this}"`);
       } else {
         validate(
-          isValidValue(appliedValue, argDef.type!, this.variableDefinitions),
+          isValidValue(appliedValue, argDef, this.variableDefinitions),
           `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
       }
     }

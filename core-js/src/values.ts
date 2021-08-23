@@ -9,6 +9,7 @@ import {
   isScalarType,
   isVariable,
   Variable,
+  VariableDefinition,
   VariableDefinitions,
   Variables
 } from './definitions';
@@ -220,60 +221,100 @@ export function valueToAST(value: any, type: InputType): ValueNode | undefined {
   throw buildError(`Invalid value for type ${type}, cannot be converted to AST: ${inspect(value)}`);
 }
 
-export function isValidValue(value: any, type: InputType, variableDefinitions: VariableDefinitions): boolean {
+// see https://spec.graphql.org/draft/#IsVariableUsageAllowed()
+function isValidVariable(variable: VariableDefinition, locationType: InputType, locationDefault: any): boolean {
+  const variableType = variable.type;
+
+  if (isNonNullType(locationType) && !isNonNullType(variableType)) {
+    const hasVariableDefault = variable.defaultValue !== undefined && variable.defaultValue !== null;
+    const hasLocationDefault = locationDefault !== undefined;
+    if (!hasVariableDefault && !hasLocationDefault) {
+      return false;
+    }
+    return areTypesCompatible(variableType, locationType.ofType);
+  }
+
+  return areTypesCompatible(variableType, locationType);
+}
+
+// see https://spec.graphql.org/draft/#AreTypesCompatible()
+function areTypesCompatible(variableType: InputType, locationType: InputType): boolean {
+  if (isNonNullType(locationType)) {
+    if (!isNonNullType(variableType)) {
+      return false;
+    }
+    return areTypesCompatible(variableType.ofType, locationType.ofType);
+  }
+  if (isNonNullType(variableType)) {
+    return areTypesCompatible(variableType.ofType, locationType);
+  }
+  if (isListType(locationType)) {
+    if (!isListType(variableType)) {
+      return false;
+    }
+    return areTypesCompatible(variableType.ofType, locationType.ofType);
+  }
+  return !isListType(variableType) && sameType(variableType, locationType);
+}
+
+export function isValidValue(value: any, argument: ArgumentDefinition<any>, variableDefinitions: VariableDefinitions): boolean {
+  return isValidValueApplication(value, argument.type!, argument.defaultValue, variableDefinitions);
+}
+
+function isValidValueApplication(value: any, locationType: InputType, locationDefault: any, variableDefinitions: VariableDefinitions): boolean {
   // Note that this needs to be first, or the recursive call within 'isNonNullType' would break for variables
   if (isVariable(value)) {
     const definition = variableDefinitions.definition(value);
-    return !!definition && sameType(type, definition.type);
+    return !!definition && isValidVariable(definition, locationType, locationDefault);
   }
 
-  if (isNonNullType(type)) {
-    return value !== null && isValidValue(value, type.ofType, variableDefinitions);
+  if (isNonNullType(locationType)) {
+    return value !== null && isValidValueApplication(value, locationType.ofType, undefined, variableDefinitions);
   }
 
   if (value === null) {
     return true;
   }
 
-  if (isListType(type)) {
-    const itemType: InputType = type.ofType;
+  if (isListType(locationType)) {
+    const itemType: InputType = locationType.ofType;
     if (Array.isArray(value)) {
-      return value.every(item => isValidValue(item, itemType, variableDefinitions));
+      return value.every(item => isValidValueApplication(item, itemType, undefined, variableDefinitions));
     }
     // Equivalent of coercing non-null element as a list of one.
-    return isValidValue(value, itemType, variableDefinitions);
+    return isValidValueApplication(value, itemType, locationDefault, variableDefinitions);
   }
 
-  if (isInputObjectType(type)) {
+  if (isInputObjectType(locationType)) {
     if (typeof value !== 'object') {
       return false;
     }
-    return [...type.fields()].every(field => isValidValue(value[field.name], field.type!, variableDefinitions));
+    return [...locationType.fields()].every(field => isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions));
   }
 
   // TODO: we may have to handle some coercions (not sure it matters in our use case
   // though).
 
   if (typeof value === 'boolean') {
-    return type === type.schema()?.booleanType();
+    return locationType === locationType.schema()?.booleanType();
   }
 
   if (typeof value === 'number' && isFinite(value)) {
     const stringNum = String(value);
-    if (type === type.schema()?.intType()) {
+    if (locationType === locationType.schema()?.intType()) {
       return integerStringRegExp.test(stringNum);
     }
-    return type === type.schema()?.floatType();
+    return locationType === locationType.schema()?.floatType();
   }
 
   if (typeof value === 'string') {
-    if (isEnumType(type)) {
-      return type.value(value) !== undefined;
+    if (isEnumType(locationType)) {
+      return locationType.value(value) !== undefined;
     }
-    return isScalarType(type)
-      && type !== type.schema()?.booleanType()
-      && type !== type.schema()?.intType()
-      && type !== type.schema()?.floatType();
+    return isScalarType(locationType)
+      && locationType !== locationType.schema()?.booleanType()
+      && locationType !== locationType.schema()?.intType()
+      && locationType !== locationType.schema()?.floatType();
   }
   return false;
 }
