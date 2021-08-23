@@ -1,5 +1,48 @@
-import { assert, baseType, CompositeType, Field, FieldSelection, FragmentElement, FragmentSelection, isAbstractType, isCompositeType, isListType, isNamedType, ListType, NonNullType, ObjectType, Operation, OperationPath, operationToAST, Schema, SchemaRootKind, Selection, SelectionSet, selectionSetOfPath, Type, Variable, VariableDefinition, VariableDefinitions } from "@apollo/core";
-import { advanceSimultaneousPathsWithOperation, buildSubgraphsFederation, Edge, ExcludedEdges, FieldCollection, Graph, GraphPath, GraphState, isRootVertex, OpGraphPath, OpPathTree, PathTree, requireEdgeAdditionalConditions, Vertex } from "@apollo/query-graphs";
+import { 
+  assert,
+  baseType,
+  CompositeType,
+  Field,
+  FieldSelection,
+  FragmentElement,
+  FragmentSelection,
+  isAbstractType,
+  isCompositeType,
+  isListType,
+  isNamedType,
+  ListType,
+  NonNullType,
+  ObjectType,
+  Operation,
+  OperationPath,
+  operationToAST,
+  sameType,
+  Schema,
+  SchemaRootKind,
+  Selection,
+  SelectionSet,
+  selectionSetOfPath,
+  Type,
+  Variable,
+  VariableDefinition,
+  VariableDefinitions
+} from "@apollo/core";
+import {
+  advanceSimultaneousPathsWithOperation,
+  buildSubgraphsFederation,
+  Edge,
+  ExcludedEdges,
+  FieldCollection,
+  Graph,
+  GraphPath,
+  GraphState,
+  isRootVertex,
+  OpGraphPath,
+  OpPathTree,
+  PathTree,
+  requireEdgeAdditionalConditions,
+  Vertex
+} from "@apollo/query-graphs";
 import deepEqual from "deep-equal";
 import { Kind, DocumentNode, stripIgnoredCharacters, print } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -264,6 +307,10 @@ class FetchGroup {
     this._selection.addPath(path);
   }
 
+  addSelections(selection: SelectionSet) {
+    this._selection.mergeIn(selection);
+  }
+
   mergeIn(toMerge: FetchGroup, mergePath: OperationPath) {
     assert(!toMerge.isTopLevel, `Shouldn't merge top level group ${toMerge} into ${this}`);
     // Note that because toMerge is not top-level, the first "level" of it's selection is going to be a typeCast into the entity type
@@ -432,10 +479,97 @@ class FetchDependencyGraph {
   // We keep it simple and do a DFS from each vertex. The complexity is not amazing, but dependency
   // graphs between fetch groups will almost surely never be huge and query planning performance
   // is not paramount so this is almost surely "good enough".
-  reduce() {
+  // After the transitive reduction, we also do an additional traversal to check for fetches that
+  // are made in parallel to the same subgraph and the same path, and merge those.
+  private reduce() {
     for (const group of this.groups) {
       for (const adjacent of this.adjacencies[group.index]) {
         this.dfsRemoveRedundantEdges(group.index, adjacent);
+      }
+    }
+
+    for (const group of this.rootGroups.values()) {
+      this.mergeDependentFetchesForSameSubgraphAndPath(group);
+    }
+  }
+
+
+  // For a group, potentially walk back its `pathInParent` while we only encounter type conditions, returning the
+  // type of the first field encountered this way (and the corresponding updated pathInParent). 
+  private generalizedParent(group: FetchGroup): [CompositeType, OperationPath | undefined] {
+    if (!group.pathInParent || group.pathInParent.length === 0) {
+      return [group.parentType, group.pathInParent];
+    }
+
+    let i = group.pathInParent.length - 1;
+    while (i >= 0) {
+      const element = group.pathInParent[i];
+      if (element.kind === 'FragmentElement') {
+        --i;
+      } else {
+        return [baseType(element.definition.type!) as CompositeType, group.pathInParent.slice(0, i)];
+      }
+    }
+    return [group.parentType, group.pathInParent];
+  }
+
+  // Assuming 2 groups to the same service and the same mergeAt, extract their common parent type (if possible).
+  // Note that 2 groups with the same mergeAt are not guaranteed to have the same parentType initially. The main
+  // reason is that `mergeAt` doesn't take potentially applied type-conditions into account, so if say we have
+  // an interface `I` with 2 implementations `A` and `B`, a field `i: I` at merge path `foo.bar.i`, and say we
+  // type-exploded `I` into `A` and `B` and _then_ took a key edge for both `A` and `B` to the same subgraph,
+  // then the 2 groups after each key will both have merge path `foo.bar.i` but one will have parent type `A`
+  // and the other `B`. In that case, what this method does it recognize that we can merge those 2 groups
+  // into a group of parent type `I`, as long as we have the proper `A` and `B` type conditions applied. But
+  // as it happens, said proper `A` and `B` type conditions will already have been applied (just because when
+  // we take a key edge, we need a type condition on both the inputs and selection of the group).
+  private extractParentType(g1: FetchGroup, g2: FetchGroup): [CompositeType, OperationPath | undefined] | undefined {
+    if (sameType(g1.parentType, g2.parentType)) {
+      return [g1.parentType, g1.pathInParent];
+    }
+
+    const g1Extracted = this.generalizedParent(g1);
+    const g2Extracted = this.generalizedParent(g2);
+    return sameType(g1Extracted[0], g2Extracted[0]) ? g1Extracted : undefined;
+  }
+
+  private mergeDependentFetchesForSameSubgraphAndPath(group: FetchGroup) {
+    const dependents = this.dependents(group);
+    if (dependents.length <= 1) {
+      return;
+    }
+
+    for (const g1 of dependents) {
+      for (const g2 of dependents) {
+        if (g1.index !== g2.index
+          && g1.subgraphName === g2.subgraphName
+          && deepEqual(g1.mergeAt, g2.mergeAt)
+          && this.dependencies(g1).length === 1
+          && this.dependencies(g2).length === 1
+        ) {
+          let extracted = this.extractParentType(g1, g2);
+          if (!extracted) {
+            continue;
+          }
+          // We replace g1 by a new group that is the same except (possibly) for it's parentType ...
+          const merged = new FetchGroup(this, g1.index, g1.subgraphName, extracted[0], g1.mergeAt, group, extracted[1]);
+          if (g1.inputs) {
+            merged.addInputs(g1.inputs);
+          }
+          merged.addSelections(g1.selection);
+          this.groups[merged.index] = merged;
+
+          // ... and then merge g2 into that.
+          if (g2.inputs) {
+            merged.addInputs(g2.inputs);
+          }
+          merged.addSelections(g2.selection);
+          this.onMergedIn(merged, g2);
+          // As we've just changed the dependency graph, our current iterations are kind of invalid anymore. So
+          // we simply call ourselves back on the current group, which will retry the newly modified dependencies.
+          this.mergeDependentFetchesForSameSubgraphAndPath(group);
+          return;
+        }
       }
     }
   }
