@@ -1,9 +1,11 @@
 import {
   buildClientSchema,
+  DocumentNode,
   getIntrospectionQuery,
   GraphQLObjectType,
   GraphQLSchema,
   print,
+  validate,
 } from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
@@ -28,6 +30,19 @@ expect.addSnapshotSerializer(queryPlanSerializer);
 describe('executeQueryPlan', () => {
   let serviceMap: {
     [serviceName: string]: LocalGraphQLDataSource;
+  };
+
+  let parseOp = (operation: string): DocumentNode => {
+    const doc = gql(operation);
+
+    // Validating the operation, to avoid having them silently becoming invalid
+    // due to change to the fixtures.
+    const validationErrors = validate(schema, doc);
+    if (validationErrors.length > 0) {
+      throw new Error(validationErrors.map(error => error.message).join("\n\n"));
+    }
+
+    return doc;
   };
 
   function overrideResolversInService(
@@ -77,7 +92,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const operationContext = buildOperationContext({
         schema,
@@ -116,7 +131,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const operationContext = buildOperationContext({
         schema,
@@ -175,7 +190,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const operationContext = buildOperationContext({
         schema,
@@ -252,7 +267,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const operationContext = buildOperationContext({
         schema,
@@ -353,7 +368,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const operationContext = buildOperationContext({
         schema,
@@ -401,7 +416,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const operationContext = buildOperationContext({
         schema,
@@ -475,7 +490,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const operationContext = buildOperationContext({
         schema,
@@ -512,7 +527,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       const operationContext = buildOperationContext({
         schema,
@@ -548,7 +563,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const operationContext = buildOperationContext({
       schema,
@@ -641,7 +656,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const operationContext = buildOperationContext({
       schema,
@@ -740,7 +755,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const operationContext = buildOperationContext({
       schema,
@@ -820,9 +835,9 @@ describe('executeQueryPlan', () => {
   it('can execute an introspection query', async () => {
     const operationContext = buildOperationContext({
       schema,
-      operationDocument: gql`
+      operationDocument: parseOp(`
         ${getIntrospectionQuery()}
-      `,
+      `),
     });
     const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
@@ -848,7 +863,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const operationContext = buildOperationContext({
       schema,
@@ -892,7 +907,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const operationContext = buildOperationContext({
       schema,
@@ -947,7 +962,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const operationContext = buildOperationContext({
       schema,
@@ -989,7 +1004,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const operationContext = buildOperationContext({
       schema,
@@ -1044,7 +1059,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const operationContext = buildOperationContext({
       schema,
@@ -1093,7 +1108,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const operationContext = buildOperationContext({
       schema,
@@ -1136,7 +1151,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
+    const operationDocument = parseOp(operationString);
 
     const operationContext = buildOperationContext({
       schema,
@@ -1187,9 +1202,9 @@ describe('executeQueryPlan', () => {
 
       const operationContext = buildOperationContext({
         schema,
-        operationDocument: gql`
+        operationDocument: parseOp(`
           ${getIntrospectionQuery()}
-        `,
+        `),
       });
       const queryPlan = queryPlanner.buildQueryPlan(operationContext);
 
@@ -1224,7 +1239,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       schema = buildComposedSchema(superGraphWithInaccessible);
 
@@ -1348,7 +1363,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operationDocument = parseOp(operationString);
 
       // Vehicle ID #1 is a "Car" type.
       // This supergraph marks the "Car" type as inaccessible.
