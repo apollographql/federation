@@ -1322,6 +1322,23 @@ describe('executeQueryPlan', () => {
       `);
     });
 
+    // THIS TEST SHOULD BE MODIFIED AFTER THE ISSUE OUTLINED IN
+    // https://github.com/apollographql/federation/issues/981 HAS BEEN RESOLVED.
+    // IT IS BEING LEFT HERE AS A TEST THAT WILL INTENTIONALLY FAIL WHEN
+    // IT IS RESOLVED IF IT'S NOT ADDRESSED.
+    //
+    // This test became relevant after a combination of two things:
+    //   1. when the gateway started surfacing errors from subgraphs happened in
+    //      https://github.com/apollographql/federation/pull/159
+    //   2. the idea of field redaction became necessary after
+    //      https://github.com/apollographql/federation/pull/893,
+    //      which introduced the notion of inaccessible fields.
+    //      The redaction started in
+    //      https://github.com/apollographql/federation/issues/974, which added
+    //      the following test.
+    //
+    // However, the error surfacing (first, above) needed to be reverted, thus
+    // de-necessitating this redaction logic which is no longer tested.
     it(`doesn't leak @inaccessible typenames in error messages`, async () => {
       const operationString = `#graphql
         query {
@@ -1353,11 +1370,13 @@ describe('executeQueryPlan', () => {
       );
 
       expect(response.data?.vehicle).toEqual(null);
-      expect(response.errors).toMatchInlineSnapshot(`
-        Array [
-          [GraphQLError: Abstract type "Vehicle" was resolve to a type [inaccessible type] that does not exist inside schema.],
-        ]
-      `);
+      expect(response.errors).toBeUndefined();
+      // SEE COMMENT ABOVE THIS TEST.  SHOULD BE RE-ENABLED AFTER #981 IS FIXED!
+      // expect(response.errors).toMatchInlineSnapshot(`
+      //   Array [
+      //     [GraphQLError: Abstract type "Vehicle" was resolve to a type [inaccessible type] that does not exist inside schema.],
+      //   ]
+      // `);
     });
   });
 });
