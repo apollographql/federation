@@ -46,6 +46,16 @@ Remove the `supergraphSdl` or `serviceList` argument from your `ApolloGateway` c
 const gateway = new ApolloGateway();
 ```
 
+### Connecting to Apollo Uplink
+
+Uplink is the Apollo-hosted endpoint that your gateway polls to fetch its latest supergraph schema. Beginning in `@apollo/gateway` v0.34, the gateway polls the correct Uplink URL by default.
+
+In _previous_ versions of `@apollo/gateway`, you need to provide the Uplink URL via an environment variable. We recommend updating to the latest version of the library, but if you can't, define the following in your gateway's environment:
+
+```bash
+APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://uplink.api.apollographql.com/
+```
+
 ## 4. Connect the gateway to Studio
 
 Like your subgraphs, your gateway uses an API key to identify itself to Studio.
