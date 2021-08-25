@@ -29,7 +29,7 @@ import {
 } from "@apollo/core";
 import {
   advanceSimultaneousPathsWithOperation,
-  buildSubgraphsFederation,
+  buildFederatedQueryGraph,
   Edge,
   ExcludedEdges,
   FieldCollection,
@@ -212,7 +212,7 @@ const defaultCostFunction: CostFunction = {
 };
 
 export function computeQueryPlan(supergraphSchema: Schema, operation: Operation): QueryPlan {
-  const federatedQueryGraph = buildSubgraphsFederation(supergraphSchema);
+  const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema);
   const root = federatedQueryGraph.root(operation.rootKind);
   assert(root, `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
   const planningTraversal = new QueryPlanningTaversal(

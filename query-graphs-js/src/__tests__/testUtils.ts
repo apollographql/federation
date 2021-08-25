@@ -1,8 +1,8 @@
 import { buildSchema, InterfaceType, ObjectType } from '@apollo/core';
-import { buildGraph, Edge, FieldCollection, QueryGraph, Vertex } from '@apollo/query-graphs';
+import { buildQueryGraph, Edge, FieldCollection, QueryGraph, Vertex } from '@apollo/query-graphs';
 
 export function testGraphFromSchemaString(schemaSDL: string): QueryGraph {
-  return buildGraph("test", buildSchema(schemaSDL));
+  return buildQueryGraph("test", buildSchema(schemaSDL));
 }
 
 function singleEdge(graph: QueryGraph, vertex: Vertex, fieldName: string): Edge {

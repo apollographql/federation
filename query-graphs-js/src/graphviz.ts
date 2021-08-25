@@ -1,6 +1,6 @@
 /* Functions used to output query graphs as [graphviz dot](https://graphviz.org/doc/info/lang.html) outputs.  */
 
-import { depthFirstTraversal, Edge, QueryGraph, QueryGraphState, Vertex } from "./querygraph";
+import { simpleTraversal, Edge, QueryGraph, QueryGraphState, Vertex } from "./querygraph";
 import { attribute, Digraph, digraph, ICluster, IEdge, INode, toDot as graphvizToDot } from 'ts-graphviz';
 import { RootPath, traversePath } from "./graphPath";
 
@@ -115,7 +115,7 @@ function addToVizGraph(graph: QueryGraph, vizGraph: ICluster, noTerminal: boolea
     state.setEdgeState(edge, pickGraphForEdge(head, tail).createEdge([headNode, tailNode], attributes));
     return true;
   }
-  depthFirstTraversal(graph, _ => { }, onEdge);
+  simpleTraversal(graph, _ => { }, onEdge);
   return state;
 }
 

@@ -36,12 +36,21 @@ export function isFederatedGraphRootType(type: NamedType) {
 }
 
 /**
- * A vertex of a query graph.
+ * A vertex of a query graph, which points to a type (definition) in a particular graphQL schema (the `source` being
+ * an identifier for that schema).
+ *
+ * @see QueryGraph
  */
 export class Vertex {
   constructor(
+    /** Index used for this vertex in the query graph it is part of. */
     readonly index: number,
+    /** The graphQL type the vertex points to. */
     readonly type: NamedType,
+    /**
+     * An identifier of the underlying schema containing the `type` this vertex points to.
+     * This is mainly used in "federated" query graphs, where the `souce` is a subgraph name.
+     */
     readonly source : string
   ) {}
 
@@ -50,6 +59,12 @@ export class Vertex {
   }
 }
 
+/**
+ * A "root" `Vertex`, that is a vertex that one of the root of a query graph.
+ *
+ * @see Vertex
+ * @see QueryGraph.roots
+ */
 export class RootVertex extends Vertex {
   constructor(
     readonly rootKind: SchemaRootKind,
@@ -73,14 +88,52 @@ export function isRootVertex(vertex: Vertex): vertex is RootVertex {
   return vertex instanceof RootVertex;
 }
 
+/**
+ * An edge of a query graph.
+ *
+ * Query graphs are directed and an edge goes from its `head` vertex to its `tail` one.
+ * Edges also have additional metadata: their `transition` and, optionally, `conditions`.
+ */
 export class Edge {
   private _conditions?: SelectionSet;
 
   constructor(
+    /**
+     * Index used for this edge in the query graph it is part of (note that this index is "scoped" within
+     * the head vertex, meaning that if 2 different vertices of the same query graph both have a single
+     * out-edge, then both of those edges have index 0, and if a vertex has 3 out-edges, their index will
+      * be 0, 1 and 2).
+     */
     public readonly index: number,
+    /**
+     * The vertex from which the edge starts.
+     */
     public readonly head: Vertex,
+    /**
+     * The vertex on which the edge ends.
+     */
     public readonly tail: Vertex,
+    /**
+     * Indicates what kind of edges this is and what the edges does/represents.
+     * For instance, if the edge represents a field, the `transition` will be a `FieldCollection` transition
+     * and will link to the definition of the field it represents.
+     *
+     * @see Transition
+     */ 
     public readonly transition: Transition,
+    /**
+     * Optional conditions on an edge.
+     *
+     * Conditions are a select of selections (in the graphQL sense) that the traversal of a query graph
+     * needs to "collect" (traverse edges with transitions corresponding to those selections) in order
+     * to be able to collect that edge.
+     *
+     * Conditions are primarily used for edges corresponding to @key, in which case they correspond
+     * to the fields composing the key. In other words, for a key edges, conditions basically represents
+     * the fact that you need the key to be able to use a key edge.
+     *
+     * Outside of keys, @requires also rely on conditions.
+     */
     conditions?: SelectionSet,
   ) {
     this._conditions = conditions;
@@ -135,29 +188,91 @@ export class Edge {
   }
 }
 
+/**
+ * An immutable directed graph data structure (built of vertices and edges) that is layered over one or multiple 
+ * graphQL schema, that aims to facilitate reasoning about queries expressed on the underlying schema.
+ *
+ * On top of its set of vertices and edges, a query graph exposes:
+ *  - its set of "sources": pointers to the graphQL schema on which the query graph was built.
+ *  - a set of distinguished vertices called "root" vertices. A query graph has at most one root
+ *    vertex per `SchemaRootKind`, and those vertices are usually entry points for traversals of
+ *    a query graph.
+ *
+ * In practice, the code builds 2 "kind" of query graphs:
+ *  1. a supergraph query graph, which is built on top of a supergraph API schema (@see buildGraph()),
+ *     and is built to reason about user queries (made on the supergraph API). This supergraph query
+ *     graph is used to validate composition.
+ *  2. a "federated" query graph, which is a single graph built on top of a) a number of subgraph
+ *    API schema and b) the additional federation directives on those subgraphs (@see buildFederatedQueryGraph()). 
+ *    This query graph is used both for validating composition and for query planning.
+ *
+ * Note that this class handles both cases, but a "supergraph query graph" will, by construction, have
+ * a few more invariants than a "federated query graph". Including (but not necessarily limited to):
+ *  - edges in a super graph query graph will never have `conditions` or 'key' edges (edges with a `KeyResolution` edges).
+ *  - supergraph query graphs will have a single value in `sources` (the supergraph schema).
+ *
+ * Also note that as query graphs are about reasoning about queries over schema, they only contain vertices
+ * that points to "reachable" types (reachable from any kind of operations).
+ */
 export class QueryGraph {
+  /**
+   * Creates a new query graph.
+   *
+   * This isn't meant to be be called directly outside of `GraphBuilder.build`.
+   */
   constructor(
+    /** A name to identify the graph. Mostly for pretty-printing/debugging purpose. */
     readonly name: string,
+    /** The vertices of the query graph. The index of each vertex in the array will be the value of its `Vertex.index` value. */
     private readonly vertices: Vertex[],
+    /**
+    * For each vertex, the edges that originate from that array. This array has the same length as `vertices` and `adjacencies[i]`
+    * is an array of all the edges starting at vertices[i].
+    */
     private readonly adjacencies: Edge[][],
+    /**
+     * A map that associate type names of the underlying schema on which this query graph was built to each of the vertex 
+     * (vertex index) that points to a type of that name. Note that in a "supergraph query graph", each type name will only
+     * map to a single vertex,
+     */
     private readonly typesToVertices: MultiMap<string, number>,
+    /** The set of distinguished root vertices (pointers to vertices in `vertices`), keyed by their kind.  */
     private readonly rootVertices: Map<SchemaRootKind, RootVertex>,
+    /**
+     * The sources on which the query graph was built, that is a set (which can be of size 1) of graphQL schema keyed by
+     * the name identifying them. Note that the `source` string in the `Vertex` of a query graph is guaranteed to be 
+     * valid key in this map.
+     */
     readonly sources: ReadonlyMap<string, Schema>
   ) {
   }
 
+  /** The number of vertices in this query graph. */
   verticesCount(): number {
     return this.vertices.length;
   }
 
+  /**
+   * The set of `SchemaRootKind` for which this query graph has a root vertex (for 
+   * which `root(SchemaRootKind)` will _not_ return `undefined`).
+   */
   rootKinds(): readonly SchemaRootKind[] {
     return [...this.rootVertices.keys()];
   }
 
+  /**
+   * The set of root vertices in this query graph.
+   */
   roots(): readonly RootVertex[] {
     return [...this.rootVertices.values()];
   }
 
+  /**
+   * The root vertex corresponding to the provided root kind, if this query graph has one.
+   *
+   * @param kind - the root kind for which to get the root vertex.
+   * @returns the root vertex for `kind` if this query graph has one.
+   */
   root(kind: SchemaRootKind): RootVertex | undefined {
     return this.rootVertices.get(kind);
   }
@@ -165,14 +280,25 @@ export class QueryGraph {
   /**
    * The edges out of the provided vertex.
    *
-   * @param vertex - the vertex for which to return out edges.
+   * @param vertex - the vertex for which to return out edges. This method _assumes_ that
+   *   the provided vertex is a vertex of this query graph (and its behavior is undefined
+   *   if it isn't).
    * @returns the list of all the edges out of this vertex.
    */
   outEdges(vertex: Vertex): readonly Edge[] {
     return this.adjacencies[vertex.index];
   }
 
-  outEdge(vertex: Vertex, edgeIndex: number): Edge {
+  /**
+   * The edge out of the provided vertex at the provided (edge) index.
+   *
+   * @param vertex - the vertex for which to return the out edge. This method _assumes_ that
+   *   the provided vertex is a vertex of this query graph (and its behavior is undefined
+   *   if it isn't).
+   * @param edgeIndex - the edge index (relative to `vertex`, see `Edge.index`) to retrieve.
+   * @returns the `edgeIndex`^th edge out of `vertex`, if such edges exists.
+   */
+  outEdge(vertex: Vertex, edgeIndex: number): Edge | undefined {
     return this.adjacencies[vertex.index][edgeIndex];
   }
 
@@ -186,40 +312,78 @@ export class QueryGraph {
     return this.outEdges(vertex).length == 0;
   }
 
+  /**
+   * The set of vertices whose associated type (see `Vertex.type`) is of type `typeName`.
+   */
   verticesForType(typeName: string): Vertex[] {
     const indexes = this.typesToVertices.get(typeName);
     return indexes == undefined ? [] : indexes.map(i => this.vertices[i]);
   }
 }
 
+/**
+ * A utility class that allows to associate state to the vertices and/or edges of a query graph.
+ *
+ * @param VertexState - the type of the state associated to vertices.
+ * @param EdgeState - the type of the state associated to edges. Defaults to `undefined`, which
+ *   means that state is only associated to vertices. 
+ */
 export class QueryGraphState<VertexState, EdgeState = undefined> {
   // Store some "user" state for each vertex (accessed by index)
-  private readonly verticesStates: (VertexState | null)[];
-  private readonly adjacenciesStates: (EdgeState | null)[][];
+  private readonly verticesStates: (VertexState | undefined)[];
+  private readonly adjacenciesStates: (EdgeState | undefined)[][];
 
+  /**
+   * Creates a new `QueryGraphState` to associate state to the vertices and/or edges of `graph`.
+   */
   constructor(readonly graph: QueryGraph) {
     this.verticesStates = new Array(graph.verticesCount());
     this.adjacenciesStates = new Array(graph.verticesCount());
   }
 
+  /**
+   * Associates the provided state to the provided vertex.
+   *
+   * @param vertex - the vertex to which state should be associated. This method _assumes_ 
+   *    that the provided vertex is a vertex of the query graph against which this 
+   *    `QueryGraphState` was created (and its behavior is undefined if it isn't).
+   * @param state - the state/value to associate to `vertex`.
+   */
   setVertexState(vertex: Vertex, state: VertexState) {
     this.verticesStates[vertex.index] = state;
   }
 
-  //merge(vertex: Vertex, state: State, merger: (s1: State, s2: State) => State) {
-  //  const current = this.states[vertex.index];
-  //  const merged = !current ? state : merger(current, state);
-  //  this.states[vertex.index] =  merged;
-  //}
-
+  /**
+   * Removes the state associated to the provided vertex (if any is).
+   *
+   * @param vertex - the vertex for which state should be removed. This method _assumes_ 
+   *    that the provided vertex is a vertex of the query graph against which this 
+   *    `QueryGraphState` was created (and its behavior is undefined if it isn't).
+   */
   removeVertexState(vertex: Vertex) {
-    this.verticesStates[vertex.index] = null;
+    this.verticesStates[vertex.index] = undefined;
   }
 
-  getVertexState(vertex: Vertex): VertexState | null {
+  /**
+   * Retrieves the state associated to the provided vertex (if any is).
+   *
+   * @param vertex - the vertex for which state should be retrieved. This method _assumes_ 
+   *    that the provided vertex is a vertex of the query graph against which this 
+   *    `QueryGraphState` was created (and its behavior is undefined if it isn't).
+   * @return the state associated to `vertex`, if any.
+   */
+  getVertexState(vertex: Vertex): VertexState | undefined {
     return this.verticesStates[vertex.index];
   }
 
+  /**
+   * Associates the provided state to the provided edge.
+   *
+   * @param edge - the edge to which state should be associated. This method _assumes_ 
+   *    that the provided edge is an edge of the query graph against which this 
+   *    `QueryGraphState` was created (and its behavior is undefined if it isn't).
+   * @param state - the state/value to associate to `edge`.
+   */
   setEdgeState(edge: Edge, state: EdgeState) {
     if (!this.adjacenciesStates[edge.head.index]) {
       this.adjacenciesStates[edge.head.index] = new Array(this.graph.outEdges(edge.head).length);
@@ -227,11 +391,26 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
     this.adjacenciesStates[edge.head.index][edge.index] = state;
   }
 
+  /**
+   * Removes the state associated to the provided edge (if any is).
+   *
+   * @param edge - the edge for which state should be removed. This method _assumes_ 
+   *    that the provided edge is an edge of the query graph against which this 
+   *    `QueryGraphState` was created (and its behavior is undefined if it isn't).
+   */
   removeEdgeState(edge: Edge) {
-    this.adjacenciesStates[edge.head.index][edge.index] = null;
+    this.adjacenciesStates[edge.head.index][edge.index] = undefined;
   }
 
-  getEdgeState(edge: Edge): EdgeState | null {
+  /**
+   * Retrieves the state associated to the provided edge (if any is).
+   *
+   * @param edge - the edge for which state should be retrieved. This method _assumes_ 
+   *    that the provided vertex is an edge of the query graph against which this 
+   *    `QueryGraphState` was created (and its behavior is undefined if it isn't).
+   * @return the state associated to `edge`, if any.
+   */
+  getEdgeState(edge: Edge): EdgeState | undefined {
     return this.adjacenciesStates[edge.head.index][edge.index];
   }
 
@@ -245,7 +424,19 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
   }
 }
 
-export function buildGraph(name: string, schema: Schema): QueryGraph {
+/**
+ * Builds the query graph corresponding to the provided schema.
+ *
+ * Note that this method and mainly exported for the sake of testing but should rarely, if
+ * ever, be used otherwise. Instead use either `buildSupergraphAPIQueryGraph` or 
+ * `buildFederatedQueryGraph` which are more explicit.
+ *
+ * @param name - the name to use for the created graph and as "source" name for the schema.
+ * @param shema - the schema for which to build the query graph.
+ * @returns the query graph corresponding to `schema` "API" (in the sense that no federation
+ *   directives are taken into account by this method in the building of the query graph).
+ */
+export function buildQueryGraph(name: string, schema: Schema): QueryGraph {
   return buildGraphInternal(name, schema);
 }
 
@@ -257,7 +448,37 @@ function buildGraphInternal(name: string, schema: Schema, supergraphSchema?: Sch
   return builder.build();
 }
 
-export function buildSubgraphsFederation(supergraph: Schema): QueryGraph {
+/**
+ * Builds a "supergraph API" query graph based on the provided supergraph schema.
+ *
+ * A "supergraph API" query graph is one that is used to reason about queries against said 
+ * supergraph API, but @see QueryGraph for more details.
+ *
+ * @param supergraph - the schema of the supergraph for which to build the query graph.
+  *  The provided schema should generally be a "supergraph" as generated by composition merging.
+  *  Note however that the query graph built by this method is only based on the supergraph
+  *  API and doesn't rely on the join spec directives, so it is valid to also directly
+  *  pass a schema that directly corresponds to the supergraph API.
+ * @returns the built query graph.
+ */
+export function buildSupergraphAPIQueryGraph(supergraph: Schema): QueryGraph {
+  return buildQueryGraph("supergraph", supergraph);
+}
+
+/**
+ * Builds a "federated" query graph based on the provided supergraph schema.
+ *
+ * A "federated" query graph is one that is used to reason about queries made by a 
+ * gateway/router against a set of federated subgraph services.
+ *
+ * @see QueryGraph
+ *
+ * @param supergraph - the schema of the supergraph for which to build the query graph. 
+ *   The provided schema _must_ be a "supergraph" as generated by composition merging,
+ *   one that includes join spec directives in particular.
+ * @returns the built federated query graph.
+ */
+export function buildFederatedQueryGraph(supergraph: Schema): QueryGraph {
   const subgraphs = extractSubgraphsFromSupergraph(supergraph);
   let graphs = [];
   for (let subgraph of subgraphs) {
@@ -307,7 +528,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
     const subgraphSchema = schemas[i];
     const keyDirective = federationBuiltIns.keyDirective(subgraphSchema);
     const requireDirective = federationBuiltIns.requiresDirective(subgraphSchema);
-    depthFirstTraversal(
+    simpleTraversal(
       subgraph,
       v => {
         const type = v.type;
@@ -369,7 +590,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   for (let [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
     const providesDirective = federationBuiltIns.providesDirective(subgraphSchema);
-    depthFirstTraversal(
+    simpleTraversal(
       subgraph,
       _ => {},
       e => {
@@ -442,6 +663,9 @@ interface SubgraphCopyPointer {
   copiedVertex(original: Vertex): Vertex;
 }
 
+/**
+ * Temporary abstraction used to build a query graph.
+ */
 class GraphBuilder {
   private readonly vertices: Vertex[];
   private nextIndex: number = 0;
@@ -505,7 +729,7 @@ class GraphBuilder {
 
   copyGraph(graph: QueryGraph): SubgraphCopyPointer {
     const offset = this.nextIndex;
-    depthFirstTraversal(
+    simpleTraversal(
       graph,
       v => {
         this.getOrCopyVertex(v, offset, graph);
@@ -583,6 +807,11 @@ class GraphBuilder {
   }
 }
 
+/**
+ * Specialization of `GraphBuilder` for building the parts of a query graph that correspond
+ * to a schema API (meaning that it helps building the vertices and edges corresponding to a
+ * schema API, but does not handle vertices and edges related to federation).
+ */
 class GraphBuilderFromSchema extends GraphBuilder {
   private readonly isFederatedSubgraph: boolean;
 
@@ -596,10 +825,23 @@ class GraphBuilderFromSchema extends GraphBuilder {
     assert(!this.isFederatedSubgraph || supergraphSchema, `Missing supergraph schema for building the federated subgraph graph`);
   }
 
+  /**
+   * Adds a vertex for the provided root object type (marking that vertex as a root vertex for the
+   * provided `kind`) and recursively descend into the type definition to adds the related vertices
+   * and edges.
+   *
+   * In other words, calling this method on, say, the `Query` type of a schema will add vertices
+   * and edges for all the type reachable from that `Query` type.
+   */
   addRecursivelyFromRoot(kind: SchemaRootKind, root: ObjectType) {
     this.setAsRoot(kind, this.addTypeRecursively(root).index);
   }
 
+  /**
+   * Adds in a vertex for the provided type in the in-building query graph, and recursively 
+   * adds edges and vertices corresponding to the type definition (so for object types, it
+   * will add edges for each fields and recursively add vertices for each field type, etc...).
+   */
   private addTypeRecursively(type: Type): Vertex {
     const namedType = baseType(type);
     const existing = this.verticesForType(namedType.name);
@@ -695,8 +937,25 @@ class GraphBuilderFromSchema extends GraphBuilder {
   }
 }
 
-// A simple depth first traversal of the graph that _ignores_ edge conditions.
-export function depthFirstTraversal(
+/**
+ * Performs a simple traversal of a query graph that _ignores_ edge conditions.
+ *
+ * Note that the order of the traversal shouldn't be relied on strongly, only that
+ * the provided `onVertex` and `onEdges` will called (exactly) once for every vertices
+ * and edges in the query graph.
+ *
+ * That said, in practice, this method does `n` traversals, one from each root vertex in the
+ * provided query graph (so in practice, `0 < n <= 3`) and each traversal happens to be a
+ * depth first traversal (one that stops as soon as it encounters a vertex previously seen).
+ *
+ * @param graph - the query graph to traverse.
+ * @param onVertex - a function called on each vertex traversed the first time it is traversed.
+ * @param onEdges - a function called on each edges traversed the first time it is traversed.
+ *   When this function is called for an edge, it is guaranteed that `onVertex` has previously
+ *   been called on the edge's head vertex (there is no guarantee on the tail vertex in that
+ *  `onVertex` may or may not have been called for it).
+ */ 
+export function simpleTraversal(
   graph: QueryGraph,
   onVertex: (v: Vertex) => void,
   onEdges: (e: Edge) => boolean
