@@ -7,6 +7,11 @@ export default {
   },
 
   print(value: GraphQLError, print) {
+    // Support printing GraphQLError.causes (from core-schema-js)
+    if ('causes' in value) {
+      // @ts-ignore
+      return print(value.causes.map((cause) => cause.message));
+    }
     return print({
       message: value.message,
       code: value.extensions ? value.extensions.code : 'MISSING_ERROR',

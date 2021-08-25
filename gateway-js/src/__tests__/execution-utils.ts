@@ -6,7 +6,7 @@ import {
 import { GraphQLRequest, GraphQLExecutionResult, Logger } from 'apollo-server-types';
 import {
   composeAndValidate,
-  buildFederatedSchema,
+  buildSubgraphSchema,
   ServiceDefinition,
   compositionHasErrors,
 } from '@apollo/federation';
@@ -49,7 +49,7 @@ export async function execute(
       return [
         name,
         new LocalGraphQLDataSource(
-          buildFederatedSchema([{ typeDefs, resolvers }]),
+          buildSubgraphSchema([{ typeDefs, resolvers }]),
         ),
       ] as [string, LocalGraphQLDataSource];
     }),
@@ -81,7 +81,7 @@ export async function execute(
 }
 
 export function buildLocalService(modules: GraphQLSchemaModule[]) {
-  const schema = buildFederatedSchema(modules);
+  const schema = buildSubgraphSchema(modules);
   return new LocalGraphQLDataSource(schema);
 }
 
@@ -93,12 +93,7 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
     ]),
   );
 
-  const compositionResult = composeAndValidate(
-    Object.entries(serviceMap).map(([serviceName, dataSource]) => ({
-      name: serviceName,
-      typeDefs: dataSource.sdl(),
-    })),
-  );
+  const compositionResult = composeAndValidate(services);
 
   if (compositionHasErrors(compositionResult)) {
     throw new GraphQLSchemaValidationError(compositionResult.errors);

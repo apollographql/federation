@@ -1,7 +1,15 @@
 {
   "extends": [
-    "apollo-open-source"
+    // Our default configuration. See
+    // https://github.com/apollographql/renovate-config-apollo-open-source/blob/master/package.json
+    "apollo-open-source",
+    // Bundle together Jest/TS-Jest updates (even major ones).
+    "group:jestMonorepo",
+    "group:jestPlusTSJest",
+    // Bundle together graphql-codegen updates (even major ones).
+    "group:graphqlcodegeneratorMonorepo",
   ],
+  schedule: null,
   "dependencyDashboard": true,
   // The "circleci" manager is intentionally disabled right now (e.g., not
   // included in this list).  While we do benefit from its updating of "Orb"
@@ -18,7 +26,20 @@
   // that right now.  I can test the repository locally with my own copy of
   // Renovate and come up with another solution given some free time. -Jesse
   "enabledManagers": ["npm", "cargo"],
+  postUpdateOptions: ["npmDedupe"],
   "packageRules": [
+    // We use jest-cucumber which does not yet support Jest v27. Trying to
+    // upgrade to Jest v27 leaves us with multiple copies of Jest installed
+    // which gives TS build errors. See
+    // https://github.com/bencompton/jest-cucumber/issues/131 (Also, @types/jest
+    // v27 doesn't exist yet, though it seems like we maybe should be able to
+    // just drop that dependency and the `types` declaration in
+    // tsconfig.test.base.json. But jest-cucumber still pulls it in anyway for
+    // now. https://github.com/DefinitelyTyped/DefinitelyTyped/issues/53655)
+    {
+      matchPackageNames: ["jest", "ts-jest", "pretty-format"],
+      allowedVersions: "26.x",
+    },
     // We set this to the lowest supported Node.js version to ensure we don't
     // use newer Node.js APIs unknowingly during development which are going to
     // fail in CI anyway when they're run against the full range of Node.js
@@ -26,6 +47,30 @@
     {
       "matchPackageNames": ["@types/node"],
       "allowedVersions": "12.x"
+    },
+    // make-fetch-happen is used by the HttpRequestCache in gateway, which uses
+    // a cache API that is removed in v9.
+    {
+      "matchPackageNames": ["make-fetch-happen"],
+      "allowedVersions": "8.x"
+    },
+    // strip-indent v4 can only be imported from ESM modules, and we don't currently
+    // build as ESM. Maybe we'll change our build strategy eventually, but until then
+    // we can continue using an old version of a simple indentation stripper in our tests.
+    // See https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c
+    {
+      matchPackageNames: ["strip-indent"],
+      allowedVersions: "3.x",
+    },
+    // Bunch up all non-major npm dependencies into a single PR.  In the common case
+    // where the upgrades apply cleanly, this causes less noise and is resolved faster
+    // than starting a bunch of upgrades in parallel for what may turn out to be
+    // a suite of related packages all released at once.
+    {
+      groupName: "all non-major dependencies",
+      matchUpdateTypes: ["patch", "minor"],
+      groupSlug: "all-npm-minor-patch",
+      matchManagers: [ "npm" ],
     },
     {
       "matchPaths": [
@@ -40,6 +85,15 @@
       "baseBranches": [
         "main"
       ]
-    }
+    },
+    // The current Apollo Gatsby theme does not support a version of Gatsby
+    // that supports React 17.
+    {
+      "matchPaths": [
+        "docs/package.json"
+      ],
+      "matchPackageNames": ["react", "react-dom"],
+      "allowedVersions": "16.x",
+    },
   ]
 }

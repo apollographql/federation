@@ -1,5 +1,5 @@
 ---
-title: "Federation quickstart (preview)"
+title: "Federation quickstart"
 sidebar_title: "Part 2 - Composition in Apollo Studio"
 description: "Part 2 - Composition in Apollo Studio"
 ---
@@ -124,8 +124,6 @@ const gateway = new ApolloGateway();
 
 const server = new ApolloServer({
   gateway,
-  // Subscriptions are not currently supported in Apollo Federation
-  subscriptions: false
 });
 
 server.listen().then(({ url }) => {
@@ -147,7 +145,6 @@ So now, how do we connect and authenticate our gateway with Apollo Studio? With 
 
     ```shell
     APOLLO_KEY=YOUR_API_KEY
-    APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://uplink.api.apollographql.com/
     ```
 
 4. Add the `dotenv` Node.js library to your project:
@@ -174,7 +171,7 @@ So now, how do we connect and authenticate our gateway with Apollo Studio? With 
 
 > By providing an API key to your gateway, you also automatically enable **federated trace reporting** to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](./metrics/)
 
-Now, open up GraphQL Playground in your browser again at `localhost:4000`. Sure enough, your supergraph schema's types and fields are all available, and you can execute test queries as before. But now, all of this information is coming from Apollo Studio.
+Now, [open up Apollo Sandbox in your browser again](https://studio.apollographql.com/sandbox). Sure enough, your supergraph schema's types and fields are all available, and you can execute test queries as before. But now, all of this information is coming from Apollo Studio.
 
 ## Moving forward
 

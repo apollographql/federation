@@ -12,14 +12,8 @@ module.exports = {
         description: 'A guide to using Apollo Federation',
         githubRepo: 'apollographql/federation',
         sidebarCategories: {
-          null: [
-            'index',
-          ],
-          'Quickstart': [
-            'quickstart',
-            'quickstart-pt-2',
-            'quickstart-pt-3',
-          ],
+          null: ['index'],
+          Quickstart: ['quickstart', 'quickstart-pt-2', 'quickstart-pt-3'],
           'Core Concepts': [
             'subgraphs',
             'gateway',
@@ -30,23 +24,30 @@ module.exports = {
           'Managed Federation': [
             'managed-federation/overview',
             'managed-federation/setup',
-            'managed-federation/monitoring',
             'managed-federation/federated-schema-checks',
             'managed-federation/deployment',
             '[Studio features](https://www.apollographql.com/docs/studio/federated-graphs/)',
           ],
-          'Debugging': [
-            'errors',
+          'Enterprise Guide': [
+            'enterprise-guide/introduction',
+            'enterprise-guide/graphql-consolidation',
+            'enterprise-guide/federated-schema-design',
+            'enterprise-guide/graph-administration',
+            'enterprise-guide/graph-security',
+            'enterprise-guide/federation-case-studies',
+            'enterprise-guide/additional-resources',
+          ],
+          'Performance': [
+            'performance/caching',
+            'performance/monitoring',
+          ],
+          'Debugging & Metrics': [
+            'errors', 
             'metrics',
+            'opentelemetry',
           ],
-          'Third-Party Support': [
-            'other-servers',
-            'federation-spec',
-          ],
-          'API Reference': [
-            'api/apollo-federation',
-            'api/apollo-gateway',
-          ],
+          'Third-Party Support': ['other-servers', 'federation-spec'],
+          'API Reference': ['api/apollo-federation', 'api/apollo-gateway'],
         },
       },
     },

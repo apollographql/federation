@@ -94,6 +94,27 @@ const gateway = new ApolloGateway({
   </thead>
 
 <tbody>
+
+<tr class="required">
+<td>
+
+###### `supergraphSdl`
+
+`String`
+</td>
+<td>
+
+A [supergraph schema](../#federated-schemas) ([generated with the Rover CLI](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema)) that's composed from your subgraph schemas. The supergraph schema includes directives that specify routing information for each subgraph.
+
+**If you are using managed federation,** do not provide this field.
+
+**If you _aren't_ using managed federation,** either this field or `serviceList` is required. Do not provide both.
+
+
+</td>
+</tr>
+
+
 <tr class="required">
 <td>
 
@@ -103,18 +124,19 @@ const gateway = new ApolloGateway({
 </td>
 <td>
 
-An array of objects that each specify the `name` and `url` of one subgraph in your federated graph.
+**This option is discouraged in favor of [`supergraphSdl`](#supergraphsdl).**
+
+An array of objects that each specify the `name` and `url` of one subgraph in your federated graph. On startup, the gateway uses this array to obtain your subgraph schemas via introspection and compose a supergraph schema. 
 
 You can specify any string value for the `name` field, which is used for identifying the subgraph in log output and error messages, and for reporting metrics to Apollo Studio.
 
 **If you are using managed federation,** do not provide this field.
 
-**If you _aren't_ using managed federation,** this field is required.
+**If you _aren't_ using managed federation,** either this field or `supergraphSdl` is required. Do not provide both.
 
 
 </td>
 </tr>
-
 
 <tr>
 <td>

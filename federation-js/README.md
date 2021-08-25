@@ -8,7 +8,7 @@ For complete documentation, see the [Apollo Federation API reference](https://ww
 
 ```js
 const { ApolloServer, gql } = require("apollo-server");
-const { buildFederatedSchema } = require("@apollo/federation");
+const { buildSubgraphSchema } = require("@apollo/federation");
 
 const typeDefs = gql`
   type Query {
@@ -35,6 +35,6 @@ const resolvers = {
 };
 
 const server = new ApolloServer({
-  schema: buildFederatedSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
 });
 ```

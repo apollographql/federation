@@ -1,0 +1,225 @@
+---
+title: Server-side caching
+sidebar_title: Caching
+---
+
+> Using cache control with Apollo Federation requires v0.28 of `@apollo/federation` in your subgraph, v0.36 of `@apollo/gateway` in your router, and v3.0.2 of Apollo Server in both servers. Please note that Apollo Server's cache hints API has evolved as of v3, so be sure to review the [updated caching documentation](https://www.apollographql.com/docs/apollo-server/performance/caching/).
+
+## Using cache hints with subgraphs
+
+To set [static cache hints](https://www.apollographql.com/docs/apollo-server/performance/caching/#in-your-schema-static) with Apollo Server-based subgraphs, the `@cacheControl` directive and `CacheControlScope` enum definitions must be included in the subgraph schema:
+
+```graphql
+enum CacheControlScope {
+  PUBLIC
+  PRIVATE
+}
+
+directive @cacheControl(
+  maxAge: Int
+  scope: CacheControlScope
+  inheritMaxAge: Boolean
+) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+```
+
+The subgraph calculates and sets the cache hint for the response that it sends to the gateway, and the gateway then calculates the cache hint for the overall response. This hint is based on the most restrictive settings among all of the responses received from the subgraphs involved in query plan execution.
+
+Cache hints can also be set [dynamically in subgraph resolvers](https://www.apollographql.com/docs/apollo-server/performance/caching/#in-your-resolvers-dynamic).
+
+### Setting entity cache hints
+
+Subgraph schemas contain an `_entities` root field on the `Query` type, so all query plans that require entity resolution have a [`maxAge` of `0` set by default](https://www.apollographql.com/docs/apollo-server/performance/caching/#default-maxagee). To override this default behavior, you can add a `@cacheControl` directive to an entity's definition:
+
+```graphql
+type Book @key(fields: "isbn") @cacheControl(maxAge: 30) {
+  isbn: String!
+  title: String
+}
+```
+
+When the `_entities` field is resolved it checks the applicable concrete type for a cache hint (e.g. the `Book` type in the example above) and applies that hint instead.
+
+To set cache hints dynamically, the [`cacheControl` object and its methods](#in-your-resolvers-dynamic) are also available in the `info` parameter of the `__resolveReference` resolver.
+
+### Overriding subgraph cache hints in the gateway
+
+If a subgraph does not specify a `max-age`, the gateway will assume its response (and in turn, the overall response) cannot be cached. To override this behavior, you can set the `cache-control` header in the `didReceiveResponse` method of a `RemoteGraphQLDataSource`.
+
+Additionally, if the gateway should ignore `cache-control` response headers from subgraphs that will affect the operation's cache policy, then you can set the `honorSubgraphCacheControlHeader` property of a `RemoteGraphQLDataSource` to `false` (this value is `true` by default).
+
+The effect of setting `honorSubgraphCacheControlHeader` to `false` is to have no impact on the cacheability of the response in either direction. In other words, this property won’t determine whether the response can be cached, but it does exclude a subgraph's `cache-control` header from consideration in the gateway's calculation. If all subgraphs are excluded from consideration when calculating the overall `cache-control` header, the response sent to the client will not be cached.
+
+There are detailed examples below that illustrate the resulting behavior when overriding this header for a subgraph.
+
+## Example `maxAge` calculations
+
+### Entity extensions
+
+Consider the following subgraph schemas:
+
+```graphql:title=Astronauts%20Subgraph
+type Astronaut @key(fields: "id") @cacheControl(maxAge: 20) {
+  id: ID!
+  name: String
+}
+
+type Query {
+  astronaut(id: ID!): Astronaut
+  astronauts: [Astronaut]
+}
+```
+
+```graphql:title=Missions%20Subgraph
+type Mission {
+  id: ID!
+  crew: [Astronaut]
+  designation: String!
+  startDate: String
+  endDate: String
+}
+
+extend type Astronaut @key(fields: "id") {
+  id: ID! @external
+  missions: [Mission]
+}
+
+type Query {
+  mission(id: ID!): Mission @cacheControl(maxAge: 10)
+  missions: [Mission]
+}
+```
+
+For the following query:
+
+```graphql
+query GetMissionWithCrew {
+  mission(id: 1) {
+    designation
+    crew {
+      name
+    }
+  }
+}
+```
+
+The response will be considered **not cacheable**.
+
+The `cache-control` header in the response from the astronauts subgraph will be `max-age=20, public` based on the cache hint applied to the `Astronaut` type, which will be taken into consideration when this subgraph responds to the `_entities` query from the gateway.
+
+The missions subgraph, however, does not include a `cache-control` header in its response to the gateway, thus indicating that it is not cacheable. Consequently, the entire response sent to the client is not cacheable. At first glance, this behavior might seem unexpected because the `@cacheControl(maxAge: 10)` directive is applied to the `mission` root query field. But upon closer inspection, we see that this field returns the `Mission` type which contains a non-scalar `Astronaut` field and this type will have a [default `maxAge` of `0` applied](https://www.apollographql.com/docs/apollo-server/performance/caching/#default-maxage).
+
+The missions subgraph isn't aware of the cache hint set on the `Astronaut` type in its owning subgraph, so there are two ways to address this. The first option is to apply an `@cacheControl` directive to the `Astronaut` entity extension with the `inheritMaxAge` argument set to `true`:
+
+```graphql{3}:title=Missions%20Subgraph
+type Mission {
+  id: ID!
+  crew: [Astronaut] @cacheControl(inheritMaxAge: true)
+  designation: String!
+  startDate: String
+  endDate: String
+}
+```
+
+Applying this argument will ensure that the `Astronaut` type inherits the `maxAge` set for its parent field (in this example, that's the `mission` field).
+
+The second option is to set an `@cacheControl` directive for the `Astronaut` entity extension with the appropriate `maxAge` value instead:
+
+```graphql{1}:title=Missions%20Subgraph
+extend type Astronaut @key(fields: "id") @cacheControl(maxAge: 20) {
+  id: ID! @external
+  missions: [Mission]
+}
+```
+
+Setting the `maxAge` property on the extended `Astronaut` type in the missions subgraph raises an important consideration about whether subgraphs should explicitly set these values for any entity types that they extend. In most cases, it's likely be preferable to apply `@cacheControl(inheritMaxAge: true)` wherever an extended entity type is used as a field's return type to avoid ambiguity. Depending on your requirements, you might want to disallow this entirely using custom linting for your subgraphs to ensure that entity type extensions do not set the `maxAge` or `scope` arguments when applying the `@cacheControl` directive.
+
+### Gateway override
+
+For these subgraph schemas:
+
+```graphql:title=Astronauts%20Subgraph
+type Astronaut @key(fields: "id") @cacheControl(maxAge: 20) {
+  id: ID!
+  name: String
+}
+
+type Query {
+  astronaut(id: ID!): Astronaut
+  astronauts: [Astronaut]
+}
+```
+
+```graphql:title=Missions%20Subgraph
+type Mission {
+  id: ID!
+  crew: [Astronaut] @cacheControl(inheritMaxAge: true)
+  designation: String!
+  startDate: String
+  endDate: String
+}
+
+extend type Astronaut @key(fields: "id") {
+  id: ID! @external
+  missions: [Mission]
+}
+
+type Query {
+  mission(id: ID!): Mission @cacheControl(maxAge: 10)
+  missions: [Mission]
+}
+```
+
+And this operation:
+
+```graphql
+query GetMissionWithCrew {
+  mission(id: 1) {
+    designation
+    crew {
+      name
+    }
+  }
+}
+```
+
+The response will have a `cache-control` header value of `max-age=10, public`, as expected.
+
+However, if you wanted to disregard `cache-control` headers supplied by the missions subgraph, you could do so by setting `honorSubgraphCacheControlHeader` in the `RemoteGraphQLDataSource` options to `false` for that subgraph:
+
+```javascript
+const gateway = new ApolloGateway({
+  // ...
+  buildService({ name, url }) {
+    return new RemoteGraphQLDataSource({
+      url,
+      honorSubgraphCacheControlHeader: name === "missions" ? false : true;
+    });
+  }
+});
+```
+
+The response will now have a `cache-control` header value of `max-age=20, public` because only the cache hint from the astronauts subgraph will be considered in the gateway's calculation of the overall header.
+
+Alternatively, we could instead override the `max-age=10, public` header from the missions subgraph response and set it to a completely different value as follows:
+
+```javascript
+const gateway = new ApolloGateway({
+  // ...
+  buildService({ name, url }) {
+    return new RemoteGraphQLDataSource({
+      url,
+      didReceiveResponse({ response }) {
+          if (name === "missions") {
+            response.http.headers.set(
+              "cache-control", 
+              "max-age=5, public"
+            );
+          }
+          return response;
+        }
+    });
+  }
+});
+```
+
+The overall response will now have a `cache-control` header value of `max-age=5, public` because the missions subgraph's overridden header is more restrictive than the `max-age=20, public` header that was supplied by the astronauts subgraph.

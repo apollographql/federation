@@ -4,6 +4,7 @@ import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { RemoteGraphQLDataSource } from '../../datasources/RemoteGraphQLDataSource';
 import { ApolloGateway, SERVICE_DEFINITION_QUERY } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
+import { GraphQLDataSourceRequestKind } from '../../datasources/types';
 
 beforeEach(() => {
   fetch.mockReset();
@@ -36,8 +37,13 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
     buildService: _service => {
       return new RemoteGraphQLDataSource({
         url: 'https://api.example.com/foo',
-        willSendRequest: ({ request, context }) => {
-          request.http?.headers.set('x-user-id', context.userId);
+        willSendRequest: (options) => {
+          if (options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION) {
+            options.request.http?.headers.set(
+              'x-user-id',
+              options.context.userId,
+            );
+          }
         },
       });
     },

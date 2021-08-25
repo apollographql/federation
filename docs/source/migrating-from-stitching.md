@@ -43,14 +43,14 @@ If your implementing services use Apollo Server, add federation support to them 
 npm install @apollo/federation
 ```
 
-Then use the `buildFederatedSchema` function to augment your schema with fields that are necessary for federation support:
+Then use the `buildSubgraphSchema` function to augment your schema with fields that are necessary for federation support:
 
 ```js
 const { ApolloServer } = require('apollo-server');
-const { buildFederatedSchema } = require('@apollo/federation');
+const { buildSubgraphSchema } = require('@apollo/federation');
 
 const server = new ApolloServer({
-  schema: buildFederatedSchema([
+  schema: buildSubgraphSchema([
     {
       typeDefs,
       resolvers,
@@ -79,7 +79,7 @@ After you've registered your schemas, you can start exposing your subgraphs from
 
 We recommend setting up the Apollo Server gateway _alongside_ your existing schema-stitching gateway. Depending on your infrastructure, you might even want to run both in the same _process_ to support dynamically routing traffic through one gateway or the other.
 
-To enable managed configuration with Apollo Studio, set the `APOLLO_KEY` and `APOLLO_GRAPH_VARIANT` environment variables when you start up your Apollo Server gateway, and **do not provide the `serviceList` constructor option to `ApolloGateway`**. For details, see the [Apollo Studio documentation](https://www.apollographql.com/docs/studio/managed-federation/setup/).
+To enable managed configuration with Apollo Studio, set the `APOLLO_KEY` and `APOLLO_GRAPH_REF` environment variables when you start up your Apollo Server gateway, and **do not provide the `supergraphSDL` or `serviceList` constructor option to `ApolloGateway`**. For details, see the [Apollo Studio documentation](https://www.apollographql.com/docs/studio/managed-federation/setup/).
 
 After your gateway is set up, you can make direct queries to it that are routed to the correct subgraphs.
 

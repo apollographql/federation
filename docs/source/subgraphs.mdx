@@ -8,10 +8,6 @@ import {
   ExpansionPanel,
 } from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
 
-> **Implementing services** are now known as **subgraphs**.
->
-> If you find an outdated use of "implementing service," please submit article feedback or a pull request using the links on the right.
-
 This article describes how to create a **subgraph** (formerly known as an **implementing service**) for a federated data graph using Apollo Server.
 
 ## Defining a subgraph
@@ -66,7 +62,7 @@ As part of our federated architecture, we want _other_ subgraphs to be able to e
 
 ```js:title=index.js
 const { ApolloServer, gql } = require('apollo-server');
-const { buildFederatedSchema } = require('@apollo/federation');
+const { buildSubgraphSchema } = require('@apollo/federation');
 
 const typeDefs = gql`
   type Query {
@@ -103,13 +99,13 @@ const resolvers = {
 
 > [Learn more about entities](./entities/)
 
-### Generating a federated schema
+### Generating a subgraph schema
 
-Finally, we use the `buildFederatedSchema` function from the `@apollo/federation` package to augment our schema definition with federation support. We provide the result of this function to the `ApolloServer` constructor:
+Finally, we use the `buildSubgraphSchema` function from the `@apollo/federation` package to augment our schema definition with federation support. We provide the result of this function to the `ApolloServer` constructor:
 
 ```js:title=index.js
 const server = new ApolloServer({
-  schema: buildFederatedSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
 });
 
 server.listen(4001).then(({ url }) => {
@@ -125,7 +121,7 @@ Here are the snippets above combined (again, note that for this sample to be com
 
 ```js:title=index.js
 const { ApolloServer, gql } = require('apollo-server');
-const { buildFederatedSchema } = require('@apollo/federation');
+const { buildSubgraphSchema } = require('@apollo/federation');
 
 const typeDefs = gql`
   type Query {
@@ -152,7 +148,7 @@ const resolvers = {
 }
 
 const server = new ApolloServer({
-  schema: buildFederatedSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
 });
 
 server.listen(4001).then(({ url }) => {
@@ -195,7 +191,7 @@ const server = new ApolloServer({
 
 ```js
 const { ApolloServer, gql, SchemaDirectiveVisitor } = require('apollo-server');
-const { buildFederatedSchema } = require ('@apollo/federation')
+const { buildSubgraphSchema } = require ('@apollo/federation')
 
 // typeDefs and resolvers defined here
 
@@ -209,7 +205,7 @@ class DeprecatedDirective extends SchemaDirectiveVisitor {
 const directives = {
   deprecated: DeprecatedDirective
 };
-let schema = buildFederatedSchema([{ typeDefs, resolvers }]);
+let schema = buildSubgraphSchema([{ typeDefs, resolvers }]);
 
 SchemaDirectiveVisitor.visitSchemaDirectives(schema, directives);
 

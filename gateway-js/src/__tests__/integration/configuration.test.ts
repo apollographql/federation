@@ -111,7 +111,7 @@ describe('gateway configuration warnings', () => {
     gateway = new ApolloGateway({
       logger,
       // TODO(trevor:cloudconfig): remove
-      experimental_schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
     });
 
     await gateway.load(mockApolloConfig);
@@ -184,8 +184,8 @@ describe('gateway startup errors', () => {
 
     expect(err.message).toMatchInlineSnapshot(`
       "A valid schema couldn't be composed. The following composition errors were found:
-      	[accounts] User -> A @key selects id, but User.id could not be found
-      	[accounts] Account -> A @key selects id, but Account.id could not be found"
+      	[accounts] Account -> A @key selects id, but Account.id could not be found
+      	[accounts] User -> A @key selects id, but User.id could not be found"
     `);
   });
 });
@@ -309,10 +309,10 @@ describe('gateway config / env behavior', () => {
 
       gateway = new ApolloGateway({
         logger,
-        experimental_schemaConfigDeliveryEndpoint: 'code-config',
+        schemaConfigDeliveryEndpoint: 'code-config',
       });
 
-      expect(gateway['experimental_schemaConfigDeliveryEndpoint']).toEqual(
+      expect(gateway['schemaConfigDeliveryEndpoint']).toEqual(
         'code-config',
       );
 
@@ -326,10 +326,10 @@ describe('gateway config / env behavior', () => {
 
       gateway = new ApolloGateway({
         logger,
-        experimental_schemaConfigDeliveryEndpoint: null,
+        schemaConfigDeliveryEndpoint: null,
       });
 
-      expect(gateway['experimental_schemaConfigDeliveryEndpoint']).toEqual(
+      expect(gateway['schemaConfigDeliveryEndpoint']).toEqual(
         null,
       );
 

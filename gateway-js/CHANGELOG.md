@@ -4,11 +4,65 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
--  Take subtypes into account when matching type conditions to extract representations. [PR #804](https://github.com/apollographql/federation/pull/804)
+- Introduce @core v0.2 support with the "for:" directive argument. The "for:" argument allows a @core directive to specify its criticality to the gateway (or any consumer). "for:" is optional - its absence means that the directive requires no additional support from the consumer. Its two available options `EXECUTION` and `SECURITY` both require explicit support from the consumer, else the consumer should fail to start / update to this unsupported schema. [PR #957](https://github.com/apollographql/federation/pull/942)
+
+## v0.37.0
+
+- OpenTelemetry will now include the GraphQL `operationName` in span attributes, following up on the initial implementation introduced in v0.31.0 via [#836](https://github.com/apollographql/federation/pull/836) [PR #942](https://github.com/apollographql/federation/pull/942)
+
+## v0.36.0
+
+- In `RemoteGraphQLDataSource`, if the subgraph response has a `cache-control` header, use it to affect the current request's overall cache policy. You can disable this by passing `honorSubgraphCacheControlHeader: false` to the `RemoteGraphQLDataSource constructor`. This feature is only enabled when your subgraph is running Apollo Server 3.0.2 or later. [PR #870](https://github.com/apollographql/apollo-server/pull/870) [Related docs PR](https://github.com/apollographql/apollo-server/pull/5536)
+- Provide the full incoming `GraphQLRequestContext` to `GraphQLDataSource.process`, as well as a `kind` allowing your implementation to differentiate between requests that come from incoming GraphQL operations, health checks, and schema fetches. [PR #870](https://github.com/apollographql/apollo-server/pull/870) [Issue #419](https://github.com/apollographql/apollo-server/issues/419) [Issue #835](https://github.com/apollographql/apollo-server/issues/835)
+
+## v0.35.1
+
+- Narrow `graphql` peer dependency to a more fitting range `^15.4.0` based on our current usage of the package. This requirement was introduced by, but not captured in, changes within the recently released `@apollo/gateway@0.35.0`. As such, this change will be released as a `patch` since the breaking change already accidentally happened and this is a correction to that oversight. [PR #913](https://github.com/apollographql/federation/pull/913)
+
+## v0.35.0
+
+- Fixes bug where one `onSchemaChange` listener throwing would prevent other `onSchemaChange` listeners from being notified. [PR #738](https://github.com/apollographql/federation/pull/738)
+- Adds `onSchemaLoadOrUpdate` method to register listeners for schema load and updates, and to receive both the API schema and the core supergraph SDL. `onSchemaChange` has been deprecated in favor of this method. Note that `onSchemaChange` listeners are not notified when loading schemas from static gateway configurations, while `onSchemaLoadOrUpdate` listeners are notified. [PR #738](https://github.com/apollographql/federation/pull/738)
+
+## v0.34.0
+
+- Change default managed federation mechanism over to use Apollo's new Uplink service. This service handles composition and sends the entire supergraph to the gateway. Previously the gateway was responsible for downloading each service's SDL from GCS and handling the composition itself. If you have any issues trying to use this new behavior, you may use the gateway config option `schemaConfigDeliveryEndpoint: null` to continue using the previous mechanism for the time being. If you were previously setting the `experimental_schemaConfigDeliveryEndpoint` config option, you will need to update the name of the option itself (or you can remove it entirely if you were using Apollo's Uplink service). [PR #881](https://github.com/apollographql/federation/pull/881)
+- Introduce support for removing @inaccessible elements from the API schema. [PR #807](https://github.com/apollographql/federation/pull/859)
+- Call `toAPISchema` within the try/catch block in `loadStatic`. [PR #894](https://github.com/apollographql/federation/pull/894)
+- Remove `query` and `variables` from downstream subgraph error extensions, as well as path from the error itself in the final response. This affects specifically errors with the code `DOWNSTREAM_SERVICE_ERROR`. The `message` and `serviceName` will continue to exist on the error. These can also be redacted (within ApolloServer) using [`formatError`](https://www.apollographql.com/docs/apollo-server/data/errors/#for-client-responses) or the [`willSendResponse`](https://www.apollographql.com/docs/apollo-server/integrations/plugins-event-reference/#willsendresponse) and [`didEncounterError`](https://www.apollographql.com/docs/apollo-server/integrations/plugins-event-reference/#didencountererrors) plugin hooks. If you wish to bring back the existing behavior you may change your downstream service implementation to add `query`, `variables`, and `path` (all of which are available to the downstream service; on Apollo Server, this can be done with a plugin that implements `didEncounterError` and `willSendResponse` hooks that pluck the properties from the `requestContext` and put them back on the `extensions`. [PR #900](https://github.com/apollographql/federation/pull/900)
+
+## v0.33.0
+
+- Only changes in the similarly versioned `@apollo/federation` (v0.26.0) package.
+
+## v0.32.0
+
+- This release updates dependencies so that it will support the final release of Apollo Server 3 when it is released. (Since 0.29, it has supported preview releases of Apollo Server 3.) There are no code changes.
+
+## v0.31.1
+
+- Move otel dependencies from `peerDependencies` to actual `dependencies`. Also rename otel trace labels to `@apollo/gateway/0.31.0` (or whatever the current version installed happens to be) [PR #848](https://github.com/apollographql/federation/pull/848)
+
+## v0.31.0
+
+- OpenTelemetry instrumentation. [PR #836](https://github.com/apollographql/federation/pull/836)
+
+## v0.30.0
+
+- Send error reports to a configurable endpoint when providing the `APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT` env variable. Using the Apollo URL `https://uplink.api.apollographql.com/monitoring` is recommended unless you have a custom configuration. Reports will only be sent if the env variable is set. [PR #777](https://github.com/apollographql/federation/pull/777)
+
+## v0.29.1
+
+- More work towards compatibility with Apollo Server 3 preview releases. [PR #822](https://github.com/apollographql/federation/pull/822)
+
+## v0.29.0
+
+- This release is intended to be compatible with preview releases of Apollo Server 3. The `apollo` option to `ApolloGateway.load` now can accept the signature sent by AS2 (which always includes `graphVariant`) or AS3 (which never does), and the dependencies on Apollo Server packages allow for preview releases as well as the AS2 versions. (However, it was not quite enough for AS3 compatibility; see 0.29.1 above.) [PR #819](https://github.com/apollographql/federation/pull/819) [PR #819](https://github.com/apollographql/federation/pull/819)
 
 ## v0.28.3
 
 - Fix plan querying a subgraph with an interface it doesn't know due to directives [PR #805](https://github.com/apollographql/federation/pull/805) [Issue #801](https://github.com/apollographql/federation/issues/801)
+- Take subtypes into account when matching type conditions to extract representations. [PR #804](https://github.com/apollographql/federation/pull/804)
 
 ## v0.28.0
 

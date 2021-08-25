@@ -56,6 +56,22 @@ export const ProvidesDirective = new GraphQLDirective({
   },
 });
 
+export const TagDirective = new GraphQLDirective({
+  name: 'tag',
+  locations: [
+    DirectiveLocation.FIELD_DEFINITION,
+    DirectiveLocation.OBJECT,
+    DirectiveLocation.INTERFACE,
+    DirectiveLocation.UNION,
+  ],
+  isRepeatable: true,
+  args: {
+    name: {
+      type: new GraphQLNonNull(GraphQLString),
+    },
+  },
+});
+
 export const federationDirectives = [
   KeyDirective,
   ExtendsDirective,
@@ -64,7 +80,14 @@ export const federationDirectives = [
   ProvidesDirective,
 ];
 
-export default federationDirectives;
+export const otherKnownDirectiveDefinitions = [TagDirective];
+
+const apolloTypeSystemDirectives = [
+  ...federationDirectives,
+  ...otherKnownDirectiveDefinitions,
+];
+
+export default apolloTypeSystemDirectives;
 
 export type ASTNodeWithDirectives =
   | FieldDefinitionNode
