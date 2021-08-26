@@ -6,6 +6,11 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v0.30.0
+
+- Introduce `@core/v0.2` support with [the `for:` directive](https://specs.apollo.dev/core/v0.2/#@core/for) argument which was introduced to the core specification in [specs-core#9](https://github.com/apollographql/specs-core/pull/9). For users of `printSupergraphSdl`, the output of that command will now be a `@core/v0.2` schema which is only compatible [with `@apollo/gateway0.39.0`](https://github.com/apollographql/federation/blob/09ebb075/gateway-js/CHANGELOG.md#v0390) (or newer) versions.  The newly introduced `for:` argument allows a `@core` directive to specify its criticality to any consumer (including, and most importantly right now, the Gateway itself). The `for:` argument is optional - its absence means that the directive requires no additional support from the consumer. Its two available options - `EXECUTION` and `SECURITY` - both require explicit support from the consumer, else the consumer should fail to start / update to this unsupported schema.  For more information on supergraphs see [our documentation](https://www.apollographql.com/docs/rover/supergraphs/) or learn how to generate them in our [federation quickstart](https://www.apollographql.com/docs/federation/quickstart/).  [PR #957](https://github.com/apollographql/federation/pull/957)
+
+
 ## v0.29.0
 
 - __DEPRECATION__: Rename `buildFederatedSchema` to `buildSubgraphSchema`. The previous name will continue to be supported but is deprecated. No functional change, usages of `buildFederatedSchema` should just be replaced with `buildSubgraphSchema`. [PR #915](https://github.com/apollographql/federation/pull/915)
