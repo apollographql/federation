@@ -7,8 +7,8 @@ The following open-source GraphQL server libraries provide support for Apollo Fe
 
 > These are libraries that appear to be actively maintained. We audit this list every few months and remove libraries that are no longer active.
 
-| Language    | Framework     | Library                                                                          |
-| ----------- | ------------- | -------------------------------------------------------------------------------- |
+| Language      | Framework     | Library                                                                          |
+| ------------- | ------------- | -------------------------------------------------------------------------------- |
 | Go            | gqlgen        | [gqlgen](https://github.com/99designs/gqlgen/tree/master/plugin/federation)      |
 | Java          | graphql-java  | [federation-jvm](https://github.com/apollographql/federation-jvm)                |
 | Java / Kotlin | dgs           | [dgs](https://github.com/netflix/dgs-framework/)                                 |
@@ -19,5 +19,6 @@ The following open-source GraphQL server libraries provide support for Apollo Fe
 | Scala         | caliban       | [caliban](https://github.com/ghostdogpr/caliban)                                 |
 | Ruby          | graphql-ruby  | [apollo-federation-ruby](https://github.com/Gusto/apollo-federation-ruby)        |
 | Rust          | async-graphql | [async-graphql](https://github.com/async-graphql/async-graphql)                  |
+| Elixir        | absinthe      | [absinthe_federation](https://github.com/DivvyPayHQ/absinthe_federation)         |
 
 Do you maintain a library that implements Apollo Federation that isn't listed here? Please [submit a PR](https://github.com/apollographql/federation/tree/HEAD/docs/source/other-servers.md) to be added to the list!
