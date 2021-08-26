@@ -8,7 +8,7 @@
 
 ## v0.29.0
 
-- __DEPRECATION__: Rename `buildFederatedSchema` to `buildSubgraphSchema`. The previous name will continue to be supported but is deprecated. No functional change, usages of `buildFederatedSchema` should just be replaced with `buildSubgraphSchema`. [PR #915](https://github.com/apollographql/federation/pull/913)
+- __DEPRECATION__: Rename `buildFederatedSchema` to `buildSubgraphSchema`. The previous name will continue to be supported but is deprecated. No functional change, usages of `buildFederatedSchema` should just be replaced with `buildSubgraphSchema`. [PR #915](https://github.com/apollographql/federation/pull/915)
 - __BREAKING__: Support @tag directive on Object, Interface, and Union types. This is a breaking change for current @tag users, as one of the validations was updated. Existing @tag definitions must now accomodate the additional locations `OBJECT | INTERFACE | UNION`. Usages of the @tag directive are rolled up indiscriminately during composition, just as they currently are with fields. For example, a @tag usage on an entity extension will end up in the supergraph alongside any other @tag usages on the same entity in other subgraphs. [PR #945](https://github.com/apollographql/federation/pull/945) 
 
 ## v0.28.0
