@@ -31,7 +31,6 @@ import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
-import { cleanErrorOfInaccessibleNames } from './utilities/cleanErrorOfInaccessibleNames';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -53,6 +52,9 @@ export async function executeQueryPlan<TContext>(
   requestContext: GraphQLRequestContext<TContext>,
   operationContext: OperationContext,
 ): Promise<GraphQLExecutionResult> {
+
+  const logger = requestContext.logger || console;
+
   return tracer.startActiveSpan(OpenTelemetrySpanNames.EXECUTE, async span => {
     try {
       const errors: GraphQLError[] = [];
@@ -92,7 +94,7 @@ export async function executeQueryPlan<TContext>(
         // It is also used to allow execution of introspection queries though.
         try {
           const schema = toAPISchema(operationContext.schema);
-          const executionResult = await execute({
+          ({ data } = await execute({
             schema,
             document: {
               kind: Kind.DOCUMENT,
@@ -105,17 +107,38 @@ export async function executeQueryPlan<TContext>(
             variableValues: requestContext.request.variables,
             // See also `wrapSchemaWithAliasResolver` in `gateway-js/src/index.ts`.
             fieldResolver: defaultFieldResolverWithAliasSupport,
-          });
-          data = executionResult.data;
-          if (executionResult.errors?.length) {
-            const cleanedErrors = executionResult.errors.map((error) =>
-              cleanErrorOfInaccessibleNames(schema, error),
-            );
-            errors.push(...cleanedErrors);
-          }
+          }));
         } catch (error) {
           span.setStatus({ code:SpanStatusCode.ERROR });
-          return { errors: [error] };
+          if (error instanceof GraphQLError) {
+            return { errors: [error] };
+          } else if (error instanceof Error) {
+            return {
+              errors: [
+                new GraphQLError(
+                  error.message,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  error as Error,
+                )
+              ]
+            };
+          } else {
+            // The above cases should cover the known cases, but if we received
+            // something else in the `catch` — like an object or something, we
+            // may not want to merely return this to the client.
+            logger.error(
+              "Unexpected error during query plan execution: " + error);
+            return {
+              errors: [
+                new GraphQLError(
+                  "Unexpected error during query plan execution",
+                )
+              ]
+            };
+          }
         }
         finally {
           span.end()

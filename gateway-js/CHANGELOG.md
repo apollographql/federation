@@ -6,6 +6,10 @@
 
 - Introduce @core v0.2 support with the "for:" directive argument. The "for:" argument allows a @core directive to specify its criticality to the gateway (or any consumer). "for:" is optional - its absence means that the directive requires no additional support from the consumer. Its two available options `EXECUTION` and `SECURITY` both require explicit support from the consumer, else the consumer should fail to start / update to this unsupported schema. [PR #957](https://github.com/apollographql/federation/pull/942)
 
+## v0.38.1
+
+- Reverts [PR #159](https://github.com/apollographql/federation/pull/159) which propogated subgraph execution errors directly to the client.  While desirable in practice, this somewhat recent introduction would seem to beg for a different implementation, given that the pain points of introducing it seem to be currently outweighing the gains.  Happy to revisit this with additional feedback on [the tracking issue](https://github.com/apollographql/federation/issues/981) that has been opened to re-visit this.  In the interim, we are offering a release that reverts this change. [Issue #974](https://github.com/apollographql/federation/issues/974) [Apollo Server Issue #5550](https://github.com/apollographql/apollo-server/issues/5550) [PR #982](https://github.com/apollographql/federation/pull/982)
+
 ## v0.37.0
 
 - OpenTelemetry will now include the GraphQL `operationName` in span attributes, following up on the initial implementation introduced in v0.31.0 via [#836](https://github.com/apollographql/federation/pull/836) [PR #942](https://github.com/apollographql/federation/pull/942)
