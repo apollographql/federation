@@ -23,7 +23,7 @@ type Product @key(fields: "upc") {
 }
 ```
 
-In other words, setting the `upc` field as the key means that other subgraphs that want to use this entity will need to know at least that value for any product. And ideally, the keys that we define are in fact values that unique identify a resource—in other words, we want to avoid scenarios where they are used to arbitrarily pass dynamic field data around query execution between subgraphs.
+In other words, setting the `upc` field as the key means that other subgraphs that want to use this entity will need to know at least that value for any product. The keys we define should be values that uniquely identify a resource. This is because we want to avoid scenarios where they are used to arbitrarily pass dynamic field data around query execution between subgraphs.
 
 After defining an entity in a schema, other subgraphs can reference that entity in their schemas. In order for the referencing service's schema to be valid, it must define a stub of the entity in its schema. For example, we can reference a `Product` type defined in the products subgraph as the return type corresponding to a `product` field on a `Review` type defined in reviews subgraph:
 
