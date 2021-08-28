@@ -310,8 +310,8 @@ function operationForEntitiesFetch({
   };
 }
 
-// Returns root field names for SelectionSetNode which can be used for generating
-// correct error paths if downstream service is unavailable
+// Returns root field names of federated entities. This is used for generating
+// correct error paths if a network error occurs
 function rootEntityFieldNames(selectionSet: SelectionSetNode) {
   const getNodeFieldNames = (rootNode: SelectionNode) => {
     if (

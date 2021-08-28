@@ -432,7 +432,10 @@ async function executeFetch<TContext>(
     } catch (originalError) {
       const representations = variables.representations;
 
-      // Generating errors with path for every entity
+      // Generating errors with correct path for each entity in case
+      // of a network error (the idea is that on the client we don't care
+      // about the federation and we want to know why we did not receive
+      // each specific field)
       if (
         !originalError.path
         && representations
@@ -669,6 +672,9 @@ function downstreamServiceError(
   );
 }
 
+// Here we compose correct error path by combining the path to the federated
+// entity and the path of the original error. If it's not error for federated
+// entity - we just return path as it is
 function downstreamServiceErrorPath({ nodePath, errorPath }: {
   nodePath: ResponsePath;
   errorPath: GraphQLFormattedError['path'];

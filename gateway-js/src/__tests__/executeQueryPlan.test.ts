@@ -150,7 +150,7 @@ describe('executeQueryPlan', () => {
       expect(response).not.toHaveProperty('errors.0.extensions.variables');
     });
 
-    it(`should include correct error path in case one of the services raised an error`, async () => {
+    it(`should include correct error path in case one of the services raised an error for federated entity`, async () => {
       overrideResolversInService('accounts', {
         User: {
           __resolveObject() {
