@@ -148,6 +148,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         url: String!
       }
 
+      scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\")
+
       type KeyValue {
         key: String!
         value: String!
@@ -167,7 +169,7 @@ describe('loadSupergraphSdlFromStorage', () => {
 
       type Mutation {
         deleteReview(id: ID!): Boolean @join__field(graph: REVIEWS)
-        login(password: String!, username: String!): User @join__field(graph: ACCOUNTS)
+        login(password: String!, userId: String @deprecated(reason: \\"Use username instead\\"), username: String!): User @join__field(graph: ACCOUNTS)
         reviewProduct(body: String!, upc: String!): Product @join__field(graph: REVIEWS)
         updateReview(review: UpdateReviewInput!): Review @join__field(graph: REVIEWS)
       }

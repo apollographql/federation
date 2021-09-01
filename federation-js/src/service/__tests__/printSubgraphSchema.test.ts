@@ -22,6 +22,8 @@ describe('printSubgraphSchema', () => {
         PRIVATE
       }
 
+      scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\")
+
       type PasswordAccount @key(fields: \\"email\\") {
         email: String!
       }
@@ -54,7 +56,7 @@ describe('printSubgraphSchema', () => {
       }
 
       type Mutation {
-        login(username: String!, password: String!): User
+        login(username: String!, password: String!, userId: String @deprecated(reason: \\"Use username instead\\")): User
       }
 
       extend type RootQuery {

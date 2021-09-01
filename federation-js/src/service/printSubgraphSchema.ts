@@ -367,7 +367,7 @@ function printInputValue(arg: GraphQLInputField) {
   if (defaultAST) {
     argDecl += ` = ${print(defaultAST)}`;
   }
-  return argDecl;
+  return argDecl + printDeprecated(arg.deprecationReason);
 }
 
 function printDirective(directive: GraphQLDirective) {
