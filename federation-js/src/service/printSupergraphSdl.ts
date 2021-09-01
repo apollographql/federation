@@ -1,5 +1,5 @@
 /**
- * Forked from graphql-js printSchema.ts file @ v15.5.0
+ * Forked from graphql-js printSchema.ts file @ v16.0.0
  * This file has been modified to support printing federated
  * schema, including associated federation directives.
  */
@@ -37,12 +37,12 @@ import { printFieldSet } from '../composition/utils';
 import { otherKnownDirectiveDefinitions } from '../directives';
 
 interface PrintingContext {
-  // Core addition: we need access to a map from serviceName to its corresponding
+  // Apollo addition: we need access to a map from serviceName to its corresponding
   // sanitized / uniquified enum value `Name` from the `join__Graph` enum
   graphNameToEnumValueName?: Record<string, string>;
 }
 
-// Core change: we need service and url information for the join__Graph enum
+// Apollo change: we need service and url information for the join__Graph enum
 export function printSupergraphSdl(
   schema: GraphQLSchema,
   graphNameToEnumValueName: Record<string, string>,
@@ -64,7 +64,7 @@ export function printIntrospectionSchema(schema: GraphQLSchema): string {
     schema,
     isSpecifiedDirective,
     isIntrospectionType,
-    // Core change: no printing context needed for introspection
+    // Apollo change: no printing context needed for introspection
     {},
   );
 }
@@ -77,7 +77,7 @@ function printFilteredSchema(
   schema: GraphQLSchema,
   directiveFilter: (type: GraphQLDirective) => boolean,
   typeFilter: (type: GraphQLNamedType) => boolean,
-  // Core addition - see `PrintingContext` type for details
+  // Apollo addition - see `PrintingContext` type for details
   context: PrintingContext,
 ): string {
   const directives = schema.getDirectives().filter(directiveFilter);
@@ -95,7 +95,7 @@ function printFilteredSchema(
 }
 
 function printSchemaDefinition(schema: GraphQLSchema): string {
-  // Core removal: we always print the schema definition
+  // Apollo removal: we always print the schema definition
   // if (schema.description == null && isSchemaOfCommonNames(schema)) {
   //   return;
   // }
@@ -119,7 +119,7 @@ function printSchemaDefinition(schema: GraphQLSchema): string {
   return (
     printDescription(schema) +
     'schema' +
-    // Core change: print @core directive usages on schema node
+    // Apollo change: print @core directive usages on schema node
     printCoreDirectives(schema) +
     `\n{\n${operationTypes.join('\n')}\n}`
   );
@@ -153,20 +153,25 @@ function printCoreDirectives(schema: GraphQLSchema) {
 
 export function printType(
   type: GraphQLNamedType,
-  // Core addition - see `PrintingContext` type for details
+  // Apollo addition - see `PrintingContext` type for details
   context: PrintingContext,
 ): string {
   if (isScalarType(type)) {
     return printScalar(type);
-  } else if (isObjectType(type)) {
+  }
+  if (isObjectType(type)) {
     return printObject(type, context);
-  } else if (isInterfaceType(type)) {
+  }
+  if (isInterfaceType(type)) {
     return printInterface(type, context);
-  } else if (isUnionType(type)) {
+  }
+  if (isUnionType(type)) {
     return printUnion(type);
-  } else if (isEnumType(type)) {
+  }
+  if (isEnumType(type)) {
     return printEnum(type);
-  } else if (isInputObjectType(type)) {
+  }
+  if (isInputObjectType(type)) {
     return printInputObject(type);
   }
 
@@ -191,21 +196,21 @@ function printImplementedInterfaces(
 
 function printObject(
   type: GraphQLObjectType,
-  // Core addition - see `PrintingContext` type for details
+  // Apollo addition - see `PrintingContext` type for details
   context: PrintingContext,
 ): string {
   return (
     printDescription(type) +
     `type ${type.name}` +
     printImplementedInterfaces(type) +
-    // Core addition for printing @join__owner and @join__type usages
+    // Apollo addition for printing @join__owner and @join__type usages
     printTypeJoinDirectives(type, context) +
     printKnownDirectiveUsagesOnType(type) +
     printFields(type, context)
   );
 }
 
-// Core addition: print @tag usages (+ other future Apollo-specific directives)
+// Apollo addition: print @tag usages (+ other future Apollo-specific directives)
 function printKnownDirectiveUsagesOnType(
   type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
 ): string {
@@ -218,7 +223,7 @@ function printKnownDirectiveUsagesOnType(
   return '\n  ' + tagUsages.map(print).join('\n  ');
 }
 
-// Core addition: print @join__owner and @join__type usages
+// Apollo addition: print @join__owner and @join__type usages
 function printTypeJoinDirectives(
   type: GraphQLObjectType | GraphQLInterfaceType,
   context: PrintingContext,
@@ -274,14 +279,14 @@ function printTypeJoinDirectives(
 
 function printInterface(
   type: GraphQLInterfaceType,
-  // Core addition - see `PrintingContext` type for details
+  // Apollo addition - see `PrintingContext` type for details
   context: PrintingContext,
 ): string {
   return (
     printDescription(type) +
     `interface ${type.name}` +
     printImplementedInterfaces(type) +
-    // Core addition for printing @join__owner and @join__type usages
+    // Apollo addition for printing @join__owner and @join__type usages
     printTypeJoinDirectives(type, context) +
     printKnownDirectiveUsagesOnType(type) +
     printFields(type, context)
@@ -299,6 +304,7 @@ function printUnion(type: GraphQLUnionType): string {
     printDescription(type) +
     'union ' +
     type.name +
+    // Apollo addition: print @tag usages
     knownDirectiveUsages +
     possibleTypes
   );
@@ -313,7 +319,7 @@ function printEnum(type: GraphQLEnumType): string {
         '  ' +
         value.name +
         printDeprecated(value.deprecationReason) +
-        // Core addition: print federation directives on `join__Graph` enum values
+        // Apollo addition: print federation directives on `join__Graph` enum values
         printDirectivesOnEnumValue(type, value),
     );
 
@@ -322,7 +328,7 @@ function printEnum(type: GraphQLEnumType): string {
   );
 }
 
-// Core addition: print federation directives on `join__Graph` enum values
+// Apollo addition: print federation directives on `join__Graph` enum values
 function printDirectivesOnEnumValue(type: GraphQLEnumType, value: GraphQLEnumValue) {
   if (type.name === "join__Graph") {
     return ` @join__graph(name: ${printStringLiteral((value.value.name))} url: ${printStringLiteral(value.value.url ?? '')})`
@@ -339,7 +345,7 @@ function printInputObject(type: GraphQLInputObjectType): string {
 
 function printFields(
   type: GraphQLObjectType | GraphQLInterfaceType,
-  // Core addition - see `PrintingContext` type for details
+  // Apollo addition - see `PrintingContext` type for details
   context: PrintingContext,
 ) {
   const fields = Object.values(type.getFields()).map(
@@ -370,7 +376,7 @@ function printFields(
 }
 
 /**
- * Core addition: print @join__field directives
+ * Apollo addition: print @join__field directives
  *
  * @param field
  * @param parentType
@@ -378,7 +384,7 @@ function printFields(
 function printJoinFieldDirectives(
   field: GraphQLField<any, any>,
   parentType: GraphQLObjectType | GraphQLInterfaceType,
-  // Core addition - see `PrintingContext` type for details
+  // Apollo addition - see `PrintingContext` type for details
   context: PrintingContext,
 ): string {
   const directiveArgs: string[] = [];
@@ -429,7 +435,7 @@ function printJoinFieldDirectives(
   return ` @join__field(${directiveArgs.join(', ')})`;
 }
 
-// Core addition: print `@tag` directives (and possibly other future known
+// Apollo addition: print `@tag` directives (and possibly other future known
 // directives) found in subgraph SDL into the supergraph SDL
 function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
   const tagUsages = (
@@ -443,7 +449,7 @@ function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
     .join(' ')}`;
 };
 
-// Core addition: `onNewLine` is a formatting nice-to-have for printing
+// Apollo addition: `onNewLine` is a formatting nice-to-have for printing
 // types that have a list of directives attached, i.e. an entity.
 function printBlock(items: string[], onNewLine?: boolean) {
   return items.length !== 0

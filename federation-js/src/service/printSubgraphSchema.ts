@@ -1,9 +1,8 @@
 /**
- * Forked from graphql-js schemaPrinter.js file @ v14.7.0
- * This file has been modified to support printing federated
+ * Forked from graphql-js printSchema.ts file @ v16.0.0
+ * This file has been modified to support printing subgraph
  * schema, including associated federation directives.
  */
-
 import {
   GraphQLSchema,
   isSpecifiedDirective,
@@ -28,8 +27,6 @@ import {
   astFromValue,
   print,
   GraphQLField,
-  GraphQLEnumValue,
-  GraphQLString,
   DEFAULT_DEPRECATION_REASON,
 } from 'graphql';
 import { FederationField, FederationType, Maybe } from '../composition';
@@ -42,49 +39,32 @@ import { federationDirectives, gatherDirectives } from '../directives';
  */
 export const printSchema = printSubgraphSchema;
 
-type Options = {
-  /**
-   * Descriptions are defined as preceding string literals, however an older
-   * experimental version of the SDL supported preceding comments as
-   * descriptions. Set to true to enable this deprecated behavior.
-   * This option is provided to ease adoption and will be removed in v16.
-   *
-   * Default: false
-   */
-  commentDescriptions?: boolean;
-};
-
 /**
  * Accepts options as a second argument:
  *
  *    - commentDescriptions:
  *        Provide true to use preceding comments as the description.
  */
-export function printSubgraphSchema(schema: GraphQLSchema, options?: Options): string {
+export function printSubgraphSchema(schema: GraphQLSchema): string {
   return printFilteredSchema(
     schema,
-    // Federation change: treat the directives defined by the federation spec
+    // Apollo change: treat the directives defined by the federation spec
     // similarly to the directives defined by the GraphQL spec (ie, don't print
     // their definitions).
     (n) => !isSpecifiedDirective(n) && !isApolloTypeSystemDirective(n),
     isDefinedType,
-    options,
   );
 }
 
-export function printIntrospectionSchema(
-  schema: GraphQLSchema,
-  options?: Options,
-): string {
+export function printIntrospectionSchema(schema: GraphQLSchema): string {
   return printFilteredSchema(
     schema,
     isSpecifiedDirective,
     isIntrospectionType,
-    options,
   );
 }
 
-// Federation change: treat the types defined by the federation spec
+// Apollo change: treat the types defined by the federation spec
 // similarly to the directives defined by the GraphQL spec (ie, don't print
 // their definitions).
 function isDefinedType(type: GraphQLNamedType): boolean {
@@ -99,17 +79,16 @@ function printFilteredSchema(
   schema: GraphQLSchema,
   directiveFilter: (type: GraphQLDirective) => boolean,
   typeFilter: (type: GraphQLNamedType) => boolean,
-  options?: Options,
 ): string {
   const directives = schema.getDirectives().filter(directiveFilter);
   const types = Object.values(schema.getTypeMap()).filter(typeFilter);
 
   return (
-    [printSchemaDefinition(schema)]
-      .concat(
-        directives.map(directive => printDirective(directive, options)),
-        types.map(type => printType(type, options)),
-      )
+    [
+      printSchemaDefinition(schema),
+      ...directives.map((directive) => printDirective(directive)),
+      ...types.map((type) => printType(type)),
+    ]
       .filter(Boolean)
       .join('\n\n') + '\n'
   );
@@ -137,7 +116,7 @@ function printSchemaDefinition(schema: GraphQLSchema): string | undefined {
     operationTypes.push(`  subscription: ${subscriptionType.name}`);
   }
 
-  return `schema {\n${operationTypes.join('\n')}\n}`;
+  return printDescription(schema) + `schema {\n${operationTypes.join('\n')}\n}`;
 }
 
 /**
@@ -171,35 +150,47 @@ function isSchemaOfCommonNames(schema: GraphQLSchema): boolean {
   return true;
 }
 
-export function printType(type: GraphQLNamedType, options?: Options): string {
+export function printType(type: GraphQLNamedType): string {
   if (isScalarType(type)) {
-    return printScalar(type, options);
-  } else if (isObjectType(type)) {
-    return printObject(type, options);
-  } else if (isInterfaceType(type)) {
-    return printInterface(type, options);
-  } else if (isUnionType(type)) {
-    return printUnion(type, options);
-  } else if (isEnumType(type)) {
-    return printEnum(type, options);
-  } else if (isInputObjectType(type)) {
-    return printInputObject(type, options);
+    return printScalar(type);
+  }
+  if (isObjectType(type)) {
+    return printObject(type);
+  }
+  if (isInterfaceType(type)) {
+    return printInterface(type);
+  }
+  if (isUnionType(type)) {
+    return printUnion(type);
+  }
+  if (isEnumType(type)) {
+    return printEnum(type);
+  }
+  if (isInputObjectType(type)) {
+    return printInputObject(type);
   }
 
+  // graphql-js uses an internal fn `inspect` but this is a `never` case anyhow
   throw Error('Unexpected type: ' + (type as GraphQLNamedType).toString());
 }
 
-function printScalar(type: GraphQLScalarType, options?: Options): string {
-  return printDescription(options, type) + `scalar ${type.name}`;
+function printScalar(type: GraphQLScalarType): string {
+  return (
+    printDescription(type) + `scalar ${type.name}` + printSpecifiedByURL(type)
+  );
 }
 
-function printObject(type: GraphQLObjectType, options?: Options): string {
+function printImplementedInterfaces(
+  type: GraphQLObjectType | GraphQLInterfaceType,
+): string {
   const interfaces = type.getInterfaces();
-  const implementedInterfaces = interfaces.length
-    ? ' implements ' + interfaces.map(i => i.name).join(' & ')
+  return interfaces.length
+    ? ' implements ' + interfaces.map((i) => i.name).join(' & ')
     : '';
+}
 
-  // Federation change: print `extend` keyword on type extensions.
+function printObject(type: GraphQLObjectType): string {
+  // Apollo change: print `extend` keyword on type extensions.
   //
   // The implementation assumes that an owned type will have fields defined
   // since that is required for a valid schema. Types that are *only*
@@ -211,16 +202,19 @@ function printObject(type: GraphQLObjectType, options?: Options): string {
     type.extensionASTNodes && type.astNode && !type.astNode.fields;
 
   return (
-    printDescription(options, type) +
+    printDescription(type) +
+    // Apollo addition: print `extend` keyword on type extensions
     (isExtension ? 'extend ' : '') +
-    `type ${type.name}${implementedInterfaces}` +
-    // Federation addition for printing @key usages
+    `type ${type.name}` +
+    printImplementedInterfaces(type) +
+    // Apollo addition: print @key usages
     printFederationDirectives(type) +
     printKnownDirectiveUsagesOnType(type) +
-    printFields(options, type)
+    printFields(type)
   );
 }
 
+// Apollo addition: print @tag usages (+ other future Apollo-specific directives)
 function printKnownDirectiveUsagesOnType(
   type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
 ): string {
@@ -233,8 +227,8 @@ function printKnownDirectiveUsagesOnType(
   return ' ' + tagUsages.map(print).join(' ');
 }
 
-function printInterface(type: GraphQLInterfaceType, options?: Options): string {
-  // Federation change: print `extend` keyword on type extensions.
+function printInterface(type: GraphQLInterfaceType): string {
+  // Apollo change: print `extend` keyword on type extensions.
   // See printObject for assumptions made.
   //
   // XXX revist extension checking
@@ -242,75 +236,70 @@ function printInterface(type: GraphQLInterfaceType, options?: Options): string {
     type.extensionASTNodes && type.astNode && !type.astNode.fields;
 
   return (
-    printDescription(options, type) +
+    printDescription(type) +
+    // Apollo change: print `extend` keyword on interface extensions
     (isExtension ? 'extend ' : '') +
     `interface ${type.name}` +
-    // Federation change: graphql@14 doesn't support interfaces implementing interfaces
-    // printImplementedInterfaces(type) +
+    printImplementedInterfaces(type) +
     printFederationDirectives(type) +
     printKnownDirectiveUsagesOnType(type) +
-    printFields(options, type)
+    printFields(type)
   );
 }
 
-function printUnion(type: GraphQLUnionType, options?: Options): string {
+function printUnion(type: GraphQLUnionType): string {
   const types = type.getTypes();
   const possibleTypes = types.length ? ' = ' + types.join(' | ') : '';
   return (
-    printDescription(options, type) +
+    printDescription(type) +
     'union ' +
     type.name +
+    // Apollo addition: print @tag usages
     printKnownDirectiveUsagesOnType(type) +
     possibleTypes
   );
 }
 
-function printEnum(type: GraphQLEnumType, options?: Options): string {
+function printEnum(type: GraphQLEnumType): string {
   const values = type
     .getValues()
     .map(
       (value, i) =>
-        printDescription(options, value, '  ', !i) +
+        printDescription(value, '  ', !i) +
         '  ' +
         value.name +
-        printDeprecated(value),
+        printDeprecated(value.deprecationReason),
     );
 
-  return (
-    printDescription(options, type) + `enum ${type.name}` + printBlock(values)
-  );
+  return printDescription(type) + `enum ${type.name}` + printBlock(values);
 }
 
-function printInputObject(type: GraphQLInputObjectType, options?: Options): string {
+function printInputObject(type: GraphQLInputObjectType): string {
   const fields = Object.values(type.getFields()).map(
     (f, i) =>
-      printDescription(options, f, '  ', !i) + '  ' + printInputValue(f),
+      printDescription(f, '  ', !i) + '  ' + printInputValue(f),
   );
-  return (
-    printDescription(options, type) + `input ${type.name}` + printBlock(fields)
-  );
+  return printDescription(type) + `input ${type.name}` + printBlock(fields);
 }
 
-function printFields(
-  options: Options | undefined,
-  type: GraphQLObjectType | GraphQLInterfaceType,
-) {
+function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
   const fields = Object.values(type.getFields()).map(
     (f, i) =>
-      printDescription(options, f, '  ', !i) +
+      printDescription(f, '  ', !i) +
       '  ' +
       f.name +
-      printArgs(options, f.args, '  ') +
+      printArgs(f.args, '  ') +
       ': ' +
       String(f.type) +
-      printDeprecated(f) +
+      printDeprecated(f.deprecationReason) +
+      // Apollo addition: print Apollo directives on fields
       printFederationDirectives(f) +
       printKnownDirectiveUsagesOnFields(f),
   );
   return printBlock(fields);
 }
 
-// Federation change: *do* print the usages of federation directives.
+// Apollo change: *do* print the usages of federation directives.
 function printFederationDirectives(
   typeOrField: GraphQLNamedType | GraphQLField<any, any>,
 ): string {
@@ -327,7 +316,7 @@ function printFederationDirectives(
   return dedupedDirectives.length > 0 ? ' ' + dedupedDirectives.join(' ') : '';
 }
 
-// Core addition: print `@tag` directive usages (and possibly other future known
+// Apollo addition: print `@tag` directive usages (and possibly other future known
 // directive usages) found in subgraph SDL.
 function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
  const tagUsages = (
@@ -345,17 +334,13 @@ function printBlock(items: string[]) {
   return items.length !== 0 ? ' {\n' + items.join('\n') + '\n}' : '';
 }
 
-function printArgs(
-  options: Options | undefined,
-  args: GraphQLArgument[],
-  indentation = '',
-) {
+function printArgs(args: GraphQLArgument[], indentation = '') {
   if (args.length === 0) {
     return '';
   }
 
   // If every arg does not have a description, print them on one line.
-  if (args.every(arg => !arg.description)) {
+  if (args.every((arg) => !arg.description)) {
     return '(' + args.map(printInputValue).join(', ') + ')';
   }
 
@@ -364,7 +349,7 @@ function printArgs(
     args
       .map(
         (arg, i) =>
-          printDescription(options, arg, '  ' + indentation, !i) +
+          printDescription(arg, '  ' + indentation, !i) +
           '  ' +
           indentation +
           printInputValue(arg),
@@ -385,35 +370,51 @@ function printInputValue(arg: GraphQLInputField) {
   return argDecl;
 }
 
-function printDirective(directive: GraphQLDirective, options?: Options) {
+function printDirective(directive: GraphQLDirective) {
   return (
-    printDescription(options, directive) +
+    printDescription(directive) +
     'directive @' +
     directive.name +
-    printArgs(options, directive.args) +
+    printArgs(directive.args) +
     (directive.isRepeatable ? ' repeatable' : '') +
     ' on ' +
     directive.locations.join(' | ')
   );
 }
 
-function printDeprecated(
-  fieldOrEnumVal: GraphQLField<any, any> | GraphQLEnumValue,
-) {
-  if (!fieldOrEnumVal.isDeprecated) {
+function printDeprecated(reason: Maybe<string>): string {
+  if (reason == null) {
     return '';
   }
-  const reason = fieldOrEnumVal.deprecationReason;
-  const reasonAST = astFromValue(reason, GraphQLString);
-  if (reasonAST && reason !== '' && reason !== DEFAULT_DEPRECATION_REASON) {
-    return ' @deprecated(reason: ' + print(reasonAST) + ')';
+  if (reason !== DEFAULT_DEPRECATION_REASON) {
+    const astValue = print({ kind: 'StringValue', value: reason });
+    return ` @deprecated(reason: ${astValue})`;
   }
   return ' @deprecated';
 }
 
-function printDescription<T extends { description?: Maybe<string> }>(
-  options: Options | undefined,
-  def: T,
+// Apollo addition: support both specifiedByUrl and specifiedByURL - these
+// happen across v15 and v16.
+function printSpecifiedByURL(scalar: GraphQLScalarType): string {
+  if (
+    scalar.specifiedByUrl == null &&
+    // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
+    scalar.specifiedByURL == null
+  ) {
+    return '';
+  }
+  const astValue = print({
+    kind: 'StringValue',
+    value:
+      scalar.specifiedByUrl ??
+      // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
+      scalar.specifiedByURL,
+  });
+  return ` @specifiedBy(url: ${astValue})`;
+}
+
+function printDescription(
+  def: { readonly description?: Maybe<string> },
   indentation = '',
   firstInBlock = true,
 ): string {
@@ -422,45 +423,24 @@ function printDescription<T extends { description?: Maybe<string> }>(
     return '';
   }
 
-  if (options?.commentDescriptions === true) {
-    return printDescriptionWithComments(description, indentation, firstInBlock);
-  }
-
   const preferMultipleLines = description.length > 70;
-  const blockString = printBlockString(description, '', preferMultipleLines);
+  const blockString = printBlockString(description, preferMultipleLines);
   const prefix =
     indentation && !firstInBlock ? '\n' + indentation : indentation;
 
   return prefix + blockString.replace(/\n/g, '\n' + indentation) + '\n';
 }
 
-function printDescriptionWithComments(
-  description: string,
-  indentation: string,
-  firstInBlock: boolean,
-) {
-  const prefix = indentation && !firstInBlock ? '\n' : '';
-  const comment = description
-    .split('\n')
-    .map(line => indentation + (line !== '' ? '# ' + line : '#'))
-    .join('\n');
-
-  return prefix + comment + '\n';
-}
-
 /**
  * Print a block string in the indented block form by adding a leading and
  * trailing blank line. However, if a block string starts with whitespace and is
  * a single-line, adding a leading blank line would strip that whitespace.
- *
- * @internal
  */
-export function printBlockString(
+ export function printBlockString(
   value: string,
-  indentation: string = '',
   preferMultipleLines: boolean = false,
 ): string {
-  const isSingleLine = value.indexOf('\n') === -1;
+  const isSingleLine = !value.includes('\n');
   const hasLeadingSpace = value[0] === ' ' || value[0] === '\t';
   const hasTrailingQuote = value[value.length - 1] === '"';
   const hasTrailingSlash = value[value.length - 1] === '\\';
@@ -473,9 +453,9 @@ export function printBlockString(
   let result = '';
   // Format a multi-line block quote to account for leading space.
   if (printAsMultipleLines && !(isSingleLine && hasLeadingSpace)) {
-    result += '\n' + indentation;
+    result += '\n';
   }
-  result += indentation ? value.replace(/\n/g, '\n' + indentation) : value;
+  result += value;
   if (printAsMultipleLines) {
     result += '\n';
   }
