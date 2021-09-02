@@ -1,11 +1,11 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
-import { printSchema } from '../printFederatedSchema';
+import { printSubgraphSchema } from '../printSubgraphSchema';
 
-describe('printFederatedSchema', () => {
+describe('printSubgraphSchema', () => {
   it('prints a subgraph correctly', () => {
     const schema = buildSubgraphSchema(fixtures[0].typeDefs);
-    expect(printSchema(schema)).toMatchInlineSnapshot(`
+    expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
       "schema {
         query: RootQuery
         mutation: Mutation

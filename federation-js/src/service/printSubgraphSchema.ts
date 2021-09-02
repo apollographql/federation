@@ -37,6 +37,10 @@ import { isFederationType } from '../types';
 import { isApolloTypeSystemDirective } from '../composition/utils';
 import { federationDirectives, gatherDirectives } from '../directives';
 
+export function printSubgraphSchema(schema: GraphQLSchema): string {
+  return printSchema(schema);
+}
+
 type Options = {
   /**
    * Descriptions are defined as preceding string literals, however an older
@@ -54,7 +58,7 @@ type Options = {
  *
  *    - commentDescriptions:
  *        Provide true to use preceding comments as the description.
- *
+ * @deprecated Use `printSubgraphSchema` instead.
  */
 export function printSchema(schema: GraphQLSchema, options?: Options): string {
   return printFilteredSchema(
