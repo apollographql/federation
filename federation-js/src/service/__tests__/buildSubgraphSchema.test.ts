@@ -329,14 +329,14 @@ type Query {
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
       expect(data?._service.sdl)
-        .toEqual(`extend type Product @key(fields: "upc") {
-  upc: String @external
-  reviews: [Review]
-}
-
-type Review {
+        .toEqual(`type Review {
   id: ID
   title: String
+}
+
+extend type Product @key(fields: "upc") {
+  upc: String @external
+  reviews: [Review]
 }
 `);
     });
@@ -367,18 +367,18 @@ type Review {
 
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`interface Node @key(fields: "id") {
+      expect(data?._service.sdl).toEqual(`type Review {
+  id: ID
+  title: String
+}
+
+interface Node @key(fields: "id") {
   id: ID!
 }
 
 extend interface Product @key(fields: "upc") {
   upc: String @external
   reviews: [Review]
-}
-
-type Review {
-  id: ID
-  title: String
 }
 `);
     });
@@ -458,12 +458,7 @@ type Review {
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
       expect(data?._service.sdl)
-        .toEqual(`extend type Product @key(fields: "upc") {
-  upc: String @external
-  reviews: [Review]
-}
-
-type Review @key(fields: "id") {
+        .toEqual(`type Review @key(fields: "id") {
   id: ID!
   body: String
   author: User @provides(fields: "email")
@@ -472,6 +467,11 @@ type Review @key(fields: "id") {
 
 extend type User @key(fields: "email") {
   email: String @external
+  reviews: [Review]
+}
+
+extend type Product @key(fields: "upc") {
+  upc: String @external
   reviews: [Review]
 }
 `);

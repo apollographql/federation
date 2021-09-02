@@ -44,15 +44,15 @@ describe('loadSupergraphSdlFromStorage', () => {
         mutation: Mutation
       }
 
-      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
+      directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
-
-      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on OBJECT | INTERFACE
-
-      directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
+      directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+      directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
 
       directive @stream on FIELD
 
@@ -111,18 +111,6 @@ describe('loadSupergraphSdlFromStorage', () => {
         retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
       }
 
-      enum core__Purpose {
-        \\"\\"\\"
-        \`EXECUTION\` features provide metadata necessary to for operation execution.
-        \\"\\"\\"
-        EXECUTION
-
-        \\"\\"\\"
-        \`SECURITY\` features provide metadata necessary to securely resolve fields.
-        \\"\\"\\"
-        SECURITY
-      }
-
       type Error {
         code: Int
         message: String
@@ -158,17 +146,6 @@ describe('loadSupergraphSdlFromStorage', () => {
 
       type ImageAttributes {
         url: String!
-      }
-
-      scalar join__FieldSet
-
-      enum join__Graph {
-        ACCOUNTS @join__graph(name: \\"accounts\\" url: \\"https://accounts.api.com\\")
-        BOOKS @join__graph(name: \\"books\\" url: \\"https://books.api.com\\")
-        DOCUMENTS @join__graph(name: \\"documents\\" url: \\"https://documents.api.com\\")
-        INVENTORY @join__graph(name: \\"inventory\\" url: \\"https://inventory.api.com\\")
-        PRODUCT @join__graph(name: \\"product\\" url: \\"https://product.api.com\\")
-        REVIEWS @join__graph(name: \\"reviews\\" url: \\"https://reviews.api.com\\")
       }
 
       type KeyValue {
@@ -333,6 +310,29 @@ describe('loadSupergraphSdlFromStorage', () => {
         id: String!
         price: String
         retailPrice: String
+      }
+
+      enum core__Purpose {
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary to for operation execution.
+        \\"\\"\\"
+        EXECUTION
+
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        ACCOUNTS @join__graph(name: \\"accounts\\" url: \\"https://accounts.api.com\\")
+        BOOKS @join__graph(name: \\"books\\" url: \\"https://books.api.com\\")
+        DOCUMENTS @join__graph(name: \\"documents\\" url: \\"https://documents.api.com\\")
+        INVENTORY @join__graph(name: \\"inventory\\" url: \\"https://inventory.api.com\\")
+        PRODUCT @join__graph(name: \\"product\\" url: \\"https://product.api.com\\")
+        REVIEWS @join__graph(name: \\"reviews\\" url: \\"https://reviews.api.com\\")
       }
       ",
       }

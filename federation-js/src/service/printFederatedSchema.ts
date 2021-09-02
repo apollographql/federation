@@ -98,9 +98,7 @@ function printFilteredSchema(
   options?: Options,
 ): string {
   const directives = schema.getDirectives().filter(directiveFilter);
-  const types = Object.values(schema.getTypeMap())
-    .sort((type1, type2) => type1.name.localeCompare(type2.name))
-    .filter(typeFilter);
+  const types = Object.values(schema.getTypeMap()).filter(typeFilter);
 
   return (
     [printSchemaDefinition(schema)]
