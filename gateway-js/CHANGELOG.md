@@ -8,7 +8,7 @@
 
 ## v0.40.0
 
-- Only related changes in the `@apollo/federation` package. Adds support for @deprecated on input values and the new built-in directive @specifiedBy.
+- Only related changes in the `@apollo/federation` package. Adds support for `@deprecated` on input values and the new built-in directive `@specifiedBy`.
 
 ## v0.39.0
 
