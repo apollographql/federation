@@ -18,12 +18,10 @@ import {
   UnionType
 } from "./definitions";
 
-// TOOD: we could, maybe, allow a 'list_upgrade' rule (saying that a `Int` is a valid value for `[Int]`)
-// as I believe that's a coercion graphQL allows by default (?). We should make sure we handle that coercion
-// properly in our value handling first though.
 export const SUBTYPING_RULES = [
   'direct' as const,
   'nonNullable_downgrade' as const,
+  'list_upgrade' as const,
   'list_propagation' as const,
   'nonNullable_propagation' as const
 ];
@@ -119,18 +117,22 @@ export function isStrictSubtype(
   unionMembershipTester: (union: UnionType, maybeMember: ObjectType) => boolean = (u, m) => u.hasTypeMember(m),
   implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i)
 ): boolean {
+  if (isListType(type) && !isListType(maybeSubType)) {
+    return allowedRules.includes('list_upgrade')
+      && isSubtype(type.ofType, maybeSubType, allowedRules, unionMembershipTester, implementsInterfaceTester);
+  }
   switch (maybeSubType.kind) {
     case 'ListType':
       return allowedRules.includes('list_propagation')
         && isListType(type)
-        && isSubtype(type.ofType, maybeSubType.ofType);
+        && isSubtype(type.ofType, maybeSubType.ofType, allowedRules, unionMembershipTester, implementsInterfaceTester);
     case 'NonNullType':
       if (isNonNullType(type)) {
         return allowedRules.includes('nonNullable_propagation')
-          && isSubtype(type.ofType, maybeSubType.ofType);
+          && isSubtype(type.ofType, maybeSubType.ofType, allowedRules, unionMembershipTester, implementsInterfaceTester);
       }
       return allowedRules.includes('nonNullable_downgrade')
-        && isSubtype(type, maybeSubType.ofType);
+        && isSubtype(type, maybeSubType.ofType, allowedRules, unionMembershipTester, implementsInterfaceTester);
     case 'ObjectType':
     case 'InterfaceType':
       return allowedRules.includes('direct')

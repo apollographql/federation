@@ -39,9 +39,22 @@ import {
   defaultRootName,
   CORE_VERSIONS,
   JOIN_VERSIONS,
+  NamedSchemaElement,
 } from "@apollo/core";
 import { ASTNode, GraphQLError } from "graphql";
-import { CompositionHint } from "../hints";
+import {
+  CompositionHint,
+  HintID,
+  hintInconsistentArgumentType,
+  hintInconsistentDefaultValue,
+  hintInconsistentEntity,
+  hintInconsistentFieldType,
+  hintInconsistentObjectValueTypeField,
+  hintInconsistentInterfaceValueTypeField,
+  hintInconsistentInputObjectField,
+  hintInconsistentUnionMember,
+  hintInconsistentEnumValue
+} from "../hints";
 
 const coreSpec = CORE_VERSIONS.latest()!;
 const joinSpec = JOIN_VERSIONS.latest()!;
@@ -75,8 +88,12 @@ export type CompositionOptions = {
 // So we should improve the supergraph SDL/join-spec to indicate when a field has 
 // a different type in a subgraph than in the supergraph, what that type is in the
 // subgraph.
+// TODO:" we currently cannot allow "list upgrades", meaning a subgraph returning `String`
+// and another returning `[String]`. To support it, we would need the execution code to
+// recognize situation and "coerce" results from the first subraph (the one returning
+// `String`) into singleton lists.
 const defaultCompositionOptions: CompositionOptions = {
-  allowedFieldTypeMergingSubtypingRules: SUBTYPING_RULES.filter(r => r !== "direct")
+  allowedFieldTypeMergingSubtypingRules: SUBTYPING_RULES.filter(r => r !== "direct" && r !== "list_upgrade")
 }
 
 export interface MergeSuccess {
@@ -228,7 +245,6 @@ function isMergedDirective(definition: DirectiveDefinition | Directive): boolean
   // a way to merge more directive (maybe only the core ones? and if they have a particular flag?).
   return MERGED_FEDERATION_DIRECTIVES.includes(definition.name);
 }
-
 // Access the type set as a particular root in the provided `SchemaDefinition`, but ignoring "query" type
 // that only exists due to federation operations. In other words, if a subgraph don't have a query type,
 // but one was automatically added for _entities and _services, this method returns 'undefined'.
@@ -397,7 +413,8 @@ class Merger {
     );
   }
 
-  private reportMismatchHint<TMismatched extends SchemaElement<any>>(
+  private reportMismatchHint<TMismatched extends NamedSchemaElement<any, any>>(
+    hintId: HintID,
     message: string,
     supergraphElement: TMismatched,
     subgraphElements: (TMismatched | undefined)[],
@@ -411,9 +428,13 @@ class Merger {
       mismatchAcessor,
       supergraphElementPrinter,
       otherElementsPrinter,
-      (distribution, _) => {
-        // TOOD: have a better structure for hints and include astNodes
-        this.hints.push(message + distribution[0] + join(distribution.slice(1), ' and '));
+      (distribution, astNodes) => {
+        this.hints.push(new CompositionHint(
+          hintId,
+          message + distribution[0] + join(distribution.slice(1), ' and '),
+          supergraphElement.coordinate,
+          astNodes
+        ));
       }
     );
   }
@@ -535,6 +556,7 @@ class Merger {
   }
 
   private mergeObject(sources: (ObjectType | undefined)[], dest: ObjectType) {
+    const isEntity = this.hintOnInconsistentEntity(sources, dest);
     this.addFieldsShallow(sources, dest);
     if ([...dest.fields()].length === 0) {
       // This can happen for a type that existing in the subgraphs but had only non-merged fields
@@ -543,8 +565,81 @@ class Merger {
       dest.remove();
     } else {
       for (const destField of dest.fields()) {
+        if (!isEntity) {
+          this.hintOnInconsistentValueTypeField(sources, dest, destField.name);
+        }
         const subgraphFields = sources.map(t => t?.field(destField.name));
         this.mergeField(subgraphFields, destField);
+      }
+    }
+  }
+
+  // Return whether the type is an entity in at least one subgraph.
+  private hintOnInconsistentEntity(sources: (ObjectType | undefined)[], dest: ObjectType): boolean {
+    const sourceAsEntity: ObjectType[] = [];
+    const sourceAsNonEntity: ObjectType[] = [];
+    for (const source of sources) {
+      if (!source) {
+        continue;
+      }
+      if (source.hasAppliedDirective('key')) {
+        sourceAsEntity.push(source);
+      } else {
+        sourceAsNonEntity.push(source);
+      }
+    }
+    if (sourceAsEntity.length > 0 && sourceAsNonEntity.length > 0) {
+      this.reportMismatchHint(
+        hintInconsistentEntity,
+        `Type ${dest} is declared as an entity (has a @key applied) in only some subgraphs: `,
+        dest,
+        sources,
+        // All we use the string of the next line for is to categorize source with a @key of the others.
+        type => type.hasAppliedDirective('key') ? 'yes' : 'no',
+        // Note that the first callback is for element that are "like the supergraph". As the supergraph has no @key ...
+        (_, subgraphs) => `it has no key in ${subgraphs}`,
+        (_, subgraphs) => ` but has one in ${subgraphs}`,
+      );
+    }
+    return sourceAsEntity.length > 0;
+  }
+
+  // Assume it is called on a field of a value type
+  private hintOnInconsistentValueTypeField(
+    sources: (ObjectType | InterfaceType | InputObjectType | undefined)[],
+    dest: ObjectType | InterfaceType | InputObjectType,
+    fieldName: string
+  ) {
+    let hintId: HintID;
+    let typeDescription: String;
+    switch (dest.kind) {
+      case 'ObjectType':
+        hintId = hintInconsistentObjectValueTypeField;
+        typeDescription = 'non-entity object'
+        break;
+      case 'InterfaceType':
+        hintId = hintInconsistentInterfaceValueTypeField;
+        typeDescription = 'interface'
+        break;
+      case 'InputObjectType':
+        hintId = hintInconsistentInputObjectField;
+        typeDescription = 'input object'
+        break;
+    }
+    for (const source of sources) {
+      // As soon as we find a subgraph that has the type but not the field, we hint.
+      if (source && !source.field(fieldName)) {
+        this.reportMismatchHint(
+          hintId,
+          // Note that at the time this code run, we haven't run validation yet and so we don't truly know that the field is always resolvable, but
+          // we can anticipate it since hints will not surface to users if there is a validation error anyway.
+          `Field ${fieldName} of ${typeDescription} type ${dest} is not defined in all the subgraphs defining ${dest} (but can always be resolved from these subgraphs): `,
+          dest,
+          sources,
+          type => type.field(fieldName) ? 'yes' : 'no',
+          (_, subgraphs) => `${fieldName} is defined in ${subgraphs}`,
+          (_, subgraphs) => ` but not in ${subgraphs}`,
+        );
       }
     }
   }
@@ -617,7 +712,7 @@ class Merger {
 
     if (hasInvalid) {
       this.reportMismatchError(
-        `Field "${dest.coordinate}" has incompatible types accross subgraphs (when marked @external): it has `,
+        `Field "${dest.coordinate}" has incompatible types across subgraphs (when marked @external): it has `,
         dest,
         sources,
         field => `type "${field.type}"`
@@ -703,9 +798,13 @@ class Merger {
     // Note that destType is direct reference to one of the subgraph, so we need to copy it into our merged schema.
     dest.type = copyTypeReference(destType, this.merged) as TType;
 
+    const isArgument = dest instanceof ArgumentDefinition;
+    const elementKind: string = isArgument ? 'Argument' : 'Field';
+
+
     if (hasIncompatible) {
       this.reportMismatchError(
-        `Field "${dest.coordinate}" has incompatible types accross subgraphs: it has `,
+        `${elementKind} "${dest.coordinate}" has incompatible types accross subgraphs: it has `,
         dest,
         sources,
         field => `type "${field.type}"`
@@ -716,7 +815,8 @@ class Merger {
       // of named types, but if 2 subgraphs differs in kind for the same type name (say one has "X" be a scalar and the
       // other an interface) we know we've already registered an error and the hint her won't matter).
       this.reportMismatchHint(
-        `Field "${dest.coordinate}" has mismatched, but compatible, types across subgraphs: `,
+        isArgument ? hintInconsistentArgumentType : hintInconsistentFieldType,
+        `${elementKind} "${dest.coordinate}" has mismatched, but compatible, types across subgraphs: `,
         dest,
         sources,
         field => field.type!.toString(),
@@ -797,11 +897,12 @@ class Merger {
       );
     } else if (isInconsistent) {
       this.reportMismatchHint(
+        hintInconsistentDefaultValue,
         `${kind} "${dest.coordinate}" has a default value in only some subgraphs: `,
         dest,
         sources,
         arg => arg.defaultValue ? valueToString(arg.defaultValue) : undefined,
-        (elt, subgraphs) => `will use default value ${elt} from ${subgraphs} in supergraph but `,
+        (elt, subgraphs) => `will use default value ${elt} (from ${subgraphs}) in supergraph but `,
         (_, subgraphs) => `no default value is defined in ${subgraphs}`
       );
     }
@@ -810,6 +911,7 @@ class Merger {
   private mergeInterface(sources: (InterfaceType | undefined)[], dest: InterfaceType) {
     this.addFieldsShallow(sources, dest);
     for (const destField of dest.fields()) {
+      this.hintOnInconsistentValueTypeField(sources, dest, destField.name);
       const subgraphFields = sources.map(t => t?.field(destField.name));
       this.mergeField(subgraphFields, destField);
     }
@@ -827,6 +929,32 @@ class Merger {
         }
       }
     }
+    for (const type of dest.types()) {
+      this.hintOnInconsistentUnionMember(sources, dest, type.name);
+    }
+  }
+
+  private hintOnInconsistentUnionMember(
+    sources: (UnionType | undefined)[],
+    dest: UnionType,
+    memberName: string
+  ) {
+    for (const source of sources) {
+      // As soon as we find a subgraph that has the type but not the member, we hint.
+      if (source && !source.hasTypeMember(memberName)) {
+        this.reportMismatchHint(
+          hintInconsistentUnionMember,
+          // Note that at the time this code run, we haven't run validation yet and so we don't truly know that the field is always resolvable, but
+          // we can anticipate it since hints will not surface to users if there is a validation error anyway.
+          `Member type ${memberName} in union type ${dest} is only defined in a subset of subgraphs defining ${dest} (but can always be resolved from these subgraphs): `,
+          dest,
+          sources,
+          type => type.hasTypeMember(memberName) ? 'yes' : 'no',
+          (_, subgraphs) => `${memberName} is defined in ${subgraphs}`,
+          (_, subgraphs) => ` but not in ${subgraphs}`,
+        );
+      }
+    }
   }
 
   private mergeEnum(sources: (EnumType | undefined)[], dest: EnumType) {
@@ -842,11 +970,38 @@ class Merger {
         }
       }
     }
+    for (const value of dest.values) {
+      this.hintOnInconsistentEnumValue(sources, dest, value.name);
+    }
+  }
+
+  private hintOnInconsistentEnumValue(
+    sources: (EnumType | undefined)[],
+    dest: EnumType,
+    valueName: string
+  ) {
+    for (const source of sources) {
+      // As soon as we find a subgraph that has the type but not the member, we hint.
+      if (source && !source.value(valueName)) {
+        this.reportMismatchHint(
+          hintInconsistentEnumValue,
+          // Note that at the time this code run, we haven't run validation yet and so we don't truly know that the field is always resolvable, but
+          // we can anticipate it since hints will not surface to users if there is a validation error anyway.
+          `Value ${valueName} of enum type ${dest} is only defined in a subset of the subgraphs defining ${dest} (but can always be resolved from these subgraphs): `,
+          dest,
+          sources,
+          type => type.value(valueName) ? 'yes' : 'no',
+          (_, subgraphs) => `${valueName} is defined in ${subgraphs}`,
+          (_, subgraphs) => ` but not in ${subgraphs}`,
+        );
+      }
+    }
   }
 
   private mergeInput(sources: (InputObjectType | undefined)[], dest: InputObjectType) {
     this.addFieldsShallow(sources, dest);
     for (const destField of dest.fields()) {
+      this.hintOnInconsistentValueTypeField(sources, dest, destField.name);
       const subgraphFields = sources.map(t => t?.field(destField.name));
       this.mergeInputField(subgraphFields, destField);
     }

@@ -11,6 +11,7 @@ export interface CompositionFailure {
   errors: GraphQLError[];
   schema?: undefined;
   supergraphSdl?: undefined;
+  hints?: undefined;
 }
 
 export interface CompositionSuccess {

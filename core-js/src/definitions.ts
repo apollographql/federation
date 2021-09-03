@@ -547,7 +547,6 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType> extends Na
       return [];
     }
     Schema.prototype['removeTypeInternal'].call(this._parent, this);
-    this._parent = undefined;
     for (const directive of this._appliedDirectives) {
       directive.remove();
     }
@@ -558,6 +557,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType> extends Na
       return r;
     });
     this._referencers.clear();
+    this._parent = undefined;
     return toReturn;
   }
 
@@ -1301,7 +1301,14 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
       interfaceImpl.remove();
     }
     for (const field of this._fields.values()) {
-      field.remove();
+      if (field.isBuiltIn) {
+        // Calling remove on a built-in (think _typename) throws, with reason (we don't want
+        // to allow removing _typename from a type in general). So all we do for built-in is
+        // detach the parent.
+        FieldDefinition.prototype['removeParent'].call(this);
+      } else {
+        field.remove();
+      }
     }
   }
 }
@@ -1657,6 +1664,11 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
     this._args.delete(name);
   }
 
+  // Only called through the prototype from FieldBasedType.removeInnerElements because we don't want to expose it.
+  private removeParent() {
+    this._parent = undefined;
+  }
+
   /**
    * Removes this field definition from its parent type.
    *
@@ -1668,12 +1680,12 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
       return [];
     }
     FieldBasedType.prototype['removeFieldInternal'].call(this._parent, this);
-    this._parent = undefined;
     this.type = undefined;
     this._extension = undefined;
     for (const arg of this._args.values()) {
       arg.remove();
     }
+    this._parent = undefined;
     // Fields have nothing that can reference them outside of their parents
     return [];
   }
