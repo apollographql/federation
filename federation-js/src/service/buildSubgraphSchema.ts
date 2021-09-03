@@ -19,7 +19,7 @@ import { federationDirectives, typeIncludesDirective } from '../directives';
 
 import { serviceField, entitiesField, EntityType } from '../types';
 
-import { printSchema } from './printFederatedSchema';
+import { printSubgraphSchema } from './printSubgraphSchema';
 
 type LegacySchemaModule = {
   typeDefs: DocumentNode | DocumentNode[];
@@ -77,7 +77,7 @@ export function buildSubgraphSchema(
   // We have to use a modified printSchema from graphql-js which includes
   // support for preserving the *uses* of federation directives while removing
   // their *definitions* from the sdl.
-  const sdl = printSchema(schema);
+  const sdl = printSubgraphSchema(schema);
 
   // Add an empty query root type if none has been defined
   if (!schema.getQueryType()) {

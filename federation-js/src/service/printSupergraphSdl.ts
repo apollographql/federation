@@ -27,10 +27,8 @@ import {
   DEFAULT_DEPRECATION_REASON,
   SelectionNode,
 } from 'graphql';
-import { Maybe, FederationType, FederationField, ServiceDefinition } from '../composition';
+import { Maybe, FederationType, FederationField } from '../composition';
 import { assert } from '../utilities';
-import { CoreDirective } from '../coreSpec';
-import { getJoinDefinitions } from '../joinSpec';
 import { printFieldSet } from '../composition/utils';
 import { otherKnownDirectiveDefinitions } from '../directives';
 
@@ -62,34 +60,9 @@ interface PrintingContext {
 // Core change: we need service and url information for the join__Graph enum
 export function printSupergraphSdl(
   schema: GraphQLSchema,
-  serviceList: ServiceDefinition[],
+  graphNameToEnumValueName: Record<string, string>,
   options?: Options,
 ): string {
-  const config = schema.toConfig();
-
-  const {
-    FieldSetScalar,
-    JoinFieldDirective,
-    JoinTypeDirective,
-    JoinOwnerDirective,
-    JoinGraphEnum,
-    JoinGraphDirective,
-    graphNameToEnumValueName,
-  } = getJoinDefinitions(serviceList);
-
-  schema = new GraphQLSchema({
-    ...config,
-    directives: [
-      CoreDirective,
-      JoinFieldDirective,
-      JoinTypeDirective,
-      JoinOwnerDirective,
-      JoinGraphDirective,
-      ...config.directives,
-    ],
-    types: [FieldSetScalar, JoinGraphEnum, ...config.types],
-  });
-
   const context: PrintingContext = {
     graphNameToEnumValueName,
   }
@@ -129,9 +102,7 @@ function printFilteredSchema(
   options?: Options,
 ): string {
   const directives = schema.getDirectives().filter(directiveFilter);
-  const types = Object.values(schema.getTypeMap())
-    .sort((type1, type2) => type1.name.localeCompare(type2.name))
-    .filter(typeFilter);
+  const types = Object.values(schema.getTypeMap()).filter(typeFilter);
 
   return (
     [printSchemaDefinition(schema)]
