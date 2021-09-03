@@ -117,7 +117,6 @@ export type RouterConfigResult = {
   messages: Array<Message>;
 };
 
-
 export type SupergraphSdlQueryVariables = Exact<{
   apiKey: Scalars['String'];
   ref: Scalars['String'];
