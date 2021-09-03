@@ -6,6 +6,10 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v0.40.0
+
+- Only related changes in the `@apollo/federation` package. Adds support for `@deprecated` on input values and the new built-in directive `@specifiedBy`.
+
 ## v0.39.0
 
 - Introduce `@core/v0.2` support with [the `for:` directive](https://specs.apollo.dev/core/v0.2/#@core/for) argument which was introduced to the core specification in [specs-core#9](https://github.com/apollographql/specs-core/pull/9). Supergraphs (which are `@core` schemas in the way they're implemented) which were generated with a composer tool (e.g., [`rover`](https://www.apollographql.com/docs/rover/)) that produces `@core` schemas with [the `v0.1` specification](https://specs.apollo.dev/core/v0.1/) are **still valid and backwards compatible**.  The newly introduced `for:` argument allows a `@core` directive to specify its criticality to the gateway (or any consumer). The `for:` argument is optional - its absence means that the directive requires no additional support from the consumer. Its two available options `EXECUTION` and `SECURITY` both require explicit support from the consumer, else the consumer should fail to start / update to this unsupported schema.  For more information on supergraphs see [our documentation](https://www.apollographql.com/docs/rover/supergraphs/) or learn how to generate them in our [federation quickstart](https://www.apollographql.com/docs/federation/quickstart/).  [PR #957](https://github.com/apollographql/federation/pull/957)
