@@ -37,9 +37,10 @@ import { isFederationType } from '../types';
 import { isApolloTypeSystemDirective } from '../composition/utils';
 import { federationDirectives, gatherDirectives } from '../directives';
 
-export function printSubgraphSchema(schema: GraphQLSchema): string {
-  return printSchema(schema);
-}
+/**
+ * @deprecated Use `printSubgraphSchema` instead.
+ */
+export const printSchema = printSubgraphSchema;
 
 type Options = {
   /**
@@ -58,9 +59,8 @@ type Options = {
  *
  *    - commentDescriptions:
  *        Provide true to use preceding comments as the description.
- * @deprecated Use `printSubgraphSchema` instead.
  */
-export function printSchema(schema: GraphQLSchema, options?: Options): string {
+export function printSubgraphSchema(schema: GraphQLSchema, options?: Options): string {
   return printFilteredSchema(
     schema,
     // Federation change: treat the directives defined by the federation spec
