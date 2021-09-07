@@ -535,42 +535,45 @@ class FetchDependencyGraph {
 
   private mergeDependentFetchesForSameSubgraphAndPath(group: FetchGroup) {
     const dependents = this.dependents(group);
-    if (dependents.length <= 1) {
-      return;
-    }
+    if (dependents.length > 1) {
+      for (const g1 of dependents) {
+        for (const g2 of dependents) {
+          if (g1.index !== g2.index
+            && g1.subgraphName === g2.subgraphName
+            && deepEqual(g1.mergeAt, g2.mergeAt)
+            && this.dependencies(g1).length === 1
+            && this.dependencies(g2).length === 1
+          ) {
+            let extracted = this.extractParentType(g1, g2);
+            if (!extracted) {
+              continue;
+            }
+            // We replace g1 by a new group that is the same except (possibly) for it's parentType ...
+            const merged = new FetchGroup(this, g1.index, g1.subgraphName, extracted[0], g1.mergeAt, group, extracted[1]);
+            if (g1.inputs) {
+              merged.addInputs(g1.inputs);
+            }
+            merged.addSelections(g1.selection);
+            this.groups[merged.index] = merged;
 
-    for (const g1 of dependents) {
-      for (const g2 of dependents) {
-        if (g1.index !== g2.index
-          && g1.subgraphName === g2.subgraphName
-          && deepEqual(g1.mergeAt, g2.mergeAt)
-          && this.dependencies(g1).length === 1
-          && this.dependencies(g2).length === 1
-        ) {
-          let extracted = this.extractParentType(g1, g2);
-          if (!extracted) {
-            continue;
+            // ... and then merge g2 into that.
+            if (g2.inputs) {
+              merged.addInputs(g2.inputs);
+            }
+            merged.addSelections(g2.selection);
+            this.onMergedIn(merged, g2);
+            // As we've just changed the dependency graph, our current iterations are kind of invalid anymore. So
+            // we simply call ourselves back on the current group, which will retry the newly modified dependencies.
+            this.mergeDependentFetchesForSameSubgraphAndPath(group);
+            return;
           }
-          // We replace g1 by a new group that is the same except (possibly) for it's parentType ...
-          const merged = new FetchGroup(this, g1.index, g1.subgraphName, extracted[0], g1.mergeAt, group, extracted[1]);
-          if (g1.inputs) {
-            merged.addInputs(g1.inputs);
-          }
-          merged.addSelections(g1.selection);
-          this.groups[merged.index] = merged;
-
-          // ... and then merge g2 into that.
-          if (g2.inputs) {
-            merged.addInputs(g2.inputs);
-          }
-          merged.addSelections(g2.selection);
-          this.onMergedIn(merged, g2);
-          // As we've just changed the dependency graph, our current iterations are kind of invalid anymore. So
-          // we simply call ourselves back on the current group, which will retry the newly modified dependencies.
-          this.mergeDependentFetchesForSameSubgraphAndPath(group);
-          return;
         }
       }
+    }
+
+    // Now recurse to the sub-groups.
+    for (const g of dependents) {
+      this.mergeDependentFetchesForSameSubgraphAndPath(g);
     }
   }
 
