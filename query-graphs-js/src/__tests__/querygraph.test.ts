@@ -28,9 +28,14 @@ test('building query graphs from schema handles object types', () => {
   expect(graph.isTerminal(root)).toBe(false);
 
   const rootEdges = graph.outEdges(root);
-  expect(rootEdges.length).toBe(1);
-  const rootEdge = rootEdges[0];
-  expect(rootEdge.index).toBe(0);
+  expect(rootEdges.length).toBe(2);
+  const typenameEdge = rootEdges[0];
+  expect(typenameEdge.index).toBe(0);
+  expect(typenameEdge.transition.kind).toBe('FieldCollection');
+  expect((typenameEdge.transition as FieldCollection).definition.name).toBe('__typename');
+
+  const rootEdge = rootEdges[1];
+  expect(rootEdge.index).toBe(1);
   expect(rootEdge.head).toStrictEqual(root);
   expect(graph.outEdge(root, rootEdge.index)).toStrictEqual(rootEdge);
 
@@ -44,9 +49,9 @@ test('building query graphs from schema handles object types', () => {
   expect(t1.type.name).toBe('T1');
 
   const t1Edges = graph.outEdges(t1);
-  expect(t1Edges.length).toBe(3);
+  expect(t1Edges.length).toBe(4);
 
-  const [f1, f2, f3] = namedEdges(graph, t1, 'f1', 'f2', 'f3');
+  const [_typename1, f1, f2, f3] = namedEdges(graph, t1, '__typename', 'f1', 'f2', 'f3');
 
   const intVertex = f1.tail;
   expect(graph.isTerminal(intVertex)).toBe(true);
@@ -60,8 +65,8 @@ test('building query graphs from schema handles object types', () => {
   expect(t2.type.name).toBe('T2');
 
   const t2Edges = graph.outEdges(t2);
-  expect(t2Edges.length).toBe(1);
+  expect(t2Edges.length).toBe(2);
 
-  const [t] = namedEdges(graph, t2, 't');
+  const [_typename2, t] = namedEdges(graph, t2, '__typename', 't');
   expect(t.tail).toBe(t1);
 });
