@@ -93,7 +93,7 @@ Scenario: mutations across service boundaries
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": ["upc", "body"],
-          "operation": "mutation($upc:String!$body:String!){reviewProduct(input:{upc:$upc,body:$body}){__typename ...on Furniture{__typename upc}}}"
+          "operation": "mutation($upc:String!$body:String!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{__typename upc}}}"
         },
         {
           "kind": "Flatten",
@@ -201,7 +201,7 @@ Scenario: multiple root mutations
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": ["upc", "body"],
-          "operation": "mutation($upc:String!$body:String!){reviewProduct(input:{upc:$upc,body:$body}){__typename ...on Furniture{__typename upc}}}"
+          "operation": "mutation($upc:String!$body:String!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{__typename upc}}}"
         },
         {
           "kind": "Flatten",
@@ -270,7 +270,7 @@ Scenario: multiple root mutations with correct service order
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": ["upc", "body", "updatedReview"],
-          "operation": "mutation($upc:String!$body:String!$updatedReview:UpdateReviewInput!){reviewProduct(input:{upc:$upc,body:$body}){__typename ...on Furniture{upc}}updateReview(review:$updatedReview){id body}}"
+          "operation": "mutation($upc:String!$body:String!$updatedReview:UpdateReviewInput!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{upc}}updateReview(review:$updatedReview){id body}}"
         },
         {
           "kind": "Fetch",

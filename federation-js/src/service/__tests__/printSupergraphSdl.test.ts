@@ -236,7 +236,7 @@ describe('printSupergraphSdl', () => {
 
       input ReviewProduct {
         body: String!
-        stars: Int @deprecated(reason: "Stars are no longer in use")
+        stars: Int @deprecated(reason: \\"Stars are no longer in use\\")
         upc: String!
       }
 
@@ -548,7 +548,7 @@ describe('printSupergraphSdl', () => {
 
       input ReviewProduct {
         body: String!
-        stars: Int @deprecated(reason: "Stars are no longer in use")
+        stars: Int @deprecated(reason: \\"Stars are no longer in use\\")
         upc: String!
       }
 
