@@ -67,8 +67,14 @@ export const typeDefs = gql`
     retailPrice: String @requires(fields: "price")
   }
 
+  input ReviewProduct {
+    upc: String!
+    body: String!
+    stars: Int @deprecated(reason: "Stars are no longer in use")
+  }
+
   extend type Mutation {
-    reviewProduct(upc: String!, body: String!): Product
+    reviewProduct(input: ReviewProduct): Product
     updateReview(review: UpdateReviewInput!): Review
     deleteReview(id: ID!): Boolean
   }
