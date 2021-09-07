@@ -157,6 +157,17 @@ export function runtimeTypesIntersects(t1: CompositeType, t2: CompositeType): bo
   return false;
 }
 
+export const executableDirectiveLocations: DirectiveLocationEnum[] = [
+  'QUERY',
+  'MUTATION',
+  'SUBSCRIPTION',
+  'FIELD',
+  'FRAGMENT_DEFINITION',
+  'FRAGMENT_SPREAD',
+  'INLINE_FRAGMENT',
+  'VARIABLE_DEFINITION',
+];
+
 /**
  * Converts a type to an AST of a "reference" to that type, one corresponding to the type `toString()` (and thus never a type definition).
  *

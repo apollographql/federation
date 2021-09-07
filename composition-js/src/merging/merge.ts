@@ -40,8 +40,9 @@ import {
   CORE_VERSIONS,
   JOIN_VERSIONS,
   NamedSchemaElement,
+  executableDirectiveLocations
 } from "@apollo/core";
-import { ASTNode, GraphQLError } from "graphql";
+import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
 import {
   CompositionHint,
   HintID,
@@ -63,7 +64,7 @@ const joinSpec = JOIN_VERSIONS.latest()!;
 // number of characters) we start displaying only a subset of the list.
 const MAX_HUMAN_READABLE_LIST_LENGTH = 100;
 
-const MERGED_FEDERATION_DIRECTIVES = ['inaccessible'];
+const MERGED_TYPE_SYSTEM_DIRECTIVES = ['inaccessible', 'deprecated', 'specifiedBy', 'tag'];
 
 export type MergeResult = MergeSuccess | MergeFailure;
 
@@ -241,9 +242,19 @@ function isMergedField(field: InputFieldDefinition | FieldDefinition<CompositeTy
 }
 
 function isMergedDirective(definition: DirectiveDefinition | Directive): boolean {
-  // TODO: Currently, we really only merge a handful of federation directives. We should have have
-  // a way to merge more directive (maybe only the core ones? and if they have a particular flag?).
-  return MERGED_FEDERATION_DIRECTIVES.includes(definition.name);
+  // Currently, we only merge "executable" directives, and a small subset of well-known type-system directives.
+  // Note that some user directive definitions may have both executable and non-executable locations.
+  // In that case this method will return the definition, but the merge code filters the non-executable
+  // locations.
+  if (MERGED_TYPE_SYSTEM_DIRECTIVES.includes(definition.name)) {
+    return true;
+  }
+  // If it's a directive application, then we skip it (even if the definition itself allows executable locations,
+  // this particular application is an type-system element and we don't want to merge it).
+  if (definition instanceof Directive) {
+    return false;
+  }
+  return definition.locations.some(loc => executableDirectiveLocations.includes(loc));
 }
 // Access the type set as a particular root in the provided `SchemaDefinition`, but ignoring "query" type
 // that only exists due to federation operations. In other words, if a subgraph don't have a query type,
@@ -328,10 +339,10 @@ class Merger {
       this.mergeDirectiveDefinition(this.subgraphsSchema.map(s => s.directive(definition.name)), definition);
     }
 
-    // Let's not leave federation directives that aren't used.
-    for (const federationDirective of MERGED_FEDERATION_DIRECTIVES) {
+    // Let's not leave merged directives that aren't used.
+    for (const federationDirective of MERGED_TYPE_SYSTEM_DIRECTIVES) {
       const directive = this.merged.directive(federationDirective);
-      if (directive && directive.applications().length === 0) {
+      if (directive && !directive.isBuiltIn && directive.applications().length === 0) {
         directive.remove();
       }
     }
@@ -1028,8 +1039,16 @@ class Merger {
         continue;
       }
       dest.repeatable = dest.repeatable || source.repeatable;
-      dest.addLocations(...source.locations);
+      dest.addLocations(...this.filterExecutableDirectiveLocations(source));
     }
+  }
+
+  private filterExecutableDirectiveLocations(source: DirectiveDefinition): readonly DirectiveLocationEnum[] {
+    if (MERGED_TYPE_SYSTEM_DIRECTIVES.includes(source.name)) {
+      return source.locations;
+    }
+    return source.locations.filter(loc => executableDirectiveLocations.includes(loc));
+
   }
 
   private mergeAppliedDirectives(sources: (SchemaElement<any> | undefined)[], dest: SchemaElement<any>) {
