@@ -72,15 +72,12 @@ describe('scope', () => {
             {
               topProducts {
                 __typename
-                ... on Car {
-                  name
+                name
+                ... on Shoe @include(if: true) {
                   __typename
                   upc
                 }
-                ... on Shoe {
-                  name
-                }
-                ... on Shoe @include(if: true) {
+                ... on Car {
                   __typename
                   upc
                 }
@@ -180,17 +177,16 @@ describe('scope', () => {
             {
               topProducts {
                 __typename
-                ... on Car {
-                  name
-                  __typename
-                  upc
-                }
+                name
                 ... on Shoe {
-                  name
                   __typename
                   upc
                 }
                 ... on Shoe @include(if: true) {
+                  __typename
+                  upc
+                }
+                ... on Car {
                   __typename
                   upc
                 }
@@ -297,17 +293,16 @@ describe('scope', () => {
             {
               topProducts {
                 __typename
-                ... on Car {
-                  name
-                  __typename
-                  upc
-                }
+                name
                 ... on Shoe {
-                  name
                   __typename
                   upc
                 }
                 ... on Shoe @include(if: true) {
+                  __typename
+                  upc
+                }
+                ... on Car {
                   __typename
                   upc
                 }
@@ -412,15 +407,12 @@ describe('scope', () => {
             {
               topProducts {
                 __typename
-                ... on Car {
-                  name
+                name
+                ... on Shoe @include(if: true) {
                   __typename
                   upc
                 }
-                ... on Shoe {
-                  name
-                }
-                ... on Shoe @include(if: true) {
+                ... on Car {
                   __typename
                   upc
                 }
@@ -518,19 +510,16 @@ describe('scope', () => {
             {
               topProducts {
                 __typename
-                ... on Car {
-                  name
-                  __typename
-                  upc
-                }
-                ... on Shoe {
-                  name
-                }
+                name
                 ... on Shoe @include(if: true) {
                   ... on Shoe @skip(if: true) {
                     __typename
                     upc
                   }
+                }
+                ... on Car {
+                  __typename
+                  upc
                 }
               }
             }

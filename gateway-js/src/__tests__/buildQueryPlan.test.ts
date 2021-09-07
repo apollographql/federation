@@ -145,17 +145,26 @@ describe('buildQueryPlan', () => {
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Parallel {
+          Fetch(service: "accounts") {
+            {
+              me {
+                name {
+                  first
+                }
+              }
+            }
+          },
           Sequence {
             Fetch(service: "product") {
               {
                 topProducts {
                   __typename
-                  ... on Furniture {
-                    name
-                  }
                   ... on Book {
                     __typename
                     isbn
+                  }
+                  ... on Furniture {
+                    name
                   }
                 }
               }
@@ -194,15 +203,6 @@ describe('buildQueryPlan', () => {
               },
             },
           },
-          Fetch(service: "accounts") {
-            {
-              me {
-                name {
-                  first
-                }
-              }
-            }
-          },
         },
       }
     `);
@@ -236,22 +236,22 @@ describe('buildQueryPlan', () => {
             {
               topProducts {
                 __typename
-                ... on Furniture {
-                  name
-                }
                 ... on Book {
                   __typename
                   isbn
+                }
+                ... on Furniture {
+                  name
                 }
               }
               product(upc: "1") {
                 __typename
-                ... on Furniture {
-                  name
-                }
                 ... on Book {
                   __typename
                   isbn
+                }
+                ... on Furniture {
+                  name
                 }
               }
             }
@@ -1057,13 +1057,13 @@ describe('buildQueryPlan', () => {
               topProducts {
                 __typename
                 price
-                ... on Furniture {
-                  __typename
-                  upc
-                }
                 ... on Book {
                   __typename
                   isbn
+                }
+                ... on Furniture {
+                  __typename
+                  upc
                 }
               }
             }
@@ -1071,22 +1071,22 @@ describe('buildQueryPlan', () => {
           Flatten(path: "topProducts.@") {
             Fetch(service: "reviews") {
               {
-                ... on Furniture {
-                  __typename
-                  upc
-                }
                 ... on Book {
                   __typename
                   isbn
                 }
+                ... on Furniture {
+                  __typename
+                  upc
+                }
               } =>
               {
-                ... on Furniture {
+                ... on Book {
                   reviews {
                     body
                   }
                 }
-                ... on Book {
+                ... on Furniture {
                   reviews {
                     body
                   }
