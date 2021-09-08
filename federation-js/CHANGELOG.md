@@ -6,6 +6,10 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v0.32.0
+
+- __BREAKING__: This is a breaking change due to a `peerDependencies` update (`graphql@^15.4.0` -> `graphql@^15.5.3`). This `graphql` version includes a fix which resolves an issue which prevented the correct propagation of `@deprecated` usages on input type object fields into the printed subgraph schema. This can be considered a follow-up to [PR #996](https://github.com/apollographql/federation/pull/996), which previously attempted to propagate @deprecated on *ALL* input values. [PR #1008](https://github.com/apollographql/federation/pull/1008)
+
 ## v0.31.0
 
 - Remove composition responsibilities from supergraph printer. Fix schema sorting for sub- and super-graphs. [PR #1000](https://github.com/apollographql/federation/pull/1000)

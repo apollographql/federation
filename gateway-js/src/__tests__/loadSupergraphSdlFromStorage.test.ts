@@ -170,7 +170,7 @@ describe('loadSupergraphSdlFromStorage', () => {
       type Mutation {
         deleteReview(id: ID!): Boolean @join__field(graph: REVIEWS)
         login(password: String!, userId: String @deprecated(reason: \\"Use username instead\\"), username: String!): User @join__field(graph: ACCOUNTS)
-        reviewProduct(body: String!, upc: String!): Product @join__field(graph: REVIEWS)
+        reviewProduct(input: ReviewProduct!): Product @join__field(graph: REVIEWS)
         updateReview(review: UpdateReviewInput!): Review @join__field(graph: REVIEWS)
       }
 
@@ -239,6 +239,12 @@ describe('loadSupergraphSdlFromStorage', () => {
         id: ID! @join__field(graph: REVIEWS)
         metadata: [MetadataOrError] @join__field(graph: REVIEWS)
         product: Product @join__field(graph: REVIEWS)
+      }
+
+      input ReviewProduct {
+        body: String!
+        stars: Int @deprecated(reason: \\"Stars are no longer in use\\")
+        upc: String!
       }
 
       type SMSAccount

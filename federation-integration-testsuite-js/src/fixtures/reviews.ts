@@ -74,8 +74,14 @@ export const typeDefs = gql`
     retailPrice: String @requires(fields: "price")
   }
 
+  input ReviewProduct {
+    upc: String!
+    body: String!
+    stars: Int @deprecated(reason: "Stars are no longer in use")
+  }
+
   extend type Mutation {
-    reviewProduct(upc: String!, body: String!): Product
+    reviewProduct(input: ReviewProduct!): Product
     updateReview(review: UpdateReviewInput!): Review
     deleteReview(id: ID!): Boolean
   }
@@ -157,7 +163,7 @@ export const resolvers: GraphQLResolverMap<any> = {
     },
   },
   Mutation: {
-    reviewProduct(_, { upc, body }) {
+    reviewProduct(_, { input: { upc, body } }) {
       const id = `${Number(reviews[reviews.length - 1].id) + 1}`;
       reviews.push({
         id,
@@ -168,7 +174,7 @@ export const resolvers: GraphQLResolverMap<any> = {
       return { upc, __typename: 'Furniture' };
     },
     updateReview(_, { review: { id }, review: updatedReview }) {
-      let review = reviews.find(review => review.id === id);
+      let review = reviews.find((review) => review.id === id);
 
       if (!review) {
         return null;
@@ -183,7 +189,7 @@ export const resolvers: GraphQLResolverMap<any> = {
     },
     deleteReview(_, { id }) {
       const deleted = reviews.splice(
-        reviews.findIndex(review => review.id === id),
+        reviews.findIndex((review) => review.id === id),
         1,
       );
       return Boolean(deleted);
@@ -196,13 +202,13 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   User: {
     reviews(user) {
-      return reviews.filter(review => review.authorID === user.id);
+      return reviews.filter((review) => review.authorID === user.id);
     },
     numberOfReviews(user) {
-      return reviews.filter(review => review.authorID === user.id).length;
+      return reviews.filter((review) => review.authorID === user.id).length;
     },
     username(user) {
-      const found = usernames.find(username => username.id === user.id);
+      const found = usernames.find((username) => username.id === user.id);
       return found ? found.username : null;
     },
     goodAddress(object) {
@@ -211,18 +217,18 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   Furniture: {
     reviews(product) {
-      return reviews.filter(review => review.product.upc === product.upc);
+      return reviews.filter((review) => review.product.upc === product.upc);
     },
   },
   Book: {
     reviews(product) {
-      return reviews.filter(review => review.product.isbn === product.isbn);
+      return reviews.filter((review) => review.product.isbn === product.isbn);
     },
     relatedReviews(book) {
       return book.similarBooks
         ? book.similarBooks
             .map(({ isbn }: any) =>
-              reviews.filter(review => review.product.isbn === isbn),
+              reviews.filter((review) => review.product.isbn === isbn),
             )
             .flat()
         : [];
