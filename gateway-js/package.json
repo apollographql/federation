@@ -29,7 +29,7 @@
     "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner": "file:../query-planner-js",
     "@opentelemetry/api": "^1.0.1",
-    "@types/node-fetch": "2.5.12",
+    "@types/node-fetch": "3.0.2",
     "apollo-graphql": "^0.9.3",
     "apollo-reporting-protobuf": "^0.8.0 || ^3.0.0",
     "apollo-server-caching": "^0.7.0 || ^3.0.0",
