@@ -1,5 +1,8 @@
 import { execute } from '../execution-utils';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  queryPlanSerializer,
+} from 'apollo-federation-integration-testsuite';
 import { accounts, reviews } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(astSerializer);
@@ -47,7 +50,7 @@ it('supports mutations', async () => {
 it('returning across service boundaries', async () => {
   const query = `#graphql
     mutation Review($upc: String!, $body: String!) {
-      reviewProduct(upc: $upc, body: $body) {
+      reviewProduct(input: { upc: $upc, body: $body }) {
         ... on Furniture {
           name
         }
@@ -92,7 +95,7 @@ it('multiple root mutations', async () => {
           }
         }
       }
-      reviewProduct(upc: $upc, body: $body) {
+      reviewProduct(input: { upc: $upc, body: $body }) {
         ... on Furniture {
           name
         }
@@ -148,7 +151,7 @@ it('multiple root mutations with correct service order', async () => {
       $password: String!
       $reviewId: ID!
     ) {
-      reviewProduct(upc: $upc, body: $body) {
+      reviewProduct(input: { upc: $upc, body: $body }) {
         ... on Furniture {
           upc
         }
@@ -208,7 +211,7 @@ it('multiple root mutations with correct service order', async () => {
       Sequence {
         Fetch(service: "reviews") {
           {
-            reviewProduct(upc: $upc, body: $body) {
+            reviewProduct(input: {upc: $upc, body: $body}) {
               __typename
               ... on Furniture {
                 upc

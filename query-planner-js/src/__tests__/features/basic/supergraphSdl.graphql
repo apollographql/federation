@@ -139,9 +139,15 @@ type Library
 
 union MetadataOrError = KeyValue | Error
 
+input ReviewProduct {
+    upc: String!
+    body: String!
+    starts: Int @deprecated(reason: "Stars are no longer in use")
+}
+
 type Mutation {
     login(username: String!, password: String!): User @join__field(graph: ACCOUNTS)
-    reviewProduct(upc: String!, body: String!): Product @join__field(graph: REVIEWS)
+    reviewProduct(input: ReviewProduct!): Product @join__field(graph: REVIEWS)
     updateReview(review: UpdateReviewInput!): Review @join__field(graph: REVIEWS)
     deleteReview(id: ID!): Boolean @join__field(graph: REVIEWS)
 }

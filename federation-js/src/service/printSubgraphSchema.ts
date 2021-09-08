@@ -39,12 +39,6 @@ import { federationDirectives, gatherDirectives } from '../directives';
  */
 export const printSchema = printSubgraphSchema;
 
-/**
- * Accepts options as a second argument:
- *
- *    - commentDescriptions:
- *        Provide true to use preceding comments as the description.
- */
 export function printSubgraphSchema(schema: GraphQLSchema): string {
   return printFilteredSchema(
     schema,
