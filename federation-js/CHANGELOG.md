@@ -4,7 +4,11 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- __BREAKING__: This is a breaking change due to a `peerDependencies` update (`graphql@^15.4.0` -> `graphql@^15.5.3`). This `graphql` version includes a fix which resolves an issue which prevented the correct propagation of `@deprecated` usages on input type object fields into the printed subgraph schema. This can be considered a follow-up to PR #996, which previously attempted to propagate @deprecated on *ALL* input values. [PR #1008](https://github.com/apollographql/federation/pull/1008)
+- _Nothing yet! Stay tuned!_
+
+## v0.32.0
+
+- __BREAKING__: This is a breaking change due to a `peerDependencies` update (`graphql@^15.4.0` -> `graphql@^15.5.3`). This `graphql` version includes a fix which resolves an issue which prevented the correct propagation of `@deprecated` usages on input type object fields into the printed subgraph schema. This can be considered a follow-up to [PR #996](https://github.com/apollographql/federation/pull/996), which previously attempted to propagate @deprecated on *ALL* input values. [PR #1008](https://github.com/apollographql/federation/pull/1008)
 
 ## v0.31.0
 
