@@ -176,15 +176,24 @@ export function validateGraphComposition(supergraph: QueryGraph, subgraphs: Quer
   }
 }
 
-export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgraphs: QueryGraph): {traversal?: ValidationState, error?: ValidationError} {
+export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgraphs: QueryGraph): {traversal?: ValidationState, isComplete?: boolean, error?: ValidationError} {
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = [...supergraphPath.graph.sources.values()][0];
     let initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
     const cache = new QueryGraphState<GraphPath<Transition>[]>(subgraphs);
     const conditionsCache = new QueryGraphState<OpGraphPath[]>(subgraphs);
-    const traversal = supergraphPath.reduceMainPath((state, edge) => state.validateTransition(supergraphSchema, edge, cache, conditionsCache), initialState);
-    return {traversal};
+    let state = initialState;
+    let isIncomplete = false;
+    for (const [edge] of supergraphPath.elements()) {
+      const updated = state.validateTransition(supergraphSchema, edge, cache, conditionsCache);
+      if (!updated) {
+        isIncomplete = true;
+        break;
+      }
+      state = updated;
+    }
+    return {traversal: state, isComplete: !isIncomplete};
   } catch (error) {
     if (error instanceof ValidationError) {
       return {error};
@@ -219,21 +228,41 @@ export class ValidationState {
     return new ValidationState(GraphPath.fromGraphRoot(supergraph, kind)!, initialSubgraphPaths(kind, subgraphs));
   }
 
-  // Either throw or return a new state.
-  validateTransition(supergraphSchema: Schema, supergraphEdge: Edge, cache: QueryGraphState<GraphPath<Transition>[]>, conditionCache: QueryGraphState<OpGraphPath[]>): ValidationState {
+  // Either throw (we've found a path that cannot be validated), return a new state (we've successfully handled the edge
+  // and can continue validation from this new state) or 'undefined' if we can handle that edge by returning no results
+  // as it gets us in a (valid) situation where we can guarantee there will be no results (in other words, the edge correspond
+  // to a type condition for which there cannot be any runtime types, and so no point in continuing this "branch").
+  validateTransition(
+    supergraphSchema: Schema,
+    supergraphEdge: Edge,
+    cache: QueryGraphState<GraphPath<Transition>[]>,
+    conditionCache: QueryGraphState<OpGraphPath[]>
+  ): ValidationState | undefined {
     assert(!supergraphEdge.conditions, `Supergraph edges should not have conditions (${supergraphEdge})`);
 
     const transition = supergraphEdge.transition;
     const targetType = supergraphEdge.tail.type;
-    const newSubgraphPaths = this.subgraphPaths.flatMap(path => advancePathWithTransition(
-      path,
-      transition,
-      targetType,
-      (conditions, vertex, excluded) => validateConditions(supergraphSchema, conditions, GraphPath.create(path.graph, vertex), conditionCache, excluded),
-      cache
-    ));
+    const newSubgraphPaths = [];
+    for (const path of this.subgraphPaths) {
+      const options = advancePathWithTransition(
+        path,
+        transition,
+        targetType,
+        (conditions, vertex, excluded) => validateConditions(supergraphSchema, conditions, GraphPath.create(path.graph, vertex), conditionCache, excluded),
+        cache
+      );
+      if (!options) {
+        continue;
+      }
+      if (options.length === 0) {
+        // This means that the edge is a type condition and that if we follow the path to this subgraph, we're guaranteed that handling that
+        // type condition give us no matching results, and so we can handle whatever comes next really.
+        return undefined;
+      }
+      newSubgraphPaths.push(...options);
+    }
     const newPath = this.supergraphPath.add(transition, supergraphEdge);
-    if (newSubgraphPaths.length == 0) {
+    if (newSubgraphPaths.length === 0) {
       throw validationError(newPath, this.subgraphPaths);
     }
     return new ValidationState(newPath, newSubgraphPaths);
@@ -288,7 +317,7 @@ class ValidationTaversal {
       // The check for `isTerminal` is not strictly necessary as if we add a terminal
       // state to the stack this method, `handleState`, will do nothing later. But it's
       // worth checking it now and save some memory/cycles.
-      if (!newState.supergraphPath.isTerminal() && !newState.hasCycled()) {
+      if (newState && !newState.supergraphPath.isTerminal() && !newState.hasCycled()) {
         this.stack.push(newState);
       }
     }

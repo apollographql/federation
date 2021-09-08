@@ -36,7 +36,7 @@ import { Transition } from "./transition";
  *   above for more details).
  * @param RV - the type of the vertex starting the path. This simply default to `Vertex` but is used in `RootPath`/`OpRootPath`
  *   to easily distinguish those paths that starts from a root of a query graph.
- * @pram TNullEdge - typing information to indicate whether the path can have "null" edges or not. Either `null` (
+ * @param TNullEdge - typing information to indicate whether the path can have "null" edges or not. Either `null` (
  *   meaning that the path may have null edges) or `never` (the path cannot have null edges).
  */
 export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> {
@@ -285,6 +285,10 @@ export function traversePath(
 // the actual tree, which we need for query planning, or simply returning "undefined" which means "The condition can be satisfied but I didn't
 // bother computing a tree for it", which we use for simple validation.
 
+
+// Returns undefined if there is no way to advance the path with this transition. Otherwise, it returns a list of options (paths) we can be in after advancing the transition.
+// The lists of options can be empty, which has the special meaning that the transition is guaranteed to have no results (it corresponds to unsatisfiable conditions),
+// meaning that as far as composition validation goes, we can ignore that transition (and anything that follows) and otherwise continue.
 export function advancePathWithTransition<V extends Vertex>(
   subgraphPath: GraphPath<Transition, V>,
   transition: Transition,
@@ -292,7 +296,74 @@ export function advancePathWithTransition<V extends Vertex>(
   conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
   cache: QueryGraphState<GraphPath<Transition>[]>,
   excludedNonCollectingEdges: ExcludedEdges = []
-) : GraphPath<Transition, V>[] {
+) : GraphPath<Transition, V>[] | undefined {
+  // The `transition` comes from the supergraph. Now, it is possible that a transition can be expressed on the supergraph, but correspond
+  // to an 'unsatisfiable' condition on the subgraph. Let's consider:
+  // - Subgraph A:
+  //    type Query {
+  //       get: [I]
+  //    }
+  //
+  //    interface I {
+  //      k: Int
+  //    }
+  //
+  //    type T1 implements I @key(fields: "k") {
+  //      k: Int
+  //      a: String
+  //    }
+  //
+  //    type T2 implements I @key(fields: "k") {
+  //      k: Int
+  //      b: String
+  //    }
+  //
+  // - Subgraph B:
+  //    interface I {
+  //      k: Int
+  //    }
+  //
+  //    type T1 implements I @key(fields: "k") {
+  //      k: Int
+  //      myself: I
+  //    }
+  //
+  // On the resulting supergraph, we will have a path for:
+  //   {
+  //     get {
+  //       ... on T1 {
+  //         myself {
+  //           ... on T2 {
+  //             b
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  //
+  // However, as we compute possible subgraph paths, the `myself` field will get us
+  // in subgraph `B` through `T1`'s key. But then, as we look at transition `... on T2`
+  // from subgraph `B`, we have no such type/transition. But this does not mean that
+  // the subgraphs shouldn't compose. What it really means is that the corresponding
+  // query above can be done, but is guaranteed to never return anything (essentially,
+  // we can query subgraph 'B' but will never get a `T2` so the result of the query
+  // should be empty).
+  //
+  // So we need to handle this case and we do this first. Note that the only kind of
+  // transition that can give use this is a 'DownCast' transition.
+  if (transition.kind === 'DownCast') {
+    // If we consider a 'downcast' transition, it means that the target of that cast is composite, but also that the
+    // last type of the subgraph path also is (that type is essentially the "source" of the cast).
+    const supergraphRuntimeTypes = possibleRuntimeTypes(targetType as CompositeType);
+    const subgraphRuntimeTypes = possibleRuntimeTypes(subgraphPath.tail.type as CompositeType);
+    const intersection = supergraphRuntimeTypes.filter(t1 => subgraphRuntimeTypes.some(t2 => t1.name === t2.name)).map(t => t.name);
+    // if we intersection is empty, it means whatever field got us here can never resolve into an object of the type we're casting
+    // into. Essentially, we're good building a plan for this transition and whatever comes next: it'll just return nothing.
+    if (intersection.length === 0) {
+      return [];
+    }
+  }
+
   let options = advancePathWithDirectTransition(subgraphPath, transition, targetType.name, conditionResolver);
   // If we can fullfill the transition directly (without taking an edge) and the target type is "terminal", then there is
   // no point in computing all the options.
@@ -304,7 +375,7 @@ export function advancePathWithTransition<V extends Vertex>(
   if (pathsWithNonCollecting.length > 0) {
     options = options.concat(pathsWithNonCollecting.flatMap(p => advancePathWithDirectTransition(p, transition, targetType.name, conditionResolver)));
   }
-  return options;
+  return options.length === 0 ? undefined : options;
 }
 
 // A set of excluded edges, that is a pair of a head vertex index and an edge index (since edge indexes are relative to their vertex).
