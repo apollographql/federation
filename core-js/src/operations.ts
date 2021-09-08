@@ -418,6 +418,23 @@ export class SelectionSet {
     return true;
   }
 
+  contains(that: SelectionSet): boolean {
+    if (this._selections.size < that._selections.size) {
+      return false;
+    }
+
+    for (const [key, thatSelections] of that._selections) {
+      const thisSelections = this._selections.get(key);
+      if (!thisSelections
+        || (thisSelections.length < thatSelections.length
+        || !thatSelections.every(thatSelection => thisSelections.some(thisSelection => thisSelection.contains(thatSelection))))
+      ) {
+        return false
+      }
+    }
+    return true;
+  }
+
   validate() {
     for (const selection of this.selections()) {
       selection.validate();
@@ -608,6 +625,17 @@ export class FieldSelection {
     return !!that.selectionSet && this.selectionSet.equals(that.selectionSet);
   }
 
+  contains(that: Selection): boolean {
+    if (!(that instanceof FieldSelection) || !this.field.equals(that.field)) {
+      return false;
+    }
+
+    if (!that.selectionSet) {
+      return true;
+    }
+    return !!this.selectionSet && this.selectionSet.contains(that.selectionSet);
+  }
+
   clone(): FieldSelection {
     if (!this.selectionSet) {
       return this;
@@ -685,6 +713,12 @@ export class FragmentSelection {
     return (that instanceof FragmentSelection)
       && this.fragmentElement.equals(that.fragmentElement)
       && this.selectionSet.equals(that.selectionSet);
+  }
+
+  contains(that: Selection): boolean {
+    return (that instanceof FragmentSelection)
+      && this.fragmentElement.equals(that.fragmentElement)
+      && this.selectionSet.contains(that.selectionSet);
   }
 
   clone(): FragmentSelection {

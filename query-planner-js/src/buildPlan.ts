@@ -2,6 +2,7 @@ import {
   assert,
   baseType,
   CompositeType,
+  entityTypeName,
   Field,
   FieldSelection,
   FragmentElement,
@@ -16,13 +17,13 @@ import {
   Operation,
   OperationPath,
   operationToAST,
-  sameType,
   Schema,
   SchemaRootKind,
   Selection,
   SelectionSet,
   selectionSetOfPath,
   Type,
+  UnionType,
   Variable,
   VariableDefinition,
   VariableDefinitions
@@ -268,12 +269,7 @@ class FetchGroup {
     readonly subgraphName: string,
     readonly parentType: CompositeType,
     readonly mergeAt?: ResponsePath,
-    readonly directParent?: FetchGroup,
-    readonly pathInParent?: OperationPath
   ) {
-    assert(
-      ((mergeAt === undefined) === (directParent === undefined)) && ((directParent === undefined) === (pathInParent === undefined)),
-      `mergeAt, directParent and pathInParent should all be provided for non-root fetch groups, got [${mergeAt}, ${directParent}, ${pathInParent}]`);
     this._selection = new SelectionSet(parentType);
     this._inputs = mergeAt ? new SelectionSet(parentType) : undefined;
   }
@@ -292,6 +288,10 @@ class FetchGroup {
 
   addDependencyOn(groups: FetchGroup | FetchGroup[]) {
     this.dependencyGraph.addDependency(this, groups);
+  }
+
+  removeDependencyOn(groups: FetchGroup | FetchGroup[]) {
+    this.dependencyGraph.removeDependency(this, groups);
   }
 
   addInputs(selection: Selection | SelectionSet) {
@@ -362,7 +362,7 @@ class FetchGroup {
   }
 }
 
-function removeInPlace(value: number, array: number[]) {
+function removeInPlace<T>(value: T, array: T[]) {
   const idx = array.indexOf(value);
   if (idx >= 0) {
     array.splice(idx, 1);
@@ -383,7 +383,11 @@ class FetchDependencyGraph {
   private readonly rootGroups: Map<string, FetchGroup> = new Map();
   private readonly groups: FetchGroup[] = [];
   private readonly adjacencies: number[][] = [];
-  private readonly inEdges: number[][] = []
+  private readonly inEdges: number[][] = [];
+  // For each groups, an optional path in its "unique" parent. If a group has more than one parent, then
+  // this will be undefined. Even if the group has a unique parent, it's not guaranteed to be set.
+  private readonly pathsInParents: (OperationPath | undefined)[] = [];
+  private isReduced: boolean = false;
 
   constructor(readonly subgraphSchemas: ReadonlyMap<String, Schema>) {}
 
@@ -396,83 +400,143 @@ class FetchDependencyGraph {
     return group;
   }
 
-  newFetchGroup(
+  private newFetchGroup(
     subgraphName: string,
     parentType: CompositeType,
     mergeAt?: ResponsePath,
     directParent?: FetchGroup,
     pathInParent?: OperationPath
   ): FetchGroup {
+    this.onModification();
     const newGroup = new FetchGroup(
       this,
       this.groups.length,
       subgraphName,
       parentType,
       mergeAt,
-      directParent,
-      pathInParent
     );
     this.groups.push(newGroup);
     this.adjacencies.push([]);
     this.inEdges.push([]);
     if (directParent) {
-      this.addEdge(directParent.index, newGroup.index);
+      this.addEdge(directParent.index, newGroup.index, pathInParent);
     }
     return newGroup;
   }
 
+  newKeyFetchGroup(
+    subgraphName: string,
+    mergeAt: ResponsePath,
+    directParent?: FetchGroup,
+    pathInParent?: OperationPath
+  ): FetchGroup {
+    const entityType = this.subgraphSchemas.get(subgraphName)!.type(entityTypeName)! as UnionType;
+    return this.newFetchGroup(subgraphName, entityType, mergeAt, directParent, pathInParent);
+  }
+
   addDependency(dependentGroup: FetchGroup, dependentOn: FetchGroup | FetchGroup[]) {
+    this.onModification();
     const groups = Array.isArray(dependentOn) ? dependentOn : [ dependentOn ];
     for (const group of groups) {
       this.addEdge(group.index, dependentGroup.index);
     }
   }
 
-  private addEdge(from: number, to: number) {
+  removeDependency(dependentGroup: FetchGroup, dependentOn: FetchGroup | FetchGroup[]) {
+    this.onModification();
+    const groups = Array.isArray(dependentOn) ? dependentOn : [ dependentOn ];
+    for (const group of groups) {
+      this.removeEdge(group.index, dependentGroup.index);
+    }
+  }
+
+  pathInParent(group: FetchGroup): OperationPath | undefined {
+    return this.pathsInParents[group.index];
+  }
+
+  private addEdge(from: number, to: number, pathInFrom?: OperationPath) {
     if (!this.adjacencies[from].includes(to)) {
       this.adjacencies[from].push(to);
       this.inEdges[to].push(from);
+      const parentsCount = this.inEdges[to].length;
+      if (pathInFrom && parentsCount === 1) {
+        this.pathsInParents[to] = pathInFrom;
+      } else if (parentsCount > 1) {
+        this.pathsInParents[to] = undefined;
+      }
+    }
+  }
+
+  private removeEdge(from: number, to: number) {
+    if (this.adjacencies[from].includes(to)) {
+      removeInPlace(to, this.adjacencies[from]);
+      removeInPlace(from, this.inEdges[to]);
+      // If this was the only edge, we should erase the path. If it wasn't, we shouldn't have add a path in the
+      // first place, so setting to undefined is harmless.
+      this.pathsInParents[to] = undefined;
     }
   }
 
   onMergedIn(mergedInto: FetchGroup, merged: FetchGroup) {
     assert(!merged.isTopLevel, "Shouldn't remove top level groups");
-    // First, we relocale the removed groups dependents. That is, every group that depended on
-    // `merged` will now depend on `mergedInto`. 
-    for (const dependentIdx of this.adjacencies[merged.index]) {
+    this.onModification();
+    this.relocateDependentsOnMergedIn(mergedInto, merged.index);
+    this.removeInternal(merged.index);
+  }
+
+  private relocateDependentsOnMergedIn(mergedInto: FetchGroup, mergedIndex: number) {
+    for (const dependentIdx of this.adjacencies[mergedIndex]) {
       this.addEdge(mergedInto.index, dependentIdx);
       // While at it, we also remove the in-edge of the dependent to `merged` if it exists.
-      const idxInIns = this.inEdges[dependentIdx].indexOf(merged.index);
+      const idxInIns = this.inEdges[dependentIdx].indexOf(mergedIndex);
       if (idxInIns >= 0) {
         this.inEdges[dependentIdx].splice(idxInIns, 1);
       }
     }
-    // We also remove `merged` from any it depends on 
-    for (const dependedIdx of this.inEdges[merged.index]) {
-      const idxInAdj = this.adjacencies[dependedIdx].indexOf(merged.index);
+  }
+
+
+  remove(group: FetchGroup) {
+    this.onModification();
+    const dependents = this.dependents(group);
+    const dependencies = this.dependencies(group);
+    assert(dependents.length === 0, `Cannot remove group ${group} with dependents [${dependents}]`);
+    assert(dependencies.length <= 1, `Cannot remove group ${group} with more/less than one dependency: [${dependencies}]`);
+    this.removeInternal(group.index);
+  }
+
+  private removeInternal(mergedIndex: number) {
+    // We remove `merged` from any it depends on
+    for (const dependedIdx of this.inEdges[mergedIndex]) {
+      const idxInAdj = this.adjacencies[dependedIdx].indexOf(mergedIndex);
       this.adjacencies[dependedIdx].splice(idxInAdj, 1);
     }
-    // We then remove the entries for the merged group from our arrays.
-    this.groups.splice(merged.index, 1);
-    this.adjacencies.splice(merged.index, 1);
-    this.inEdges.splice(merged.index, 1);
+
+    // We then remove the entries for the merged group.
+    this.groups.splice(mergedIndex, 1);
+    this.adjacencies.splice(mergedIndex, 1);
+    this.inEdges.splice(mergedIndex, 1);
 
     // But now, every group index above `merge.index` is one-off.
     this.groups.forEach(g => {
-      if (g.index > merged.index) {
+      if (g.index > mergedIndex) {
         --g.index;
       }
     });
     this.adjacencies.forEach(adj => { adj.forEach((v, i) => { 
-      if (v > merged.index) {
+      if (v > mergedIndex) {
         adj[i] = v - 1;
       }
     })});
     this.inEdges.forEach(ins => { ins.forEach((v, i) => { 
-      if (v > merged.index) {
+      if (v > mergedIndex) {
         ins[i] = v - 1;
       }
     })});
+  }
+
+  private onModification() {
+    this.isReduced = false;
   }
 
   // Do a transitive reduction (https://en.wikipedia.org/wiki/Transitive_reduction) of the graph
@@ -482,6 +546,9 @@ class FetchDependencyGraph {
   // After the transitive reduction, we also do an additional traversal to check for fetches that
   // are made in parallel to the same subgraph and the same path, and merge those.
   private reduce() {
+    if (this.isReduced) {
+      return;
+    }
     for (const group of this.groups) {
       for (const adjacent of this.adjacencies[group.index]) {
         this.dfsRemoveRedundantEdges(group.index, adjacent);
@@ -491,46 +558,7 @@ class FetchDependencyGraph {
     for (const group of this.rootGroups.values()) {
       this.mergeDependentFetchesForSameSubgraphAndPath(group);
     }
-  }
-
-
-  // For a group, potentially walk back its `pathInParent` while we only encounter type conditions, returning the
-  // type of the first field encountered this way (and the corresponding updated pathInParent). 
-  private generalizedParent(group: FetchGroup): [CompositeType, OperationPath | undefined] {
-    if (!group.pathInParent || group.pathInParent.length === 0) {
-      return [group.parentType, group.pathInParent];
-    }
-
-    let i = group.pathInParent.length - 1;
-    while (i >= 0) {
-      const element = group.pathInParent[i];
-      if (element.kind === 'FragmentElement') {
-        --i;
-      } else {
-        return [baseType(element.definition.type!) as CompositeType, group.pathInParent.slice(0, i)];
-      }
-    }
-    return [group.parentType, group.pathInParent];
-  }
-
-  // Assuming 2 groups to the same service and the same mergeAt, extract their common parent type (if possible).
-  // Note that 2 groups with the same mergeAt are not guaranteed to have the same parentType initially. The main
-  // reason is that `mergeAt` doesn't take potentially applied type-conditions into account, so if say we have
-  // an interface `I` with 2 implementations `A` and `B`, a field `i: I` at merge path `foo.bar.i`, and say we
-  // type-exploded `I` into `A` and `B` and _then_ took a key edge for both `A` and `B` to the same subgraph,
-  // then the 2 groups after each key will both have merge path `foo.bar.i` but one will have parent type `A`
-  // and the other `B`. In that case, what this method does it recognize that we can merge those 2 groups
-  // into a group of parent type `I`, as long as we have the proper `A` and `B` type conditions applied. But
-  // as it happens, said proper `A` and `B` type conditions will already have been applied (just because when
-  // we take a key edge, we need a type condition on both the inputs and selection of the group).
-  private extractParentType(g1: FetchGroup, g2: FetchGroup): [CompositeType, OperationPath | undefined] | undefined {
-    if (sameType(g1.parentType, g2.parentType)) {
-      return [g1.parentType, g1.pathInParent];
-    }
-
-    const g1Extracted = this.generalizedParent(g1);
-    const g2Extracted = this.generalizedParent(g2);
-    return sameType(g1Extracted[0], g2Extracted[0]) ? g1Extracted : undefined;
+    this.isReduced = true;
   }
 
   private mergeDependentFetchesForSameSubgraphAndPath(group: FetchGroup) {
@@ -544,12 +572,12 @@ class FetchDependencyGraph {
             && this.dependencies(g1).length === 1
             && this.dependencies(g2).length === 1
           ) {
-            let extracted = this.extractParentType(g1, g2);
-            if (!extracted) {
-              continue;
-            }
             // We replace g1 by a new group that is the same except (possibly) for it's parentType ...
-            const merged = new FetchGroup(this, g1.index, g1.subgraphName, extracted[0], g1.mergeAt, group, extracted[1]);
+            // (that's why we don't use `newKeyFetchGroup`, it assigns the index while we reuse g1's one here)
+            const merged = new FetchGroup(this, g1.index, g1.subgraphName, g1.selection.parentType, g1.mergeAt);
+            // Erase the pathsInParents as it's now potentially invalid (we won't really use it from that point on, but better
+            // safe than sorry).
+            this.pathsInParents[g1.index] = undefined;
             if (g1.inputs) {
               merged.addInputs(g1.inputs);
             }
@@ -772,11 +800,11 @@ function computeGroupsForTree(
           const groupsForConditions = computeGroupsForTree(dependencyGraph, conditions, group, mergeAt, path);
           // Then we can "take the edge", creating a new group. That group depends
           // on the condition ones.
-          const type = edge.tail.type as CompositeType; // We shouldn't have a key on a non-composite type
-          const newGroup = dependencyGraph.newFetchGroup(edge.tail.source, type, mergeAt, group, path);
+          const newGroup = dependencyGraph.newKeyFetchGroup(edge.tail.source, mergeAt, group, path);
           createdGroups.push(newGroup);
-          // The new group depends on the current group but 'newFetchGroup' already handled that.
+          // The new group depends on the current group but 'newKeyFetchGroup' already handled that.
           newGroup.addDependencyOn(groupsForConditions);
+          const type = edge.tail.type as CompositeType; // We shouldn't have a key on a non-composite type
           const inputSelections = new SelectionSet(type);
           inputSelections.add(new FieldSelection(new Field(type.typenameField()!)));
           inputSelections.mergeIn(edge.conditions!);
@@ -850,58 +878,113 @@ function handleRequires(
   const entityType = edge.head.type as ObjectType;
 
   // In general, we should do like for an edge, and create a new group _for the current subgraph_
-  // that depends on the createdGroups. However, we can be more efficient in general (and this is
-  // expected by the user) because required fields will usually come just after a key edge (at
-  // the top of a fetch group).
+  // that depends on the createdGroups and have the created groups depend on the current one.
+  // However, we can be more efficient in general (and this is expected by the user) because 
+  // required fields will usually come just after a key edge (at the top of a fetch group).
   // In that case (when the path is exactly 1 typeCast), we can put the created groups directly
   // as dependency of the current group, avoiding to create a new one. Additionally, if the
   // group we're coming from is our "direct parent", we can merge it to said direct parent (which
   // effectively means that the parent group will collect the provides before taking the edge
   // to our current group).
   if (!group.isTopLevel && path.length == 1 && path[0].kind === 'FragmentElement') {
-    const newGroup = dependencyGraph.newFetchGroup(group.subgraphName, entityType, group.mergeAt, group.directParent, group.pathInParent);
-    newGroup.addInputs(group.inputs!.clone());
+    // We start by computing the groups for the conditions. We do this using a copy of the current
+    // group (with only the inputs) as that allows to modify this copy without modifying `group`.
+    const originalInputs = group.inputs!.clone();
+    const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, group.mergeAt!);
+    newGroup.addInputs(originalInputs);
 
-    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, mergeAt, path);
+    let createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, mergeAt, path);
     if (createdGroups.length == 0) {
-      // All conditions were local. Just merge the newly created group back in the current group and continue.
+      // All conditions were local. Just merge the newly created group back in the current group (we didn't need it) 
+      // and continue.
       group.mergeIn(newGroup, path);
       return [group, mergeAt, path];
     }
-    const typeCast = new FragmentElement(entityType, entityType.name);
-    group.addInputs(new FragmentSelection(typeCast, edge.conditions));
-    group.addDependencyOn(newGroup);
 
-    const parent = newGroup.directParent!;
-    for (const created of createdGroups) {
-      // We can merge the created group into our parent only if 1) it's a group for the same subgraph but also 2)
-      // the group starts at the same level we are currently. Basically, this means that our requires needed
-      // fields coming from our parent field, so we can get those directly from said parent field _before_
-      // getting to our own group.
-      if (created.subgraphName === parent.subgraphName && deepEqual(created.mergeAt, group.mergeAt)) {
-        parent.mergeIn(created, newGroup.pathInParent!);
-        // When we do so, it's possible that the requires that can be done directly in the parent where
-        // our only @requires. If so, `newGroup` will be a useless step. Namely, we'll jump from the
-        // `newGroup` to immediately jump back to the parent. We recognize that situation when
-        //   1) `newGroup` only depends on the parent and
-        //   2) `newGroup` inputs are equal to its selection (meaning, we got some key as input and
-        //       we're reusing the exact same key to jump back). That later condition is not perfect
-        //       because in the present of multiple keys between `newGroup` and its parent, we could
-        //       theoretically take a different key on the way in that on the way back, and we could
-        //       still remove `newGroup` but we won't: but this would more complex to check and it's
-        //       sufficiently unlikely to happpen that we ignore that "optimization" for now. If
-        //       someone run into this and notice, we can optimize then.
-        // Note that a group will at least depend on it's direct parent, so we just check that it has
-        // only one dependency.
-        if (dependencyGraph.dependencies(newGroup).length == 1 && newGroup.selection.equals(newGroup.inputs!)) {
-          // As far as updating the dependency graph, merging newGroup into its parent is the same as removing it.
-          dependencyGraph.onMergedIn(parent, newGroup);
+    // We know the @require needs createdGroups. We do want to know however if any of the conditions was
+    // fetched from our `newGroup`. If not, then this means that `createdGroup` don't really depend on
+    // the current `group`, but can be dependencies of the parent (or even merged into this parent).
+    // To know this, we check if `newGroup` inputs contains its inputs (meaning the fetch is
+    // useless: we jump to it but didn't get anything new). Not that this isn't perfect because
+    // in the case of multiple keys between `newGroup` and its parent, we could theoretically take a 
+    // different key on the way in that on the way back. In other words, `newGroup` selection may only
+    // be fetching a key that happens to not be the one in its inputs, and in that case the code below
+    // will not remove `newGroup` even though it would be more efficient to do so. Handling this properly
+    // is more complex however and it's sufficiently unlikely to happpen that we ignore that "optimization"
+    // for now. If someone run into this and notice, we can optimize then.
+    // Note: it is to be sure this test is not poluted by other things in `group` that we created `newGroup`.
+    const newGroupIsUseless = newGroup.inputs!.contains(newGroup.selection);
+    const parents = dependencyGraph.dependencies(group);
+    const pathInParent = dependencyGraph.pathInParent(group);
+    const unmergedGroups = [];
+    if (newGroupIsUseless) {
+      // We can remove `newGroup` and attach `createdGroups` as dependencies of `group`'s parents. That said,
+      // as we do so, we check if one/some of the created groups can be "merged" into the parent
+      // directly (assuming we have only 1 parent, it's the same subgraph/mergeAt and we known the path in this parent). 
+      // If it can, that essentially means that the requires could have been fetched directly from the parent,
+      // and that will likely be common.
+      for (const created of createdGroups) {
+        // Note that pathInParent != undefined implies that parents is of size 1
+        if (pathInParent
+          && created.subgraphName === parents[0].subgraphName
+          && deepEqual(created.mergeAt, group.mergeAt)
+        ) {
+          parents[0].mergeIn(created, pathInParent);
+        } else {
+          // We move created from depending on `newGroup` to depend on all of `group`'s parents.
+          created.removeDependencyOn(newGroup);
+          created.addDependencyOn(parents);
+          unmergedGroups.push(created);
         }
-      } else {
-        group.addDependencyOn(created);
+      }
+
+      // We know newGroup is useless and nothing should depend on it anymore, we can remove it.
+      dependencyGraph.remove(newGroup);
+    } else {
+      // There is things in `newGroup`, let's merge them in `group` (no reason not to). This will
+      // make the created groups depend on `group`, which we want.
+      group.mergeIn(newGroup, path);
+
+      // The created group depend on `group` and the dependency cannot be moved to the parent in
+      // this case. However, we might still be able to merge some created group directly in the
+      // parent. But for this to be true, we should essentially make sure that the dependency
+      // on `group` is not a "true" dependency. That is, if the created group inputs are the same
+      // as `group` inputs (and said created group is the same subgraph than then parent of
+      // `group`, then it means we're only depending on value that are already in the parent and
+      // we merge the group).
+      for (const created of createdGroups) {
+        // Note that pathInParent != undefined implies that parents is of size 1
+        if (pathInParent
+          && created.subgraphName === parents[0].subgraphName
+          && deepEqual(created.mergeAt, group.mergeAt)
+          && originalInputs.contains(created.inputs!)
+        ) {
+          parents[0].mergeIn(created, pathInParent);
+        } else {
+          unmergedGroups.push(created);
+        }
       }
     }
-    return [group, mergeAt, path];
+
+    // If we've merged all the created groups, the all provides are handled _before_ we get to the
+    // current group, so we can "continue" with the current group (and we remove the useless `newGroup`).
+    if (unmergedGroups.length == 0) {
+      // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
+      // we don't need one).
+      group.addInputs(inputsForRequire(entityType, edge, false)[0]);
+      return [group, mergeAt, path];
+    }
+
+
+    // If we get here, it means the @require needs the information from `createdGroups` _and_ those
+    // rely on some information from the current `group`. So we need to create a new group that
+    // depends on all the created groups and return that.
+    const postRequireGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, group.mergeAt!);
+    postRequireGroup.addDependencyOn(unmergedGroups);
+    let [inputs, newPath] = inputsForRequire(entityType, edge);
+    // The post-require group needs both the inputs from `group` (the key to `group` subgraph essentially, and the additional requires conditions)
+    postRequireGroup.addInputs(inputs);
+    return [postRequireGroup, mergeAt, newPath];
   } else {
     const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, group, mergeAt, path);
     // If we didn't created any group, that means the whole condition was fetched from the current group
@@ -912,16 +995,23 @@ function handleRequires(
     // We need to create a new group, on the same subgraph `group`, where we resume fetching the field for
     // which we handle the @requires _after_ we've delt with the `requiresConditionsGroups`.
     // Note that we know the conditions will include a key for our group so we can resume properly.
-    const newGroup = dependencyGraph.newFetchGroup(group.subgraphName, entityType, mergeAt, group, path);
+    const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, mergeAt);
     newGroup.addDependencyOn(createdGroups);
-    const typeCast = new FragmentElement(entityType, entityType.name);
-    const fullSelectionSet = new SelectionSet(entityType);
-    fullSelectionSet.add(new FieldSelection(new Field(entityType.typenameField()!)));
-    fullSelectionSet.mergeIn(edge.conditions!);
-    fullSelectionSet.mergeIn(requireEdgeAdditionalConditions(edge));
-    newGroup.addInputs(new FragmentSelection(typeCast, fullSelectionSet));
-    return [newGroup, mergeAt, [typeCast]];
+    let [inputs, newPath] = inputsForRequire(entityType, edge);
+    newGroup.addInputs(inputs);
+    return [newGroup, mergeAt, newPath];
   }
+}
+
+function inputsForRequire(entityType: ObjectType, edge: Edge, includeKeyInputs: boolean = true): [Selection, OperationPath] {
+  const typeCast = new FragmentElement(entityType, entityType.name);
+  const fullSelectionSet = new SelectionSet(entityType);
+  fullSelectionSet.add(new FieldSelection(new Field(entityType.typenameField()!)));
+  fullSelectionSet.mergeIn(edge.conditions!);
+  if (includeKeyInputs) {
+    fullSelectionSet.mergeIn(requireEdgeAdditionalConditions(edge));
+  }
+  return [new FragmentSelection(typeCast, fullSelectionSet), [typeCast]];
 }
 
 const representationsVariable = new Variable('representations');
