@@ -1,4 +1,9 @@
-import { buildSchema, assertValidSchema, GraphQLObjectType } from 'graphql';
+import {
+  buildSchema,
+  assertValidSchema,
+  GraphQLObjectType,
+  GraphQLUnionType,
+} from 'graphql';
 import { removeInaccessibleElements } from '../removeInaccessibleElements';
 
 describe('removeInaccessibleElements', () => {
@@ -146,6 +151,86 @@ describe('removeInaccessibleElements', () => {
     expect(schema.getType('Foo')).toBeUndefined();
     expect(schema.getType('Bar')).toBeDefined();
     expect(schema.getType('Baz')).toBeDefined();
+  });
+
+  it(`removes @inaccessible types from a union's types`, () => {
+    let schema = buildSchema(`
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
+
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
+        @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
+      {
+        query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      type Query {
+        fooField: Foo @inaccessible
+      }
+
+      union Foo = Bar | Baz
+
+      type Bar @inaccessible {
+        someField: String
+      }
+
+      type Baz {
+        anotherField: String
+      }
+    `);
+
+    schema = removeInaccessibleElements(schema);
+
+    const fooType = schema.getType('Foo') as GraphQLUnionType;
+    expect(fooType).toBeDefined();
+    expect(fooType.getTypes()).toHaveLength(1);
+  });
+
+  it(`removes a union type if all of its types are @inaccessible`, () => {
+    let schema = buildSchema(`
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
+
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
+        @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
+      {
+        query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      type Query {
+        fooField: Foo @inaccessible
+      }
+
+      union Foo = Bar | Baz
+
+      type Bar @inaccessible {
+        someField: String
+      }
+
+      type Baz @inaccessible {
+        anotherField: String
+      }
+    `);
+
+    schema = removeInaccessibleElements(schema);
+
+    expect(schema.getType('Bar')).toBeUndefined();
+    expect(schema.getType('Baz')).toBeUndefined();
+    expect(schema.getType('Foo')).toBeUndefined();
   });
 
   it(`throws when a field returning an @inaccessible type isn't marked @inaccessible itself`, () => {
