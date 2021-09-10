@@ -233,6 +233,50 @@ describe('removeInaccessibleElements', () => {
     expect(schema.getType('Foo')).toBeUndefined();
   });
 
+  it(`removes deeply nested inaccessible unions`, () => {
+    let schema = buildSchema(`
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
+
+      directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+      schema
+        @core(feature: "https://specs.apollo.dev/core/v0.2")
+        @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
+      {
+        query: Query
+      }
+
+      enum core__Purpose {
+        EXECUTION
+        SECURITY
+      }
+
+      type Query {
+        fooField: Foo @inaccessible
+      }
+
+      union Foo4 = Foo3 | Bar
+      union Foo3 = Foo2 | Bar
+      union Foo2 = Foo | Bar
+      union Foo = Bar | Baz
+
+      type Bar @inaccessible {
+        someField: String
+      }
+
+      type Baz @inaccessible {
+        anotherField: String
+      }
+    `);
+
+    schema = removeInaccessibleElements(schema);
+
+    expect(schema.getType('Foo')).toBeUndefined();
+    expect(schema.getType('Foo2')).toBeUndefined();
+    expect(schema.getType('Foo3')).toBeUndefined();
+    expect(schema.getType('Foo4')).toBeUndefined();
+  });
+
   it(`throws when a field returning an @inaccessible type isn't marked @inaccessible itself`, () => {
     let schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
