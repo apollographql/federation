@@ -5,6 +5,3 @@ node_modules/
 .deploy*/
 .cache
 public/
-
-# Local Netlify folder
-.netlify
