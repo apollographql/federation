@@ -569,7 +569,8 @@ class Merger {
 
   private mergeObject(sources: (ObjectType | undefined)[], dest: ObjectType) {
     const isEntity = this.hintOnInconsistentEntity(sources, dest);
-    const isValueType = !isEntity && !dest.isRootType;
+    const isValueType = !isEntity && !dest.isRootType();
+
     this.addFieldsShallow(sources, dest);
     if ([...dest.fields()].length === 0) {
       // This can happen for a type that existing in the subgraphs but had only non-merged fields
