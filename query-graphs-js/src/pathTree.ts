@@ -188,17 +188,21 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     );
   }
 
-  toString(indent: string = ""): string {
-    return this.toStringInternal(indent);
+  toString(indent: string = "", includeConditions: boolean = false): string {
+    return this.toStringInternal(indent, includeConditions);
   }
 
-  private toStringInternal(indent: string): string {
+  private toStringInternal(indent: string, includeConditions: boolean): string {
     if (this.isLeaf()) {
       return this.vertex.toString();
     }
     return this.vertex + ':\n' + 
       this.childs.map((child, i) => 
-        indent + ` -> [${this.childsIndexes[i]}] ${this.childsTrigger[i]} = ` + child.toStringInternal(indent + "  ")
+        indent
+        + ` -> [${this.childsIndexes[i]}] `
+        + (includeConditions && this.childsConditions[i] ? `!! {\n${indent + " | "}${this.childsConditions[i]!.toString(indent + " |  | ", true)}\n${indent} } ` : "")
+        + `${this.childsTrigger[i]} = `
+        + child.toStringInternal(indent + " | ", includeConditions)
       ).join('\n');
   }
 }

@@ -17,6 +17,7 @@ import {
   Operation,
   OperationPath,
   operationToAST,
+  sameOperationPaths,
   Schema,
   SchemaRootKind,
   Selection,
@@ -42,7 +43,7 @@ import {
   OpPathTree,
   PathTree,
   requireEdgeAdditionalConditions,
-  Vertex
+  Vertex,
 } from "@apollo/query-graphs";
 import deepEqual from "deep-equal";
 import { Kind, DocumentNode, stripIgnoredCharacters, print } from "graphql";
@@ -155,7 +156,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     }
   }
 
-  private resolveConditionPlan(conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges): OpPathTree | null {
+  private resolveConditionPlan(conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges): [OpPathTree, number] | null {
     const bestPlan = new QueryPlanningTaversal(
       this.supergraphSchema,
       this.subgraphs,
@@ -169,14 +170,14 @@ class QueryPlanningTaversal<RV extends Vertex> {
       false).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
-    return bestPlan ? bestPlan[1] : null;
+    return bestPlan ? [bestPlan[1], bestPlan[2]] : null;
   }
 
   private handleFinalPathSet(pathSet: OpPathTree<RV>) {
     const dependencyGraph = computeFetchGroups(this.subgraphs.sources, pathSet);
-    const cost =  dependencyGraph.process(this.costFunction, this.rootGroupsAreParallel);
+    const cost = dependencyGraph.process(this.costFunction, this.rootGroupsAreParallel);
     //if (isRootVertex(pathSet.vertex)) {
-    //  console.log(`[PLAN] cost: ${cost}, path: ${pathSet}`);
+    //  console.log(`[PLAN] cost: ${cost}, path:\n${pathSet.toString('', true)}`);
     //}
     if (!this.bestPlan || cost < this.bestPlan[2]) {
       this.bestPlan = [dependencyGraph, pathSet, cost];
@@ -424,14 +425,52 @@ class FetchDependencyGraph {
     return newGroup;
   }
 
+  getOrCreateKeyFetchGroup(
+    subgraphName: string,
+    mergeAt: ResponsePath,
+    directParent: FetchGroup,
+    pathInParent: OperationPath,
+    conditionsGroups: FetchGroup[]
+  ): FetchGroup {
+    // Let's look if we can reuse a group we have, that is an existing dependent of the parent for
+    // the same subgraph and same mergeAt and that is not part of our condition dependencies (the latter
+    // meaning that we cannot reuse a group that fetched something we actually as input.
+    for (const existing of this.dependents(directParent)) {
+      if (existing.subgraphName === subgraphName
+        && deepEqual(existing.mergeAt, mergeAt)
+        && !this.isDependedOn(existing, conditionsGroups)
+      ) {
+        const existingPathInParent = this.pathInParent(existing);
+        if (pathInParent && existingPathInParent && !sameOperationPaths(existingPathInParent, pathInParent)) {
+          this.pathsInParents[existing.index] = undefined;
+        }
+        return existing;
+      }
+    }
+    const entityType = this.subgraphSchemas.get(subgraphName)!.type(entityTypeName)! as UnionType;
+    return this.newFetchGroup(subgraphName, entityType, mergeAt, directParent, pathInParent);
+  }
+
+  // Returns true if `toCheck` is either part of `conditions`, or is a dependency (potentially recursively) 
+  // of one of the gorup of conditions.
+  private isDependedOn(toCheck: FetchGroup, conditions: FetchGroup[]): boolean  {
+    const stack = [...conditions];
+    while (stack.length > 0) {
+      const group = stack.pop()!;
+      if (toCheck.index === group.index) {
+        return true;
+      }
+      stack.push(...this.dependencies(group));
+    }
+    return false;
+  }
+
   newKeyFetchGroup(
     subgraphName: string,
     mergeAt: ResponsePath,
-    directParent?: FetchGroup,
-    pathInParent?: OperationPath
   ): FetchGroup {
     const entityType = this.subgraphSchemas.get(subgraphName)!.type(entityTypeName)! as UnionType;
-    return this.newFetchGroup(subgraphName, entityType, mergeAt, directParent, pathInParent);
+    return this.newFetchGroup(subgraphName, entityType, mergeAt);
   }
 
   addDependency(dependentGroup: FetchGroup, dependentOn: FetchGroup | FetchGroup[]) {
@@ -495,7 +534,6 @@ class FetchDependencyGraph {
     }
   }
 
-
   remove(group: FetchGroup) {
     this.onModification();
     const dependents = this.dependents(group);
@@ -558,6 +596,7 @@ class FetchDependencyGraph {
     for (const group of this.rootGroups.values()) {
       this.mergeDependentFetchesForSameSubgraphAndPath(group);
     }
+
     this.isReduced = true;
   }
 
@@ -800,7 +839,7 @@ function computeGroupsForTree(
           const groupsForConditions = computeGroupsForTree(dependencyGraph, conditions, group, mergeAt, path);
           // Then we can "take the edge", creating a new group. That group depends
           // on the condition ones.
-          const newGroup = dependencyGraph.newKeyFetchGroup(edge.tail.source, mergeAt, group, path);
+          const newGroup = dependencyGraph.getOrCreateKeyFetchGroup(edge.tail.source, mergeAt, group, path, groupsForConditions);
           createdGroups.push(newGroup);
           // The new group depends on the current group but 'newKeyFetchGroup' already handled that.
           newGroup.addDependencyOn(groupsForConditions);

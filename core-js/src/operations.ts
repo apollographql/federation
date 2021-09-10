@@ -240,6 +240,18 @@ export type OperationElement = Field<any> | FragmentElement;
 
 export type OperationPath = OperationElement[];
 
+export function sameOperationPaths(p1: OperationPath, p2: OperationPath): boolean {
+  if (p1.length !== p2.length) {
+    return false;
+  }
+  for (let i = 0; i < p1.length; i++) {
+    if (!p1[i].equals(p2[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export type RootOperationPath = {
   rootKind: SchemaRootKind,
   path: OperationPath

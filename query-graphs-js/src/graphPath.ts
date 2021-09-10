@@ -281,6 +281,8 @@ export function traversePath(
   }
 }
 
+export type ConditionResolver = (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | [OpPathTree, number] | undefined;
+
 // Note: conditions resolver should return `null` if the condition cannot be satisfied. If it is satisfied, it has the choice of computing
 // the actual tree, which we need for query planning, or simply returning "undefined" which means "The condition can be satisfied but I didn't
 // bother computing a tree for it", which we use for simple validation.
@@ -293,7 +295,7 @@ export function advancePathWithTransition<V extends Vertex>(
   subgraphPath: GraphPath<Transition, V>,
   transition: Transition,
   targetType: NamedType,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  conditionResolver: ConditionResolver,
   cache: QueryGraphState<GraphPath<Transition>[]>,
   excludedNonCollectingEdges: ExcludedEdges = []
 ) : GraphPath<Transition, V>[] | undefined {
@@ -419,7 +421,7 @@ function popMin<TTrigger, V extends Vertex, TNullEdge extends null | never = nev
 
 function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
   path: GraphPath<TTrigger, V, TNullEdge>,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  conditionResolver: ConditionResolver,
   excludedEdges: ExcludedEdges,
   convertTransitionWithCondition: (transition: Transition) => TTrigger,
   cache: QueryGraphState<GraphPath<TTrigger, Vertex, TNullEdge>[]>,
@@ -450,15 +452,19 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   return cachedPaths.map(p => path.concat(p));
 }
 
+function conditionTree(resolution: [OpPathTree, number] | undefined): OpPathTree | undefined {
+  return resolution ? resolution[0] : undefined;
+}
+
 function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
   path: GraphPath<TTrigger, V, TNullEdge>,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  conditionResolver: ConditionResolver,
   excludedEdges: ExcludedEdges,
   convertTransitionWithCondition: (transition: Transition) => TTrigger,
 ): GraphPath<TTrigger, V, TNullEdge>[] {
-  const updatedPaths = [ ];
   const typeName = isFederatedGraphRootType(path.tail.type) ? undefined : path.tail.type.name;
-  const sources = [ path.tail.source ];
+  const originalSource = path.tail.source;
+  const bestPathBySource = new Map<string, [GraphPath<TTrigger, V, TNullEdge>, number]>();
   const toTry = [ path ];
   let excluded = excludedEdges;
   while (toTry.length > 0) {
@@ -475,28 +481,54 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
       // We can only take a non-collecting transition that preserves the current type (typically,
       // jumping subgraphs through a key), with the exception of the federated graph roots, where
       // the type is fake and jumping to any given subgraph is ok and desirable.
-      // Also, there is no point in taking an edge that bring up to a subgraph we also reached
-      // though a previous (and likely shorter) path
-      if ((typeName && typeName != edge.tail.type.name) || sources.includes(edge.tail.source)) {
+      // Also, if the edge takes us back to the subgraph in which we started, we're not really interested
+      // (we've already checked for direct transition from that original subgraph).
+      const target = edge.tail;
+      if ((typeName && typeName != target.type.name) || target.source === originalSource) {
         continue;
       }
-      sources.push(edge.tail.source);
-      const [isSatisfied, conditionTree] = canSatisfyConditions(toAdvance, edge, conditionResolver, excluded);
+
+      const prevForSource = bestPathBySource.get(target.source);
+      if (prevForSource
+        && (prevForSource[0].size < toAdvance.size + 1
+          || (prevForSource[0].size == toAdvance.size + 1 && prevForSource[1] <= 1)
+        )
+      ) {
+        // We've already found another path that gets us to the same subgraph than the edge we're
+        // about to check. If that previous path is strictly shorter than the path we'd obtain
+        // with the new edge, then we don't consider this edge (it's a longer way to get to the same place).
+        // And if the previous path is the same size (as the one obtained with that edge), but
+        // that the previous path cost for getting the condition was 0 or 1, then the new edge cannot
+        // really improve on this and we don't bother with it. Note that a cost of 0 can only happen
+        // during composition validation where all costs are 0 to mean "we don't care about costs".
+        // Meaning effectively that for validation, as soon as we have a path to a subgraph, we ignore
+        // other options even if they may be "faster".
+        continue;
+      }
+
+      const [isSatisfied, resolution] = canSatisfyConditions(toAdvance, edge, conditionResolver, excluded);
       if (isSatisfied) {
-        const updatedPath = toAdvance.add(convertTransitionWithCondition(edge.transition), edge, conditionTree);
-        updatedPaths.push(updatedPath);
+        const cost = resolution ? resolution[1] : 0;
+        // We _can_ get to `taget.source` with that edge. But if we had already found another path to
+        // the same subgraph, we want to replace it by this one only if either 1) it is shorter or 2) if
+        // it's of equal size, only if the condition cost are lower than the previous one.
+        if (prevForSource && prevForSource[0].size === toAdvance.size + 1 && prevForSource[1] <= cost) {
+          continue;
+        }
+        const updatedPath = toAdvance.add(convertTransitionWithCondition(edge.transition), edge, conditionTree(resolution));
+        bestPathBySource.set(target.source, [updatedPath, cost]);
         toTry.push(updatedPath);
       }
     }
   }
-  return updatedPaths;
+  return [...bestPathBySource.values()].map(b => b[0]);
 }
 
 function advancePathWithDirectTransition<V extends Vertex>(
   path: GraphPath<Transition, V>,
   transition: Transition,
   targetTypeName: string,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined
+  conditionResolver: ConditionResolver
 ) : GraphPath<Transition, V>[] {
   return path.nextEdges().filter(e => e.matchesTransition(transition)).flatMap(edge => {
     // The edge must get us to the target type.
@@ -504,8 +536,8 @@ function advancePathWithDirectTransition<V extends Vertex>(
       return [];
     }
     // Additionaly, we can only take an edge if we can satisfy its conditions.
-    const [isSatisfied, conditionTree] = canSatisfyConditions(path, edge, conditionResolver, []);
-    return isSatisfied ? [ path.add(transition, edge, conditionTree) ] : [];
+    const [isSatisfied, resolution] = canSatisfyConditions(path, edge, conditionResolver, []);
+    return isSatisfied ? [ path.add(transition, edge, conditionTree(resolution)) ] : [];
   });
 }
 
@@ -522,36 +554,33 @@ export function requireEdgeAdditionalConditions(edge: Edge): SelectionSet {
 function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
   path: GraphPath<TTrigger, V, TNullEdge>,
   edge: Edge,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  conditionResolver: ConditionResolver,
   excludedEdges: ExcludedEdges
-): [boolean, OpPathTree | undefined] {
+): [boolean, [OpPathTree, number] | undefined] {
   const conditions = edge.conditions;
   if (!conditions) {
     return [true, undefined];
   }
-  let pathTree = conditionResolver(conditions, path.tail, excludedEdges);
-  if (pathTree === null) {
+  const resolution = conditionResolver(conditions, path.tail, excludedEdges);
+  if (resolution === null) {
     return [false, undefined];
   }
+  let pathTree = resolution ? resolution[0] : undefined;
   const lastEdge = path.lastEdge();
   if (edge.transition.kind === 'FieldCollection'
     && lastEdge !== null
     && lastEdge?.transition.kind !== 'KeyResolution'
     && (!pathTree || pathTree.isAllInSameSubgraph())) {
-    // We need to add _one_ of the current entity key as condition. We pick the first one we find,
-    // which is not perfect, as maybe we can't satisfy that key but we could another, but this ensure
-    // query planning later knows which keys to use ("always the first one"). We'd have to communicate
-    // that somehow otherwise.
     const additionalConditions = requireEdgeAdditionalConditions(edge);
-    const additionalPathTree = conditionResolver(additionalConditions, path.tail, excludedEdges);
-    if (additionalPathTree === null) {
+    const additionalResolution = conditionResolver(additionalConditions, path.tail, excludedEdges);
+    if (additionalResolution === null) {
       return [false, undefined];
     }
     if (pathTree) {
-      pathTree = pathTree.merge(additionalPathTree!);
+      pathTree = pathTree.merge(additionalResolution![0]);
     }
   }
-  return [true, pathTree];
+  return [true, resolution ? [pathTree!, resolution[1]] : undefined];
 }
 
 function isTerminalOperation(operation: OperationElement): boolean {
@@ -568,7 +597,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   subgraphSimultaneousPaths: SimultaneousPaths<V>,
   operation: OperationElement,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  conditionResolver: ConditionResolver,
   cache: QueryGraphState<OpGraphPath[]>,
   excludedNonCollectingEdges: ExcludedEdges = []
 ) : SimultaneousPaths<V>[] | undefined {
@@ -603,7 +632,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
 
 function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Vertex>(
   paths: SimultaneousPaths<V>,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  conditionResolver: ConditionResolver,
   excludedEdges: ExcludedEdges,
   cache: QueryGraphState<OpGraphPath[]>,
 ): SimultaneousPaths<V>[] {
@@ -628,7 +657,7 @@ function advanceWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   simultaneousPaths: SimultaneousPaths<V>,
   operation: OperationElement,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  conditionResolver: ConditionResolver,
   cache: QueryGraphState<OpGraphPath[]>
 ): SimultaneousPaths<V>[] | undefined {
   const newPaths: SimultaneousPaths<V>[][] = [];
@@ -668,7 +697,7 @@ function advanceOneWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   path: OpGraphPath<V>,
   operation: OperationElement,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined,
+  conditionResolver: ConditionResolver,
   cache: QueryGraphState<OpGraphPath[]>
 ) : SimultaneousPaths<V>[] | undefined {
   const currentType = path.tail.type;
@@ -814,10 +843,10 @@ function addFieldEdge<V extends Vertex>(
   path: OpGraphPath<V>,
   fieldOperation: Field<any>,
   edge: Edge,
-  conditionResolver: (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | OpPathTree | undefined
+  conditionResolver: ConditionResolver
 ): OpGraphPath<V>[][] {
-  const [isSatisfied, conditionTree] = canSatisfyConditions(path, edge, conditionResolver, []);
-  return isSatisfied ? [[ path.add(fieldOperation, edge, conditionTree) ]] : [];
+  const [isSatisfied, resolution] = canSatisfyConditions(path, edge, conditionResolver, []);
+  return isSatisfied ? [[ path.add(fieldOperation, edge, conditionTree(resolution)) ]] : [];
 }
 
 function edgeForField<V extends Vertex>(
