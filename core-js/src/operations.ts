@@ -41,6 +41,10 @@ function buildError(message: string): Error {
   return new Error(message);
 }
 
+function isIntrospectionField(name: string) {
+  return name === '__schema' || name === '__type';
+}
+
 function validate(condition: any, message: string): asserts condition {
   if (!condition) {
     throw buildError(message);
@@ -376,6 +380,11 @@ export class SelectionSet {
     fragments: Map<string, FragmentDefinitionNode> = new Map(),
     fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
   ) {
+    // TODO: the `core-js` module currently doesn't know about schema introspection (only about __typename). We could add it, and
+    // maybe we'll need to, but for now, we just ignore any query of schema introspection fields.
+    if (node.kind === 'Field' && isIntrospectionField(node.name.value)) {
+      return;
+    }
     this.add(this.nodeToSelection(node, variableDefinitions, fragments, fieldAccessor));
   }
 

@@ -214,6 +214,10 @@ const defaultCostFunction: CostFunction = {
 };
 
 export function computeQueryPlan(supergraphSchema: Schema, operation: Operation): QueryPlan {
+  if (operation.selectionSet.isEmpty()) {
+    return { kind: 'QueryPlan' };
+  }
+
   const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema);
   const root = federatedQueryGraph.root(operation.rootKind);
   assert(root, `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
