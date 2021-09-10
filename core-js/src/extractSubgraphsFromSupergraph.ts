@@ -20,14 +20,22 @@ import {
   VariableDefinitions
 } from "./definitions";
 import { federationBuiltIns } from "./federation";
+import { CoreSpecDefinition } from "./coreSpec";
 import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./joinSpec";
 import { parseSelectionSet } from "./operations";
 import { Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { GraphQLError } from "graphql";
 
-function filteredTypes(supergraph: Schema, joinSpec: JoinSpecDefinition): NamedType[] {
-  return [...supergraph.types()].filter(t => !joinSpec.isSpecType(t));
+function filteredTypes(
+  supergraph: Schema,
+  joinSpec: JoinSpecDefinition,
+  coreSpec: CoreSpecDefinition
+): NamedType[] {
+  // Note: we skip coreSpec to avoid having core__Purpose since we don't create core schema subgraph.
+  // But once we support core schema subgraphs and start shipping federation core features, we may need
+  // to revisit this.
+  return [...supergraph.types()].filter(t => !joinSpec.isSpecType(t) && !coreSpec.isSpecType(t));
 }
 
 export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
@@ -66,7 +74,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
   // Next, we iterate on all types and add it to the proper subgraphs (along with any @key).
   // Note that we first add all types empty and populate the types next. This avoids having to care about the iteration 
   // order if we have fields than depends on other types.
-  for (const type of filteredTypes(supergraph, joinSpec)) {
+  for (const type of filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition)) {
     const typeApplications = type.appliedDirectivesOf(typeDirective);
     if (!typeApplications.length) {
       // Imply the type is in all subgraphs (technically, some subgraphs may not have had this type, but adding it
@@ -91,7 +99,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
   const ownerDirective = joinSpec.ownerDirective(supergraph);
   const fieldDirective = joinSpec.fieldDirective(supergraph);
   // We can now populate all those types (with relevant @provides and @requires on fields).
-  for (const type of filteredTypes(supergraph, joinSpec)) {
+  for (const type of filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition)) {
     switch (type.kind) {
       case 'ObjectType':
       case 'InterfaceType':
@@ -129,7 +137,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
                 subgraphField.applyDirective('requires', {'fields': args.requires});
               }
               if (args.provides) {
-                subgraphField.applyDirective('provides', {'fields': args.requires});
+                subgraphField.applyDirective('provides', {'fields': args.provides});
               }
             }
           }
@@ -237,7 +245,7 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema) {
 
     // First, handle @key
     for (const keyApplication of type.appliedDirectivesOf(federationBuiltIns.keyDirective(subgraph.schema))) {
-      addExternalFieldsFromSelection(subgraph, type, keyApplication.arguments().fields, supergraph, false);
+      addExternalFieldsFromSelection(subgraph, type, keyApplication.arguments().fields, supergraph);
     }
     // Then any @requires or @provides on fields
     for (const field of type.fields()) {
@@ -258,7 +266,6 @@ function addExternalFieldsFromSelection(
   parentType: ObjectType | InterfaceType,
   selection: string,
   supergraph: Schema,
-  markExternal: boolean = true
 ) {
   let accessor = function (type: CompositeType, fieldName: string): FieldDefinition<any> {
     const field = type.field(fieldName);
@@ -273,9 +280,7 @@ function addExternalFieldsFromSelection(
     assert(supergraphField, `No field name ${fieldName} found on type ${type.name} in the supergraph`);
     // We're know the parent type of the field exists in the subgraph (it's `type`), so we're guaranteed a field is created.
     const created = addSubgraphObjectOrInterfaceField(supergraphField, subgraph)!;
-    if (markExternal) {
-      created.applyDirective(federationBuiltIns.externalDirective(subgraph.schema));
-    }
+    created.applyDirective(federationBuiltIns.externalDirective(subgraph.schema));
     return created;
   };
   parseSelectionSet(parentType, selection, new VariableDefinitions(), undefined, accessor);
