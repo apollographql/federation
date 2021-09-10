@@ -3,21 +3,27 @@ title: Third-party libraries that support Apollo Federation
 sidebar_title: Supported libraries
 ---
 
-The following open-source GraphQL server libraries provide support for Apollo Federation.
+The following open-source GraphQL server libraries provide support for Apollo Federation and are included in our [Subgraph Compatibility Repository](apollo-federation-subgraph-compatibility). Check out the [repository](apollo-federation-subgraph-compatibility) if you are interested in learning more about the testing strategy.
 
-> These are libraries that appear to be actively maintained. We audit this list every few months and remove libraries that are no longer active.
+| Language | Framework | _service | @key (single) | @key (multi) | @key (composite) | @requires | @provides | ftv1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| JavaScript | [apollo-server](https://github.com/apollographql/apollo-server/) | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️  |
+| Java | [federation-jvm](https://github.com/apollographql/federation-jvm) | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️  |
+| Java / Kotlin | [dgs](https://github.com/netflix/dgs-framework/) |  ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️  |
+| Kotlin | [graphql-kotlin](https://github.com/ExpediaGroup/graphql-kotlin) | ✔️ | ✔️* | ✔️* | ✔️* | ✔️ | ✔️ | ✔️  |
+| Python | [graphene](https://github.com/preply/graphene-federation) | ✔️ | ✔️ | ✔️ | ❌ | ✔️ | ✔️ | ❌  |
+| Python | [ariadne](https://github.com/mirumee/ariadne) | ✔️ | ✔️* | ✔️* | ✔️*| ✔️ | ✔️ | ❌  |
+| Python | [strawberry-graphql](https://strawberry.rocks/docs) | ✔️ | ✔️ | ✔️ | ✔️| ✔️ | ✔️ | ❌  |
+| Ruby | [apollo-federation-ruby](https://github.com/Gusto/apollo-federation-ruby) | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️  |
+| Scala | [caliban](https://ghostdogpr.github.io/caliban/docs/federation.html) | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️  |
+
+_*_ _Implementation does not support multiple `@key` definitions, but all types of `@key` definitions are supported_
+
+The following libraries appear to be actively maintained, but don't currently have an implementation in our [Subgraph Compatibility Repository](apollo-federation-subgraph-compatibility). We audit this list every few months and remove libraries that are no longer active.
 
 | Language    | Framework     | Library                                                                          |
 | ----------- | ------------- | -------------------------------------------------------------------------------- |
-| Go            | gqlgen        | [gqlgen](https://github.com/99designs/gqlgen/tree/master/plugin/federation)      |
-| Java          | graphql-java  | [federation-jvm](https://github.com/apollographql/federation-jvm)                |
-| Java / Kotlin | dgs           | [dgs](https://github.com/netflix/dgs-framework/)                                 |
-| JavaScript    | apollo-server | [apollo-server](https://github.com/apollographql/apollo-server/)                 |
-| Kotlin        | graphql-java  | [graphql-kotlin](https://github.com/ExpediaGroup/graphql-kotlin)                 |
-| Python        | ariadne       | [ariadne](https://github.com/mirumee/ariadne)                                    |
-| Python        | graphene      | [graphene-federation](https://github.com/preply/graphene-federation)             |
-| Scala         | caliban       | [caliban](https://github.com/ghostdogpr/caliban)                                 |
-| Ruby          | graphql-ruby  | [apollo-federation-ruby](https://github.com/Gusto/apollo-federation-ruby)        |
-| Rust          | async-graphql | [async-graphql](https://github.com/async-graphql/async-graphql)                  |
+| Go            | [gqlgen](https://github.com/99designs/gqlgen/tree/master/plugin/federation)      | [GitHub Issue](https://github.com/apollographql/apollo-federation-subgraph-compatibility/issues/17)
+| Rust          | [async-graphql](https://github.com/async-graphql/async-graphql)                   | [GitHub Issue](https://github.com/apollographql/apollo-federation-subgraph-compatibility/issues/21) |
 
-Do you maintain a library that implements Apollo Federation that isn't listed here? Please [submit a PR](https://github.com/apollographql/federation/tree/HEAD/docs/source/other-servers.md) to be added to the list!
+If you want to see a library added to this list, feel free to open an [Issue](https://github.com/apollographql/apollo-federation-subgraph-compatibility/issues) or check our our [Apollo Federation Library Maintainers Implementation Guide](https://github.com/apollographql/apollo-federation-subgraph-compatibility/blob/main/CONTRIBUTORS.md) to see about submitting a PR for your library!
