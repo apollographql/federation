@@ -1,4 +1,4 @@
-import { printSchema, Schema, Subgraphs } from "@apollo/core";
+import { printSchema, Schema, Subgraphs, defaultPrintOptions, orderPrintedDefinitions } from "@apollo/core";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
 import { mergeSubgraphs } from "./merging";
@@ -37,7 +37,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
 
   return {
     schema: supergraphSchema,
-    supergraphSdl: printSchema(supergraphSchema),
+    supergraphSdl: printSchema(supergraphSchema, orderPrintedDefinitions(defaultPrintOptions)),
     hints: mergeResult.hints
   };
 }
