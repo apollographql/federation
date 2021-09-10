@@ -39,19 +39,26 @@ export function removeInaccessibleElements(
     }),
   );
 
-  Object.values(typeMap)
-    // skip checking types already marked for removal
-    .filter((type) => !typesToRemove.has(type))
-    .filter(isUnionType)
-    .forEach((type) => {
-      const accessibleTypes = type
-        .getTypes()
-        .filter((t) => !typesToRemove.has(t));
+  // remove unions which have no accessible types
+  // this is a loop since unions can contain other unions
+  let shouldRevisitSchema = true;
+  while (shouldRevisitSchema) {
+    shouldRevisitSchema = false;
+    Object.values(typeMap)
+      // skip checking types already marked for removal
+      .filter((type) => !typesToRemove.has(type))
+      .filter(isUnionType)
+      .forEach((type) => {
+        const accessibleTypes = type
+          .getTypes()
+          .filter((t) => !typesToRemove.has(t));
 
-      if (accessibleTypes.length === 0) {
-        typesToRemove.add(type);
-      }
-    });
+        if (accessibleTypes.length === 0) {
+          typesToRemove.add(type);
+          shouldRevisitSchema = true;
+        }
+      });
+  }
 
   removeRootTypesIfNeeded();
 
