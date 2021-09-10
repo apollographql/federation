@@ -1195,7 +1195,8 @@ describe('buildQueryPlan', () => {
   });
 
   describe(`experimental compression to downstream services`, () => {
-    it(`should generate fragments internally to downstream requests`, () => {
+    // Experimental compression is not supported by relaxed composition
+    it.skip(`should generate fragments internally to downstream requests`, () => {
       const operationString = `#graphql
         query {
           topReviews {
@@ -1359,7 +1360,8 @@ describe('buildQueryPlan', () => {
       `);
     });
 
-    it(`should generate fragments for selection sets of length 3 or greater`, () => {
+    // Experimental compression is not supported by relaxed composition
+    it.skip(`should generate fragments for selection sets of length 3 or greater`, () => {
       const operationString = `#graphql
         query {
           topReviews {
@@ -1403,7 +1405,8 @@ describe('buildQueryPlan', () => {
       `);
     });
 
-    it(`should generate fragments correctly when aliases are used`, () => {
+    // Experimental compression is not supported by relaxed composition
+    it.skip(`should generate fragments correctly when aliases are used`, () => {
       const operationString = `#graphql
         query {
           reviews: topReviews {
