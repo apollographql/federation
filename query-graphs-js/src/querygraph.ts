@@ -143,6 +143,10 @@ export class Edge {
     return this._conditions;
   }
 
+  isEdgeForField(name: String): boolean {
+    return this.transition.kind === 'FieldCollection' && this.transition.definition.name === name;
+  }
+
   matchesTransition(otherTransition: Transition): boolean {
     const transition = this.transition;
     switch (transition.kind) {
@@ -250,6 +254,13 @@ export class QueryGraph {
   /** The number of vertices in this query graph. */
   verticesCount(): number {
     return this.vertices.length;
+  }
+
+  /** The number of edges in this query graph. */
+  edgesCount(): number {
+    // We could count edges as we add them and pass it to the ctor. For now though, it's not meant to be
+    // on a hot path, so recomputing is probably fine.
+    return this.adjacencies.reduce((acc, v) => acc + v.length, 0);
   }
 
   /**
@@ -411,7 +422,8 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
    * @return the state associated to `edge`, if any.
    */
   getEdgeState(edge: Edge): EdgeState | undefined {
-    return this.adjacenciesStates[edge.head.index][edge.index];
+    const forEdge = this.adjacenciesStates[edge.head.index];
+    return forEdge ? forEdge[edge.index] : undefined;
   }
 
   toDebugString(
@@ -558,7 +570,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
             // certain type. But for now, it's true.
             assert(
               otherVertices.length == 1,
-              `Subgraph ${j} should have a single vertex for type ${type.name} but got ${otherVertices.length}: ${inspect(otherVertices)}`);
+              () => `Subgraph ${j} should have a single vertex for type ${type.name} but got ${otherVertices.length}: ${inspect(otherVertices)}`);
 
             // The edge goes from the otherSubgraph to the current one.
             const head = copyPointers[j].copiedVertex(otherVertices[0]);
@@ -699,7 +711,8 @@ class GraphBuilder {
       index = this.nextIndex++;
     }
     const vertex = new Vertex(index, type, source);
-    assert(!this.vertices[index], `Overriding existing vertex ${this.vertices[index]} with ${vertex}`);
+    const previous = this.vertices[index];
+    assert(!previous, () => `Overriding existing vertex ${previous} with ${vertex}`);
     this.vertices[index] = vertex;
     this.typesToVertices.add(type.name, index);
     this.adjacencies[index] = [];
@@ -711,13 +724,13 @@ class GraphBuilder {
 
   createRootVertex(kind: SchemaRootKind, type: NamedType, source: string, schema: Schema) {
     const vertex = this.createNewVertex(type, source, schema);
-    assert(!this.rootVertices.has(kind), `Root vertex for ${kind} (${this.rootVertices.get(kind)}) already exists: cannot replace by ${vertex}`);
+    assert(!this.rootVertices.has(kind), () => `Root vertex for ${kind} (${this.rootVertices.get(kind)}) already exists: cannot replace by ${vertex}`);
     this.setAsRoot(kind, vertex.index);
   }
 
   setAsRoot(kind: SchemaRootKind, index: number) {
     const vertex = this.vertices[index];
-    assert(vertex, `Cannot set non-existing vertex at index ${index} as root ${kind}`);
+    assert(vertex, () => `Cannot set non-existing vertex at index ${index} as root ${kind}`);
     const rootVertex = toRootVertex(vertex, kind);
     this.vertices[vertex.index] = rootVertex;
     this.rootVertices.set(kind, rootVertex);
@@ -846,7 +859,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     const namedType = baseType(type);
     const existing = this.verticesForType(namedType.name);
     if (existing.length > 0) {
-      assert(existing.length == 1, `Only one vertex should have been created for type ${namedType.name}, got ${existing.length}: ${inspect(this)}`);
+      assert(existing.length == 1, () => `Only one vertex should have been created for type ${namedType.name}, got ${existing.length}: ${inspect(this)}`);
       return existing[0];
     }
     const vertex = this.createNewVertex(namedType, this.name, this.schema);

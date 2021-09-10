@@ -136,8 +136,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    * @returns the newly created path.
    */
   add(trigger: TTrigger, edge: Edge | TNullEdge, conditions?: OpPathTree): GraphPath<TTrigger, RV, TNullEdge> {
-    assert(!edge || this.tail.index === edge.head.index, `Cannot add edge ${edge} to path ending at ${this.tail}`);
-    assert(!edge || edge.conditions || !conditions, `Shouldn't have conditions paths (got ${conditions}) for edge without conditions (edge: ${edge})`);
+    assert(!edge || this.tail.index === edge.head.index, () => `Cannot add edge ${edge} to path ending at ${this.tail}`);
+    assert(!edge || edge.conditions || !conditions, () => `Shouldn't have conditions paths (got ${conditions}) for edge without conditions (edge: ${edge})`);
     return new GraphPath(
       this.graph,
       this.root,
@@ -156,7 +156,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    * @returns the newly created path.
    */
   concat(tailPath: GraphPath<TTrigger, Vertex, TNullEdge>): GraphPath<TTrigger, RV, TNullEdge> {
-    assert(this.tail.index === tailPath.root.index, `Cannot concat ${tailPath} after ${this}`);
+    assert(this.tail.index === tailPath.root.index, () => `Cannot concat ${tailPath} after ${this}`);
     return new GraphPath(
       this.graph,
       this.root,
@@ -515,7 +515,7 @@ export function requireEdgeAdditionalConditions(edge: Edge): SelectionSet {
   // query planning later knows which keys to use. We'd have to communicate that somehow otherwise.
   const type = edge.head.type as CompositeType;
   const keyDirectives = type.appliedDirectivesOf('key');
-  assert(keyDirectives.length > 0, `We should have a require on ${edge} if ${type} has no key directive`);
+  assert(keyDirectives.length > 0, () => `We should have a require on ${edge} if ${type} has no key directive`);
   return parseSelectionSet(type, keyDirectives[0].arguments()['fields']);
 }
 
@@ -540,10 +540,8 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     && (!pathTree || pathTree.isAllInSameSubgraph())) {
     // We need to add _one_ of the current entity key as condition. We pick the first one we find,
     // which is not perfect, as maybe we can't satisfy that key but we could another, but this ensure
-    // query planning later knows which keys to use. We'd have to communicate that somehow otherwise.
-    const type = edge.head.type as CompositeType;
-    const keyDirectives = type.appliedDirectivesOf('key');
-    assert(keyDirectives.length > 0, `We should have a require on ${edge} if ${type} has no key directive`);
+    // query planning later knows which keys to use ("always the first one"). We'd have to communicate
+    // that somehow otherwise.
     const additionalConditions = requireEdgeAdditionalConditions(edge);
     const additionalPathTree = conditionResolver(additionalConditions, path.tail, excludedEdges);
     if (additionalPathTree === null) {
@@ -596,7 +594,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     // advancedWithOperation can return an empty list only if the operation if a fragment with a condition that, on top of the "current" type
     // is unsatisfiable. But as we've only taken type preserving transitions, we cannot get an empty results at this point if we haven't
     // had one when testing direct transitions above (in which case we have exited the method early).
-    assert(pathWithOperation.length > 0, `Unexpected empty options after non-collecting path ${pathWithNonCollecting} for ${operation}`);
+    assert(pathWithOperation.length > 0, () => `Unexpected empty options after non-collecting path ${pathWithNonCollecting} for ${operation}`);
     options = options.concat(pathWithOperation);
   }
   // At this point, if options is empty, it means we found no ways to advance the operation, so we should return undefined.
@@ -729,7 +727,7 @@ function advanceOneWithOperation<V extends Vertex>(
               continue;
             }
             // Advancing a field should never get us into an unsatisfiable condition. Only fragments can.
-            assert(withFieldOptions.length > 0, `Unexpected unsatisfiable path after ${optPaths} for ${operation}`);
+            assert(withFieldOptions.length > 0, () => `Unexpected unsatisfiable path after ${optPaths} for ${operation}`);
             withField = withField.concat(withFieldOptions);
           }
           // If we find no option to advance that implementation, we bail (as we need to simultaneously advance all
@@ -827,7 +825,7 @@ function edgeForField<V extends Vertex>(
   field: Field<any>
 ): Edge | undefined {
   const candidates = path.nextEdges().filter(e => e.transition.kind === 'FieldCollection' && field.selects(e.transition.definition, true));
-  assert(candidates.length <= 1, `Vertex ${path.tail} has multiple edges matching ${field} (${candidates})`);
+  assert(candidates.length <= 1, () => `Vertex ${path.tail} has multiple edges matching ${field} (${candidates})`);
   return candidates.length === 0 ? undefined : candidates[0];
 }
 
@@ -836,6 +834,6 @@ function edgeForTypeCast<V extends Vertex>(
   typeName: string
 ): Edge | undefined {
   const candidates = path.nextEdges().filter(e => e.transition.kind === 'DownCast' && typeName === e.transition.castedType.name);
-  assert(candidates.length <= 1, `Vertex ${path.tail} has multiple edges matching ${typeName} (${candidates})`);
+  assert(candidates.length <= 1, () => `Vertex ${path.tail} has multiple edges matching ${typeName} (${candidates})`);
   return candidates.length === 0 ? undefined : candidates[0];
 }

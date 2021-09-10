@@ -15,6 +15,7 @@ import {
   SchemaRootKind,
   Selection,
   SelectionSet,
+  typenameFieldName,
   VariableDefinitions
 } from "@apollo/core";
 import {
@@ -221,7 +222,7 @@ export class ValidationState {
   ) {
     assert(
       subgraphPaths.every(p => p.tail.type.name == this.supergraphPath.tail.type.name),
-      `Invalid state ${this}: some subgraphs type don't match the supergraph.`);
+      () => `Invalid state ${this}: some subgraphs type don't match the supergraph.`);
   }
 
   static initial(supergraph: QueryGraph, kind: SchemaRootKind, subgraphs: QueryGraph) {
@@ -238,7 +239,7 @@ export class ValidationState {
     cache: QueryGraphState<GraphPath<Transition>[]>,
     conditionCache: QueryGraphState<OpGraphPath[]>
   ): ValidationState | undefined {
-    assert(!supergraphEdge.conditions, `Supergraph edges should not have conditions (${supergraphEdge})`);
+    assert(!supergraphEdge.conditions, () => `Supergraph edges should not have conditions (${supergraphEdge})`);
 
     const transition = supergraphEdge.transition;
     const targetType = supergraphEdge.tail.type;
@@ -268,6 +269,17 @@ export class ValidationState {
     return new ValidationState(newPath, newSubgraphPaths);
   }
 
+  currentSubgraphs(): string[] {
+    const subgraphs: string[] = [];
+    for (const path of this.subgraphPaths) {
+      const source = path.tail.source;
+      if (!subgraphs.includes(source)) {
+        subgraphs.push(source);
+      }
+    }
+    return subgraphs;
+  }
+
   hasCycled(): boolean {
     // A state is a configuration that points to a particular type/vertex in the supergraph and to
     // a number of subgraph vertex _for the same type_. So if any of the subgraph state is such that
@@ -281,6 +293,11 @@ export class ValidationState {
   }
 }
 
+function isSupersetOrEqual(maybeSuperset: String[], other: String[]): boolean {
+  // `maybeSuperset` is a superset (or equal) if it contains all of `other`
+  return other.every(v => maybeSuperset.includes(v));
+}
+
 class ValidationTaversal {
   private readonly supergraphSchema: Schema;
   // The stack contains all states that aren't terminal.
@@ -288,11 +305,17 @@ class ValidationTaversal {
   private readonly cache: QueryGraphState<GraphPath<Transition>[]>;
   private readonly conditionsCache: QueryGraphState<OpGraphPath[]>;
 
+  // For each vertex in the supergraph, records if we've already visited that vertex and in which subgraphs we were.
+  // For a vertex, we may have multipe "sets of subgraphs", hence the double-array.
+  private readonly previousVisits: QueryGraphState<string[][]>;
+
+
   constructor(supergraph: QueryGraph, subgraphs: QueryGraph) {
     this.supergraphSchema = [...supergraph.sources.values()][0];
     supergraph.rootKinds().forEach(k => this.stack.push(ValidationState.initial(supergraph, k, subgraphs)));
     this.cache = new QueryGraphState(subgraphs);
     this.conditionsCache = new QueryGraphState(subgraphs);
+    this.previousVisits = new QueryGraphState(supergraph);
   }
 
   //private dumpStack(message?: string) {
@@ -310,9 +333,35 @@ class ValidationTaversal {
   }
 
   private handleState(state: ValidationState) {
-    // Note that if supergraphVertex is terminal, this method is a no-op, which is expected/desired as
+
+    const vertex = state.supergraphPath.tail;
+    const currentSources = state.currentSubgraphs();
+    const previousSeenSources = this.previousVisits.getVertexState(vertex);
+    if (previousSeenSources) {
+      for (const previousSources of previousSeenSources) {
+        if (isSupersetOrEqual(currentSources, previousSources)) {
+          // This means that we've already seen the type we're currently on in the supergraph, and when saw it we could be in
+          // one of `previousSources`, and we validated that we could reach anything from there. We're now on the same
+          // type, and have strictly more options regarding subgraphs. So whatever comes next, we can handle in the exact
+          // same way we did previously, and there is thus no way to bother.
+          return;
+        }
+      }
+      // We're gonna have to validate, but we can save the new set of sources here to hopefully save work later.
+      previousSeenSources.push(currentSources);
+    } else {
+      // We save the current sources but do validate.
+      this.previousVisits.setVertexState(vertex, [currentSources]);
+    }
+
+    // Note that if supergraphPath is terminal, this method is a no-op, which is expected/desired as
     // it means we've successfully "validate" a path to its end.
     for (const edge of state.supergraphPath.nextEdges()) {
+      if (edge.isEdgeForField(typenameFieldName)) {
+        // There is no point in validing __typename edges: we know we can always get those.
+        continue;
+      }
+
       const newState = state.validateTransition(this.supergraphSchema, edge, this.cache, this.conditionsCache);
       // The check for `isTerminal` is not strictly necessary as if we add a terminal
       // state to the stack this method, `handleState`, will do nothing later. But it's

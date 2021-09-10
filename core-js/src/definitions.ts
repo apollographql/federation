@@ -834,11 +834,16 @@ export class Schema {
    * All the types defined on this schema, excluding the built-in types.
    */
   *types<T extends NamedType>(kind?: T['kind']): Generator<T, void, undefined> {
-    for (const type of this._types.values()) {
-      if (!kind || kind === type.kind) {
-        yield type as T;
+    if (kind) {
+      for (const type of this._types.values()) {
+        if (kind === type.kind) {
+          yield type as T;
+        }
       }
+    } else {
+      yield* this._types.values() as IterableIterator<T>
     }
+
   }
 
   /**
@@ -1326,6 +1331,20 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
 
 export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer> {
   readonly kind = 'ObjectType' as const;
+
+
+  /**
+   *  Whether this type is one of the schema root type (will return false if the type is detached).
+   */
+  isRootType(): boolean {
+    const schema = this.schema();
+    if (!schema) {
+      return false;
+    }
+
+    const rootTypes = [...schema.schemaDefinition.roots()];
+    return rootTypes.some(rt => rt.type == this);
+  }
 }
 
 export class InterfaceType extends FieldBasedType<InterfaceType, InterfaceTypeReferencer> {

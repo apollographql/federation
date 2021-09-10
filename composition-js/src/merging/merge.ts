@@ -228,8 +228,8 @@ function copyTypeReference(source: Type, dest: Schema): Type {
       return new NonNullType(copyTypeReference(source.ofType, dest) as NullableType);
     default:
       const type = dest.type(source.name);
-      assert(type, `Cannot find type ${source} in destination schema (with types: ${[...dest.types()].join(', ')})`);
-      return type;
+      assert(type, () => `Cannot find type ${source} in destination schema (with types: ${[...dest.types()].join(', ')})`);
+      return type!;
   }
 }
 
@@ -319,8 +319,9 @@ class Merger {
     }
 
     // We merge the roots first as it only depend on the type existing, not being fully merged, and when
-    // we merge types next, we actually rely on this having been called to detect the "query root type"
-    // (in order to skip the _entities and _service fields on that particular type).
+    // we merge types next, we actually rely on this having been called to detect "root types"
+    // (in order to skip the _entities and _service fields on that particular type, and to avoid
+    // calling root type a "value type" when hinting).
     this.mergeSchemaDefinition(this.subgraphsSchema.map(s => s.schemaDefinition), this.merged.schemaDefinition);
 
     for (const type of this.merged.types()) {
@@ -568,6 +569,7 @@ class Merger {
 
   private mergeObject(sources: (ObjectType | undefined)[], dest: ObjectType) {
     const isEntity = this.hintOnInconsistentEntity(sources, dest);
+    const isValueType = !isEntity && !dest.isRootType;
     this.addFieldsShallow(sources, dest);
     if ([...dest.fields()].length === 0) {
       // This can happen for a type that existing in the subgraphs but had only non-merged fields
@@ -576,7 +578,7 @@ class Merger {
       dest.remove();
     } else {
       for (const destField of dest.fields()) {
-        if (!isEntity) {
+        if (isValueType) {
           this.hintOnInconsistentValueTypeField(sources, dest, destField.name);
         }
         const subgraphFields = sources.map(t => t?.field(destField.name));

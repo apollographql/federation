@@ -215,6 +215,10 @@ export class Subgraphs {
     return idx >= 0 ? this.subgraphs[idx] : undefined;
   }
 
+  size(): number {
+    return this.subgraphs.length;
+  }
+
   names(): readonly string[] {
     return this.subgraphs.map(s => s.name);
   }
