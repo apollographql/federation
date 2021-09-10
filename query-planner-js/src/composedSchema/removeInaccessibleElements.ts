@@ -23,11 +23,12 @@ export function removeInaccessibleElements(
   const inaccessibleDirective = schema.getDirective('inaccessible');
   if (!inaccessibleDirective) return schema;
 
+  const typeMap = schema.getTypeMap();
   // We need to compute the types to remove beforehand, because we also need
   // to remove any fields that return a removed type. Otherwise, GraphQLSchema
   // being a graph just means the removed type would be added back.
   const typesToRemove = new Set(
-    Object.values(schema.getTypeMap()).filter((type) => {
+    Object.values(typeMap).filter((type) => {
       // If the type hasn't been built from an AST, it won't have directives.
       // This shouldn't happen, because we only call this function from
       // buildComposedSchema and that builds the schema from the supergraph SDL.
@@ -37,6 +38,20 @@ export function removeInaccessibleElements(
       return hasDirective(inaccessibleDirective, type.astNode);
     }),
   );
+
+  Object.values(typeMap)
+    // skip checking types already marked for removal
+    .filter((type) => !typesToRemove.has(type))
+    .filter(isUnionType)
+    .forEach((type) => {
+      const accessibleTypes = type
+        .getTypes()
+        .filter((t) => !typesToRemove.has(t));
+
+      if (accessibleTypes.length === 0) {
+        typesToRemove.add(type);
+      }
+    });
 
   removeRootTypesIfNeeded();
 
