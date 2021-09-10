@@ -267,7 +267,9 @@ test('removal of all inacessible elements of a schema', () => {
   }
 
   expect(printSchema(schema)).toMatchString(`
-    schema @foo {
+    schema
+      @foo
+    {
       query: Query
     }
 
@@ -476,11 +478,13 @@ test('handling of extensions', () => {
       i1: Int
     }
 
-    extend interface AInterface @deprecated
+    extend interface AInterface
+      @deprecated
 
     scalar AScalar
 
-    extend scalar AScalar @deprecated
+    extend scalar AScalar
+      @deprecated
 
     extend type AType {
       t1: Int
@@ -517,11 +521,14 @@ test('handling of extensions', () => {
       query: AType
     }
 
-    interface AInterface @deprecated {
+    interface AInterface
+      @deprecated
+    {
       i1: Int
     }
 
-    scalar AScalar @deprecated
+    scalar AScalar
+      @deprecated
 
     type AType {
       t1: Int

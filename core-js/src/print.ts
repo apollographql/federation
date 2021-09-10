@@ -158,13 +158,18 @@ export function printDirectiveDefinition(directive: DirectiveDefinition, options
   return `${printDescription(directive)}directive ${directive}${printArgs([...directive.arguments()], options)}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
-function printAppliedDirectives(appliedDirectives: readonly Directive<any>[], options: Options, onNewLines: boolean = false): string {
+function printAppliedDirectives(
+  appliedDirectives: readonly Directive<any>[],
+  options: Options,
+  onNewLines: boolean = false,
+  endWithNewLine: boolean = onNewLines
+): string {
   if (appliedDirectives.length == 0) {
     return "";
   }
   const joinStr = onNewLines ? '\n' + options.indentString : ' ';
   const directives = appliedDirectives.map(d => d.toString()).join(joinStr);
-  return onNewLines ? '\n' + options.indentString + directives + '\n' : ' ' + directives;
+  return onNewLines ? '\n' + options.indentString + directives + (endWithNewLine ? '\n' : '') : ' ' + directives;
 }
 
 function printDescription(
@@ -189,7 +194,7 @@ function printScalarDefinitionOrExtension(type: ScalarType, options: Options, ex
   if (extension && !directives.length) {
     return undefined;
   }
-  return `${printDescription(type)}${printIsExtension(extension)}scalar ${type.name}${printAppliedDirectives(directives, options, true)}`
+  return `${printDescription(type)}${printIsExtension(extension)}scalar ${type.name}${printAppliedDirectives(directives, options, true, false)}`
 }
 
 function printImplementedInterfaces(implementations: readonly InterfaceImplementation<any>[]): string {
@@ -209,7 +214,7 @@ function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType
     + printIsExtension(extension)
     + kind + ' ' + type
     + printImplementedInterfaces(interfaces)
-    + printAppliedDirectives(directives, options, true)
+    + printAppliedDirectives(directives, options, true, fields.length > 0)
     + (directives.length === 0 ? ' ' : '')
     + printFields(fields, options);
 }
@@ -224,7 +229,7 @@ function printUnionDefinitionOrExtension(type: UnionType, options: Options, exte
   return printDescription(type)
     + printIsExtension(extension)
     + 'union ' + type
-    + printAppliedDirectives(directives, options, true)
+    + printAppliedDirectives(directives, options, true, members.length > 0)
     + possibleTypes;
 }
 
@@ -242,7 +247,7 @@ function printEnumDefinitionOrExtension(type: EnumType, options: Options, extens
   return printDescription(type)
     + printIsExtension(extension)
     + 'enum ' + type
-    + printAppliedDirectives(directives, options, true)
+    + printAppliedDirectives(directives, options, true, vals.length > 0)
     + (directives.length === 0 ? ' ' : '')
     + printBlock(vals);
 }
@@ -256,7 +261,7 @@ function printInputDefinitionOrExtension(type: InputObjectType, options: Options
   return printDescription(type)
     + printIsExtension(extension)
     + 'input ' + type
-    + printAppliedDirectives(directives, options, true)
+    + printAppliedDirectives(directives, options, true, fields.length > 0)
     + (directives.length === 0 ? ' ' : '')
     + printFields(fields, options);
 }
