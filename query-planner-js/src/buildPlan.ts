@@ -1105,8 +1105,10 @@ function operationForEntitiesFetch(
   allVariableDefinitions: VariableDefinitions
   //internalFragments: Set<FragmentDefinitionNode>,
 ): DocumentNode {
-  const variableDefinitions = allVariableDefinitions.filter(selectionSet.usedVariables());
+  const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
+  variableDefinitions.addAll(allVariableDefinitions.filter(selectionSet.usedVariables()));
+
   const queryType = subgraphSchema.schemaDefinition.rootType('query');
   assert(queryType, `Subgraphs should always have a query root (they should at least provides _entities)`);
 

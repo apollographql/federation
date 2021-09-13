@@ -1051,7 +1051,6 @@ class Merger {
       return source.locations;
     }
     return source.locations.filter(loc => executableDirectiveLocations.includes(loc));
-
   }
 
   private mergeAppliedDirectives(sources: (SchemaElement<any> | undefined)[], dest: SchemaElement<any>) {

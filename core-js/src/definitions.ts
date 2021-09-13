@@ -2214,6 +2214,12 @@ export class VariableDefinitions {
     return true;
   }
 
+  addAll(definitions: VariableDefinitions) {
+    for (const definition of definitions._definitions.values()) {
+      this.add(definition);
+    }
+  }
+
   definition(variable: Variable | string): VariableDefinition | undefined {
     const varName = typeof variable === 'string' ? variable : variable.name;
     return this._definitions.get(varName);
@@ -2484,6 +2490,7 @@ function copyWrapperTypeOrTypeRef(source: Type | undefined, destParent: Schema):
 function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveDefinition>(source: ArgumentDefinition<P>, dest: ArgumentDefinition<P>) {
   const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()!) as InputType;
   dest.type = type;
+  dest.defaultValue = source.defaultValue;
   copyAppliedDirectives(source, dest);
   dest.sourceAST = source.sourceAST;
 }
