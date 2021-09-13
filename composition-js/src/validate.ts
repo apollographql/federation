@@ -22,6 +22,7 @@ import {
   Edge,
   federatedGraphRootTypeName,
   QueryGraph,
+  emptyContext,
   freeTransition,
   GraphPath,
   RootPath,
@@ -31,7 +32,7 @@ import {
   advanceSimultaneousPathsWithOperation,
   ExcludedEdges,
   QueryGraphState,
-  SimultaneousPaths
+  SimultaneousPaths,
 } from "@apollo/query-graphs";
 import { print } from "graphql";
 
@@ -389,6 +390,7 @@ class ConditionValidationState {
         supergraphSchema,
         path,
         this.selection.element(),
+        emptyContext,
         (conditions, vertex, excluded) => validateConditions(supergraphSchema, conditions, GraphPath.create(path[0].graph, vertex), cache, excluded),
         cache,
         excludedEdges

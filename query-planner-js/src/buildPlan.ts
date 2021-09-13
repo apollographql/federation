@@ -22,6 +22,7 @@ import {
   SchemaRootKind,
   Selection,
   SelectionSet,
+  selectionSetOf,
   selectionSetOfPath,
   Type,
   UnionType,
@@ -33,14 +34,17 @@ import {
   advanceSimultaneousPathsWithOperation,
   buildFederatedQueryGraph,
   Edge,
+  emptyContext,
   ExcludedEdges,
   FieldCollection,
   QueryGraph,
   GraphPath,
   QueryGraphState,
+  isPathContext,
   isRootVertex,
   OpGraphPath,
   OpPathTree,
+  PathContext,
   PathTree,
   requireEdgeAdditionalConditions,
   Vertex,
@@ -51,17 +55,17 @@ import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNod
 
 class State<RV extends Vertex> {
   constructor(
-    readonly openPaths: [Selection, OpGraphPath<RV>[]][],
+    readonly openPaths: [Selection, PathContext, OpGraphPath<RV>[]][],
     readonly closedPaths: OpPathTree<RV>
   ) {
   }
 
-  addPaths(selections: SelectionSet | undefined, paths: OpGraphPath<RV>[]): State<RV> {
+  addPaths(selections: SelectionSet | undefined, context: PathContext, paths: OpGraphPath<RV>[]): State<RV> {
     if (!selections) {
       const newState = new State([...this.openPaths], paths.reduce((closed, p) => closed.mergePath(p), this.closedPaths));
       return newState;
     } else {
-      const newOpenPaths: [Selection, OpGraphPath<RV>[]][] = [...selections.selections()].map(node => [node, paths]);
+      const newOpenPaths: [Selection, PathContext, OpGraphPath<RV>[]][] = [...selections.selections()].map(node => [node, context, paths]);
       const newState = new State(this.openPaths.concat(newOpenPaths), this.closedPaths);
       return newState;
     }
@@ -95,7 +99,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
   ) {
     const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
     const initialTree = PathTree.createOp(subgraphs, startVertex);
-    const opens: [Selection, OpGraphPath<RV>[]][] = [...selectionSet.selections()].map(node => [node, [initialPath]]);
+    const opens: [Selection, PathContext, OpGraphPath<RV>[]][] = [...selectionSet.selections()].map(node => [node, emptyContext, [initialPath]]);
     this.stack.push(new State(opens, initialTree));
   }
 
@@ -119,12 +123,14 @@ class QueryPlanningTaversal<RV extends Vertex> {
   }
 
   private handleState(state: State<RV>) {
-    const [selection, path] = state.openPaths.pop()!;
+    const [selection, context, path] = state.openPaths.pop()!;
     const operation = selection.element();
+    const updatedContext = context.withContextOf(operation);
     const newPaths = advanceSimultaneousPathsWithOperation(
       this.supergraphSchema,
       path,
       operation,
+      updatedContext,
       (conditions, vertex, excluded) => this.resolveConditionPlan(conditions, vertex, excluded),
       this.cache,
       this.excludedEdges
@@ -142,7 +148,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       this.onUpdatedState(state);
     } else {
       for (const possiblePath of newPaths) {
-        const updatedState = state.addPaths(selection.selectionSet, possiblePath);
+        const updatedState = state.addPaths(selection.selectionSet, updatedContext, possiblePath);
         this.onUpdatedState(updatedState);
       }
     }
@@ -816,6 +822,33 @@ function computeFetchGroups<RV extends Vertex>(subgraphSchemas: ReadonlyMap<stri
   return dependencyGraph;
 }
 
+function createKeySelectionContext(type: CompositeType, selections: SelectionSet, context: PathContext): [Selection, OperationPath] {
+  const typeCast = new FragmentElement(type, type.name);
+  let inputSelection = new FragmentSelection(typeCast, selections);
+  let path = [typeCast];
+  if (context.isEmpty()) {
+    return [inputSelection, path];
+  }
+
+  const schema = type.schema()!;
+  // We add the first include/skip to the current typeCast and then wrap in additional type-casts for the next ones
+  // if necessary. Note that we use type-casts (... on <type>), but, outside of the first one, we could well also
+  // use fragments with no type-condition. We do the former mostly to preverve older behavior, but doing the latter
+  // would technically procude slightly small query plans.
+  const [name0, ifs0] = context.directives[0];
+  typeCast.applyDirective(schema.directive(name0)!, { 'if': ifs0 });
+
+  for (let i = 1; i < context.directives.length; i++) {
+    let [name, ifs] = context.directives[i];
+    const fragment = new FragmentElement(type, type.name);
+    fragment.applyDirective(schema.directive(name)!, { 'if': ifs });
+    inputSelection = new FragmentSelection(fragment, selectionSetOf(type, inputSelection));
+    path = [fragment].concat(path);
+  }
+
+  return [inputSelection, path];
+}
+
 function computeGroupsForTree(
   dependencyGraph: FetchDependencyGraph,
   pathTree: OpPathTree<any>,
@@ -831,7 +864,7 @@ function computeGroupsForTree(
       group.addSelection(path);
     } else {
       for (const [edge, operation, conditions, child] of tree.childElements()) {
-        if (operation === null) {
+        if (isPathContext(operation)) {
           // The only 2 cases where we can take edge not "driven" by an operation is either when we resolve a key, or
           // at the root of subgraph graph, but we've already handled the later at the beginning of `computeFetchGroups`
           // so it must be a key resolution.
@@ -851,13 +884,14 @@ function computeGroupsForTree(
           const inputSelections = new SelectionSet(type);
           inputSelections.add(new FieldSelection(new Field(type.typenameField()!)));
           inputSelections.mergeIn(edge.conditions!);
-          const typeCast = new FragmentElement(type, type.name);
-          newGroup.addInputs(new FragmentSelection(typeCast, inputSelections));
+
+          const [inputs, newPath] = createKeySelectionContext(type, inputSelections, operation);
+          newGroup.addInputs(inputs);
 
           // We also ensure to get the __typename of the current type in the "original" group.
           group.addSelection([...path, new Field((edge.head.type as CompositeType).typenameField()!)]);
 
-          stack.push([child, newGroup, mergeAt, [typeCast]]);
+          stack.push([child, newGroup, mergeAt, newPath]);
         } else if (edge === null) {
           // A null edge means that the operation does nothing but may contain directives to preserve.
           // If it does contains directives, we preserve the operation, otherwise, we just skip it

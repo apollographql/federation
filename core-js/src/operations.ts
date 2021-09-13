@@ -65,14 +65,15 @@ function haveSameDirectives<TElement extends OperationElement>(op1: TElement, op
 }
 
 class AbstractOperationElement<T extends AbstractOperationElement<T>> extends DirectiveTargetElement<T> {
-  public readonly variables: Variables
-
   constructor(
     schema: Schema,
-    variablesInElement: Variables
+    private readonly variablesInElement: Variables
   ) {
     super(schema);
-    this.variables = mergeVariables(variablesInElement, this.variablesInAppliedDirectives());
+  }
+
+  variables(): Variables {
+    return mergeVariables(this.variablesInElement, this.variablesInAppliedDirectives());
   }
 }
 
@@ -295,6 +296,12 @@ function addDirectiveNodesToElement(directiveNodes: readonly DirectiveNode[] | u
     validate(directiveDef, `Unknown directive "@${node.name.value}" in selection`)
     element.applyDirective(directiveDef, argumentsFromAST(node.arguments));
   }
+}
+
+export function selectionSetOf(parentType: CompositeType, selection: Selection): SelectionSet {
+  const selectionSet = new SelectionSet(parentType);
+  selectionSet.add(selection);
+  return selectionSet;
 }
 
 export class SelectionSet {
@@ -573,7 +580,7 @@ export class FieldSelection {
   }
 
   usedVariables(): Variables {
-    return mergeVariables(this.element().variables, this.selectionSet?.usedVariables() ?? []);
+    return mergeVariables(this.element().variables(), this.selectionSet?.usedVariables() ?? []);
   }
 
   private fieldArgumentsToAST(): ArgumentNode[] | undefined {
@@ -695,7 +702,7 @@ export class FragmentSelection {
   }
 
   usedVariables(): Variables {
-    return mergeVariables(this.element().variables, this.selectionSet.usedVariables());
+    return mergeVariables(this.element().variables(), this.selectionSet.usedVariables());
   }
 
   updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {

@@ -2,6 +2,7 @@ import { assert, Field, FragmentElement, InterfaceType, NamedType, OperationElem
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, QueryGraphState } from "./querygraph";
 import { Transition } from "./transition";
+import { PathContext, emptyContext } from "./pathContext";
 
 /**
  * An immutable path in a query graph.
@@ -262,7 +263,7 @@ export type RootPath<TTrigger, TNullEdge extends null | never = never> = GraphPa
 /**
  * A `GraphPath` whose triggers are `OperationElement` (essentially meaning that the path has been guided by a graphQL query).
  */
-export type OpGraphPath<RV extends Vertex = Vertex> = GraphPath<OperationElement | null, RV, null>;
+export type OpGraphPath<RV extends Vertex = Vertex> = GraphPath<OperationElement | PathContext, RV, null>;
 
 /**
  * An `OpGraphPath` that starts on a vertex that is a root vertex (of the query graph of which this is a path).
@@ -373,7 +374,7 @@ export function advancePathWithTransition<V extends Vertex>(
     return options;
   }
   // Otherwise, let's try non-collecting edges and see if we can find some (more) options there.
-  const pathsWithNonCollecting = advancePathWithNonCollectingAndTypePreservingTransitions(subgraphPath, conditionResolver, excludedNonCollectingEdges, t => t, cache);
+  const pathsWithNonCollecting = advancePathWithNonCollectingAndTypePreservingTransitions(subgraphPath, emptyContext, conditionResolver, excludedNonCollectingEdges, t => t, cache);
   if (pathsWithNonCollecting.length > 0) {
     options = options.concat(pathsWithNonCollecting.flatMap(p => advancePathWithDirectTransition(p, transition, targetType.name, conditionResolver)));
   }
@@ -421,17 +422,32 @@ function popMin<TTrigger, V extends Vertex, TNullEdge extends null | never = nev
 
 function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
   path: GraphPath<TTrigger, V, TNullEdge>,
+  context: PathContext,
   conditionResolver: ConditionResolver,
   excludedEdges: ExcludedEdges,
-  convertTransitionWithCondition: (transition: Transition) => TTrigger,
+  convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
   cache: QueryGraphState<GraphPath<TTrigger, Vertex, TNullEdge>[]>,
 ): GraphPath<TTrigger, V, TNullEdge>[] {
+  // if there is a context (some @skip/@include), we completely bypass the cache (because the context will need to be added to any key edges, and while
+  // we could have a cache per-context, it doesn't seem worth it).
+  if (!context.isEmpty()) {
+    return advancePathWithNonCollectingAndTypePreservingTransitionsNoCache(
+      path,
+      context,
+      conditionResolver,
+      excludedEdges,
+      convertTransitionWithCondition
+    );
+  }
+
   let cachedPaths = cache.getVertexState(path.tail);
   if (!cachedPaths) {
-    // We only cache where there was no excluded edges.
+    // We only cache where there was no excluded edges (that way we know we can always use the cache, whatever the excluded edges are
+    // by excluding anythign cached that has the exluded edges).
     if (excludedEdges.length !== 0) {
       return advancePathWithNonCollectingAndTypePreservingTransitionsNoCache(
         path,
+        context,
         conditionResolver,
         excludedEdges,
         convertTransitionWithCondition
@@ -440,6 +456,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
 
     cachedPaths = advancePathWithNonCollectingAndTypePreservingTransitionsNoCache(
       GraphPath.create(path.graph, path.tail),
+      context,
       conditionResolver,
       excludedEdges,
       convertTransitionWithCondition
@@ -458,9 +475,10 @@ function conditionTree(resolution: [OpPathTree, number] | undefined): OpPathTree
 
 function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
   path: GraphPath<TTrigger, V, TNullEdge>,
+  context: PathContext,
   conditionResolver: ConditionResolver,
   excludedEdges: ExcludedEdges,
-  convertTransitionWithCondition: (transition: Transition) => TTrigger,
+  convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
 ): GraphPath<TTrigger, V, TNullEdge>[] {
   const typeName = isFederatedGraphRootType(path.tail.type) ? undefined : path.tail.type.name;
   const originalSource = path.tail.source;
@@ -515,7 +533,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
         if (prevForSource && prevForSource[0].size === toAdvance.size + 1 && prevForSource[1] <= cost) {
           continue;
         }
-        const updatedPath = toAdvance.add(convertTransitionWithCondition(edge.transition), edge, conditionTree(resolution));
+        const updatedPath = toAdvance.add(convertTransitionWithCondition(edge.transition, context), edge, conditionTree(resolution));
         bestPathBySource.set(target.source, [updatedPath, cost]);
         toTry.push(updatedPath);
       }
@@ -587,6 +605,10 @@ function isTerminalOperation(operation: OperationElement): boolean {
   return operation.kind === 'Field' && isLeafType(baseType(operation.definition.type!));
 }
 
+function isNonConditionFragment(type: NamedType, operation: OperationElement): boolean {
+  return operation.kind === 'FragmentElement' && (!operation.typeCondition || operation.typeCondition.name === type.name);
+}
+
 export type SimultaneousPaths<V extends Vertex = Vertex> = OpGraphPath<V>[];
 
 // Returns undefined if the operation cannot be dealt with/advanced. Otherwise, it returns a list of options we can be in after advancing the operation, each option
@@ -597,25 +619,31 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   subgraphSimultaneousPaths: SimultaneousPaths<V>,
   operation: OperationElement,
+  context: PathContext,
   conditionResolver: ConditionResolver,
   cache: QueryGraphState<OpGraphPath[]>,
   excludedNonCollectingEdges: ExcludedEdges = []
 ) : SimultaneousPaths<V>[] | undefined {
-  let options = advanceWithOperation(supergraphSchema, subgraphSimultaneousPaths, operation, conditionResolver, cache);
+  let options = advanceWithOperation(supergraphSchema, subgraphSimultaneousPaths, operation, context, conditionResolver, cache);
   // Like with transitions, if we can find a terminal field with a direct edge, there is no point in trying to
   // take indirect paths (this is not true for non-terminal, because for those, the direct paths may be dead ends,
   // but for terminal, we're at the end so ...).
   // Similarly, if we gets options but an empty set, it means the operation correspond to unsatisfiable conditions and we
   // can essentially ignore it. So no point in trying to take non-collecting edges.
-  if (options && (options.length === 0 || isTerminalOperation(operation))) {
+  // Lastly, we have the case of a fragment that doesnt change the type (no type condition or the condition is the current type).
+  // In that case too there is no point in looking for non-collecting edges since the "next" operation will be able to
+  // take the same exact edges (we're staying on the same type) but have more context to do so. In fact, it's better not to
+  // take those edges (yet) in general as the condition might have a skip/include, and it's more efficient to apply those skip/include
+  // as soon as possible (so before taking an edge if we end up taking one).
+  if (options && (options.length === 0 || isTerminalOperation(operation) || isNonConditionFragment(subgraphSimultaneousPaths[0].tail.type, operation))) {
     return options;
   }
   // If there was not valid direct path, that's ok, we'll just try with non-collecting edges.
   options = options ?? [];
   // Then adds whatever options can be obtained by taking some non-collecting edges first.
-  const pathsWithNonCollecting = advanceAllWithNonCollectingAndTypePreservingTransitions(subgraphSimultaneousPaths, conditionResolver, excludedNonCollectingEdges, cache);
+  const pathsWithNonCollecting = advanceAllWithNonCollectingAndTypePreservingTransitions(subgraphSimultaneousPaths, context, conditionResolver, excludedNonCollectingEdges, cache);
   for (const pathWithNonCollecting of pathsWithNonCollecting) {
-    const pathWithOperation = advanceWithOperation(supergraphSchema, pathWithNonCollecting, operation, conditionResolver, cache);
+    const pathWithOperation = advanceWithOperation(supergraphSchema, pathWithNonCollecting, operation, context, conditionResolver, cache);
     // If we can't advance the operation after that path, ignore it, it's just not an option.
     if (!pathWithOperation) {
       continue;
@@ -632,6 +660,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
 
 function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Vertex>(
   paths: SimultaneousPaths<V>,
+  context: PathContext,
   conditionResolver: ConditionResolver,
   excludedEdges: ExcludedEdges,
   cache: QueryGraphState<OpGraphPath[]>,
@@ -639,10 +668,12 @@ function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Verte
   const optionsForEachPaths = paths.map(p => 
     advancePathWithNonCollectingAndTypePreservingTransitions(
       p,
+      context,
       conditionResolver,
       excludedEdges,
-      // the transition taken by this function are non collecting transitions, so we use null as trigger.
-      _t => null,
+      // the transitions taken by this function are non collecting transitions, and we ship the context as trigger (a slight hack admittedly,
+      // but as we'll need the context handy for keys ...).
+      (_t, context) => context,
       cache
     )
   );
@@ -657,12 +688,13 @@ function advanceWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   simultaneousPaths: SimultaneousPaths<V>,
   operation: OperationElement,
+  context: PathContext,
   conditionResolver: ConditionResolver,
   cache: QueryGraphState<OpGraphPath[]>
 ): SimultaneousPaths<V>[] | undefined {
   const newPaths: SimultaneousPaths<V>[][] = [];
   for (const path of simultaneousPaths) {
-    const updated = advanceOneWithOperation(supergraphSchema, path, operation, conditionResolver, cache);
+    const updated = advanceOneWithOperation(supergraphSchema, path, operation, context, conditionResolver, cache);
     // We must be able to apply the operation on all the simultaneous paths, otherwise the whole set of simultaneous paths cannot fullfill
     // the operation and we can abort early.
     if (!updated) {
@@ -697,6 +729,7 @@ function advanceOneWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   path: OpGraphPath<V>,
   operation: OperationElement,
+  context: PathContext,
   conditionResolver: ConditionResolver,
   cache: QueryGraphState<OpGraphPath[]>
 ) : SimultaneousPaths<V>[] | undefined {
@@ -731,6 +764,7 @@ function advanceOneWithOperation<V extends Vertex>(
             supergraphSchema,
             [path],
             castOp,
+            context,
             conditionResolver,
             cache
           );
@@ -749,6 +783,7 @@ function advanceOneWithOperation<V extends Vertex>(
               supergraphSchema,
               optPaths,
               operation,
+              context,
               conditionResolver,
               cache
             );
@@ -803,6 +838,7 @@ function advanceOneWithOperation<V extends Vertex>(
             supergraphSchema,
             [path],
             castOp,
+            context,
             conditionResolver,
             cache
           );

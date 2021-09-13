@@ -1,6 +1,7 @@
 import { assert, OperationElement } from "@apollo/core";
 import { GraphPath } from "./graphPath";
 import { Edge, QueryGraph, RootVertex, Vertex } from "./querygraph";
+import { PathContext, isPathContext } from "./pathContext";
 
 export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> {
   private constructor(
@@ -23,11 +24,11 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
   }
 
   static createOp<RV extends Vertex = Vertex>(graph: QueryGraph, root: RV): OpPathTree<RV> {
-    const opEquals = (op1: OperationElement | null, op2: OperationElement | null) => {
-      if (op1 === null) {
-        return op2 === null;
+    const opEquals = (op1: OperationElement | PathContext, op2: OperationElement | PathContext) => {
+      if (isPathContext(op1)) {
+        return isPathContext(op2) && op1.equals(op2);
       }
-      if (op2 === null) {
+      if (isPathContext(op2)) {
         return false;
       }
       switch (op1.kind) {
@@ -209,7 +210,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
 
 export type RootPathTree<TTrigger, TNullEdge extends null | never = never> = PathTree<TTrigger, RootVertex, TNullEdge>;
 
-export type OpPathTree<RV extends Vertex = Vertex> = PathTree<OperationElement | null, RV, null>;
+export type OpPathTree<RV extends Vertex = Vertex> = PathTree<OperationElement | PathContext, RV, null>;
 export type OpRootPathTree = OpPathTree<RootVertex>;
 
 export function traversePathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never>(
