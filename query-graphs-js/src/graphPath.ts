@@ -635,7 +635,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   // take the same exact edges (we're staying on the same type) but have more context to do so. In fact, it's better not to
   // take those edges (yet) in general as the condition might have a skip/include, and it's more efficient to apply those skip/include
   // as soon as possible (so before taking an edge if we end up taking one).
-  if (options && (options.length === 0 || isTerminalOperation(operation) || isNonConditionFragment(subgraphSimultaneousPaths[0].tail.type, operation))) {
+  if (options && (options.length === 0 || isTerminalOperation(operation) || (isNonConditionFragment(subgraphSimultaneousPaths[0].tail.type, operation)))) {
     return options;
   }
   // If there was not valid direct path, that's ok, we'll just try with non-collecting edges.
@@ -734,6 +734,11 @@ function advanceOneWithOperation<V extends Vertex>(
   cache: QueryGraphState<OpGraphPath[]>
 ) : SimultaneousPaths<V>[] | undefined {
   const currentType = path.tail.type;
+  if (isFederatedGraphRootType(currentType)) {
+    // We cannot advance any operation from there: we need to take the initial non-collecting edges first.
+    return undefined;
+  }
+
   if (operation.kind === 'Field') {
     switch (currentType.kind) {
       case 'ObjectType':

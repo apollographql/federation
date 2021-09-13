@@ -76,7 +76,7 @@ class State<RV extends Vertex> {
   }
 
   toString(indent: string = ""): string {
-    return `open: [${this.openPaths.map(([n, p]) => `${n.element()} => ${p}`)}]\n${indent}closed: [${this.closedPaths.toString(indent + '    ')}]`;
+    return `open: [${this.openPaths.map(([n, _, p]) => `${n.element()} => ${p}`)}]\n${indent}closed: [${this.closedPaths.toString(indent + '    ')}]`;
   }
 }
 
