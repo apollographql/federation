@@ -313,7 +313,7 @@ export class SelectionSet {
     validate(!isLeafType(parentType), `Cannot have selection on non-leaf type ${parentType}`);
   }
 
-  selections(): readonly Selection[] {
+  selections():  Selection[] {
     return [...this._selections.values()].flat();
   }
 

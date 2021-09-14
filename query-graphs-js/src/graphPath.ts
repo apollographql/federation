@@ -1,4 +1,20 @@
-import { assert, Field, FragmentElement, InterfaceType, NamedType, OperationElement, possibleRuntimeTypes, Schema, SchemaRootKind, SelectionSet, isLeafType, baseType, parseSelectionSet, CompositeType, isAbstractType } from "@apollo/core";
+import {
+  assert,
+  Field,
+  FragmentElement,
+  InterfaceType,
+  NamedType,
+  OperationElement,
+  possibleRuntimeTypes,
+  Schema,
+  SchemaRootKind,
+  SelectionSet,
+  isLeafType,
+  baseType,
+  parseSelectionSet,
+  CompositeType,
+  isAbstractType
+} from "@apollo/core";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, QueryGraphState } from "./querygraph";
 import { Transition } from "./transition";
@@ -269,6 +285,10 @@ export type OpGraphPath<RV extends Vertex = Vertex> = GraphPath<OperationElement
  * An `OpGraphPath` that starts on a vertex that is a root vertex (of the query graph of which this is a path).
  */
 export type OpRootPath = OpGraphPath<RootVertex>;
+
+export function isRootPath(path: OpGraphPath<any>): path is OpRootPath {
+  return isRootVertex(path.root);
+}
 
 export function traversePath(
   path: GraphPath<any>,

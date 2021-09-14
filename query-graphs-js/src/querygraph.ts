@@ -639,7 +639,8 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
   const source = from.source;
   while (stack.length > 0) {
     const [v, selectionSet] = stack.pop()!;
-    for (const selection of selectionSet.selections()) {
+    // We reverse the selections to cancel the reversing that the stack does.
+    for (const selection of selectionSet.selections().reverse()) {
       const element = selection.element();
       if (element.kind == 'Field') {
         const fieldDef = element.definition;

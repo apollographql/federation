@@ -1,6 +1,6 @@
 import { assert, OperationElement } from "@apollo/core";
 import { GraphPath } from "./graphPath";
-import { Edge, QueryGraph, RootVertex, Vertex } from "./querygraph";
+import { Edge, QueryGraph, RootVertex, isRootVertex, Vertex } from "./querygraph";
 import { PathContext, isPathContext } from "./pathContext";
 
 export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> {
@@ -47,15 +47,25 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     return this.childCount() === 0;
   }
 
-  *childElements(): Generator<[Edge | TNullEdge, TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>], void, undefined> {
-    for (let i = 0; i < this.childs.length; i++) {
-      yield [
-        this.edgeAt(i, this.vertex),
-        this.childsTrigger[i],
-        this.childsConditions[i],
-        this.childs[i]
-      ];
+  *childElements(reverseOrder: boolean = false): Generator<[Edge | TNullEdge, TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>], void, undefined> {
+    if (reverseOrder) {
+      for (let i = this.childs.length - 1; i >= 0; i--) {
+        yield this.element(i);
+      }
+    } else {
+      for (let i = 0; i < this.childs.length; i++) {
+        yield this.element(i);
+      }
     }
+  }
+
+  private element(i: number): [Edge | TNullEdge, TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>] {
+    return [
+      this.edgeAt(i, this.vertex),
+      this.childsTrigger[i],
+      this.childsConditions[i],
+      this.childs[i]
+    ];
   }
 
   private edgeAt(index: number, v: Vertex): Edge | TNullEdge {
@@ -100,6 +110,37 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
         }
       }
     }
+
+    return new PathTree(
+      this.graph,
+      this.vertex,
+      this.triggerEquality,
+      newChilds,
+      newChildsTrigger,
+      newChildsIndexes,
+      newChildsConditions
+    );
+  }
+
+  // Like merge(), this create a new tree that contains the content of both `this` and `other` to this pathTree, but contrarily 
+  // to merge() this never merge childs together, even if they are equal. This is only for the special case of mutations.
+  concat(other: PathTree<TTrigger, RV, TNullEdge>): PathTree<TTrigger, RV, TNullEdge> {
+    assert(other.graph === this.graph, 'Cannot concat path tree build on another graph');
+    assert(other.vertex.index === this.vertex.index, `Cannot contat path tree rooted at vertex ${other.vertex} into tree rooted at other vertex ${this.vertex}`);
+    if (!other.childs.length) {
+      return this;
+    }
+    if (!this.childs.length) {
+      return other;
+    }
+    // Note that in some cases we could save ourselves some duplications, when the set of trigger/index/conditions of one is completely
+    // included in that of the other. That said, not sure it's worth the trouble (both in term of code complexity and on whether such
+    // "optimization" would actually pay off in practice).
+    const newChilds = this.childs.concat(other.childs);
+    const newChildsTrigger = this.childsTrigger.concat(other.childsTrigger);
+    const newChildsIndexes = this.childsIndexes.concat(other.childsIndexes);
+    const newChildsConditions = this.childsConditions.concat(other.childsConditions);
+
     return new PathTree(
       this.graph,
       this.vertex,
@@ -212,6 +253,10 @@ export type RootPathTree<TTrigger, TNullEdge extends null | never = never> = Pat
 
 export type OpPathTree<RV extends Vertex = Vertex> = PathTree<OperationElement | PathContext, RV, null>;
 export type OpRootPathTree = OpPathTree<RootVertex>;
+
+export function isRootPathTree(tree: OpPathTree<any>): tree is OpRootPathTree {
+  return isRootVertex(tree.vertex);
+}
 
 export function traversePathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never>(
   pathTree: PathTree<TTrigger, RV, TNullEdge>,

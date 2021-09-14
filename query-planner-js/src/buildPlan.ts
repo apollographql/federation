@@ -41,12 +41,14 @@ import {
   GraphPath,
   QueryGraphState,
   isPathContext,
-  isRootVertex,
+  isRootPathTree,
   OpGraphPath,
   OpPathTree,
+  OpRootPathTree,
   PathContext,
   PathTree,
   requireEdgeAdditionalConditions,
+  RootVertex,
   Vertex,
 } from "@apollo/query-graphs";
 import deepEqual from "deep-equal";
@@ -65,7 +67,9 @@ class State<RV extends Vertex> {
       const newState = new State([...this.openPaths], paths.reduce((closed, p) => closed.mergePath(p), this.closedPaths));
       return newState;
     } else {
-      const newOpenPaths: [Selection, PathContext, OpGraphPath<RV>[]][] = [...selections.selections()].map(node => [node, context, paths]);
+      // We reverse the selections because we're going to pop from `openPaths` and this ensure we end up handling things in
+      // the query order.
+      const newOpenPaths: [Selection, PathContext, OpGraphPath<RV>[]][] = selections.selections().reverse().map(node => [node, context, paths]);
       const newState = new State(this.openPaths.concat(newOpenPaths), this.closedPaths);
       return newState;
     }
@@ -92,14 +96,12 @@ class QueryPlanningTaversal<RV extends Vertex> {
     readonly variableDefinitions: VariableDefinitions,
     startVertex: RV,
     readonly costFunction: CostFunction,
-    readonly rootGroupsAreParallel: boolean,
     private readonly cache: QueryGraphState<OpGraphPath[]>,
     private readonly excludedEdges: ExcludedEdges = [],
-    readonly isTopLevel: boolean = true
   ) {
     const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
     const initialTree = PathTree.createOp(subgraphs, startVertex);
-    const opens: [Selection, PathContext, OpGraphPath<RV>[]][] = [...selectionSet.selections()].map(node => [node, emptyContext, [initialPath]]);
+    const opens: [Selection, PathContext, OpGraphPath<RV>[]][] = selectionSet.selections().reverse().map(node => [node, emptyContext, [initialPath]]);
     this.stack.push(new State(opens, initialTree));
   }
 
@@ -170,19 +172,20 @@ class QueryPlanningTaversal<RV extends Vertex> {
       this.variableDefinitions,
       vertex,
       this.costFunction,
-      true,
       this.cache,
-      excludedEdges,
-      false).findBestPlan();
+      excludedEdges
+    ).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
     return bestPlan ? [bestPlan[1], bestPlan[2]] : null;
   }
 
   private handleFinalPathSet(pathSet: OpPathTree<RV>) {
-    const dependencyGraph = computeFetchGroups(this.subgraphs.sources, pathSet);
-    const cost = dependencyGraph.process(this.costFunction, this.rootGroupsAreParallel);
-    //if (isRootVertex(pathSet.vertex)) {
+    const dependencyGraph = isRootPathTree(pathSet)
+      ? computeRootFetchGroups(this.subgraphs.sources, pathSet)
+      : computeNonRootFetchGroups(this.subgraphs.sources, pathSet);
+    const cost = this.costFunction.finalize(dependencyGraph.process(this.costFunction), true);
+    //if (isTopLevel) {
     //  console.log(`[PLAN] cost: ${cost}, path:\n${pathSet.toString('', true)}`);
     //}
     if (!this.bestPlan || cost < this.bestPlan[2]) {
@@ -227,23 +230,100 @@ export function computeQueryPlan(supergraphSchema: Schema, operation: Operation)
   const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema);
   const root = federatedQueryGraph.root(operation.rootKind);
   assert(root, `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
+  const processor = fetchGroupToPlanProcessor(operation.rootKind, operation.variableDefinitions);
+  if (operation.rootKind === 'mutation') {
+    const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
+    const rootNode = processor.finalize(dependencyGraphs.flatMap(g => g.process(processor)), false);
+    return { kind: 'QueryPlan', node: rootNode };
+  } else {
+    const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
+    const rootNode = processor.finalize(dependencyGraph.process(processor), true);
+    return { kind: 'QueryPlan', node: rootNode };
+  }
+}
+
+function computeRootParallelDependencyGraph(
+  supergraphSchema: Schema,
+  operation: Operation,
+  federatedQueryGraph: QueryGraph,
+  root: RootVertex
+): FetchDependencyGraph {
+  return computeRootParallelBestPlan(supergraphSchema, operation.selectionSet, operation.variableDefinitions, federatedQueryGraph, root)[0];
+}
+
+function computeRootParallelBestPlan(
+  supergraphSchema: Schema,
+  selection: SelectionSet,
+  variables: VariableDefinitions,
+  federatedQueryGraph: QueryGraph,
+  root: RootVertex
+): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
   const planningTraversal = new QueryPlanningTaversal(
     supergraphSchema,
     federatedQueryGraph,
-    operation.selectionSet,
-    operation.variableDefinitions,
+    selection,
+    variables,
     root,
     defaultCostFunction,
-    operation.rootKind !== 'mutation',
     new QueryGraphState<OpGraphPath[]>(federatedQueryGraph)
   );
   const bestPlan = planningTraversal.findBestPlan();
   if (!bestPlan) {
     throw new Error("Wasn't able to compute a valid plan. This shouldn't have happened.");
   }
-  const dependencyGraph: FetchDependencyGraph = bestPlan[0];
-  return toQueryPlan(operation.rootKind, operation.variableDefinitions, dependencyGraph);
+  return bestPlan;
 }
+
+function onlyRootSubgraph(graph: FetchDependencyGraph): string {
+  const subgraphs = graph.rootSubgraphs();
+  assert(subgraphs.length === 1, () => `${graph} should have only one root, but has [${graph.rootSubgraphs()}]`);
+  return subgraphs[0];
+}
+
+function computeRootSerialDependencyGraph(
+  supergraphSchema: Schema,
+  operation: Operation,
+  federatedQueryGraph: QueryGraph,
+  root: RootVertex
+): FetchDependencyGraph[] {
+  // We have to serially compute a plan for each top-level selection.
+  const splittedRoots = splitTopLevelFields(operation.selectionSet);
+  const graphs: FetchDependencyGraph[] = [];
+  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[0], operation.variableDefinitions, federatedQueryGraph, root);
+  let prevSubgraph = onlyRootSubgraph(prevDepGraph);
+  for (let i = 1; i < splittedRoots.length; i++) {
+    const [newDepGraph, newPaths] = computeRootParallelBestPlan(supergraphSchema, splittedRoots[i], operation.variableDefinitions, federatedQueryGraph, root);
+    const newSubgraph = onlyRootSubgraph(newDepGraph);
+    if (prevSubgraph === newSubgraph) {
+      // The new operation (think 'mutation' operation) is on the same subgraph than the previous one, so we can conat them in a single fetch
+      // and rely on the subgraph to enforce seriability. Do note that we need to `concat()` and not `merge()` because if we have
+      // mutation Mut {
+      //    mut1 {...}
+      //    mut2 {...}
+      //    mut1 {...}
+      // }
+      // then we should _not_ merge the 2 `mut1` fields (contrarily to what happens on queried fields).
+      prevPaths = prevPaths.concat(newPaths);
+      prevDepGraph = computeRootFetchGroups(federatedQueryGraph.sources, prevPaths);
+    } else {
+      graphs.push(prevDepGraph);
+      [prevDepGraph, prevPaths, prevSubgraph] = [newDepGraph, newPaths, newSubgraph];
+    }
+  }
+  graphs.push(prevDepGraph);
+  return graphs;
+}
+
+function splitTopLevelFields(selectionSet: SelectionSet): SelectionSet[] {
+  return selectionSet.selections().flatMap(selection => {
+    if (selection.kind === 'FieldSelection') {
+      return [selectionSetOf(selectionSet.parentType, selection)];
+    } else {
+      return splitTopLevelFields(selection.selectionSet).map(s => selectionSetOf(selectionSet.parentType, new FragmentSelection(selection.element(), s)));
+    }
+  });
+}
+
 
 function fetchGroupToPlanProcessor(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions): FetchGroupProcessor<PlanNode, PlanNode, PlanNode | undefined> {
   return {
@@ -252,11 +332,6 @@ function fetchGroupToPlanProcessor(rootKind: SchemaRootKind, variableDefinitions
     reduceSequence: (values: PlanNode[]) => flatWrap('Sequence', values),
     finalize: (roots: PlanNode[], rootsAreParallel) => roots.length == 0 ? undefined : flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)
   };
-}
-
-function toQueryPlan(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions, dependencyGraph: FetchDependencyGraph): QueryPlan {
-  const rootNode = dependencyGraph.process(fetchGroupToPlanProcessor(rootKind, variableDefinitions), rootKind !== 'mutation');
-  return { kind: 'QueryPlan', node: rootNode };
 }
 
 function addToResponsePath(path: ResponsePath, responseName: string, type: Type) {
@@ -405,9 +480,19 @@ class FetchDependencyGraph {
   getOrCreateRootFetchGroup(subgraphName: string, parentType: CompositeType): FetchGroup {
     let group = this.rootGroups.get(subgraphName);
     if (!group) {
-      group = this.newFetchGroup(subgraphName, parentType);
+      group = this.createRootFetchGroup(subgraphName, parentType);
       this.rootGroups.set(subgraphName, group);
     }
+    return group;
+  }
+
+  rootSubgraphs(): string[] {
+    return [...this.rootGroups.keys()];
+  }
+
+  createRootFetchGroup(subgraphName: string, parentType: CompositeType): FetchGroup {
+    const group = this.newFetchGroup(subgraphName, parentType);
+    this.rootGroups.set(subgraphName, group);
     return group;
   }
 
@@ -758,7 +843,7 @@ class FetchDependencyGraph {
     }
   }
 
-  process<G, P, F>(processor: FetchGroupProcessor<G, P, F>, rootsAreParallel: boolean): F {
+  process<G, P>(processor: FetchGroupProcessor<G, P, any>): G[] {
     this.reduce();
 
     const rootNodes: G[] = [...this.rootGroups.values()].map(rootGroup => {
@@ -766,8 +851,7 @@ class FetchDependencyGraph {
       assert(remaining.length == 0, `A root group should have no remaining groups unhandled`);
       return node;
     });
-
-    return processor.finalize(rootNodes, rootsAreParallel);
+    return rootNodes;
   }
 
   dumpOnConsole() {
@@ -797,28 +881,30 @@ class FetchDependencyGraph {
   }
 }
 
-function computeFetchGroups<RV extends Vertex>(subgraphSchemas: ReadonlyMap<string, Schema>, pathTree: OpPathTree<RV>): FetchDependencyGraph {
+function computeRootFetchGroups(subgraphSchemas: ReadonlyMap<string, Schema>, pathTree: OpRootPathTree): FetchDependencyGraph {
   const dependencyGraph = new FetchDependencyGraph(subgraphSchemas);
-  if (isRootVertex(pathTree.vertex)) {
-    // The root of the pathTree is one of the "fake" root of the subgraphs graph, which belongs to no subgraph but points to each ones.
-    // So we "unpack" the first level of the tree to find out our top level groups (and initialize our stack).
-    // Note that we can safely ignore the triggers of that first level as it will all be free transition, and we know we cannot have conditions.
-    for (const [edge, _trigger, _conditions, child] of pathTree.childElements()) {
-      assert(edge !== null, `The root edge should not be null`);
-      const source = edge.tail.source;
-      // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
-      const rootType = edge.tail.type as ObjectType;
-      let group = dependencyGraph.getOrCreateRootFetchGroup(source, rootType);
-      computeGroupsForTree(dependencyGraph, child, group);
-    }
-  } else {
-    const source = pathTree.vertex.source;
+  // The root of the pathTree is one of the "fake" root of the subgraphs graph, which belongs to no subgraph but points to each ones.
+  // So we "unpack" the first level of the tree to find out our top level groups (and initialize our stack).
+  // Note that we can safely ignore the triggers of that first level as it will all be free transition, and we know we cannot have conditions.
+  for (const [edge, _trigger, _conditions, child] of pathTree.childElements()) {
+    assert(edge !== null, `The root edge should not be null`);
+    const source = edge.tail.source;
     // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
-    const rootType = pathTree.vertex.type;
-    assert(isCompositeType(rootType), `Should not have condition on non-selectable type ${rootType}`);
-    let group = dependencyGraph.getOrCreateRootFetchGroup(source, rootType);
-    computeGroupsForTree(dependencyGraph, pathTree, group);
+    const rootType = edge.tail.type as ObjectType;
+    const group = dependencyGraph.getOrCreateRootFetchGroup(source, rootType);
+    computeGroupsForTree(dependencyGraph, child, group);
   }
+  return dependencyGraph;
+}
+
+function computeNonRootFetchGroups(subgraphSchemas: ReadonlyMap<string, Schema>, pathTree: OpPathTree): FetchDependencyGraph {
+  const dependencyGraph = new FetchDependencyGraph(subgraphSchemas);
+  const source = pathTree.vertex.source;
+  // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
+  const rootType = pathTree.vertex.type;
+  assert(isCompositeType(rootType), `Should not have condition on non-selectable type ${rootType}`);
+  const group = dependencyGraph.getOrCreateRootFetchGroup(source, rootType);
+  computeGroupsForTree(dependencyGraph, pathTree, group);
   return dependencyGraph;
 }
 
@@ -859,11 +945,13 @@ function computeGroupsForTree(
   const stack: [OpPathTree, FetchGroup, ResponsePath, OperationPath][] = [[pathTree, startGroup, initialMergeAt, initialPath]];
   const createdGroups = [ ];
   while (stack.length > 0) {
-    const [tree, group, mergeAt, path] = stack.pop()!; 
+    const [tree, group, mergeAt, path] = stack.pop()!;
     if (tree.isLeaf()) {
       group.addSelection(path);
     } else {
-      for (const [edge, operation, conditions, child] of tree.childElements()) {
+      // We want to preserve the order of the elements in the child, but the stack will reverse everything, so we iterate 
+      // in reverse order to counter-balance it.
+      for (const [edge, operation, conditions, child] of tree.childElements(true)) {
         if (isPathContext(operation)) {
           // The only 2 cases where we can take edge not "driven" by an operation is either when we resolve a key, or
           // at the root of subgraph graph, but we've already handled the later at the beginning of `computeFetchGroups`
