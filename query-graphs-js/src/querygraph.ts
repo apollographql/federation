@@ -612,7 +612,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           const field = e.transition.definition;
           assert(isInterfaceType(type) || isObjectType(type), `Non-field-based type "${type}" should not have field collection edge ${e}`);
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
-            const fieldType = field.type!;
+            const fieldType = baseType(field.type!);
             assert(isInterfaceType(fieldType) || isObjectType(fieldType), `Invalid @provide on field "${field}" whose type "${fieldType}" is not an object or interface`)
             const provided = parseSelectionSet(fieldType, providesApplication.arguments().fields);
             const head = copyPointers[i].copiedVertex(e.head);
@@ -644,6 +644,13 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
       const element = selection.element();
       if (element.kind == 'Field') {
         const fieldDef = element.definition;
+        if (!isExternal(fieldDef)) {
+          // Because key fields used to be marked @external, someone my have put a provide for a key field
+          // which is effectively already provided by the subgraph. In that case, just ignore that field
+          // (otherwise, future code will get confused by the fact that there is more than 1 edge to
+          // resolve a field locally and would have to make a choice while lacking context).
+          continue;
+        }
         const fieldType = baseType(fieldDef.type!);
         if (selection.selectionSet) {
           // We should create a brand new vertex, not reuse the existing one because we're still in

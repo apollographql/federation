@@ -10,7 +10,6 @@ import {
   ListType,
   FieldDefinition,
   CompositeType,
-  InterfaceType
 } from "./definitions";
 import { assert } from "./utils";
 import { FieldSelection, parseSelectionSet } from "./operations";
@@ -158,7 +157,7 @@ export function isEntityType(type: NamedType): boolean {
   return type.kind == "ObjectType" && type.hasAppliedDirective(keyDirectiveName);
 }
 
-export function isExternal(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
+export function isExternal(field: FieldDefinition<CompositeType>): boolean {
   // Historically, @external was required on key fields for type extensions, even though it's arguably not entirely 
   // right (the subgraph does always provides its keys, so they are not external). So for backward compatibility, we
   // just ignore an @external if it is on a field that is part of a key.
@@ -166,7 +165,7 @@ export function isExternal(field: FieldDefinition<ObjectType | InterfaceType>): 
     && !isPartOfAKey(field);
 }
 
-function isPartOfAKey(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
+function isPartOfAKey(field: FieldDefinition<CompositeType>): boolean {
   const schema = field.schema()!;
   if (!isFederationSubgraphSchema(schema)) {
     return false;
