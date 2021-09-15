@@ -37,7 +37,9 @@ Scenario: should use a single fetch when requesting a root field from one servic
     """
     query {
       me {
-        name
+        name {
+          first
+        }
       }
     }
     """
@@ -49,7 +51,7 @@ Scenario: should use a single fetch when requesting a root field from one servic
         "kind": "Fetch",
         "serviceName": "accounts",
         "variableUsages": [],
-        "operation": "{me{name}}"
+        "operation": "{me{name{first}}}"
       }
     }
     """
@@ -59,7 +61,9 @@ Scenario: should use two independent fetches when requesting root fields from tw
     """
     query {
       me {
-        name
+        name {
+          first
+        }
       }
       topProducts {
         name
@@ -77,7 +81,7 @@ Scenario: should use two independent fetches when requesting root fields from tw
             "kind": "Fetch",
             "serviceName": "accounts",
             "variableUsages": [],
-            "operation": "{me{name}}"
+            "operation": "{me{name{first}}}"
           },
           {
             "kind": "Sequence",
@@ -105,7 +109,7 @@ Scenario: should use two independent fetches when requesting root fields from tw
                     }
                   ],
                   "variableUsages": [],
-                  "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+                  "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
                 }
               },
               {
@@ -120,9 +124,9 @@ Scenario: should use two independent fetches when requesting root fields from tw
                       "typeCondition": "Book",
                       "selections": [
                         { "kind": "Field", "name": "__typename" },
-                        { "kind": "Field", "name": "isbn" },
                         { "kind": "Field", "name": "title" },
-                        { "kind": "Field", "name": "year" }
+                        { "kind": "Field", "name": "year" },
+                        { "kind": "Field", "name": "isbn" }
                       ]
                     }
                   ],
@@ -185,7 +189,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                         }
                       ],
                       "variableUsages": [],
-                      "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+                      "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
                     }
                   },
                   {
@@ -200,9 +204,9 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                           "typeCondition": "Book",
                           "selections": [
                             { "kind": "Field", "name": "__typename" },
-                            { "kind": "Field", "name": "isbn" },
                             { "kind": "Field", "name": "title" },
-                            { "kind": "Field", "name": "year" }
+                            { "kind": "Field", "name": "year" },
+                            { "kind": "Field", "name": "isbn" }
                           ]
                         }
                       ],
@@ -232,7 +236,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                         }
                       ],
                       "variableUsages": [],
-                      "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+                      "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
                     }
                   },
                   {
@@ -247,9 +251,9 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                           "typeCondition": "Book",
                           "selections": [
                             { "kind": "Field", "name": "__typename" },
-                            { "kind": "Field", "name": "isbn" },
                             { "kind": "Field", "name": "title" },
-                            { "kind": "Field", "name": "year" }
+                            { "kind": "Field", "name": "year" },
+                            { "kind": "Field", "name": "isbn" }
                           ]
                         }
                       ],
@@ -326,7 +330,9 @@ Scenario: when requesting an extension field from another service, it should add
   """
   query {
     me {
-      name
+      name {
+        first
+      }
       reviews {
         body
       }
@@ -344,7 +350,7 @@ Scenario: when requesting an extension field from another service, it should add
             "kind": "Fetch",
             "serviceName": "accounts",
             "variableUsages": [],
-            "operation": "{me{name __typename id}}"
+            "operation": "{me{__typename id name{first}}}"
           },
           {
             "kind": "Flatten",
@@ -477,7 +483,9 @@ Scenario: when requesting a composite field with subfields from another service,
       topReviews {
         body
         author {
-          name
+          name {
+            first
+          }
         }
       }
     }
@@ -512,7 +520,7 @@ Scenario: when requesting a composite field with subfields from another service,
                 }
               ],
               "variableUsages": [],
-              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}"
             }
           }
         ]
@@ -574,7 +582,9 @@ Scenario: when requesting a composite field with subfields from another service,
     query {
       topReviews {
         author {
-          name
+          name {
+            first
+          }
         }
       }
     }
@@ -609,7 +619,7 @@ Scenario: when requesting a composite field with subfields from another service,
                 }
               ],
               "variableUsages": [],
-              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+              "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}"
             }
           }
         ]
@@ -683,7 +693,7 @@ Scenario: for abstract types, it should add __typename when fetching objects of 
         "kind": "Fetch",
         "serviceName": "product",
         "variableUsages": [],
-        "operation": "{topProducts{__typename ...on Book{price}...on Furniture{price}}}"
+        "operation": "{topProducts{__typename price}}"
       }
     }
     """
@@ -711,7 +721,7 @@ Scenario: should break up when traversing an extension field on an interface typ
             "kind": "Fetch",
             "serviceName": "product",
             "variableUsages": [],
-            "operation": "{topProducts{__typename ...on Book{price __typename isbn}...on Furniture{price __typename upc}}}"
+            "operation": "{topProducts{__typename price ...on Book{__typename isbn}...on Furniture{__typename upc}}}"
           },
           {
             "kind": "Flatten",
@@ -819,7 +829,7 @@ Scenario: interface inside interface should expand into possible types only
         "kind": "Fetch",
         "serviceName": "product",
         "variableUsages": [],
-        "operation": "{product(upc:\"\"){__typename ...on Book{details{country}}...on Furniture{details{country}}}}"
+        "operation": "{product(upc:\"\"){__typename details{__typename country}}}"
       }
     }
     """
@@ -870,7 +880,7 @@ Scenario: deduplicates fields / selections regardless of adjacency and type cond
     """
     query {
       body {
-        ... on Image {
+        ... on NamedObject {
           ... on Text {
             attributes {
               bold
@@ -919,7 +929,7 @@ Scenario: deduplicates fields / selections regardless of adjacency and type cond
 
     query {
       body {
-        ... on Image {
+        ... on NamedObject {
           ...TextFragment
         }
         ... on Body {
