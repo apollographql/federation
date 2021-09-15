@@ -12,7 +12,6 @@ import {
   CompositeType,
 } from "./definitions";
 import { assert } from "./utils";
-import { FieldSelection, parseSelectionSet } from "./operations";
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -158,28 +157,7 @@ export function isEntityType(type: NamedType): boolean {
 }
 
 export function isExternal(field: FieldDefinition<CompositeType>): boolean {
-  // Historically, @external was required on key fields for type extensions, even though it's arguably not entirely 
-  // right (the subgraph does always provides its keys, so they are not external). So for backward compatibility, we
-  // just ignore an @external if it is on a field that is part of a key.
-  return field.hasAppliedDirective(externalDirectiveName)
-    && !isPartOfAKey(field);
-}
-
-function isPartOfAKey(field: FieldDefinition<CompositeType>): boolean {
-  const schema = field.schema()!;
-  if (!isFederationSubgraphSchema(schema)) {
-    return false;
-  }
-  const parentType = field.parent!;
-  for (const keyApplication of parentType.appliedDirectivesOf(federationBuiltIns.keyDirective(schema))) {
-    const selections = parseSelectionSet(parentType, keyApplication.arguments().fields);
-    for (const selection of selections.selections()) {
-      if (selection instanceof FieldSelection && selection.element().selects(field, true)) {
-        return true;
-      }
-    }
-  }
-  return false;
+  return field.hasAppliedDirective(externalDirectiveName);
 }
 
 // Simple wrapper around a Subraph[] that ensures that 1) we never mistakenly get 2 subgraph with the same name,

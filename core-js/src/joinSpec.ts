@@ -57,6 +57,9 @@ export class JoinSpecDefinition extends FeatureDefinition {
     }
     joinType.addArgument('graph', new NonNullType(graphEnum));
     joinType.addArgument('key', joinFieldSet);
+    if (!this.isV01()) {
+      joinType.addArgument('extension', new NonNullType(schema.booleanType()), false);
+    }
 
     const joinField = this.addDirective(schema, 'field').addLocations("FIELD_DEFINITION");
     joinField.repeatable = true;
@@ -123,7 +126,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     return this.directive(schema, 'graph')!;
   }
 
-  typeDirective(schema: Schema): DirectiveDefinition<{graph: string, key?: string}> {
+  typeDirective(schema: Schema): DirectiveDefinition<{graph: string, key?: string, extension?: boolean}> {
     return this.directive(schema, 'type')!;
   }
 

@@ -561,7 +561,8 @@ class Merger {
         dest.applyDirective(joinTypeDirective, { graph: name });
       } else {
         for (const key of keys) {
-          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields });
+          const extension = key.ofExtension() ? true : undefined;
+          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension });
         }
       }
     }
@@ -735,7 +736,9 @@ class Merger {
   }
 
   private needsJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(sources: (T | undefined)[], parentName: string): boolean {
-    // We can avoid the join__field if 1) the field exists in all sources having the field parent type and 2) none of the field instance has a @requires or @provides.
+    // We can avoid the join__field if:
+    //   1) the field exists in all sources having the field parent type,
+    //   2) none of the field instance has a @requires or @provides.
     for (const [idx, source] of sources.entries()) {
       if (source) {
         if (source.hasAppliedDirective('provides') || source.hasAppliedDirective('requires')) {

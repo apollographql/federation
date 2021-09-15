@@ -90,7 +90,10 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           subgraphType = schema.addType(newNamedType(type.kind, type.name));
         }
         if (args.key) {
-          subgraphType.applyDirective('key', {'fields': args.key});
+          const directive = subgraphType.applyDirective('key', {'fields': args.key});
+          if (args.extension) {
+            directive.setOfExtension(subgraphType.newExtension());
+          }
         }
       }
     }
@@ -245,7 +248,22 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema) {
 
     // First, handle @key
     for (const keyApplication of type.appliedDirectivesOf(federationBuiltIns.keyDirective(subgraph.schema))) {
-      addExternalFieldsFromSelection(subgraph, type, keyApplication.arguments().fields, supergraph);
+      // Historically, the federation code for keys, when applied _to a type extension_:
+      //  1) required @external on any field of the key
+      //  2) but required the subgraph to resolve any field of that key
+      // despite the combination of those being arguably illogical (@external is supposed to signify the field is _not_ resolve
+      // by the subgraph).
+      // To maintain backward compatibility, we have to preserve that behavior. The way this is done is that during merging,
+      // if a key is on an extension, we remember it in the corresponding @join__type. And when reading @join__type directive
+      // in `extractSubgraphsFromSupergraph`, we mark the generated key directive as applied to an extension (note that only
+      // the key directive is marked that way, not the rest of the type; this is because we actually don't know if the rest
+      // what part of an extension or not and we prefer not presuming). So, now, if we look at the fields in a key and
+      // that key was on an extension, we know that we should not mark it @external, because it _is_ resolved by the subgraph.
+      // If the key is on a type definition however, then we don't have that historical legacy, and so if the field is
+      // not part of the subgprah, then it means that it is truly external (and composition validation will ensure that this
+      // is fine).
+      const makeExternal = !keyApplication.ofExtension();
+      addExternalFieldsFromSelection(subgraph, type, keyApplication.arguments().fields, supergraph, makeExternal);
     }
     // Then any @requires or @provides on fields
     for (const field of type.fields()) {
@@ -266,6 +284,7 @@ function addExternalFieldsFromSelection(
   parentType: ObjectType | InterfaceType,
   selection: string,
   supergraph: Schema,
+  applyExternalDirective: boolean = true,
 ) {
   let accessor = function (type: CompositeType, fieldName: string): FieldDefinition<any> {
     const field = type.field(fieldName);
@@ -280,7 +299,9 @@ function addExternalFieldsFromSelection(
     assert(supergraphField, `No field name ${fieldName} found on type ${type.name} in the supergraph`);
     // We're know the parent type of the field exists in the subgraph (it's `type`), so we're guaranteed a field is created.
     const created = addSubgraphObjectOrInterfaceField(supergraphField, subgraph)!;
-    created.applyDirective(federationBuiltIns.externalDirective(subgraph.schema));
+    if (applyExternalDirective) {
+      created.applyDirective(federationBuiltIns.externalDirective(subgraph.schema));
+    }
     return created;
   };
   parseSelectionSet(parentType, selection, new VariableDefinitions(), undefined, accessor);
