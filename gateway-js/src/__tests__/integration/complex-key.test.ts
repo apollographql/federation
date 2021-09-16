@@ -170,45 +170,30 @@ it('works fetches data correctly with complex / nested @key fields', async () =>
                 id
                 organization {
                   id
-                  __typename
                 }
               }
             }
           }
         },
-        Parallel {
-          Flatten(path: "reviews.@.author") {
-            Fetch(service: "user") {
-              {
-                ... on User {
-                  __typename
+        Flatten(path: "reviews.@.author") {
+          Fetch(service: "user") {
+            {
+              ... on User {
+                __typename
+                id
+                organization {
                   id
-                  organization {
-                    id
-                  }
                 }
-              } =>
-              {
-                ... on User {
+              }
+            } =>
+            {
+              ... on User {
+                name
+                organization {
                   name
                 }
               }
-            },
-          },
-          Flatten(path: "reviews.@.author.organization") {
-            Fetch(service: "user") {
-              {
-                ... on Organization {
-                  __typename
-                  id
-                }
-              } =>
-              {
-                ... on Organization {
-                  name
-                }
-              }
-            },
+            }
           },
         },
       },
