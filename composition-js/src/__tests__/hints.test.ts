@@ -11,7 +11,14 @@ import {
   hintInconsistentInterfaceValueTypeField,
   hintInconsistentObjectValueTypeField,
   hintInconsistentUnionMember,
-  hintInconsistentEnumValue
+  hintInconsistentEnumValue,
+  hintInconsistentTypeSystemDirectiveRepeatable,
+  hintInconsistentTypeSystemDirectiveLocations,
+  hintInconsistentExecutionDirectivePresence,
+  hintNoExecutionDirectiveLocationsIntersection,
+  hintInconsistentExecutionDirectiveRepeatable,
+  hintInconsistentExecutionDirectiveLocations,
+  hintInconsistentArgumentPresence,
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
 
@@ -312,5 +319,130 @@ test('hints on enum value not being in all subgrpaphs', () => {
     hintInconsistentEnumValue,
     'Value V2 of enum type T is only defined in a subset of the subgraphs defining T (but can always be resolved from these subgraphs): '
     + 'V2 is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+  );
+})
+
+test('hints on type system directives having inconsistent repeatable', () => {
+  // Note that the code currently only merge a handful of hard-coded type system directive, so we have
+  // to use of the known names. We use 'tag'.
+
+  const subgraph1 = gql`
+    directive @tag repeatable on FIELD
+  `;
+
+  const subgraph2 = gql`
+    directive @tag on FIELD
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentTypeSystemDirectiveRepeatable,
+    'Type system directive @tag is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: '
+    + 'it is repeatable in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+  );
+})
+
+test('hints on type system directives having inconsistent locations', () => {
+  const subgraph1 = gql`
+    directive @tag on QUERY
+  `;
+
+  const subgraph2 = gql`
+    directive @tag on FIELD
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentTypeSystemDirectiveLocations,
+    'Type system directive @tag has inconsistent locations accross subgraphs '
+    + 'and will use location(s) FIELD, QUERY (union of all subgraphs) in the supergraph, but has: '
+    + 'location(s) QUERY in subgraph "Subgraph1" and location(s) FIELD in subgraph "Subgraph2"'
+  );
+})
+
+test('hints on execution directives not being in all subgraphs', () => {
+  const subgraph1 = gql`
+    directive @t repeatable on QUERY
+  `;
+
+  const subgraph2 = gql`
+    scalar s
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentExecutionDirectivePresence,
+    'Execution directive @t will not be part of the supergraph as it does not appear in all subgraphs: '
+    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+  );
+})
+
+test('hints on execution directives having no locations intersection', () => {
+  const subgraph1 = gql`
+    directive @t on QUERY
+  `;
+
+  const subgraph2 = gql`
+    directive @t on FIELD
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintNoExecutionDirectiveLocationsIntersection,
+    'Execution directive @t has no location that is common to all subgraphs: '
+    + 'it will not appear in the subgraph as there no intersection between location(s) QUERY in subgraph "Subgraph1" and location(s) FIELD in subgraph "Subgraph2"'
+  );
+})
+
+
+test('hints on execution directives having inconsistent repeatable', () => {
+  const subgraph1 = gql`
+    directive @t repeatable on QUERY
+  `;
+
+  const subgraph2 = gql`
+    directive @t on QUERY
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentExecutionDirectiveRepeatable,
+    'Execution directive @t will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: '
+    + 'it is not repeatable in subgraph "Subgraph2" but is repeatable in subgraph "Subgraph1"'
+  );
+})
+
+test('hints on execution directives having inconsistent locations', () => {
+  const subgraph1 = gql`
+    directive @t on QUERY | FIELD
+  `;
+
+  const subgraph2 = gql`
+    directive @t on FIELD
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentExecutionDirectiveLocations,
+    'Execution directive @t has inconsistent locations accross subgraphs '
+    + 'and will use location(s) FIELD (intersection of all subgraphs) in the supergraph, but has: '
+    + 'location(s) FIELD in subgraph "Subgraph2" and location(s) FIELD, QUERY in subgraph "Subgraph1"'
+  );
+})
+
+test('hints on execution directives argument not being in all subgraphs', () => {
+  const subgraph1 = gql`
+    directive @t(a: Int) on FIELD
+  `;
+
+  const subgraph2 = gql`
+    directive @t on FIELD
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentArgumentPresence,
+    'Argument @t(a:) will not be added to @t in the supergraph as it does not appear in all subgraphs: '
+    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
   );
 })

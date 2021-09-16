@@ -54,8 +54,16 @@ import {
   hintInconsistentInterfaceValueTypeField,
   hintInconsistentInputObjectField,
   hintInconsistentUnionMember,
-  hintInconsistentEnumValue
+  hintInconsistentEnumValue,
+  hintInconsistentTypeSystemDirectiveRepeatable,
+  hintInconsistentTypeSystemDirectiveLocations,
+  hintInconsistentExecutionDirectivePresence,
+  hintNoExecutionDirectiveLocationsIntersection,
+  hintInconsistentExecutionDirectiveRepeatable,
+  hintInconsistentExecutionDirectiveLocations,
+  hintInconsistentArgumentPresence,
 } from "../hints";
+import deepEqual from 'deep-equal';
 
 const coreSpec = CORE_VERSIONS.latest()!;
 const joinSpec = JOIN_VERSIONS.latest()!;
@@ -384,6 +392,10 @@ class Merger {
   }
 
   private addDirectivesShallow() {
+    // Like for types, we initially add all the directives that are defined in any subgraph.
+    // However, in practice and for "execution" directives, we will only keep the the ones
+    // that are in _all_ subgraphs. But we're do the remove later, and while this is all a
+    // bit round-about, it's a tad simpler code-wise to do this way.
     for (const subgraph of this.subgraphsSchema) {
       for (const directive of subgraph.allDirectives()) {
         if (!isMergedDirective(directive)) {
@@ -431,8 +443,9 @@ class Merger {
     supergraphElement: TMismatched,
     subgraphElements: (TMismatched | undefined)[],
     mismatchAcessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
-    supergraphElementPrinter: (elt: string, subgraphs: string) => string,
+    supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
+    includeMissingSources: boolean = false
   ) {
     this.reportMismatch(
       supergraphElement,
@@ -447,7 +460,9 @@ class Merger {
           supergraphElement.coordinate,
           astNodes
         ));
-      }
+      },
+      undefined,
+      includeMissingSources
     );
   }
 
@@ -455,15 +470,19 @@ class Merger {
     supergraphElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
     mismatchAcessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
-    supergraphElementPrinter: (elt: string, subgraphs: string) => string,
+    supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     reporter: (distribution: string[], astNode: ASTNode[]) => void,
     ignorePredicate?: (elt: string | undefined) => boolean,
+    includeMissingSources: boolean = false
   ) {
     const distributionMap = new MultiMap<string, string>();
     const astNodes: ASTNode[] = [];
     for (const [i, subgraphElt] of subgraphElements.entries()) {
       if (!subgraphElt) {
+        if (includeMissingSources) {
+          distributionMap.add('', this.names[i]);
+        }
         continue;
       }
       const elt = mismatchAcessor(subgraphElt, false);
@@ -476,11 +495,12 @@ class Merger {
       }
     }
     const supergraphMismatch = mismatchAcessor(supergraphElement, true);
-    assert(supergraphMismatch, `The accessor on ${supergraphElement} returned undefined/null`);
+    assert(supergraphMismatch !== undefined, `The accessor on ${supergraphElement} returned undefined`);
     assert(distributionMap.size > 1, `Should not have been called for ${supergraphElement}`);
     const distribution = [];
     // We always add the "supergraph" first (proper formatting of hints rely on this in particular).
-    distribution.push(supergraphElementPrinter(supergraphMismatch, printSubgraphNames(distributionMap.get(supergraphMismatch)!)));
+    const subgraphsLikeSupergraph = distributionMap.get(supergraphMismatch);
+    distribution.push(supergraphElementPrinter(supergraphMismatch, subgraphsLikeSupergraph ? printSubgraphNames(subgraphsLikeSupergraph) : undefined));
     for (const [v, names] of distributionMap.entries()) {
       if (v === supergraphMismatch) {
         continue;
@@ -870,7 +890,27 @@ class Merger {
     }
   }
 
-  private mergeArgument(sources: (ArgumentDefinition<any> | undefined)[], dest: ArgumentDefinition<any>) {
+  private mergeArgument(sources: (ArgumentDefinition<any> | undefined)[], dest: ArgumentDefinition<any>, useIntersection: boolean = false) {
+    if (useIntersection) {
+      for (const source of sources) {
+        if (!source) {
+          this.reportMismatchHint(
+            hintInconsistentArgumentPresence,
+            `Argument ${dest.coordinate} will not be added to ${dest.parent} in the supergraph as it does not appear in all subgraphs: `,
+            dest,
+            sources,
+            _ => 'yes',
+            // Note that the first callback is for element that are "like the supergraph" and we've pass `dest`.
+            (_, subgraphs) => `it is defined in ${subgraphs}`,
+            (_, subgraphs) => ` but not in ${subgraphs}`,
+            true
+          );
+          // Note that we remove the element after the hint because we acess the parent in the hint message.
+          dest.remove();
+          return;
+        }
+      }
+    }
     this.mergeAppliedDirectives(sources, dest);
     this.mergeTypeReference(sources, dest, true);
     this.mergeDefaultValue(sources, dest, 'Argument');
@@ -1032,21 +1072,192 @@ class Merger {
   } 
 
   private mergeDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
+    // We have 2 behavior depending on the kind of directives:
+    // 1) for the few handpicked type system directives that we merge, we always want to keep
+    //   them (it's ok if a subgraph decided to not include the definition because that particular
+    //   subgraph didn't use the directive on its own definitions). For those, we essentially take
+    //   a "union" strategy.
+    // 2) for other directives, the ones we keep for their 'execution' locations, we instead
+    //   use an "intersection" strategy: we only keep directives that are defined everywhere.
+    //   The reason is that those directives may be used anywhere in user queries (those made
+    //   against the supergraph API), and hence can end up in queries to any subgraph, and as
+    //   a consequence all subgraphs need to be able to handle any application of the directive.
+    //   Which we can only guarantee if all the subgraphs know the directive, and that the directive
+    //   definition is the intersection of all definitions (meaning that if there divergence in
+    //   locations, we only expose locations that are common everywhere).
+    if (MERGED_TYPE_SYSTEM_DIRECTIVES.includes(dest.name)) {
+      this.mergeTypeSystemDirectiveDefinition(sources, dest);
+    } else {
+      this.mergeExecutionDirectiveDefinition(sources, dest);
+    }
+  }
+
+  private mergeTypeSystemDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
     this.addArgumentsShallow(sources, dest);
     for (const destArg of dest.arguments()) {
       const subgraphArgs = sources.map(f => f?.argument(destArg.name));
       this.mergeArgument(subgraphArgs, destArg);
     }
 
-    // TODO: options + hints when things are not the same everywhere. Maybe even reject definition that are inconsistent
-    // on the 'repeatable'?
+    let repeatable: boolean | undefined = undefined;
+    let inconsistentRepeatable = false;
+    let locations: DirectiveLocationEnum[] | undefined = undefined;
+    let inconsistentLocations = false;
     for (const source of sources) {
       if (!source) {
         continue;
       }
-      dest.repeatable = dest.repeatable || source.repeatable;
-      dest.addLocations(...this.filterExecutableDirectiveLocations(source));
+      if (repeatable === undefined) {
+        repeatable = source.repeatable;
+      } else if (repeatable !== source.repeatable) {
+        inconsistentRepeatable = true;
+      }
+
+      const sourceLocations = this.extractLocations(source);
+      if (!locations) {
+        locations = sourceLocations;
+      } else {
+        if (!deepEqual(locations, sourceLocations)) {
+          inconsistentLocations = true;
+        }
+        // This create duplicates, but `addLocations` below eliminate them.
+        sourceLocations.forEach(loc => {
+          if (!locations!.includes(loc)) {
+            locations!.push(loc);
+          }
+        });
+      }
     }
+    dest.repeatable = repeatable!;
+    dest.addLocations(...locations!);
+
+    if (inconsistentRepeatable) {
+      this.reportMismatchHint(
+        hintInconsistentTypeSystemDirectiveRepeatable,
+        `Type system directive ${dest} is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: `,
+        dest,
+        sources,
+        directive => directive.repeatable ? 'yes' : 'no',
+        // Note that the first callback is for element that are "like the supergraph". And the supergraph will be repeatable on inconsistencies.
+        (_, subgraphs) => `it is repeatable in ${subgraphs}`,
+        (_, subgraphs) => ` but not in ${subgraphs}`,
+      );
+    }
+    if (inconsistentLocations) {
+      this.reportMismatchHint(
+        hintInconsistentTypeSystemDirectiveLocations,
+        `Type system directive ${dest} has inconsistent locations accross subgraphs `,
+        dest,
+        sources,
+        directive => this.extractLocations(directive).join(', '),
+        // Note that the first callback is for element that are "like the supergraph".
+        (locs, subgraphs) => `and will use location(s) ${locs} (union of all subgraphs) in the supergraph, but has: ${subgraphs ? `location(s) ${locs} in ${subgraphs} and ` : ''}`,
+        (locs, subgraphs) => `location(s) ${locs} in ${subgraphs}`,
+      );
+    }
+  }
+
+  private mergeExecutionDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
+    let repeatable: boolean | undefined = undefined;
+    let inconsistentRepeatable = false;
+    let locations: DirectiveLocationEnum[] | undefined = undefined;
+    let inconsistentLocations = false;
+    for (const source of sources) {
+      if (!source) {
+        // An execution directive could appear in any place of a query and thus get to any subgraph, so we cannot keep an
+        // execution directive unless it is in all subgraphs. We use an 'intersection' strategy.
+        const usages = dest.remove();
+        assert(usages.length === 0, () => `Found usages of execution directive ${dest}: ${usages}`);
+        this.reportMismatchHint(
+          hintInconsistentExecutionDirectivePresence,
+          `Execution directive ${dest} will not be part of the supergraph as it does not appear in all subgraphs: `,
+          dest,
+          sources,
+          _ => 'yes',
+          // Note that the first callback is for element that are "like the supergraph" and we've pass `dest`.
+          (_, subgraphs) => `it is defined in ${subgraphs}`,
+          (_, subgraphs) => ` but not in ${subgraphs}`,
+          true
+        );
+        return;
+      }
+
+      if (repeatable === undefined) {
+        repeatable = source.repeatable;
+      } else if (repeatable !== source.repeatable) {
+        inconsistentRepeatable = true;
+        // Again, we use an intersection strategy: we can let users repeat the directive on a query only if
+        // all subgraphs know it as repeatable.
+        repeatable = false;
+      }
+
+      const sourceLocations = this.extractLocations(source);
+      if (!locations) {
+        locations = sourceLocations;
+      } else {
+        if (!deepEqual(locations, sourceLocations)) {
+          inconsistentLocations = true;
+        }
+        // Still an intersection: we can only allow locations that all subgraphs understand.
+        locations = locations.filter(loc => sourceLocations.includes(loc));
+        if (locations.length === 0) {
+          const usages = dest.remove();
+          assert(usages.length === 0, () => `Found usages of execution directive ${dest}: ${usages}`);
+          this.reportMismatchHint(
+            hintNoExecutionDirectiveLocationsIntersection,
+            `Execution directive ${dest} has no location that is common to all subgraphs: `,
+            dest,
+            sources,
+            directive => this.extractLocations(directive).join(', '),
+            // Note that the first callback is for element that are "like the supergraph" and only the subgraph will have no locations (the
+            // source that do not have the directive are not included).
+            () => `it will not appear in the subgraph as there no intersection between `,
+            (locs, subgraphs) => `location(s) ${locs} in ${subgraphs}`,
+          );
+          return;
+        }
+      }
+    }
+    dest.repeatable = repeatable!;
+    dest.addLocations(...locations!);
+
+    if (inconsistentRepeatable) {
+      this.reportMismatchHint(
+        hintInconsistentExecutionDirectiveRepeatable,
+        `Execution directive ${dest} will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
+        dest,
+        sources,
+        directive => directive.repeatable ? 'yes' : 'no',
+        // Note that the first callback is for element that are "like the supergraph". And the supergraph will _not_ be repeatable on inconsistencies.
+        (_, subgraphs) => `it is not repeatable in ${subgraphs}`,
+        (_, subgraphs) => ` but is repeatable in ${subgraphs}`,
+      );
+    }
+    if (inconsistentLocations) {
+      this.reportMismatchHint(
+        hintInconsistentExecutionDirectiveLocations,
+        `Execution directive ${dest} has inconsistent locations accross subgraphs `,
+        dest,
+        sources,
+        directive => this.extractLocations(directive).join(', '),
+        // Note that the first callback is for element that are "like the supergraph".
+        (locs, subgraphs) => `and will use location(s) ${locs} (intersection of all subgraphs) in the supergraph, but has: ${subgraphs ? `location(s) ${locs} in ${subgraphs} and ` : ''}`,
+        (locs, subgraphs) => `location(s) ${locs} in ${subgraphs}`,
+      );
+    }
+
+    // Doing args last, mostly so we don't bother adding if the directive doesn't make it in.
+    this.addArgumentsShallow(sources, dest);
+    for (const destArg of dest.arguments()) {
+      const subgraphArgs = sources.map(f => f?.argument(destArg.name));
+      this.mergeArgument(subgraphArgs, destArg, true);
+    }
+  }
+
+
+  private extractLocations(source: DirectiveDefinition): DirectiveLocationEnum[] {
+    // We sort the locations so that the return list of locations essentially act like a set.
+    return [...this.filterExecutableDirectiveLocations(source)].sort();
   }
 
   private filterExecutableDirectiveLocations(source: DirectiveDefinition): readonly DirectiveLocationEnum[] {

@@ -72,6 +72,51 @@ export const hintInconsistentEnumValue = new HintID(
   'the union type which has an inconsistent member'
 );
 
+export const hintInconsistentTypeSystemDirectiveRepeatable = new HintID(
+  'InconsistentTypeSystemDirectiveRepeatable',
+  'Indicates that a type system directive definition is marked repeatable in only a subset of the subgraphs that declare the directive (and will be repeatable in the supergraph)',
+  'the inconsistent directive'
+);
+
+export const hintInconsistentTypeSystemDirectiveLocations = new HintID(
+  'InconsistentTypeSystemDirectiveLocations',
+  'Indicates that a type system directive definition is declared with inconsistent locations across subgraphs (and will use the union of all locations in the supergraph)',
+  'the inconsistent directive'
+);
+
+export const hintInconsistentExecutionDirectivePresence = new HintID(
+  'InconsistentExecutionDirectivePresence',
+  'Indicates that an execution directive definition is declared in only some of the subgraphs',
+  'the inconsistent directive'
+);
+
+export const hintNoExecutionDirectiveLocationsIntersection = new HintID(
+  'NoExecutionDirectiveIntersection',
+  'Indicates that, for an execution directive definition, no location for it appears in all subgraphs',
+  'the inconsistent directive'
+);
+
+export const hintInconsistentExecutionDirectiveRepeatable = new HintID(
+  'InconsistentExecutionDirectiveRepeatable',
+  'Indicates that an execution directive definition is marked repeatable in only a subset of the subgraphs (and will not be repeatable in the supergraph)',
+  'the inconsistent directive'
+);
+
+export const hintInconsistentExecutionDirectiveLocations = new HintID(
+  'InconsistentExecutionDirectiveLocations',
+  'Indicates that an execution directive definition is declared with inconsistent locations across subgraphs (and will use the intersection of all locations in the supergraph)',
+  'the inconsistent directive'
+);
+
+// Note that we keep the hint somewhat generic, but it is currently only used for execution directive so we specify
+// this in the description for clarity.
+export const hintInconsistentArgumentPresence = new HintID(
+  'InconsistentArgumentPresence',
+  'Indicates that an argument of an execution directive definition is not present in all subgraphs '
+  + 'and will not be part of the supergraph',
+  'the argument with mismatched types'
+);
+
 export class CompositionHint {
   public readonly nodes?: readonly ASTNode[];
 
