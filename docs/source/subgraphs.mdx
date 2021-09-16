@@ -164,7 +164,7 @@ Because of the power and flexibility of the [`Query._entities` and `Query._servi
 
 Make sure to implement any necessary firewall rules, access control
 lists, or other measures to ensure that individual subgraphs can
-be accessed only via the gateway.
+be accessed _only_ via the gateway.
 
 ## Subgraph-specific symbols
 
@@ -194,7 +194,7 @@ query GetSubgraphSchema {
 
 The `sdl` field returns your subgraph's schema as an SDL string. This field has a couple of important differences from a standard [introspection query](https://graphql.org/learn/introspection/) that a tool like Apollo Sandbox uses:
 
-* Unlike introspection, the `sdl` field is _not_ disabled by default in production environments.
+* Unlike introspection, the `sdl` field is _not_ disabled by default in production environments (this is safe if you properly [secure your subgraph](#securing-your-subgraphs)).
 * Unlike introspection, the `sdl` field's returned string includes federation-specific directives like `@key`.
 
 Whenever your gateway needs to fetch a subgraph's schema (this occurs only if your gateway uses [the `serviceList` option](./gateway/#composing-with-servicelist)), it uses this field _instead of_ an introspection query so it can obtain federation-specific details.
@@ -203,7 +203,18 @@ Whenever your gateway needs to fetch a subgraph's schema (this occurs only if yo
 
 > [Learn about entities](./entities/) if you haven't yet.
 
-This field takes a list of **entity representations** and returns a list of corresponding entities. You can query it like so, providing a value for the `$representations` variable as shown:
+This field takes a list of **entity representations** and returns a list of corresponding entities.
+
+> Whenever one subgraph references _another_ subgraph's entity, it uses an **entity representation** to do so. An entity representation is an object that includes _only_ the entity's `__typename` and the fields in the entity's `@key`.
+
+```graphql
+_entities(representations: [_Any!]!): [_Entity]!
+```
+
+* The `_Any` type is a special scalar that enables you to provide entity representations of any valid shape.
+* The `_Entity` type is a generated [union type](https://www.apollographql.com/docs/apollo-server/schema/unions-interfaces/#union-type) that includes every entity defined in your subgraph's schema.
+
+You can query this field like so, providing a value for the `$representations` variable as shown:
 
 ```graphql:title=Query
 query ($representations: [_Any!]!) {
@@ -226,8 +237,6 @@ query ($representations: [_Any!]!) {
   ]
 }
 ```
-
-Whenever one subgraph references _another_ subgraph's entity, it uses an **entity representation** to do so. An entity representation is an object that includes _only_ the entity's `__typename` and the fields in the entity's `@key` (just `id` in this case).
 
 #### Using in tests and debugging
 
