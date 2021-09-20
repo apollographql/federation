@@ -444,3 +444,25 @@ export const CORE_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(coreIden
   .add(new CoreSpecDefinition(new FeatureVersion(0, 1)))
   .add(new CoreSpecDefinition(new FeatureVersion(0, 2)));
 
+export function removeFeatureElements(schema: Schema, feature: CoreFeature) {
+  // Removing directives first, so that when we remove types, the checks that there is no references don't fail due a directive of a the feature
+  // actually using the type.
+  for (const directive of schema.directives()) {
+    if (feature.isFeatureDefinition(directive)) {
+      directive.remove().forEach(application => application.remove());
+    }
+  }
+
+  for (const type of schema.types()) {
+    if (feature.isFeatureDefinition(type)) {
+      const references = type.remove();
+      if (references.length > 0) {
+        throw new GraphQLError(
+          `Cannot remove elements of feature ${feature} as feature type ${type} is referenced by elements: ${references.join(', ')}`,
+          references.map(r => r.sourceAST).filter(n => n !== undefined) as ASTNode[]
+        );
+      }
+    }
+  }
+}
+

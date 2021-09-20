@@ -68,7 +68,17 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
   const schema = new Schema(builtIns);
   // We do a first pass to add all empty types and directives definition. This ensure any reference on one of
   // those can be resolved in the 2nd pass, regardless of the order of the definitions in the AST.
-  buildNamedTypeAndDirectivesShallow(documentNode, schema);
+  const directiveDefinitionNodes = buildNamedTypeAndDirectivesShallow(documentNode, schema);
+
+  // We then deal with directive definition first. This is mainly for the sake of core schemas: the core schema
+  // handling in `Schema` detects that the schema is a core one when it see the application of `@core(feature: ".../core/...")`
+  // to the schema element. But that detection necessitates that the corresponding directive definition has been fully
+  // populated (and at this point, we don't really know the name of the `@core` directive since it can be renamed, so
+  // we just handle all directives).
+  for (const directiveDefinitionNode of directiveDefinitionNodes) {
+    buildDirectiveDefinitionInner(directiveDefinitionNode, schema.directive(directiveDefinitionNode.name.value)!);
+  }
+
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
       case 'OperationDefinition':
@@ -102,15 +112,13 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
         extension.sourceAST = definitionNode;
         buildNamedTypeInner(definitionNode, toExtend, extension);
         break;
-      case 'DirectiveDefinition':
-        buildDirectiveDefinitionInner(definitionNode, schema.directive(definitionNode.name.value)!);
-        break;
     }
   }
   return schema;
 }
 
-function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: Schema) {
+function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: Schema): DirectiveDefinitionNode[] {
+  const directiveDefinitionNodes = [];
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
       case 'ScalarTypeDefinition':
@@ -131,10 +139,12 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
         }
         break;
       case 'DirectiveDefinition':
+        directiveDefinitionNodes.push(definitionNode);
         schema.addDirectiveDefinition(definitionNode.name.value);
         break;
     }
   }
+  return directiveDefinitionNodes;
 }
 
 type NodeWithDirectives = {directives?: ReadonlyArray<DirectiveNode>};
@@ -248,6 +258,7 @@ function buildNamedTypeInner(
       const enumType = type as EnumType;
       for (const enumVal of definitionNode.values ?? []) {
         const v = enumType.addValue(enumVal.name.value);
+        v.description = enumVal.description?.value;
         v.setOfExtension(extension);
         buildAppliedDirectives(enumVal, v);
       }

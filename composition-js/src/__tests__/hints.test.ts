@@ -19,6 +19,7 @@ import {
   hintInconsistentExecutionDirectiveRepeatable,
   hintInconsistentExecutionDirectiveLocations,
   hintInconsistentArgumentPresence,
+  hintInconsistentDescription,
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
 
@@ -444,5 +445,88 @@ test('hints on execution directives argument not being in all subgraphs', () => 
     hintInconsistentArgumentPresence,
     'Argument @t(a:) will not be added to @t in the supergraph as it does not appear in all subgraphs: '
     + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+  );
+})
+
+test('hints on inconsistent description for schema definition', () => {
+  const subgraph1 = gql`
+    """
+    Queries to the API
+      - a: gives you a int
+    """
+    schema {
+      query: Query
+    }
+
+    type Query {
+      a: Int
+    }
+  `;
+
+  const subgraph2 = gql`
+    """
+    Entry point for the API
+    """
+    schema {
+      query: Query
+    }
+
+    type Query {
+      b: Int
+    }
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toRaiseHint(
+    hintInconsistentDescription,
+    'The schema definition has inconsistent descriptions across subgraphs. The supergraph will use description (from subgraph "Subgraph1"):\n'
+    + '  """\n'
+    + '  Queries to the API\n'
+    + '    - a: gives you a int\n'
+    + '  """\n'
+    + 'In subgraph "Subgraph2", the description is:\n'
+    + '  """\n'
+    + '  Entry point for the API\n'
+    + '  """'
+  );
+})
+
+test('hints on inconsistent description for field', () => {
+  // We make sure the 2nd and 3rd subgraphs have the same description to
+  // ensure it's the one that gets picked.
+  const subgraph1 = gql`
+    type T {
+      "I don't know what I'm doing"
+      f: Int
+    }
+  `;
+
+  const subgraph2 = gql`
+    type T {
+      "Return a super secret integer"
+      f: Int
+    }
+  `;
+
+  const subgraph3 = gql`
+    type T {
+      """
+      Return a super secret integer
+      """
+      f: Int
+    }
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2, subgraph3);
+  expect(result).toRaiseHint(
+    hintInconsistentDescription,
+    'Element T.f has inconsistent descriptions across subgraphs. The supergraph will use description (from subgraphs "Subgraph2" and "Subgraph3"):\n'
+    + '  """\n'
+    + '  Return a super secret integer\n'
+    + '  """\n'
+    + 'In subgraph "Subgraph1", the description is:\n'
+    + '  """\n'
+    + '  I don\'t know what I\'m doing\n'
+    + '  """'
   );
 })

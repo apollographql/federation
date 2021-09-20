@@ -134,18 +134,15 @@ test('building a simple schema programatically', () => {
   const schema = new Schema(federationBuiltIns);
   const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query'))).type;
   const typeA = schema.addType(new ObjectType('A'));
-  const inaccessible = federationBuiltIns.inaccessibleDirective(schema);
   const key = federationBuiltIns.keyDirective(schema);
 
   queryType.addField('a', typeA);
   typeA.addField('q', queryType);
-  typeA.applyDirective(inaccessible);
   typeA.applyDirective(key, { fields: 'a'});
 
   expect(queryType).toBe(schema.schemaDefinition.root('query')!.type);
   expect(queryType).toHaveField('a', typeA);
   expect(typeA).toHaveField('q', queryType);
-  expect(typeA).toHaveDirective(inaccessible);
   expect(typeA).toHaveDirective(key, { fields: 'a'});
 });
 
@@ -155,6 +152,8 @@ test('parse schema and modify', () => {
     schema {
       query: MyQuery
     }
+
+    directive @inaccessible on FIELD_DEFINITION
 
     type A {
       f1(x: Int @inaccessible): String
@@ -169,12 +168,13 @@ test('parse schema and modify', () => {
 
   const queryType = schema.type('MyQuery')!;
   const typeA = schema.type('A')!;
+  const inaccessibleDirective = schema.directive('inaccessible')!;
   expectObjectType(queryType);
   expectObjectType(typeA);
   expect(schema.schemaDefinition.root('query')!.type).toBe(queryType);
   expect(queryType).toHaveField('a', typeA);
   const f2 = typeA.field('f2');
-  expect(f2).toHaveDirective(federationBuiltIns.inaccessibleDirective(schema));
+  expect(f2).toHaveDirective(inaccessibleDirective);
   expect(printSchema(schema)).toMatchString(sdl);
 
   expect(typeA).toHaveField('f1');
@@ -203,6 +203,7 @@ test('removal of all directives of a schema', () => {
 
     union U @foobar = A | B
 
+    directive @inaccessible on FIELD_DEFINITION
     directive @foo on SCHEMA | FIELD_DEFINITION
     directive @foobar on UNION
     directive @bar on ARGUMENT_DEFINITION
@@ -213,6 +214,8 @@ test('removal of all directives of a schema', () => {
   }
 
   expect(printSchema(schema)).toMatchString(`
+    directive @inaccessible on FIELD_DEFINITION
+
     directive @foo on SCHEMA | FIELD_DEFINITION
 
     directive @foobar on UNION
@@ -256,12 +259,14 @@ test('removal of all inacessible elements of a schema', () => {
 
     union U @inaccessible = A | B
 
+    directive @inaccessible on FIELD_DEFINITION | OBJECT | ARGUMENT_DEFINITION
     directive @foo on SCHEMA | FIELD_DEFINITION
     directive @bar on ARGUMENT_DEFINITION
   `, federationBuiltIns);
 
+  const inaccessibleDirective = schema.directive('inaccessible')!;
   for (const element of schema.allNamedSchemaElement()) {
-    if (element.hasAppliedDirective(federationBuiltIns.inaccessibleDirective(schema))) {
+    if (element.hasAppliedDirective(inaccessibleDirective)) {
       element.remove();
     }
   }
@@ -272,6 +277,8 @@ test('removal of all inacessible elements of a schema', () => {
     {
       query: Query
     }
+
+    directive @inaccessible on FIELD_DEFINITION | OBJECT | ARGUMENT_DEFINITION
 
     directive @foo on SCHEMA | FIELD_DEFINITION
 

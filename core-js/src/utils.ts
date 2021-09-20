@@ -14,6 +14,10 @@ export function assert(condition: any, message: string | (() => string)): assert
   }
 }
 
+export function assertUnreachable(_: never): never {
+  throw new Error("Didn't expect to get here");
+}
+
 export class MultiMap<K, V> extends Map<K, V[]> {
   add(key: K, value: V): this {
     const values = this.get(key);

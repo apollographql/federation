@@ -62,6 +62,7 @@ import {
   hintInconsistentExecutionDirectiveRepeatable,
   hintInconsistentExecutionDirectiveLocations,
   hintInconsistentArgumentPresence,
+  hintInconsistentDescription,
 } from "../hints";
 import deepEqual from 'deep-equal';
 
@@ -279,6 +280,23 @@ function hasMergedFields(type: ObjectType): boolean {
   return [...type.fields()].some(f => isMergedField(f));
 }
 
+function indexOfMax(arr: number[]): number {
+  if (arr.length === 0) {
+    return -1;
+  }
+  let indexOfMax = 0;
+  for (let i = 1; i < arr.length; i++) {
+    if (arr[i] > arr[indexOfMax]) {
+      indexOfMax = i;
+    }
+  }
+  return indexOfMax;
+}
+
+function desciptionString(toIndent: string, indentation: string): string {
+  return indentation + '"""\n' + indentation + toIndent.replace('\n', '\n' + indentation) + '\n' + indentation + '"""';
+}
+
 class Merger {
   readonly names: readonly string[];
   readonly subgraphsSchema: readonly Schema[];
@@ -323,7 +341,7 @@ class Merger {
       this.mergeImplements(this.subgraphsTypes(interfaceType), interfaceType);
     }
     for (const unionType of this.merged.types<UnionType>('UnionType')) {
-      this.mergeUnion(this.subgraphsTypes(unionType), unionType);
+      this.mergeType(this.subgraphsTypes(unionType), unionType);
     }
 
     // We merge the roots first as it only depend on the type existing, not being fully merged, and when
@@ -437,7 +455,7 @@ class Merger {
     );
   }
 
-  private reportMismatchHint<TMismatched extends NamedSchemaElement<any, any>>(
+  private reportMismatchHint<TMismatched extends SchemaElement<any>>(
     hintId: HintID,
     message: string,
     supergraphElement: TMismatched,
@@ -457,7 +475,7 @@ class Merger {
         this.hints.push(new CompositionHint(
           hintId,
           message + distribution[0] + join(distribution.slice(1), ' and '),
-          supergraphElement.coordinate,
+          supergraphElement instanceof NamedSchemaElement ? supergraphElement.coordinate : '<schema>',
           astNodes
         ));
       },
@@ -538,11 +556,60 @@ class Merger {
     implemented.forEach(itf => dest.addImplementedInterface(itf));
   }
 
+  private mergeDescription<T extends SchemaElement<any>>(sources: (T | undefined)[], dest: T) {
+    let descriptions: string[] = [];
+    let counts: number[] = [];
+    for (const source of sources) {
+      if (!source || source.description === undefined) {
+        continue;
+      }
+
+      const idx = descriptions.indexOf(source.description);
+      if (idx < 0) {
+        descriptions.push(source.description);
+        // Very much a hack but simple enough: while we do merge 'empty-string' description if that's all we have (debatable behavior in the first place,
+        // but graphQL-js does print such description and fed 1 has historically merged them so ...), we really don't want to favor those if we
+        // have any non-empty description, even if we have more empty ones acrosse subgraphs. So we use a super-negative base count if the description
+        // is empty so that our `indexOfMax` below never pick them if there is a choice.
+        counts.push(source.description === '' ? Number.MIN_SAFE_INTEGER : 1);
+      } else {
+        counts[idx]++;
+      }
+    }
+
+    if (descriptions.length > 0) {
+      if (descriptions.length === 1) {
+        dest.description = descriptions[0];
+      } else {
+        const idx = indexOfMax(counts);
+        dest.description = descriptions[idx];
+        // TODO: Currently showing full descriptions in the hint messages, which is probably fine in some cases. However
+        // this might get less helpful if the description appears to differ by a very small amount (a space, a single character typo)
+        // and even more so the bigger the description is, and we could improve the experience here. For instance, we could
+        // print the supergraph description but then show other descriptions as diffs from that (using, say, https://www.npmjs.com/package/diff).
+        // And we could even switch between diff/non-diff modes based on the levenshtein distances between the description we found.
+        // That said, we should decide if we want to bother here: maybe we can leave it to studio so handle a better experience (as
+        // it can more UX wise).
+        const name = dest instanceof NamedSchemaElement ? 'Element ' + dest.coordinate : 'The schema definition';
+        this.reportMismatchHint(
+          hintInconsistentDescription,
+          `${name} has inconsistent descriptions across subgraphs. `,
+          dest,
+          sources,
+          elt => elt.description,
+          (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${desciptionString(desc, '  ')}`,
+          (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${desciptionString(desc!, '  ')}`,
+        );
+      }
+    }
+  }
+
   // Note that we know when we call this method that all the types in sources and dest have the same kind.
   // We could express this through a generic argument, but typescript is not smart enough to save us
   // type-casting even if we do, and in fact, using a generic forces a case on `dest` for some reason.
   // So we don't bother.
   private mergeType(sources: (NamedType | undefined)[], dest: NamedType) {
+    this.mergeDescription(sources, dest);
     this.addJoinType(sources, dest);
     this.mergeAppliedDirectives(sources, dest);
     switch (dest.kind) {
@@ -705,6 +772,7 @@ class Merger {
 
   private mergeField(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
     const sourcesToMerge = this.withoutExternal(sources);
+    this.mergeDescription(sourcesToMerge, dest);
     this.addJoinField(sourcesToMerge, dest);
     this.mergeAppliedDirectives(sourcesToMerge, dest);
     this.addArgumentsShallow(sourcesToMerge, dest);
@@ -911,6 +979,7 @@ class Merger {
         }
       }
     }
+    this.mergeDescription(sources, dest);
     this.mergeAppliedDirectives(sources, dest);
     this.mergeTypeReference(sources, dest, true);
     this.mergeDefaultValue(sources, dest, 'Argument');
@@ -950,7 +1019,7 @@ class Merger {
         `${kind} "${dest.coordinate}" has incompatible default values accross subgraphs: it has default value `,
         dest,
         sources,
-        arg => arg.defaultValue ? valueToString(arg.defaultValue) : undefined
+        arg => arg.defaultValue ? valueToString(arg.defaultValue, arg.type) : undefined
       );
     } else if (isInconsistent) {
       this.reportMismatchHint(
@@ -958,7 +1027,7 @@ class Merger {
         `${kind} "${dest.coordinate}" has a default value in only some subgraphs: `,
         dest,
         sources,
-        arg => arg.defaultValue ? valueToString(arg.defaultValue) : undefined,
+        arg => arg.defaultValue ? valueToString(arg.defaultValue, arg.type) : undefined,
         (elt, subgraphs) => `will use default value ${elt} (from ${subgraphs}) in supergraph but `,
         (_, subgraphs) => `no default value is defined in ${subgraphs}`
       );
@@ -975,7 +1044,7 @@ class Merger {
   }
 
   private mergeUnion(sources: (UnionType | undefined)[], dest: UnionType) {
-    // TODO: option + hint for when all definitions are not equal.
+    this.mergeDescription(sources, dest);
     for (const source of sources) {
       if (!source) {
         continue;
@@ -1028,6 +1097,9 @@ class Merger {
       }
     }
     for (const value of dest.values) {
+      const valueSources = sources.map(s => s?.value(value.name));
+      this.mergeDescription(valueSources, value);
+      this.mergeAppliedDirectives(valueSources, value);
       this.hintOnInconsistentEnumValue(sources, dest, value.name);
     }
   }
@@ -1065,6 +1137,7 @@ class Merger {
   }
 
   private mergeInputField(sources: (InputFieldDefinition | undefined)[], dest: InputFieldDefinition) {
+    this.mergeDescription(sources, dest);
     this.addJoinField(sources, dest);
     this.mergeAppliedDirectives(sources, dest);
     this.mergeTypeReference(sources, dest, true);
@@ -1254,7 +1327,6 @@ class Merger {
     }
   }
 
-
   private extractLocations(source: DirectiveDefinition): DirectiveLocationEnum[] {
     // We sort the locations so that the return list of locations essentially act like a set.
     return [...this.filterExecutableDirectiveLocations(source)].sort();
@@ -1343,6 +1415,7 @@ class Merger {
   }
 
   private mergeSchemaDefinition(sources: SchemaDefinition[], dest: SchemaDefinition) {
+    this.mergeDescription(sources, dest);
     this.mergeAppliedDirectives(sources, dest);
     // Before merging, we actually rename all the root types to their default name
     // in subgraphs (see federation.ts, `prepareSubgraphsForFederation`), so this

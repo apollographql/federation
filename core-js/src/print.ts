@@ -142,7 +142,7 @@ function isSchemaOfCommonNames(schema: SchemaDefinition): boolean {
   return schema.appliedDirectives.length === 0 && !schema.description && [...schema.roots()].every(r => r.isDefaultRootName());
 }
 
-export function printTypeDefinitionAndExtensions(type: NamedType, options: Options): string[] {
+export function printTypeDefinitionAndExtensions(type: NamedType, options: Options = defaultPrintOptions): string[] {
   switch (type.kind) {
     case 'ScalarType': return printDefinitionAndExtensions(type, options, printScalarDefinitionOrExtension);
     case 'ObjectType': return printDefinitionAndExtensions(type, options, (t, options, ext) => printFieldBasedTypeDefinitionOrExtension('type', t, options, ext));
@@ -177,7 +177,7 @@ function printDescription(
   indentation: string = '',
   firstInBlock: boolean = true
 ): string {
-  if (!element.description) {
+  if (element.description === undefined) {
     return '';
   }
 
@@ -276,8 +276,8 @@ function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefiniti
 
 function printField(field: FieldDefinition<any> | InputFieldDefinition, options: Options): string {
   let args = field.kind == 'FieldDefinition' ? printArgs([...field.arguments()], options, options.indentString) : '';
-  let defaultValue = field.kind == 'InputFieldDefinition' && field.defaultValue !== undefined
-    ? ' = ' + valueToString(field.defaultValue)
+  let defaultValue = field.kind === 'InputFieldDefinition' && field.defaultValue !== undefined
+    ? ' = ' + valueToString(field.defaultValue, field.type)
     : '';
   return `${field.name}${args}: ${field.type}${defaultValue}`;
 }
@@ -288,6 +288,9 @@ function printArgs(args: ArgumentDefinition<any>[], options: Options, indentatio
   }
 
   // If every arg does not have a description, print them on one line.
+  // Note: this line means that, for args, we skip empty descriptions (because the empty string is falsy). This is inconsistent with
+  // `printDescription` where we print such description in other places. _However_, this is what graphQL-js does as well, and for now,
+  // we'd rather not have things diverge because of just that.
   if (args.every(arg => !arg.description)) {
     return '(' + args.map(arg => printArg(arg, options)).join(', ') + ')';
   }

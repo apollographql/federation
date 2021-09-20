@@ -1,10 +1,12 @@
 import {
   ArgumentNode,
   ASTNode,
+  buildSchema as buildGraphqlSchema,
   DirectiveLocation,
   DirectiveLocationEnum,
   DirectiveNode,
   GraphQLError,
+  GraphQLSchema,
   Kind,
   ListTypeNode,
   NamedTypeNode,
@@ -12,9 +14,11 @@ import {
   VariableDefinitionNode,
   VariableNode
 } from "graphql";
-import { CoreDirectiveArgs, CoreSpecDefinition, CORE_VERSIONS, FeatureUrl, isCoreSpecDirectiveApplication } from "./coreSpec";
+import { CoreDirectiveArgs, CoreSpecDefinition, CORE_VERSIONS, FeatureUrl, isCoreSpecDirectiveApplication, removeFeatureElements } from "./coreSpec";
 import { assert } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
+import { removeInaccessibleElements } from "./inaccessibleSpec";
+import { printSchema } from './print';
 
 export const typenameFieldName = '__typename';
 
@@ -719,6 +723,11 @@ export class CoreFeature {
     readonly purpose?: string
   ) {
   }
+
+  isFeatureDefinition(element: NamedType | DirectiveDefinition): boolean {
+    return element.name.startsWith(this.nameInSchema + '__')
+      || (element.kind === 'DirectiveDefinition' && element.name === this.nameInSchema);
+  }
 }
 
 export class CoreFeatures {
@@ -737,6 +746,10 @@ export class CoreFeatures {
 
   getByIdentity(identity: string): CoreFeature | undefined {
     return this.byIdentity.get(identity);
+  }
+
+  allFeatures(): IterableIterator<CoreFeature> {
+    return this.byIdentity.values();
   }
 
   private removeFeature(featureIdentity: string) {
@@ -826,6 +839,31 @@ export class Schema {
     return this._coreFeatures;
   }
 
+  toAPISchema(): Schema {
+    // TODO: we should cache the API schema (clearing it on modifications).
+    this.validate();
+
+    const apiSchema = this.clone();
+    removeInaccessibleElements(apiSchema);
+    if (this._coreFeatures) {
+      // Note that core being a feature itself, this will remove core itself and mark apiSchema as 'not core'
+      for (const coreFeature of this._coreFeatures.allFeatures()) {
+        removeFeatureElements(apiSchema, coreFeature);
+      }
+    }
+    assert(!apiSchema.isCoreSchema(), "The API schema shouldn't be a core schema")
+    apiSchema.validate();
+    return apiSchema;
+  }
+
+  toGraphQLJSSchema(): GraphQLSchema {
+    // Obviously not super fast, but as long as we don't use this often on a hot path, that's probably ok.
+    // TODO: we could alternatively provide a toAST() method, which would at least avoid the toString/fromString
+    // serialization. But also, we could then optimize this method by caching the AST when possible. Especially
+    // for cases where we parse a schema and never modify it, we could preserve the original AST all the way.
+    return buildGraphqlSchema(printSchema(this));
+  }
+
   get schemaDefinition(): SchemaDefinition {
     return this._schemaDefinition;
   }
@@ -843,7 +881,6 @@ export class Schema {
     } else {
       yield* this._types.values() as IterableIterator<T>
     }
-
   }
 
   /**
@@ -1024,7 +1061,6 @@ export class RootType extends BaseExtensionMember<SchemaDefinition> {
   isDefaultRootName() {
     return defaultRootName(this.rootKind) == this.type.name;
   }
-
 
   protected removeInner() {
     SchemaDefinition.prototype['removeRootType'].call(this._parent, this);
@@ -1331,7 +1367,6 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
 
 export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer> {
   readonly kind = 'ObjectType' as const;
-
 
   /**
    *  Whether this type is one of the schema root type (will return false if the type is detached).
@@ -1809,7 +1844,7 @@ export class ArgumentDefinition<TParent extends FieldDefinition<any> | Directive
   }
 
   toString() {
-    const defaultStr = this.defaultValue == undefined ? "" : ` = ${valueToString(this.defaultValue)}`;
+    const defaultStr = this.defaultValue === undefined ? "" : ` = ${valueToString(this.defaultValue, this.type)}`;
     return `${this.name}: ${this.type}${defaultStr}`;
   }
 }
@@ -1965,9 +2000,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     }
     Schema.prototype['removeDirectiveInternal'].call(this._parent, this);
     this._parent = undefined;
-    for (const directive of this._appliedDirectives) {
-      directive.remove();
-    }
+    assert(this._appliedDirectives.length === 0, "Directive definition should not have directive applied to it");
     for (const arg of this._args.values()) {
       arg.remove();
     }
@@ -2089,13 +2122,14 @@ export class Directive<
     const coreFeatures = this.schema()?.coreFeatures;
     if (coreFeatures && this.name === coreFeatures.coreItself.nameInSchema) {
       // We're removing a @core directive application, so we remove it from the list of core features. And
-      // if it is @core itself, we clean all features (to avoid having thigs too inconcistent).
+      // if it is @core itself, we clean all features (to avoid having things too inconsistent).
       const url = FeatureUrl.parse(this._args['feature']!);
       if (url.identity === coreFeatures.coreItself.url.identity) {
+        // Note that we unmark first because the loop after that will nuke our parent.
+        Schema.prototype['unmarkAsCoreSchema'].call(this.schema()!);
         for (const d of this.schema()!.schemaDefinition.appliedDirectivesOf(coreFeatures.coreItself.nameInSchema)) {
           d.removeInternal();
         }
-        Schema.prototype['unmarkAsCoreSchema'].call(this.schema()!);
         // The loop above will already have call removeInternal on this instance, so we can return
         return true;
       } else {
@@ -2197,7 +2231,7 @@ export class VariableDefinition extends DirectiveTargetElement<VariableDefinitio
   toString() {
     let base = this.variable + ': ' + this.type;
     if (this.defaultValue) {
-      base = base + ' = ' + valueToString(this.defaultValue);
+      base = base + ' = ' + valueToString(this.defaultValue, this.type);
     }
     return base + this.appliedDirectivesToString();
   }
@@ -2400,6 +2434,7 @@ function copySchemaDefinitionInner(source: SchemaDefinition, dest: SchemaDefinit
   for (const directive of source.appliedDirectives) {
     copyOfExtension(extensionsMap, directive, dest.applyDirective(directive.name, { ...directive.arguments() }));
   }
+  dest.description = source.description;
   dest.sourceAST = source.sourceAST;
 }
 
@@ -2410,6 +2445,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
   for (const directive of source.appliedDirectives) {
     copyOfExtension(extensionsMap, directive, dest.applyDirective(directive.name, { ...directive.arguments() }));
   }
+  dest.description = source.description;
   dest.sourceAST = source.sourceAST;
   switch (source.kind) {
     case 'ObjectType':
@@ -2436,7 +2472,9 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
       const destEnumType = dest as EnumType;
       for (const sourceValue of source.values) {
         const destValue = destEnumType.addValue(sourceValue.name);
+        destValue.description = sourceValue.description;
         copyOfExtension(extensionsMap, sourceValue, destValue);
+        copyAppliedDirectives(sourceValue, destValue);
       }
       break
     case 'InputObjectType':
@@ -2463,13 +2501,16 @@ function copyFieldDefinitionInner<P extends ObjectType | InterfaceType>(source: 
     copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, argType as InputType));
   }
   copyAppliedDirectives(source, dest);
+  dest.description = source.description;
   dest.sourceAST = source.sourceAST;
 }
 
 function copyInputFieldDefinitionInner(source: InputFieldDefinition, dest: InputFieldDefinition) {
   const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()!) as InputType;
   dest.type = type;
+  dest.defaultValue = source.defaultValue;
   copyAppliedDirectives(source, dest);
+  dest.description = source.description;
   dest.sourceAST = source.sourceAST;
 }
 
@@ -2492,6 +2533,7 @@ function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveD
   dest.type = type;
   dest.defaultValue = source.defaultValue;
   copyAppliedDirectives(source, dest);
+  dest.description = source.description;
   dest.sourceAST = source.sourceAST;
 }
 
@@ -2502,4 +2544,5 @@ function copyDirectiveDefinitionInner(source: DirectiveDefinition, dest: Directi
   }
   dest.repeatable = source.repeatable;
   dest.addLocations(...source.locations);
+  dest.sourceAST = source.sourceAST;
 }

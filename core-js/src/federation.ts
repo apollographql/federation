@@ -22,7 +22,6 @@ export const extendsDirectiveName = 'extends';
 export const externalDirectiveName = 'external';
 export const requiresDirectiveName = 'requires';
 export const providesDirectiveName = 'provides';
-export const inaccessibleDirectiveName = 'inaccessible';
 
 export const serviceFieldName = '_service';
 export const entitiesFieldName = '_entities';
@@ -38,7 +37,6 @@ const FEDERATION_DIRECTIVES = [
   externalDirectiveName,
   requiresDirectiveName,
   providesDirectiveName,
-  inaccessibleDirectiveName
 ];
 const FEDERATION_ROOT_FIELDS = [
   serviceFieldName,
@@ -72,9 +70,6 @@ export class FederationBuiltIns extends BuiltIns {
         .addLocations('FIELD_DEFINITION')
         .addArgument('fields', new NonNullType(schema.stringType()));
     }
-
-    this.addBuiltInDirective(schema, inaccessibleDirectiveName)
-      .addAllLocations();
   }
 
   onValidation(schema: Schema) {
@@ -124,10 +119,6 @@ export class FederationBuiltIns extends BuiltIns {
 
   providesDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
     return this.getTypedDirective(schema, providesDirectiveName);
-  }
-
-  inaccessibleDirective(schema: Schema): DirectiveDefinition<{}> {
-    return this.getTypedDirective(schema, inaccessibleDirectiveName);
   }
 }
 

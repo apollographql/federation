@@ -108,6 +108,12 @@ export const hintInconsistentExecutionDirectiveLocations = new HintID(
   'the inconsistent directive'
 );
 
+export const hintInconsistentDescription = new HintID(
+  'InconsistentDescription',
+  'Indicates that an element has a description in more than one subgraph, and the descriptions are not equal',
+  'the element with inconsistent description'
+);
+
 // Note that we keep the hint somewhat generic, but it is currently only used for execution directive so we specify
 // this in the description for clarity.
 export const hintInconsistentArgumentPresence = new HintID(

@@ -2,6 +2,7 @@ import deepEqual from "deep-equal";
 import {
   ArgumentNode,
   DirectiveNode,
+  DocumentNode,
   FieldNode,
   FragmentDefinitionNode,
   InlineFragmentNode,
@@ -194,7 +195,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     const entries = Object.entries(this.args);
     const args = entries.length == 0 
       ? '' 
-      : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v)}`).join(', ') + ')';
+      : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, this.definition.argument(n)?.type)}`).join(', ') + ')';
     return alias + this.name + args + this.appliedDirectivesToString();
   }
 }
@@ -758,6 +759,30 @@ export class FragmentSelection {
   }
 }
 
+export function operationFromDocument(
+  schema: Schema,
+  document: DocumentNode,
+  operationName?: string,
+) : Operation {
+  let operation: OperationDefinitionNode | undefined;
+  const fragments = new  Map<string, FragmentDefinitionNode>();
+  document.definitions.forEach(definition => {
+    switch (definition.kind) {
+      case Kind.OPERATION_DEFINITION:
+        validate(!operation || operationName, 'Must provide operation name if query contains multiple operations.');
+        if (!operationName || (definition.name && definition.name.value === operationName)) {
+          operation = definition;
+        }
+        break;
+      case Kind.FRAGMENT_DEFINITION:
+        fragments.set(definition.name.value, definition);
+        break;
+    }
+  });
+  validate(operation, 'No operation found in provided document.');
+  return operationFromAST(schema, operation, fragments);
+}
+
 export function operationFromAST(
   schema: Schema,
   operation: OperationDefinitionNode,
@@ -773,6 +798,8 @@ export function operationFromAST(
     operation.name?.value
   );
 }
+
+
 
 export function parseOperation(schema: Schema, operation: string): Operation {
   return operationFromAST(schema, parseOperationAST(operation) );
@@ -802,6 +829,7 @@ function parseOperationAST(source: string): OperationDefinitionNode {
   validate(def.kind === 'OperationDefinition', 'Expected an operation definition but got a ' + def.kind);
   return def;
 }
+
 
 export function operationToAST(operation: Operation): OperationDefinitionNode {
   return {

@@ -1,6 +1,7 @@
 import deepEqual from 'deep-equal';
 import {
   ArgumentDefinition,
+  InputObjectType,
   InputType,
   isEnumType,
   isInputObjectType,
@@ -18,24 +19,53 @@ import { didYouMean, suggestionList } from './suggestions';
 import { inspect } from 'util';
 import { sameType } from './types';
 
-export function valueToString(v: any): string {
+export function valueToString(v: any, expectedType?: InputType): string {
   if (v === undefined || v === null) {
+    if (expectedType && isNonNullType(expectedType)) {
+      throw buildError(`Invalid undefined/null value for non-null type ${expectedType}`);
+    }
     return "null";
+  }
+
+  if (expectedType && isNonNullType(expectedType)) {
+    expectedType = expectedType.ofType;
   }
 
   if (isVariable(v)) {
     return v.toString();
   }
 
+
   if (Array.isArray(v)) {
-    return '[' + v.map(e => valueToString(e)).join(', ') + ']';
+    let elementsType: InputType | undefined = undefined;
+    if (expectedType) {
+      if (!isListType(expectedType)) {
+        throw buildError(`Invalid list value for non-list type ${expectedType}`);
+      }
+      elementsType = expectedType.ofType;
+    }
+    return '[' + v.map(e => valueToString(e, elementsType)).join(', ') + ']';
   }
 
   if (typeof v === 'object') {
-    return '{' + Object.keys(v).map(k => `${k}: ${valueToString(v[k])}`).join(', ') + '}';
+    if (expectedType && !isInputObjectType(expectedType)) {
+      throw buildError(`Invalid object value for non-input-object type ${expectedType}`);
+    }
+    return '{' + Object.keys(v).map(k => {
+      let valueType = expectedType ? (expectedType as InputObjectType).field(k)?.type : undefined;
+      return `${k}: ${valueToString(v[k], valueType)}`;
+    }).join(', ') + '}';
   }
 
   if (typeof v === 'string') {
+    if (expectedType) {
+      if (isEnumType(expectedType)) {
+        return v;
+      }
+      if (expectedType === expectedType.schema()!.idType() && integerStringRegExp.test(v)) {
+        return v;
+      }
+    }
     return JSON.stringify(v);
   }
 
@@ -272,7 +302,7 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
     return value !== null && isValidValueApplication(value, locationType.ofType, undefined, variableDefinitions);
   }
 
-  if (value === null) {
+  if (value === null || value === undefined) {
     return true;
   }
 
@@ -289,7 +319,8 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
     if (typeof value !== 'object') {
       return false;
     }
-    return [...locationType.fields()].every(field => isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions));
+    const isValid = [...locationType.fields()].every(field => isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions));
+    return isValid;
   }
 
   // TODO: we may have to handle some coercions (not sure it matters in our use case
