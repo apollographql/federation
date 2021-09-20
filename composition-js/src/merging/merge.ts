@@ -642,13 +642,14 @@ class Merger {
       }
 
       //There is either 1 join__type per-key, or if there is no key, just one for the type.
-      const keys = source.appliedDirectivesOf(federationBuiltIns.keyDirective(this.subgraphsSchema[idx]));
+      const sourceSchema = this.subgraphsSchema[idx];
+      const keys = source.appliedDirectivesOf(federationBuiltIns.keyDirective(sourceSchema));
       const name = this.joinSpecName(idx);
       if (!keys.length) {
         dest.applyDirective(joinTypeDirective, { graph: name });
       } else {
         for (const key of keys) {
-          const extension = key.ofExtension() ? true : undefined;
+          const extension = key.ofExtension() || source.hasAppliedDirective(federationBuiltIns.extendsDirective(sourceSchema)) ? true : undefined;
           dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension });
         }
       }
