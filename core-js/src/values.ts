@@ -325,17 +325,18 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
 
   // TODO: we may have to handle some coercions (not sure it matters in our use case
   // though).
+  const schema = locationType.schema()!;
 
   if (typeof value === 'boolean') {
-    return locationType === locationType.schema()?.booleanType();
+    return locationType === schema.booleanType();
   }
 
   if (typeof value === 'number' && isFinite(value)) {
     const stringNum = String(value);
-    if (locationType === locationType.schema()?.intType()) {
+    if (locationType === schema.intType() || locationType === schema.idType()) {
       return integerStringRegExp.test(stringNum);
     }
-    return locationType === locationType.schema()?.floatType();
+    return locationType === schema.floatType();
   }
 
   if (typeof value === 'string') {
@@ -343,9 +344,9 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
       return locationType.value(value) !== undefined;
     }
     return isScalarType(locationType)
-      && locationType !== locationType.schema()?.booleanType()
-      && locationType !== locationType.schema()?.intType()
-      && locationType !== locationType.schema()?.floatType();
+      && locationType !== schema.booleanType()
+      && locationType !== schema.intType()
+      && locationType !== schema.floatType();
   }
   return false;
 }
