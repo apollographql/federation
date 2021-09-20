@@ -19,6 +19,8 @@ import {
   CompositeType,
   isExternal,
   extractSubgraphsFromSupergraph,
+  FieldDefinition,
+  isCompositeType
 } from '@apollo/core';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, freeTransition, FreeTransition, Transition, KeyResolution } from './transition';
@@ -584,7 +586,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
         if (e.transition.kind === 'FieldCollection') {
           const type = e.head.type;
           const field = e.transition.definition;
-          assert(isInterfaceType(type) || isObjectType(type), `Non-field-based type "${type}" should not have field collection edge ${e}`);
+          assert(isCompositeType(type), `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const requiresApplication of field.appliedDirectivesOf(requireDirective)) {
             const conditions = parseSelectionSet(type, requiresApplication.arguments().fields);
             const head = copyPointers[i].copiedVertex(e.head);
@@ -610,7 +612,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
         if (e.transition.kind === 'FieldCollection') {
           const type = e.head.type;
           const field = e.transition.definition;
-          assert(isInterfaceType(type) || isObjectType(type), `Non-field-based type "${type}" should not have field collection edge ${e}`);
+          assert(isCompositeType(type), `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
             const fieldType = baseType(field.type!);
             assert(isInterfaceType(fieldType) || isObjectType(fieldType), `Invalid @provide on field "${field}" whose type "${fieldType}" is not an object or interface`)
@@ -873,18 +875,20 @@ class GraphBuilderFromSchema extends GraphBuilder {
     const vertex = this.createNewVertex(namedType, this.name, this.schema);
     if (isObjectType(namedType)) {
       this.addObjectTypeEdges(namedType, vertex);
-    } else {
+    } else if (isInterfaceType(namedType)) {
       // For interfaces, we generally don't add direct edges for their fields. Because in general, the subgraph where a particular
       // field can be fetched from may depend on the runtime implementation. However, if the subgraph we're currently including
       // "provides" a particular interface field locally *for all the supergraph interfaces implementations* (in other words, we 
       // know we can always ask the field to that subgraph directly on the interface and will never miss anything), then we can 
       // add a direct edge to the field for the interface in that subgraph (which avoids unecessary type explosing in practice).
-      if (this.isFederatedSubgraph && isInterfaceType(namedType)) {
+      if (this.isFederatedSubgraph) {
         this.maybeAddInterfaceFieldsEdges(namedType, vertex);
       }
-      if (isInterfaceType(namedType) || isUnionType(namedType)) {
-        this.addAbstractTypeEdges(namedType, vertex);
-      }
+      this.addAbstractTypeEdges(namedType, vertex);
+    } else if (isUnionType(namedType)) {
+      // Adding the special-case __typename edge for union.
+      this.addEdgeForField(namedType.typenameField()!, vertex);
+      this.addAbstractTypeEdges(namedType, vertex);
     }
     // Any other case (scalar or enum; inputs at not possible here) is terminal and has no edges to
     // consider.
@@ -900,9 +904,13 @@ class GraphBuilderFromSchema extends GraphBuilder {
       if (isExternal(field)) {
         continue;
       }
-      const tail = this.addTypeRecursively(field.type!);
-      this.addEdge(head, tail, new FieldCollection(field));
+      this.addEdgeForField(field, head);
     }
+  }
+
+  private addEdgeForField(field: FieldDefinition<any>, head: Vertex) {
+    const tail = this.addTypeRecursively(field.type!);
+    this.addEdge(head, tail, new FieldCollection(field));
   }
 
   private isDirectlyProvidedByType(type: ObjectType, fieldName: string) {
@@ -920,7 +928,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     assert(this.supergraphSchema, 'Missing supergraph schema when building a subgraph');
     const supergraphType = this.supergraphSchema.type(type.name);
     // In theory, the interface might have been marked inaccessible and not be in the supergraph. If that's the case,
-    // we just don't add direct edges at all (adding interface edges is an optimization and if the interface is inacessible, it
+    // we just don't add direct edges at all (adding interface edges is an optimization and if the interface is inaccessible, it
     // probably doesn't play any role in query planning anyway, so it doesn't matter).
     if (!supergraphType) {
       return;
@@ -940,8 +948,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
       if (isExternal(field) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
         continue;
       }
-      const tail = this.addTypeRecursively(field.type!);
-      this.addEdge(head, tail, new FieldCollection(field));
+      this.addEdgeForField(field, head);
     }
   }
 

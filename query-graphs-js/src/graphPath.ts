@@ -9,6 +9,7 @@ import {
   Schema,
   SchemaRootKind,
   SelectionSet,
+  typenameFieldName,
   isLeafType,
   baseType,
   parseSelectionSet,
@@ -827,8 +828,13 @@ function advanceOneWithOperation<V extends Vertex>(
           optionsByImplems.push(withField);
         }
         return cartesianProduct(optionsByImplems).map(opt => opt.flat());
+      case 'UnionType':
+        assert(operation.definition.name === typenameFieldName, () => `Invalid field selection ${operation} for union type ${currentType}`);
+        const typenameEdge = edgeForField(path, operation);
+        assert (typenameEdge, `Should always have an edge for __typename edge on an union`);
+        return addFieldEdge(path, operation, typenameEdge, conditionResolver);
       default:
-        // Only object and interfaces have fields so the query should have been flagged invalid if a field was selected on something else.
+        // Only object, interfaces and unions (only for __typename) have fields so the query should have been flagged invalid if a field was selected on something else.
         assert(false, `Unexpected ${currentType.kind} type ${currentType} from ${path.tail} given operation ${operation}`);
     }
   } else {
