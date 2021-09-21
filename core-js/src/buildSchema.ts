@@ -134,7 +134,9 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
       case 'EnumTypeExtension':
       case 'InputObjectTypeExtension':
         // Note that because of extensions, this may be called multiple times for the same type.
-        if (!schema.type(definitionNode.name.value)) {
+        // But at the same time, we want to allow redefining built-in types, because some users do it.
+        const existing = schema.type(definitionNode.name.value);
+        if (!existing || existing.isBuiltIn) {
           schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
         }
         break;

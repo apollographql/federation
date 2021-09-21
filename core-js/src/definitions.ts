@@ -19,6 +19,8 @@ import { assert } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
 import { printSchema } from './print';
+import { sameType } from './types';
+import deepEqual from "deep-equal";
 
 export const typenameFieldName = '__typename';
 
@@ -80,6 +82,10 @@ export function isNonNullType(type: Type): type is NonNullType<any> {
 
 export function isScalarType(type: Type): type is ScalarType {
   return type.kind == 'ScalarType';
+}
+
+export function isCustomScalarType(type: Type): boolean {
+  return isScalarType(type) && !graphQLBuiltIns.defaultGraphQLBuiltInTypes.includes(type.name);
 }
 
 export function isObjectType(type: Type): type is ObjectType {
@@ -644,7 +650,7 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
 }
 
 export class BuiltIns {
-  private readonly defaultGraphQLBuiltInTypes: readonly string[] = [ 'Int', 'Float', 'String', 'Boolean', 'ID' ];
+  readonly defaultGraphQLBuiltInTypes: readonly string[] = [ 'Int', 'Float', 'String', 'Boolean', 'ID' ];
 
   addBuiltInTypes(schema: Schema) {
     this.defaultGraphQLBuiltInTypes.forEach(t => this.addBuiltInScalar(schema, t));
@@ -664,8 +670,86 @@ export class BuiltIns {
       .addArgument('url', new NonNullType(schema.stringType()));
   }
 
-  onValidation(_schema: Schema) {
-    // No-op by default, but can be overridden by other built-ins.
+  onValidation(schema: Schema) {
+    // We make sure that if any of the built-ins has been redefined, then the redifinition is
+    // the same as the built-in one.
+    for (const type of schema.builtInTypes()) {
+      const maybeRedefined = schema.type(type.name)!;
+      if (!maybeRedefined.isBuiltIn) {
+        this.ensureSameTypeStructure(type, maybeRedefined);
+      }
+    }
+
+    for (const directive of schema.builtInDirectives()) {
+      const maybeRedefined = schema.directive(directive.name)!;
+      if (!maybeRedefined.isBuiltIn) {
+        this.ensureSameDirectiveStructure(directive, maybeRedefined);
+      }
+    }
+  }
+
+  private ensureSameDirectiveStructure(builtIn: DirectiveDefinition<any>, manuallyDefined: DirectiveDefinition<any>) {
+    this.ensureSameArguments(builtIn, manuallyDefined, `directive ${builtIn}`);
+    if (builtIn.repeatable !== manuallyDefined.repeatable) {
+      throw buildError(`Invalid redefinition of built-in directive ${builtIn}: ${builtIn} should${builtIn.repeatable ? "" : " not"} be repeatable`);
+    }
+    if (!deepEqual(builtIn.locations, manuallyDefined.locations)) {
+      throw buildError(`Invalid redefinition of built-in directive ${builtIn}: ${builtIn} should have locations ${builtIn.locations.join(', ')}, but found ${manuallyDefined.locations.join(', ')}`);
+    }
+  }
+
+  private ensureSameArguments(
+    builtIn: { arguments(): IterableIterator<ArgumentDefinition<any>> },
+    manuallyDefined: { argument(name: string): ArgumentDefinition<any> | undefined, arguments(): IterableIterator<ArgumentDefinition<any>> },
+    what: string) {
+    const expectedArguments = [...builtIn.arguments()];
+    const foundArguments = [...manuallyDefined.arguments()];
+    if (expectedArguments.length !== foundArguments.length) {
+      throw buildError(`Invalid redefinition of built-in ${what}: should have ${expectedArguments.length} arguments but ${foundArguments.length} found in redefinition`);
+    }
+    for (const expectedArgument of expectedArguments) {
+      const foundArgument = manuallyDefined.argument(expectedArgument.name)!;
+      if (!sameType(expectedArgument.type!, foundArgument.type!)) {
+        throw buildError(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have type ${expectedArgument.type!} but found type ${foundArgument.type!}`);
+      }
+      if (!valueEquals(expectedArgument.defaultValue, foundArgument.defaultValue)) {
+        throw buildError(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have default value ${expectedArgument.defaultValue} but found type ${foundArgument.defaultValue}`);
+      }
+    }
+  }
+
+  private ensureSameTypeStructure(builtIn: NamedType, manuallyDefined: NamedType) {
+    if (builtIn.kind !== manuallyDefined.kind) {
+      throw buildError(`Invalid redefinition of built-in type ${builtIn}: ${builtIn} should be a ${builtIn.kind} type but redefined as a ${manuallyDefined.kind}`);
+    }
+
+    switch (builtIn.kind) {
+      case 'ScalarType':
+        // Nothing more to check for scalars.
+        return;
+      case 'ObjectType':
+        const redefined = manuallyDefined as ObjectType;
+        for (const builtInField of builtIn.fields()) {
+          const redefinedField = redefined.field(builtInField.name);
+          if (!redefinedField) {
+            throw buildError(`Invalid redefinition of built-in type ${builtIn}: redefinition is missing field ${builtInField}`);
+          }
+          // We allow adding non-nullability because we've seen redefinition of the federation _Service type with type String! for the `sdl` field
+          // and we don't want to break backward compatibility as this doesn't feel too harmful.
+          let rType = redefinedField.type!;
+          if (!isNonNullType(builtInField.type!) && isNonNullType(rType)) {
+            rType = rType.ofType;
+          }
+          if (!sameType(builtInField.type!, rType)) {
+            throw buildError(`Invalid redefinition of field ${builtInField} of built-in type ${builtIn}: should have type ${builtInField.type} but redefined with type ${redefinedField.type}`);
+          }
+          this.ensureSameArguments(builtInField, redefinedField, `field ${builtInField.coordinate}`);
+        }
+        break;
+      default:
+        // Let's not bother with the rest until we actually need it.
+        throw buildError(`Invalid redefinition of built-in type ${builtIn}: cannot redefine ${builtIn.kind} built-in types`);
+    }
   }
 
   protected addBuiltInScalar(schema: Schema, name: string): ScalarType {
@@ -931,7 +1015,9 @@ export class Schema {
   }
 
   addType<T extends NamedType>(type: T): T {
-    if (this.type(type.name)) {
+    const existing = this.type(type.name);
+    // Like for directive, we let use shadow built-in types, but validation will ensure the definition is compatible.
+    if (existing && !existing.isBuiltIn) {
       throw buildError(`Type ${type} already exists in this schema`);
     }
     if (type.parent) {
@@ -971,13 +1057,21 @@ export class Schema {
   /**
    * All the built-in directives for this schema (those that are not displayed when printing the schema).
    */
-  builtInDirectives(): IterableIterator<DirectiveDefinition> {
-    return this._builtInDirectives.values();
+  *builtInDirectives(): Generator<DirectiveDefinition, void, undefined> {
+    for (const directive of this._builtInDirectives.values()) {
+      if (!this.isShadowedBuiltIn(directive)) {
+        yield directive;
+      }
+    }
   }
 
   *allDirectives(): Generator<DirectiveDefinition, void, undefined> {
     yield* this.builtInDirectives();
     yield* this.directives();
+  }
+
+  private isShadowedBuiltIn(directive: DirectiveDefinition) {
+    return directive.isBuiltIn && this._directives.has(directive.name);
   }
 
   directive(name: string): DirectiveDefinition | undefined {
@@ -1002,9 +1096,13 @@ export class Schema {
   }
 
   addDirectiveDefinition(name: string): DirectiveDefinition;
-  addDirectiveDefinition(directive: DirectiveDefinition): DirectiveDefinition; addDirectiveDefinition(directiveOrName: string | DirectiveDefinition): DirectiveDefinition {
+  addDirectiveDefinition(directive: DirectiveDefinition): DirectiveDefinition;
+  addDirectiveDefinition(directiveOrName: string | DirectiveDefinition): DirectiveDefinition {
     const definition = typeof directiveOrName === 'string' ? new DirectiveDefinition(directiveOrName) : directiveOrName;
-    if (this.directive(definition.name)) {
+    const existing = this.directive(definition.name);
+    // Note that we allow the schema to define a built-in manually (and the manual definition will shadow the
+    // built-in one). It's just that validation will ensure the definition ends up the one expected.
+    if (existing && !existing.isBuiltIn) {
       throw buildError(`Directive ${definition} already exists in this schema`);
     }
     if (definition.parent) {
@@ -1697,8 +1795,17 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
       this.checkUpdate(nameOrArg);
       toAdd = nameOrArg;
     }
-    if (this.argument(toAdd.name)) {
-      throw buildError(`Argument ${toAdd.name} already exists on field ${this.name}`);
+    const existing = this.argument(toAdd.name);
+    if (existing) {
+      // For some reason (bad codegen, maybe?), some users have field where a arg is defined more than one. And this doesn't seem rejected by
+      // graphQL (?). So we accept it, but ensure the types/default values are the same.
+      if (type && existing.type && !sameType(type, existing.type)) {
+        throw buildError(`Argument ${toAdd.name} already exists on field ${this.name} with a different type (${existing.type})`);
+      }
+      if (defaultValue && (!existing.defaultValue || !valueEquals(defaultValue, existing.defaultValue))) {
+        throw buildError(`Argument ${toAdd.name} already exists on field ${this.name} with a different default value (${valueToString(existing.defaultValue)})`);
+      }
+      return existing;
     }
     if (type && !isInputType(type)) {
       throw buildError(`Invalid ouptut type ${type} for argument ${toAdd.name} of ${this}: arguments should be input types.`);

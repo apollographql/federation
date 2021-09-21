@@ -73,6 +73,8 @@ export class FederationBuiltIns extends BuiltIns {
   }
 
   onValidation(schema: Schema) {
+    super.onValidation(schema);
+
     // Populate the _Entity type union.
     const entityType = schema.type(entityTypeName) as UnionType;
     entityType.clearTypes();
