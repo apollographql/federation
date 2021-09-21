@@ -1293,6 +1293,10 @@ export class InterfaceImplementation<T extends ObjectType | InterfaceType> exten
   protected removeInner() {
     FieldBasedType.prototype['removeInterfaceImplementation'].call(this._parent, this.interface);
   }
+
+  toString() {
+    return `'implements ${this.interface}'`;
+  }
 }
 
 // Abstract class for ObjectType and InterfaceType as they share most of their structure. Note that UnionType also
@@ -1354,12 +1358,15 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
       }
       toAdd = new InterfaceImplementation<T>(itf);
     }
-    if (!this._interfaceImplementations.has(toAdd.interface.name)) {
+    const existing = this._interfaceImplementations.get(toAdd.interface.name);
+    if (!existing) {
       this._interfaceImplementations.set(toAdd.interface.name, toAdd);
       addReferenceToType(this, toAdd.interface);
       Element.prototype['setParent'].call(toAdd, this);
+      return toAdd;
+    } else {
+      return existing;
     }
-    return toAdd;
   }
 
   /**
