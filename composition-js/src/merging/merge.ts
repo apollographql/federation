@@ -463,6 +463,7 @@ class Merger {
     mismatchAcessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
+    ignorePredicate?: (elt: string | undefined) => boolean,
     includeMissingSources: boolean = false
   ) {
     this.reportMismatch(
@@ -479,7 +480,7 @@ class Merger {
           astNodes
         ));
       },
-      undefined,
+      ignorePredicate,
       includeMissingSources
     );
   }
@@ -599,6 +600,7 @@ class Merger {
           elt => elt.description,
           (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${desciptionString(desc, '  ')}`,
           (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${desciptionString(desc!, '  ')}`,
+          elt => elt === undefined
         );
       }
     }
@@ -972,6 +974,7 @@ class Merger {
             // Note that the first callback is for element that are "like the supergraph" and we've pass `dest`.
             (_, subgraphs) => `it is defined in ${subgraphs}`,
             (_, subgraphs) => ` but not in ${subgraphs}`,
+            undefined,
             true
           );
           // Note that we remove the element after the hint because we acess the parent in the hint message.
@@ -1251,6 +1254,7 @@ class Merger {
           // Note that the first callback is for element that are "like the supergraph" and we've pass `dest`.
           (_, subgraphs) => `it is defined in ${subgraphs}`,
           (_, subgraphs) => ` but not in ${subgraphs}`,
+          undefined,
           true
         );
         return;

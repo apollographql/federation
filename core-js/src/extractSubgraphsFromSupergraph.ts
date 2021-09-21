@@ -262,33 +262,41 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema) {
       // If the key is on a type definition however, then we don't have that historical legacy, and so if the field is
       // not part of the subgprah, then it means that it is truly external (and composition validation will ensure that this
       // is fine).
-      const makeExternal = !keyApplication.ofExtension();
-      addExternalFieldsFromSelection(subgraph, type, keyApplication.arguments().fields, supergraph, makeExternal);
+      // Note that this is called `forceNonExternal` because an extension key field might well be part of a @provides somewhere
+      // else (it's not useful to do so and kind of imply an incomprehension, but it's not forbidden and has been seen) which
+      // has already added the field as @external, and we want to _remove_ the @external in that case.
+      const forceNonExternal = !!keyApplication.ofExtension();
+      addFieldsFromSelection(subgraph, type, keyApplication.arguments().fields, supergraph, forceNonExternal);
     }
     // Then any @requires or @provides on fields
     for (const field of type.fields()) {
       for (const requiresApplication of field.appliedDirectivesOf(federationBuiltIns.requiresDirective(subgraph.schema))) {
-        addExternalFieldsFromSelection(subgraph, type, requiresApplication.arguments().fields, supergraph);
+        addFieldsFromSelection(subgraph, type, requiresApplication.arguments().fields, supergraph);
       }
       const fieldBaseType = baseType(field.type!);
       for (const providesApplication of field.appliedDirectivesOf(federationBuiltIns.providesDirective(subgraph.schema))) {
         assert(isObjectType(fieldBaseType) || isInterfaceType(fieldBaseType), `Found @provides on field ${field.coordinate} whose type ${field.type!} (${fieldBaseType.kind}) is not an object or interface `); 
-        addExternalFieldsFromSelection(subgraph, fieldBaseType, providesApplication.arguments().fields, supergraph);
+        addFieldsFromSelection(subgraph, fieldBaseType, providesApplication.arguments().fields, supergraph);
       }
     }
   }
 }
 
-function addExternalFieldsFromSelection(
+function addFieldsFromSelection(
   subgraph: Subgraph, 
   parentType: ObjectType | InterfaceType,
   selection: string,
   supergraph: Schema,
-  applyExternalDirective: boolean = true,
+  forceNonExternal: boolean = false,
 ) {
+  const external = federationBuiltIns.externalDirective(subgraph.schema);
+
   let accessor = function (type: CompositeType, fieldName: string): FieldDefinition<any> {
     const field = type.field(fieldName);
     if (field) {
+      if (forceNonExternal && field.hasAppliedDirective(external)) {
+        field.appliedDirectivesOf(external).forEach(d => d.remove());
+      }
       return field;
     }
     assert(!isUnionType(type), `Shouldn't select field ${fieldName} from union type ${type}`);
@@ -299,8 +307,8 @@ function addExternalFieldsFromSelection(
     assert(supergraphField, `No field name ${fieldName} found on type ${type.name} in the supergraph`);
     // We're know the parent type of the field exists in the subgraph (it's `type`), so we're guaranteed a field is created.
     const created = addSubgraphObjectOrInterfaceField(supergraphField, subgraph)!;
-    if (applyExternalDirective) {
-      created.applyDirective(federationBuiltIns.externalDirective(subgraph.schema));
+    if (!forceNonExternal) {
+      created.applyDirective(external);
     }
     return created;
   };
