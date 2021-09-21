@@ -32,6 +32,8 @@ import {
   isDirective,
   isNamedType,
   stripIgnoredCharacters,
+  NonNullTypeNode,
+  NamedTypeNode,
 } from 'graphql';
 import {
   ExternalFieldDefinition,
@@ -54,6 +56,14 @@ export function isStringValueNode(node: any): node is StringValueNode {
 
 export function isDirectiveDefinitionNode(node: any): node is DirectiveDefinitionNode {
   return node.kind === Kind.DIRECTIVE_DEFINITION;
+}
+
+export function isNonNullTypeNode(node: any): node is NonNullTypeNode {
+  return node.kind === Kind.NON_NULL_TYPE;
+}
+
+export function isNamedTypeNode(node: any): node is NamedTypeNode {
+  return node.kind === Kind.NAMED_TYPE;
 }
 
 // Create a map of { fieldName: serviceName } for each field.
