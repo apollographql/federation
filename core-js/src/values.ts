@@ -3,6 +3,7 @@ import {
   ArgumentDefinition,
   InputObjectType,
   InputType,
+  isCustomScalarType,
   isEnumType,
   isInputObjectType,
   isListType,
@@ -31,10 +32,14 @@ export function valueToString(v: any, expectedType?: InputType): string {
     expectedType = expectedType.ofType;
   }
 
+  if (expectedType && isCustomScalarType(expectedType)) {
+    // If the expected type is a custom scalar, we can't really infer anything from it.
+    expectedType = undefined;
+  }
+
   if (isVariable(v)) {
     return v.toString();
   }
-
 
   if (Array.isArray(v)) {
     let elementsType: InputType | undefined = undefined;
@@ -49,7 +54,7 @@ export function valueToString(v: any, expectedType?: InputType): string {
 
   if (typeof v === 'object') {
     if (expectedType && !isInputObjectType(expectedType)) {
-      throw buildError(`Invalid object value for non-input-object type ${expectedType}`);
+      throw buildError(`Invalid object value for non-input-object type ${expectedType} (isCustomScalar? ${isCustomScalarType(expectedType)})`);
     }
     return '{' + Object.keys(v).map(k => {
       let valueType = expectedType ? (expectedType as InputObjectType).field(k)?.type : undefined;
@@ -176,6 +181,10 @@ export function valueToAST(value: any, type: InputType): ValueNode | undefined {
     return { kind: Kind.VARIABLE, name: { kind: Kind.NAME, value: value.name } };
   }
 
+  if (isCustomScalarType(type)) {
+    return valueToASTUntyped(value);
+  }
+
   // Convert JavaScript array to GraphQL list. If the GraphQLType is a list, but
   // the value is not an array, convert the value using the list's item type.
   if (isListType(type)) {
@@ -198,7 +207,7 @@ export function valueToAST(value: any, type: InputType): ValueNode | undefined {
   // in the JavaScript object according to the fields in the input type.
   if (isInputObjectType(type)) {
     if (typeof value !== 'object') {
-      throw buildError(`Invalid non-objet value for input type ${type}, cannot be converted to AST: ${inspect(value)}`);
+      throw buildError(`Invalid non-objet value for input type ${type}, cannot be converted to AST: ${inspect(value, true, 10, true)}`);
     }
     const fieldNodes = [];
     for (const field of type.fields()) {
@@ -249,6 +258,65 @@ export function valueToAST(value: any, type: InputType): ValueNode | undefined {
   }
 
   throw buildError(`Invalid value for type ${type}, cannot be converted to AST: ${inspect(value)}`);
+}
+
+function valueToASTUntyped(value: any): ValueNode | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return { kind: Kind.NULL };
+  }
+
+  if (isVariable(value)) {
+    return { kind: Kind.VARIABLE, name: { kind: Kind.NAME, value: value.name } };
+  }
+
+  // Convert JavaScript array to GraphQL list. If the GraphQLType is a list, but
+  // the value is not an array, convert the value using the list's item type.
+  if (Array.isArray(value)) {
+    const valuesNodes = [];
+    for (const item of value) {
+      const itemNode = valueToASTUntyped(item);
+      if (itemNode !== undefined) {
+        valuesNodes.push(itemNode);
+      }
+    }
+    return { kind: Kind.LIST, values: valuesNodes };
+  }
+
+  if (typeof value === 'object') {
+    const fieldNodes = [];
+    for (const key of Object.keys(value)) {
+      const fieldValue = valueToASTUntyped(value[key]);
+      if (fieldValue) {
+        fieldNodes.push({
+          kind: Kind.OBJECT_FIELD,
+          name: { kind: Kind.NAME, value: key },
+          value: fieldValue,
+        });
+      }
+    }
+    return { kind: Kind.OBJECT, fields: fieldNodes };
+  }
+
+  if (typeof value === 'boolean') {
+    return { kind: Kind.BOOLEAN, value: value };
+  }
+
+  if (typeof value === 'number' && isFinite(value)) {
+    const stringNum = String(value);
+    return integerStringRegExp.test(stringNum)
+      ? { kind: Kind.INT, value: stringNum }
+      : { kind: Kind.FLOAT, value: stringNum };
+  }
+
+  if (typeof value === 'string') {
+    return { kind: Kind.STRING, value: value };
+  }
+
+  throw buildError(`Invalid value, cannot be converted to AST: ${inspect(value, true, 10, true)}`);
 }
 
 // see https://spec.graphql.org/draft/#IsVariableUsageAllowed()
@@ -303,6 +371,11 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
   }
 
   if (value === null || value === undefined) {
+    return true;
+  }
+
+  if (isCustomScalarType(locationType)) {
+    // There is no imposition on what a custom scalar value can be.
     return true;
   }
 
@@ -395,6 +468,10 @@ function collectVariables(value: any, variables: Variable[]) {
     if (!variables.some(v => v.name === value.name)) {
       variables.push(value);
     }
+    return;
+  }
+
+  if (!value) {
     return;
   }
 
