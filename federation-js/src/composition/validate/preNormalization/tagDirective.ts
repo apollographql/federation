@@ -1,21 +1,19 @@
-import { federationDirectives } from '../../../directives';
+import {
+  directiveDefinitionsAreCompatible,
+  federationDirectives,
+} from '../../../directives';
 import {
   DirectiveDefinitionNode,
   KnownDirectivesRule,
   visit,
   BREAK,
-  DirectiveLocation,
+  parse,
 } from 'graphql';
 import { KnownArgumentNamesOnDirectivesRule } from 'graphql/validation/rules/KnownArgumentNamesRule';
 import { ProvidedRequiredArgumentsOnDirectivesRule } from 'graphql/validation/rules/ProvidedRequiredArgumentsRule';
 import { validateSDL } from 'graphql/validation/validate';
 import { ServiceDefinition } from '../../types';
-import {
-  errorWithCode,
-  isNamedTypeNode,
-  isNonNullTypeNode,
-  logDirective,
-} from '../../utils';
+import { errorWithCode, logDirective } from '../../utils';
 
 // Likely brittle but also will be very obvious if this breaks. Based on the
 // content of the error message itself to remove expected errors related to
@@ -51,12 +49,19 @@ export const tagDirective = ({
     },
   });
 
+  const printedTagDefinition =
+    'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION';
+  const parsedTagDefinition = parse(printedTagDefinition)
+    .definitions[0] as DirectiveDefinitionNode;
+
   if (
     tagDirectiveDefinition &&
-    !definitionIsCompatible(tagDirectiveDefinition)
+    !directiveDefinitionsAreCompatible(
+      parsedTagDefinition,
+      tagDirectiveDefinition,
+    )
   ) {
-    const printedTagDefinition =
-      'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION';
+    debugger;
     errors.push(
       errorWithCode(
         'TAG_DIRECTIVE_DEFINITION_INVALID',
@@ -72,32 +77,3 @@ export const tagDirective = ({
       !errorsMessagesToFilter.some((keyWord) => message === keyWord),
   );
 };
-
-function definitionIsCompatible(tagDefinition: DirectiveDefinitionNode) {
-  // Tag definition must have a `name` argument
-  const nameArg = tagDefinition.arguments?.find(
-    (arg) => arg.name.value === 'name',
-  );
-  // `name` argument must be of type `String!`
-  if (
-    !nameArg ||
-    !isNonNullTypeNode(nameArg?.type) ||
-    !isNamedTypeNode(nameArg?.type.type) ||
-    nameArg?.type.type.name.value !== 'String'
-  ) {
-    return false;
-  }
-
-  const validLocations = new Set<string>([
-    DirectiveLocation.FIELD_DEFINITION,
-    DirectiveLocation.INTERFACE,
-    DirectiveLocation.OBJECT,
-    DirectiveLocation.UNION,
-  ]);
-  // Directive locations must be one of the allowed locations in the Set above
-  for (const location of tagDefinition.locations) {
-    if (!validLocations.has(location.value)) return false;
-  }
-
-  return true;
-}

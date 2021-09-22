@@ -69,12 +69,9 @@ describe('tagDirective', () => {
     it('permits alternative, compatible @tag definitions', () => {
       const serviceA = {
         typeDefs: gql`
-          directive @tag(
-            name: String!
-            additionalArg: String
-          ) on FIELD_DEFINITION | INTERFACE
+          directive @tag(name: String!) on FIELD_DEFINITION | INTERFACE
           type Query {
-            hello: String @tag(name: "hello", additionalArg: "world")
+            hello: String @tag(name: "hello")
           }
         `,
         name: 'serviceA',
@@ -118,7 +115,69 @@ describe('tagDirective', () => {
     });
 
     describe('incompatible definition', () => {
-      it('name argument is incompatible', () => {
+      it('locations incompatible', () => {
+        const serviceA = {
+          typeDefs: gql`
+            directive @tag(name: String!) on FIELD_DEFINITION | SCHEMA
+
+            type Query {
+              hello: String @tag(name: "hello")
+            }
+          `,
+          name: 'serviceA',
+        };
+
+        const errors = tagDirective(serviceA);
+
+        expect(errors).toMatchInlineSnapshot(`
+          Array [
+            Object {
+              "code": "TAG_DIRECTIVE_DEFINITION_INVALID",
+              "locations": Array [
+                Object {
+                  "column": 1,
+                  "line": 2,
+                },
+              ],
+              "message": "[@tag] -> Found @tag definition in service serviceA, but the @tag directive definition was invalid. Please ensure the directive definition in your schema's type definitions is compatible with the following:
+          	directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION",
+            },
+          ]
+        `);
+      });
+
+      it('name arg missing', () => {
+        const serviceA = {
+          typeDefs: gql`
+            directive @tag on FIELD_DEFINITION
+
+            type Query {
+              hello: String @tag
+            }
+          `,
+          name: 'serviceA',
+        };
+
+        const errors = tagDirective(serviceA);
+
+        expect(errors).toMatchInlineSnapshot(`
+          Array [
+            Object {
+              "code": "TAG_DIRECTIVE_DEFINITION_INVALID",
+              "locations": Array [
+                Object {
+                  "column": 1,
+                  "line": 2,
+                },
+              ],
+              "message": "[@tag] -> Found @tag definition in service serviceA, but the @tag directive definition was invalid. Please ensure the directive definition in your schema's type definitions is compatible with the following:
+          	directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION",
+            },
+          ]
+        `);
+      });
+
+      it('name arg incompatible', () => {
         const serviceA = {
           typeDefs: gql`
             directive @tag(name: String) on FIELD_DEFINITION
@@ -149,10 +208,10 @@ describe('tagDirective', () => {
         `);
       });
 
-      it('locations incompatible', () => {
+      it('additional args', () => {
         const serviceA = {
           typeDefs: gql`
-            directive @tag(name: String!) on FIELD_DEFINITION | SCHEMA
+            directive @tag(name: String!, additional: String) on FIELD_DEFINITION
 
             type Query {
               hello: String @tag(name: "hello")
