@@ -61,7 +61,6 @@ export const tagDirective = ({
       tagDirectiveDefinition,
     )
   ) {
-    debugger;
     errors.push(
       errorWithCode(
         'TAG_DIRECTIVE_DEFINITION_INVALID',
