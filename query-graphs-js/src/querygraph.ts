@@ -23,7 +23,7 @@ import {
   isCompositeType
 } from '@apollo/core';
 import { inspect } from 'util';
-import { DownCast, FieldCollection, freeTransition, FreeTransition, Transition, KeyResolution } from './transition';
+import { DownCast, FieldCollection, freeTransition, FreeTransition, Transition, KeyResolution, QueryResolution } from './transition';
 import { isStructuralFieldSubtype } from './structuralSubtyping';
 
 const FEDERATED_GRAPH_ROOT_SOURCE = "federated_subgraphs";
@@ -531,9 +531,26 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   }
 
   // We then add the edges from supergraph roots to the subgraph ones.
+  // For the query root, we also add edges from each the query root of each subgraph to the query root of each other.
+  // This essentially encode the fact that if a field return the "query" type, we can always query any subgraph from
+  // that point.
   for (let [i, subgraph] of subgraphs.entries()) {
     const copyPointer = copyPointers[i];
     subgraph.rootKinds().forEach(k => builder.addEdge(builder.root(k)!, copyPointer.copiedVertex(subgraph.root(k)!), freeTransition));
+
+    const queryRoot = subgraph.root("query");
+    if (queryRoot) {
+      for (let [j, otherSubgraph] of subgraphs.entries()) {
+        if (i === j) {
+          continue;
+        }
+        const otherQueryRoot = otherSubgraph.root("query");
+        if (otherQueryRoot) {
+          const otherCopyPointer = copyPointers[j];
+          builder.addEdge(copyPointer.copiedVertex(queryRoot), otherCopyPointer.copiedVertex(otherQueryRoot), new QueryResolution());
+        }
+      }
+    }
   }
 
   // Then we add/update edges for @key and @requires. We do @provides in a second step because its handling requires

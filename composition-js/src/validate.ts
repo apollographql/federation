@@ -106,6 +106,7 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
       break
     case 'FreeTransition':
     case 'KeyResolution':
+    case 'QueryResolution':
       return subSelection;
   }
   // If we get here, the edge is either a downcast or a field, so the edge head must be selectable.
@@ -334,7 +335,6 @@ class ValidationTaversal {
   }
 
   private handleState(state: ValidationState) {
-
     const vertex = state.supergraphPath.tail;
     const currentSources = state.currentSubgraphs();
     const previousSeenSources = this.previousVisits.getVertexState(vertex);

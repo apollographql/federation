@@ -32,12 +32,12 @@ describe('executeQueryPlan', () => {
     [serviceName: string]: LocalGraphQLDataSource;
   };
 
-  let parseOp = (operation: string): DocumentNode => {
+  let parseOp = (operation: string, operationSchema?: GraphQLSchema): DocumentNode => {
     const doc = gql(operation);
 
     // Validating the operation, to avoid having them silently becoming invalid
     // due to change to the fixtures.
-    const validationErrors = validate(schema, doc);
+    const validationErrors = validate(operationSchema ?? schema, doc);
     if (validationErrors.length > 0) {
       throw new Error(validationErrors.map(error => error.message).join("\n\n"));
     }
@@ -1394,4 +1394,111 @@ describe('executeQueryPlan', () => {
       // `);
     });
   });
+
+  it('can query other subgraphs when the Query type is the type of a field', async () => {
+    const s1 = gql`
+      type Query {
+        getA: A
+      }
+
+      type A {
+        q: Query
+      }
+    `;
+
+    const s2 = gql`
+      type Query {
+        one: Int
+      }
+    `;
+
+    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+
+      { name: 'S1', typeDefs: s1 },
+      { name: 'S2', typeDefs: s2 }
+    ]);
+
+    addResolversToSchema(serviceMap['S1'].schema, {
+      Query: {
+        getA() {
+          return {
+            getA: {
+              q: null
+            }
+          };
+        },
+      },
+      A: {
+        q() {
+          return Object.create(null);
+        }
+      }
+    });
+
+    addResolversToSchema(serviceMap['S2'].schema, {
+      Query: {
+        one() {
+          return 1;
+        },
+      },
+    });
+
+    const operationDocument = parseOp(`
+      query {
+        getA {
+          q {
+            one
+          }
+        }
+      }
+      `, schema);
+
+    const operationContext = buildOperationContext({
+      schema,
+      operationDocument,
+    });
+
+    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "S1") {
+            {
+              getA {
+                q {
+                  __typename
+                }
+              }
+            }
+          },
+          Flatten(path: "getA.q") {
+            Fetch(service: "S2") {
+              {
+                ... on Query {
+                  one
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+
+    const response = await executeQueryPlan(
+      queryPlan,
+      serviceMap,
+      buildRequestContext(),
+      operationContext,
+    );
+
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "getA": Object {
+          "q": Object {
+            "one": 1,
+          },
+        },
+      }
+      `);
+  })
 });

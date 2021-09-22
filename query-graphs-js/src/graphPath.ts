@@ -527,6 +527,12 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
         continue;
       }
 
+      // We have edges before Query objects, but let's not bother using them where we're at the beginning of a
+      // root path since the edge from the federated graph root already chose a subgraph.
+      if (edge.transition.kind === 'QueryResolution' && isRootVertex(path.root) && path.size === 1) {
+        continue;
+      }
+
       const prevForSource = bestPathBySource.get(target.source);
       if (prevForSource
         && (prevForSource[0].size < toAdvance.size + 1

@@ -13,13 +13,17 @@ import { FieldDefinition, CompositeType } from "@apollo/core";
  *  - a key (`KeyResolution`), only found in "federated" query graphs: the edge goes from an
  *    entity type in a particular subgraph to the same entity type but in another subgraph. Edge
   *   with key transition _must_ have `conditions` corresponding to the key fields.
+  * - a query (`QueryResolution`), only found in "federated" query graphs: the edge goes from
+  *   the query root type of a subgraph to the query subgraph of another subgraph. It encodes
+  *   the fact that if a subgraph field returns the query type, any subgraph can be queried
+  *   from there.
   * - a "free" edge: this is a special case only used for the edges out of the root vertices of
   *   "federated" query graphs. It does not correspond to any physical graphQL elements but
   *   can be understood as the fact that the gateway is always free to start querying any of
   *   the subgraph services as needed.
   *
  */
-export type Transition = FieldCollection | DownCast | KeyResolution | FreeTransition;
+export type Transition = FieldCollection | DownCast | KeyResolution | QueryResolution | FreeTransition;
 
 export class KeyResolution {
   readonly kind = 'KeyResolution' as const;
@@ -30,6 +34,18 @@ export class KeyResolution {
 
   toString() {
     return 'key()';
+  }
+}
+
+export class QueryResolution {
+  readonly kind = 'QueryResolution' as const;
+  readonly collectOperationElements = false as const;
+
+  constructor() {
+  }
+
+  toString() {
+    return 'query()';
   }
 }
 
