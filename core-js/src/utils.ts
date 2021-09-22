@@ -29,3 +29,22 @@ export class MultiMap<K, V> extends Map<K, V[]> {
     return this;
   }
 }
+
+/**
+ * Tests if the provided arrays have the same elements (using '===' equality).
+ * This is _not_ a deep equality.
+ */
+export function arrayEquals<T>(a: readonly T[], b: readonly T[]) {
+  if (a === b) {
+    return true;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; ++i) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}

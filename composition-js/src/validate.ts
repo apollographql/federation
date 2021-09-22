@@ -181,7 +181,7 @@ export function validateGraphComposition(supergraph: QueryGraph, subgraphs: Quer
 
 export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgraphs: QueryGraph): {traversal?: ValidationState, isComplete?: boolean, error?: ValidationError} {
   try {
-    assert(!supergraphPath.hasAnyEdgeConditions(), `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
+    assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = [...supergraphPath.graph.sources.values()][0];
     let initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
     const cache = new QueryGraphState<GraphPath<Transition>[]>(subgraphs);
@@ -207,10 +207,10 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
 
 function initialSubgraphPaths(kind: SchemaRootKind, subgraphs: QueryGraph): RootPath<Transition>[] {
   const root = subgraphs.root(kind);
-  assert(root, `The supergraph shouldn't have a ${kind} root if no subgraphs have one`);
+  assert(root, () => `The supergraph shouldn't have a ${kind} root if no subgraphs have one`);
   assert(
     root.type.name == federatedGraphRootTypeName(kind),
-    `Unexpected type ${root.type} for subgraphs root type (expected ${federatedGraphRootTypeName(kind)}`);
+    () => `Unexpected type ${root.type} for subgraphs root type (expected ${federatedGraphRootTypeName(kind)}`);
   const initialState = GraphPath.fromGraphRoot<Transition>(subgraphs, kind)!;
   return subgraphs.outEdges(root).map(e => initialState.add(freeTransition, e));
 }

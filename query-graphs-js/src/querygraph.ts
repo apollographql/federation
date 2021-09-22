@@ -508,7 +508,7 @@ function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<SchemaRootK
   for (let subgraph of subgraphs) {
     vertices += subgraph.verticesCount();
     subgraph.rootKinds().forEach(k => rootKinds.add(k));
-    assert(subgraph.sources.size === 1, `Subgraphs should only have one sources, got ${subgraph.sources.size} ([${[...subgraph.sources.keys()].join(', ')}])`);
+    assert(subgraph.sources.size === 1, () => `Subgraphs should only have one sources, got ${subgraph.sources.size} ([${[...subgraph.sources.keys()].join(', ')}])`);
     schemas.push([...subgraph.sources.values()][0]);
   }
   return [vertices + rootKinds.size, rootKinds, schemas];
@@ -575,7 +575,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           // entity in some subgraphs but not other, this is not the place to impose that
           // restriction, and this may be useful at least temporarily to allow convert a type to
           // an entity).
-          assert(isInterfaceType(type) || isObjectType(type), `Invalid "@key" application on non Object || Interface type "${type}"`);
+          assert(isInterfaceType(type) || isObjectType(type), () => `Invalid "@key" application on non Object || Interface type "${type}"`);
           const conditions = parseSelectionSet(type, keyApplication.arguments().fields);
           for (let [j, otherSubgraph] of subgraphs.entries()) {
             if (i == j) {
@@ -603,7 +603,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
         if (e.transition.kind === 'FieldCollection') {
           const type = e.head.type;
           const field = e.transition.definition;
-          assert(isCompositeType(type), `Non composite type "${type}" should not have field collection edge ${e}`);
+          assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const requiresApplication of field.appliedDirectivesOf(requireDirective)) {
             const conditions = parseSelectionSet(type, requiresApplication.arguments().fields);
             const head = copyPointers[i].copiedVertex(e.head);
@@ -629,10 +629,10 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
         if (e.transition.kind === 'FieldCollection') {
           const type = e.head.type;
           const field = e.transition.definition;
-          assert(isCompositeType(type), `Non composite type "${type}" should not have field collection edge ${e}`);
+          assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
             const fieldType = baseType(field.type!);
-            assert(isInterfaceType(fieldType) || isObjectType(fieldType), `Invalid @provide on field "${field}" whose type "${fieldType}" is not an object or interface`)
+            assert(isInterfaceType(fieldType) || isObjectType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not an object or interface`)
             const provided = parseSelectionSet(fieldType, providesApplication.arguments().fields);
             const head = copyPointers[i].copiedVertex(e.head);
             const tail = copyPointers[i].copiedVertex(e.tail);
@@ -786,7 +786,7 @@ class GraphBuilder {
     return {
       copiedVertex(original: Vertex): Vertex {
         const vertex = that.vertices[original.index + offset];
-        assert(vertex, `Vertex ${original} has no copy for offset ${offset}`);
+        assert(vertex, () => `Vertex ${original} has no copy for offset ${offset}`);
         return vertex;
       }
     };

@@ -1,5 +1,6 @@
 import { 
   assert,
+  arrayEquals,
   baseType,
   CompositeType,
   entityTypeName,
@@ -53,7 +54,6 @@ import {
   Vertex,
   //isRootVertex
 } from "@apollo/query-graphs";
-import deepEqual from "deep-equal";
 import { Kind, DocumentNode, stripIgnoredCharacters, print } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
@@ -402,14 +402,14 @@ class FetchGroup {
   }
 
   mergeIn(toMerge: FetchGroup, mergePath: OperationPath) {
-    assert(!toMerge.isTopLevel, `Shouldn't merge top level group ${toMerge} into ${this}`);
+    assert(!toMerge.isTopLevel, () => `Shouldn't merge top level group ${toMerge} into ${this}`);
     // Note that because toMerge is not top-level, the first "level" of it's selection is going to be a typeCast into the entity type
     // used to get to the group (because the entities() operation, which is called, returns the _Entity and _needs_ type-casting).
     // But when we merge-in, the type cast can be skipped.
     const selectionSet = selectionSetOfPath(mergePath, endOfPathSet => {
-      assert(endOfPathSet, `Merge path ${mergePath} ends on a non-selectable type`);
+      assert(endOfPathSet, () => `Merge path ${mergePath} ends on a non-selectable type`);
       for (const typeCastSel of toMerge.selection.selections()) {
-        assert(typeCastSel instanceof FragmentSelection, `Unexpected field selection ${typeCastSel} at top-level of ${toMerge} selection.`);
+        assert(typeCastSel instanceof FragmentSelection, () => `Unexpected field selection ${typeCastSel} at top-level of ${toMerge} selection.`);
         endOfPathSet.mergeIn(typeCastSel.selectionSet);
       }
     });
@@ -468,6 +468,16 @@ interface FetchGroupProcessor<G, P, F> {
 
 type UnhandledGroups = [FetchGroup, UnhandledInEdges][];
 type UnhandledInEdges = number[];
+
+function sameMergeAt(m1: ResponsePath | undefined, m2: ResponsePath | undefined): boolean {
+  if (!m1) {
+    return !m2;
+  }
+  if (!m2) {
+    return false;
+  }
+  return arrayEquals(m1, m2);
+}
 
 class FetchDependencyGraph {
   private readonly rootGroups: Map<string, FetchGroup> = new Map();
@@ -538,7 +548,8 @@ class FetchDependencyGraph {
     // meaning that we cannot reuse a group that fetched something we actually as input.
     for (const existing of this.dependents(directParent)) {
       if (existing.subgraphName === subgraphName
-        && deepEqual(existing.mergeAt, mergeAt)
+        && existing.mergeAt
+        && sameMergeAt(existing.mergeAt, mergeAt)
         && !this.isDependedOn(existing, conditionsGroups)
       ) {
         const existingPathInParent = this.pathInParent(existing);
@@ -649,8 +660,8 @@ class FetchDependencyGraph {
     this.onModification();
     const dependents = this.dependents(group);
     const dependencies = this.dependencies(group);
-    assert(dependents.length === 0, `Cannot remove group ${group} with dependents [${dependents}]`);
-    assert(dependencies.length <= 1, `Cannot remove group ${group} with more/less than one dependency: [${dependencies}]`);
+    assert(dependents.length === 0, () => `Cannot remove group ${group} with dependents [${dependents}]`);
+    assert(dependencies.length <= 1, () => `Cannot remove group ${group} with more/less than one dependency: [${dependencies}]`);
     this.removeInternal(group.index);
   }
 
@@ -718,7 +729,7 @@ class FetchDependencyGraph {
         for (const g2 of dependents) {
           if (g1.index !== g2.index
             && g1.subgraphName === g2.subgraphName
-            && deepEqual(g1.mergeAt, g2.mergeAt)
+            && sameMergeAt(g1.mergeAt, g2.mergeAt)
             && this.dependencies(g1).length === 1
             && this.dependencies(g2).length === 1
           ) {
@@ -918,7 +929,7 @@ function computeNonRootFetchGroups(subgraphSchemas: ReadonlyMap<string, Schema>,
   const source = pathTree.vertex.source;
   // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
   const rootType = pathTree.vertex.type;
-  assert(isCompositeType(rootType), `Should not have condition on non-selectable type ${rootType}`);
+  assert(isCompositeType(rootType), () => `Should not have condition on non-selectable type ${rootType}`);
   const group = dependencyGraph.getOrCreateRootFetchGroup(source, rootType);
   computeGroupsForTree(dependencyGraph, pathTree, group);
   return dependencyGraph;
@@ -972,10 +983,10 @@ function computeGroupsForTree(
           // The only 3 cases where we can take edge not "driven" by an operation is either when we resolve a key, resolve
           // a query (switch subgraphs because the query root type is the type of a field), or at the root of subgraph graph.
           // The latter case has already be handled the beginning of `computeFetchGroups` so only the 2 former remains.
-          assert(edge !== null, `Unexpected 'null' edge with no trigger at ${path}`);
-          assert(edge.head.source !== edge.tail.source, `Key/Query edge ${edge} should change the underlying subgraph`);
+          assert(edge !== null, () => `Unexpected 'null' edge with no trigger at ${path}`);
+          assert(edge.head.source !== edge.tail.source, () => `Key/Query edge ${edge} should change the underlying subgraph`);
           if (edge.transition.kind === 'KeyResolution') {
-            assert(conditions, `Key edge ${edge} should have some conditions paths`);
+            assert(conditions, () => `Key edge ${edge} should have some conditions paths`);
             // First, we need to ensure we fetch the conditions from the current group.
             const groupsForConditions = computeGroupsForTree(dependencyGraph, conditions, group, mergeAt, path);
             // Then we can "take the edge", creating a new group. That group depends
@@ -997,12 +1008,12 @@ function computeGroupsForTree(
 
             stack.push([child, newGroup, mergeAt, newPath]);
           } else {
-            assert(edge.transition.kind === 'QueryResolution', `Unexpected non-collecting edge ${edge}`);
-            assert(!conditions, `Query resolution edge ${edge} should not have conditions`);
+            assert(edge.transition.kind === 'QueryResolution', () => `Unexpected non-collecting edge ${edge}`);
+            assert(!conditions, () => `Query resolution edge ${edge} should not have conditions`);
 
-            assert(isObjectType(edge.head.type) && isObjectType(edge.tail.type), `Expected an objects for the vertices of ${edge}`);
+            assert(isObjectType(edge.head.type) && isObjectType(edge.tail.type), () => `Expected an objects for the vertices of ${edge}`);
             const type = edge.tail.type;
-            assert(type === type.schema()!.schemaDefinition.rootType('query'), `Expected ${type} to be the root query type, but that is ${type.schema()!.schemaDefinition.rootType('query')}`);
+            assert(type === type.schema()!.schemaDefinition.rootType('query'), () => `Expected ${type} to be the root query type, but that is ${type.schema()!.schemaDefinition.rootType('query')}`);
 
             // We're querying a field `q` of a subgraph, get the query type, and follow with a query on another
             // subgraph. But that mean that on the original subgraph, we may not have added _any_ selection for
@@ -1025,7 +1036,7 @@ function computeGroupsForTree(
           const newPath = operation.appliedDirectives.length === 0 ? path : [...path, operation];
           stack.push([child, group, mergeAt, newPath]);
         } else {
-          assert(edge.head.source === edge.tail.source, `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
+          assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
           let updatedGroup = group;
           let updatedMergeAt = mergeAt;
           let updatedPath = path;
@@ -1129,7 +1140,7 @@ function handleRequires(
         // Note that pathInParent != undefined implies that parents is of size 1
         if (pathInParent
           && created.subgraphName === parents[0].subgraphName
-          && deepEqual(created.mergeAt, group.mergeAt)
+          && sameMergeAt(created.mergeAt, group.mergeAt)
         ) {
           parents[0].mergeIn(created, pathInParent);
         } else {
@@ -1158,7 +1169,7 @@ function handleRequires(
         // Note that pathInParent != undefined implies that parents is of size 1
         if (pathInParent
           && created.subgraphName === parents[0].subgraphName
-          && deepEqual(created.mergeAt, group.mergeAt)
+          && sameMergeAt(created.mergeAt, group.mergeAt)
           && originalInputs.contains(created.inputs!)
         ) {
           parents[0].mergeIn(created, pathInParent);

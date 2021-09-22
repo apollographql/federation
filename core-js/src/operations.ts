@@ -247,6 +247,10 @@ export type OperationElement = Field<any> | FragmentElement;
 export type OperationPath = OperationElement[];
 
 export function sameOperationPaths(p1: OperationPath, p2: OperationPath): boolean {
+  if (p1 === p2) {
+    return true;
+  }
+
   if (p1.length !== p2.length) {
     return false;
   }
@@ -341,11 +345,6 @@ export class SelectionSet {
     if (existing) {
       for (const existingSelection of existing) {
         if (existingSelection.kind === toAdd.kind && haveSameDirectives(existingSelection.element(), toAdd.element())) {
-          // For field, the 'element key' is the response name. If 2 fields have same parent name (which they have) and the
-          // same response name (which they have), then they must be the exact same field application.
-          // Note that for fragments, this condition can never fail since the element key is the condition name and that's the only
-          // thing of the equality we haven't already checked.
-          validate(existingSelection.element().equals(toAdd.element()), `Field "${existingSelection}" and "${toAdd}" have the same response name but different name and/or arguments`);
           if (toAdd.selectionSet) {
             existingSelection.selectionSet!.mergeIn(toAdd.selectionSet);
           }
@@ -431,6 +430,10 @@ export class SelectionSet {
   }
 
   equals(that: SelectionSet): boolean {
+    if (this === that) {
+      return true;
+    }
+
     if (this._selections.size !== that._selections.size) {
       return false;
     }
@@ -645,6 +648,10 @@ export class FieldSelection {
   }
 
   equals(that: Selection): boolean {
+    if (this === that) {
+      return true;
+    }
+
     if (!(that instanceof FieldSelection) || !this.field.equals(that.field)) {
       return false;
     }
@@ -739,6 +746,9 @@ export class FragmentSelection {
   }
 
   equals(that: Selection): boolean {
+    if (this === that) {
+      return true;
+    }
     return (that instanceof FragmentSelection)
       && this.fragmentElement.equals(that.fragmentElement)
       && this.selectionSet.equals(that.selectionSet);
@@ -799,10 +809,8 @@ export function operationFromAST(
   );
 }
 
-
-
-export function parseOperation(schema: Schema, operation: string): Operation {
-  return operationFromAST(schema, parseOperationAST(operation) );
+export function parseOperation(schema: Schema, operation: string, operationName?: string): Operation {
+  return operationFromDocument(schema, parse(operation), operationName);
 }
 
 export function parseSelectionSet(
@@ -829,7 +837,6 @@ function parseOperationAST(source: string): OperationDefinitionNode {
   validate(def.kind === 'OperationDefinition', 'Expected an operation definition but got a ' + def.kind);
   return def;
 }
-
 
 export function operationToAST(operation: Operation): OperationDefinitionNode {
   return {

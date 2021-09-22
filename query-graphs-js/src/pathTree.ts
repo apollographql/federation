@@ -80,7 +80,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     }
 
     assert(other.graph === this.graph, 'Cannot merge path tree build on another graph');
-    assert(other.vertex.index === this.vertex.index, `Cannot merge path tree rooted at vertex ${other.vertex} into tree rooted at other vertex ${this.vertex}`);
+    assert(other.vertex.index === this.vertex.index, () => `Cannot merge path tree rooted at vertex ${other.vertex} into tree rooted at other vertex ${this.vertex}`);
     if (!other.childs.length) {
       return this;
     }
@@ -126,7 +126,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
   // to merge() this never merge childs together, even if they are equal. This is only for the special case of mutations.
   concat(other: PathTree<TTrigger, RV, TNullEdge>): PathTree<TTrigger, RV, TNullEdge> {
     assert(other.graph === this.graph, 'Cannot concat path tree build on another graph');
-    assert(other.vertex.index === this.vertex.index, `Cannot contat path tree rooted at vertex ${other.vertex} into tree rooted at other vertex ${this.vertex}`);
+    assert(other.vertex.index === this.vertex.index, () => `Cannot contat path tree rooted at vertex ${other.vertex} into tree rooted at other vertex ${this.vertex}`);
     if (!other.childs.length) {
       return this;
     }
@@ -154,7 +154,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
 
   mergePath(path: GraphPath<TTrigger, RV, TNullEdge>): PathTree<TTrigger, RV, TNullEdge> {
     assert(path.graph === this.graph, 'Cannot merge path build on another graph');
-    assert(path.root.index === this.vertex.index, `Cannot merge path rooted at vertex ${path.root} into tree rooted at other vertex ${this.vertex}`);
+    assert(path.root.index === this.vertex.index, () => `Cannot merge path rooted at vertex ${path.root} into tree rooted at other vertex ${this.vertex}`);
     return this.mergePathInternal(path.elements());
   }
 
@@ -164,7 +164,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       return this;
     }
     const [edge, trigger, conditions] = iterResult.value;
-    assert(!edge || edge.head.index === this.vertex.index, `Next element head of ${edge} is not equal to current tree vertex ${this.vertex}`);
+    assert(!edge || edge.head.index === this.vertex.index, () => `Next element head of ${edge} is not equal to current tree vertex ${this.vertex}`);
     const edgeIndex = (edge ? edge.index : null) as number | TNullEdge;
     const idx = this.findIndex(trigger, edgeIndex);
     if (idx < 0) {

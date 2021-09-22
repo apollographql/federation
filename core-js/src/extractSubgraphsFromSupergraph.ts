@@ -125,17 +125,17 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
                 addSubgraphField(field, subgraph);
               }
             } else {
-              assert(ownerApplications.length == 1, `Found multiple join__owner directives for field ${field.coordinate}`)
+              assert(ownerApplications.length == 1, () => `Found multiple join__owner directives for field ${field.coordinate}`)
               const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(ownerApplications[0].arguments().graph)!)!;
               const subgraphField = addSubgraphField(field, subgraph);
-              assert(subgraphField, `Found join__owner directive on ${type} but no corresponding join__type`);
+              assert(subgraphField, () => `Found join__owner directive on ${type} but no corresponding join__type`);
             }
           } else {
             for (const application of fieldApplications) {
               const args = application.arguments();
               const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
               const subgraphField = addSubgraphField(field, subgraph);
-              assert(subgraphField, `Found join__field directive for graph ${subgraph.name} on field ${field.coordinate} but no corresponding join__type on ${type}`);
+              assert(subgraphField, () => `Found join__field directive for graph ${subgraph.name} on field ${field.coordinate} but no corresponding join__type on ${type}`);
               if (args.requires) {
                 subgraphField.applyDirective('requires', {'fields': args.requires});
               }
@@ -154,7 +154,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           if (!subgraphEnum) {
             continue;
           }
-          assert(isEnumType(subgraphEnum), `${subgraphEnum} should be an enum but found a ${subgraphEnum.kind}`);
+          assert(isEnumType(subgraphEnum), () => `${subgraphEnum} should be an enum but found a ${subgraphEnum.kind}`);
           for (const value of type.values) {
             subgraphEnum.addValue(value.name);
           }
@@ -169,7 +169,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           if (!subgraphUnion) {
             continue;
           }
-          assert(isUnionType(subgraphUnion), `${subgraphUnion} should be an enum but found a ${subgraphUnion.kind}`);
+          assert(isUnionType(subgraphUnion), () => `${subgraphUnion} should be an enum but found a ${subgraphUnion.kind}`);
           for (const memberType of type.types()) {
             const subgraphType = subgraph.schema.type(memberType.name);
             if (subgraphType) {
@@ -235,7 +235,7 @@ function copyType(type: Type, subgraph: Schema, subgraphName: string): Type {
       return new NonNullType(copyType(type.ofType, subgraph, subgraphName) as NullableType);
     default:
       const subgraphType = subgraph.type(type.name);
-      assert(subgraphType, `Cannot find type ${type.name} in subgraph ${subgraphName}`);
+      assert(subgraphType, () => `Cannot find type ${type.name} in subgraph ${subgraphName}`);
       return subgraphType!;
   }
 }
@@ -275,7 +275,7 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema) {
       }
       const fieldBaseType = baseType(field.type!);
       for (const providesApplication of field.appliedDirectivesOf(federationBuiltIns.providesDirective(subgraph.schema))) {
-        assert(isObjectType(fieldBaseType) || isInterfaceType(fieldBaseType), `Found @provides on field ${field.coordinate} whose type ${field.type!} (${fieldBaseType.kind}) is not an object or interface `); 
+        assert(isObjectType(fieldBaseType) || isInterfaceType(fieldBaseType), () => `Found @provides on field ${field.coordinate} whose type ${field.type!} (${fieldBaseType.kind}) is not an object or interface `);
         addFieldsFromSelection(subgraph, fieldBaseType, providesApplication.arguments().fields, supergraph);
       }
     }
@@ -299,12 +299,12 @@ function addFieldsFromSelection(
       }
       return field;
     }
-    assert(!isUnionType(type), `Shouldn't select field ${fieldName} from union type ${type}`);
+    assert(!isUnionType(type), () => `Shouldn't select field ${fieldName} from union type ${type}`);
 
     // If the field has not been added, it is external and needs to be added as such
     const supergraphType = supergraph.type(type.name) as ObjectType | InterfaceType;
     const supergraphField = supergraphType.field(fieldName);
-    assert(supergraphField, `No field name ${fieldName} found on type ${type.name} in the supergraph`);
+    assert(supergraphField, () => `No field name ${fieldName} found on type ${type.name} in the supergraph`);
     // We're know the parent type of the field exists in the subgraph (it's `type`), so we're guaranteed a field is created.
     const created = addSubgraphObjectOrInterfaceField(supergraphField, subgraph)!;
     if (!forceNonExternal) {

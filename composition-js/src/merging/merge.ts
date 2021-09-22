@@ -1,6 +1,7 @@
 import {
   ArgumentDefinition,
   assert,
+  arrayEquals,
   DirectiveDefinition,
   EnumType,
   FieldDefinition,
@@ -64,7 +65,6 @@ import {
   hintInconsistentArgumentPresence,
   hintInconsistentDescription,
 } from "../hints";
-import deepEqual from 'deep-equal';
 
 const coreSpec = CORE_VERSIONS.latest()!;
 const joinSpec = JOIN_VERSIONS.latest()!;
@@ -514,8 +514,8 @@ class Merger {
       }
     }
     const supergraphMismatch = mismatchAcessor(supergraphElement, true);
-    assert(supergraphMismatch !== undefined, `The accessor on ${supergraphElement} returned undefined`);
-    assert(distributionMap.size > 1, `Should not have been called for ${supergraphElement}`);
+    assert(supergraphMismatch !== undefined, () => `The accessor on ${supergraphElement} returned undefined`);
+    assert(distributionMap.size > 1, () => `Should not have been called for ${supergraphElement}`);
     const distribution = [];
     // We always add the "supergraph" first (proper formatting of hints rely on this in particular).
     const subgraphsLikeSupergraph = distributionMap.get(supergraphMismatch);
@@ -867,7 +867,7 @@ class Merger {
 
   private getFieldSet(element: SchemaElement<any>, directive: DirectiveDefinition<{fields: string}>): string | undefined {
     const applications = element.appliedDirectivesOf(directive);
-    assert(applications.length <= 1, `Found more than one application of ${directive} on ${element}`);
+    assert(applications.length <= 1, () => `Found more than one application of ${directive} on ${element}`);
     return applications.length === 0 ? undefined : applications[0].arguments().fields;
   }
 
@@ -902,7 +902,7 @@ class Merger {
       }
     }
 
-    assert(destType, `We should have found at least one subgraph with a type for ${dest.coordinate}`);
+    assert(destType, () => `We should have found at least one subgraph with a type for ${dest.coordinate}`);
     // Note that destType is direct reference to one of the subgraph, so we need to copy it into our merged schema.
     dest.type = copyTypeReference(destType, this.merged) as TType;
 
@@ -1194,7 +1194,7 @@ class Merger {
       if (!locations) {
         locations = sourceLocations;
       } else {
-        if (!deepEqual(locations, sourceLocations)) {
+        if (!arrayEquals(locations, sourceLocations)) {
           inconsistentLocations = true;
         }
         // This create duplicates, but `addLocations` below eliminate them.
@@ -1273,7 +1273,7 @@ class Merger {
       if (!locations) {
         locations = sourceLocations;
       } else {
-        if (!deepEqual(locations, sourceLocations)) {
+        if (!arrayEquals(locations, sourceLocations)) {
           inconsistentLocations = true;
         }
         // Still an intersection: we can only allow locations that all subgraphs understand.

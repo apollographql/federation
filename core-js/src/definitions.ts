@@ -15,12 +15,11 @@ import {
   VariableNode
 } from "graphql";
 import { CoreDirectiveArgs, CoreSpecDefinition, CORE_VERSIONS, FeatureUrl, isCoreSpecDirectiveApplication, removeFeatureElements } from "./coreSpec";
-import { assert } from "./utils";
+import { assert, arrayEquals } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
 import { printSchema } from './print';
 import { sameType } from './types';
-import deepEqual from "deep-equal";
 
 export const typenameFieldName = '__typename';
 
@@ -614,7 +613,7 @@ export abstract class NamedSchemaElementWithType<TType extends Type, P extends N
 
   protected removeTypeReference(type: NamedType) {
     // We shouldn't have been listed as a reference if we're not one, so make it sure.
-    assert(this._type && baseType(this._type) === type, `Cannot remove reference to type ${type} on ${this} as its type is ${this._type}`);
+    assert(this._type && baseType(this._type) === type, () => `Cannot remove reference to type ${type} on ${this} as its type is ${this._type}`);
     this._type = undefined;
   }
 }
@@ -693,7 +692,7 @@ export class BuiltIns {
     if (builtIn.repeatable !== manuallyDefined.repeatable) {
       throw buildError(`Invalid redefinition of built-in directive ${builtIn}: ${builtIn} should${builtIn.repeatable ? "" : " not"} be repeatable`);
     }
-    if (!deepEqual(builtIn.locations, manuallyDefined.locations)) {
+    if (!arrayEquals(builtIn.locations, manuallyDefined.locations)) {
       throw buildError(`Invalid redefinition of built-in directive ${builtIn}: ${builtIn} should have locations ${builtIn.locations.join(', ')}, but found ${manuallyDefined.locations.join(', ')}`);
     }
   }
@@ -2214,7 +2213,7 @@ export class Directive<
     }
 
     const definition = this.definition;
-    assert(definition, `Cannot convert arguments of detached directive ${this}`);
+    assert(definition, () => `Cannot convert arguments of detached directive ${this}`);
     return entries.map(([n, v]) => {
       return {
         kind: 'Argument',
@@ -2259,7 +2258,7 @@ export class Directive<
     }
     const parentDirectives = this._parent.appliedDirectives as Directive<TParent>[];
     const index = parentDirectives.indexOf(this);
-    assert(index >= 0, `Directive ${this} lists ${this._parent} as parent, but that parent doesn't list it as applied directive`);
+    assert(index >= 0, () => `Directive ${this} lists ${this._parent} as parent, but that parent doesn't list it as applied directive`);
     parentDirectives.splice(index, 1);
     this._parent = undefined;
     this._extension = undefined;
