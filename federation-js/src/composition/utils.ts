@@ -149,14 +149,6 @@ export function stripExternalFieldsFromTypeDefs(
   return { typeDefsWithoutExternalFields, strippedFields };
 }
 
-export function stripDescriptions(astNode: ASTNode) {
-  return visit(astNode, {
-    enter(node) {
-      return 'description' in node ? { ...node, description: undefined } : node;
-    },
-  });
-}
-
 export function stripTypeSystemDirectivesFromTypeDefs(typeDefs: DocumentNode) {
   const typeDefsWithoutTypeSystemDirectives = visit(typeDefs, {
     Directive(node) {

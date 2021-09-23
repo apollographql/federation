@@ -16,8 +16,9 @@ import {
   ExecutableDefinitionNode,
   DirectiveDefinitionNode,
   print,
+  ASTNode,
+  visit,
 } from 'graphql';
-import { stripDescriptions } from './composition/utils';
 
 export const KeyDirective = new GraphQLDirective({
   name: 'key',
@@ -174,4 +175,12 @@ export function directiveDefinitionsAreCompatible(
     return false;
   }
   return true;
+}
+
+function stripDescriptions(astNode: ASTNode) {
+  return visit(astNode, {
+    enter(node) {
+      return 'description' in node ? { ...node, description: undefined } : node;
+    },
+  });
 }
