@@ -31,8 +31,8 @@ composition implementation while we work toward something else.
 #![warn(missing_docs, future_incompatible, unreachable_pub, rust_2018_idioms)]
 use deno_core::{op_sync, JsRuntime};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::sync::mpsc::channel;
-use std::{fmt::Display, io::Write};
 use thiserror::Error;
 
 /// The `ServiceDefinition` represents everything we need to know about a
@@ -163,15 +163,10 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
         // The op_fn callback takes a state object OpState,
         // a structured arg of type `T` and an optional ZeroCopyBuf,
         // a mutable reference to a JavaScript ArrayBuffer
-        op_sync(|_state, _msg: Option<String>, zero_copy| {
-            let mut out = std::io::stdout();
-
-            // Write the contents of every buffer to stdout
-            if let Some(buf) = zero_copy {
-                out.write_all(&buf)
-                    .expect("failure writing buffered output");
+        op_sync(|_state, maybe_msg: Option<String>, _zero_copy| {
+            if let Some(msg) = maybe_msg {
+                println!("{}", msg);
             }
-
             Ok(()) // No meaningful result
         }),
     );
