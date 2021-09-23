@@ -24,6 +24,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "scripts": {
+    "version": "node ../update-lockfile.js"
+  },
   "dependencies": {
     "@apollo/core-schema": "^0.1.0",
     "@apollo/federation": "file:../federation-js",

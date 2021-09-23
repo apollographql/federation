@@ -22,6 +22,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "scripts": {
+    "version": "node ../update-lockfile.js"
+  },
   "dependencies": {
     "apollo-graphql": "^0.9.3",
     "apollo-server-types": "^3.0.2",

@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "rollup": "rollup -c ./rollup.config.js"
+    "rollup": "rollup -c ./rollup.config.js",
+    "version": "node ../update-lockfile.js"
   },
   "repository": {
     "type": "git",
