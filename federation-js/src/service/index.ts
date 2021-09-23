@@ -1,2 +1,2 @@
 export * from './buildSubgraphSchema';
-export * from './printFederatedSchema';
+export * from './printSubgraphSchema';

@@ -54,6 +54,15 @@
       "matchPackageNames": ["make-fetch-happen"],
       "allowedVersions": "8.x"
     },
+    // node-fetch v3 only ships as ESM. We currently build to CommonJS and even
+    // if we start publishing as ESM we're not going to go ESM-only for a while.
+    // (Plus it requires Node v12.20 and we support v12.13.) So let's stay on
+    // v2. (Perhaps we could swap to undici instead if this pin gets to be a
+    // problem.)
+    {
+      "matchPackageNames": ["node-fetch", "@types/node-fetch"],
+      "allowedVersions": "2.x"
+    },
     // strip-indent v4 can only be imported from ESM modules, and we don't currently
     // build as ESM. Maybe we'll change our build strategy eventually, but until then
     // we can continue using an old version of a simple indentation stripper in our tests.

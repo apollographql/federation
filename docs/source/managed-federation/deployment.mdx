@@ -207,23 +207,25 @@ With this atomic strategy, the query planner resolves all outstanding requests t
 
 ## Reliability and security
 
-The gateway's configuration is exposed through [Google Cloud Storage (GCS)](https://cloud.google.com/storage). For each Studio [graph API key](https://www.apollographql.com/docs/studio/api-keys/#graph-api-keys) with a [permission level](https://www.apollographql.com/docs/studio/org/members/#graph-key-roles) greater than `Consumer`, Apollo Studio provisions a public file that's accessible via the hash of that key. In the event that your configuration is inaccessible due to an outage in GCS, the gateway continues to serve the last fetched configuration.
+Your gateway fetches its configuration by polling Apollo Uplink, an Apollo-hosted endpoint specifically for serving supergraph configs. In the event that your updated config is inaccessible due to an outage in Uplink, your gateway continues to serve its most recently fetched configuration.
 
-If the Apollo Studio API experiences an outage, changes to your configuration will halt until the outage resolves, but your most recently published configuration for each variant is still accessible via GCS.
+If you restart a gateway instance or spin up a _new_ instance during an Uplink outage, that instance can't fetch its configuration until Apollo resolves the outage.
 
 ## The `subgraph publish` lifecycle
 
-Whenever you call `rover subgraph publish` for a particular subgraph, it both updates that subgraph's registered schema and updates the gateway's managed configuration. Because the graph is dynamically changing and multiple subgraphs might be updated simultaneously, it's possible for changes to cause composition errors, even if `rover subgraph check` was successful. For this reason, updating a subgraph re-triggers composition in the cloud, ensuring that all subgraphs still compose to form a complete supergraph before provisioning the configuration. The workflow behind the scenes can be summed up as follows:
+Whenever you call `rover subgraph publish` for a particular subgraph, it both updates that subgraph's registered schema and updates the gateway's managed configuration.
 
-1. The subgraph schema is uploaded to a secure location and indexed.
-2. The subgraph is updated in the registry to point to the new schema.
+Because your graph is dynamically changing and multiple subgraphs might be updated simultaneously, it's possible for changes to cause composition errors, even if `rover subgraph check` was successful. For this reason, updating a subgraph re-triggers composition in the cloud, ensuring that all subgraphs still compose to form a complete supergraph before updating the configuration. The workflow behind the scenes can be summed up as follows:
+
+1. The subgraph schema is uploaded to Apollo and indexed.
+2. The subgraph is updated in the registry to use its new schema.
 3. All subgraphs are composed in the cloud to produce a new supergraph schema.
 4. If composition fails, the command exits and emits errors.
-5. If composition succeeds, the top-level configuration file is updated in-place to point to the updated supergraph schema.
+5. If composition succeeds, Apollo Uplink begins serving the updated supergraph schema.
 
-On the other side of the equation sits the gateway. The gateway is constantly listening for changes to the top-level configuration file. The location of the configuration file is guarded by using a hash of the API key, provisioned ahead of time so as not to affect reliability. The lifecycle of dynamic configuration updates is as follows:
+On the other side of the equation sits the gateway. The gateway regularly polls Apollo Uplink for changes to its configuration. The lifecycle of dynamic configuration updates is as follows:
 
-1. The gateway listens for updates to its configuration.
+1. The gateway polls for updates to its configuration.
 2. On update, the gateway downloads the updated configuration, including the new supergraph schema.
-3. The gateway performs composition over the configuration to update query planning.
+3. The gateway uses the new supergraph schema to update its query planning logic.
 4. The gateway continues to resolve in-flight requests with the previous configuration, while using the updated configuration for all new requests.

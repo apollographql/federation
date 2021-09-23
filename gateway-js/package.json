@@ -1,6 +1,6 @@
 {
   "name": "@apollo/gateway",
-  "version": "0.38.0",
+  "version": "0.41.0",
   "description": "Apollo Gateway",
   "author": "Apollo <opensource@apollographql.com>",
   "main": "dist/index.js",
@@ -42,6 +42,6 @@
     "pretty-format": "^26.0.0"
   },
   "peerDependencies": {
-    "graphql": "^15.4.0"
+    "graphql": "^15.5.3"
   }
 }

@@ -23,6 +23,8 @@ export const typeDefs = gql`
     inheritMaxAge: Boolean
   ) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
+  scalar JSON @specifiedBy(url: "https://json-spec.dev")
+
   schema {
     query: RootQuery
     mutation: Mutation
@@ -65,7 +67,11 @@ export const typeDefs = gql`
   }
 
   type Mutation {
-    login(username: String!, password: String!): User
+    login(
+      username: String!
+      password: String!
+      userId: String @deprecated(reason: "Use username instead")
+    ): User
   }
 
   extend type Library @key(fields: "id") {

@@ -6,9 +6,23 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v0.32.0
+
+- __BREAKING__: This is a breaking change due to a `peerDependencies` update (`graphql@^15.4.0` -> `graphql@^15.5.3`). This `graphql` version includes a fix which resolves an issue which prevented the correct propagation of `@deprecated` usages on input type object fields into the printed subgraph schema. This can be considered a follow-up to [PR #996](https://github.com/apollographql/federation/pull/996), which previously attempted to propagate @deprecated on *ALL* input values. [PR #1008](https://github.com/apollographql/federation/pull/1008)
+
+## v0.31.0
+
+- Remove composition responsibilities from supergraph printer. Fix schema sorting for sub- and super-graphs. [PR #1000](https://github.com/apollographql/federation/pull/1000)
+- Update our subgraph and supergraph schema printers to match the printSchema function from graphql-js as closely as possible. Introduce printing capabilities for the @specifiedBy directive as well as @deprecated on input values. [PR #996](https://github.com/apollographql/federation/pull/996)
+
+## v0.30.0
+
+- Introduce `@core/v0.2` support with [the `for:` directive](https://specs.apollo.dev/core/v0.2/#@core/for) argument which was introduced to the core specification in [specs-core#9](https://github.com/apollographql/specs-core/pull/9). For users of `printSupergraphSdl`, the output of that command will now be a `@core/v0.2` schema which is only compatible [with `@apollo/gateway0.39.0`](https://github.com/apollographql/federation/blob/09ebb075/gateway-js/CHANGELOG.md#v0390) (or newer) versions.  The newly introduced `for:` argument allows a `@core` directive to specify its criticality to any consumer (including, and most importantly right now, the Gateway itself). The `for:` argument is optional - its absence means that the directive requires no additional support from the consumer. Its two available options - `EXECUTION` and `SECURITY` - both require explicit support from the consumer, else the consumer should fail to start / update to this unsupported schema.  For more information on supergraphs see [our documentation](https://www.apollographql.com/docs/rover/supergraphs/) or learn how to generate them in our [federation quickstart](https://www.apollographql.com/docs/federation/quickstart/).  [PR #957](https://github.com/apollographql/federation/pull/957)
+
+
 ## v0.29.0
 
-- __DEPRECATION__: Rename `buildFederatedSchema` to `buildSubgraphSchema`. The previous name will continue to be supported but is deprecated. No functional change, usages of `buildFederatedSchema` should just be replaced with `buildSubgraphSchema`. [PR #915](https://github.com/apollographql/federation/pull/913)
+- __DEPRECATION__: Rename `buildFederatedSchema` to `buildSubgraphSchema`. The previous name will continue to be supported but is deprecated. No functional change, usages of `buildFederatedSchema` should just be replaced with `buildSubgraphSchema`. [PR #915](https://github.com/apollographql/federation/pull/915)
 - __BREAKING__: Support @tag directive on Object, Interface, and Union types. This is a breaking change for current @tag users, as one of the validations was updated. Existing @tag definitions must now accomodate the additional locations `OBJECT | INTERFACE | UNION`. Usages of the @tag directive are rolled up indiscriminately during composition, just as they currently are with fields. For example, a @tag usage on an entity extension will end up in the supergraph alongside any other @tag usages on the same entity in other subgraphs. [PR #945](https://github.com/apollographql/federation/pull/945) 
 
 ## v0.28.0

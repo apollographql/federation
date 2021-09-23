@@ -1347,7 +1347,7 @@ Scenario: returning across service boundaries
   Given query
   """
   mutation Review($upc: String!, $body: String!) {
-    reviewProduct(upc: $upc, body: $body) {
+    reviewProduct(input: { upc: $upc, body: $body }) {
       ... on Furniture {
         name
       }
@@ -1368,7 +1368,7 @@ Scenario: returning across service boundaries
             "upc",
             "body"
           ],
-          "operation": "mutation($upc:String!$body:String!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{__typename upc}}}"
+          "operation": "mutation($upc:String!$body:String!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{__typename upc}}}"
         },
         {
           "kind": "Flatten",
@@ -1420,7 +1420,7 @@ Scenario: supports multiple root mutations
         }
       }
     }
-    reviewProduct(upc: $upc, body: $body) {
+    reviewProduct(input: { upc: $upc, body: $body }) {
       ... on Furniture {
         name
       }
@@ -1509,7 +1509,7 @@ Scenario: supports multiple root mutations
             "upc",
             "body"
           ],
-          "operation": "mutation($upc:String!$body:String!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{__typename upc}}}"
+          "operation": "mutation($upc:String!$body:String!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{__typename upc}}}"
         },
         {
           "kind": "Flatten",
@@ -1556,7 +1556,7 @@ Scenario: multiple root mutations with correct service order
     $password: String!
     $reviewId: ID!
   ) {
-    reviewProduct(upc: $upc, body: $body) {
+    reviewProduct(input: { upc: $upc, body: $body }) {
       ... on Furniture {
         upc
       }
@@ -1590,7 +1590,7 @@ Scenario: multiple root mutations with correct service order
             "body",
             "updatedReview"
           ],
-          "operation": "mutation($upc:String!$body:String!$updatedReview:UpdateReviewInput!){reviewProduct(upc:$upc body:$body){__typename ...on Furniture{upc}}updateReview(review:$updatedReview){id body}}"
+          "operation": "mutation($upc:String!$body:String!$updatedReview:UpdateReviewInput!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{upc}}updateReview(review:$updatedReview){id body}}"
         },
         {
           "kind": "Fetch",
