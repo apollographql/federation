@@ -31,8 +31,8 @@ composition implementation while we work toward something else.
 #![warn(missing_docs, future_incompatible, unreachable_pub, rust_2018_idioms)]
 use deno_core::{op_sync, JsRuntime};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::sync::mpsc::channel;
-use std::{fmt::Display};
 use thiserror::Error;
 
 /// The `ServiceDefinition` represents everything we need to know about a
