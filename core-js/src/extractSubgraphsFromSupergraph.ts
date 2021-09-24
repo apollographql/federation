@@ -20,12 +20,12 @@ import {
   VariableDefinitions
 } from "./definitions";
 import { federationBuiltIns } from "./federation";
-import { CoreSpecDefinition } from "./coreSpec";
-import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./joinSpec";
+import { CoreSpecDefinition, FeatureVersion } from "./coreSpec";
+import { JoinSpecDefinition } from "./joinSpec";
 import { parseSelectionSet } from "./operations";
 import { Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
-import { GraphQLError } from "graphql";
+import { validateSupergraph } from "./supergraphs";
 
 function filteredTypes(
   supergraph: Schema,
@@ -38,22 +38,13 @@ function filteredTypes(
   return [...supergraph.types()].filter(t => !joinSpec.isSpecType(t) && !coreSpec.isSpecType(t));
 }
 
-export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
-  const coreFeatures = supergraph.coreFeatures;
-  if (!coreFeatures) {
-    throw new GraphQLError("Invalid supergraph: must be a core schema");
-  }
-  const joinFeature = coreFeatures.getByIdentity(joinIdentity);
-  if (!joinFeature) {
-    throw new GraphQLError("Invalid supergraph: must use the join spec");
-  }
-  const joinSpec = JOIN_VERSIONS.find(joinFeature.url.version);
-  if (!joinSpec) {
-    throw new GraphQLError(
-      `Invalid supergraph: uses unsupported join spec version ${joinFeature.url.version} (supported versions: ${JOIN_VERSIONS.versions().join(', ')})`);
-  }
+export function extractSubgraphsNamesAndUrlsFromSupergraph(supergraph: Schema): {name: string, url: string}[] {
+  const [_, joinSpec] = validateSupergraph(supergraph);
+  const [subgraphs] = collectEmptySubgraphs(supergraph, joinSpec);
+  return [...subgraphs].map(subgraph => {return { name: subgraph.name, url: subgraph.url }});
+}
 
-  // We first collect the subgraphs (creating an empty schema that we'll populate next for each).
+function collectEmptySubgraphs(supergraph: Schema, joinSpec: JoinSpecDefinition): [Subgraphs, Map<string, string>] {
   const subgraphs = new Subgraphs();
   const graphDirective = joinSpec.graphDirective(supergraph);
   const graphEnum = joinSpec.graphEnum(supergraph);
@@ -68,6 +59,15 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     subgraphs.add(subgraph);
     graphEnumNameToSubgraphName.set(value.name, info.name);
   }
+  return [subgraphs, graphEnumNameToSubgraphName];
+}
+
+export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
+  const [coreFeatures, joinSpec] = validateSupergraph(supergraph);
+  const isFed1 = joinSpec.version.equals(new FeatureVersion(0, 1));
+
+  // We first collect the subgraphs (creating an empty schema that we'll populate next for each).
+  const [subgraphs, graphEnumNameToSubgraphName] = collectEmptySubgraphs(supergraph, joinSpec);
   const typeDirective = joinSpec.typeDirective(supergraph);
   const implementsDirective = joinSpec.implementsDirective(supergraph);
 
@@ -105,27 +105,51 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
   for (const type of filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition)) {
     switch (type.kind) {
       case 'ObjectType':
+      // @ts-expect-error: we fall-through the inputObjectType for fields.
       case 'InterfaceType':
-      case 'InputObjectType':
+        const addedInterfaces = [];
         const implementsApplications = implementsDirective ? type.appliedDirectivesOf(implementsDirective) : [];
         for (const application of implementsApplications) {
           const args = application.arguments();
-          const schema = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!.schema; 
+          const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
+          const schema = subgraph.schema;
           (schema.type(type.name)! as (ObjectType | InterfaceType)).addImplementedInterface(args.interface);
+          addedInterfaces.push(args.interface);
         }
+        for (const implementations of type.interfaceImplementations()) {
+          // If the object/interface implements an interface but we had no @join__implements for it (which will
+          // always be the case for join v0.1 in particular), then that means the object/interface should implement
+          // the interface in all subgraphs (which contains both types).
+          const name = implementations.interface.name;
+          if (!addedInterfaces.includes(name)) {
+            for (const subgraph of subgraphs) {
+              const subgraphType = subgraph.schema.type(type.name);
+              const subraphItf = subgraph.schema.type(name);
+              if (subgraphType && subraphItf) {
+                (subgraphType as (ObjectType | InterfaceType)).addImplementedInterface(name);
+              }
+            }
+          }
+        }
+        // Fall-through on purpose.
+      case 'InputObjectType':
         for (const field of type.fields()) {
           const fieldApplications = field.appliedDirectivesOf(fieldDirective);
           if (!fieldApplications.length) {
             // The meaning of having no join__field depends on whether the parent type has a join__owner.
-            // If it does, it means the field is only on that owner subgraph. Otherwise, it's in all subgraphs
-            // (that have the type).
-            const ownerApplications = ownerDirective ? field.appliedDirectivesOf(ownerDirective) : [];
+            // If it does, it means the field is only on that owner subgraph. Otherwise, we kind of don't
+            // know, so we add it to all subgraphs that have the parent type and, if the field base type
+            // is a named type, know that field type.
+            const ownerApplications = ownerDirective ? type.appliedDirectivesOf(ownerDirective) : [];
             if (!ownerApplications.length) {
+              const fieldBaseType = baseType(field.type!);
               for (const subgraph of subgraphs) {
-                addSubgraphField(field, subgraph);
+                if (subgraph.schema.type(fieldBaseType.name)) {
+                  addSubgraphField(field, subgraph);
+                }
               }
             } else {
-              assert(ownerApplications.length == 1, () => `Found multiple join__owner directives for field ${field.coordinate}`)
+              assert(ownerApplications.length == 1, () => `Found multiple join__owner directives on type ${type}`)
               const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(ownerApplications[0].arguments().graph)!)!;
               const subgraphField = addSubgraphField(field, subgraph);
               assert(subgraphField, () => `Found join__owner directive on ${type} but no corresponding join__type`);
@@ -181,12 +205,39 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     }
   }
 
+  // We make an additional pass on all interfaces in all subgraphs
+
   // Lastly, let's make sure we had @external fields so code doesn't get confused later when it tries to parse one of
   // the @key, @requires or @provides directive field-set
   for (const subgraph of subgraphs) {
-    addExternalFields(subgraph, supergraph);
-    // We're done for the subgraph, so call validate (which, amongst other things, sets up the _entities query field, which ensures
-    // all entities in all subgraphs are reachable from a query and so are properly included in the "query graph" later).
+    addExternalFields(subgraph, supergraph, isFed1);
+  }
+
+  if (joinSpec.version.equals(new FeatureVersion(0, 1))) {
+    // We now make a pass on every field of every interface and check that all implementers do have that field (even if
+    // external). If not (which can happen because, again, the v0.1 spec had no information on where an interface was
+    // truly defined, so we've so far added them everywhere with all their fields, but some fields may have been part
+    // of an extension and be only in a few subgraphs), we remove the field or the subgraph would be invalid.
+    for (const subgraph of subgraphs) {
+      for (const itf of subgraph.schema.types<InterfaceType>('InterfaceType')) {
+        // We only look at objects because interfaces are handled by this own loop in practice.
+        const implementations = itf.possibleRuntimeTypes();
+        for (const field of itf.fields()) {
+          if (!implementations.every(implem => implem.field(field.name))) {
+            field.remove();
+          }
+        }
+        // And it may be that the interface wasn't part of the subgraph at all!
+        if ([...itf.fields()].length === 0) {
+          itf.remove();
+        }
+      }
+    }
+  }
+
+  // We're done with the subgraphs, so call validate (which, amongst other things, sets up the _entities query field, which ensures
+  // all entities in all subgraphs are reachable from a query and so are properly included in the "query graph" later).
+  for (const subgraph of subgraphs) {
     subgraph.schema.validate();
   }
 
@@ -240,7 +291,7 @@ function copyType(type: Type, subgraph: Schema, subgraphName: string): Type {
   }
 }
 
-function addExternalFields(subgraph: Subgraph, supergraph: Schema) {
+function addExternalFields(subgraph: Subgraph, supergraph: Schema, isFed1: boolean) {
   for (const type of subgraph.schema.types()) {
     if (!isObjectType(type) && !isInterfaceType(type)) {
       continue;
@@ -265,7 +316,9 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema) {
       // Note that this is called `forceNonExternal` because an extension key field might well be part of a @provides somewhere
       // else (it's not useful to do so and kind of imply an incomprehension, but it's not forbidden and has been seen) which
       // has already added the field as @external, and we want to _remove_ the @external in that case.
-      const forceNonExternal = !!keyApplication.ofExtension();
+      // Also note that for fed 1 supergraphs, the 'ofExtension' information is not available so we have to default of forcing
+      // non-external on all key fields. Which is ok because "true" external on key fields was not supported anyway.
+      const forceNonExternal = isFed1 || !!keyApplication.ofExtension();
       addFieldsFromSelection(subgraph, type, keyApplication.arguments().fields, supergraph, forceNonExternal);
     }
     // Then any @requires or @provides on fields
@@ -304,7 +357,7 @@ function addFieldsFromSelection(
     // If the field has not been added, it is external and needs to be added as such
     const supergraphType = supergraph.type(type.name) as ObjectType | InterfaceType;
     const supergraphField = supergraphType.field(fieldName);
-    assert(supergraphField, () => `No field name ${fieldName} found on type ${type.name} in the supergraph`);
+    assert(supergraphField, () => `No field named ${fieldName} found on type ${type.name} in the supergraph`);
     // We're know the parent type of the field exists in the subgraph (it's `type`), so we're guaranteed a field is created.
     const created = addSubgraphObjectOrInterfaceField(supergraphField, subgraph)!;
     if (!forceNonExternal) {

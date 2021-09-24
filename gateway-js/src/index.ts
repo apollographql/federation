@@ -11,14 +11,9 @@ import {
   isIntrospectionType,
   GraphQLSchema,
   VariableDefinitionNode,
-  DocumentNode,
-  print,
-  parse,
-  Source,
+  GraphQLError,
 } from 'graphql';
 import {
-  composeAndValidate,
-  compositionHasErrors,
   ServiceDefinition,
 } from '@apollo/federation';
 import loglevel from 'loglevel';
@@ -41,7 +36,6 @@ import {
   QueryPlanner,
   QueryPlan,
   prettyFormatQueryPlan,
-  toAPISchema,
 } from '@apollo/query-planner';
 import {
   ServiceEndpointDefinition,
@@ -71,11 +65,17 @@ import {
 } from './config';
 import { loadSupergraphSdlFromStorage } from './loadSupergraphSdlFromStorage';
 import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorage';
-import { buildComposedSchema } from '@apollo/query-planner';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
-import { CoreSchema } from '@apollo/core-schema';
-import { featureSupport } from './core';
+
+import {
+  buildSupergraphSchema,
+  errorCauses,
+  operationFromAST,
+  Schema,
+  Subgraphs,
+} from '@apollo/core';
+import { compose, CompositionResult } from '@apollo/composition'
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -174,8 +174,33 @@ interface GraphQLServiceEngineConfig {
   graphVariant?: string;
 }
 
+function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subgraphs | GraphQLError[] {
+  let errors: GraphQLError[] = [];
+  const subgraphs = new Subgraphs();
+  for (const service of serviceList) {
+    try {
+      subgraphs.add(service.name, service.url ?? '', service.typeDefs);
+    } catch (e) {
+      const causes = errorCauses(e);
+      if (causes) {
+        errors = errors.concat(causes);
+      } else {
+        throw e;
+      }
+    }
+  }
+  return errors.length === 0 ? subgraphs : errors;
+}
+
 export class ApolloGateway implements GraphQLService {
   public schema?: GraphQLSchema;
+  // Same as a `schema` but as a `Schema` to avoid reconverting when we need it.
+  // TODO(sylvain): if we add caching in `Schema.toGraphQLJSSchema`, we could maybe only keep `apiSchema`
+  // and make `schema` a getter (though `schema` does rely on `wrapSchemaWithAliasResolver` so this should
+  // be accounted for and this may look ugly). Unsure if moving from a member to a getter could break anyone externally however
+  // (also unclear why we expose a mutable member public in the first place; don't everything break if the
+  // use manually assigns `schema`?).
+  private apiSchema?: Schema;
   private serviceMap: DataSourceMap = Object.create(null);
   private config: GatewayConfig;
   private logger: Logger;
@@ -193,7 +218,7 @@ export class ApolloGateway implements GraphQLService {
   private serviceSdlCache = new Map<string, string>();
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
-  private parsedSupergraphSdl?: DocumentNode;
+  private supergraphSdl?: string;
   private fetcher: typeof fetch;
   private compositionId?: string;
   private state: GatewayState;
@@ -439,14 +464,13 @@ export class ApolloGateway implements GraphQLService {
   // Synchronously load a statically configured schema, update class instance's
   // schema and query planner.
   private loadStatic(config: StaticGatewayConfig) {
-    let schema: GraphQLSchema;
+    let schema: Schema;
     let supergraphSdl: string;
     try {
       ({ schema, supergraphSdl } = isLocalConfig(config)
         ? this.createSchemaFromServiceList(config.localServiceList)
         : this.createSchemaFromSupergraphSdl(config.supergraphSdl));
-      // TODO(trevor): #580 redundant parse
-      this.parsedSupergraphSdl = parse(supergraphSdl);
+      this.supergraphSdl = supergraphSdl;
       this.updateWithSchemaAndNotify(schema, supergraphSdl, true);
     } catch (e) {
       this.state = { phase: 'failed to load' };
@@ -532,7 +556,7 @@ export class ApolloGateway implements GraphQLService {
         this.experimental_didUpdateComposition(
           {
             serviceDefinitions: result.serviceDefinitions,
-            schema,
+            schema: schema.toGraphQLJSSchema(),
             ...(this.compositionMetadata && {
               compositionMetadata: this.compositionMetadata,
             }),
@@ -558,15 +582,14 @@ export class ApolloGateway implements GraphQLService {
       return;
     }
 
-    // TODO(trevor): #580 redundant parse
     // This may throw, so we'll calculate early (specifically before making any updates)
     // In the case that it throws, the gateway will:
     //   * on initial load, throw the error
     //   * on update, log the error and don't update
-    const parsedSupergraphSdl = parse(result.supergraphSdl);
+    const { schema, supergraphSdl } = this.createSchemaFromSupergraphSdl(result.supergraphSdl);
 
     const previousSchema = this.schema;
-    const previousSupergraphSdl = this.parsedSupergraphSdl;
+    const previousSupergraphSdl = this.supergraphSdl;
     const previousCompositionId = this.compositionId;
 
     if (previousSchema) {
@@ -576,11 +599,8 @@ export class ApolloGateway implements GraphQLService {
     await this.maybePerformServiceHealthCheck(result);
 
     this.compositionId = result.id;
-    this.parsedSupergraphSdl = parsedSupergraphSdl;
+    this.supergraphSdl = result.supergraphSdl;
 
-    const { schema, supergraphSdl } = this.createSchemaFromSupergraphSdl(
-      result.supergraphSdl,
-    );
 
     if (!supergraphSdl) {
       this.logger.error(
@@ -594,12 +614,12 @@ export class ApolloGateway implements GraphQLService {
           {
             compositionId: result.id,
             supergraphSdl: result.supergraphSdl,
-            schema,
+            schema: schema.toGraphQLJSSchema(),
           },
           previousCompositionId && previousSupergraphSdl && previousSchema
             ? {
                 compositionId: previousCompositionId,
-                supergraphSdl: print(previousSupergraphSdl),
+                supergraphSdl: previousSupergraphSdl,
                 schema: previousSchema,
               }
             : undefined,
@@ -612,13 +632,14 @@ export class ApolloGateway implements GraphQLService {
   //       ensure we do not forget to update some of that state, and to avoid scenarios where
   //       concurrently executing code sees partially-updated state.
   private updateWithSchemaAndNotify(
-    coreSchema: GraphQLSchema,
+    coreSchema: Schema,
     coreSupergraphSdl: string,
     // Once we remove the deprecated onSchemaChange() method, we can remove this.
     legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
     if (this.queryPlanStore) this.queryPlanStore.flush();
-    this.schema = toAPISchema(coreSchema);
+    this.apiSchema = coreSchema.toAPISchema(); 
+    this.schema = wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema());
     this.queryPlanner = new QueryPlanner(coreSchema);
 
     // Notify onSchemaChange listeners of the updated schema
@@ -658,10 +679,9 @@ export class ApolloGateway implements GraphQLService {
     // This is the last chance to bail out of a schema update.
     if (this.config.serviceHealthCheck) {
       const serviceList = isSupergraphSdlUpdate(update)
-        ? // TODO(trevor): #580 redundant parse
-          // Parsing could technically fail and throw here, but parseability has
+        ? // Parsing of the supergraph SDL could technically fail and throw here, but parseability has
           // already been confirmed slightly earlier in the code path
-          this.serviceListFromSupergraphSdl(parse(update.supergraphSdl))
+          this.serviceListFromSupergraphSdl(update.supergraphSdl)
         : // Existence of this is determined in advance with an early return otherwise
           update.serviceDefinitions!;
       // Here we need to construct new datasources based on the new schema info
@@ -726,10 +746,17 @@ export class ApolloGateway implements GraphQLService {
         .join('\n')}`,
     );
 
-    const compositionResult = composeAndValidate(serviceList);
+    const subgraphsOrErrors = subgraphsFromServiceList(serviceList);
+    let errors: GraphQLError[] | undefined;
+    let compositionResult: CompositionResult | undefined;
+    if (Array.isArray(subgraphsOrErrors)) {
+      errors = subgraphsOrErrors;
+    } else {
+      compositionResult = compose(subgraphsOrErrors);
+      errors = compositionResult.errors;
+    }
 
-    if (compositionHasErrors(compositionResult)) {
-      const { errors } = compositionResult;
+    if (errors) {
       if (this.experimental_didFailComposition) {
         this.experimental_didFailComposition({
           errors,
@@ -744,60 +771,25 @@ export class ApolloGateway implements GraphQLService {
           errors.map((e) => '\t' + e.message).join('\n'),
       );
     } else {
-      const { supergraphSdl } = compositionResult;
       this.createServices(serviceList);
-
-      const schema = buildComposedSchema(parse(supergraphSdl));
-
       this.logger.debug('Schema loaded and ready for execution');
-
-      // This is a workaround for automatic wrapping of all fields, which Apollo
-      // Server does in the case of implementing resolver wrapping for plugins.
-      // Here we wrap all fields with support for resolving aliases as part of the
-      // root value which happens because aliases are resolved by sub services and
-      // the shape of the root value already contains the aliased fields as
-      // responseNames
       return {
-        schema: wrapSchemaWithAliasResolver(schema),
-        supergraphSdl,
+        schema: compositionResult!.schema!,
+        supergraphSdl: compositionResult!.supergraphSdl!,
       };
     }
   }
 
-  private serviceListFromSupergraphSdl(
-    supergraphSdl: DocumentNode,
-  ): Omit<ServiceDefinition, 'typeDefs'>[] {
-    const schema = buildComposedSchema(supergraphSdl);
-    return this.serviceListFromComposedSchema(schema);
-  }
-
-  private serviceListFromComposedSchema(schema: GraphQLSchema) {
-    const graphMap = schema.extensions?.federation?.graphs;
-    if (!graphMap) {
-      throw Error(`Couldn't find graph map in composed schema`);
-    }
-
-    return Array.from(graphMap.values());
+  private serviceListFromSupergraphSdl(supergraphSdl: string): Omit<ServiceDefinition, 'typeDefs'>[] {
+    return buildSupergraphSchema(supergraphSdl)[1];
   }
 
   private createSchemaFromSupergraphSdl(supergraphSdl: string) {
-    const core = CoreSchema.fromSource(
-      new Source(supergraphSdl, 'supergraphSdl'),
-    )
-      .check() // run basic core schema compliance checks
-      .check(featureSupport); // run supported feature check
-
-    // TODO(trevor): #580 redundant parse
-    this.parsedSupergraphSdl = core.document;
-
-    const schema = buildComposedSchema(this.parsedSupergraphSdl);
-
-    const serviceList = this.serviceListFromComposedSchema(schema);
-
+    const [schema, serviceList] = buildSupergraphSchema(supergraphSdl);
     this.createServices(serviceList);
 
     return {
-      schema: wrapSchemaWithAliasResolver(schema),
+      schema,
       supergraphSdl,
     };
   }
@@ -1059,7 +1051,6 @@ export class ApolloGateway implements GraphQLService {
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
-
           let queryPlan: QueryPlan | undefined;
           if (this.queryPlanStore) {
             queryPlan = await this.queryPlanStore.get(queryPlanStoreKey);
@@ -1070,12 +1061,9 @@ export class ApolloGateway implements GraphQLService {
               OpenTelemetrySpanNames.PLAN,
               (span) => {
                 try {
+                  const operation = operationFromAST(this.apiSchema!, operationContext.operation, new Map(Object.entries(operationContext.fragments)));
                   // TODO(#631): Can we be sure the query planner has been initialized here?
-                  return this.queryPlanner!.buildQueryPlan(operationContext, {
-                    autoFragmentization: Boolean(
-                      this.config.experimental_autoFragmentization,
-                    ),
-                  });
+                  return this.queryPlanner!.buildQueryPlan(operation);
                 } catch (err) {
                   span.setStatus({ code: SpanStatusCode.ERROR });
                   throw err;

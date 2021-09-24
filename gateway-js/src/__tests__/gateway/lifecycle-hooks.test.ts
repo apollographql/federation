@@ -70,10 +70,32 @@ describe('lifecycle hooks', () => {
   it('calls experimental_didFailComposition with a bad config', async () => {
     const experimental_didFailComposition = jest.fn();
 
+    // Creating 2 subservices that clearly cannot composed.
+    const s1 = {
+      name: 'S1',
+      url: 'http://S1',
+      typeDefs: gql`
+        type T {
+          a: Int
+        }
+      `
+    };
+
+    const s2 = {
+      name: 'S2',
+      url: 'http://S2',
+      typeDefs: gql`
+        type T {
+          a: String
+        }
+      `
+    };
+
+
     const gateway = new ApolloGateway({
       async experimental_updateServiceDefinitions() {
         return {
-          serviceDefinitions: [serviceDefinitions[0]],
+          serviceDefinitions: [s1, s2],
           compositionMetadata: {
             formatVersion: 1,
             id: 'abc',
@@ -88,12 +110,12 @@ describe('lifecycle hooks', () => {
       logger,
     });
 
-    await expect(gateway.load()).rejects.toThrowError();
+    await expect(gateway.load()).rejects.toThrowError("A valid schema couldn't be composed");
 
     const callbackArgs = experimental_didFailComposition.mock.calls[0][0];
-    expect(callbackArgs.serviceList).toHaveLength(1);
+    expect(callbackArgs.serviceList).toHaveLength(2);
     expect(callbackArgs.errors[0]).toMatchInlineSnapshot(
-      `[GraphQLError: [product] Book -> \`Book\` is an extension type, but \`Book\` is not defined in any service]`,
+      `[GraphQLError: Field "T.a" has incompatible types accross subgraphs: it has type "Int" in subgraph "S1" but type "String" in subgraph "S2"]`,
     );
     expect(callbackArgs.compositionMetadata.id).toEqual('abc');
     expect(experimental_didFailComposition).toBeCalled();

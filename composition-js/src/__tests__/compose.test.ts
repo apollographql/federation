@@ -84,14 +84,14 @@ test('simple composition generate valid supergraph', () => {
   expect(result.supergraphSdl!).toMatchString(`
     schema
       @core(feature: "https://specs.apollo.dev/core/v0.2")
-      @core(feature: "https://specs.apollo.dev/join/v0.2")
+      @core(feature: "https://specs.apollo.dev/join/v0.2", for: "EXECUTION")
     {
       query: Query
     }
 
     directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
-    directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet) repeatable on FIELD_DEFINITION
+    directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
     directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 

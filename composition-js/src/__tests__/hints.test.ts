@@ -28,7 +28,11 @@ function mergeDocuments(...documents: DocumentNode[]): MergeResult {
   let i = 1;
   for (const doc of documents) {
     const name = `Subgraph${i++}`;
-    subgraphs.add(name, `https://${name}`, buildSchemaFromAST(doc, federationBuiltIns));
+    try {
+      subgraphs.add(name, `https://${name}`, buildSchemaFromAST(doc, federationBuiltIns));
+    } catch (e) {
+      throw new Error(e.toString());
+    }
   }
   return mergeSubgraphs(subgraphs);
 }
@@ -79,6 +83,10 @@ expect.extend({
 
 test('hints on merging field with nullable and non-nullable types', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     type T {
       f: String
     }
@@ -101,6 +109,10 @@ test('hints on merging field with nullable and non-nullable types', () => {
 // Skipped because merging currently disable "direct" subtyping by default.
 test.skip('hints on merging field with subtype types', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     interface I {
       v: Int
     }
@@ -134,6 +146,10 @@ test.skip('hints on merging field with subtype types', () => {
 
 test('hints on merging argument with nullable and non-nullable types', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     type T {
       f(a: String!): String
     }
@@ -155,6 +171,10 @@ test('hints on merging argument with nullable and non-nullable types', () => {
 
 test('hints on merging argument with default value in only some subgraph', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     type T {
       f(a: String = "foo"): String
     }
@@ -176,7 +196,11 @@ test('hints on merging argument with default value in only some subgraph', () =>
 
 test('hints on object being an entity in only some subgraph', () => {
   const subgraph1 = gql`
-    type T @key(k: Int) {
+    type Query {
+      a: Int
+    }
+
+    type T @key(fields: "k") {
       k: Int
       v1: String
     }
@@ -200,6 +224,10 @@ test('hints on object being an entity in only some subgraph', () => {
 
 test('hints on field of object value type not being in all subgrpaphs', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     type T {
       a: Int
       b: Int
@@ -222,6 +250,10 @@ test('hints on field of object value type not being in all subgrpaphs', () => {
 
 test('hints on field of interface value type not being in all subgrpaphs', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     interface T {
       a: Int
       b: Int
@@ -244,6 +276,10 @@ test('hints on field of interface value type not being in all subgrpaphs', () =>
 
 test('hints on field of input object value type not being in all subgrpaphs', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     input T {
       a: Int
       b: Int
@@ -266,6 +302,10 @@ test('hints on field of input object value type not being in all subgrpaphs', ()
 
 test('hints on union member not being in all subgrpaphs', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     union T = A | B | C
 
     type A {
@@ -303,6 +343,10 @@ test('hints on union member not being in all subgrpaphs', () => {
 
 test('hints on enum value not being in all subgrpaphs', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     enum T {
       V1
       V2
@@ -328,6 +372,10 @@ test('hints on type system directives having inconsistent repeatable', () => {
   // to use of the known names. We use 'tag'.
 
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     directive @tag repeatable on FIELD
   `;
 
@@ -345,6 +393,10 @@ test('hints on type system directives having inconsistent repeatable', () => {
 
 test('hints on type system directives having inconsistent locations', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     directive @tag on QUERY
   `;
 
@@ -363,6 +415,10 @@ test('hints on type system directives having inconsistent locations', () => {
 
 test('hints on execution directives not being in all subgraphs', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     directive @t repeatable on QUERY
   `;
 
@@ -380,6 +436,10 @@ test('hints on execution directives not being in all subgraphs', () => {
 
 test('hints on execution directives having no locations intersection', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     directive @t on QUERY
   `;
 
@@ -398,6 +458,10 @@ test('hints on execution directives having no locations intersection', () => {
 
 test('hints on execution directives having inconsistent repeatable', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     directive @t repeatable on QUERY
   `;
 
@@ -415,6 +479,10 @@ test('hints on execution directives having inconsistent repeatable', () => {
 
 test('hints on execution directives having inconsistent locations', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     directive @t on QUERY | FIELD
   `;
 
@@ -433,6 +501,10 @@ test('hints on execution directives having inconsistent locations', () => {
 
 test('hints on execution directives argument not being in all subgraphs', () => {
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     directive @t(a: Int) on FIELD
   `;
 
@@ -495,6 +567,10 @@ test('hints on inconsistent description for field', () => {
   // We make sure the 2nd and 3rd subgraphs have the same description to
   // ensure it's the one that gets picked.
   const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
     type T {
       "I don't know what I'm doing"
       f: Int

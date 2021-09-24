@@ -1,30 +1,19 @@
-import { DocumentNode, GraphQLSchema, validate } from 'graphql';
-import gql from 'graphql-tag';
-import { buildOperationContext } from '../operationContext';
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
-import { QueryPlanner } from '@apollo/query-planner';
+import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
+import { Schema, parseOperation } from '@apollo/core';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 
 describe('buildQueryPlan', () => {
-  let schema: GraphQLSchema;
+  let schema: Schema;
   let queryPlanner: QueryPlanner;
 
-  let parseOp = (operation: string): DocumentNode => {
-    const doc = gql(operation);
-
-    // Validating the operation, to avoid having them silently becoming invalid
-    // due to change to the fixtures.
-    const validationErrors = validate(schema, doc);
-    if (validationErrors.length > 0) {
-      throw new Error(validationErrors.map(error => error.message).join("\n\n"));
-    }
-
-    return doc;
-  };
+  let buildPlan = (operation: string): QueryPlan => {
+    return queryPlanner.buildQueryPlan(parseOperation(schema, operation));
+  }
 
   beforeEach(() => {
     expect(
@@ -50,15 +39,7 @@ describe('buildQueryPlan', () => {
           }
         }
     `;
-
-    const operationDocument = parseOp(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      }),
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -95,15 +76,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
-
+    const queryPlan = buildPlan(operationString);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "accounts") {
@@ -133,14 +106,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -220,14 +186,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -347,14 +306,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -389,14 +341,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -432,14 +377,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -489,14 +427,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const operationDocument = parseOp(operationString);
-
-        const queryPlan = queryPlanner.buildQueryPlan(
-          buildOperationContext({
-            schema,
-            operationDocument,
-          })
-        );
+        const queryPlan = buildPlan(operationString);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -545,14 +476,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -604,14 +528,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -659,14 +576,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const operationDocument = parseOp(operationString);
-
-        const queryPlan = queryPlanner.buildQueryPlan(
-          buildOperationContext({
-            schema,
-            operationDocument,
-          })
-        );
+        const queryPlan = buildPlan(operationString);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -716,14 +626,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const operationDocument = parseOp(operationString);
-
-        const queryPlan = queryPlanner.buildQueryPlan(
-          buildOperationContext({
-            schema,
-            operationDocument,
-          })
-        );
+        const queryPlan = buildPlan(operationString);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -773,14 +676,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -829,14 +725,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -871,14 +760,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -918,14 +800,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -959,14 +834,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -997,14 +865,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -1040,14 +901,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1113,14 +967,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1168,14 +1015,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1192,349 +1032,6 @@ describe('buildQueryPlan', () => {
         },
       }
     `);
-  });
-
-  describe(`experimental compression to downstream services`, () => {
-    // Experimental compression is not supported by relaxed composition
-    it.skip(`should generate fragments internally to downstream requests`, () => {
-      const operationString = `#graphql
-        query {
-          topReviews {
-            body
-            id
-            product {
-              name
-              price
-              details {
-                country
-              }
-            }
-          }
-        }
-      `;
-
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        }),
-        { autoFragmentization: true },
-      );
-
-      expect(queryPlan).toMatchInlineSnapshot(`
-        QueryPlan {
-          Sequence {
-            Fetch(service: "reviews") {
-              {
-                topReviews {
-                  ...__QueryPlanFragment_1__
-                }
-              }
-              
-              fragment __QueryPlanFragment_1__ on Review {
-                body
-                id
-                product {
-                  ...__QueryPlanFragment_0__
-                }
-              }
-              
-              fragment __QueryPlanFragment_0__ on Product {
-                __typename
-                ... on Book {
-                  __typename
-                  isbn
-                }
-                ... on Furniture {
-                  __typename
-                  upc
-                }
-              }
-            },
-            Parallel {
-              Sequence {
-                Flatten(path: "topReviews.@.product") {
-                  Fetch(service: "books") {
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                      }
-                    } =>
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                        title
-                        year
-                      }
-                    }
-                  },
-                },
-                Flatten(path: "topReviews.@.product") {
-                  Fetch(service: "product") {
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                        title
-                        year
-                      }
-                    } =>
-                    {
-                      ... on Book {
-                        name
-                      }
-                    }
-                  },
-                },
-              },
-              Flatten(path: "topReviews.@.product") {
-                Fetch(service: "product") {
-                  {
-                    ... on Furniture {
-                      __typename
-                      upc
-                    }
-                    ... on Book {
-                      __typename
-                      isbn
-                    }
-                  } =>
-                  {
-                    ... on Furniture {
-                      name
-                      price
-                      details {
-                        country
-                      }
-                    }
-                    ... on Book {
-                      price
-                      details {
-                        country
-                      }
-                    }
-                  }
-                },
-              },
-            },
-          },
-        }
-      `);
-    });
-
-    it(`shouldn't generate fragments for selection sets of length 2 or less`, () => {
-      const operationString = `#graphql
-        query {
-          topReviews {
-            body
-            id
-          }
-        }
-      `;
-
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        }),
-        { autoFragmentization: true },
-      );
-
-      expect(queryPlan).toMatchInlineSnapshot(`
-        QueryPlan {
-          Fetch(service: "reviews") {
-            {
-              topReviews {
-                body
-                id
-              }
-            }
-          },
-        }
-      `);
-    });
-
-    // Experimental compression is not supported by relaxed composition
-    it.skip(`should generate fragments for selection sets of length 3 or greater`, () => {
-      const operationString = `#graphql
-        query {
-          topReviews {
-            id
-            body
-            author {
-              username
-            }
-          }
-        }
-      `;
-
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        }),
-        { autoFragmentization: true },
-      );
-
-      expect(queryPlan).toMatchInlineSnapshot(`
-        QueryPlan {
-          Fetch(service: "reviews") {
-            {
-              topReviews {
-                ...__QueryPlanFragment_0__
-              }
-            }
-            
-            fragment __QueryPlanFragment_0__ on Review {
-              id
-              body
-              author {
-                username
-              }
-            }
-          },
-        }
-      `);
-    });
-
-    // Experimental compression is not supported by relaxed composition
-    it.skip(`should generate fragments correctly when aliases are used`, () => {
-      const operationString = `#graphql
-        query {
-          reviews: topReviews {
-            content: body
-            id
-            product {
-              name
-              cost: price
-              details {
-                origin: country
-              }
-            }
-          }
-        }
-      `;
-
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        }),
-        { autoFragmentization: true },
-      );
-
-      expect(queryPlan).toMatchInlineSnapshot(`
-        QueryPlan {
-          Sequence {
-            Fetch(service: "reviews") {
-              {
-                reviews: topReviews {
-                  ...__QueryPlanFragment_1__
-                }
-              }
-              
-              fragment __QueryPlanFragment_1__ on Review {
-                content: body
-                id
-                product {
-                  ...__QueryPlanFragment_0__
-                }
-              }
-              
-              fragment __QueryPlanFragment_0__ on Product {
-                __typename
-                ... on Book {
-                  __typename
-                  isbn
-                }
-                ... on Furniture {
-                  __typename
-                  upc
-                }
-              }
-            },
-            Parallel {
-              Sequence {
-                Flatten(path: "reviews.@.product") {
-                  Fetch(service: "books") {
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                      }
-                    } =>
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                        title
-                        year
-                      }
-                    }
-                  },
-                },
-                Flatten(path: "reviews.@.product") {
-                  Fetch(service: "product") {
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                        title
-                        year
-                      }
-                    } =>
-                    {
-                      ... on Book {
-                        name
-                      }
-                    }
-                  },
-                },
-              },
-              Flatten(path: "reviews.@.product") {
-                Fetch(service: "product") {
-                  {
-                    ... on Furniture {
-                      __typename
-                      upc
-                    }
-                    ... on Book {
-                      __typename
-                      isbn
-                    }
-                  } =>
-                  {
-                    ... on Furniture {
-                      name
-                      cost: price
-                      details {
-                        origin: country
-                      }
-                    }
-                    ... on Book {
-                      cost: price
-                      details {
-                        origin: country
-                      }
-                    }
-                  }
-                },
-              },
-            },
-          },
-        }
-      `);
-    });
   });
 
   it(`should properly expand nested unions with inline fragments`, () => {
@@ -1565,14 +1062,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1620,14 +1110,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -1667,14 +1150,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {

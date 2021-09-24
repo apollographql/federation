@@ -60,11 +60,11 @@ function buildValue(value?: ValueNode): any {
   return value ? valueFromASTUntyped(value) : undefined;
 }
 
-export function buildSchema(source: string | Source, builtIns: BuiltIns = graphQLBuiltIns): Schema {
-  return buildSchemaFromAST(parse(source), builtIns);
+export function buildSchema(source: string | Source, builtIns: BuiltIns = graphQLBuiltIns, validate: boolean = true): Schema {
+  return buildSchemaFromAST(parse(source), builtIns, validate);
 }
 
-export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIns = graphQLBuiltIns): Schema {
+export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIns = graphQLBuiltIns, validate: boolean = true): Schema {
   const schema = new Schema(builtIns);
   // We do a first pass to add all empty types and directives definition. This ensure any reference on one of
   // those can be resolved in the 2nd pass, regardless of the order of the definitions in the AST.
@@ -114,6 +114,12 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
         break;
     }
   }
+
+  Schema.prototype['forceSetCachedDocument'].call(schema, documentNode);
+  if (validate) {
+    schema.validate();
+  }
+
   return schema;
 }
 
@@ -282,7 +288,7 @@ function buildNamedTypeInner(
 
 function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldDefinition<any>) {
   const type = buildWrapperTypeOrTypeRef(fieldNode.type, field.schema()!);
-  field.type = ensureOutputType(type, fieldNode.type);
+  field.type = ensureOutputType(type, field.coordinate, fieldNode);
   for (const inputValueDef of fieldNode.arguments ?? []) {
     buildArgumentDefinitionInner(inputValueDef, field.addArgument(inputValueDef.name.value));
   }
@@ -291,19 +297,19 @@ function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldD
   field.sourceAST = fieldNode;
 }
 
-function ensureOutputType(type: Type, node: TypeNode): OutputType {
+function ensureOutputType(type: Type, what: string, node: ASTNode): OutputType {
   if (isOutputType(type)) {
     return type;
   } else {
-    throw new GraphQLError(`Expected ${type} to be an output type`, node);
+    throw new GraphQLError(`The type of ${what} must be Output Type but got: ${type}, a ${type.kind}.`, node);
   }
 }
 
-function ensureInputType(type: Type, node: TypeNode): InputType {
+function ensureInputType(type: Type, what: string, node: ASTNode): InputType {
   if (isInputType(type)) {
     return type;
   } else {
-    throw new GraphQLError(`Expected ${type} to be an input type`, node);
+    throw new GraphQLError(`The type of ${what} must be Input Type but got: ${type}, a ${type.kind}.`, node);
   }
 }
 
@@ -324,7 +330,7 @@ function buildWrapperTypeOrTypeRef(typeNode: TypeNode, schema: Schema): Type {
 
 function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: ArgumentDefinition<any>) {
   const type = buildWrapperTypeOrTypeRef(inputNode.type, arg.schema()!);
-  arg.type = ensureInputType(type, inputNode.type);
+  arg.type = ensureInputType(type, arg.coordinate, inputNode);
   arg.defaultValue = buildValue(inputNode.defaultValue);
   buildAppliedDirectives(inputNode, arg);
   arg.description = inputNode.description?.value;
@@ -333,7 +339,7 @@ function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: 
 
 function buildInputFieldDefinitionInner(fieldNode: InputValueDefinitionNode, field: InputFieldDefinition) {
   const type = buildWrapperTypeOrTypeRef(fieldNode.type, field.schema()!);
-  field.type = ensureInputType(type, fieldNode.type);
+  field.type = ensureInputType(type, field.coordinate, fieldNode);
   field.defaultValue = buildValue(fieldNode.defaultValue);
   buildAppliedDirectives(fieldNode, field);
   field.description = fieldNode.description?.value;

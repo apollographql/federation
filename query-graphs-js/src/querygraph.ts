@@ -3,6 +3,7 @@ import {
   MultiMap,
   InterfaceType,
   isInterfaceType,
+  isFed1Supergraph,
   isObjectType,
   isUnionType,
   NamedType,
@@ -854,6 +855,7 @@ class GraphBuilder {
  */
 class GraphBuilderFromSchema extends GraphBuilder {
   private readonly isFederatedSubgraph: boolean;
+  private readonly forceTypeExplosion: boolean;
 
   constructor(
     private readonly name: string,
@@ -863,6 +865,9 @@ class GraphBuilderFromSchema extends GraphBuilder {
     super();
     this.isFederatedSubgraph = isFederationSubgraphSchema(schema); 
     assert(!this.isFederatedSubgraph || supergraphSchema, `Missing supergraph schema for building the federated subgraph graph`);
+    // The join spec 0.1 used by "fed1" does not preserve the information on where (in which subgraphs)
+    // an interface is defined, so we cannot ever safely avoid type explosion.
+    this.forceTypeExplosion = supergraphSchema !== undefined && isFed1Supergraph(supergraphSchema);
   }
 
   /**
@@ -898,7 +903,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // "provides" a particular interface field locally *for all the supergraph interfaces implementations* (in other words, we 
       // know we can always ask the field to that subgraph directly on the interface and will never miss anything), then we can 
       // add a direct edge to the field for the interface in that subgraph (which avoids unecessary type explosing in practice).
-      if (this.isFederatedSubgraph) {
+      if (this.isFederatedSubgraph && !this.forceTypeExplosion) {
         this.maybeAddInterfaceFieldsEdges(namedType, vertex);
       }
       this.addAbstractTypeEdges(namedType, vertex);
@@ -913,12 +918,13 @@ class GraphBuilderFromSchema extends GraphBuilder {
   }
 
   private addObjectTypeEdges(type: ObjectType, head: Vertex) {
-    // We do want all fields, including built-in. For instance, it's perfectly valid to query __typename manually, so we want
+    // We do want all fields, including most built-in. For instance, it's perfectly valid to query __typename manually, so we want
     // to have an edge for it. Also, the fact we handle the _entities field ensure that all entities are part of the graph,
     // even if they are not reachable by any other user operations.
+    // We do skip introspection fields however.
     for (const field of type.allFields()) {
       // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't really exist as far as federation goes.
-      if (isExternal(field)) {
+      if (field.isSchemaIntrospectionField() || isExternal(field)) {
         continue;
       }
       this.addEdgeForField(field, head);

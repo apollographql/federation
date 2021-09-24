@@ -66,7 +66,7 @@ Scenario: supports passing additional fields defined by a requires
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
           }
         },
         {
@@ -81,9 +81,9 @@ Scenario: supports passing additional fields defined by a requires
                 "typeCondition": "Book",
                 "selections": [
                   { "kind": "Field", "name": "__typename" },
-                  { "kind": "Field", "name": "isbn" },
                   { "kind": "Field", "name": "title" },
-                  { "kind": "Field", "name": "year" }
+                  { "kind": "Field", "name": "year" },
+                  { "kind": "Field", "name": "isbn" }
                 ]
               }
             ],

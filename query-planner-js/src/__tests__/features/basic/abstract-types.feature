@@ -22,7 +22,7 @@ Scenario: handles an abstract type from the base service
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
-          "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{upc __typename isbn price}...on Furniture{upc name price}}}"
+          "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn upc price}...on Furniture{upc name price}}}"
         },
         {
           "kind": "Flatten",
@@ -41,7 +41,7 @@ Scenario: handles an abstract type from the base service
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
           }
         },
         {
@@ -56,9 +56,9 @@ Scenario: handles an abstract type from the base service
                 "typeCondition": "Book",
                 "selections": [
                   { "kind": "Field", "name": "__typename" },
-                  { "kind": "Field", "name": "isbn" },
                   { "kind": "Field", "name": "title" },
-                  { "kind": "Field", "name": "year" }
+                  { "kind": "Field", "name": "year" },
+                  { "kind": "Field", "name": "isbn" }
                 ]
               }
             ],
@@ -302,6 +302,26 @@ Scenario: fetches interfaces returned from other services
               "path": ["me", "reviews", "@", "product"],
               "node": {
                 "kind": "Fetch",
+                "serviceName": "books",
+                "requires": [
+                  {
+                    "kind": "InlineFragment",
+                    "typeCondition": "Book",
+                    "selections": [
+                      { "kind": "Field", "name": "__typename" },
+                      { "kind": "Field", "name": "isbn" }
+                    ]
+                  }
+                ],
+                "variableUsages": [],
+                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}"
+              }
+            },
+            {
+              "kind": "Flatten",
+              "path": ["me", "reviews", "@", "product"],
+              "node": {
+                "kind": "Fetch",
                 "serviceName": "product",
                 "requires": [
                   {
@@ -323,26 +343,6 @@ Scenario: fetches interfaces returned from other services
                 ],
                 "variableUsages": [],
                 "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}"
-              }
-            },
-            {
-              "kind": "Flatten",
-              "path": ["me", "reviews", "@", "product"],
-              "node": {
-                "kind": "Fetch",
-                "serviceName": "books",
-                "requires": [
-                  {
-                    "kind": "InlineFragment",
-                    "typeCondition": "Book",
-                    "selections": [
-                      { "kind": "Field", "name": "__typename" },
-                      { "kind": "Field", "name": "isbn" }
-                    ]
-                  }
-                ],
-                "variableUsages": [],
-                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}"
               }
             }
           ]
@@ -452,7 +452,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                       }
                     ],
                     "variableUsages": [],
-                    "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+                    "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
                   }
                 },
                 {
@@ -467,9 +467,9 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                         "typeCondition": "Book",
                         "selections": [
                           { "kind": "Field", "name": "__typename" },
-                          { "kind": "Field", "name": "isbn" },
                           { "kind": "Field", "name": "title" },
-                          { "kind": "Field", "name": "year" }
+                          { "kind": "Field", "name": "year" },
+                          { "kind": "Field", "name": "isbn" }
                         ]
                       }
                     ],

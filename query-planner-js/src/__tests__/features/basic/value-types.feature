@@ -46,31 +46,11 @@ Scenario: resolves value types within their respective services
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": [],
-          "operation": "{topProducts(first:10){__typename ...on Book{upc __typename isbn}...on Furniture{upc metadata{__typename ...on KeyValue{key value}...on Error{code message}}__typename}}}"
+          "operation": "{topProducts(first:10){__typename ...on Book{__typename isbn upc}...on Furniture{__typename upc metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}"
         },
         {
           "kind": "Parallel",
           "nodes": [
-            {
-              "kind": "Flatten",
-              "path": ["topProducts", "@"],
-              "node": {
-                "kind": "Fetch",
-                "serviceName": "books",
-                "requires": [
-                  {
-                    "kind": "InlineFragment",
-                    "typeCondition": "Book",
-                    "selections": [
-                      { "kind": "Field", "name": "__typename" },
-                      { "kind": "Field", "name": "isbn" }
-                    ]
-                  }
-                ],
-                "variableUsages": [],
-                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}"
-              }
-            },
             {
               "kind": "Flatten",
               "path": ["topProducts", "@"],
@@ -97,6 +77,26 @@ Scenario: resolves value types within their respective services
                 ],
                 "variableUsages": [],
                 "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}...on Furniture{reviews{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}}"
+              }
+            },
+            {
+              "kind": "Flatten",
+              "path": ["topProducts", "@"],
+              "node": {
+                "kind": "Fetch",
+                "serviceName": "books",
+                "requires": [
+                  {
+                    "kind": "InlineFragment",
+                    "typeCondition": "Book",
+                    "selections": [
+                      { "kind": "Field", "name": "__typename" },
+                      { "kind": "Field", "name": "isbn" }
+                    ]
+                  }
+                ],
+                "variableUsages": [],
+                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{metadata{__typename ...on KeyValue{key value}...on Error{code message}}}}}"
               }
             }
           ]

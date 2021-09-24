@@ -36,12 +36,11 @@ import {
   Subgraphs,
   federationBuiltIns,
   isExternal,
-  Subgraph,
-  defaultRootName,
   CORE_VERSIONS,
   JOIN_VERSIONS,
   NamedSchemaElement,
-  executableDirectiveLocations
+  executableDirectiveLocations,
+  errorCauses,
 } from "@apollo/core";
 import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
 import {
@@ -118,60 +117,6 @@ export interface MergeFailure {
   hints?: undefined;
 }
 
-/**
- * Prepare a subgraph schema pre-merging.
- *
- * Currently, this only look for non-default root type names and rename them into
- * their default names.
- */
-function prepareSubgraphForMerging(subgraph: Subgraph): Subgraph | GraphQLError {
-  const onlyDefautRoots = allSchemaRootKinds.every(k => {
-    const type = subgraph.schema.schemaDefinition.root(k)?.type;
-    return !type || type.name === defaultRootName(k);
-  });
-
-  if (onlyDefautRoots) {
-    return subgraph;
-  }
-
-  const updated = subgraph.schema.clone();
-  for (const k of allSchemaRootKinds) {
-    const type = updated.schemaDefinition.root(k)?.type;
-    const defaultName = defaultRootName(k);
-    if (type && type.name !== defaultName) {
-      // We first ensure there is no other type using the default root name. If there is, this is a
-      // composition error.
-      const existing = updated.type(defaultName);
-      if (existing) {
-        const nodes: ASTNode[] = [];
-        if (type.sourceAST) nodes.push(type.sourceAST);
-        if (existing.sourceAST) nodes.push(existing.sourceAST);
-        return new GraphQLError(
-          `Subgraph ${subgraph.name} has a type named ${defaultName} but it is not set as the ${k} root type (${type.name} is instead). `
-          + 'If a root type does not use its default name, there should be no other type with that default name',
-          nodes
-        );
-      }
-      type.rename(defaultName);
-    }
-  }
-  return new Subgraph(subgraph.name, subgraph.url, updated);
-}
-
-function prepareSubgraphsForMerging(subgraphs: Subgraphs): Subgraphs | GraphQLError[] {
-  const preparedSubgraphs: Subgraphs = new Subgraphs();
-  const errors: GraphQLError[] = [];
-  for (const subgraph of subgraphs) {
-    const preparedOrError = prepareSubgraphForMerging(subgraph);
-    if (preparedOrError instanceof GraphQLError) {
-      errors.push(preparedOrError);
-    } else {
-      preparedSubgraphs.add(preparedOrError);
-    }
-  }
-  return errors.length > 0 ? errors : preparedSubgraphs;
-}
-
 export function isMergeSuccessful(mergeResult: MergeResult): mergeResult is MergeSuccess {
   return !isMergeFailure(mergeResult);
 }
@@ -181,11 +126,7 @@ export function isMergeFailure(mergeResult: MergeResult): mergeResult is MergeFa
 }
 
 export function mergeSubgraphs(subgraphs: Subgraphs, options: CompositionOptions = {}): MergeResult {
-  const preparedSubgraphsOrErrors = prepareSubgraphsForMerging(subgraphs);
-  if (Array.isArray(preparedSubgraphsOrErrors)) {
-    return { errors: preparedSubgraphsOrErrors };
-  }
-  return new Merger(preparedSubgraphsOrErrors, { ...defaultCompositionOptions, ...options }).merge();
+  return new Merger(subgraphs, { ...defaultCompositionOptions, ...options }).merge();
 }
 
 function join(toJoin: string[], sep: string = ', ', firstSep?: string, lastSep: string = ' and ') {
@@ -243,7 +184,7 @@ function copyTypeReference(source: Type, dest: Schema): Type {
 }
 
 function isMergedType(type: NamedType): boolean {
-  return !isFederationType(type);
+  return !isFederationType(type) && !type.isIntrospectionType();
 }
 
 function isMergedField(field: InputFieldDefinition | FieldDefinition<CompositeType>): boolean {
@@ -316,7 +257,7 @@ class Merger {
     // pass a `as` to the methods below if necessary. However, as we currently don't propagate any subgraph directives to 
     // the supergraph outside of a few well-known ones, we don't bother yet.
     coreSpec.addToSchema(this.merged);
-    coreSpec.applyFeatureToSchema(this.merged, joinSpec);
+    coreSpec.applyFeatureToSchema(this.merged, joinSpec, undefined, 'EXECUTION');
 
     return joinSpec.populateGraphEnum(this.merged, this.subgraphs);
   }
@@ -374,8 +315,27 @@ class Merger {
       }
     }
 
-    // TODO: currently, this can't really throw. But once it does, we should add the errors to this.errors
-    this.merged.validate();
+    if (!this.merged.schemaDefinition.rootType('query')) {
+      this.errors.push(new GraphQLError("No queries found in any subgraph: a supergraph must have a query root type."));
+    }
+
+    try {
+      // TODO: given the subgraphs are valid and given how merging works (it takes the union of what is in the
+      // subgraphs), there is only so much things that can be invalid in the supergraph at this point. We
+      // should make sure we validate those specific things with good error messages. We can then assert that
+      // `Schema.validate()` doesn't throw, but we don't really want to use errors from it in general as those
+      // will not be super helpful for the user (for instance, if there is no queries in the supergraph, the
+      // error thrown by `validate()` will be "Unknown type 'Query'", which isn't very helpful).
+      this.merged.validate();
+    } catch (e) {
+      const causes = errorCauses(e);
+      if (causes) {
+        this.errors.push(...causes);
+      } else {
+        // Not a GraphQLError, so probably a programing error. Let's re-throw so it can be more easily tracked down.
+        throw e;
+      }
+    }
 
     if (this.errors.length > 0) {
       return { errors: this.errors };
@@ -532,7 +492,7 @@ class Merger {
   private subgraphsTypes<T extends NamedType>(supergraphType: T): (T | undefined)[] {
     return this.subgraphsSchema.map((subgraph) => {
       const type = subgraph.type(supergraphType.name);
-      // At this point, we have already reported errors for type mismatches (and so comosition
+      // At this point, we have already reported errors for type mismatches (and so composition
       // will fail, we just try to gather more errors), so simply ignore versions of the type
       // that don't have the proper kind.
       if (!type || type.kind !== supergraphType.kind) {

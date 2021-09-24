@@ -61,7 +61,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinType.addArgument('extension', new NonNullType(schema.booleanType()), false);
     }
 
-    const joinField = this.addDirective(schema, 'field').addLocations("FIELD_DEFINITION");
+    const joinField = this.addDirective(schema, 'field').addLocations("FIELD_DEFINITION", "INPUT_FIELD_DEFINITION");
     joinField.repeatable = true;
     joinField.addArgument('graph', new NonNullType(graphEnum));
     joinField.addArgument('requires', joinFieldSet);

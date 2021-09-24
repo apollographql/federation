@@ -44,8 +44,15 @@ export function removeInaccessibleElements(schema: Schema) {
   }
 
   const inaccessibleDirective = inaccessibleSpec.inaccessibleDirective(schema);
+  if (!inaccessibleDirective) {
+    throw new GraphQLError(
+      `Invalid schema: declares ${inaccessibleSpec.url} spec but does not define a @inaccessible directive`
+    );
+  }
 
-  for (const type of schema.types()) {
+  // We copy the list of types first to avoid issues of removal-during-iteration
+  const allTypes = [...schema.types()];
+  for (const type of allTypes) {
     // @inacessible can only be on composite types.
     if (!isCompositeType(type)) {
       continue;
@@ -70,11 +77,8 @@ export function removeInaccessibleElements(schema: Schema) {
         //  - the type may an interface that other types implements: those other will simply not implement the (non-existing) interface.
       }
     } else if (isObjectType(type) || isInterfaceType(type)) {
-      for (const field of type.fields()) {
-        if (field.hasAppliedDirective(inaccessibleDirective)) {
-          field.remove();
-        }
-      }
+      const toRemove = [...type.fields()].filter(f => f.hasAppliedDirective(inaccessibleDirective));
+      toRemove.forEach(f => f.remove());
     }
   }
 }

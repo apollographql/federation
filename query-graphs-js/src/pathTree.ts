@@ -242,9 +242,9 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       this.childs.map((child, i) => 
         indent
         + ` -> [${this.childsIndexes[i]}] `
-        + (includeConditions && this.childsConditions[i] ? `!! {\n${indent + " | "}${this.childsConditions[i]!.toString(indent + " |  | ", true)}\n${indent} } ` : "")
+        + (includeConditions && this.childsConditions[i] ? `!! {\n${indent + "  "}${this.childsConditions[i]!.toString(indent + "     ", true)}\n${indent} } ` : "")
         + `${this.childsTrigger[i]} = `
-        + child.toStringInternal(indent + " | ", includeConditions)
+        + child.toStringInternal(indent + "  ", includeConditions)
       ).join('\n');
   }
 }

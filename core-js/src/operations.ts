@@ -1,10 +1,12 @@
 import deepEqual from "deep-equal";
 import {
   ArgumentNode,
+  ASTNode,
   DirectiveNode,
   DocumentNode,
   FieldNode,
   FragmentDefinitionNode,
+  GraphQLError,
   InlineFragmentNode,
   Kind,
   OperationDefinitionNode,
@@ -37,18 +39,9 @@ import {
 import { MultiMap } from "./utils";
 import { argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
-function buildError(message: string): Error {
-  // Maybe not the right error for this?
-  return new Error(message);
-}
-
-function isIntrospectionField(name: string) {
-  return name === '__schema' || name === '__type';
-}
-
-function validate(condition: any, message: string): asserts condition {
+function validate(condition: any, message: string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
-    throw buildError(message);
+    throw new GraphQLError(message, sourceAST);
   }
 }
 
@@ -338,6 +331,11 @@ export class SelectionSet {
     }
   }
 
+  addAll(selections: Selection[]): SelectionSet {
+    selections.forEach(s => this.add(s));
+    return this;
+  }
+
   add(selection: Selection): Selection {
     const toAdd = selection.updateForAddingTo(this);
     const key = elementKey(toAdd.element());
@@ -387,11 +385,6 @@ export class SelectionSet {
     fragments: Map<string, FragmentDefinitionNode> = new Map(),
     fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
   ) {
-    // TODO: the `core-js` module currently doesn't know about schema introspection (only about __typename). We could add it, and
-    // maybe we'll need to, but for now, we just ignore any query of schema introspection fields.
-    if (node.kind === 'Field' && isIntrospectionField(node.name.value)) {
-      return;
-    }
     this.add(this.nodeToSelection(node, variableDefinitions, fragments, fieldAccessor));
   }
 
@@ -405,10 +398,10 @@ export class SelectionSet {
     switch (node.kind) {
       case 'Field':
         const definition: FieldDefinition<any> | undefined  = fieldAccessor(this.parentType, node.name.value);
-        validate(definition, `Cannot find field ${node.name.value} in type ${this.parentType}`);
+        validate(definition, `Cannot query field "${node.name.value}" on type "${this.parentType}".`, this.parentType.sourceAST);
         selection = new FieldSelection(new Field(definition, argumentsFromAST(node.arguments), variableDefinitions, node.alias?.value));
         if (node.selectionSet) {
-          validate(selection.selectionSet, `Unexpected selection set on leaf field "${selection.element()}"`);
+          validate(selection.selectionSet, `Unexpected selection set on leaf field "${selection.element()}"`, selection.element().definition.sourceAST);
           selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments, fieldAccessor);
         }
         break;
@@ -468,6 +461,7 @@ export class SelectionSet {
   }
 
   validate() {
+    validate(!this.isEmpty(), `Invalid empty selection set`);
     for (const selection of this.selections()) {
       selection.validate();
     }
@@ -603,10 +597,14 @@ export class FieldSelection {
   }
 
   validate() {
+    // Note that validation is kind of redudant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
+    // allow to provide much better error messages.
     validate(
       !(this.selectionSet && this.selectionSet.isEmpty()),
-      `Invalid empty selection set for field "${this.field.definition.coordinate}" of non-leaf type ${this.field.definition.type}`
+      `Invalid empty selection set for field "${this.field.definition.coordinate}" of non-leaf type ${this.field.definition.type}`,
+      this.field.definition.sourceAST
     );
+    this.selectionSet?.validate();
   }
 
   updateForAddingTo(selectionSet: SelectionSet): FieldSelection {
@@ -703,10 +701,13 @@ export class FragmentSelection {
   }
 
   validate() {
+    // Note that validation is kind of redudant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
+    // allow to provide much better error messages.
     validate(
       !this.selectionSet.isEmpty(),
       `Invalid empty selection set for fragment "${this.fragmentElement}"}`
     );
+    this.selectionSet.validate();
   }
 
   usedVariables(): Variables {
@@ -789,7 +790,7 @@ export function operationFromDocument(
         break;
     }
   });
-  validate(operation, 'No operation found in provided document.');
+  validate(operation, operationName ? `Unknown operation named "${operationName}"` :  'No operation found in provided document.');
   return operationFromAST(schema, operation, fragments);
 }
 

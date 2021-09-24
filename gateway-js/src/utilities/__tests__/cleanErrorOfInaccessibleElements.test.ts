@@ -1,9 +1,9 @@
-import { buildSchema, execute, GraphQLError, parse } from "graphql";
-import { toAPISchema } from "@apollo/query-planner";
+import { execute, GraphQLError, parse } from "graphql";
 import { cleanErrorOfInaccessibleNames } from "../cleanErrorOfInaccessibleNames";
+import { buildSchema } from "@apollo/core";
 
 describe('cleanErrorOfInaccessibleNames', () => {
-  let schema = buildSchema(`
+  const coreSchema = buildSchema(`
     directive @core(
       feature: String!,
       as: String,
@@ -46,7 +46,7 @@ describe('cleanErrorOfInaccessibleNames', () => {
       inaccessibleField: String @inaccessible
     }
   `);
-  schema = toAPISchema(schema);
+  const schema = coreSchema.toAPISchema().toGraphQLJSSchema();
 
   it('removes inaccessible type names from error messages', async () => {
     const result = await execute(schema, parse('{fooField{someField}}'), {

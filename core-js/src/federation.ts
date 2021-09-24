@@ -10,8 +10,22 @@ import {
   ListType,
   FieldDefinition,
   CompositeType,
+  allSchemaRootKinds,
+  defaultRootName,
+  errorCauses,
+  ErrGraphQLValidationFailed,
+  SchemaElement,
+  baseType,
+  isObjectType,
 } from "./definitions";
 import { assert } from "./utils";
+import { SDLValidationRule } from "graphql/validation/ValidationContext";
+import { specifiedSDLRules } from "graphql/validation/specifiedRules";
+import { ASTNode, DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule } from "graphql";
+import { defaultPrintOptions, printDirectiveDefinition } from "./print";
+import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
+import { buildSchema, buildSchemaFromAST } from "./buildSchema";
+import { parseSelectionSet } from './operations';
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -43,6 +57,56 @@ const FEDERATION_ROOT_FIELDS = [
   entitiesFieldName
 ];
 
+const FEDERATION_OMITTED_VALIDATION_RULES = [
+  // We allow subgraphs to declare an extension even if the subgraph itself doesn't have a corresponding definition.
+  // The implication being that the defintion is in another subgraph.
+  PossibleTypeExtensionsRule,
+  KnownTypeNamesRule
+];
+
+const FEDERATION_SPECIFIC_VALIDATION_RULES = [
+  KnownTypeNamesInFederationRule
+];
+
+const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
+
+function validateFieldSet(
+  type: CompositeType,
+  directive: Directive<any, {fields: string}>,
+  targetDescription: string
+): GraphQLError | undefined {
+  try {
+    parseSelectionSet(type, directive.arguments().fields).validate();
+    return undefined;
+  } catch (e) {
+    const nodes: ASTNode[] = [];
+    if (directive.sourceAST) {
+      nodes.push(directive.sourceAST);
+    }
+    if (e instanceof GraphQLError && e.nodes) {
+      nodes.push(...e.nodes);
+    }
+    return new GraphQLError(`On ${targetDescription}, for ${directive}: ${e.message}`, nodes);
+  }
+}
+
+function validateAllFieldSet<TParent extends SchemaElement<any>>(
+  definition: DirectiveDefinition<{fields: string}>,
+  parentTypeExtractor: (element: TParent) => CompositeType,
+  targetDescriptionExtractor: (element: TParent) => string
+): GraphQLError[] {
+  const errors: GraphQLError[] = [];
+  for (const application of definition.applications()) {
+    const elt = application.parent! as TParent;
+    const type = parentTypeExtractor(elt);
+    const error = validateFieldSet(type, application, targetDescriptionExtractor(elt));
+    if (error) {
+      errors.push(error);
+    }
+  }
+  return errors;
+}
+
 export class FederationBuiltIns extends BuiltIns {
   addBuiltInTypes(schema: Schema) {
     super.addBuiltInTypes(schema);
@@ -55,9 +119,14 @@ export class FederationBuiltIns extends BuiltIns {
   addBuiltInDirectives(schema: Schema) {
     super.addBuiltInDirectives(schema);
 
-    this.addBuiltInDirective(schema, keyDirectiveName)
-      .addLocations('OBJECT', 'INTERFACE')
-      .addArgument('fields', new NonNullType(schema.stringType()));
+    const keyDirective = this.addBuiltInDirective(schema, keyDirectiveName)
+      .addLocations('OBJECT', 'INTERFACE');
+    // TODO: I believe fed 1 does not mark key repeatable and relax validation to accept repeating non-repeatable directive.
+    // Do we want to perputuate this? (Obviously, this is for historical reason and some graphQL implementations still do
+    // not support 'repeatable'. But since this code does not kick in within users' code, not sure we have to accomodate
+    // for those implementations).
+    keyDirective.repeatable = true;
+    keyDirective.addArgument('fields', new NonNullType(schema.stringType()));
 
     this.addBuiltInDirective(schema, extendsDirectiveName)
       .addLocations('OBJECT', 'INTERFACE');
@@ -72,8 +141,8 @@ export class FederationBuiltIns extends BuiltIns {
     }
   }
 
-  onValidation(schema: Schema) {
-    super.onValidation(schema);
+  onValidation(schema: Schema): GraphQLError[] {
+    let errors = super.onValidation(schema);
 
     // Populate the _Entity type union.
     const entityType = schema.type(entityTypeName) as UnionType;
@@ -101,6 +170,61 @@ export class FederationBuiltIns extends BuiltIns {
     if (!queryType.field(serviceFieldName)) {
       this.addBuiltInField(queryType, serviceFieldName, schema.type(serviceTypeName) as ObjectType);
     }
+
+    // We also rename all root type to their default names.
+    for (const k of allSchemaRootKinds) {
+      const type = schema.schemaDefinition.root(k)?.type;
+      const defaultName = defaultRootName(k);
+      if (type && type.name !== defaultName) {
+        // We first ensure there is no other type using the default root name. If there is, this is a
+        // composition error.
+        const existing = schema.type(defaultName);
+        if (existing) {
+          const nodes: ASTNode[] = [];
+          if (type.sourceAST) nodes.push(type.sourceAST);
+          if (existing.sourceAST) nodes.push(existing.sourceAST);
+          errors.push(new GraphQLError(
+            `The schema has a type named ${defaultName} but it is not set as the ${k} root type (${type.name} is instead): `
+            + 'this is not supported by federation. '
+            + 'If a root type does not use its default name, there should be no other type with that default name',
+            nodes
+          ));
+        }
+        type.rename(defaultName);
+      }
+    }
+
+
+    // And we validate the @key, @requires and @provides.
+    errors = errors.concat(validateAllFieldSet<CompositeType>(
+      this.keyDirective(schema),
+      type => type,
+      type => `type "${type}"`
+    ));
+    errors = errors.concat(validateAllFieldSet<FieldDefinition<CompositeType>>(
+      this.requiresDirective(schema),
+      field => field.parent!,
+      field => `field "${field.coordinate}"`
+    ));
+   errors = errors.concat(validateAllFieldSet<FieldDefinition<CompositeType>>(
+      this.providesDirective(schema),
+      field => {
+        const type = baseType(field.type!);
+        if (!isObjectType(type)) {
+          throw new GraphQLError(
+            `Invalid @provides directive on field "${field.coordinate}": field has type "${field.type}" which is not an Object Type`,
+            field.sourceAST);
+        }
+        return type;
+      },
+      field => `field ${field.coordinate}`
+    ));
+
+    return errors;
+  }
+
+  validationRules(): readonly SDLValidationRule[] {
+    return FEDERATION_VALIDATION_RULES;
   }
 
   keyDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
@@ -121,6 +245,28 @@ export class FederationBuiltIns extends BuiltIns {
 
   providesDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
     return this.getTypedDirective(schema, providesDirectiveName);
+  }
+
+  maybeUpdateSubgraphDocument(schema: Schema, document: DocumentNode): DocumentNode {
+    document = super.maybeUpdateSubgraphDocument(schema, document);
+
+    let definitions = [...document.definitions];
+    for (const directiveName of FEDERATION_DIRECTIVES) {
+      const directive = schema.directive(directiveName);
+      assert(directive, 'This method should only have bee called on a schema with federation built-ins')
+      // If the directive is _not_ marked built-in, that means it was manually defined
+      // in the document and we don't need to add it. Note that `onValidation` will
+      // ensure that re-definition is valid.
+      if (directive.isBuiltIn) {
+        definitions.push(parse(printDirectiveDefinition(directive, defaultPrintOptions)).definitions[0]);
+      }
+    }
+
+    return {
+      kind: 'Document',
+      loc: document.loc,
+      definitions
+    };
   }
 }
 
@@ -153,6 +299,14 @@ export function isExternal(field: FieldDefinition<CompositeType>): boolean {
   return field.hasAppliedDirective(externalDirectiveName);
 }
 
+function buildSubgraph(name: string, source: DocumentNode | string): Schema {
+  try {
+    return typeof source === 'string' ? buildSchema(source, federationBuiltIns) : buildSchemaFromAST(source, federationBuiltIns);
+  } catch (e) {
+    throw addSubgraphToError(e, name);
+  }
+}
+
 // Simple wrapper around a Subraph[] that ensures that 1) we never mistakenly get 2 subgraph with the same name,
 // 2) keep the subgraphs sorted by name (makes iteration more predictable). It also allow convenient access to
 // a subgraph by name so behave like a map<string, Subgraph> in most ways (but with the previously mentioned benefits).
@@ -165,10 +319,10 @@ export class Subgraphs {
   }
 
   add(subgraph: Subgraph): Subgraph;
-  add(name: string, url: string, schema: Schema): Subgraph;
-  add(subgraphOrName: Subgraph | string, url?: string, schema?: Schema): Subgraph {
+  add(name: string, url: string, schema: Schema | DocumentNode | string): Subgraph;
+  add(subgraphOrName: Subgraph | string, url?: string, schema?: Schema | DocumentNode | string): Subgraph {
     const toAdd: Subgraph = typeof subgraphOrName  === 'string'
-      ? new Subgraph(subgraphOrName, url!, schema!)
+      ? new Subgraph(subgraphOrName, url!, schema instanceof Schema ? schema! : buildSubgraph(subgraphOrName, schema!))
       : subgraphOrName;
 
     const idx = this.idx(toAdd.name);
@@ -223,3 +377,16 @@ export class Subgraph {
   }
 }
 
+export function addSubgraphToError(e: GraphQLError, subgraphName: string): GraphQLError {
+  const updatedCauses = errorCauses(e)!.map(cause => new GraphQLError(
+    `[${subgraphName}] ${cause.message}`,
+    cause.nodes,
+    cause.source,
+    cause.positions,
+    cause.path,
+    cause.originalError,
+    cause.extensions
+  ));
+
+  throw ErrGraphQLValidationFailed(updatedCauses);
+}

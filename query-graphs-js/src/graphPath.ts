@@ -14,12 +14,15 @@ import {
   baseType,
   parseSelectionSet,
   CompositeType,
-  isAbstractType
+  isAbstractType,
+  newDebugLogger
 } from "@apollo/core";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, QueryGraphState } from "./querygraph";
 import { Transition } from "./transition";
 import { PathContext, emptyContext } from "./pathContext";
+
+const debug = newDebugLogger('path');
 
 /**
  * An immutable path in a query graph.
@@ -511,9 +514,12 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
     // the smallest paths first. That is, if we could in theory have path A -> B and A -> C -> B, and we can do B -> D,
     // then we want to keep A -> B -> D, not A -> C -> B -> D.
     const toAdvance = popMin(toTry);
+    debug.group(() => `From ${toAdvance}:`);
     const nextEdges =  toAdvance.nextEdges().filter(e => !e.transition.collectOperationElements);
     for (const edge of nextEdges) {
+      debug.group(`Testing edge ${edge}`);
       if (isExcluded(edge, excluded)) {
+        debug.groupEnd(`Ignored: edge is excluded`);
         continue;
       }
       excluded = addExclusion(excluded, edge);
@@ -523,13 +529,19 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
       // Also, if the edge takes us back to the subgraph in which we started, we're not really interested
       // (we've already checked for direct transition from that original subgraph).
       const target = edge.tail;
-      if ((typeName && typeName != target.type.name) || target.source === originalSource) {
+      if (target.source === originalSource) {
+        debug.groupEnd('Ignored: edge get us back to our original source');
+        continue;
+      }
+      if (typeName && typeName != target.type.name) {
+        debug.groupEnd('Ignored: edge does not get to our target type');
         continue;
       }
 
       // We have edges before Query objects, but let's not bother using them where we're at the beginning of a
       // root path since the edge from the federated graph root already chose a subgraph.
-      if (edge.transition.kind === 'QueryResolution' && isRootVertex(path.root) && path.size === 1) {
+      if (edge.transition.kind === 'QueryResolution' && isRootVertex(toAdvance.root) && toAdvance.size === 1) {
+        debug.groupEnd(`Ignored: edge is a top-level "QueryResolution"`);
         continue;
       }
 
@@ -548,23 +560,30 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
         // during composition validation where all costs are 0 to mean "we don't care about costs".
         // Meaning effectively that for validation, as soon as we have a path to a subgraph, we ignore
         // other options even if they may be "faster".
+        debug.groupEnd(`Ignored: a better path to the same subgraph already added`);
         continue;
       }
 
+      debug.group(() => `Validating conditions ${edge.conditions}`);
       const [isSatisfied, resolution] = canSatisfyConditions(toAdvance, edge, conditionResolver, excluded);
+      debug.groupEnd(() => isSatisfied ? 'Condition satisfied' : 'Condition unsatisfiable'); // End of condition validation
       if (isSatisfied) {
         const cost = resolution ? resolution[1] : 0;
         // We _can_ get to `taget.source` with that edge. But if we had already found another path to
         // the same subgraph, we want to replace it by this one only if either 1) it is shorter or 2) if
         // it's of equal size, only if the condition cost are lower than the previous one.
         if (prevForSource && prevForSource[0].size === toAdvance.size + 1 && prevForSource[1] <= cost) {
+          debug.groupEnd('Ignored: a better path to the same subgraph already added');
           continue;
         }
         const updatedPath = toAdvance.add(convertTransitionWithCondition(edge.transition, context), edge, conditionTree(resolution));
+        debug.log(() => `Using edge, advance path: ${updatedPath}`);
         bestPathBySource.set(target.source, [updatedPath, cost]);
         toTry.push(updatedPath);
       }
+      debug.groupEnd(); // End of edge
     }
+    debug.groupEnd();
   }
   return [...bestPathBySource.values()].map(b => b[0]);
 }
@@ -638,6 +657,23 @@ function isNonConditionFragment(type: NamedType, operation: OperationElement): b
 
 export type SimultaneousPaths<V extends Vertex = Vertex> = OpGraphPath<V>[];
 
+export function simultaneousPathsToString(paths: SimultaneousPaths<any>): string {
+  if (paths.length === 0) {
+    return '<no path>';
+  }
+  return paths.length === 1 ? paths[0].toString() : '[' + paths.join(' | ') + ']';
+}
+
+export function advanceOptionsToString(options: SimultaneousPaths<any>[] | undefined): string {
+  if (!options) {
+    return '<no options>';
+  }
+  if (options.length === 0) {
+    return '<unsatisfiable branch>';
+  }
+  return '[' + options.join(', ') + ']'
+}
+
 // Returns undefined if the operation cannot be dealt with/advanced. Otherwise, it returns a list of options we can be in after advancing the operation, each option
 // being a set of simultaneous paths in the subgraphs (a single path in the simple case, but type explosing may make us explore multiple paths simultaneously).
 // The lists of options can be empty, which has the special meaning that the operation is guaranteed to have no results (it corresponds to unsatisfiable conditions),
@@ -651,7 +687,10 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   cache: QueryGraphState<OpGraphPath[]>,
   excludedNonCollectingEdges: ExcludedEdges = []
 ) : SimultaneousPaths<V>[] | undefined {
+  debug.group(() => `Trying to advance ${simultaneousPathsToString(subgraphSimultaneousPaths)} for ${operation}`);
+  debug.group('Direct options:');
   let options = advanceWithOperation(supergraphSchema, subgraphSimultaneousPaths, operation, context, conditionResolver, cache);
+  debug.groupEnd(() => advanceOptionsToString(options));
   // Like with transitions, if we can find a terminal field with a direct edge, there is no point in trying to
   // take indirect paths (this is not true for non-terminal, because for those, the direct paths may be dead ends,
   // but for terminal, we're at the end so ...).
@@ -663,16 +702,19 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   // take those edges (yet) in general as the condition might have a skip/include, and it's more efficient to apply those skip/include
   // as soon as possible (so before taking an edge if we end up taking one).
   if (options && (options.length === 0 || isTerminalOperation(operation) || (isNonConditionFragment(subgraphSimultaneousPaths[0].tail.type, operation)))) {
+    debug.groupEnd(() => advanceOptionsToString(options));
     return options;
   }
   // If there was not valid direct path, that's ok, we'll just try with non-collecting edges.
   options = options ?? [];
+  debug.group(`Indirect options:`);
   // Then adds whatever options can be obtained by taking some non-collecting edges first.
   const pathsWithNonCollecting = advanceAllWithNonCollectingAndTypePreservingTransitions(subgraphSimultaneousPaths, context, conditionResolver, excludedNonCollectingEdges, cache);
   for (const pathWithNonCollecting of pathsWithNonCollecting) {
     const pathWithOperation = advanceWithOperation(supergraphSchema, pathWithNonCollecting, operation, context, conditionResolver, cache);
     // If we can't advance the operation after that path, ignore it, it's just not an option.
     if (!pathWithOperation) {
+      debug.log(() => `Ignoring indirect path ${simultaneousPathsToString(pathWithNonCollecting)}: cannot be advanced with ${operation}`);
       continue;
     }
     // advancedWithOperation can return an empty list only if the operation if a fragment with a condition that, on top of the "current" type
@@ -681,8 +723,11 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     assert(pathWithOperation.length > 0, () => `Unexpected empty options after non-collecting path ${pathWithNonCollecting} for ${operation}`);
     options = options.concat(pathWithOperation);
   }
+  debug.groupEnd(); // end of indirect options
   // At this point, if options is empty, it means we found no ways to advance the operation, so we should return undefined.
-  return options.length === 0 ? undefined : options;
+  options = options.length === 0 ? undefined : options;
+  debug.groupEnd(() => advanceOptionsToString(options));
+  return options;
 }
 
 function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Vertex>(

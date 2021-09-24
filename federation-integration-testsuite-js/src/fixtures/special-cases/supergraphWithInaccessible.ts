@@ -1,5 +1,4 @@
-import { composeAndValidate } from '@apollo/federation';
-import { assertCompositionSuccess } from '@apollo/federation/dist/composition/utils';
+import { compose } from '@apollo/composition';
 import {
   DirectiveDefinitionNode,
   SchemaDefinitionNode,
@@ -9,9 +8,28 @@ import {
   visit,
 } from 'graphql';
 import { fixtures } from '..';
+import { assert, buildSchemaFromAST, errorCauses, federationBuiltIns, printErrors, Subgraphs } from '@apollo/core';
+import { ServiceDefinition } from '@apollo/federation';
 
-const compositionResult = composeAndValidate(fixtures);
-assertCompositionSuccess(compositionResult);
+function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subgraphs {
+  const subgraphs = new Subgraphs();
+  for (const service of serviceList) {
+    try {
+      subgraphs.add(service.name, service.url ?? '', buildSchemaFromAST(service.typeDefs, federationBuiltIns));
+    } catch (e) {
+      const causes = errorCauses(e);
+      if (causes) {
+        console.error(`Errors in subgraph '${service.name}':\n` + printErrors(causes));
+      }
+      throw e;
+    }
+  }
+  return subgraphs;
+}
+
+const compositionResult = compose(subgraphsFromServiceList(fixtures));
+assert(!compositionResult.errors, "Unexpected errors composing test fixtures");
+
 const parsed = parse(compositionResult.supergraphSdl);
 
 // We need to collect the AST for the inaccessible definition as well

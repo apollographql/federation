@@ -1,16 +1,16 @@
 import fs from 'fs';
-import { DocumentNode, GraphQLSchema, parse, validate } from 'graphql';
 import { defineFeature, loadFeatures } from 'jest-cucumber';
 import path from 'path';
 import {
   QueryPlan, QueryPlanner
 } from '..';
 import {
-  buildComposedSchema
-} from '../composedSchema';
-import {
-  buildOperationContext,
-} from '../buildQueryPlan';
+  Operation,
+  Schema,
+  buildSchema,
+  parseOperation,
+} from '@apollo/core';
+
 
 // This test looks over all directories under tests/features and finds "supergraphSdl.graphql" in
 // each of those directories. It runs all of the .feature cases in that directory against that schema.
@@ -34,24 +34,23 @@ for (const directory of directories) {
 
   features.forEach((feature) => {
     defineFeature(feature, (test) => {
-      let schema: GraphQLSchema;
+      let schema: Schema;
       let queryPlanner: QueryPlanner;
 
       beforeAll(() => {
         const supergraphSdl = fs.readFileSync(schemaPath, 'utf8');
-        schema = buildComposedSchema(parse(supergraphSdl));
+        schema = buildSchema(supergraphSdl);
         queryPlanner = new QueryPlanner(schema);
       });
 
       feature.scenarios.forEach((scenario) => {
         test(scenario.title, ({ given, when, then, pending }) => {
-          let queryDocument: DocumentNode;
+          let operation: Operation;
           let queryPlan: QueryPlan;
 
           const givenQuery = () => {
             given(/^query$/im, (operationString: string) => {
-              queryDocument = parse(operationString);
-              validate(schema, queryDocument);
+              operation = parseOperation(schema, operationString);
             });
           };
 
@@ -63,9 +62,7 @@ for (const directory of directories) {
 
           const thenQueryPlanShouldBe = () => {
             then(/^query plan$/i, (expectedQueryPlanString: string) => {
-              queryPlan = queryPlanner.buildQueryPlan(
-                buildOperationContext(schema, queryDocument),
-              );
+              queryPlan = queryPlanner.buildQueryPlan(operation);
 
               const expectedQueryPlan = JSON.parse(expectedQueryPlanString);
 

@@ -6,11 +6,23 @@ import {
   InterfaceType,
   EnumType,
   SchemaElement,
-  UnionType
+  UnionType,
+  BuiltIns
 } from '../../dist/definitions';
+import {
+  printSchema as printGraphQLjsSchema
+} from 'graphql';
 import { defaultPrintOptions, printSchema } from '../../dist/print';
 import { buildSchema } from '../../dist/buildSchema';
 import { federationBuiltIns } from '../../dist/federation';
+
+function parseSchema(schema: string, builtIns?: BuiltIns): Schema {
+  try {
+    return buildSchema(schema, builtIns);
+  } catch (e) {
+    throw new Error(e.toString());
+  }
+}
 
 function expectObjectType(type?: Type): asserts type is ObjectType {
   expect(type).toBeDefined();
@@ -115,6 +127,10 @@ expect.extend({
 
   toMatchString(expected: string, received: string) {
     received = deIndent(received);
+    // If the expected string as a trailing '\n', add one since we removed it.
+    if (expected.charAt(expected.length - 1) === '\n') {
+      received = received + '\n';
+    }
     const pass = this.equals(expected, received);
     const message = pass
       ? () => this.utils.matcherHint('toMatchString', undefined, undefined)
@@ -153,7 +169,7 @@ test('parse schema and modify', () => {
       query: MyQuery
     }
 
-    directive @inaccessible on FIELD_DEFINITION
+    directive @inaccessible on FIELD_DEFINITION | ARGUMENT_DEFINITION
 
     type A {
       f1(x: Int @inaccessible): String
@@ -164,7 +180,7 @@ test('parse schema and modify', () => {
       a: A
       b: Int
     }`;
-  const schema = buildSchema(sdl, federationBuiltIns);
+  const schema = parseSchema(sdl);
 
   const queryType = schema.type('MyQuery')!;
   const typeA = schema.type('A')!;
@@ -183,7 +199,7 @@ test('parse schema and modify', () => {
 });
 
 test('removal of all directives of a schema', () => {
-  const schema = buildSchema(`
+  const schema = parseSchema(`
     schema @foo {
       query: Query
     }
@@ -204,9 +220,9 @@ test('removal of all directives of a schema', () => {
     union U @foobar = A | B
 
     directive @inaccessible on FIELD_DEFINITION
-    directive @foo on SCHEMA | FIELD_DEFINITION
+    directive @foo on SCHEMA | FIELD_DEFINITION | OBJECT
     directive @foobar on UNION
-    directive @bar on ARGUMENT_DEFINITION
+    directive @bar on ARGUMENT_DEFINITION | FIELD_DEFINITION
   `, federationBuiltIns);
 
   for (const element of schema.allSchemaElement()) {
@@ -216,11 +232,11 @@ test('removal of all directives of a schema', () => {
   expect(printSchema(schema)).toMatchString(`
     directive @inaccessible on FIELD_DEFINITION
 
-    directive @foo on SCHEMA | FIELD_DEFINITION
+    directive @foo on SCHEMA | FIELD_DEFINITION | OBJECT
 
     directive @foobar on UNION
 
-    directive @bar on ARGUMENT_DEFINITION
+    directive @bar on ARGUMENT_DEFINITION | FIELD_DEFINITION
 
     type Query {
       a(id: String): A
@@ -239,7 +255,7 @@ test('removal of all directives of a schema', () => {
 });
 
 test('removal of all inacessible elements of a schema', () => {
-  const schema = buildSchema(`
+  const schema = parseSchema(`
     schema @foo {
       query: Query
     }
@@ -259,9 +275,9 @@ test('removal of all inacessible elements of a schema', () => {
 
     union U @inaccessible = A | B
 
-    directive @inaccessible on FIELD_DEFINITION | OBJECT | ARGUMENT_DEFINITION
+    directive @inaccessible on FIELD_DEFINITION | OBJECT | ARGUMENT_DEFINITION | UNION
     directive @foo on SCHEMA | FIELD_DEFINITION
-    directive @bar on ARGUMENT_DEFINITION
+    directive @bar on ARGUMENT_DEFINITION | FIELD_DEFINITION
   `, federationBuiltIns);
 
   const inaccessibleDirective = schema.directive('inaccessible')!;
@@ -278,11 +294,11 @@ test('removal of all inacessible elements of a schema', () => {
       query: Query
     }
 
-    directive @inaccessible on FIELD_DEFINITION | OBJECT | ARGUMENT_DEFINITION
+    directive @inaccessible on FIELD_DEFINITION | OBJECT | ARGUMENT_DEFINITION | UNION
 
     directive @foo on SCHEMA | FIELD_DEFINITION
 
-    directive @bar on ARGUMENT_DEFINITION
+    directive @bar on ARGUMENT_DEFINITION | FIELD_DEFINITION
 
     type Query {
       a(id: String @bar): A
@@ -295,7 +311,7 @@ test('removal of all inacessible elements of a schema', () => {
 });
 
 test('handling of interfaces', () => {
-  const schema = buildSchema(`
+  const schema = parseSchema(`
     type Query {
       bestIs: [I!]!
     }
@@ -379,7 +395,7 @@ test('handling of interfaces', () => {
 });
 
 test('handling of enums', () => {
-  const schema = buildSchema(`
+  const schema = parseSchema(`
     type Query {
       a: A
     }
@@ -462,7 +478,7 @@ test('handling of descriptions', () => {
       """
       description: String!
     }`;
-  const schema = buildSchema(sdl);
+  const schema = parseSchema(sdl);
 
   // Checking we get back the schema through printing it is mostly good enough, but let's just
   // make sure long descriptions don't get annoying formatting newlines for instance when acessed on the
@@ -477,21 +493,24 @@ test('handling of descriptions', () => {
 
 test('handling of extensions', () => {
   const sdl = `
-    extend schema {
-      query: AType
+    directive @foo on SCALAR
+
+    type Query {
+      f: Int
     }
 
     interface AInterface {
       i1: Int
     }
 
-    extend interface AInterface
-      @deprecated
+    extend interface AInterface {
+      i2: Int
+    }
 
     scalar AScalar
 
     extend scalar AScalar
-      @deprecated
+      @foo
 
     extend type AType {
       t1: Int
@@ -511,7 +530,10 @@ test('handling of extensions', () => {
     extend union AUnion = AType3
   `;
 
-  const schema = buildSchema(sdl);
+  // Note that we mark it as a subgraph because validation of extension is relaxed. In other words, it'
+  // expected that this will fail validation without `federationBuiltIns` even though we don't use any
+  // federation directives.
+  const schema = parseSchema(sdl, federationBuiltIns);
   expect(printSchema(schema)).toMatchString(sdl);
 
   const atype = schema.type('AType');
@@ -524,18 +546,19 @@ test('handling of extensions', () => {
   expect([...aunion.types()].map(t => t.name)).toEqual(['AType', 'AType2', 'AType3']);
 
   expect(printSchema(schema, { ...defaultPrintOptions, mergeTypesAndExtensions: true })).toMatchString(`
-    schema {
-      query: AType
+    directive @foo on SCALAR
+
+    type Query {
+      f: Int
     }
 
-    interface AInterface
-      @deprecated
-    {
+    interface AInterface {
       i1: Int
+      i2: Int
     }
 
     scalar AScalar
-      @deprecated
+      @foo
 
     type AType {
       t1: Int
@@ -569,7 +592,7 @@ test('default arguments for directives', () => {
     }
   `;
 
-  const schema = buildSchema(sdl);
+  const schema = parseSchema(sdl);
   expect(printSchema(schema)).toMatchString(sdl);
 
   const query = schema.schemaDefinition.root('query')!.type;
@@ -592,4 +615,29 @@ test('default arguments for directives', () => {
   expect(d1.arguments(true)).toEqual({ inputObject: { number: 3 }});
   expect(d2.arguments(true)).toEqual({ inputObject: { number: 3 }});
   expect(d3.arguments(true)).toEqual({ inputObject: { number: 3 }});
+});
+
+test('correctly convert to a graphQL-js schema', () => {
+  global.console = require('console');
+  const sdl = `
+    schema {
+      query: MyQuery
+    }
+
+    directive @foo on FIELD
+
+    type A {
+      f1(x: Int): String
+      f2: String
+    }
+
+    type MyQuery {
+      a: A
+      b: Int
+    }
+  `;
+  const schema = parseSchema(sdl);
+
+  const graphqQLSchema = schema.toGraphQLJSSchema();
+  expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(sdl);
 });

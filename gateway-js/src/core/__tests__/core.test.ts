@@ -192,6 +192,7 @@ describe('core v0.2', () => {
     const supergraphSdl = `#graphql
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.2")
+        @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
         @core(feature: "https://specs.apollo.dev/tag/v0.1")
         @core(feature: "https://specs.apollo.dev/unsupported-feature/v0.1") {
         query: Query

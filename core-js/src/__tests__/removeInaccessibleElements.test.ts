@@ -1,5 +1,6 @@
-import { buildSchema, assertValidSchema, GraphQLObjectType } from 'graphql';
-import { removeInaccessibleElements } from '../removeInaccessibleElements';
+import { ObjectType } from '../definitions';
+import { buildSchema } from '../buildSchema';
+import { removeInaccessibleElements } from '../inaccessibleSpec';
 
 describe('removeInaccessibleElements', () => {
   it(`removes @inaccessible fields`, () => {
@@ -26,12 +27,12 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    schema = removeInaccessibleElements(schema);
+    removeInaccessibleElements(schema);
 
-    const queryType = schema.getQueryType()!;
+    const queryType = schema.schemaDefinition.rootType('query')!;
 
-    expect(queryType.getFields()['someField']).toBeDefined();
-    expect(queryType.getFields()['privateField']).toBeUndefined();
+    expect(queryType.field('someField')).toBeDefined();
+    expect(queryType.field('privateField')).toBeUndefined();
   });
 
   it(`removes @inaccessible object types`, () => {
@@ -63,9 +64,9 @@ describe('removeInaccessibleElements', () => {
       union Bar = Foo
     `);
 
-    schema = removeInaccessibleElements(schema);
+    removeInaccessibleElements(schema);
 
-    expect(schema.getType('Foo')).toBeUndefined();
+    expect(schema.type('Foo')).toBeUndefined();
   });
 
   it(`removes @inaccessible interface types`, () => {
@@ -99,13 +100,13 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    schema = removeInaccessibleElements(schema);
+    removeInaccessibleElements(schema);
 
-    expect(schema.getType('Foo')).toBeUndefined();
-    const barType = schema.getType('Bar') as GraphQLObjectType | undefined;
+    expect(schema.type('Foo')).toBeUndefined();
+    const barType = schema.type('Bar') as ObjectType | undefined;
     expect(barType).toBeDefined();
-    expect(barType?.getFields()['someField']).toBeDefined();
-    expect(barType?.getInterfaces()).toHaveLength(0);
+    expect(barType?.field('someField')).toBeDefined();
+    expect([...barType!.interfaces()]).toHaveLength(0);
   });
 
   it(`removes @inaccessible union types`, () => {
@@ -141,11 +142,11 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    schema = removeInaccessibleElements(schema);
+    removeInaccessibleElements(schema);
 
-    expect(schema.getType('Foo')).toBeUndefined();
-    expect(schema.getType('Bar')).toBeDefined();
-    expect(schema.getType('Baz')).toBeDefined();
+    expect(schema.type('Foo')).toBeUndefined();
+    expect(schema.type('Bar')).toBeDefined();
+    expect(schema.type('Baz')).toBeDefined();
   });
 
   it(`throws when a field returning an @inaccessible type isn't marked @inaccessible itself`, () => {
@@ -211,12 +212,12 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    schema = removeInaccessibleElements(schema);
+    removeInaccessibleElements(schema);
 
-    expect(schema.getQueryType()).toBeUndefined();
-    expect(schema.getType('Query')).toBeUndefined();
+    expect(schema.schemaDefinition.rootType('query')).toBeUndefined();
+    expect(schema.type('Query')).toBeUndefined();
 
-    expect(() => assertValidSchema(schema)).toThrow();
+    expect(() => schema.validate()).toThrow();
   });
 
   it(`removes @inaccessible mutation root type`, () => {
@@ -251,10 +252,10 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    schema = removeInaccessibleElements(schema);
+    removeInaccessibleElements(schema);
 
-    expect(schema.getMutationType()).toBeUndefined();
-    expect(schema.getType('Mutation')).toBeUndefined();
+    expect(schema.schemaDefinition.rootType('mutation')).toBeUndefined();
+    expect(schema.type('Mutation')).toBeUndefined();
   });
 
   it(`removes @inaccessible subscription root type`, () => {
@@ -289,9 +290,9 @@ describe('removeInaccessibleElements', () => {
       }
     `);
 
-    schema = removeInaccessibleElements(schema);
+    removeInaccessibleElements(schema);
 
-    expect(schema.getSubscriptionType()).toBeUndefined();
-    expect(schema.getType('Subscription')).toBeUndefined();
+    expect(schema.schemaDefinition.rootType('subscription')).toBeUndefined();
+    expect(schema.type('Subscription')).toBeUndefined();
   });
 });

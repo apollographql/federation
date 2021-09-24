@@ -2,8 +2,15 @@ import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graph
 import { URL } from "url";
 import { CoreFeature, Directive, DirectiveDefinition, EnumType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from "./definitions";
 import { sameType } from "./types";
+import { err } from '@apollo/core-schema';
 
 export const coreIdentity = 'https://specs.apollo.dev/core';
+
+export const ErrCoreCheckFailed = (causes: Error[]) =>
+  err('CheckFailed', {
+    message: 'one or more checks failed',
+    causes
+  })
 
 function buildError(message: string): Error {
   // Maybe not the right error for this?
@@ -46,8 +53,10 @@ export abstract class FeatureDefinition {
   }
 
   protected elementNameInSchema(schema: Schema, elementName: string): string | undefined {
-    const feature = this.featureInSchema(schema);
-    return feature ? `${feature.nameInSchema}__${elementName}` : undefined;
+    const nameInSchema = this.nameInSchema(schema);
+    return nameInSchema
+      ? (elementName === nameInSchema ? nameInSchema : `${nameInSchema}__${elementName}`)
+      : undefined;
   }
 
   protected rootDirective<TApplicationArgs extends {[key: string]: any}>(schema: Schema): DirectiveDefinition<TApplicationArgs> | undefined {
@@ -110,7 +119,7 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
     return false;
   }
   const asArg = definition.argument('as');
-  if (!asArg || !sameType(asArg.type!, directive.schema()!.stringType())) {
+  if (asArg && !sameType(asArg.type!, directive.schema()!.stringType())) {
     return false;
   }
   if (!definition.repeatable || definition.locations.length !== 1 || definition.locations[0] !== DirectiveLocation.SCHEMA) {
@@ -447,22 +456,18 @@ export const CORE_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(coreIden
 export function removeFeatureElements(schema: Schema, feature: CoreFeature) {
   // Removing directives first, so that when we remove types, the checks that there is no references don't fail due a directive of a the feature
   // actually using the type.
-  for (const directive of schema.directives()) {
-    if (feature.isFeatureDefinition(directive)) {
-      directive.remove().forEach(application => application.remove());
-    }
-  }
+  const featureDirectives = [...schema.directives()].filter(d => feature.isFeatureDefinition(d));
+  featureDirectives.forEach(d => d.remove().forEach(application => application.remove()));
 
-  for (const type of schema.types()) {
-    if (feature.isFeatureDefinition(type)) {
-      const references = type.remove();
-      if (references.length > 0) {
-        throw new GraphQLError(
-          `Cannot remove elements of feature ${feature} as feature type ${type} is referenced by elements: ${references.join(', ')}`,
-          references.map(r => r.sourceAST).filter(n => n !== undefined) as ASTNode[]
-        );
+  const featureTypes = [...schema.types()].filter(t => feature.isFeatureDefinition(t));
+  featureTypes.forEach(type => {
+    const references = type.remove();
+    if (references.length > 0) {
+      throw new GraphQLError(
+        `Cannot remove elements of feature ${feature} as feature type ${type} is referenced by elements: ${references.join(', ')}`,
+        references.map(r => r.sourceAST).filter(n => n !== undefined) as ASTNode[]
+      );
       }
-    }
-  }
+  });
 }
 

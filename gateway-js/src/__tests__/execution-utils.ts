@@ -14,16 +14,15 @@ import {
   executeQueryPlan,
   buildOperationContext,
 } from '@apollo/gateway';
-import { QueryPlan, NewQueryPlanner, QueryPlanner } from '@apollo/query-planner';
+import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from 'apollo-utilities';
 
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import * as graphql from 'graphql';
 import { compose } from '@apollo/composition';
-import { buildSchemaFromAST, federationBuiltIns,Subgraphs } from '@apollo/core';
+import { buildSchema, buildSchemaFromAST, federationBuiltIns, operationFromDocument, Subgraphs } from '@apollo/core';
 
 const prettyFormat = require('pretty-format');
 
@@ -58,12 +57,14 @@ export async function execute(
 
   const { schema, queryPlanner } = getFederatedTestingSchema(services);
 
-  const operationContext = buildOperationContext({
-    schema,
-    operationDocument: gql`${request.query}`,
-  });
+  const operationDocument = gql`${request.query}`;
+  const operation = operationFromDocument(schema, operationDocument);
+  const queryPlan = queryPlanner.buildQueryPlan(operation);
 
-  const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+  const operationContext = buildOperationContext({
+    schema: schema.toAPISchema().toGraphQLJSSchema(),
+    operationDocument,
+  });
 
   const result = await executeQueryPlan(
     queryPlan,
@@ -98,8 +99,8 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
     throw new GraphQLSchemaValidationError(compositionResult.errors);
   }
 
-  const queryPlanner = new NewQueryPlanner(compositionResult.schema) as unknown as QueryPlanner;
-  const schema = graphql.buildSchema(compositionResult.supergraphSdl);
+  const queryPlanner = new QueryPlanner(compositionResult.schema);
+  const schema = buildSchema(compositionResult.supergraphSdl);
 
   const serviceMap = Object.fromEntries(
     services.map((service) => [

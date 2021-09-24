@@ -30,11 +30,11 @@ import {
   UnionType,
   Variable,
   VariableDefinition,
-  VariableDefinitions
+  VariableDefinitions,
+  newDebugLogger
 } from "@apollo/core";
 import {
   advanceSimultaneousPathsWithOperation,
-  buildFederatedQueryGraph,
   Edge,
   emptyContext,
   ExcludedEdges,
@@ -52,10 +52,12 @@ import {
   requireEdgeAdditionalConditions,
   RootVertex,
   Vertex,
-  //isRootVertex
+  isRootVertex
 } from "@apollo/query-graphs";
-import { Kind, DocumentNode, stripIgnoredCharacters, print } from "graphql";
+import { Kind, DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
+
+const debug = newDebugLogger('plan');
 
 class State<RV extends Vertex> {
   constructor(
@@ -81,8 +83,8 @@ class State<RV extends Vertex> {
     return this.openPaths.length === 0;
   }
 
-  toString(indent: string = ""): string {
-    return `open: [${this.openPaths.map(([n, _, p]) => `${n.element()} => ${p}`)}]\n${indent}closed: [${this.closedPaths.toString(indent + '    ')}]`;
+  toString(): string {
+    return `OPEN\n${this.openPaths.map(([n, _, p]) => ` > ${n.element()} => ${p}`).join('\n')}\nCLOSED\n${this.closedPaths}`;
   }
 }
 
@@ -90,7 +92,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
   // The stack contains all states that aren't terminal.
   private readonly stack: State<RV>[] = [];
   private bestPlan: [FetchDependencyGraph, OpPathTree<RV>, number] | undefined;
-  //private readonly isTopLevel: boolean;
+  private readonly isTopLevel: boolean;
 
   constructor(
     readonly supergraphSchema: Schema,
@@ -106,23 +108,27 @@ class QueryPlanningTaversal<RV extends Vertex> {
     const initialTree = PathTree.createOp(subgraphs, startVertex);
     const opens: [Selection, PathContext, OpGraphPath<RV>[]][] = selectionSet.selections().reverse().map(node => [node, emptyContext, [initialPath]]);
     this.stack.push(new State(opens, initialTree));
-    //this.isTopLevel = isRootVertex(startVertex);
+    this.isTopLevel = isRootVertex(startVertex);
   }
 
-  //private dumpStack(message?: string) {
-  //  if (!this.isTopLevel) {
-  //    return;
-  //  }
-  //  if (message) console.log(message);
-  //  for (const state of this.stack) {
-  //    console.log(` - ${state.toString('   ')}`);
-  //  }
-  //}
+  private debugStack() {
+    if (this.isTopLevel && debug.enabled) {
+      debug.group('Query planning stack:');
+      for (const [i, state] of this.stack.entries()) {
+        debug.group(`State ${i}:`);
+        debug.groupedValues(state.openPaths, ([n, _, p]) => `${n.element()} => ${p}`, 'OPEN');
+        debug.group('CLOSED');
+        debug.log(state.closedPaths.toString());
+        debug.groupEnd();
+        debug.groupEnd();
+      }
+      debug.groupEnd();
+    }
+  }
 
   findBestPlan(): [FetchDependencyGraph, OpPathTree<RV>, number] | undefined {
-    //this.dumpStack("Initial state");
     while (this.stack.length > 0) {
-      //this.dumpStack("Current State:");
+      this.debugStack();
       this.handleState(this.stack.pop()!);
     }
     return this.bestPlan;
@@ -226,22 +232,55 @@ const defaultCostFunction: CostFunction = {
   finalize: (roots: number[], rootsAreParallel: boolean) => roots.length === 0 ? 0 : (rootsAreParallel ? Math.max(...roots) : sum(roots))
 };
 
-export function computeQueryPlan(supergraphSchema: Schema, operation: Operation): QueryPlan {
+function isIntrospectionSelection(selection: Selection): boolean {
+  return selection.kind == 'FieldSelection' && selection.element().definition.isIntrospectionField();
+}
+
+function withoutIntrospection(operation: Operation): Operation {
+  // Note that, because we only apply this to the top-level selections, we skip all introspection, including
+  // __typename. In general, we don't want o ignore __typename during query plans, but at top-level, we
+  // can let the gateway execution deal with it rather than querying some service for that.
+  if (!operation.selectionSet.selections().some(isIntrospectionSelection)) {
+    return operation
+  }
+
+  const newSelections = operation.selectionSet.selections().filter(s => !isIntrospectionSelection(s));
+  return new Operation(
+    operation.rootKind,
+    new SelectionSet(operation.selectionSet.parentType).addAll(newSelections),
+    operation.variableDefinitions,
+    operation.name
+  );
+}
+
+export function computeQueryPlan(supergraphSchema: Schema, federatedQueryGraph: QueryGraph, operation: Operation): QueryPlan {
+  if (operation.rootKind === 'subscription') {
+    throw new GraphQLError(
+      'Query planning does not support subscriptions for now.',
+      [parse(operation.toString())],
+    );
+  }
+
+  operation = withoutIntrospection(operation);
+
+  debug.group(() => `Computing plan for\n${operation}`);
   if (operation.selectionSet.isEmpty()) {
+    debug.groupEnd('Empty plan');
     return { kind: 'QueryPlan' };
   }
 
-  const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema);
   const root = federatedQueryGraph.root(operation.rootKind);
   assert(root, `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
   const processor = fetchGroupToPlanProcessor(operation.rootKind, operation.variableDefinitions);
   if (operation.rootKind === 'mutation') {
     const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
     const rootNode = processor.finalize(dependencyGraphs.flatMap(g => g.process(processor)), false);
+    debug.groupEnd('Mutation plan computed');
     return { kind: 'QueryPlan', node: rootNode };
   } else {
     const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
     const rootNode = processor.finalize(dependencyGraph.process(processor), true);
+    debug.groupEnd('Query plan computed');
     return { kind: 'QueryPlan', node: rootNode };
   }
 }
@@ -420,6 +459,11 @@ class FetchGroup {
 
   toPlanNode(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions) : PlanNode {
     addTypenameFieldForAbstractTypes(this.selection);
+
+    this.selection.validate();
+    if (this._inputs) {
+      this._inputs.validate();
+    }
 
     const inputs = this._inputs ? this._inputs.toSelectionSetNode() : undefined;
     // TODO: Handle internalFragments? (and collect their variables if so)
@@ -703,8 +747,11 @@ class FetchDependencyGraph {
   // We keep it simple and do a DFS from each vertex. The complexity is not amazing, but dependency
   // graphs between fetch groups will almost surely never be huge and query planning performance
   // is not paramount so this is almost surely "good enough".
-  // After the transitive reduction, we also do an additional traversal to check for fetches that
-  // are made in parallel to the same subgraph and the same path, and merge those.
+  // After the transitive reduction, we also do an additional traversals to check for:
+  //  1) fetches with no selection: this can happen when we have a require if the only field requested
+  //     was the one with the require and that forced some dependencies. Those fetch should have
+  //     no dependents and we can just remove them.
+  //  2) fetches that are made in parallel to the same subgraph and the same path, and merge those.
   private reduce() {
     if (this.isReduced) {
       return;
@@ -716,10 +763,25 @@ class FetchDependencyGraph {
     }
 
     for (const group of this.rootGroups.values()) {
+      this.removeEmptyGroups(group);
+    }
+
+    for (const group of this.rootGroups.values()) {
       this.mergeDependentFetchesForSameSubgraphAndPath(group);
     }
 
     this.isReduced = true;
+  }
+
+  private removeEmptyGroups(group: FetchGroup) {
+    const dependents = this.dependents(group);
+    if (group.selection.isEmpty()) {
+      assert(dependents.length === 0, () => `Empty group ${group} has dependents: ${dependents}`);
+      this.remove(group);
+    }
+    for (const g of dependents) {
+      this.removeEmptyGroups(g);
+    }
   }
 
   private mergeDependentFetchesForSameSubgraphAndPath(group: FetchGroup) {
@@ -882,7 +944,10 @@ class FetchDependencyGraph {
   }
 
   dumpOnConsole() {
-    console.log(`Groups: [${this.groups.join(', ')}]`);
+    console.log('Groups:');
+    for (const group of this.groups) {
+      console.log(`  ${group}`);
+    }
     console.log('Adjacencies:');
     for (const [i, adj] of this.adjacencies.entries()) {
       console.log(`  ${i} => [${adj.join(', ')}]`);
@@ -1187,7 +1252,6 @@ function handleRequires(
       group.addInputs(inputsForRequire(entityType, edge, false)[0]);
       return [group, mergeAt, path];
     }
-
 
     // If we get here, it means the @require needs the information from `createdGroups` _and_ those
     // rely on some information from the current `group`. So we need to create a new group that

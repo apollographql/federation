@@ -1,15 +1,12 @@
 import {
   buildClientSchema,
-  DocumentNode,
   getIntrospectionQuery,
   GraphQLObjectType,
-  GraphQLSchema,
   print,
-  validate,
 } from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
-import { GraphQLRequestContext } from 'apollo-server-types';
+import { GraphQLExecutionResult, GraphQLRequestContext } from 'apollo-server-types';
 import { AuthenticationError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
@@ -19,10 +16,11 @@ import {
   queryPlanSerializer,
   superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
-import { buildComposedSchema, QueryPlanner } from '@apollo/query-planner';
+import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { getFederatedTestingSchema } from './execution-utils';
+import { Schema, Operation, parseOperation, buildSchemaFromAST } from '@apollo/core';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -32,18 +30,39 @@ describe('executeQueryPlan', () => {
     [serviceName: string]: LocalGraphQLDataSource;
   };
 
-  let parseOp = (operation: string, operationSchema?: GraphQLSchema): DocumentNode => {
-    const doc = gql(operation);
+  let parseOp = (operation: string, operationSchema?: Schema): Operation => {
+    return parseOperation((operationSchema ?? schema), operation);
+  }
 
-    // Validating the operation, to avoid having them silently becoming invalid
-    // due to change to the fixtures.
-    const validationErrors = validate(operationSchema ?? schema, doc);
-    if (validationErrors.length > 0) {
-      throw new Error(validationErrors.map(error => error.message).join("\n\n"));
-    }
+  let buildPlan = (operation: string | Operation, operationQueryPlanner?: QueryPlanner, operationSchema?: Schema): QueryPlan => {
+    const op = typeof operation === 'string' ? parseOp(operation, operationSchema): operation;
+    return (operationQueryPlanner ?? queryPlanner).buildQueryPlan(op);
+  }
 
-    return doc;
-  };
+  async function executePlan(
+    queryPlan: QueryPlan,
+    operation: Operation,
+    executeRequestContext?: GraphQLRequestContext,
+    executeSchema?: Schema,
+    executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
+  ): Promise<GraphQLExecutionResult> {
+    const operationContext = buildOperationContext({
+      schema: (executeSchema ?? schema).toAPISchema().toGraphQLJSSchema(),
+      operationDocument: gql`${operation.toString()}`,
+    });
+    return executeQueryPlan(
+      queryPlan,
+      executeServiceMap ?? serviceMap,
+      executeRequestContext ?? buildRequestContext(),
+      operationContext,
+    );
+  }
+
+  async function executeOperation(operationString: string, requestContext?: GraphQLRequestContext): Promise<GraphQLExecutionResult> {
+      const operation = parseOp(operationString);
+      const queryPlan = buildPlan(operation);
+      return executePlan(queryPlan, operation, requestContext);
+  }
 
   function overrideResolversInService(
     serviceName: string,
@@ -59,7 +78,7 @@ describe('executeQueryPlan', () => {
     return jest.spyOn(entitiesField, 'resolve');
   }
 
-  let schema: GraphQLSchema;
+  let schema: Schema;
   let queryPlanner: QueryPlanner;
   beforeEach(() => {
     expect(
@@ -92,21 +111,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(response).not.toHaveProperty('errors');
     });
@@ -131,21 +136,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(response).toHaveProperty('data.me', null);
       expect(response).toHaveProperty(
@@ -190,21 +181,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(accountsEntitiesResolverSpy).not.toHaveBeenCalled();
 
@@ -267,21 +244,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(accountsEntitiesResolverSpy).toHaveBeenCalledTimes(1);
       expect(accountsEntitiesResolverSpy.mock.calls[0][1]).toEqual({
@@ -368,21 +331,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(reviewsEntitiesResolverSpy).not.toHaveBeenCalled();
 
@@ -416,21 +365,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(reviewsEntitiesResolverSpy).toHaveBeenCalledTimes(1);
       expect(reviewsEntitiesResolverSpy.mock.calls[0][1]).toEqual({
@@ -490,21 +425,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(response).toHaveProperty('data.me', null);
       expect(response).toHaveProperty('data.topReviews', expect.any(Array));
@@ -527,21 +448,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(response).toHaveProperty('data.me', null);
       expect(response).toHaveProperty('data.topReviews', expect.any(Array));
@@ -563,21 +470,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -656,24 +549,9 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
     const requestContext = buildRequestContext();
     requestContext.request.variables = { first: 3 };
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      requestContext,
-      operationContext,
-    );
+    const response = await executeOperation(operationString, requestContext);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -755,24 +633,9 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
     const requestContext = buildRequestContext();
     requestContext.request.variables = { locale: 'en-US' };
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      requestContext,
-      operationContext,
-    );
+    const response = await executeOperation(operationString, requestContext);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -833,20 +696,7 @@ describe('executeQueryPlan', () => {
   });
 
   it('can execute an introspection query', async () => {
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument: parseOp(`
-        ${getIntrospectionQuery()}
-      `),
-    });
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(`${getIntrospectionQuery()}`);
 
     expect(response.data).toHaveProperty('__schema');
     expect(response.errors).toBeUndefined();
@@ -863,21 +713,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -907,21 +743,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -962,21 +784,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -1004,21 +812,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -1059,21 +853,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.errors).toMatchInlineSnapshot(`undefined`);
 
@@ -1108,21 +888,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.errors).toBeUndefined();
 
@@ -1151,21 +917,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = parseOp(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -1197,23 +949,12 @@ describe('executeQueryPlan', () => {
 
   describe('@inaccessible', () => {
     it(`should not include @inaccessible fields in introspection`, async () => {
-      schema = buildComposedSchema(superGraphWithInaccessible);
+      schema = buildSchemaFromAST(superGraphWithInaccessible);
+
+      const operation = parseOp(`${getIntrospectionQuery()}`, schema);
       queryPlanner = new QueryPlanner(schema);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument: parseOp(`
-          ${getIntrospectionQuery()}
-        `),
-      });
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data).toHaveProperty('__schema');
       expect(response.errors).toBeUndefined();
@@ -1239,24 +980,14 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
+      const operation = parseOp(operationString);
 
-      schema = buildComposedSchema(superGraphWithInaccessible);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
+      schema = buildSchemaFromAST(superGraphWithInaccessible);
 
       queryPlanner = new QueryPlanner(schema);
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operation);
 
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -1363,26 +1094,16 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = parseOp(operationString);
+      const operation = parseOp(operationString);
 
       // Vehicle ID #1 is a "Car" type.
       // This supergraph marks the "Car" type as inaccessible.
-      schema = buildComposedSchema(superGraphWithInaccessible);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
+      schema = buildSchemaFromAST(superGraphWithInaccessible);
 
       queryPlanner = new QueryPlanner(schema);
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operation);
 
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data?.vehicle).toEqual(null);
       expect(response.errors).toBeUndefined();
@@ -1443,7 +1164,7 @@ describe('executeQueryPlan', () => {
       },
     });
 
-    const operationDocument = parseOp(`
+    const operation = parseOp(`
       query {
         getA {
           q {
@@ -1453,12 +1174,8 @@ describe('executeQueryPlan', () => {
       }
       `, schema);
 
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
+    const queryPlan = buildPlan(operation, queryPlanner);
 
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -1484,12 +1201,7 @@ describe('executeQueryPlan', () => {
       }
     `);
 
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {

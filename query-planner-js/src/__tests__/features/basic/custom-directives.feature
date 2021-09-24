@@ -29,7 +29,9 @@ Scenario: successfully passes directives and their variables along in requests t
     topReviews {
       body @stream
       author @transform(from: "JSON") {
-        name @stream
+        name @stream {
+          first
+        }
       }
     }
   }
@@ -64,7 +66,7 @@ Scenario: successfully passes directives and their variables along in requests t
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name@stream}}}"
+            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name@stream{first}}}}"
           }
         }
       ]
