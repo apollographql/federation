@@ -12,7 +12,6 @@ import {
   GraphQLSchema,
   GraphQLType,
   GraphQLUnionType,
-  InlineFragmentNode,
   isListType,
   isNonNullType,
   Kind,
@@ -21,7 +20,6 @@ import {
   OperationDefinitionNode,
   parse,
   SchemaMetaFieldDef,
-  SelectionNode,
   TypeMetaFieldDef,
   TypeNameMetaFieldDef,
   TypeNode,
@@ -100,25 +98,25 @@ export function astFromType(type: GraphQLType): TypeNode {
 
 /**
  * For lack of a "home of federation utilities", this function is copy/pasted
- * verbatim across the federation, gateway, and query-planner packages. Any changes
- * made here should be reflected in the other two locations as well.
+ * verbatim across the federation and query-planner packages. Any changes
+ * made here should be reflected in the other location as well.
  *
  * @param source A string representing a FieldSet
  * @returns A parsed FieldSet
  */
-export function parseSelections(source: string): ReadonlyArray<SelectionNode> {
+export function parseFieldSet(source: string): FieldSet {
   const parsed = parse(`{${source}}`);
   assert(
     parsed.definitions.length === 1,
     `Invalid FieldSet provided: '${source}'. FieldSets may not contain operations within them.`,
   );
-  return (parsed.definitions[0] as OperationDefinitionNode).selectionSet
-    .selections;
-}
 
-// TODO: should we be using this everywhere we're using `parseSelections`?
-export function parseFieldSet(source: string): FieldSet {
-  const selections = parseSelections(source);
+  const selections = (parsed.definitions[0] as OperationDefinitionNode)
+    .selectionSet.selections;
+
+  // I'm not sure this case is possible - an empty string will first throw a
+  // graphql syntax error. Can you get 0 selections any other way?
+  assert(selections.length > 0, `Field sets may not be empty`);
 
   const selectionSetNode = {
     kind: Kind.SELECTION_SET,
@@ -133,13 +131,9 @@ export function parseFieldSet(source: string): FieldSet {
     },
   });
 
-  // I'm not sure this case is possible - an empty string will first throw a
-  // graphql syntax error. Can you get 0 selections any other way?
-  assert(selections.length > 0, `Field sets may not be empty`);
-
   // This cast is asserted above by the visitor, ensuring that both `selections`
   // and any recursive `selections` are not `FragmentSpreadNode`s
-  return selections as readonly (FieldNode | InlineFragmentNode)[];
+  return selections as FieldSet;
 }
 
 

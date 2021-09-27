@@ -1,8 +1,9 @@
 import {
-  SelectionNode,
   DocumentNode,
   FieldDefinitionNode,
   DirectiveDefinitionNode,
+  FieldNode,
+  InlineFragmentNode,
 } from 'graphql';
 import { DirectiveUsages } from './DirectiveMetadata';
 
@@ -22,7 +23,7 @@ export interface ExternalFieldDefinition {
 }
 
 export interface ServiceNameToKeyDirectivesMap {
-  [serviceName: string]: ReadonlyArray<SelectionNode>[] | undefined;
+  [serviceName: string]: FieldSet[] | undefined;
 }
 
 export interface FederationType {
@@ -35,10 +36,15 @@ export interface FederationType {
   directiveUsages?: DirectiveUsages
 }
 
+// Without rewriting a number of AST types from graphql-js, this typing is
+// technically too relaxed. Recursive selections are not excluded from containing
+// FragmentSpreads, which is what this type is aiming to achieve (and accomplishes
+// at the root level, but not recursively)
+export type FieldSet = readonly (FieldNode | InlineFragmentNode)[];
 export interface FederationField {
   serviceName?: ServiceName;
-  requires?: ReadonlyArray<SelectionNode>;
-  provides?: ReadonlyArray<SelectionNode>;
+  requires?: FieldSet;
+  provides?: FieldSet;
   belongsToValueType?: boolean;
   directiveUsages?: DirectiveUsages
 }

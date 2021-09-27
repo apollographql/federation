@@ -17,7 +17,6 @@ import {
   GraphQLObjectType,
   getNamedType,
   GraphQLField,
-  SelectionNode,
   isEqualType,
   FieldNode,
   TypeDefinitionNode,
@@ -49,6 +48,7 @@ import apolloTypeSystemDirectives, {
   federationDirectives,
 } from '../directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
+import { FieldSet } from '.';
 
 export function isStringValueNode(node: any): node is StringValueNode {
   return node.kind === Kind.STRING;
@@ -95,7 +95,7 @@ export function findDirectivesOnNode(
  *
  * @param selections
  */
-export function printFieldSet(selections: readonly SelectionNode[]): string {
+export function printFieldSet(selections: FieldSet): string {
   return selections
     .map((selection) => stripIgnoredCharacters(print(selection)))
     .join(' ');
@@ -201,17 +201,42 @@ function removeExternalFieldsFromExtensionVisitor<
 
 /**
  * For lack of a "home of federation utilities", this function is copy/pasted
- * verbatim across the federation, gateway, and query-planner packages. Any changes
- * made here should be reflected in the other two locations as well.
+ * verbatim across the federation and query-planner packages. Any changes
+ * made here should be reflected in the other location as well.
  *
  * @param source A string representing a FieldSet
  * @returns A parsed FieldSet
  */
-export function parseSelections(source: string): ReadonlyArray<SelectionNode> {
+ export function parseFieldSet(source: string): FieldSet {
   const parsed = parse(`{${source}}`);
-  assert(parsed.definitions.length === 1, `Unexpected } found in FieldSet`);
-  return (parsed.definitions[0] as OperationDefinitionNode).selectionSet
-    .selections;
+  assert(
+    parsed.definitions.length === 1,
+    `Invalid FieldSet provided: '${source}'. FieldSets may not contain operations within them.`,
+  );
+
+  const selections = (parsed.definitions[0] as OperationDefinitionNode)
+    .selectionSet.selections;
+
+  // I'm not sure this case is possible - an empty string will first throw a
+  // graphql syntax error. Can you get 0 selections any other way?
+  assert(selections.length > 0, `Field sets may not be empty`);
+
+  const selectionSetNode = {
+    kind: Kind.SELECTION_SET,
+    selections,
+  };
+
+  visit(selectionSetNode, {
+    FragmentSpread() {
+      throw Error(
+        `Field sets may not contain fragment spreads, but found: "${source}"`,
+      );
+    },
+  });
+
+  // This cast is asserted above by the visitor, ensuring that both `selections`
+  // and any recursive `selections` are not `FragmentSpreadNode`s
+  return selections as FieldSet;
 }
 
 export function hasMatchingFieldInDirectives({
@@ -239,7 +264,7 @@ export function hasMatchingFieldInDirectives({
         // filter out any null/undefined args
         .filter(isNotNullOrUndefined)
         // flatten all selections of the "fields" arg to a list of fields
-        .flatMap(selection => parseSelections(selection.keyArgument))
+        .flatMap(selection => parseFieldSet(selection.keyArgument))
         // find a field that matches the @external field
         .some(
           field =>
@@ -356,7 +381,7 @@ export function selectionIncludesField({
   typeToFind,
   fieldToFind,
 }: {
-  selections: readonly SelectionNode[];
+  selections: FieldSet;
   selectionSetType: GraphQLObjectType; // type which applies to `selections`
   typeToFind: GraphQLObjectType; // type where the `@external` lives
   fieldToFind: string;
@@ -386,7 +411,7 @@ export function selectionIncludesField({
     );
     if (!returnType || !isObjectType(returnType)) continue;
     const subselections =
-      selection.selectionSet && selection.selectionSet.selections;
+      selection.selectionSet && (selection.selectionSet.selections as FieldSet);
 
     // using the return type of a given selection and all the subselections,
     // recursively search for matching selections. typeToFind and fieldToFind
