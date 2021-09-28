@@ -37,7 +37,7 @@
 ## v0.36.0
 
 - In `RemoteGraphQLDataSource`, if the subgraph response has a `cache-control` header, use it to affect the current request's overall cache policy. You can disable this by passing `honorSubgraphCacheControlHeader: false` to the `RemoteGraphQLDataSource constructor`. This feature is only enabled when your subgraph is running Apollo Server 3.0.2 or later. [PR #870](https://github.com/apollographql/apollo-server/pull/870) [Related docs PR](https://github.com/apollographql/apollo-server/pull/5536)
-- Provide the full incoming `GraphQLRequestContext` to `GraphQLDataSource.process`, as well as a `kind` allowing your implementation to differentiate between requests that come from incoming GraphQL operations, health checks, and schema fetches. [PR #870](https://github.com/apollographql/apollo-server/pull/870) [Issue #419](https://github.com/apollographql/apollo-server/issues/419) [Issue #835](https://github.com/apollographql/apollo-server/issues/835)
+- Provide the full incoming `GraphQLRequestContext` to `GraphQLDataSource.process`, as well as a `kind` allowing your implementation to differentiate between requests that come from incoming GraphQL operations, health checks, and schema fetches. [PR #870](https://github.com/apollographql/federation/pull/870) [Issue #419](https://github.com/apollographql/apollo-server/issues/419) [Issue #835](https://github.com/apollographql/apollo-server/issues/835)
 
 ## v0.35.1
 
