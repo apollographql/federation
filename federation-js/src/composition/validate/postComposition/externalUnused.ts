@@ -5,7 +5,7 @@ import {
   hasMatchingFieldInDirectives,
   errorWithCode,
   findFieldsThatReturnType,
-  parseSelections,
+  parseFieldSet,
   isStringValueNode,
   selectionIncludesField,
   getFederationMetadata,
@@ -81,7 +81,7 @@ export const externalUnused: PostCompositionValidator = ({ schema }) => {
                 if (!directive.arguments) return false;
                 const selections =
                   isStringValueNode(directive.arguments[0].value) &&
-                  parseSelections(directive.arguments[0].value.value);
+                  parseFieldSet(directive.arguments[0].value.value);
                 // find the selections which are fields with names matching
                 // our external field name
                 return (
@@ -132,7 +132,7 @@ export const externalUnused: PostCompositionValidator = ({ schema }) => {
                   if (!directive.arguments) return false;
                   const selections =
                     isStringValueNode(directive.arguments[0].value) &&
-                    parseSelections(directive.arguments[0].value.value);
+                    parseFieldSet(directive.arguments[0].value.value);
 
                   if (!selections) return false;
                   return selectionIncludesField({

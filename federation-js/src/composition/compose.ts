@@ -27,7 +27,6 @@ import {
 import {
   findDirectivesOnNode,
   isStringValueNode,
-  parseSelections,
   mapFieldNamesToServiceName,
   stripExternalFieldsFromTypeDefs,
   typeNodesAreEquivalent,
@@ -37,7 +36,8 @@ import {
   getFederationMetadata,
   CompositionResult,
   isDirectiveDefinitionNode,
-  isFederationDirective
+  isFederationDirective,
+  parseFieldSet,
 } from './utils';
 import {
   ServiceDefinition,
@@ -181,7 +181,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
               keyDirectivesMap[typeName][serviceName] || [];
             // Add @key metadata to the array
             keyDirectivesMap[typeName][serviceName]!.push(
-              parseSelections(keyDirective.arguments[0].value.value),
+              parseFieldSet(keyDirective.arguments[0].value.value),
             );
           }
         }
@@ -536,7 +536,7 @@ export function addFederationMetadataToSchemaNodes({
           const fieldFederationMetadata: FederationField = {
             ...getFederationMetadata(field),
             serviceName,
-            provides: parseSelections(
+            provides: parseFieldSet(
               providesDirective.arguments[0].value.value,
             ),
             belongsToValueType: isValueType,
@@ -585,7 +585,7 @@ export function addFederationMetadataToSchemaNodes({
         ) {
           const fieldFederationMetadata: FederationField = {
             ...getFederationMetadata(field),
-            requires: parseSelections(
+            requires: parseFieldSet(
               requiresDirective.arguments[0].value.value,
             ),
           };

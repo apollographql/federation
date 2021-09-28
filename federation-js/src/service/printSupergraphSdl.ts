@@ -29,9 +29,13 @@ import {
   GraphQLField,
   GraphQLEnumValue,
   DEFAULT_DEPRECATION_REASON,
-  SelectionNode,
 } from 'graphql';
-import { Maybe, FederationType, FederationField } from '../composition';
+import {
+  Maybe,
+  FederationType,
+  FederationField,
+  FieldSet,
+} from '../composition';
 import { assert } from '../utilities';
 import { printFieldSet } from '../composition/utils';
 import { otherKnownDirectiveDefinitions } from '../directives';
@@ -237,7 +241,7 @@ function printTypeJoinDirectives(
   // Separate owner @keys from the rest of the @keys so we can print them
   // adjacent to the @owner directive.
   const { [ownerService]: ownerKeys = [], ...restKeys } = keys;
-  const ownerEntry: [string, (readonly SelectionNode[])[]] = [
+  const ownerEntry: [string, FieldSet[]] = [
     ownerService,
     ownerKeys,
   ];
