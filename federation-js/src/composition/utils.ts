@@ -3,8 +3,6 @@ import {
   FieldDefinitionNode,
   Kind,
   StringValueNode,
-  parse,
-  OperationDefinitionNode,
   NameNode,
   DocumentNode,
   visit,
@@ -33,6 +31,7 @@ import {
   stripIgnoredCharacters,
   NonNullTypeNode,
   NamedTypeNode,
+  TokenKind,
 } from 'graphql';
 import {
   ExternalFieldDefinition,
@@ -49,6 +48,7 @@ import apolloTypeSystemDirectives, {
 } from '../directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
 import { FieldSet } from '.';
+import { Parser } from 'graphql/language/parser';
 
 export function isStringValueNode(node: any): node is StringValueNode {
   return node.kind === Kind.STRING;
@@ -208,25 +208,21 @@ function removeExternalFieldsFromExtensionVisitor<
  * @returns A parsed FieldSet
  */
  export function parseFieldSet(source: string): FieldSet {
-  const parsed = parse(`{${source}}`);
-  assert(
-    parsed.definitions.length === 1,
-    `Invalid FieldSet provided: '${source}'. FieldSets may not contain operations within them.`,
-  );
+  const parser = new Parser(`{${source}}`);
 
-  const selections = (parsed.definitions[0] as OperationDefinitionNode)
-    .selectionSet.selections;
-
+  parser.expectToken(TokenKind.SOF)
+  const selectionSet = parser.parseSelectionSet();
+  try {
+    parser.expectToken(TokenKind.EOF);
+  } catch {
+    throw new Error(`Invalid FieldSet provided: '${source}'. FieldSets may not contain operations within them.`);
+  }
+  const selections = selectionSet.selections;
   // I'm not sure this case is possible - an empty string will first throw a
   // graphql syntax error. Can you get 0 selections any other way?
   assert(selections.length > 0, `Field sets may not be empty`);
 
-  const selectionSetNode = {
-    kind: Kind.SELECTION_SET,
-    selections,
-  };
-
-  visit(selectionSetNode, {
+  visit(selectionSet, {
     FragmentSpread() {
       throw Error(
         `Field sets may not contain fragment spreads, but found: "${source}"`,
