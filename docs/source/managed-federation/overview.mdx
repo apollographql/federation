@@ -3,7 +3,7 @@ title: Managed federation overview
 sidebar_title: Overview
 ---
 
-Apollo provides free **managed federation** support for data graphs that use Apollo Federation.
+Apollo provides free **managed federation** support for graphs that use Apollo Federation.
 
 With managed federation, your [gateway](../gateway/) is no longer responsible for fetching schemas from your [subgraphs](../subgraphs/) on startup. Instead, your subgraphs push their schemas to the Apollo schema registry, which verifies that they successfully **compose** into a federated schema.
 
@@ -33,7 +33,7 @@ Managed federation helps your organization safely validate, coordinate, deploy, 
 
 ### Gateway stability
 
-You can modify subgraph schemas (and even add or remove entire subgraphs from your graph) _without_ needing to modify or redeploy your gateway. As the point of entry to your entire data graph, your gateway should maximize its uptime.
+You can modify subgraph schemas (and even add or remove entire subgraphs from your graph) _without_ needing to modify or redeploy your gateway. As the point of entry to your entire graph, your gateway should maximize its uptime.
 
 ### Composition stability
 
