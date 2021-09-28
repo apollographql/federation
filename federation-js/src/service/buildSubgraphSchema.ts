@@ -1,3 +1,4 @@
+import { deprecate } from 'util';
 import {
   DocumentNode,
   GraphQLSchema,
@@ -136,4 +137,7 @@ export function buildSubgraphSchema(
 /**
  * @deprecated Use `buildSubgraphSchema` instead.
  */
-export const buildFederatedSchema = buildSubgraphSchema;
+export const buildFederatedSchema = deprecate(
+  buildSubgraphSchema,
+  `'buildFederatedSchema' is deprecated. Use 'buildSubgraphSchema' instead.`,
+);

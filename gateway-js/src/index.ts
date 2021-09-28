@@ -1,3 +1,4 @@
+import { deprecate } from 'util';
 import { GraphQLService, Unsubscriber } from 'apollo-server-core';
 import {
   GraphQLExecutionResult,
@@ -117,7 +118,10 @@ export function getDefaultFetcher() {
  * TODO(trevor:cloudconfig): Stop exporting this
  * @deprecated This will be removed in a future version of @apollo/gateway
  */
-export const getDefaultGcsFetcher = getDefaultFetcher;
+export const getDefaultGcsFetcher = deprecate(
+  getDefaultFetcher,
+  `'getDefaultGcsFetcher' is deprecated. Use 'getDefaultFetcher' instead.`,
+);
 /**
  * TODO(trevor:cloudconfig): Stop exporting this
  * @deprecated This will be removed in a future version of @apollo/gateway
@@ -1269,6 +1273,11 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 }
+
+ApolloGateway.prototype.onSchemaChange = deprecate(
+  ApolloGateway.prototype.onSchemaChange,
+  `'onSchemaChange' is deprecated. Use 'onSchemaLoadOrUpdate' instead.`,
+);
 
 function approximateObjectSize<T>(obj: T): number {
   return Buffer.byteLength(JSON.stringify(obj), 'utf8');

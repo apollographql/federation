@@ -3,6 +3,7 @@
  * This file has been modified to support printing subgraph
  * schema, including associated federation directives.
  */
+import { deprecate } from 'util';
 import {
   GraphQLSchema,
   isSpecifiedDirective,
@@ -37,7 +38,10 @@ import { federationDirectives, gatherDirectives } from '../directives';
 /**
  * @deprecated Use `printSubgraphSchema` instead.
  */
-export const printSchema = printSubgraphSchema;
+export const printSchema = deprecate(
+  printSubgraphSchema,
+  `'printSchema' is deprecated. Use 'printSubgraphSchema' instead.`,
+);
 
 export function printSubgraphSchema(schema: GraphQLSchema): string {
   return printFilteredSchema(
