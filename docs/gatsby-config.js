@@ -35,6 +35,7 @@ module.exports = {
             'enterprise-guide/federated-schema-design',
             'enterprise-guide/graph-administration',
             'enterprise-guide/graph-security',
+            'enterprise-guide/change-management',
             'enterprise-guide/federation-case-studies',
             'enterprise-guide/additional-resources',
           ],
