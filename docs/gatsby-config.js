@@ -9,7 +9,7 @@ module.exports = {
         root: __dirname,
         pathPrefix: '/docs/federation',
         algoliaIndexName: 'federation',
-        algoliaFilters: ['docset:federation', 'docset:server', 'docset:rover', 'docset:studio'],
+        algoliaFilters: ['docset:federation', ['docset:server', 'docset:rover', 'docset:studio']],
         subtitle: 'Apollo Federation',
         description: 'A guide to using Apollo Federation',
         githubRepo: 'apollographql/federation',
