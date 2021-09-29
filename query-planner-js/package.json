@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-planner",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Apollo Query Planner",
   "author": "Apollo <opensource@apollographql.com>",
   "main": "dist/index.js",
@@ -23,9 +23,6 @@
   "license": "MIT",
   "publishConfig": {
     "access": "public"
-  },
-  "scripts": {
-    "version": "node ../update-lockfile.js"
   },
   "dependencies": {
     "apollo-graphql": "^0.9.3",

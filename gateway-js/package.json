@@ -1,6 +1,6 @@
 {
   "name": "@apollo/gateway",
-  "version": "0.42.1",
+  "version": "0.42.2",
   "description": "Apollo Gateway",
   "author": "Apollo <opensource@apollographql.com>",
   "main": "dist/index.js",
@@ -23,9 +23,6 @@
   "license": "MIT",
   "publishConfig": {
     "access": "public"
-  },
-  "scripts": {
-    "version": "node ../update-lockfile.js"
   },
   "dependencies": {
     "@apollo/core-schema": "^0.1.0",

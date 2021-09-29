@@ -1,7 +1,7 @@
 {
   "name": "apollo-federation-integration-testsuite",
   "private": true,
-  "version": "0.32.0",
+  "version": "0.32.1",
   "description": "Apollo Federation Integrations / Test Fixtures",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,9 +17,6 @@
     "url": "https://github.com/apollographql/federation/issues"
   },
   "homepage": "https://github.com/apollographql/federation#readme",
-  "scripts": {
-    "version": "node ../update-lockfile.js"
-  },
   "dependencies": {
     "apollo-graphql": "^0.9.3",
     "graphql-tag": "^2.10.4"

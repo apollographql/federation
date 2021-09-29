@@ -1,6 +1,6 @@
 {
   "name": "@apollo/federation",
-  "version": "0.34.0",
+  "version": "0.34.1",
   "description": "Apollo Federation Utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,9 +21,6 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "scripts": {
-    "version": "node ../update-lockfile.js"
   },
   "dependencies": {
     "apollo-graphql": "^0.9.3",
