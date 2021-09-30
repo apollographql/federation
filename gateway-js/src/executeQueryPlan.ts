@@ -308,17 +308,17 @@ async function executeFetch<TContext>(
         const representations: ResultMap[] = [];
         const representationToEntity: number[] = [];
 
-    entities.forEach((entity, index) => {
-      const representation = executeSelectionSet(
-        context.operationContext,
-        entity,
-        requires,
-      );
-      if (representation && representation[TypeNameMetaFieldDef.name]) {
-        representations.push(representation);
-        representationToEntity.push(index);
-      }
-    });
+        entities.forEach((entity, index) => {
+          const representation = executeSelectionSet(
+            context.operationContext,
+            entity,
+            requires,
+          );
+          if (representation && representation[TypeNameMetaFieldDef.name]) {
+            representations.push(representation);
+            representationToEntity.push(index);
+          }
+        });
 
         // If there are no representations, that means the type conditions in
         // the requires don't match any entities.
