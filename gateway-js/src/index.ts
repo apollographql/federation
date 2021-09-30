@@ -1276,7 +1276,7 @@ export class ApolloGateway implements GraphQLService {
 
 ApolloGateway.prototype.onSchemaChange = deprecate(
   ApolloGateway.prototype.onSchemaChange,
-  `'onSchemaChange' is deprecated. Use 'onSchemaLoadOrUpdate' instead.`,
+  `'ApolloGateway.prototype.onSchemaChange' is deprecated. Use 'ApolloGateway.prototype.onSchemaLoadOrUpdate' instead.`,
 );
 
 function approximateObjectSize<T>(obj: T): number {
