@@ -26,6 +26,8 @@ import { defaultPrintOptions, printDirectiveDefinition } from "./print";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { parseSelectionSet } from './operations';
+import { tagLocations, TAG_VERSIONS } from "./tagSpec";
+import { error } from "./error";
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -36,9 +38,14 @@ export const extendsDirectiveName = 'extends';
 export const externalDirectiveName = 'external';
 export const requiresDirectiveName = 'requires';
 export const providesDirectiveName = 'provides';
+// TODO: so far, it seems we allow tag to appear without a corresponding definitio, so we add it as a built-in.
+// If we change our mind, we should change this.
+export const tagDirectiveName = 'tag';
 
 export const serviceFieldName = '_service';
 export const entitiesFieldName = '_entities';
+
+const tagSpec = TAG_VERSIONS.latest()!;
 
 const FEDERATION_TYPES = [
   entityTypeName,
@@ -51,6 +58,7 @@ const FEDERATION_DIRECTIVES = [
   externalDirectiveName,
   requiresDirectiveName,
   providesDirectiveName,
+  tagDirectiveName
 ];
 const FEDERATION_ROOT_FIELDS = [
   serviceFieldName,
@@ -139,13 +147,27 @@ export class FederationBuiltIns extends BuiltIns {
         .addLocations('FIELD_DEFINITION')
         .addArgument('fields', new NonNullType(schema.stringType()));
     }
+
+    const directive = this.addBuiltInDirective(schema, 'tag').addLocations(...tagLocations);
+    directive.addArgument("name", new NonNullType(schema.stringType()));
   }
 
-  onValidation(schema: Schema): GraphQLError[] {
-    let errors = super.onValidation(schema);
+  prepareValidation(schema: Schema) {
+    super.prepareValidation(schema);
 
     // Populate the _Entity type union.
-    const entityType = schema.type(entityTypeName) as UnionType;
+    let entityType = schema.type(entityTypeName) as UnionType;
+    // Not that it's possible the _Entity type was provided in the schema. In that case, we don't really want to modify that
+    // instance, but rather the builtIn one.
+    if (!entityType.isBuiltIn) {
+      // And if it _was_ redefined, but the redefinition is empty, let's just remove it as we've historically allowed that
+      // (and it's a reasonable convenience). If the redefinition _has_ members, than we leave it but follow-up validation
+      // will bark if the redefinition is incorrect.
+      if (entityType.membersCount() === 0) {
+        entityType.remove();
+      }
+      entityType = [...schema.builtInTypes<UnionType>('UnionType')].find(u => u.name === entityTypeName)!
+    }
     entityType.clearTypes();
     for (const objectType of schema.types<ObjectType>("ObjectType")) {
       if (isEntityType(objectType)) {
@@ -170,8 +192,14 @@ export class FederationBuiltIns extends BuiltIns {
     if (!queryType.field(serviceFieldName)) {
       this.addBuiltInField(queryType, serviceFieldName, schema.type(serviceTypeName) as ObjectType);
     }
+  }
 
-    // We also rename all root type to their default names.
+  onValidation(schema: Schema): GraphQLError[] {
+    // We skip the validation on tagDirective to have a more targeted error message later below
+    let errors = super.onValidation(schema, [tagDirectiveName]);
+
+    // We rename all root type to their default names (we do here rather than in `prepareValidation` because
+    // that can actually fail).
     for (const k of allSchemaRootKinds) {
       const type = schema.schemaDefinition.root(k)?.type;
       const defaultName = defaultRootName(k);
@@ -183,10 +211,11 @@ export class FederationBuiltIns extends BuiltIns {
           const nodes: ASTNode[] = [];
           if (type.sourceAST) nodes.push(type.sourceAST);
           if (existing.sourceAST) nodes.push(existing.sourceAST);
-          errors.push(new GraphQLError(
-            `The schema has a type named ${defaultName} but it is not set as the ${k} root type (${type.name} is instead): `
+          errors.push(error(
+            `ROOT_${k.toUpperCase()}_USED`,
+            `The schema has a type named "${defaultName}" but it is not set as the ${k} root type ("${type.name}" is instead): `
             + 'this is not supported by federation. '
-            + 'If a root type does not use its default name, there should be no other type with that default name',
+            + 'If a root type does not use its default name, there should be no other type with that default name.',
             nodes
           ));
         }
@@ -194,8 +223,7 @@ export class FederationBuiltIns extends BuiltIns {
       }
     }
 
-
-    // And we validate the @key, @requires and @provides.
+    // We validate the @key, @requires and @provides.
     errors = errors.concat(validateAllFieldSet<CompositeType>(
       this.keyDirective(schema),
       type => type,
@@ -206,7 +234,7 @@ export class FederationBuiltIns extends BuiltIns {
       field => field.parent!,
       field => `field "${field.coordinate}"`
     ));
-   errors = errors.concat(validateAllFieldSet<FieldDefinition<CompositeType>>(
+    errors = errors.concat(validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.providesDirective(schema),
       field => {
         const type = baseType(field.type!);
@@ -219,6 +247,15 @@ export class FederationBuiltIns extends BuiltIns {
       },
       field => `field ${field.coordinate}`
     ));
+
+    // If tag is redefined by the user, make sure the definition is compatible with what we expect
+    const tagDirective = this.tagDirective(schema);
+    if (!tagDirective.isBuiltIn) {
+      const error = tagSpec.checkCompatibleDirective(tagDirective);
+      if (error) {
+        errors.push(error);
+      }
+    }
 
     return errors;
   }
@@ -247,13 +284,17 @@ export class FederationBuiltIns extends BuiltIns {
     return this.getTypedDirective(schema, providesDirectiveName);
   }
 
+  tagDirective(schema: Schema): DirectiveDefinition<{name: string}> {
+    return this.getTypedDirective(schema, tagDirectiveName);
+  }
+
   maybeUpdateSubgraphDocument(schema: Schema, document: DocumentNode): DocumentNode {
     document = super.maybeUpdateSubgraphDocument(schema, document);
 
     let definitions = [...document.definitions];
     for (const directiveName of FEDERATION_DIRECTIVES) {
       const directive = schema.directive(directiveName);
-      assert(directive, 'This method should only have bee called on a schema with federation built-ins')
+      assert(directive, 'This method should only have been called on a schema with federation built-ins')
       // If the directive is _not_ marked built-in, that means it was manually defined
       // in the document and we don't need to add it. Note that `onValidation` will
       // ensure that re-definition is valid.
@@ -303,8 +344,38 @@ function buildSubgraph(name: string, source: DocumentNode | string): Schema {
   try {
     return typeof source === 'string' ? buildSchema(source, federationBuiltIns) : buildSchemaFromAST(source, federationBuiltIns);
   } catch (e) {
-    throw addSubgraphToError(e, name);
+    if (e instanceof GraphQLError) {
+      throw addSubgraphToError(e, name);
+    } else {
+      throw e;
+    }
   }
+}
+
+// 'ServiceDefinition' is originally defined in federation-js and we don't want to create a dependency
+// of core-js to that just for that interface.
+export interface ServiceDefinition {
+  typeDefs: DocumentNode;
+  name: string;
+  url?: string;
+}
+
+export function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subgraphs | GraphQLError[] {
+  let errors: GraphQLError[] = [];
+  const subgraphs = new Subgraphs();
+  for (const service of serviceList) {
+    try {
+      subgraphs.add(service.name, service.url ?? '', service.typeDefs);
+    } catch (e) {
+      const causes = errorCauses(e);
+      if (causes) {
+        errors = errors.concat(causes);
+      } else {
+        throw e;
+      }
+    }
+  }
+  return errors.length === 0 ? subgraphs : errors;
 }
 
 // Simple wrapper around a Subraph[] that ensures that 1) we never mistakenly get 2 subgraph with the same name,

@@ -12,17 +12,21 @@ import {
   InterfaceType,
   NamedType,
   ObjectType,
+  RootType,
   ScalarType,
   Schema,
   SchemaDefinition,
   SchemaElement,
+  SchemaRootKind,
   UnionType
 } from "./definitions";
+import { assert } from "./utils";
 import { valueToString } from "./values";
 
 export type Options = {
   indentString: string;
   definitionsOrder: ('schema' | 'types' | 'directives')[],
+  rootTypesOrder: SchemaRootKind[],
   typeCompareFn?: (t1: NamedType, t2: NamedType) => number;
   directiveCompareFn?: (d1: DirectiveDefinition, d2: DirectiveDefinition) => number;
   mergeTypesAndExtensions: boolean;
@@ -32,6 +36,7 @@ export type Options = {
 export const defaultPrintOptions: Options = {
   indentString: "  ",
   definitionsOrder: ['schema', 'directives', 'types'],
+  rootTypesOrder: ['query', 'mutation', 'subscription'],
   mergeTypesAndExtensions: false,
   showBuiltIns: false,
 }
@@ -43,7 +48,6 @@ export function orderPrintedDefinitions(options: Options): Options {
     directiveCompareFn: (t1, t2) => t1.name.localeCompare(t2.name),
   };
 }
-
 
 function isDefinitionOrderValid(options: Options): boolean {
   return options.definitionsOrder.length === 3
@@ -66,7 +70,7 @@ export function printSchema(schema: Schema, options: Options = defaultPrintOptio
   }
   let types = [...(options.showBuiltIns ? schema.allTypes() : schema.types())];
   if (options.typeCompareFn) {
-    types = types.sort(options.typeCompareFn);
+    types.sort(options.typeCompareFn);
   }
   const definitions: string[][] = new Array(3);
   definitions[options.definitionsOrder.indexOf('schema')] = printSchemaDefinitionAndExtensions(schema.schemaDefinition, options);
@@ -100,11 +104,15 @@ function printIsExtension(extension?: Extension<any> | null): string {
   return extension ? 'extend ' : '';
 }
 
-function forExtension<T extends {ofExtension(): Extension<any> | undefined}>(ts: readonly T[], extension?: Extension<any> | null): readonly T[]  {
+function forExtension<T extends {ofExtension(): Extension<any> | undefined}>(ts: readonly T[], extension?: Extension<any> |null): readonly T[]  {
   if (extension === undefined) {
     return ts;
   }
   return ts.filter(r => (r.ofExtension() ?? null) === extension);
+}
+
+function orderRoots(roots: readonly RootType[], options: Options): RootType[] {
+  return [...roots].sort((r1, r2) => options.rootTypesOrder.indexOf(r1.rootKind) - options.rootTypesOrder.indexOf(r2.rootKind));
 }
 
 function printSchemaDefinitionOrExtension(
@@ -117,7 +125,7 @@ function printSchemaDefinitionOrExtension(
   if (!roots.length && !directives.length) {
     return undefined;
   }
-  const rootEntries = roots.map((rootType) => `${options.indentString}${rootType.rootKind}: ${rootType.type}`);
+  const rootEntries = orderRoots(roots, options).map((rootType) => `${options.indentString}${rootType.rootKind}: ${rootType.type}`);
   return printDescription(schemaDefinition)
     + printIsExtension(extension)
     + 'schema'
@@ -140,6 +148,16 @@ function printSchemaDefinitionOrExtension(
  */
 function isSchemaOfCommonNames(schema: SchemaDefinition): boolean {
   return schema.appliedDirectives.length === 0 && !schema.description && [...schema.roots()].every(r => r.isDefaultRootName());
+}
+
+/**
+ * Convenience function that assumes `printTypeDefinitionAndExtensions` returns a single result and return that result.
+ * Throw an error if there `printTypeDefinitionAndExtensions` returns multiple results.
+ */
+export function printType(type: NamedType, options: Options = defaultPrintOptions): string {
+  const definitionAndExtensions = printTypeDefinitionAndExtensions(type, options);
+  assert(definitionAndExtensions.length == 1, `Type ${type} is built from more than 1 definition or extension`);
+  return definitionAndExtensions[0];
 }
 
 export function printTypeDefinitionAndExtensions(type: NamedType, options: Options = defaultPrintOptions): string[] {

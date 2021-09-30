@@ -1,4 +1,4 @@
-import { compose } from '@apollo/composition';
+import { composeServices } from '@apollo/composition';
 import {
   DirectiveDefinitionNode,
   SchemaDefinitionNode,
@@ -8,27 +8,10 @@ import {
   visit,
 } from 'graphql';
 import { fixtures } from '..';
-import { assert, buildSchemaFromAST, errorCauses, federationBuiltIns, printErrors, Subgraphs } from '@apollo/core';
-import { ServiceDefinition } from '@apollo/federation';
+import { assert } from '@apollo/core';
 
-function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subgraphs {
-  const subgraphs = new Subgraphs();
-  for (const service of serviceList) {
-    try {
-      subgraphs.add(service.name, service.url ?? '', buildSchemaFromAST(service.typeDefs, federationBuiltIns));
-    } catch (e) {
-      const causes = errorCauses(e);
-      if (causes) {
-        console.error(`Errors in subgraph '${service.name}':\n` + printErrors(causes));
-      }
-      throw e;
-    }
-  }
-  return subgraphs;
-}
-
-const compositionResult = compose(subgraphsFromServiceList(fixtures));
-assert(!compositionResult.errors, "Unexpected errors composing test fixtures");
+const compositionResult = composeServices(fixtures);
+assert(!compositionResult.errors, () => `Unexpected errors composing test fixtures:\n${compositionResult.errors!.join('\n\n')}`);
 
 const parsed = parse(compositionResult.supergraphSdl);
 

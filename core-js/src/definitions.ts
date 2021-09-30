@@ -18,7 +18,7 @@ import {
   VariableNode
 } from "graphql";
 import { CoreDirectiveArgs, CoreSpecDefinition, CORE_VERSIONS, FeatureUrl, isCoreSpecDirectiveApplication, removeFeatureElements } from "./coreSpec";
-import { assert, arrayEquals } from "./utils";
+import { arrayEquals, assert } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
 import { printSchema } from './print';
@@ -593,6 +593,16 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType> extends Na
     return this.name.startsWith('__');
   }
 
+  hasExtensionElements(): boolean {
+    return this._extensions.size > 0;
+  }
+
+  hasNonExtensionElements(): boolean {
+    return this._appliedDirectives.some(d => d.ofExtension() === undefined) || this.hasNonExtensionInnerElements();
+  }
+
+  protected abstract hasNonExtensionInnerElements(): boolean;
+
   protected isElementBuiltIn(): boolean {
     return this.isBuiltIn;
   }
@@ -714,6 +724,10 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
   protected abstract removeInner(): void;
 }
 
+function sortedMemberNames(u: UnionType): string[] {
+  return [...u.members()].map(m => m.type.name).sort((n1, n2) => n1.localeCompare(n2));
+}
+
 export class BuiltIns {
   readonly defaultGraphQLBuiltInTypes: readonly string[] = [ 'Int', 'Float', 'String', 'Boolean', 'ID' ];
 
@@ -735,7 +749,11 @@ export class BuiltIns {
       .addArgument('url', new NonNullType(schema.stringType()));
   }
 
-  onValidation(schema: Schema): GraphQLError[] {
+  prepareValidation(_: Schema) {
+    // No-op for graphQL built-ins, but overriden for federation built-ins.
+  }
+
+  onValidation(schema: Schema, unvalidatedDirectives?: string[]): GraphQLError[] {
     const errors: GraphQLError[] = [];
     // We make sure that if any of the built-ins has been redefined, then the redifinition is
     // the same as the built-in one.
@@ -747,6 +765,9 @@ export class BuiltIns {
     }
 
     for (const directive of schema.builtInDirectives()) {
+      if (unvalidatedDirectives && unvalidatedDirectives.includes(directive.name)) {
+        continue;
+      }
       const maybeRedefined = schema.directive(directive.name)!;
       if (!maybeRedefined.isBuiltIn) {
         this.ensureSameDirectiveStructure(directive, maybeRedefined, errors);
@@ -765,10 +786,13 @@ export class BuiltIns {
 
   private ensureSameDirectiveStructure(builtIn: DirectiveDefinition<any>, manuallyDefined: DirectiveDefinition<any>, errors: GraphQLError[]) {
     this.ensureSameArguments(builtIn, manuallyDefined, `directive ${builtIn}`, errors);
-    if (builtIn.repeatable !== manuallyDefined.repeatable) {
+    // It's ok to say you'll never repeat a built-in that is repeatable. It's not ok to repeat one that isn't.
+    if (!builtIn.repeatable && manuallyDefined.repeatable) {
       errors.push(error(`Invalid redefinition of built-in directive ${builtIn}: ${builtIn} should${builtIn.repeatable ? "" : " not"} be repeatable`));
-    } else if (!arrayEquals(builtIn.locations, manuallyDefined.locations)) {
-      errors.push(error(`Invalid redefinition of built-in directive ${builtIn}: ${builtIn} should have locations ${builtIn.locations.join(', ')}, but found ${manuallyDefined.locations.join(', ')}`));
+    }
+    // Similarly, it's ok to say that you will never use a directive in some locations, but not that you will use it in places not allowed by the built-in.
+    if (!manuallyDefined.locations.every(loc => builtIn.locations.includes(loc))) {
+      errors.push(error(`Invalid redefinition of built-in directive ${builtIn}: ${builtIn} should have locations ${builtIn.locations.join(', ')}, but found (non-subset) ${manuallyDefined.locations.join(', ')}`));
     }
   }
 
@@ -805,9 +829,9 @@ export class BuiltIns {
         // Nothing more to check for scalars.
         return;
       case 'ObjectType':
-        const redefined = manuallyDefined as ObjectType;
+        const redefinedObject = manuallyDefined as ObjectType;
         for (const builtInField of builtIn.fields()) {
-          const redefinedField = redefined.field(builtInField.name);
+          const redefinedField = redefinedObject.field(builtInField.name);
           if (!redefinedField) {
             errors.push(error(`Invalid redefinition of built-in type ${builtIn}: redefinition is missing field ${builtInField}`));
             return;
@@ -823,6 +847,14 @@ export class BuiltIns {
             return;
           }
           this.ensureSameArguments(builtInField, redefinedField, `field ${builtInField.coordinate}`, errors);
+        }
+        break;
+      case 'UnionType':
+        const redefinedUnion = manuallyDefined as UnionType;
+        const builtInMembers = sortedMemberNames(builtIn);
+        const redefinedMembers = sortedMemberNames(redefinedUnion);
+        if (!arrayEquals(builtInMembers, redefinedMembers)) {
+          errors.push(error(`Invalid redefinition of built-in type ${builtIn}: redefinition has members [${redefinedMembers}] but should have members [${builtInMembers}]`));
         }
         break;
       default:
@@ -1240,18 +1272,23 @@ export class Schema {
       return;
     }
 
-    // This needs to run _before_ graphQL validation: otherwise, the federation directives will be unknown
-    // for subgraphs.
-    let errors: GraphQLError[] = [];
+    // This needs to run _before_ graphQL validation: otherwise, the _Entity union will be empty and fail validation.
     this.runWithBuiltInModificationAllowed(() => {
-      errors = errors.concat(this.builtIns.onValidation(this));
+      this.builtIns.prepareValidation(this);
       addIntrospectionFields(this);
     });
 
     // TODO: we should ensure first that there is no undefined types (or maybe throw properly when printing the AST
     // and catching that properly).
+    let errors: GraphQLError[] = validateSDL(this.toAST(), undefined, this.builtIns.validationRules());
 
-    errors = errors.concat(validateSDL(this.toAST(), undefined, this.builtIns.validationRules()));
+    // We avoid adding federation-specific validations if the base schema is not proper graphQL as the later can easily trigger
+    // the former (for instance, someone mistyping the 'fields' argument name of a @key).
+    if (errors.length === 0) {
+      this.runWithBuiltInModificationAllowed(() => {
+        errors = this.builtIns.onValidation(this);
+      });
+    }
 
     if (errors.length > 0) {
       // TODO: we should add the additional graphqQL validations
@@ -1400,6 +1437,10 @@ export class ScalarType extends BaseNamedType<OutputTypeReferencer | InputTypeRe
 
   protected removeTypeReference(type: NamedType) {
     assert(false, `Scalar type ${this} can't reference other types; shouldn't be asked to remove reference to ${type}`);
+  }
+
+  protected hasNonExtensionInnerElements(): boolean {
+    return false; // No inner elements
   }
 
   protected removeInnerElements(): void {
@@ -1598,6 +1639,11 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
       }
     }
   }
+
+  protected hasNonExtensionInnerElements(): boolean {
+    return [...this.interfaceImplementations()].some(itf => itf.ofExtension() === undefined)
+      || [...this.fields()].some(f => f.ofExtension() === undefined);
+  }
 }
 
 export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer> {
@@ -1669,6 +1715,10 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
 
   *members(): Generator<UnionMember, void, undefined> {
     yield* this._members.values();
+  }
+
+  membersCount(): number {
+    return this._members.size;
   }
 
   hasTypeMember(type: string | ObjectType) {
@@ -1751,6 +1801,10 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
       member.remove();
     }
   }
+
+  protected hasNonExtensionInnerElements(): boolean {
+    return [...this.members()].some(m => m.ofExtension() === undefined);
+  }
 }
 
 export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
@@ -1800,6 +1854,10 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
 
   protected removeInnerElements(): void {
     this._values.splice(0, this._values.length);
+  }
+
+  protected hasNonExtensionInnerElements(): boolean {
+    return this._values.some(v => v.ofExtension() === undefined);
   }
 }
 
@@ -1855,6 +1913,10 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
 
   private removeFieldInternal(field: InputFieldDefinition) {
     this._fields.delete(field.name);
+  }
+
+  protected hasNonExtensionInnerElements(): boolean {
+    return [...this._fields.values()].some(f => f.ofExtension() === undefined);
   }
 }
 
@@ -2355,6 +2417,10 @@ export class Directive<
     this.onModification();
   }
 
+  argumentType(name: string): InputType | undefined {
+    return this.definition?.argument(name)?.type;
+  }
+
   matchArguments(expectedArgs: Record<string, any>): boolean {
     const entries = Object.entries(this._args);
     if (entries.length !== Object.keys(expectedArgs).length) {
@@ -2458,7 +2524,7 @@ export class Directive<
 
   toString(): string {
     const entries = Object.entries(this._args).filter(([_, v]) => v !== undefined);
-    const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v)}`).join(', ') + ')';
+    const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, this.argumentType(n))}`).join(', ') + ')';
     return `@${this.name}${args}`;
   }
 }

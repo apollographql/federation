@@ -1,10 +1,8 @@
-import { composeAndValidate } from '../composeAndValidate';
 import {
-  GraphQLObjectType,
+  ASTNode,
   DocumentNode,
-  GraphQLScalarType,
+  parse,
   specifiedDirectives,
-  printSchema,
 } from 'graphql';
 import {
   astSerializer,
@@ -12,12 +10,8 @@ import {
   graphqlErrorSerializer,
   gql,
 } from 'apollo-federation-integration-testsuite';
-import {
-  assertCompositionFailure,
-  assertCompositionSuccess,
-  compositionHasErrors,
-  CompositionResult,
-} from '../utils';
+import { ObjectType, printSchema, printType } from '@apollo/core';
+import { composeServices, CompositionResult } from '@apollo/composition';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(typeSerializer);
@@ -105,6 +99,10 @@ function permutateList<T>(inputArr: T[]) {
   return result;
 }
 
+function getAndPrintType(name: string, compositionResult: CompositionResult): ASTNode {
+  return parse(printType(compositionResult.schema!.toAPISchema().type(name)!));
+}
+
 it('composes and validates all (24) permutations without error', () => {
   permutateList([
     inventoryService,
@@ -112,8 +110,8 @@ it('composes and validates all (24) permutations without error', () => {
     accountsService,
     productsService,
   ]).map((config) => {
-    const compositionResult = composeAndValidate(config);
-    expect(!compositionHasErrors(compositionResult));
+    const compositionResult = composeServices(config);
+    expect(!compositionResult.errors);
   });
 });
 
@@ -135,23 +133,13 @@ describe('unknown types', () => {
 
     let compositionResult: CompositionResult;
     expect(
-      () => (compositionResult = composeAndValidate([serviceA])),
+      () => (compositionResult = composeServices([serviceA])),
     ).not.toThrow();
 
-    assertCompositionFailure(compositionResult!);
-    const { errors } = compositionResult;
+    expect(compositionResult!.errors).toBeDefined();
+    const { errors } = compositionResult!;
     expect(errors).toMatchInlineSnapshot(`
           Array [
-            Object {
-              "code": "MISSING_ERROR",
-              "locations": Array [
-                Object {
-                  "column": 8,
-                  "line": 3,
-                },
-              ],
-              "message": "Unknown type \\"Bar\\".",
-            },
             Object {
               "code": "EXTENSION_WITH_NO_BASE",
               "locations": Array [
@@ -160,12 +148,17 @@ describe('unknown types', () => {
                   "line": 6,
                 },
               ],
-              "message": "[serviceA] Bar -> \`Bar\` is an extension type, but \`Bar\` is not defined in any service",
+              "message": "[serviceA] Type \\"Bar\\" is an extension type, but there is no type definition for \\"Bar\\" in any subgraph.",
             },
             Object {
-              "code": "MISSING_ERROR",
-              "locations": Array [],
-              "message": "Type Query must define one or more fields.",
+              "code": "EXTERNAL_MISSING_ON_BASE",
+              "locations": Array [
+                Object {
+                  "column": 3,
+                  "line": 7,
+                },
+              ],
+              "message": "Field \\"Bar.id\\" is marked @external on all the subgraphs in which it is listed (subgraph \\"serviceA\\").",
             },
           ]
       `);
@@ -182,9 +175,9 @@ describe('unknown types', () => {
       `,
     };
 
-    const compositionResult = composeAndValidate([inventory]);
-    assertCompositionFailure(compositionResult);
-    expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
+    const compositionResult = composeServices([inventory]);
+    expect(compositionResult.errors).toBeDefined();
+    expect(compositionResult.errors![0]).toMatchInlineSnapshot(`
       Object {
         "code": "EXTENSION_WITH_NO_BASE",
         "locations": Array [
@@ -193,7 +186,7 @@ describe('unknown types', () => {
             "line": 3,
           },
         ],
-        "message": "[inventory] Product -> \`Product\` is an extension type, but \`Product\` is not defined in any service",
+        "message": "[inventory] Type \\"Product\\" is an extension type, but there is no type definition for \\"Product\\" in any subgraph.",
       }
     `);
   });
@@ -224,17 +217,14 @@ it('treats types with @extends as type extensions', () => {
     name: 'serviceB',
   };
 
-  const compositionResult = composeAndValidate([serviceA, serviceB]);
-  assertCompositionSuccess(compositionResult);
+  const compositionResult = composeServices([serviceA, serviceB]);
+  expect(compositionResult.errors).toBeUndefined();
 
-  const product = compositionResult.schema.getType(
-    'Product',
-  ) as GraphQLObjectType;
-  expect(product).toMatchInlineSnapshot(`
+  expect(getAndPrintType('Product', compositionResult)).toMatchInlineSnapshot(`
     type Product {
-      price: Int!
       sku: String!
       upc: String!
+      price: Int!
     }
   `);
 });
@@ -264,17 +254,14 @@ it('treats interfaces with @extends as interface extensions', () => {
     name: 'serviceB',
   };
 
-  const compositionResult = composeAndValidate([serviceA, serviceB]);
-  assertCompositionSuccess(compositionResult);
+  const compositionResult = composeServices([serviceA, serviceB]);
+  expect(compositionResult.errors).toBeUndefined();
 
-  const product = compositionResult.schema.getType(
-    'Product',
-  ) as GraphQLObjectType;
-  expect(product).toMatchInlineSnapshot(`
+  expect(getAndPrintType('Product', compositionResult)).toMatchInlineSnapshot(`
     interface Product {
-      price: Int!
       sku: String!
       upc: String!
+      price: Int!
     }
   `);
 });
@@ -297,7 +284,7 @@ describe('composition of value types', () => {
       name: 'serviceB',
     };
 
-    return composeAndValidate([serviceA, serviceB]);
+    return composeServices([serviceA, serviceB]);
   }
 
   describe('success', () => {
@@ -308,8 +295,8 @@ describe('composition of value types', () => {
         `,
       );
 
-      assertCompositionSuccess(compositionResult);
-      expect(compositionResult.schema.getType('Date')).toMatchInlineSnapshot(
+      expect(compositionResult.errors).toBeUndefined();
+      expect(getAndPrintType('Date', compositionResult)).toMatchInlineSnapshot(
         `scalar Date`,
       );
     });
@@ -331,15 +318,14 @@ describe('composition of value types', () => {
         `,
       );
 
-      assertCompositionSuccess(compositionResult);
-      const { schema } = compositionResult;
-      expect(schema.getType('CatalogItem')).toMatchInlineSnapshot(
+      expect(compositionResult.errors).toBeUndefined();
+      expect(getAndPrintType('CatalogItem', compositionResult)).toMatchInlineSnapshot(
         `union CatalogItem = Couch | Mattress`,
       );
-      expect(schema.getType('Couch')).toMatchInlineSnapshot(`
+      expect(getAndPrintType('Couch', compositionResult)).toMatchInlineSnapshot(`
         type Couch {
-          material: String!
           sku: ID!
+          material: String!
         }
       `);
     });
@@ -351,8 +337,8 @@ describe('composition of value types', () => {
           type: String
         }
       `);
-      assertCompositionSuccess(compositionResult);
-      expect(compositionResult.schema.getType('NewProductInput'))
+      expect(compositionResult.errors).toBeUndefined();
+      expect(getAndPrintType('NewProductInput', compositionResult))
         .toMatchInlineSnapshot(`
               input NewProductInput {
                 sku: ID!
@@ -368,8 +354,8 @@ describe('composition of value types', () => {
         }
       `);
 
-      assertCompositionSuccess(compositionResult);
-      expect(compositionResult.schema.getType('Product'))
+      expect(compositionResult.errors).toBeUndefined();
+      expect(getAndPrintType('Product', compositionResult))
         .toMatchInlineSnapshot(`
               interface Product {
                 sku: ID!
@@ -384,8 +370,8 @@ describe('composition of value types', () => {
           MATTRESS
         }
       `);
-      assertCompositionSuccess(compositionResult);
-      expect(compositionResult.schema.getType('CatalogItemEnum'))
+      expect(compositionResult.errors).toBeUndefined();
+      expect(getAndPrintType('CatalogItemEnum', compositionResult))
         .toMatchInlineSnapshot(`
               enum CatalogItemEnum {
                 COUCH
@@ -433,9 +419,9 @@ describe('composition of value types', () => {
         name: 'serviceB',
       };
 
-      const compositionResult = composeAndValidate([serviceA, serviceB]);
+      const compositionResult = composeServices([serviceA, serviceB]);
 
-      assertCompositionFailure(compositionResult);
+      expect(compositionResult.errors).toBeDefined();
       expect(compositionResult.errors).toMatchInlineSnapshot(`
         Array [
           Object {
@@ -443,10 +429,14 @@ describe('composition of value types', () => {
             "locations": Array [
               Object {
                 "column": 1,
+                "line": 6,
+              },
+              Object {
+                "column": 1,
                 "line": 15,
               },
             ],
-            "message": "[serviceA] Query -> Found invalid use of default root operation name \`Query\`. \`Query\` is disallowed when \`Schema.query\` is set to a type other than \`Query\`.",
+            "message": "[serviceA] The schema has a type named \\"Query\\" but it is not set as the query root type (\\"RootQuery\\" is instead): this is not supported by federation. If a root type does not use its default name, there should be no other type with that default name.",
           },
         ]
       `);
@@ -480,9 +470,9 @@ describe('composition of value types', () => {
         name: 'serviceB',
       };
 
-      const compositionResult = composeAndValidate([serviceA, serviceB]);
+      const compositionResult = composeServices([serviceA, serviceB]);
 
-      assertCompositionFailure(compositionResult);
+      expect(compositionResult.errors).toBeDefined();
 
       expect(compositionResult.errors).toHaveLength(1);
       expect(compositionResult.errors).toMatchInlineSnapshot(`
@@ -495,13 +485,14 @@ describe('composition of value types', () => {
                 "line": 2,
               },
             ],
-            "message": "[serviceB] Location -> \`Location\` is an extension type, but \`Location\` is not defined in any service",
+            "message": "[serviceB] Type \\"Location\\" is an extension type, but there is no type definition for \\"Location\\" in any subgraph.",
           },
         ]
       `);
     });
 
-    it('when used as an entity', () => {
+    // TODO: this will not fail with fed2 composition, but we should enable this back when we add the legacy mode
+    it.skip('when used as an entity', () => {
       const serviceA = {
         typeDefs: gql`
           type Query {
@@ -530,11 +521,11 @@ describe('composition of value types', () => {
         name: 'serviceB',
       };
 
-      const compositionResult = composeAndValidate([serviceA, serviceB]);
+      const compositionResult = composeServices([serviceA, serviceB]);
 
-      assertCompositionFailure(compositionResult);
+      expect(compositionResult.errors).toBeDefined();
       expect(compositionResult.errors).toHaveLength(1);
-      expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
+      expect(compositionResult.errors![0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_NO_ENTITY",
           "locations": Array [
@@ -552,7 +543,8 @@ describe('composition of value types', () => {
       `);
     });
 
-    it('on field type mismatch', () => {
+    // TODO: this will not fail with fed2 composition, but we should enable this back when we add the legacy mode
+    it.skip('on field type mismatch', () => {
       const serviceA = {
         typeDefs: gql`
           type Query {
@@ -581,11 +573,11 @@ describe('composition of value types', () => {
         name: 'serviceB',
       };
 
-      const compositionResult = composeAndValidate([serviceA, serviceB]);
+      const compositionResult = composeServices([serviceA, serviceB]);
 
-      assertCompositionFailure(compositionResult);
+      expect(compositionResult.errors).toBeDefined();
       expect(compositionResult.errors).toHaveLength(1);
-      expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
+      expect(compositionResult.errors![0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_FIELD_TYPE_MISMATCH",
           "locations": Array [
@@ -632,12 +624,12 @@ describe('composition of value types', () => {
         name: 'serviceB',
       };
 
-      const compositionResult = composeAndValidate([serviceA, serviceB]);
-      assertCompositionFailure(compositionResult);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      expect(compositionResult.errors).toBeDefined();
       expect(compositionResult.errors).toHaveLength(1);
-      expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
+      expect(compositionResult.errors![0]).toMatchInlineSnapshot(`
         Object {
-          "code": "VALUE_TYPE_KIND_MISMATCH",
+          "code": "TYPE_KIND_MISMATCH",
           "locations": Array [
             Object {
               "column": 1,
@@ -648,12 +640,13 @@ describe('composition of value types', () => {
               "line": 6,
             },
           ],
-          "message": "[serviceA] Product -> Found kind mismatch on expected value type belonging to services \`serviceA\` and \`serviceB\`. \`Product\` is defined as both a \`ObjectTypeDefinition\` and a \`InterfaceTypeDefinition\`. In order to define \`Product\` in multiple places, the kinds must be identical.",
+          "message": "Type \\"Product\\" has mismatched kind: it is defined as Interface Type in subgraph \\"serviceA\\" but Object Type in subgraph \\"serviceB\\"",
         }
       `);
     });
 
-    it('on union types mismatch', () => {
+    // TODO: this will not fail with fed2 composition, but we should enable this back when we add the legacy mode
+    it.skip('on union types mismatch', () => {
       const serviceA = {
         typeDefs: gql`
           type Query {
@@ -692,10 +685,10 @@ describe('composition of value types', () => {
         name: 'serviceB',
       };
 
-      const compositionResult = composeAndValidate([serviceA, serviceB]);
-      assertCompositionFailure(compositionResult);
+      const compositionResult = composeServices([serviceA, serviceB]);
+      expect(compositionResult.errors).toBeDefined();
       expect(compositionResult.errors).toHaveLength(1);
-      expect(compositionResult.errors[0]).toMatchInlineSnapshot(`
+      expect(compositionResult.errors![0]).toMatchInlineSnapshot(`
         Object {
           "code": "VALUE_TYPE_UNION_TYPES_MISMATCH",
           "locations": Array [
@@ -775,20 +768,18 @@ describe('composition of value types', () => {
       name: 'serviceD',
     };
 
-    const compositionResult = composeAndValidate([
+    const compositionResult = composeServices([
       serviceA,
       serviceB,
       serviceC,
       serviceD,
     ]);
 
-    assertCompositionSuccess(compositionResult);
+    expect(compositionResult.errors).toBeUndefined();
     const { schema, supergraphSdl } = compositionResult;
-    expect(
-      (schema.getType('Product') as GraphQLObjectType).getInterfaces(),
-    ).toHaveLength(2);
+    expect([...(schema!.type('Product') as ObjectType).interfaces()]).toHaveLength(2);
 
-    expect(printSchema(schema)).toContain(
+    expect(printSchema(schema!)).toContain(
       'type Product implements Named & Node',
     );
     expect(supergraphSdl).toContain('type Product implements Named & Node');
@@ -810,7 +801,8 @@ describe('composition of schemas with directives', () => {
         "directives at FIELD_DEFINITIONs are for the type-system"
         directive @transparency(concealment: Int!) on FIELD_DEFINITION
 
-        type EarthConcern {
+        type EarthConcern @key(fields: "k") {
+          k: Int
           environmental: String! @transparency(concealment: 5)
         }
 
@@ -832,41 +824,31 @@ describe('composition of schemas with directives', () => {
         "directives at OBJECTs are for the type-system"
         directive @experimental on OBJECT
 
-        extend type EarthConcern @experimental {
+        extend type EarthConcern @key(fields: "k") @experimental {
+          k: Int
           societal: String! @transparency(concealment: 6)
         }
       `,
       name: 'serviceB',
     };
 
-    const compositionResult = composeAndValidate([serviceA, serviceB]);
-    const { schema } = compositionResult;
+    const compositionResult = composeServices([serviceA, serviceB]);
+    const schema = compositionResult.schema!;
 
-    expect(!compositionHasErrors(compositionResult));
+    expect(compositionResult.errors).toBeUndefined();
 
-    const audit = schema.getDirective('audit');
-    expect(audit).toMatchInlineSnapshot(`"@audit"`);
+    const audit = schema.directive('audit');
+    expect(audit?.toString()).toMatchInlineSnapshot(`"@audit"`);
 
-    const transparency = schema.getDirective('transparency');
+    const transparency = schema.directive('transparency');
     expect(transparency).toBeUndefined();
 
-    const type = schema.getType('EarthConcern') as GraphQLObjectType;
-
-    expect(type.astNode).toMatchInlineSnapshot(`
-      type EarthConcern {
-        environmental: String!
-      }
-    `);
-
-    const fields = type.getFields();
-
-    expect(fields['environmental'].astNode).toMatchInlineSnapshot(
-      `environmental: String!`,
-    );
-
-    expect(fields['societal'].astNode).toMatchInlineSnapshot(
-      `societal: String!`,
-    );
+    const type = schema.type('EarthConcern')! as ObjectType;
+    // Note that the schema is the supergraph. Stuffs _will_ have applied directives, `join__` ones,
+    // so we just check it doesn't have the `@transparency` one.
+    expect(type.appliedDirectivesOf('transparency')).toHaveLength(0);
+    expect(type.field('environmental')?.appliedDirectivesOf('transparency')).toHaveLength(0);
+    expect(type.field('societal')?.appliedDirectivesOf('transparency')).toHaveLength(0);
   });
 
   it(`doesn't strip the special case @deprecated and @specifiedBy type-system directives`, () => {
@@ -899,26 +881,27 @@ describe('composition of schemas with directives', () => {
       name: 'serviceA',
     };
 
-    const compositionResult = composeAndValidate([serviceA]);
-    const { schema } = compositionResult;
-    expect(!compositionHasErrors(compositionResult));
+    const compositionResult = composeServices([serviceA]);
+    expect(compositionResult.errors).toBeUndefined();
+    const schema = compositionResult.schema!;
 
-    const deprecated = schema.getDirective('deprecated');
-    expect(deprecated).toMatchInlineSnapshot(`"@deprecated"`);
+    const deprecated = schema.directive('deprecated');
+    expect(deprecated?.toString()).toMatchInlineSnapshot(`"@deprecated"`);
 
-    const queryType = schema.getType('Query') as GraphQLObjectType;
-    const field = queryType.getFields()['importantDirectives'];
+    const queryType = schema.type('Query') as ObjectType;
+    const field = queryType.field('importantDirectives')!;
 
-    expect(field.isDeprecated).toBe(true);
-    expect(field.deprecationReason).toEqual(deprecationReason);
+    const application = field.appliedDirectivesOf(deprecated!);
+    expect(application).toHaveLength(1);
+    expect(application[0].arguments()['reason']).toEqual(deprecationReason);
 
     if (isAtLeastGraphqlVersionFifteenPointOne) {
-      const specifiedBy = schema.getDirective('specifiedBy');
-      expect(specifiedBy).toMatchInlineSnapshot(`"@specifiedBy"`);
-      const customScalar = schema.getType('MyScalar');
-      expect((customScalar as GraphQLScalarType).specifiedByUrl).toEqual(
-        specUrl,
-      );
+      const specifiedBy = schema.directive('specifiedBy');
+      expect(specifiedBy?.toString()).toMatchInlineSnapshot(`"@specifiedBy"`);
+      const customScalar = schema.type('MyScalar')!;
+      const specifiedByApplication = customScalar.appliedDirectivesOf(specifiedBy!);
+      expect(specifiedByApplication).toHaveLength(1);
+      expect(specifiedByApplication[0].arguments()['url']).toEqual(specUrl);
     }
   });
 });
@@ -1036,6 +1019,6 @@ it('composition of full-SDL schemas without any errors', () => {
     name: 'serviceB',
   };
 
-  const compositionResult = composeAndValidate([serviceA, serviceB]);
-  expect(!compositionHasErrors(compositionResult));
+  const compositionResult = composeServices([serviceA, serviceB]);
+  expect(compositionResult.errors).toBeUndefined();
 });

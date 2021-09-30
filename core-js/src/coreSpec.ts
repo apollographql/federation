@@ -17,8 +17,20 @@ function buildError(message: string): Error {
   return new Error(message);
 }
 
-export const corePurposes = ['SECURITY' as const, 'EXECUTION' as const];
+
+export const corePurposes = [
+  'SECURITY' as const,
+  'EXECUTION' as const,
+];
+
 export type CorePurpose = typeof corePurposes[number];
+
+function purposesDescription(purpose: CorePurpose) {
+  switch (purpose) {
+    case 'SECURITY': return "`SECURITY` features provide metadata necessary to securely resolve fields.";
+    case 'EXECUTION': return "`EXECUTION` features provide metadata necessary for operation execution.";
+  }
+}
 
 export abstract class FeatureDefinition {
   readonly url: FeatureUrl;
@@ -163,7 +175,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
     if (this.supportPurposes()) {
       const purposeEnum = schema.addType(new EnumType(`${nameInSchema}__Purpose`));
       for (const purpose of corePurposes) {
-        purposeEnum.addValue(purpose);
+        purposeEnum.addValue(purpose).description = purposesDescription(purpose);
       }
       core.addArgument('for', purposeEnum);
     }
@@ -470,4 +482,3 @@ export function removeFeatureElements(schema: Schema, feature: CoreFeature) {
       }
   });
 }
-

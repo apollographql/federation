@@ -9,5 +9,7 @@ export * from './utils';
 export * from './debug';
 export * from './coreSpec';
 export * from './joinSpec';
+export * from './tagSpec';
 export * from './supergraphs';
 export * from './extractSubgraphsFromSupergraph';
+export * from './error';

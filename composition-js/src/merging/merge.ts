@@ -38,9 +38,13 @@ import {
   isExternal,
   CORE_VERSIONS,
   JOIN_VERSIONS,
+  TAG_VERSIONS,
   NamedSchemaElement,
   executableDirectiveLocations,
   errorCauses,
+  error,
+  tagDirectiveName,
+  isObjectType,
 } from "@apollo/core";
 import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
 import {
@@ -67,6 +71,7 @@ import {
 
 const coreSpec = CORE_VERSIONS.latest()!;
 const joinSpec = JOIN_VERSIONS.latest()!;
+const tagSpec = TAG_VERSIONS.latest()!;
 
 // When displaying a list of something in a human readable form, after what size (in 
 // number of characters) we start displaying only a subset of the list.
@@ -238,6 +243,15 @@ function desciptionString(toIndent: string, indentation: string): string {
   return indentation + '"""\n' + indentation + toIndent.replace('\n', '\n' + indentation) + '\n' + indentation + '"""';
 }
 
+function typeKindToString(t: NamedType): string {
+  return t.kind.replace("Type", " Type");
+}
+
+function hasTagUsage(subgraph: Schema): boolean {
+  const directive = subgraph.directive(tagDirectiveName);
+  return !!directive && directive.applications().length > 0;
+}
+
 class Merger {
   readonly names: readonly string[];
   readonly subgraphsSchema: readonly Schema[];
@@ -258,6 +272,10 @@ class Merger {
     // the supergraph outside of a few well-known ones, we don't bother yet.
     coreSpec.addToSchema(this.merged);
     coreSpec.applyFeatureToSchema(this.merged, joinSpec, undefined, 'EXECUTION');
+
+    if (this.subgraphsSchema.some(hasTagUsage)) {
+      coreSpec.applyFeatureToSchema(this.merged, tagSpec);
+    }
 
     return joinSpec.populateGraphEnum(this.merged, this.subgraphs);
   }
@@ -319,21 +337,27 @@ class Merger {
       this.errors.push(new GraphQLError("No queries found in any subgraph: a supergraph must have a query root type."));
     }
 
-    try {
-      // TODO: given the subgraphs are valid and given how merging works (it takes the union of what is in the
-      // subgraphs), there is only so much things that can be invalid in the supergraph at this point. We
-      // should make sure we validate those specific things with good error messages. We can then assert that
-      // `Schema.validate()` doesn't throw, but we don't really want to use errors from it in general as those
-      // will not be super helpful for the user (for instance, if there is no queries in the supergraph, the
-      // error thrown by `validate()` will be "Unknown type 'Query'", which isn't very helpful).
-      this.merged.validate();
-    } catch (e) {
-      const causes = errorCauses(e);
-      if (causes) {
-        this.errors.push(...causes);
-      } else {
-        // Not a GraphQLError, so probably a programing error. Let's re-throw so it can be more easily tracked down.
-        throw e;
+    // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk addingA errors that
+    // are only an artifact of that incompletness as it's confusing.
+    if (this.errors.length === 0) {
+      try {
+        // TODO: Errors thrown by the `validate` below are likely to be confusing for users, because they
+        // refer to a document they don't know about (the merged-but-not-returned supergraph) and don't
+        // point back to the subgraphs in any way.
+        // Given the subgraphs are valid and given how merging works (it takes the union of what is in the
+        // subgraphs), there is only so much things that can be invalid in the supergraph at this point. We
+        // should make sure we validate those specific things "manually" with good error messages (that point
+        // to subgraphs appropriately). We can then assert that `Schema.validate()` doesn't throw as a sanity
+        // check, but we shouldn't have those errors get to the user ideally.
+        this.merged.validate();
+      } catch (e) {
+        const causes = errorCauses(e);
+        if (causes) {
+          this.errors.push(...causes);
+        } else {
+          // Not a GraphQLError, so probably a programing error. Let's re-throw so it can be more easily tracked down.
+          throw e;
+        }
       }
     }
 
@@ -389,14 +413,16 @@ class Merger {
   private reportMismatchedTypeDefinitions(mismatchedType: string) {
     const supergraphType = this.merged.type(mismatchedType)!;
     this.reportMismatchError(
+      'TYPE_KIND_MISMATCH',
       `Type "${mismatchedType}" has mismatched kind: it is defined as `,
       supergraphType,
-      this.subgraphsTypes(supergraphType),
-      t => t.kind
+      this.subgraphsSchema.map(s => s.type(mismatchedType)),
+      typeKindToString
     );
   }
 
   private reportMismatchError<TMismatched extends SchemaElement<any>>(
+    code: string,
     message: string,
     mismatchedElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
@@ -409,7 +435,7 @@ class Merger {
       (elt, names) => `${elt} in ${names}`,
       (elt, names) => `${elt} in ${names}`,
       (distribution, astNodes) => {
-        this.errors.push(new GraphQLError(message + join(distribution, ' and ', ' but '), astNodes));
+        this.errors.push(error(code, message + join(distribution, ' and ', ' but '), astNodes));
       },
       elt => !elt
     );
@@ -571,6 +597,7 @@ class Merger {
   // type-casting even if we do, and in fact, using a generic forces a case on `dest` for some reason.
   // So we don't bother.
   private mergeType(sources: (NamedType | undefined)[], dest: NamedType) {
+    this.checkForExtensionWithNoBase(sources, dest);
     this.mergeDescription(sources, dest);
     this.addJoinType(sources, dest);
     this.mergeAppliedDirectives(sources, dest);
@@ -593,6 +620,38 @@ class Merger {
       case 'InputObjectType':
         this.mergeInput(sources as (InputObjectType | undefined)[], dest);
         break;
+    }
+  }
+
+  private checkForExtensionWithNoBase(sources: (NamedType | undefined)[], dest: NamedType) {
+    if (isObjectType(dest) && dest.isRootType()) {
+      return;
+    }
+
+    const defSubgraphs: string[] = [];
+    const extensionSubgraphs: string[] = [];
+    const extensionASTs: (ASTNode|undefined)[] = [];
+
+    for (const [i, source] of sources.entries()) {
+      if (!source) {
+        continue;
+      }
+      if (source.hasNonExtensionElements()) {
+        defSubgraphs.push(this.names[i]);
+      }
+      if (source.hasExtensionElements()) {
+        extensionSubgraphs.push(this.names[i]);
+        extensionASTs.push([...source.extensions().values()][0].sourceAST);
+      }
+    }
+    if (extensionSubgraphs.length > 0 && defSubgraphs.length === 0) {
+      for (const [i, subgraph] of extensionSubgraphs.entries()) {
+        this.errors.push(error(
+          'EXTENSION_WITH_NO_BASE',
+          `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
+          extensionASTs[i]
+        ));
+      }
     }
   }
 
@@ -735,6 +794,17 @@ class Merger {
 
   private mergeField(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
     const sourcesToMerge = this.withoutExternal(sources);
+    if (sourcesToMerge.every(s => s === undefined)) {
+      const definingSubgraphs = sources.map((source, i) => source ? this.names[i] : undefined).filter(s => s !== undefined) as string[];
+      const asts = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
+      this.errors.push(error(
+        'EXTERNAL_MISSING_ON_BASE',
+        `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
+        asts
+      ));
+      return;
+    }
+
     this.mergeDescription(sourcesToMerge, dest);
     this.addJoinField(sourcesToMerge, dest);
     this.mergeAppliedDirectives(sourcesToMerge, dest);
@@ -757,6 +827,7 @@ class Merger {
     // subgraph declarations with @external themselves didn't declare the arguments).
     if (dest.hasArguments()) {
       this.reportMismatchError(
+        'EXTERNAL_FIELDS_WITH_ARGUMENTS',
         `Field ${dest.coordinate} cannot have arguments and be marked @external in some subgraphs: it is `, 
         dest,
         sources,
@@ -778,6 +849,7 @@ class Merger {
 
     if (hasInvalid) {
       this.reportMismatchError(
+        'EXTERNAL_TYPE_MISMATCH',
         `Field "${dest.coordinate}" has incompatible types across subgraphs (when marked @external): it has `,
         dest,
         sources,
@@ -872,6 +944,7 @@ class Merger {
 
     if (hasIncompatible) {
       this.reportMismatchError(
+        `${elementKind.toUpperCase()}_TYPE_MISMATCH`,
         `${elementKind} "${dest.coordinate}" has incompatible types accross subgraphs: it has `,
         dest,
         sources,
@@ -980,6 +1053,7 @@ class Merger {
 
     if (isIncompatible) {
       this.reportMismatchError(
+        `${kind.toUpperCase().replace(' ', '_')}_DEFAULT_MISMATCH`,
         `${kind} "${dest.coordinate}" has incompatible default values accross subgraphs: it has default value `,
         dest,
         sources,
@@ -1406,14 +1480,8 @@ class Merger {
       }
       dest.setRoot(rootKind, rootType);
 
-      if (isIncompatible) {
-        this.reportMismatchError(
-          `Schema root "${rootKind}" is inconsistent accross subgraphs: it is set to type `,
-          dest,
-          sources,
-          (def, isSupergraph) => isSupergraph ? def.root(rootKind)!.type.toString() : filteredRoot(def, rootKind)?.toString()
-        );
-      }
+      // Because we rename all root type in subgraphs to their default names, we shouldn't ever have incompatibilities here.
+      assert(!isIncompatible, () => `Should not have incompatile root type for ${rootKind}`);
     }
   }
 }

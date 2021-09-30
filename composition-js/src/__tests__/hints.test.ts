@@ -222,7 +222,7 @@ test('hints on object being an entity in only some subgraph', () => {
   );
 })
 
-test('hints on field of object value type not being in all subgrpaphs', () => {
+test('hints on field of object value type not being in all subgraphs', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -248,7 +248,7 @@ test('hints on field of object value type not being in all subgrpaphs', () => {
   );
 })
 
-test('hints on field of interface value type not being in all subgrpaphs', () => {
+test('hints on field of interface value type not being in all subgraphs', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -274,7 +274,7 @@ test('hints on field of interface value type not being in all subgrpaphs', () =>
   );
 })
 
-test('hints on field of input object value type not being in all subgrpaphs', () => {
+test('hints on field of input object value type not being in all subgraphs', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -300,7 +300,7 @@ test('hints on field of input object value type not being in all subgrpaphs', ()
   );
 })
 
-test('hints on union member not being in all subgrpaphs', () => {
+test('hints on union member not being in all subgraphs', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -341,7 +341,7 @@ test('hints on union member not being in all subgrpaphs', () => {
   );
 })
 
-test('hints on enum value not being in all subgrpaphs', () => {
+test('hints on enum value not being in all subgraphs', () => {
   const subgraph1 = gql`
     type Query {
       a: Int
@@ -376,11 +376,11 @@ test('hints on type system directives having inconsistent repeatable', () => {
       a: Int
     }
 
-    directive @tag repeatable on FIELD
+    directive @tag(name: String!) repeatable on FIELD_DEFINITION
   `;
 
   const subgraph2 = gql`
-    directive @tag on FIELD
+    directive @tag(name: String!) on FIELD_DEFINITION
   `;
 
   const result = mergeDocuments(subgraph1, subgraph2);
@@ -392,24 +392,25 @@ test('hints on type system directives having inconsistent repeatable', () => {
 })
 
 test('hints on type system directives having inconsistent locations', () => {
+  // Same as above, we kind of have to use tag.
   const subgraph1 = gql`
     type Query {
       a: Int
     }
 
-    directive @tag on QUERY
+    directive @tag(name: String!) on FIELD_DEFINITION
   `;
 
   const subgraph2 = gql`
-    directive @tag on FIELD
+    directive @tag(name: String!) on INTERFACE
   `;
 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentTypeSystemDirectiveLocations,
     'Type system directive @tag has inconsistent locations accross subgraphs '
-    + 'and will use location(s) FIELD, QUERY (union of all subgraphs) in the supergraph, but has: '
-    + 'location(s) QUERY in subgraph "Subgraph1" and location(s) FIELD in subgraph "Subgraph2"'
+    + 'and will use location(s) FIELD_DEFINITION, INTERFACE (union of all subgraphs) in the supergraph, but has: '
+    + 'location(s) FIELD_DEFINITION in subgraph "Subgraph1" and location(s) INTERFACE in subgraph "Subgraph2"'
   );
 })
 

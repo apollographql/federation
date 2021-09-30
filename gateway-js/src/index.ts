@@ -11,7 +11,6 @@ import {
   isIntrospectionType,
   GraphQLSchema,
   VariableDefinitionNode,
-  GraphQLError,
 } from 'graphql';
 import {
   ServiceDefinition,
@@ -70,12 +69,10 @@ import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 
 import {
   buildSupergraphSchema,
-  errorCauses,
   operationFromAST,
   Schema,
-  Subgraphs,
 } from '@apollo/core';
-import { compose, CompositionResult } from '@apollo/composition'
+import { composeServices } from '@apollo/composition'
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -172,24 +169,6 @@ interface GraphQLServiceEngineConfig {
   apiKeyHash: string;
   graphId: string;
   graphVariant?: string;
-}
-
-function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subgraphs | GraphQLError[] {
-  let errors: GraphQLError[] = [];
-  const subgraphs = new Subgraphs();
-  for (const service of serviceList) {
-    try {
-      subgraphs.add(service.name, service.url ?? '', service.typeDefs);
-    } catch (e) {
-      const causes = errorCauses(e);
-      if (causes) {
-        errors = errors.concat(causes);
-      } else {
-        throw e;
-      }
-    }
-  }
-  return errors.length === 0 ? subgraphs : errors;
 }
 
 export class ApolloGateway implements GraphQLService {
@@ -746,16 +725,8 @@ export class ApolloGateway implements GraphQLService {
         .join('\n')}`,
     );
 
-    const subgraphsOrErrors = subgraphsFromServiceList(serviceList);
-    let errors: GraphQLError[] | undefined;
-    let compositionResult: CompositionResult | undefined;
-    if (Array.isArray(subgraphsOrErrors)) {
-      errors = subgraphsOrErrors;
-    } else {
-      compositionResult = compose(subgraphsOrErrors);
-      errors = compositionResult.errors;
-    }
-
+    const compositionResult = composeServices(serviceList);
+    const errors = compositionResult.errors;
     if (errors) {
       if (this.experimental_didFailComposition) {
         this.experimental_didFailComposition({
@@ -774,8 +745,8 @@ export class ApolloGateway implements GraphQLService {
       this.createServices(serviceList);
       this.logger.debug('Schema loaded and ready for execution');
       return {
-        schema: compositionResult!.schema!,
-        supergraphSdl: compositionResult!.supergraphSdl!,
+        schema: compositionResult.schema,
+        supergraphSdl: compositionResult.supergraphSdl,
       };
     }
   }

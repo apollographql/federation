@@ -5,7 +5,7 @@
  * We declare this as a `var` here only to allow the TSDoc type annotation to be
  * applied to it. Running `var` multiple times has no effect.
  * @type {{
- *   composeAndValidate: import('../../federation-js').composeAndValidate,
+ *   composeServices: import('../../composition-js').composeServices,
  *   parseGraphqlDocument: import('graphql').parse
  * }} */
 var composition;
@@ -48,7 +48,7 @@ try {
   /**
    * @type {{ errors: Error[], supergraphSdl?: undefined } | { errors?: undefined, supergraphSdl: string; }}
    */
-  const composed = composition.composeAndValidate(serviceList);
+  const composed = composition.composeServices(serviceList);
   done(
     composed.errors ? { Err: composed.errors } : { Ok: composed.supergraphSdl },
   );

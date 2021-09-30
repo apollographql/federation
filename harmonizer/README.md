@@ -1,12 +1,12 @@
 # Harmonizer
 
 This _harmonizer_ offers the ability to invoke a bundled version of the
-JavaScript library, [`@apollo/federation`], which _composes_ multiple subgraphs
+JavaScript library, [`@apollo/composition`], which _composes_ multiple subgraphs
 into a supergraph.
 
 The bundled version of the federation library that is included is a JavaScript
 Immediately Invoked Function Expression ([IIFE]) that is created by running the
-[Rollup.js] bundler on the `@apollo/federation` package.
+[Rollup.js] bundler on the `@apollo/composition` package.
 
 When the [`harmonize`] function that this crate provides is called with a
 [`Vec<SubgraphDefinition>`] (which is synonymous with the terminology and service list

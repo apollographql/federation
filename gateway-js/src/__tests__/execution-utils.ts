@@ -5,9 +5,7 @@ import {
 } from 'apollo-graphql';
 import { GraphQLRequest, GraphQLExecutionResult, Logger } from 'apollo-server-types';
 import {
-  composeAndValidate,
   ServiceDefinition,
-  compositionHasErrors,
 } from '@apollo/federation';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import {
@@ -21,8 +19,8 @@ import { mergeDeep } from 'apollo-utilities';
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { compose } from '@apollo/composition';
-import { buildSchema, buildSchemaFromAST, federationBuiltIns, operationFromDocument, Subgraphs } from '@apollo/core';
+import { composeServices } from '@apollo/composition';
+import { buildSchema, operationFromDocument } from '@apollo/core';
 
 const prettyFormat = require('pretty-format');
 
@@ -88,13 +86,7 @@ export function buildLocalService(modules: GraphQLSchemaModule[]) {
 }
 
 export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = fixtures) {
-  const subgraphs = new Subgraphs();
-  for (const service of services) {
-    const subgraphSchema = buildSchemaFromAST(service.typeDefs, federationBuiltIns);
-    subgraphs.add(service.name, service.url ?? `http://${service.name}`, subgraphSchema);
-  }
-
-  const compositionResult = compose(subgraphs);
+  const compositionResult = composeServices(services);
   if (compositionResult.errors) {
     throw new GraphQLSchemaValidationError(compositionResult.errors);
   }
@@ -112,11 +104,11 @@ export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = 
 }
 
 export function getTestingSupergraphSdl(services: typeof fixtures = fixtures) {
-  const compositionResult = composeAndValidate(services);
-  if (!compositionHasErrors(compositionResult)) {
+  const compositionResult = composeServices(services);
+  if (!compositionResult.errors) {
     return compositionResult.supergraphSdl;
   }
-  throw new Error("Testing fixtures don't compose properly!");
+  throw new Error(`Testing fixtures don't compose properly!\nCauses:\n${compositionResult.errors.join('\n\n')}`);
 }
 
 export function wait(ms: number) {
