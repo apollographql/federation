@@ -3,22 +3,32 @@ import {
   ArgumentDefinition,
   InputObjectType,
   InputType,
+  isBooleanType,
   isCustomScalarType,
   isEnumType,
+  isFloatType,
+  isIDType,
   isInputObjectType,
+  isIntType,
   isListType,
   isNonNullType,
   isScalarType,
+  isStringType,
   isVariable,
   Variable,
   VariableDefinition,
   VariableDefinitions,
   Variables
 } from './definitions';
-import { ArgumentNode, GraphQLError, Kind, ValueNode } from 'graphql';
+import { ArgumentNode, GraphQLError, Kind, print, ValueNode } from 'graphql';
 import { didYouMean, suggestionList } from './suggestions';
 import { inspect } from 'util';
 import { sameType } from './types';
+import { assert } from './utils';
+
+// Per-GraphQL spec, max and value for an Int type.
+const MAX_INT = 2147483647;
+const MIN_INT = -2147483648;
 
 export function valueToString(v: any, expectedType?: InputType): string {
   if (v === undefined || v === null) {
@@ -424,7 +434,114 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
   return false;
 }
 
-export function valueFromAST(node: ValueNode): any {
+export function valueFromAST(node: ValueNode, expectedType: InputType): any {
+  if (node.kind === Kind.NULL) {
+    if (isNonNullType(expectedType)) {
+      throw new GraphQLError(`Invalid null value for non-null type "${expectedType}"`);
+    }
+    return null;
+  }
+
+  if (node.kind === Kind.VARIABLE) {
+    return new Variable(node.name.value);
+  }
+
+  if (isNonNullType(expectedType)) {
+    expectedType = expectedType.ofType;
+  }
+
+  if (isListType(expectedType)) {
+    const baseType = expectedType.ofType;
+    if (node.kind === Kind.LIST) {
+      return node.values.map(v => valueFromAST(v, baseType));
+    }
+    return [valueFromAST(node, baseType)];
+  }
+
+  if (isIntType(expectedType)) {
+    if (node.kind !== Kind.INT) {
+      throw new GraphQLError(`Int cannot represent non-integer value ${print(node)}.`);
+    }
+    const i = parseInt(node.value, 10);
+    if (i > MAX_INT || i < MIN_INT) {
+      throw new GraphQLError(`Int cannot represent non 32-bit signed integer value ${i}.`);
+    }
+    return i;
+  }
+
+  if (isFloatType(expectedType)) {
+    let parsed: number;
+    if (node.kind === Kind.INT) {
+      parsed = parseInt(node.value, 10);
+    } else if (node.kind === Kind.FLOAT) {
+      parsed = parseFloat(node.value);
+    } else {
+      throw new GraphQLError(`Float can only represent integer or float value, but got a ${node.kind}.`);
+    }
+    if (!isFinite(parsed)) {
+      throw new GraphQLError( `Float cannot represent non numeric value ${parsed}.`);
+    }
+    return parsed;
+  }
+
+  if (isBooleanType(expectedType)) {
+    if (node.kind !== Kind.BOOLEAN) {
+      throw new GraphQLError(`Boolean cannot represent a non boolean value ${print(node)}.`);
+    }
+    return node.value;
+  }
+
+  if (isStringType(expectedType)) {
+    if (node.kind !== Kind.STRING) {
+      throw new GraphQLError(`String cannot represent non string value ${print(node)}.`);
+    }
+    return node.value;
+  }
+
+  if (isIDType(expectedType)) {
+    if (node.kind !== Kind.STRING && node.kind !== Kind.INT) {
+      throw new GraphQLError(`ID cannot represent value ${print(node)}.`);
+    }
+    return node.value;
+  }
+
+  if (isScalarType(expectedType)) {
+    return valueFromASTUntyped(node);
+  }
+
+  if (isInputObjectType(expectedType)) {
+    if (node.kind !== Kind.OBJECT) {
+      throw new GraphQLError(`Input Object Type ${expectedType} cannot represent non-object value ${print(node)}.`);
+    }
+    const obj = Object.create(null);
+    for (const f of node.fields) {
+      const name = f.name.value;
+      const field = expectedType.field(name);
+      if (!field) {
+        throw new GraphQLError(`Unknown field "${name}" found in value for Input Object Type "${expectedType}".`);
+      }
+      // TODO: as we recurse in sub-objects, we may get an error on a field value deep in the object
+      // and the error will not be precise to where it happens. We could try to build the path to
+      // the error and include it in the error somehow.
+      obj[name] = valueFromAST(f.value, field.type!);
+    }
+    return obj;
+  }
+
+  if (isEnumType(expectedType)) {
+    if (node.kind !== Kind.STRING && node.kind !== Kind.ENUM) {
+      throw new GraphQLError(`Enum Type ${expectedType} cannot represent value ${print(node)}.`);
+    }
+    if (!expectedType.value(node.value)) {
+      throw new GraphQLError(`Enum Type ${expectedType} has no value ${node.value}.`);
+    }
+    return node.value;
+  }
+
+  assert(false, () => `Unexpected input type ${expectedType} of kind ${expectedType.kind}.`);
+}
+
+function valueFromASTUntyped(node: ValueNode): any {
   switch (node.kind) {
     case Kind.NULL:
       return null;
@@ -437,21 +554,39 @@ export function valueFromAST(node: ValueNode): any {
     case Kind.BOOLEAN:
       return node.value;
     case Kind.LIST:
-      return node.values.map(valueFromAST);
+      return node.values.map(valueFromASTUntyped);
     case Kind.OBJECT:
       const obj = Object.create(null);
-      node.fields.forEach(f => obj[f.name.value] = valueFromAST(f.value));
+      node.fields.forEach(f => obj[f.name.value] = valueFromASTUntyped(f.value));
       return obj;
     case Kind.VARIABLE:
       return new Variable(node.name.value);
   }
 }
 
-export function argumentsFromAST(args: readonly ArgumentNode[] | undefined): {[key: string]: any} {
+export function argumentsFromAST(
+  context: string,
+  args: readonly ArgumentNode[] | undefined,
+  argsDefiner: { argument(name: string): ArgumentDefinition<any> | undefined }
+): {[key: string]: any} {
   const values = Object.create(null);
   if (args) {
     for (const argNode of args) {
-      values[argNode.name.value] = valueFromAST(argNode.value);
+      const name = argNode.name.value;
+      const expectedType = argsDefiner.argument(name)?.type;
+      if (!expectedType) {
+        throw new GraphQLError(
+          `Unknown argument "${name}" found in value: ${context} has no argument named "${name}"`
+        );
+      }
+      try {
+        values[name] = valueFromAST(argNode.value, expectedType);
+      } catch (e) {
+        if (e instanceof GraphQLError) {
+          throw new GraphQLError(`Invalid value for argument ${name}: ${e.message}`);
+        }
+        throw e;
+      }
     }
   }
   return values;

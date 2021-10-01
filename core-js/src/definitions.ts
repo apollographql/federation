@@ -126,6 +126,26 @@ export function isCustomScalarType(type: Type): boolean {
   return isScalarType(type) && !graphQLBuiltIns.defaultGraphQLBuiltInTypes.includes(type.name);
 }
 
+export function isIntType(type: Type): boolean {
+  return type === type.schema()?.intType();
+}
+
+export function isStringType(type: Type): boolean {
+  return type === type.schema()?.stringType();
+}
+
+export function isFloatType(type: Type): boolean {
+  return type === type.schema()?.floatType();
+}
+
+export function isBooleanType(type: Type): boolean {
+  return type === type.schema()?.booleanType();
+}
+
+export function isIDType(type: Type): boolean {
+  return type === type.schema()?.idType();
+}
+
 export function isObjectType(type: Type): type is ObjectType {
   return type.kind == 'ObjectType';
 }
@@ -2687,7 +2707,7 @@ export function variableDefinitionFromAST(schema: Schema, definitionNode: Variab
     schema,
     variable,
     type,
-    definitionNode.defaultValue ?  valueFromAST(definitionNode.defaultValue) : undefined
+    definitionNode.defaultValue ? valueFromAST(definitionNode.defaultValue, type) : undefined
   );
   return def;
 }

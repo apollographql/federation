@@ -292,7 +292,7 @@ function addDirectiveNodesToElement(directiveNodes: readonly DirectiveNode[] | u
   for (const node of directiveNodes) {
     const directiveDef = schema.directive(node.name.value);
     validate(directiveDef, `Unknown directive "@${node.name.value}" in selection`)
-    element.applyDirective(directiveDef, argumentsFromAST(node.arguments));
+    element.applyDirective(directiveDef, argumentsFromAST(directiveDef.coordinate, node.arguments, directiveDef));
   }
 }
 
@@ -399,7 +399,7 @@ export class SelectionSet {
       case 'Field':
         const definition: FieldDefinition<any> | undefined  = fieldAccessor(this.parentType, node.name.value);
         validate(definition, `Cannot query field "${node.name.value}" on type "${this.parentType}".`, this.parentType.sourceAST);
-        selection = new FieldSelection(new Field(definition, argumentsFromAST(node.arguments), variableDefinitions, node.alias?.value));
+        selection = new FieldSelection(new Field(definition, argumentsFromAST(definition.coordinate, node.arguments, definition), variableDefinitions, node.alias?.value));
         if (node.selectionSet) {
           validate(selection.selectionSet, `Unexpected selection set on leaf field "${selection.element()}"`, selection.element().definition.sourceAST);
           selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments, fieldAccessor);
