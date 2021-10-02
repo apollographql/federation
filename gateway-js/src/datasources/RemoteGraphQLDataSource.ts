@@ -17,8 +17,6 @@ import { isObject } from '../utilities/predicates';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
 import createSHA from 'apollo-server-core/dist/utils/createSHA';
 import { parseCacheControlHeader } from './parseCacheControlHeader';
-import url from 'url';
-
 export class RemoteGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
   > implements GraphQLDataSource<TContext>
@@ -167,8 +165,7 @@ export class RemoteGraphQLDataSource<
 
     let fetchRequest: Request;
     if (http.method === 'GET' || http.method === 'HEAD') {
-      const searchParams = new url.URLSearchParams(requestWithoutHttp as any)
-      fetchRequest = new Request(`${http.url}?${searchParams}`, {
+      fetchRequest = new Request(http.url, {
         ...http,
       });
     } else {
