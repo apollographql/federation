@@ -14,6 +14,10 @@ import {
   TypeSystemExtensionNode,
   TypeDefinitionNode,
   ExecutableDefinitionNode,
+  DirectiveDefinitionNode,
+  print,
+  ASTNode,
+  visit,
 } from 'graphql';
 
 export const KeyDirective = new GraphQLDirective({
@@ -135,5 +139,48 @@ export function typeIncludesDirective(
 ): boolean {
   if (isInputObjectType(type)) return false;
   const directives = gatherDirectives(type as GraphQLNamedTypeWithDirectives);
-  return directives.some(directive => directive.name.value === directiveName);
+  return directives.some((directive) => directive.name.value === directiveName);
+}
+
+export function directiveDefinitionsAreCompatible(
+  baseDefinition: DirectiveDefinitionNode,
+  toCompare: DirectiveDefinitionNode,
+) {
+  if (baseDefinition.name.value !== toCompare.name.value) return false;
+  // arguments must be equal in length
+  if (baseDefinition.arguments?.length !== toCompare.arguments?.length) {
+    return false;
+  }
+  // arguments must be equal in type
+  for (const arg of baseDefinition.arguments ?? []) {
+    const toCompareArg = toCompare.arguments?.find(
+      (a) => a.name.value === arg.name.value,
+    );
+    if (!toCompareArg) return false;
+    if (
+      print(stripDescriptions(arg)) !== print(stripDescriptions(toCompareArg))
+    ) {
+      return false;
+    }
+  }
+  // toCompare's locations must exist in baseDefinition's locations
+  if (
+    toCompare.locations.some(
+      (location) =>
+        !baseDefinition.locations.find(
+          (baseLocation) => baseLocation.value === location.value,
+        ),
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function stripDescriptions(astNode: ASTNode) {
+  return visit(astNode, {
+    enter(node) {
+      return 'description' in node ? { ...node, description: undefined } : node;
+    },
+  });
 }

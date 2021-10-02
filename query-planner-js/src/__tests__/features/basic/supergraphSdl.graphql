@@ -1,12 +1,12 @@
 schema
-    @core(feature: "https://specs.apollo.dev/core/v0.1"),
-    @core(feature: "https://specs.apollo.dev/join/v0.1")
+    @core(feature: "https://specs.apollo.dev/core/v0.2"),
+    @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
 {
     query: Query
     mutation: Mutation
 }
 
-directive @core(feature: String!) repeatable on SCHEMA
+directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
 directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
 
@@ -67,6 +67,11 @@ type Car implements Vehicle
     price: String @join__field(graph: PRODUCT)
     retailPrice: String @join__field(graph: REVIEWS, requires: "price")
     thing: Thing
+}
+
+enum core__Purpose {
+  EXECUTION
+  SECURITY
 }
 
 type Error {
@@ -134,9 +139,15 @@ type Library
 
 union MetadataOrError = KeyValue | Error
 
+input ReviewProduct {
+    upc: String!
+    body: String!
+    starts: Int @deprecated(reason: "Stars are no longer in use")
+}
+
 type Mutation {
     login(username: String!, password: String!): User @join__field(graph: ACCOUNTS)
-    reviewProduct(upc: String!, body: String!): Product @join__field(graph: REVIEWS)
+    reviewProduct(input: ReviewProduct!): Product @join__field(graph: REVIEWS)
     updateReview(review: UpdateReviewInput!): Review @join__field(graph: REVIEWS)
     deleteReview(id: ID!): Boolean @join__field(graph: REVIEWS)
 }

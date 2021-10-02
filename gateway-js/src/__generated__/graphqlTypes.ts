@@ -14,11 +14,11 @@ export type Scalars = {
 };
 
 export type ApiMonitoringReport = {
+  endedAt: Scalars['Timestamp'];
   error: Error;
   request: Request;
   response?: Maybe<Response>;
   startedAt: Scalars['Timestamp'];
-  endedAt: Scalars['Timestamp'];
   /** Tags can include things like version and package name */
   tags?: Maybe<Array<Scalars['String']>>;
 };
@@ -29,11 +29,11 @@ export type Error = {
 };
 
 export enum ErrorCode {
-  InvalidBody = 'INVALID_BODY',
-  UnexpectedResponse = 'UNEXPECTED_RESPONSE',
   ConnectionFailed = 'CONNECTION_FAILED',
+  InvalidBody = 'INVALID_BODY',
+  Other = 'OTHER',
   Timeout = 'TIMEOUT',
-  Other = 'OTHER'
+  UnexpectedResponse = 'UNEXPECTED_RESPONSE'
 }
 
 export type FetchError = {
@@ -43,14 +43,14 @@ export type FetchError = {
 };
 
 export enum FetchErrorCode {
-  /** This token provided is not a valid graph token. Do not retry */
-  AuthenticationFailed = 'AUTHENTICATION_FAILED',
   /** This token does not have access to fetch the schema for this ref. Do not retry. */
   AccessDenied = 'ACCESS_DENIED',
-  /** The graphRef passed is not a valid ref or no configuration for that ref is found. Do not retry */
-  UnknownRef = 'UNKNOWN_REF',
+  /** This token provided is not a valid graph token. Do not retry */
+  AuthenticationFailed = 'AUTHENTICATION_FAILED',
   /** An internal server error occurred. Please retry with some backoff */
-  RetryLater = 'RETRY_LATER'
+  RetryLater = 'RETRY_LATER',
+  /** The graphRef passed is not a valid ref or no configuration for that ref is found. Do not retry */
+  UnknownRef = 'UNKNOWN_REF'
 }
 
 export type HttpHeader = {
@@ -60,14 +60,14 @@ export type HttpHeader = {
 
 export type Message = {
   __typename?: 'Message';
-  level: MessageLevel;
   body: Scalars['String'];
+  level: MessageLevel;
 };
 
 export enum MessageLevel {
   Error = 'ERROR',
-  Warn = 'WARN',
-  Info = 'INFO'
+  Info = 'INFO',
+  Warn = 'WARN'
 }
 
 export type Mutation = {
@@ -89,34 +89,33 @@ export type Query = {
 
 
 export type QueryRouterConfigArgs = {
-  ref: Scalars['String'];
   apiKey: Scalars['String'];
+  ref: Scalars['String'];
   supportedSpecURLs?: Array<Scalars['String']>;
 };
 
 export type Request = {
-  url: Scalars['String'];
-  headers?: Maybe<Array<HttpHeader>>;
   body?: Maybe<Scalars['String']>;
+  headers?: Maybe<Array<HttpHeader>>;
+  url: Scalars['String'];
 };
 
 export type Response = {
-  httpStatusCode: Scalars['Int'];
-  headers?: Maybe<Array<HttpHeader>>;
   body?: Maybe<Scalars['String']>;
+  headers?: Maybe<Array<HttpHeader>>;
+  httpStatusCode: Scalars['Int'];
 };
 
-export type RouterConfigResponse = RouterConfigResult | FetchError;
+export type RouterConfigResponse = FetchError | RouterConfigResult;
 
 export type RouterConfigResult = {
   __typename?: 'RouterConfigResult';
   id: Scalars['ID'];
-  /** The configuration as core schema */
-  supergraphSDL: Scalars['String'];
   /** Messages that should be reported back to the operators of this router, eg through logs and/or monitoring. */
   messages: Array<Message>;
+  /** The configuration as core schema */
+  supergraphSDL: Scalars['String'];
 };
-
 
 export type SupergraphSdlQueryVariables = Exact<{
   apiKey: Scalars['String'];
@@ -124,7 +123,7 @@ export type SupergraphSdlQueryVariables = Exact<{
 }>;
 
 
-export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'RouterConfigResult', id: string, supergraphSdl: string } | { __typename: 'FetchError', code: FetchErrorCode, message: string } };
+export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'FetchError', code: FetchErrorCode, message: string } | { __typename: 'RouterConfigResult', id: string, supergraphSdl: string } };
 
 export type OobReportMutationVariables = Exact<{
   input?: Maybe<ApiMonitoringReport>;

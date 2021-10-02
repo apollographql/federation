@@ -29,23 +29,23 @@ describe('printSupergraphSdl', () => {
   it('prints a fully composed schema correctly', () => {
     expect(supergraphSdl).toMatchInlineSnapshot(`
       "schema
-        @core(feature: \\"https://specs.apollo.dev/core/v0.1\\"),
-        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\"),
+        @core(feature: \\"https://specs.apollo.dev/core/v0.2\\"),
+        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\", for: EXECUTION),
         @core(feature: \\"https://specs.apollo.dev/tag/v0.1\\")
       {
         query: Query
         mutation: Mutation
       }
 
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
-
-      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on OBJECT | INTERFACE
-
-      directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
+      directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+      directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
 
       directive @stream on FIELD
 
@@ -141,16 +141,7 @@ describe('printSupergraphSdl', () => {
         url: String!
       }
 
-      scalar join__FieldSet
-
-      enum join__Graph {
-        ACCOUNTS @join__graph(name: \\"accounts\\" url: \\"https://accounts.api.com\\")
-        BOOKS @join__graph(name: \\"books\\" url: \\"https://books.api.com\\")
-        DOCUMENTS @join__graph(name: \\"documents\\" url: \\"https://documents.api.com\\")
-        INVENTORY @join__graph(name: \\"inventory\\" url: \\"https://inventory.api.com\\")
-        PRODUCT @join__graph(name: \\"product\\" url: \\"https://product.api.com\\")
-        REVIEWS @join__graph(name: \\"reviews\\" url: \\"https://reviews.api.com\\")
-      }
+      scalar JSON @specifiedBy(url: \\"https://json-spec.dev\\")
 
       type KeyValue {
         key: String!
@@ -171,8 +162,8 @@ describe('printSupergraphSdl', () => {
 
       type Mutation {
         deleteReview(id: ID!): Boolean @join__field(graph: REVIEWS)
-        login(password: String!, username: String!): User @join__field(graph: ACCOUNTS)
-        reviewProduct(body: String!, upc: String!): Product @join__field(graph: REVIEWS)
+        login(password: String!, userId: String @deprecated(reason: \\"Use username instead\\"), username: String!): User @join__field(graph: ACCOUNTS)
+        reviewProduct(input: ReviewProduct!): Product @join__field(graph: REVIEWS)
         updateReview(review: UpdateReviewInput!): Review @join__field(graph: REVIEWS)
       }
 
@@ -241,6 +232,12 @@ describe('printSupergraphSdl', () => {
         id: ID! @join__field(graph: REVIEWS)
         metadata: [MetadataOrError] @join__field(graph: REVIEWS)
         product: Product @join__field(graph: REVIEWS)
+      }
+
+      input ReviewProduct {
+        body: String!
+        stars: Int @deprecated(reason: \\"Stars are no longer in use\\")
+        upc: String!
       }
 
       type SMSAccount
@@ -315,6 +312,29 @@ describe('printSupergraphSdl', () => {
         price: String
         retailPrice: String
       }
+
+      enum core__Purpose {
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary to for operation execution.
+        \\"\\"\\"
+        EXECUTION
+
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        ACCOUNTS @join__graph(name: \\"accounts\\" url: \\"https://accounts.api.com\\")
+        BOOKS @join__graph(name: \\"books\\" url: \\"https://books.api.com\\")
+        DOCUMENTS @join__graph(name: \\"documents\\" url: \\"https://documents.api.com\\")
+        INVENTORY @join__graph(name: \\"inventory\\" url: \\"https://inventory.api.com\\")
+        PRODUCT @join__graph(name: \\"product\\" url: \\"https://product.api.com\\")
+        REVIEWS @join__graph(name: \\"reviews\\" url: \\"https://reviews.api.com\\")
+      }
       "
     `);
   });
@@ -330,22 +350,22 @@ describe('printSupergraphSdl', () => {
 
     expect(supergraphSdl).toMatchInlineSnapshot(`
       "schema
-        @core(feature: \\"https://specs.apollo.dev/core/v0.1\\"),
-        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\")
+        @core(feature: \\"https://specs.apollo.dev/core/v0.2\\"),
+        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\", for: EXECUTION)
       {
         query: Query
         mutation: Mutation
       }
 
-      directive @core(feature: String!) repeatable on SCHEMA
+      directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
-
-      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on OBJECT | INTERFACE
-
-      directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
+      directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+      directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
 
       directive @stream on FIELD
 
@@ -437,17 +457,6 @@ describe('printSupergraphSdl', () => {
         url: String!
       }
 
-      scalar join__FieldSet
-
-      enum join__Graph {
-        ACCOUNTS @join__graph(name: \\"accounts\\" url: \\"https://accounts.api.com\\")
-        BOOKS @join__graph(name: \\"books\\" url: \\"https://books.api.com\\")
-        DOCUMENTS @join__graph(name: \\"documents\\" url: \\"https://documents.api.com\\")
-        INVENTORY @join__graph(name: \\"inventory\\" url: \\"https://inventory.api.com\\")
-        PRODUCT @join__graph(name: \\"product\\" url: \\"https://product.api.com\\")
-        REVIEWS @join__graph(name: \\"reviews\\" url: \\"https://reviews.api.com\\")
-      }
-
       type KeyValue {
         key: String!
         value: String!
@@ -468,7 +477,7 @@ describe('printSupergraphSdl', () => {
       type Mutation {
         deleteReview(id: ID!): Boolean @join__field(graph: REVIEWS)
         login(password: String!, username: String!): User @join__field(graph: ACCOUNTS)
-        reviewProduct(body: String!, upc: String!): Product @join__field(graph: REVIEWS)
+        reviewProduct(input: ReviewProduct): Product @join__field(graph: REVIEWS)
         updateReview(review: UpdateReviewInput!): Review @join__field(graph: REVIEWS)
       }
 
@@ -535,6 +544,12 @@ describe('printSupergraphSdl', () => {
         id: ID! @join__field(graph: REVIEWS)
         metadata: [MetadataOrError] @join__field(graph: REVIEWS)
         product: Product @join__field(graph: REVIEWS)
+      }
+
+      input ReviewProduct {
+        body: String!
+        stars: Int @deprecated(reason: \\"Stars are no longer in use\\")
+        upc: String!
       }
 
       type SMSAccount
@@ -606,6 +621,29 @@ describe('printSupergraphSdl', () => {
         id: String!
         price: String
         retailPrice: String
+      }
+
+      enum core__Purpose {
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary to for operation execution.
+        \\"\\"\\"
+        EXECUTION
+
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        ACCOUNTS @join__graph(name: \\"accounts\\" url: \\"https://accounts.api.com\\")
+        BOOKS @join__graph(name: \\"books\\" url: \\"https://books.api.com\\")
+        DOCUMENTS @join__graph(name: \\"documents\\" url: \\"https://documents.api.com\\")
+        INVENTORY @join__graph(name: \\"inventory\\" url: \\"https://inventory.api.com\\")
+        PRODUCT @join__graph(name: \\"product\\" url: \\"https://product.api.com\\")
+        REVIEWS @join__graph(name: \\"reviews\\" url: \\"https://reviews.api.com\\")
       }
       "
     `);

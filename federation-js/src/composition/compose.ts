@@ -27,7 +27,6 @@ import {
 import {
   findDirectivesOnNode,
   isStringValueNode,
-  parseSelections,
   mapFieldNamesToServiceName,
   stripExternalFieldsFromTypeDefs,
   typeNodesAreEquivalent,
@@ -37,7 +36,8 @@ import {
   getFederationMetadata,
   CompositionResult,
   isDirectiveDefinitionNode,
-  isFederationDirective
+  isFederationDirective,
+  parseFieldSet,
 } from './utils';
 import {
   ServiceDefinition,
@@ -52,6 +52,8 @@ import { compositionRules } from './rules';
 import { printSupergraphSdl } from '../service/printSupergraphSdl';
 import { mapValues } from '../utilities';
 import { DirectiveMetadata } from './DirectiveMetadata';
+import { getJoinDefinitions } from '../joinSpec';
+import { CoreDirective } from '../coreSpec';
 
 const EmptyQueryDefinition = {
   kind: Kind.OBJECT_TYPE_DEFINITION,
@@ -179,7 +181,7 @@ export function buildMapsFromServiceList(serviceList: ServiceDefinition[]) {
               keyDirectivesMap[typeName][serviceName] || [];
             // Add @key metadata to the array
             keyDirectivesMap[typeName][serviceName]!.push(
-              parseSelections(keyDirective.arguments[0].value.value),
+              parseFieldSet(keyDirective.arguments[0].value.value),
             );
           }
         }
@@ -347,11 +349,13 @@ export function buildSchemaFromDefinitionsAndExtensions({
   typeExtensionsMap,
   directiveDefinitionsMap,
   directiveMetadata,
+  serviceList,
 }: {
   typeDefinitionsMap: TypeDefinitionsMap;
   typeExtensionsMap: TypeExtensionsMap;
   directiveDefinitionsMap: DirectiveDefinitionsMap;
   directiveMetadata: DirectiveMetadata;
+  serviceList: ServiceDefinition[];
 }) {
   let errors: GraphQLError[] | undefined = undefined;
 
@@ -362,13 +366,28 @@ export function buildSchemaFromDefinitionsAndExtensions({
       directiveMetadata.hasUsages(directive.name),
     );
 
+  const {
+    FieldSetScalar,
+    JoinFieldDirective,
+    JoinTypeDirective,
+    JoinOwnerDirective,
+    JoinGraphEnum,
+    JoinGraphDirective,
+  } = getJoinDefinitions(serviceList);
+
   let schema = new GraphQLSchema({
     query: undefined,
     directives: [
+      CoreDirective,
+      JoinFieldDirective,
+      JoinTypeDirective,
+      JoinOwnerDirective,
+      JoinGraphDirective,
       ...specifiedDirectives,
       ...federationDirectives,
       ...otherKnownDirectiveDefinitionsToInclude,
     ],
+    types: [FieldSetScalar, JoinGraphEnum],
   });
 
   // This interface and predicate is a TS / graphql-js workaround for now while
@@ -517,7 +536,7 @@ export function addFederationMetadataToSchemaNodes({
           const fieldFederationMetadata: FederationField = {
             ...getFederationMetadata(field),
             serviceName,
-            provides: parseSelections(
+            provides: parseFieldSet(
               providesDirective.arguments[0].value.value,
             ),
             belongsToValueType: isValueType,
@@ -566,7 +585,7 @@ export function addFederationMetadataToSchemaNodes({
         ) {
           const fieldFederationMetadata: FederationField = {
             ...getFederationMetadata(field),
-            requires: parseSelections(
+            requires: parseFieldSet(
               requiresDirective.arguments[0].value.value,
             ),
           };
@@ -640,6 +659,7 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     typeExtensionsMap,
     directiveDefinitionsMap,
     directiveMetadata,
+    serviceList: services,
   });
 
   // TODO: We should fix this to take non-default operation root types in
@@ -683,12 +703,14 @@ export function composeServices(services: ServiceDefinition[]): CompositionResul
     directiveMetadata,
   });
 
+  const { graphNameToEnumValueName } = getJoinDefinitions(services);
+
   if (errors.length > 0) {
     return { schema, errors };
   } else {
     return {
       schema,
-      supergraphSdl: printSupergraphSdl(schema, services),
+      supergraphSdl: printSupergraphSdl(schema, graphNameToEnumValueName),
     };
   }
 }

@@ -1,12 +1,13 @@
 {
   "name": "@apollo/harmonizer",
   "private": true,
-  "version": "0.29.0",
+  "version": "0.33.0",
   "description": "Apollo Federation Harmonizer JS Entrypoint",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "rollup": "rollup -c ./rollup.config.js"
+    "rollup": "rollup -c ./rollup.config.js",
+    "version": "node ./update-lockfile.js"
   },
   "repository": {
     "type": "git",

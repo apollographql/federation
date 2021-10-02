@@ -7,9 +7,9 @@ import ObtainGraphApiKey from '../../shared/obtain-graph-api-key.mdx';
 import ProjectConfigPanel from 'gatsby-theme-apollo-docs/shared/project-config-panel.mdx';
 import RegisterFederatedCli from '../../shared/register-federated-cli.mdx';
 
-This article describes how to set up Apollo Studio for a data graph that uses Apollo Federation.
+This article describes how to set up Apollo Studio for a graph that uses Apollo Federation.
 
-> As with all changes, you should first set up managed federation in a non-production environment, such as staging. To support this, you can use [variants](https://www.apollographql.com/docs/studio/schema/registry/#managing-environments-with-variants), which are distinct versions of the same data graph for different environments.
+> As with all changes, you should first set up managed federation in a non-production environment, such as staging. To support this, you can use [variants](https://www.apollographql.com/docs/studio/schema/registry/#managing-environments-with-variants), which are distinct versions of the same graph for different environments.
 
 ## 1. Get started
 
@@ -44,6 +44,16 @@ Remove the `supergraphSdl` or `serviceList` argument from your `ApolloGateway` c
 
 ```js
 const gateway = new ApolloGateway();
+```
+
+### Connecting to Apollo Uplink
+
+Uplink is the Apollo-hosted endpoint that your gateway polls to fetch its latest supergraph schema. Beginning in `@apollo/gateway` v0.34, the gateway polls the correct Uplink URL by default.
+
+In _previous_ versions of `@apollo/gateway`, you need to provide the Uplink URL via an environment variable. We recommend updating to the latest version of the library, but if you can't, define the following in your gateway's environment:
+
+```bash
+APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://uplink.api.apollographql.com/
 ```
 
 ## 4. Connect the gateway to Studio

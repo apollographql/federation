@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "harmonizer"
-version = "0.27.0"
+version = "0.33.0"
 dependencies = [
  "anyhow",
  "deno_core",
@@ -199,6 +199,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "which",
 ]
 
 [[package]]
@@ -237,9 +238,9 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.7.1"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4a1b21a2971cea49ca4613c0e9fe8225ecaf5de64090fddc6002284726e9244"
+checksum = "15226a375927344c78d39dc6b49e2d5562a5b0705e26a589093c6792e52eed8e"
 dependencies = [
  "console",
  "lazy_static",
@@ -549,11 +550,12 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 
 [[package]]
 name = "which"
-version = "4.1.0"
+version = "4.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b55551e42cbdf2ce2bedd2203d0cc08dba002c27510f86dab6d0ce304cba3dfe"
+checksum = "ea187a8ef279bc014ec368c27a920da2024d2a711109bfbe3440585d5cf27ad9"
 dependencies = [
  "either",
+ "lazy_static",
  "libc",
 ]
 

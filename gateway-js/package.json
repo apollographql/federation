@@ -1,6 +1,6 @@
 {
   "name": "@apollo/gateway",
-  "version": "0.38.0",
+  "version": "0.42.0",
   "description": "Apollo Gateway",
   "author": "Apollo <opensource@apollographql.com>",
   "main": "dist/index.js",
@@ -25,6 +25,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@apollo/core-schema": "^0.1.0",
     "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner": "file:../query-planner-js",
     "@opentelemetry/api": "^1.0.1",
@@ -41,6 +42,6 @@
     "pretty-format": "^26.0.0"
   },
   "peerDependencies": {
-    "graphql": "^15.4.0"
+    "graphql": "^15.5.3"
   }
 }

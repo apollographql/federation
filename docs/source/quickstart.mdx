@@ -14,7 +14,7 @@ Hello! This tutorial gets you up and running with Apollo Federation. It currentl
 
 ## Federation concepts
 
-In a federated architecture, multiple GraphQL APIs are **composed** into a single federated data graph. The individual APIs are called **subgraphs**, and they're composed into a **supergraph**:
+In a federated architecture, multiple GraphQL APIs are **composed** into a single federated graph. The individual APIs are called **subgraphs**, and they're composed into a **supergraph**:
 
 ```mermaid
 graph BT;
@@ -129,7 +129,7 @@ type ReviewSummary {
 
 ## 1. Install the Rover CLI
 
-**Rover** is Apollo's CLI for managing data graphs, including federated ones.
+**Rover** is Apollo's CLI for managing graphs, including federated ones.
 
 Install it like so:
 
@@ -186,7 +186,6 @@ This code demonstrates the basic flow for creating a gateway:
     * _Note the `TODO`. We'll obtain the composed schema in the next section._
 
 2. We initialize an `ApolloServer` instance and pass it our gateway via the `gateway` option.
-    * _We also disable `subscriptions` because they aren't yet supported in Apollo Federation._
 
 3. We call `listen` on our server instance to begin listening for incoming requests.
 
@@ -257,13 +256,13 @@ Rover outputs the following schema:
 
 ```graphql
 schema
-  @core(feature: "https://specs.apollo.dev/core/v0.1"),
-  @core(feature: "https://specs.apollo.dev/join/v0.1")
+  @core(feature: "https://specs.apollo.dev/core/v0.2"),
+  @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
 {
   query: Query
 }
 
-directive @core(feature: String!) repeatable on SCHEMA
+directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
 directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
 
@@ -272,6 +271,11 @@ directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on OB
 directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
 
 directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+enum core__Purpose {
+  EXECUTION
+  SECURITY
+}
 
 enum CURRENCY_CODE {
   USD

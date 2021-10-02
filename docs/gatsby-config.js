@@ -1,13 +1,15 @@
 const themeOptions = require('gatsby-theme-apollo-docs/theme-options');
 
 module.exports = {
-  pathPrefix: '/docs/federation',
   plugins: [
     {
       resolve: 'gatsby-theme-apollo-docs',
       options: {
         ...themeOptions,
         root: __dirname,
+        pathPrefix: '/docs/federation',
+        algoliaIndexName: 'federation',
+        algoliaFilters: ['docset:federation', ['docset:server', 'docset:rover', 'docset:studio']],
         subtitle: 'Apollo Federation',
         description: 'A guide to using Apollo Federation',
         githubRepo: 'apollographql/federation',
@@ -34,6 +36,7 @@ module.exports = {
             'enterprise-guide/federated-schema-design',
             'enterprise-guide/graph-administration',
             'enterprise-guide/graph-security',
+            'enterprise-guide/change-management',
             'enterprise-guide/federation-case-studies',
             'enterprise-guide/additional-resources',
           ],

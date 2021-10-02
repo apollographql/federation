@@ -126,7 +126,7 @@ A [supergraph schema](../#federated-schemas) ([generated with the Rover CLI](htt
 
 **This option is discouraged in favor of [`supergraphSdl`](#supergraphsdl).**
 
-An array of objects that each specify the `name` and `url` of one subgraph in your federated graph. On startup, the gateway uses this array to obtain your subgraph schemas via introspection and compose a supergraph schema. 
+An array of objects that each specify the `name` and `url` of one subgraph in your federated graph. On startup, the gateway uses this array to obtain your subgraph schemas via introspection and compose a supergraph schema.
 
 You can specify any string value for the `name` field, which is used for identifying the subgraph in log output and error messages, and for reporting metrics to Apollo Studio.
 
@@ -433,7 +433,7 @@ This method takes a `requestContext` object that contains:
 * The gateway's `request` to the subgraph
 * The current operation's `context`
 
-This enables you to modify any combination of the operation's `context` and the response of the fetch. 
+This enables you to modify any combination of the operation's `context` and the response of the fetch.
 
 The `http` property of the `request` and `response` objects contains additional HTTP-specific properties, such as `headers`.
 
@@ -441,7 +441,7 @@ This method must return an object that matches the structure of a [`GraphQLRespo
 
 #### `didEncounterError`
 
-Override this method in a subclass to customize the gateway's behavior after it encounters an error while communicating with the implementing service or while parsing its response (e.g., if the response is not well-formed JSON).
+Override this method in a subclass to customize the gateway's behavior after it encounters an error while communicating with the subgraph or while parsing its response (e.g., if the response is not well-formed JSON).
 
 If you _don't_ override this method, the default implementation `throw`s the error, like so:
 
@@ -489,7 +489,7 @@ The error that occurred during communication.
 </td>
 <td>
 
-The details of the `fetch` request sent to the implementing service.
+The details of the `fetch` request sent to the subgraph.
 </td>
 </tr>
 
@@ -502,7 +502,7 @@ The details of the `fetch` request sent to the implementing service.
 </td>
 <td>
 
-The details of the `fetch` response sent by the implementing service.
+The details of the `fetch` response sent by the subgraph.
 </td>
 </tr>
 

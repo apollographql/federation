@@ -6,6 +6,30 @@
 
 - _Nothing yet! Stay tuned!_
 
+## v0.42.0
+
+- Only related changes in the `@apollo/federation` package. Adds flexibility for @tag directive definitions in subgraphs.
+
+## v0.41.0
+
+- __BREAKING__: This is a breaking change due to a `peerDependencies` update (`graphql@^15.4.0` -> `graphql@^15.5.3`). This `graphql` version includes a fix which is being necessarily adopted within the `@apollo/federation` package. See associated CHANGELOG entry in the `federation-js` folder for additional details. [PR #1008](https://github.com/apollographql/federation/pull/1008)
+
+## v0.40.0
+
+- Only related changes in the `@apollo/federation` package. Adds support for `@deprecated` on input values and the new built-in directive `@specifiedBy`.
+
+## v0.39.0
+
+- Introduce `@core/v0.2` support with [the `for:` directive](https://specs.apollo.dev/core/v0.2/#@core/for) argument which was introduced to the core specification in [specs-core#9](https://github.com/apollographql/specs-core/pull/9). Supergraphs (which are `@core` schemas in the way they're implemented) which were generated with a composer tool (e.g., [`rover`](https://www.apollographql.com/docs/rover/)) that produces `@core` schemas with [the `v0.1` specification](https://specs.apollo.dev/core/v0.1/) are **still valid and backwards compatible**.  The newly introduced `for:` argument allows a `@core` directive to specify its criticality to the gateway (or any consumer). The `for:` argument is optional - its absence means that the directive requires no additional support from the consumer. Its two available options `EXECUTION` and `SECURITY` both require explicit support from the consumer, else the consumer should fail to start / update to this unsupported schema.  For more information on supergraphs see [our documentation](https://www.apollographql.com/docs/rover/supergraphs/) or learn how to generate them in our [federation quickstart](https://www.apollographql.com/docs/federation/quickstart/).  [PR #957](https://github.com/apollographql/federation/pull/957)
+
+## v0.38.1
+
+- Reverts [PR #159](https://github.com/apollographql/federation/pull/159) which propogated subgraph execution errors directly to the client.  While desirable in practice, this somewhat recent introduction would seem to beg for a different implementation, given that the pain points of introducing it seem to be currently outweighing the gains.  Happy to revisit this with additional feedback on [the tracking issue](https://github.com/apollographql/federation/issues/981) that has been opened to re-visit this.  In the interim, we are offering a release that reverts this change. [Issue #974](https://github.com/apollographql/federation/issues/974) [Apollo Server Issue #5550](https://github.com/apollographql/apollo-server/issues/5550) [PR #982](https://github.com/apollographql/federation/pull/982)
+
+## v0.38.0
+
+- Only changes to tests related to the [change in `@apollo/federation@0.29.0`](https://github.com/apollographql/federation/blob/release-gateway-0.38.1/federation-js/CHANGELOG.md#v0290) which renamed `buildFederatedSchema` to `buildSubgraphSchema`. (See [PR #915](https://github.com/apollographql/federation/pull/915) for details.)
+
 ## v0.37.0
 
 - OpenTelemetry will now include the GraphQL `operationName` in span attributes, following up on the initial implementation introduced in v0.31.0 via [#836](https://github.com/apollographql/federation/pull/836) [PR #942](https://github.com/apollographql/federation/pull/942)
@@ -13,7 +37,7 @@
 ## v0.36.0
 
 - In `RemoteGraphQLDataSource`, if the subgraph response has a `cache-control` header, use it to affect the current request's overall cache policy. You can disable this by passing `honorSubgraphCacheControlHeader: false` to the `RemoteGraphQLDataSource constructor`. This feature is only enabled when your subgraph is running Apollo Server 3.0.2 or later. [PR #870](https://github.com/apollographql/apollo-server/pull/870) [Related docs PR](https://github.com/apollographql/apollo-server/pull/5536)
-- Provide the full incoming `GraphQLRequestContext` to `GraphQLDataSource.process`, as well as a `kind` allowing your implementation to differentiate between requests that come from incoming GraphQL operations, health checks, and schema fetches. [PR #870](https://github.com/apollographql/apollo-server/pull/870) [Issue #419](https://github.com/apollographql/apollo-server/issues/419) [Issue #835](https://github.com/apollographql/apollo-server/issues/835)
+- Provide the full incoming `GraphQLRequestContext` to `GraphQLDataSource.process`, as well as a `kind` allowing your implementation to differentiate between requests that come from incoming GraphQL operations, health checks, and schema fetches. [PR #870](https://github.com/apollographql/federation/pull/870) [Issue #419](https://github.com/apollographql/apollo-server/issues/419) [Issue #835](https://github.com/apollographql/apollo-server/issues/835)
 
 ## v0.35.1
 

@@ -22,7 +22,7 @@ const [inaccessibleDefinition, schemaDefinition] = parse(`#graphql
   directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
   schema
     # inaccessibleCoreUsage
-    @core(feature: "https://specs.apollo.dev/inaccessible/v0.1")
+    @core(feature: "https://specs.apollo.dev/inaccessible/v0.1", for: SECURITY)
     # inaccessibleUsage
     @inaccessible {
       query: Query

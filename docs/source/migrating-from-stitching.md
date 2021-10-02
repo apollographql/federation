@@ -3,41 +3,39 @@ title: Migrating from schema stitching
 description: How to move your services to Apollo Federation
 ---
 
-If you have a distributed data graph that uses schema stitching, follow the
+If you have a distributed graph that uses schema stitching, follow the
 steps in this guide to migrate it to use Apollo Federation.
 
-For details on the advantages of using a federated data graph instead of
-schema stitching, see [this blog post](https://blog.apollographql.com/apollo-federation-f260cf525d21).
+> For a real-world example of an organization benefiting from this migration, see [this blog post](https://www.apollographql.com/blog/announcement/expedia-improved-performance-by-moving-from-schema-stitching-to-apollo-federation/).
 
 ## Summary of steps
 
-This guide describes a set of steps for migrating architecture **incrementally** from stitching to federation. In order to do so, we rely on the fact that changes necessary for federation are completely backwards compatible. In other words, services that implement a part of the graph (**subgraphs**) can be used in both your stitching gateway and your Apollo gateway.
+This guide describes a set of steps for migrating architecture **incrementally** from stitching to federation. In order to do so, we rely on the fact that changes necessary for federation are completely backwards compatible. In other words, services that implement a part of your graph (**subgraphs**) can be used in both your stitching gateway and your Apollo gateway.
 
-We recommend that you begin by modifying existing services _in place_ to support the federation specification while continuing to support schema stitching as well. At this point, you can stand up an Apollo gateway side-by-side with your existing stitching gateway and migrate over the links between the services in an incremental, backwards-compatible way.
+We recommend that you begin by modifying existing subgraphs _in place_ to support the federation specification while continuing to support schema stitching as well. At this point, you can stand up an Apollo gateway side-by-side with your existing stitching gateway and migrate over the links between the subgraphs in an incremental, backward compatible way.
 
 Here are the high-level steps for migrating to Apollo Federation:
 
-1. Add federation support to your subgraphs
-2. Register your GraphQL schemas with a registry
-3. Start up an instance of Apollo Server as a gateway
-4. Migrate stitching logic from your schema-stitching gateway to your subgraphs
-5. Move traffic from the schema-stitching gateway to the Apollo Server gateway
-6. Remove schema-stitching fields from your federated schema and complete your migration
+1. Add federation support to your subgraphs.
+2. Register your GraphQL schemas with a registry.
+3. Start up an instance of Apollo Server as a gateway.
+4. Migrate stitching logic from your schema-stitching gateway to your subgraphs.
+5. Move traffic from the schema-stitching gateway to the Apollo Server gateway.
+6. Remove schema-stitching fields from your federated schema and complete your migration.
 
 Each step is described in detail below.
 
-> [This GitHub repository](https://github.com/apollographql/federation-migration-example) shows the same project before and after
-> migrating to Apollo Federation from schema stitching.
+> [This GitHub repository](https://github.com/apollographql/federation-migration-example) shows the same project before and after migrating to Apollo Federation from schema stitching.
 
-## Step 1: Add federation support to your services
+## Step 1: Add federation support to your subgraphs
 
-You can add federation support to your services _without_ impacting your existing schema-stitching architecture. Support for federation is fully compatible with schema stitching.
+You can add federation support to your subgraphs _without_ impacting your existing schema-stitching architecture. Support for federation is fully compatible with schema stitching.
 
-Because of this, we recommend that you migrate your services in place instead of creating replacement services. Doing so helps you identify any type conflicts that exist across your data graph.
+Because of this, we recommend that you migrate your subgraphs in-place instead of creating replacement subgraphs. Doing so helps you identify any type conflicts that exist across your graph.
 
 ### Using Apollo Server
 
-If your implementing services use Apollo Server, add federation support to them by installing the `@apollo/federation` package:
+If your subgraphs use Apollo Server, add federation support to them by installing the `@apollo/federation` package:
 
 ```bash
 npm install @apollo/federation
@@ -69,7 +67,7 @@ We strongly recommend that you register all of your GraphQL schemas with an [ext
 
 [Apollo Studio](https://www.apollographql.com/docs/studio/) provides a free schema registry that helps you manage your federated gateway's configuration. You provide your gateway a Studio API key on startup, which directs the gateway to download your schemas automatically in a fault-tolerant way.
 
-Studio can also provide [schema validation](https://www.apollographql.com/docs/studio/managed-federation/overview/#validating-changes-to-the-graph) to ensure that all changes you make to your subgraphs are compatible with your complete data graph.
+Studio can also provide [schema validation](https://www.apollographql.com/docs/studio/managed-federation/overview/#validating-changes-to-the-graph) to ensure that all changes you make to your subgraphs are compatible with your complete graph.
 
 > [Learn more about managed configuration](https://www.apollographql.com/docs/studio/managed-federation/overview/)
 
@@ -179,7 +177,7 @@ After you've fully migrated your graph and incoming traffic to use your federate
 You can now begin to modify your existing schema to take full advantage of the
 features that federation provides. These features include:
 
-* Greater flexibility with [federation core concepts](https://www.apollographql.com/docs/federation/implementing-services/)
-* [Metrics and analysis of query plans](https://www.apollographql.com/docs/federation/managed-federation/monitoring/#metrics-and-observability)
-* [Gateway support for live schema updates from subgraphs](https://www.apollographql.com/docs/federation/managed-federation/deployment/#the-servicepush-lifecycle)
-* [Validation of composition logic and usage traffic](https://www.apollographql.com/docs/federation/managed-federation/federated-schema-checks/) (with paid subscription)
+* Greater flexibility with [federation core concepts](./subgraphs/)
+* [Metrics and analysis of query plans](./performance/monitoring/#metrics-and-observability)
+* [Gateway support for live schema updates from subgraphs](./managed-federation/deployment/#the-servicepush-lifecycle)
+* [Validation of composition logic and usage traffic](./managed-federation/federated-schema-checks/) (with a paid plan)
