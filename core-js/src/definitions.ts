@@ -29,6 +29,7 @@ import { GraphQLErrorExt } from "@apollo/core-schema/dist/error";
 import { validateSDL } from "graphql/validation/validate";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
+import { validateSchema } from "./validate";
 
 const validationErrorCode = 'GraphQLValidationFailed';
 
@@ -357,6 +358,10 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
   variablesInAppliedDirectives(): Variables {
     return this.appliedDirectives.reduce((acc: Variables, d) => mergeVariables(acc, variablesInArguments(d.arguments())), []);
   }
+}
+
+export function sourceASTs(...elts: Element<any>[]): ASTNode[] {
+  return elts.map(elt => elt.sourceAST).filter(elt => elt !== undefined) as ASTNode[];
 }
 
 // Not exposed: mostly about avoid code duplication between SchemaElement and Directive (which is not a SchemaElement as it can't
@@ -1301,6 +1306,7 @@ export class Schema {
     // TODO: we should ensure first that there is no undefined types (or maybe throw properly when printing the AST
     // and catching that properly).
     let errors: GraphQLError[] = validateSDL(this.toAST(), undefined, this.builtIns.validationRules());
+    errors = errors.concat(validateSchema(this));
 
     // We avoid adding federation-specific validations if the base schema is not proper graphQL as the later can easily trigger
     // the former (for instance, someone mistyping the 'fields' argument name of a @key).
@@ -1310,9 +1316,9 @@ export class Schema {
       });
     }
 
+
+
     if (errors.length > 0) {
-      // TODO: we should add the additional graphqQL validations
-      // And also maybe federation specific ones?!
       throw ErrGraphQLValidationFailed(errors);
     }
 

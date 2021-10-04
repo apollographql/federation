@@ -828,10 +828,10 @@ class Merger {
     if (dest.hasArguments()) {
       this.reportMismatchError(
         'EXTERNAL_FIELDS_WITH_ARGUMENTS',
-        `Field ${dest.coordinate} cannot have arguments and be marked @external in some subgraphs: it is `, 
+        `Field ${dest.coordinate} cannot have arguments and be marked @external in some subgraphs: it `,
         dest,
         sources,
-        field => isExternal(field) ? 'marked @external' : (field.hasArguments() ? 'has arguments' : undefined)
+        field => isExternal(field) ? 'is marked @external' : (field.hasArguments() ? 'has arguments' : undefined)
       );
     }
 

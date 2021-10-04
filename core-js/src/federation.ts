@@ -17,11 +17,12 @@ import {
   SchemaElement,
   baseType,
   isObjectType,
+  sourceASTs
 } from "./definitions";
 import { assert } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
-import { ASTNode, DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule } from "graphql";
+import { DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule } from "graphql";
 import { defaultPrintOptions, printDirectiveDefinition } from "./print";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
@@ -67,8 +68,11 @@ const FEDERATION_ROOT_FIELDS = [
 
 const FEDERATION_OMITTED_VALIDATION_RULES = [
   // We allow subgraphs to declare an extension even if the subgraph itself doesn't have a corresponding definition.
-  // The implication being that the defintion is in another subgraph.
+  // The implication being that the definition is in another subgraph.
   PossibleTypeExtensionsRule,
+  // The `KnownTypeNamesRule` of graphQL-js only looks at type definitions, so this goes against our previous
+  // desire to let a subgraph only have an extension for a type. Below, we add a replacement rules that looks
+  // at both type definitions _and_ extensions.
   KnownTypeNamesRule
 ];
 
@@ -87,14 +91,27 @@ function validateFieldSet(
     parseSelectionSet(type, directive.arguments().fields).validate();
     return undefined;
   } catch (e) {
-    const nodes: ASTNode[] = [];
-    if (directive.sourceAST) {
-      nodes.push(directive.sourceAST);
+    if (!(e instanceof GraphQLError)) {
+      throw e;
     }
-    if (e instanceof GraphQLError && e.nodes) {
+    const nodes = sourceASTs(directive);
+    if (e.nodes) {
       nodes.push(...e.nodes);
     }
-    return new GraphQLError(`On ${targetDescription}, for ${directive}: ${e.message}`, nodes);
+    let msg = e.message.trim();
+    // The rule for validating @requires in fed 1 was not properly recursive, so people upgrading
+    // may have a @require that selects some fields but without declaring those fields on the
+    // subgraph. As we fixed the validation, this will now fail, but we try here to provide some
+    // hint for those users for how to fix the problem.
+    // Note that this is a tad fragile to rely on the error message like that, but worth case, a
+    // future change make us not show the hint and that's not the end of the world.
+    if (msg.startsWith('Cannot query field')) {
+      if (msg.endsWith('.')) {
+        msg = msg.slice(0, msg.length - 1);
+      }
+      msg = msg + ' (if the field if defined in another subgraph, you need to add it to this subgraph with @external).';
+    }
+    return new GraphQLError(`On ${targetDescription}, for ${directive}: ${msg}`, nodes);
   }
 }
 
@@ -208,15 +225,12 @@ export class FederationBuiltIns extends BuiltIns {
         // composition error.
         const existing = schema.type(defaultName);
         if (existing) {
-          const nodes: ASTNode[] = [];
-          if (type.sourceAST) nodes.push(type.sourceAST);
-          if (existing.sourceAST) nodes.push(existing.sourceAST);
           errors.push(error(
             `ROOT_${k.toUpperCase()}_USED`,
             `The schema has a type named "${defaultName}" but it is not set as the ${k} root type ("${type.name}" is instead): `
             + 'this is not supported by federation. '
             + 'If a root type does not use its default name, there should be no other type with that default name.',
-            nodes
+            sourceASTs(type, existing)
           ));
         }
         type.rename(defaultName);
