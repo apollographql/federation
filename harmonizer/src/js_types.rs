@@ -14,6 +14,9 @@ use apollo_federation_types::BuildError;
 pub struct CompositionOutput {
     /// Supergraph SDL can be used to start a gateway instance
     pub supergraph_sdl: String,
+
+    /// Hints contain information about the composition and should be displayed
+    pub hints: Vec<String>,
 }
 
 /// An error which occurred during JavaScript composition.

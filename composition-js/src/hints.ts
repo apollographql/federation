@@ -15,7 +15,7 @@ export class HintID {
 }
 
 export const hintInconsistentFieldType = new HintID(
-  'InconsistenFieldType',
+  'InconsistentFieldType',
   'Indicates that a field does not have the exact same types in all subgraphs, but that the types are "compatible"'
     + ' (2 types are compatible if one is a non-nullable version of the other, a list version, a subtype, or a'
     + ' combination of the former).',

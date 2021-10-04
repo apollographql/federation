@@ -1,6 +1,6 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import json from '@rollup/plugin-json'
+import json from '@rollup/plugin-json';
 import nodePolyfills from 'rollup-plugin-node-polyfills';
 import path from 'path';
 
@@ -11,15 +11,10 @@ export default [
       name: 'url_shim',
       file: path.resolve(__dirname, './dist/url_shim.js'),
       format: 'iife',
-      globals: {}
+      globals: {},
     },
     external: [],
-    plugins: [
-      json(),
-      nodePolyfills(),
-      resolve(),
-      commonjs()
-    ]
+    plugins: [json(), nodePolyfills(), resolve(), commonjs()],
   },
   {
     input: path.resolve(__dirname, './js/index.mjs'),
@@ -34,22 +29,14 @@ export default [
         'node-fetch': 'node_fetch_1',
 
         // v8 doesn't include the `URL` API natively, so we must shim it
-        'url': 'whatwg_url_1'
+        url: 'whatwg_url_1',
       },
       sourcemap: true,
     },
     // This just cuts off the awkward traversal that happens because of
     // `apollo-env` which brings in all of `node-fetch`, which in turn tries
     // to load Node.js' `http`, `https`, `stream`, etc.
-    external: [
-      'node-fetch',
-      'url'
-    ],
-    plugins: [
-      json(),
-      nodePolyfills(),
-      resolve(),
-      commonjs(),
-    ],
-  }
+    external: ['node-fetch', 'url'],
+    plugins: [json(), nodePolyfills(), resolve(), commonjs()],
+  },
 ];

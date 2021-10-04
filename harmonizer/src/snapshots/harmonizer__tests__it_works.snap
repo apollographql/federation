@@ -1,6 +1,6 @@
 ---
 source: harmonizer/src/lib.rs
-expression: "harmonize(vec![SubgraphDefinition ::\n               new(\"users\", \"undefined\",\n                   \"\n            type User @key(fields: \\\"id\\\") {\n              id: ID\n              name: String\n            }\n\n            type Query {\n              users: [User!]\n            }\n          \"),\n               SubgraphDefinition ::\n               new(\"movies\", \"undefined\",\n                   \"\n            type Movie {\n              title: String\n              name: String\n            }\n\n            extend type User {\n              favorites: [Movie!]\n            }\n\n            type Query {\n              movies: [Movie!]\n            }\n          \")]).unwrap().supergraph_sdl"
+expression: "harmonize(vec![SubgraphDefinition ::\n               new(\"users\", \"undefined\",\n                   \"\n            type User @key(fields: \\\"id\\\") {\n              id: ID\n              name: String\n            }\n\n            type Query {\n              users: [User!]\n            }\n          \"),\n               SubgraphDefinition ::\n               new(\"movies\", \"undefined\",\n                   \"\n            type Movie {\n              title: String\n              name: String\n            }\n\n            type User @key(fields: \\\"id\\\") {\n              id: ID\n              favorites: [Movie!]\n            }\n\n            type Query {\n              movies: [Movie!]\n            }\n          \")]).unwrap().supergraph_sdl"
 
 ---
 schema

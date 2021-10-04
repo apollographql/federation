@@ -1,4 +1,4 @@
-/** @typedef {{typeDefs: string, name: string, url?: string;}} ServiceDefinition */
+/** @typedef {{sdl: string, name: string, url?: string;}} ServiceDefinition */
 
 /**
  * This `composition` is defined as a global by the runtime we define in Rust.
@@ -16,7 +16,7 @@ var composition;
 var serviceList = serviceList;
 
 if (!serviceList || !Array.isArray(serviceList)) {
-  throw new Error("Error in JS-Rust-land: serviceList missing or incorrect.");
+  throw new Error('Error in JS-Rust-land: serviceList missing or incorrect.');
 }
 
 serviceList.some((service) => {
@@ -26,7 +26,7 @@ serviceList.some((service) => {
     (typeof service.url !== 'string' && service.url) ||
     (typeof service.sdl !== 'string' && service.sdl)
   ) {
-    throw new Error("Missing required data structure on service.");
+    throw new Error('Missing required data structure on service.');
   }
 });
 
@@ -37,7 +37,7 @@ serviceList = serviceList.map(({ sdl, ...rest }) => ({
 
 function parseTypedefs(source) {
   try {
-    return composition.parseGraphqlDocument(source)    
+    return composition.parseGraphqlDocument(source);
   } catch (err) {
     // Return the error in a way that we know how to handle it.
     done({ Err: [err] });
@@ -45,12 +45,19 @@ function parseTypedefs(source) {
 }
 
 try {
-  /**
-   * @type {{ errors: Error[], supergraphSdl?: undefined } | { errors?: undefined, supergraphSdl: string; }}
-   */
+  // /**
+  //  * @type {{ errors: Error[], supergraphSdl?: undefined, hints: undefined } | { errors?: undefined, supergraphSdl: string, hints: string }}
+  //  */
   const composed = composition.composeServices(serviceList);
   done(
-    composed.errors ? { Err: composed.errors } : { Ok: composed.supergraphSdl },
+    composed.errors
+      ? { Err: composed.errors }
+      : {
+          Ok: {
+            supergraphSdl: composed.supergraphSdl,
+            hints: composed.hints.map((h) => h.toString()),
+          },
+        },
   );
 } catch (err) {
   done({ Err: [err] });
