@@ -44,7 +44,7 @@
     "@iarna/toml": "2.2.5",
     "@opentelemetry/node": "0.24.0",
     "@rollup/plugin-commonjs": "20.0.0",
-    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-json": "4.1.0",
     "@rollup/plugin-node-resolve": "13.0.5",
     "@types/bunyan": "1.8.7",
     "@types/deep-equal": "1.0.1",
