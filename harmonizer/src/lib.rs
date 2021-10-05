@@ -223,6 +223,15 @@ exports = {};
         )
         .expect("unable to initialize composition runtime environment");
 
+    // Load URL polyfill
+    runtime
+        .execute("url_shim.js", include_str!("../dist/url_shim.js"))
+        .expect("unable to evaluate url_shim module");
+
+    runtime
+        .execute("<url_shim_assignment>", "whatwg_url_1 = url_shim;")
+        .expect("unable to assign url_shim");
+
     // Load the composition library.
     runtime
         .execute("composition.js", include_str!("../dist/composition.js"))
