@@ -45,6 +45,8 @@ import {
   error,
   tagDirectiveName,
   isObjectType,
+  SubgraphASTNode,
+  addSubgraphToASTNode,
 } from "@apollo/core";
 import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
 import {
@@ -461,12 +463,12 @@ class Merger {
     mismatchAcessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
-    reporter: (distribution: string[], astNode: ASTNode[]) => void,
+    reporter: (distribution: string[], astNode: SubgraphASTNode[]) => void,
     ignorePredicate?: (elt: string | undefined) => boolean,
     includeMissingSources: boolean = false
   ) {
     const distributionMap = new MultiMap<string, string>();
-    const astNodes: ASTNode[] = [];
+    const astNodes: SubgraphASTNode[] = [];
     for (const [i, subgraphElt] of subgraphElements.entries()) {
       if (!subgraphElt) {
         if (includeMissingSources) {
@@ -480,7 +482,7 @@ class Merger {
       }
       distributionMap.add(elt ?? '', this.names[i]);
       if (subgraphElt.sourceAST) {
-        astNodes.push(subgraphElt.sourceAST);
+        astNodes.push(addSubgraphToASTNode(subgraphElt.sourceAST, this.names[i]));
       }
     }
     const supergraphMismatch = mismatchAcessor(supergraphElement, true);

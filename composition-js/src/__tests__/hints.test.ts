@@ -1,4 +1,4 @@
-import { buildSchemaFromAST, federationBuiltIns, Subgraphs } from '@apollo/core';
+import { Subgraphs } from '@apollo/core';
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
 import {
@@ -29,7 +29,7 @@ function mergeDocuments(...documents: DocumentNode[]): MergeResult {
   for (const doc of documents) {
     const name = `Subgraph${i++}`;
     try {
-      subgraphs.add(name, `https://${name}`, buildSchemaFromAST(doc, federationBuiltIns));
+      subgraphs.add(name, `https://${name}`, doc);
     } catch (e) {
       throw new Error(e.toString());
     }

@@ -1,4 +1,5 @@
-import { ASTNode, printLocation } from "graphql";
+import { SubgraphASTNode } from "@apollo/core";
+import { printLocation } from "graphql";
 
 export class HintID {
   constructor(
@@ -124,13 +125,13 @@ export const hintInconsistentArgumentPresence = new HintID(
 );
 
 export class CompositionHint {
-  public readonly nodes?: readonly ASTNode[];
+  public readonly nodes?: readonly SubgraphASTNode[];
 
   constructor(
     readonly id: HintID,
     readonly message: string,
     readonly elementCoordinate: string,
-    nodes?: readonly ASTNode[] | ASTNode
+    nodes?: readonly SubgraphASTNode[] | SubgraphASTNode
   ) {
     this.nodes = nodes
       ? (Array.isArray(nodes) ? (nodes.length === 0 ? undefined : nodes) : [nodes])

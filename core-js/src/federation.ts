@@ -22,7 +22,7 @@ import {
 import { assert } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
-import { DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule } from "graphql";
+import { ASTNode, DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule, Source } from "graphql";
 import { defaultPrintOptions, printDirectiveDefinition } from "./print";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
@@ -356,7 +356,9 @@ export function isExternal(field: FieldDefinition<CompositeType>): boolean {
 
 function buildSubgraph(name: string, source: DocumentNode | string): Schema {
   try {
-    return typeof source === 'string' ? buildSchema(source, federationBuiltIns) : buildSchemaFromAST(source, federationBuiltIns);
+    return typeof source === 'string'
+      ? buildSchema(new Source(source, name), federationBuiltIns)
+      : buildSchemaFromAST(source, federationBuiltIns);
   } catch (e) {
     if (e instanceof GraphQLError) {
       throw addSubgraphToError(e, name);
@@ -462,10 +464,19 @@ export class Subgraph {
   }
 }
 
+export type SubgraphASTNode = ASTNode & { subgraph: string };
+
+export function addSubgraphToASTNode(node: ASTNode, subgraph: string): SubgraphASTNode {
+  return {
+    ...node,
+    subgraph
+  };
+}
+
 export function addSubgraphToError(e: GraphQLError, subgraphName: string): GraphQLError {
   const updatedCauses = errorCauses(e)!.map(cause => new GraphQLError(
     `[${subgraphName}] ${cause.message}`,
-    cause.nodes,
+    cause.nodes ? cause.nodes.map(node => addSubgraphToASTNode(node, subgraphName)) : undefined,
     cause.source,
     cause.positions,
     cause.path,
