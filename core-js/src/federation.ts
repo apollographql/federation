@@ -109,7 +109,7 @@ function validateFieldSet(
       if (msg.endsWith('.')) {
         msg = msg.slice(0, msg.length - 1);
       }
-      msg = msg + ' (if the field if defined in another subgraph, you need to add it to this subgraph with @external).';
+      msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
     }
     return new GraphQLError(`On ${targetDescription}, for ${directive}: ${msg}`, nodes);
   }

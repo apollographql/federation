@@ -26,6 +26,7 @@ import { parseSelectionSet } from "./operations";
 import { Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";
+import { builtTypeReference } from "./buildSchema";
 
 function filteredTypes(
   supergraph: Schema,
@@ -158,13 +159,16 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
             for (const application of fieldApplications) {
               const args = application.arguments();
               const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
-              const subgraphField = addSubgraphField(field, subgraph);
+              const subgraphField = addSubgraphField(field, subgraph, args.type);
               assert(subgraphField, () => `Found join__field directive for graph ${subgraph.name} on field ${field.coordinate} but no corresponding join__type on ${type}`);
               if (args.requires) {
                 subgraphField.applyDirective('requires', {'fields': args.requires});
               }
               if (args.provides) {
                 subgraphField.applyDirective('provides', {'fields': args.provides});
+              }
+              if (args.external) {
+                subgraphField.applyDirective('external');
               }
             }
           }
@@ -246,18 +250,24 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
 
 type AnyField = FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition;
 
-function addSubgraphField(supergraphField: AnyField, subgraph: Subgraph): AnyField | undefined {
+function addSubgraphField(supergraphField: AnyField, subgraph: Subgraph, encodedType?: string): AnyField | undefined {
   if (supergraphField instanceof FieldDefinition) {
-    return addSubgraphObjectOrInterfaceField(supergraphField, subgraph);
+    return addSubgraphObjectOrInterfaceField(supergraphField, subgraph, encodedType);
   } else {
-    return addSubgraphInputField(supergraphField, subgraph);
+    return addSubgraphInputField(supergraphField, subgraph, encodedType);
   }
 }
 
-function addSubgraphObjectOrInterfaceField(supergraphField: FieldDefinition<ObjectType | InterfaceType>, subgraph: Subgraph): FieldDefinition<ObjectType | InterfaceType> | undefined {
+function addSubgraphObjectOrInterfaceField(
+  supergraphField: FieldDefinition<ObjectType | InterfaceType>, 
+  subgraph: Subgraph,
+  encodedType?: string
+): FieldDefinition<ObjectType | InterfaceType> | undefined {
   const subgraphType = subgraph.schema.type(supergraphField.parent!.name);
   if (subgraphType) {
-    const copiedType = copyType(supergraphField.type!, subgraph.schema, subgraph.name);
+    const copiedType = encodedType
+      ? decodeType(encodedType, subgraph.schema, subgraph.name)
+      : copyType(supergraphField.type!, subgraph.schema, subgraph.name);
     const field = (subgraphType as ObjectType | InterfaceType).addField(supergraphField.name, copiedType);
     for (const arg of supergraphField.arguments()) {
       field.addArgument(arg.name, copyType(arg.type!, subgraph.schema, subgraph.name), arg.defaultValue);
@@ -268,13 +278,27 @@ function addSubgraphObjectOrInterfaceField(supergraphField: FieldDefinition<Obje
   }
 }
 
-function addSubgraphInputField(supergraphField: InputFieldDefinition, subgraph: Subgraph): InputFieldDefinition | undefined {
+function addSubgraphInputField(
+  supergraphField: InputFieldDefinition,
+  subgraph: Subgraph,
+  encodedType?: string
+): InputFieldDefinition | undefined {
   const subgraphType = subgraph.schema.type(supergraphField.parent!.name);
   if (subgraphType) {
-    const copiedType = copyType(supergraphField.type!, subgraph.schema, subgraph.name);
+    const copiedType = encodedType
+      ? decodeType(encodedType, subgraph.schema, subgraph.name)
+      : copyType(supergraphField.type!, subgraph.schema, subgraph.name);
     return (subgraphType as InputObjectType).addField(supergraphField.name, copiedType);
   } else {
     return undefined;
+  }
+}
+
+function decodeType(encodedType: string, subgraph: Schema, subgraphName: string): Type {
+  try {
+    return builtTypeReference(encodedType, subgraph);
+  } catch (e) {
+    assert(false, () => `Cannot parse type "${encodedType}" in subgraph ${subgraphName}: ${e}`);
   }
 }
 

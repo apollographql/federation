@@ -1,4 +1,4 @@
-import { buildSchema, extractSubgraphsFromSupergraph, printSchema, Schema, Subgraphs } from '@apollo/core';
+import { buildSchema, extractSubgraphsFromSupergraph, ObjectType, printSchema, Schema, Subgraphs } from '@apollo/core';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 
@@ -50,6 +50,10 @@ function assertCompositionSuccess(r: CompositionResult): asserts r is Compositio
   }
 }
 
+function errorMessages(r: CompositionResult): String[] {
+  return r.errors?.map(e => e.message) ?? [];
+}
+
 // Returns [the supergraph schema, its api schema, the extracted subgraphs]
 function schemas(result: CompositionSuccess): [Schema, Schema, Subgraphs] {
   // Note that we could user `result.schema`, but reparsing to ensure we don't lose anything with printing/parsing.
@@ -99,7 +103,7 @@ describe('composition', () => {
 
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
-      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
@@ -494,7 +498,6 @@ describe('composition', () => {
           products: [Product!]
         }
       `);
-
     });
 
     it('works with multiple extensions on the same type', () => {
@@ -579,6 +582,686 @@ describe('composition', () => {
         extend type Product
           @key(fields: "sku")
       `);
+    });
+  });
+
+  describe('merging of type references', () => {
+    describe('for field types', () => {
+      it('errors on incompatible types', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: String
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f: Int
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errorMessages(result)).toStrictEqual([
+          'Field "T.f" has incompatible types accross subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"'
+        ]);
+      });
+
+      it('errors on merging a list type with a non-list version', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: String
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f: [String]
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errorMessages(result)).toStrictEqual([
+          'Field "T.f" has incompatible types accross subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"'
+        ]);
+      });
+
+      it('merges nullable and non-nullable', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: String!
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f: String
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        assertCompositionSuccess(result);
+
+        const [_, api] = schemas(result);
+        // We expect `f` to be nullable.
+        expect(printSchema(api)).toMatchString(`
+          type Query {
+            T: T!
+          }
+
+          type T {
+            id: ID!
+            f: String
+          }
+        `);
+      });
+
+      it('merges interface subtypes', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            interface I {
+              a: Int
+            }
+
+            type A implements I {
+              a: Int
+              b: Int
+            }
+
+            type B implements I {
+              a: Int
+              c: Int
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: I
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type A {
+              a: Int
+              b: Int
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+               f: A
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        assertCompositionSuccess(result);
+
+        const [_, api, subgraphs] = schemas(result);
+        // We expect `f` to be `I` as that is the supertype between itself and `A`.
+        expect(printSchema(api)).toMatchString(`
+          type A implements I {
+            a: Int
+            b: Int
+          }
+
+          type B implements I {
+            a: Int
+            c: Int
+          }
+
+          interface I {
+            a: Int
+          }
+
+          type Query {
+            T: T!
+          }
+
+          type T {
+            id: ID!
+            f: I
+          }
+        `);
+
+        // Making sur we properly extract the type of `f` for both subgraphs
+        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        expect(fInA).toBeDefined();
+        expect(fInA?.type?.toString()).toBe('I');
+
+        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        expect(fInB).toBeDefined();
+        expect(fInB?.type?.toString()).toBe('A');
+      });
+
+      it('merges union subtypes', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            union U = A | B
+
+            type A {
+              a: Int
+            }
+
+            type B {
+              b: Int
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: U
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type A {
+              a: Int
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: A
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        assertCompositionSuccess(result);
+
+        const [_, api, subgraphs] = schemas(result);
+        // We expect `f` to be `I` as that is the supertype between itself and `A`.
+        expect(printSchema(api)).toMatchString(`
+          type A {
+            a: Int
+          }
+
+          type B {
+            b: Int
+          }
+
+          type Query {
+            T: T!
+          }
+
+          type T {
+            id: ID!
+            f: U
+          }
+
+          union U = A | B
+        `);
+
+        // Making sur we properly extract the type of `f` for both subgraphs
+        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        expect(fInA).toBeDefined();
+        expect(fInA?.type?.toString()).toBe('U');
+
+        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        expect(fInB).toBeDefined();
+        expect(fInB?.type?.toString()).toBe('A');
+      });
+
+      it('merges complex subtypes', () => {
+        // This example merge types that differs both on interface subtyping
+        // and on nullability
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            interface I {
+              a: Int
+            }
+
+            type A implements I {
+              a: Int
+              b: Int
+            }
+
+            type B implements I {
+              a: Int
+              c: Int
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: I
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type A {
+              a: Int
+              b: Int
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: A!
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        assertCompositionSuccess(result);
+
+        const [_, api, subgraphs] = schemas(result);
+        // We expect `f` to be `I` as that is the supertype between itself and `A`.
+        expect(printSchema(api)).toMatchString(`
+          type A implements I {
+            a: Int
+            b: Int
+          }
+
+          type B implements I {
+            a: Int
+            c: Int
+          }
+
+          interface I {
+            a: Int
+          }
+
+          type Query {
+            T: T!
+          }
+
+          type T {
+            id: ID!
+            f: I
+          }
+        `);
+
+        // Making sur we properly extract the type of `f` for both subgraphs
+        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        expect(fInA).toBeDefined();
+        expect(fInA?.type?.toString()).toBe('I');
+
+        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        expect(fInB).toBeDefined();
+        expect(fInB?.type?.toString()).toBe('A!');
+      });
+
+      it('merges subtypes within lists', () => {
+        // This example merge types that differs both on interface subtyping
+        // and on nullability
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            interface I {
+              a: Int
+            }
+
+            type A implements I {
+              a: Int
+              b: Int
+            }
+
+            type B implements I {
+              a: Int
+              c: Int
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: [I]
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type A {
+              a: Int
+              b: Int
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: [A!]
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        assertCompositionSuccess(result);
+
+        const [_, api, subgraphs] = schemas(result);
+        // We expect `f` to be `I` as that is the supertype between itself and `A`.
+        expect(printSchema(api)).toMatchString(`
+          type A implements I {
+            a: Int
+            b: Int
+          }
+
+          type B implements I {
+            a: Int
+            c: Int
+          }
+
+          interface I {
+            a: Int
+          }
+
+          type Query {
+            T: T!
+          }
+
+          type T {
+            id: ID!
+            f: [I]
+          }
+        `);
+
+        // Making sur we properly extract the type of `f` for both subgraphs
+        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        expect(fInA).toBeDefined();
+        expect(fInA?.type?.toString()).toBe('[I]');
+
+        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        expect(fInB).toBeDefined();
+        expect(fInB?.type?.toString()).toBe('[A!]');
+      });
+
+      it('merges subtypes within non-nullable', () => {
+        // This example merge types that differs both on interface subtyping
+        // and on nullability
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            interface I {
+              a: Int
+            }
+
+            type A implements I {
+              a: Int
+              b: Int
+            }
+
+            type B implements I {
+              a: Int
+              c: Int
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: I!
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type A {
+              a: Int
+              b: Int
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: A!
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        assertCompositionSuccess(result);
+
+        const [_, api, subgraphs] = schemas(result);
+        // We expect `f` to be `I` as that is the supertype between itself and `A`.
+        expect(printSchema(api)).toMatchString(`
+          type A implements I {
+            a: Int
+            b: Int
+          }
+
+          type B implements I {
+            a: Int
+            c: Int
+          }
+
+          interface I {
+            a: Int
+          }
+
+          type Query {
+            T: T!
+          }
+
+          type T {
+            id: ID!
+            f: I!
+          }
+        `);
+
+        // Making sur we properly extract the type of `f` for both subgraphs
+        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        expect(fInA).toBeDefined();
+        expect(fInA?.type?.toString()).toBe('I!');
+
+        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        expect(fInB).toBeDefined();
+        expect(fInB?.type?.toString()).toBe('A!');
+      });
+    });
+
+    describe('for arguments', () => {
+      it('errors on incompatible types', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+                f(x: Int): Int
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: String): Int
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errorMessages(result)).toStrictEqual([
+          'Argument "T.f(x:)" has incompatible types accross subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"'
+        ]);
+      });
+
+      it('errors on merging a list type with a non-list version', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: String): String
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: [String]): String
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errorMessages(result)).toStrictEqual([
+          'Argument "T.f(x:)" has incompatible types accross subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"'
+        ]);
+      });
+
+      it('merges nullable and non-nullable', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: String): String
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: String!): String
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        assertCompositionSuccess(result);
+
+        const [_, api] = schemas(result);
+        // We expect `f(x:)` to be non-nullable.
+        expect(printSchema(api)).toMatchString(`
+          type Query {
+            T: T!
+          }
+
+          type T {
+            id: ID!
+            f(x: String!): String
+          }
+        `);
+      });
+
+      it('merges subtypes within lists', () => {
+        // This example merge types that differs both on interface subtyping
+        // and on nullability
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: [Int]): Int
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: [Int!]): Int
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        assertCompositionSuccess(result);
+
+        const [_, api] = schemas(result);
+        // We expect `f` to be `I` as that is the supertype between itself and `A`.
+        expect(printSchema(api)).toMatchString(`
+          type Query {
+            T: T!
+          }
+
+          type T {
+            id: ID!
+            f(x: [Int!]): Int
+          }
+        `);
+      });
+
     });
   });
 });

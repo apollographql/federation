@@ -184,8 +184,8 @@ describe('gateway startup errors', () => {
 
     const expected =
       "A valid schema couldn't be composed. The following composition errors were found:\n"
-    + '	[accounts] On type "User", for @key(fields: "id"): Cannot query field "id" on type "User".\n'
-    + '	[accounts] On type "Account", for @key(fields: "id"): Cannot query field "id" on type "Account".'
+    + '	[accounts] On type "User", for @key(fields: "id"): Cannot query field "id" on type "User" (if the field is defined in another subgraph, you need to add it to this subgraph with @external).\n'
+    + '	[accounts] On type "Account", for @key(fields: "id"): Cannot query field "id" on type "Account" (if the field is defined in another subgraph, you need to add it to this subgraph with @external).'
     expect(err.message).toBe(expected);
   });
 });

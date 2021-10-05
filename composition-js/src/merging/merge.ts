@@ -86,28 +86,12 @@ export type CompositionOptions = {
   allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
 }
 
-// TODO: we currently cannot really allow the "direct subtyping" rule due to limitation
-// of the supergraph SDL. Namely, it has no information allowing to figure out how a
-// particular subgraph field type differs from the supergraph. Which in practice,
-// means that later on, the query planner will have an imprecise view of the field type
-// for that subgraph: it will think the field has the same type in this subgraph than
-// in the supergraph, even if that is not true. This is ok in some sub-cases, for
-// instance if the field has subtype `!String` in the subgraph but `String` in the
-// supergraph, then querying the subgraph "has if the field may return null" even though
-// it cannot in practice is harmless. But suppose the now that we allow direct subtypings
-// when merging types: we could have a case where a field has type `B` in a subgraph
-// and `A` in the supergraph, where `B` implements `A` _in the supergraph_. However,
-// `A` may not be known of that particular subgraph. So if we query planner "thinks"
-// that the field is of type `A` in the subgraph, it may generate broken queries.
-// So we should improve the supergraph SDL/join-spec to indicate when a field has 
-// a different type in a subgraph than in the supergraph, what that type is in the
-// subgraph.
 // TODO:" we currently cannot allow "list upgrades", meaning a subgraph returning `String`
 // and another returning `[String]`. To support it, we would need the execution code to
 // recognize situation and "coerce" results from the first subraph (the one returning
 // `String`) into singleton lists.
 const defaultCompositionOptions: CompositionOptions = {
-  allowedFieldTypeMergingSubtypingRules: SUBTYPING_RULES.filter(r => r !== "direct" && r !== "list_upgrade")
+  allowedFieldTypeMergingSubtypingRules: SUBTYPING_RULES.filter(r => r !== "list_upgrade")
 }
 
 export interface MergeSuccess {
@@ -806,14 +790,14 @@ class Merger {
     }
 
     this.mergeDescription(sourcesToMerge, dest);
-    this.addJoinField(sourcesToMerge, dest);
     this.mergeAppliedDirectives(sourcesToMerge, dest);
     this.addArgumentsShallow(sourcesToMerge, dest);
     for (const destArg of dest.arguments()) {
       const subgraphArgs = sourcesToMerge.map(f => f?.argument(destArg.name));
       this.mergeArgument(subgraphArgs, destArg);
     }
-    this.mergeTypeReference(sourcesToMerge, dest);
+    const allTypesEqual = this.mergeTypeReference(sourcesToMerge, dest);
+    this.addJoinField(sourcesToMerge, dest, allTypesEqual);
 
     if (this.hasExternal(sources)) {
       this.validateExternalFields(sources, dest);
@@ -877,14 +861,24 @@ class Merger {
     return false;
   }
 
-  private addJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(sources: (T | undefined)[], dest: T) {
-    if (!this.needsJoinField(sources, dest.parent!.name)) {
+  private addJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(
+    sources: (T | undefined)[],
+    dest: T,
+    allTypesEqual: boolean
+  ) {
+    if (allTypesEqual && !this.needsJoinField(sources, dest.parent!.name)) {
       return;
     }
     const joinFieldDirective = joinSpec.fieldDirective(this.merged);
     for (const [idx, source] of sources.entries()) {
-      // We don't put a join__field if the field is marked @external in that subgraph.
-      if (!source || source.appliedDirectivesOf('external').length > 0) {
+      if (!source) {
+        continue;
+      }
+
+      const isExternal = source.appliedDirectivesOf('external').length > 0;
+      // We don't put a join__field if the field is marked @external in that subgraph, unless
+      // we need it because types aren't all equal.
+      if (isExternal && allTypesEqual) {
         continue;
       }
 
@@ -892,7 +886,9 @@ class Merger {
       dest.applyDirective(joinFieldDirective, { 
         graph: name, 
         requires: this.getFieldSet(source, federationBuiltIns.requiresDirective(this.subgraphsSchema[idx])),
-        provides: this.getFieldSet(source, federationBuiltIns.providesDirective(this.subgraphsSchema[idx]))
+        provides: this.getFieldSet(source, federationBuiltIns.providesDirective(this.subgraphsSchema[idx])),
+        type: allTypesEqual ? undefined : source.type?.toString(),
+        external: isExternal ? true : undefined,
       });
     }
   }
@@ -903,11 +899,13 @@ class Merger {
     return applications.length === 0 ? undefined : applications[0].arguments().fields;
   }
 
+  // Returns `true` if the type references were all completely equal and `false` if some subtyping happened (or
+  // if types were incompatible since an error is logged in this case but the method does not throw).
   private mergeTypeReference<TType extends Type, TElement extends NamedSchemaElementWithType<TType, any, any>>(
     sources: (TElement | undefined)[],
     dest: TElement,
     isContravariant: boolean = false
-  ) {
+  ): boolean {
     let destType: TType | undefined;
     let hasSubtypes: boolean = false;
     let hasIncompatible: boolean = false;
@@ -950,6 +948,7 @@ class Merger {
         sources,
         field => `type "${field.type}"`
       );
+      return false;
     } else if (hasSubtypes) {
       // Note that we use the type `toString` representation as a way to group which subgraphs have the exact same type.
       // Doing so is actually equivalent of checking `sameType` (more precisely, it is equivalent if we ignore the kind
@@ -964,7 +963,9 @@ class Merger {
         (elt, subgraphs) => `will use type "${elt}" (from ${subgraphs}) in supergraph but "${dest.coordinate}" has `,
         (elt, subgraphs) => `${isContravariant ? 'supertype' : 'subtype'} "${elt}" in ${subgraphs}`
       );
+      return false;
     }
+    return true;
   }
 
   private isStrictSubtype(type: Type, maybeSubType: Type): boolean {
@@ -1176,9 +1177,9 @@ class Merger {
 
   private mergeInputField(sources: (InputFieldDefinition | undefined)[], dest: InputFieldDefinition) {
     this.mergeDescription(sources, dest);
-    this.addJoinField(sources, dest);
     this.mergeAppliedDirectives(sources, dest);
-    this.mergeTypeReference(sources, dest, true);
+    const allTypesEqual = this.mergeTypeReference(sources, dest, true);
+    this.addJoinField(sources, dest, allTypesEqual);
     this.mergeDefaultValue(sources, dest, 'Input field');
   } 
 

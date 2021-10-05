@@ -17,7 +17,8 @@ import {
   ArgumentNode,
   StringValueNode,
   ASTNode,
-  SchemaExtensionNode
+  SchemaExtensionNode,
+  parseType
 } from "graphql";
 import { Maybe } from "graphql/jsutils/Maybe";
 import {
@@ -287,7 +288,7 @@ function buildNamedTypeInner(
 }
 
 function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldDefinition<any>) {
-  const type = buildWrapperTypeOrTypeRef(fieldNode.type, field.schema()!);
+  const type = buildTypeReferenceFromAST(fieldNode.type, field.schema()!);
   field.type = ensureOutputType(type, field.coordinate, fieldNode);
   for (const inputValueDef of fieldNode.arguments ?? []) {
     buildArgumentDefinitionInner(inputValueDef, field.addArgument(inputValueDef.name.value));
@@ -313,12 +314,16 @@ function ensureInputType(type: Type, what: string, node: ASTNode): InputType {
   }
 }
 
-function buildWrapperTypeOrTypeRef(typeNode: TypeNode, schema: Schema): Type {
+export function builtTypeReference(encodedType: string, schema: Schema): Type {
+  return buildTypeReferenceFromAST(parseType(encodedType), schema);
+}
+
+function buildTypeReferenceFromAST(typeNode: TypeNode, schema: Schema): Type {
   switch (typeNode.kind) {
     case 'ListType':
-      return new ListType(buildWrapperTypeOrTypeRef(typeNode.type, schema));
+      return new ListType(buildTypeReferenceFromAST(typeNode.type, schema));
     case 'NonNullType':
-      const wrapped = buildWrapperTypeOrTypeRef(typeNode.type, schema);
+      const wrapped = buildTypeReferenceFromAST(typeNode.type, schema);
       if (wrapped.kind == 'NonNullType') {
         throw new GraphQLError(`Cannot apply the non-null operator (!) twice to the same type`, typeNode);
       }
@@ -329,7 +334,7 @@ function buildWrapperTypeOrTypeRef(typeNode: TypeNode, schema: Schema): Type {
 }
 
 function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: ArgumentDefinition<any>) {
-  const type = buildWrapperTypeOrTypeRef(inputNode.type, arg.schema()!);
+  const type = buildTypeReferenceFromAST(inputNode.type, arg.schema()!);
   arg.type = ensureInputType(type, arg.coordinate, inputNode);
   arg.defaultValue = buildValue(inputNode.defaultValue);
   buildAppliedDirectives(inputNode, arg);
@@ -338,7 +343,7 @@ function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: 
 }
 
 function buildInputFieldDefinitionInner(fieldNode: InputValueDefinitionNode, field: InputFieldDefinition) {
-  const type = buildWrapperTypeOrTypeRef(fieldNode.type, field.schema()!);
+  const type = buildTypeReferenceFromAST(fieldNode.type, field.schema()!);
   field.type = ensureInputType(type, field.coordinate, fieldNode);
   field.defaultValue = buildValue(fieldNode.defaultValue);
   buildAppliedDirectives(fieldNode, field);

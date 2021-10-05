@@ -106,8 +106,7 @@ test('hints on merging field with nullable and non-nullable types', () => {
   );
 })
 
-// Skipped because merging currently disable "direct" subtyping by default.
-test.skip('hints on merging field with subtype types', () => {
+test('hints on merging field with subtype types', () => {
   const subgraph1 = gql`
     type Query {
       a: Int

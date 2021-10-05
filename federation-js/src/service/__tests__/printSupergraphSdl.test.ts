@@ -39,7 +39,7 @@ describe('printSupergraphSdl', () => {
 
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
-      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
@@ -365,10 +365,10 @@ describe('printSupergraphSdl', () => {
         @tag(name: \\"from-accounts\\")
         @tag(name: \\"from-reviews\\")
       {
-        id: ID! @join__field(graph: ACCOUNTS) @tag(name: \\"accounts\\")
+        id: ID! @tag(name: \\"accounts\\") @join__field(graph: ACCOUNTS)
         name: Name @join__field(graph: ACCOUNTS)
         username: String @join__field(graph: ACCOUNTS)
-        birthDate(locale: String): String @join__field(graph: ACCOUNTS) @tag(name: \\"admin\\") @tag(name: \\"dev\\")
+        birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\") @join__field(graph: ACCOUNTS)
         account: AccountType @join__field(graph: ACCOUNTS)
         metadata: [UserMetadata] @join__field(graph: ACCOUNTS)
         ssn: String @join__field(graph: ACCOUNTS)
@@ -433,7 +433,7 @@ describe('printSupergraphSdl', () => {
 
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
-      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
