@@ -37,17 +37,19 @@ import {
   ExternalFieldDefinition,
   DefaultRootOperationTypeName,
   Maybe,
-  FederationType,
   FederationDirective,
-  FederationField,
   ServiceDefinition,
 } from './types';
-import apolloTypeSystemDirectives, {
+import {
+  FederationType,
+  FederationField,
+  FieldSet,
+} from '@apollo/subgraph/dist/schemaExtensions';
+import {
+  knownSubgraphDirectives,
   ASTNodeWithDirectives,
-  federationDirectives,
-} from '../directives';
+} from '@apollo/subgraph/dist/directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
-import { FieldSet } from '.';
 import { Parser } from 'graphql/language/parser';
 
 export function isStringValueNode(node: any): node is StringValueNode {
@@ -155,11 +157,11 @@ export function stripTypeSystemDirectivesFromTypeDefs(typeDefs: DocumentNode) {
       // The `deprecated` directive is an exceptional case that we want to leave in
       if (node.name.value === 'deprecated' || node.name.value === 'specifiedBy') return;
 
-      const isApolloTypeSystemDirective = apolloTypeSystemDirectives.some(
+      const isKnownSubgraphDirective = knownSubgraphDirectives.some(
         ({ name }) => name === node.name.value,
       );
       // Returning `null` to a visit will cause it to be removed from the tree.
-      return isApolloTypeSystemDirective ? undefined : null;
+      return isKnownSubgraphDirective ? undefined : null;
     },
   }) as DocumentNode;
 
@@ -661,12 +663,8 @@ export const executableDirectiveLocations = [
   'VARIABLE_DEFINITION',
 ];
 
-export function isApolloTypeSystemDirective(directive: GraphQLDirective): boolean {
-  return apolloTypeSystemDirectives.some(({ name }) => name === directive.name);
-}
-
-export function isFederationDirective(directive: GraphQLDirective): boolean {
-  return federationDirectives.some(({ name }) => name === directive.name);
+export function isKnownSubgraphDirective(directive: GraphQLDirective): boolean {
+  return knownSubgraphDirectives.some(({ name }) => name === directive.name);
 }
 
 export const reservedRootFields = ['_service', '_entities'];

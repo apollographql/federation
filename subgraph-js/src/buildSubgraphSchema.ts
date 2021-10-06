@@ -16,9 +16,9 @@ import {
   addResolversToSchema,
   GraphQLResolverMap,
 } from 'apollo-graphql';
-import { federationDirectives, typeIncludesDirective } from '../directives';
+import { federationDirectives, typeIncludesDirective } from './directives';
 
-import { serviceField, entitiesField, EntityType } from '../types';
+import { serviceField, entitiesField, EntityType } from './types';
 
 import { printSubgraphSchema } from './printSubgraphSchema';
 

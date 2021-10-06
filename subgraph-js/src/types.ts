@@ -9,11 +9,12 @@ import {
   GraphQLType,
   GraphQLNamedType,
   isNamedType,
-  GraphQLResolveInfo,
   isObjectType,
 } from 'graphql';
 import { PromiseOrValue } from 'graphql/jsutils/PromiseOrValue';
 import { CacheHint } from 'apollo-server-types';
+
+export type Maybe<T> = null | undefined | T;
 
 export const EntityType = new GraphQLUnionType({
   name: '_Entity',
@@ -52,22 +53,6 @@ function addTypeNameToPossibleReturn<T>(
     });
   }
   return maybeObject as null | T & { __typename: string };
-}
-
-export type GraphQLReferenceResolver<TContext> = (
-  reference: object,
-  context: TContext,
-  info: GraphQLResolveInfo,
-) => any;
-
-declare module 'graphql/type/definition' {
-  interface GraphQLObjectType {
-    resolveReference?: GraphQLReferenceResolver<any>;
-  }
-
-  interface GraphQLObjectTypeConfig<TSource, TContext> {
-    resolveReference?: GraphQLReferenceResolver<TContext>;
-  }
 }
 
 export const entitiesField: GraphQLFieldConfig<any, any> = {

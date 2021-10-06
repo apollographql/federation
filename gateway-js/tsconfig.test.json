@@ -6,6 +6,7 @@
   "include": ["**/__tests__/**/*", "**/__mocks__/**/*"],
   "references": [
     { "path": "./" },
-    { "path": "../federation-integration-testsuite-js" }
+    { "path": "../federation-integration-testsuite-js" },
+    { "path": "../subgraph-js" }
   ]
 }

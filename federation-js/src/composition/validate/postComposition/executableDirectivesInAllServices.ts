@@ -3,7 +3,7 @@ import {
   errorWithCode,
   logDirective,
   getFederationMetadata,
-  isApolloTypeSystemDirective,
+  isKnownSubgraphDirective,
 } from '../../utils';
 import { PostCompositionValidator } from '.';
 /**
@@ -20,7 +20,7 @@ export const executableDirectivesInAllServices: PostCompositionValidator = ({
 
   const customExecutableDirectives = schema
     .getDirectives()
-    .filter(x => !isApolloTypeSystemDirective(x) && !isSpecifiedDirective(x));
+    .filter(x => !isKnownSubgraphDirective(x) && !isSpecifiedDirective(x));
 
   customExecutableDirectives.forEach(directive => {
     const directiveFederationMetadata = getFederationMetadata(directive);

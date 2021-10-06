@@ -1,6 +1,6 @@
 import { execute } from '../execution-utils';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
-import { buildSubgraphSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/subgraph';
 import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
 import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';

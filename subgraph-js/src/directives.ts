@@ -84,14 +84,20 @@ export const federationDirectives = [
   ProvidesDirective,
 ];
 
-export const otherKnownDirectiveDefinitions = [TagDirective];
+export function isFederationDirective(directive: GraphQLDirective): boolean {
+  return federationDirectives.some(({ name }) => name === directive.name);
+}
 
-const apolloTypeSystemDirectives = [
+export const otherKnownDirectives = [TagDirective];
+
+export const knownSubgraphDirectives = [
   ...federationDirectives,
-  ...otherKnownDirectiveDefinitions,
+  ...otherKnownDirectives,
 ];
 
-export default apolloTypeSystemDirectives;
+export function isKnownSubgraphDirective(directive: GraphQLDirective): boolean {
+  return knownSubgraphDirectives.some(({ name }) => name === directive.name);
+}
 
 export type ASTNodeWithDirectives =
   | FieldDefinitionNode

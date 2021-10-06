@@ -13,7 +13,7 @@ import {
 import { UniqueUnionTypes } from '..';
 import { ServiceDefinition } from '../../../types';
 import { buildMapsFromServiceList } from '../../../compose';
-import apolloTypeSystemDirectives from '../../../../directives';
+import { knownSubgraphDirectives } from '@apollo/subgraph/dist/directives';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 expect.addSnapshotSerializer(typeSerializer);
@@ -43,7 +43,7 @@ describe('MatchingUnions', () => {
   beforeEach(() => {
     schema = new GraphQLSchema({
       query: undefined,
-      directives: [...specifiedDirectives, ...apolloTypeSystemDirectives],
+      directives: [...specifiedDirectives, ...knownSubgraphDirectives],
     });
   });
 

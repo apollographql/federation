@@ -30,16 +30,15 @@ import {
   GraphQLEnumValue,
   DEFAULT_DEPRECATION_REASON,
 } from 'graphql';
+import { Maybe } from '../composition';
+import { assert } from '../utilities';
+import { printFieldSet } from '../composition/utils';
 import {
-  Maybe,
   FederationType,
   FederationField,
   FieldSet,
-} from '../composition';
-import { assert } from '../utilities';
-import { printFieldSet } from '../composition/utils';
-import { otherKnownDirectiveDefinitions } from '../directives';
-
+} from '@apollo/subgraph/dist/schemaExtensions';
+import { otherKnownDirectives } from '@apollo/subgraph/dist/directives';
 interface PrintingContext {
   // Apollo addition: we need access to a map from serviceName to its corresponding
   // sanitized / uniquified enum value `Name` from the `join__Graph` enum
@@ -130,7 +129,7 @@ function printSchemaDefinition(schema: GraphQLSchema): string {
 }
 
 function printCoreDirectives(schema: GraphQLSchema) {
-  const otherKnownDirectiveNames = otherKnownDirectiveDefinitions.map(
+  const otherKnownDirectiveNames = otherKnownDirectives.map(
     ({ name }) => name,
   );
   const schemaDirectiveNames = schema.getDirectives().map(({ name }) => name);
