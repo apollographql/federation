@@ -663,10 +663,6 @@ export const executableDirectiveLocations = [
   'VARIABLE_DEFINITION',
 ];
 
-export function isKnownSubgraphDirective(directive: GraphQLDirective): boolean {
-  return knownSubgraphDirectives.some(({ name }) => name === directive.name);
-}
-
 export const reservedRootFields = ['_service', '_entities'];
 
 // Map of OperationTypeNode to its respective default root operation type name

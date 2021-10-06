@@ -32,9 +32,9 @@ import {
 import { isFederationType, Maybe } from './types';
 import { FederationField, FederationType } from './schemaExtensions';
 import {
-  knownSubgraphDirectives,
   gatherDirectives,
-  isFederationDirective,
+  isKnownSubgraphDirective,
+  federationDirectives,
 } from './directives';
 
 export function printSubgraphSchema(schema: GraphQLSchema): string {
@@ -43,7 +43,7 @@ export function printSubgraphSchema(schema: GraphQLSchema): string {
     // Apollo change: treat the directives defined by the federation spec
     // similarly to the directives defined by the GraphQL spec (ie, don't print
     // their definitions).
-    (n) => !isSpecifiedDirective(n) && !isFederationDirective(n),
+    (n) => !isSpecifiedDirective(n) && !isKnownSubgraphDirective(n),
     isDefinedType,
   );
 }
@@ -300,7 +300,7 @@ function printFederationDirectives(
 
   const federationDirectivesOnTypeOrField = gatherDirectives(typeOrField)
     .filter((n) =>
-      knownSubgraphDirectives.some((fedDir) => fedDir.name === n.name.value),
+      federationDirectives.some((fedDir) => fedDir.name === n.name.value),
     )
     .map(print);
   const dedupedDirectives = [...new Set(federationDirectivesOnTypeOrField)];

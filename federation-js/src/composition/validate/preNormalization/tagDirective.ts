@@ -1,4 +1,8 @@
 import {
+  federationDirectives,
+  directiveDefinitionsAreCompatible,
+} from '@apollo/subgraph/dist/directives';
+import {
   DirectiveDefinitionNode,
   KnownDirectivesRule,
   visit,
@@ -10,10 +14,6 @@ import { ProvidedRequiredArgumentsOnDirectivesRule } from 'graphql/validation/ru
 import { validateSDL } from 'graphql/validation/validate';
 import { ServiceDefinition } from '../../types';
 import { errorWithCode, logDirective } from '../../utils';
-import {
-  federationDirectives,
-  directiveDefinitionsAreCompatible,
-} from '@apollo/subgraph/dist/directives';
 
 // Likely brittle but also will be very obvious if this breaks. Based on the
 // content of the error message itself to remove expected errors related to

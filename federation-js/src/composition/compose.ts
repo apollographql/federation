@@ -26,11 +26,6 @@ import {
   isFederationDirective,
 } from '@apollo/subgraph/dist/directives';
 import {
-  FederationField,
-  FederationType,
-  ServiceNameToKeyDirectivesMap,
-} from '@apollo/subgraph/dist/schemaExtensions';
-import {
   findDirectivesOnNode,
   isStringValueNode,
   mapFieldNamesToServiceName,
@@ -49,6 +44,11 @@ import {
   ExternalFieldDefinition,
   FederationDirective,
 } from './types';
+import {
+  FederationField,
+  FederationType,
+  ServiceNameToKeyDirectivesMap,
+} from '@apollo/subgraph/dist/schemaExtensions';
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
 import { printSupergraphSdl } from '../service/printSupergraphSdl';

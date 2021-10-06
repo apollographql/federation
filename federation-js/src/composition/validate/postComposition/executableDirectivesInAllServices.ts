@@ -3,8 +3,8 @@ import {
   errorWithCode,
   logDirective,
   getFederationMetadata,
-  isKnownSubgraphDirective,
 } from '../../utils';
+import { isKnownSubgraphDirective } from '@apollo/subgraph/dist/directives';
 import { PostCompositionValidator } from '.';
 /**
  * All custom directives with executable locations must be implemented in every

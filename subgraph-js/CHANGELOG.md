@@ -6,6 +6,6 @@
 
 - _Nothing yet! Stay tuned!_
 
-## v0.33.0
+## v0.1.0
 
-- Add flexibility for @tag directive definition validation in subgraphs. @tag definitions are now permitted to be a subset of the spec's definition. This means that within the definition, `repeatable` is optional as are each of the directive locations. [PR #1022](https://github.com/apollographql/federation/pull/1022)
+- TODO

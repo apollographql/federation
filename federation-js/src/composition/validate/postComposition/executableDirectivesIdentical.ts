@@ -4,8 +4,8 @@ import {
   logDirective,
   typeNodesAreEquivalent,
   getFederationMetadata,
-  isKnownSubgraphDirective,
 } from '../../utils';
+import { isKnownSubgraphDirective } from '@apollo/subgraph/dist/directives';
 import { PostCompositionValidator } from '.';
 
 /**

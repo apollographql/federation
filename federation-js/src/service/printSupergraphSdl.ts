@@ -30,14 +30,14 @@ import {
   GraphQLEnumValue,
   DEFAULT_DEPRECATION_REASON,
 } from 'graphql';
-import { Maybe } from '../composition';
-import { assert } from '../utilities';
-import { printFieldSet } from '../composition/utils';
 import {
   FederationType,
   FederationField,
   FieldSet,
 } from '@apollo/subgraph/dist/schemaExtensions';
+import { Maybe } from '../composition';
+import { assert } from '../utilities';
+import { printFieldSet } from '../composition/utils';
 import { otherKnownDirectives } from '@apollo/subgraph/dist/directives';
 interface PrintingContext {
   // Apollo addition: we need access to a map from serviceName to its corresponding
