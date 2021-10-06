@@ -102,7 +102,7 @@ test('hints on merging field with nullable and non-nullable types', () => {
   expect(result).toRaiseHint(
     hintInconsistentFieldType,
     'Field "T.f" has mismatched, but compatible, types across subgraphs: '
-    + 'will use type "String" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "String!" in subgraph "Subgraph2"'
+    + 'will use type "String" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "String!" in subgraph "Subgraph2".'
   );
 })
 
@@ -139,7 +139,7 @@ test('hints on merging field with subtype types', () => {
   expect(result).toRaiseHint(
     hintInconsistentFieldType,
     'Field "T.f" has mismatched, but compatible, types across subgraphs: '
-    + 'will use type "I" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "Impl" in subgraph "Subgraph2"'
+    + 'will use type "I" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "Impl" in subgraph "Subgraph2".'
   );
 })
 
@@ -164,7 +164,7 @@ test('hints on merging argument with nullable and non-nullable types', () => {
   expect(result).toRaiseHint(
     hintInconsistentArgumentType,
     'Argument "T.f(a:)" has mismatched, but compatible, types across subgraphs: '
-    + 'will use type "String!" (from subgraph "Subgraph1") in supergraph but "T.f(a:)" has supertype "String" in subgraph "Subgraph2"'
+    + 'will use type "String!" (from subgraph "Subgraph1") in supergraph but "T.f(a:)" has supertype "String" in subgraph "Subgraph2".'
   );
 })
 
@@ -189,7 +189,7 @@ test('hints on merging argument with default value in only some subgraph', () =>
   expect(result).toRaiseHint(
     hintInconsistentDefaultValue,
     'Argument "T.f(a:)" has a default value in only some subgraphs: '
-    + 'will use default value "foo" (from subgraph "Subgraph1") in supergraph but no default value is defined in subgraph "Subgraph2"'
+    + 'will use default value "foo" (from subgraph "Subgraph1") in supergraph but no default value is defined in subgraph "Subgraph2".'
   );
 })
 
@@ -215,9 +215,8 @@ test('hints on object being an entity in only some subgraph', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentEntity,
-    'Type T is declared as an entity (has a @key applied) in only some subgraphs: '
-    + 'it has no key in subgraph "Subgraph2" but has one in subgraph "Subgraph1"'
-
+    'Type "T" is declared as an entity (has a @key applied) in only some subgraphs: '
+    + 'it has no key in subgraph "Subgraph2" but has one in subgraph "Subgraph1".'
   );
 })
 
@@ -242,8 +241,8 @@ test('hints on field of object value type not being in all subgraphs', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentObjectValueTypeField,
-    'Field b of non-entity object type T is not defined in all the subgraphs defining T (but can always be resolved from these subgraphs): '
-    + 'b is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+    'Field "T.b" of non-entity object type "T" is not defined in all the subgraphs defining "T" (but can always be resolved from these subgraphs): '
+    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
@@ -268,8 +267,8 @@ test('hints on field of interface value type not being in all subgraphs', () => 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentInterfaceValueTypeField,
-    'Field b of interface type T is not defined in all the subgraphs defining T (but can always be resolved from these subgraphs): '
-    + 'b is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+    'Field "T.b" of interface type "T" is not defined in all the subgraphs defining "T" (but can always be resolved from these subgraphs): '
+    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
@@ -294,8 +293,8 @@ test('hints on field of input object value type not being in all subgraphs', () 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentInputObjectField,
-    'Field b of input object type T is not defined in all the subgraphs defining T (but can always be resolved from these subgraphs): '
-    + 'b is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+    'Field "T.b" of input object type "T" is not defined in all the subgraphs defining "T" (but can always be resolved from these subgraphs): '
+    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
@@ -335,8 +334,8 @@ test('hints on union member not being in all subgraphs', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentUnionMember,
-    'Member type B in union type T is only defined in a subset of subgraphs defining T (but can always be resolved from these subgraphs): '
-    + 'B is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+    'Member type "B" in union type "T" is only defined in a subset of subgraphs defining "T" (but can always be resolved from these subgraphs): '
+    + '"B" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
@@ -361,8 +360,8 @@ test('hints on enum value not being in all subgraphs', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentEnumValue,
-    'Value V2 of enum type T is only defined in a subset of the subgraphs defining T (but can always be resolved from these subgraphs): '
-    + 'V2 is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+    'Value "V2" of enum type "T" is only defined in a subset of the subgraphs defining "T" (but can always be resolved from these subgraphs): '
+    + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
@@ -385,8 +384,8 @@ test('hints on type system directives having inconsistent repeatable', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentTypeSystemDirectiveRepeatable,
-    'Type system directive @tag is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: '
-    + 'it is repeatable in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+    'Type system directive "@tag" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: '
+    + 'it is repeatable in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
@@ -407,9 +406,9 @@ test('hints on type system directives having inconsistent locations', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentTypeSystemDirectiveLocations,
-    'Type system directive @tag has inconsistent locations accross subgraphs '
-    + 'and will use location(s) FIELD_DEFINITION, INTERFACE (union of all subgraphs) in the supergraph, but has: '
-    + 'location(s) FIELD_DEFINITION in subgraph "Subgraph1" and location(s) INTERFACE in subgraph "Subgraph2"'
+    'Type system directive "@tag" has inconsistent locations accross subgraphs '
+    + 'and will use locations "FIELD_DEFINITION, INTERFACE" (union of all subgraphs) in the supergraph, but has: '
+    + 'location "FIELD_DEFINITION" in subgraph "Subgraph1" and location "INTERFACE" in subgraph "Subgraph2".'
   );
 })
 
@@ -429,8 +428,8 @@ test('hints on execution directives not being in all subgraphs', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentExecutionDirectivePresence,
-    'Execution directive @t will not be part of the supergraph as it does not appear in all subgraphs: '
-    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+    'Execution directive "@t" will not be part of the supergraph as it does not appear in all subgraphs: '
+    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
@@ -450,8 +449,8 @@ test('hints on execution directives having no locations intersection', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintNoExecutionDirectiveLocationsIntersection,
-    'Execution directive @t has no location that is common to all subgraphs: '
-    + 'it will not appear in the subgraph as there no intersection between location(s) QUERY in subgraph "Subgraph1" and location(s) FIELD in subgraph "Subgraph2"'
+    'Execution directive "@t" has no location that is common to all subgraphs: '
+    + 'it will not appear in the subgraph as there no intersection between location "QUERY" in subgraph "Subgraph1" and location "FIELD" in subgraph "Subgraph2".'
   );
 })
 
@@ -472,8 +471,8 @@ test('hints on execution directives having inconsistent repeatable', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentExecutionDirectiveRepeatable,
-    'Execution directive @t will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: '
-    + 'it is not repeatable in subgraph "Subgraph2" but is repeatable in subgraph "Subgraph1"'
+    'Execution directive "@t" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: '
+    + 'it is not repeatable in subgraph "Subgraph2" but is repeatable in subgraph "Subgraph1".'
   );
 })
 
@@ -493,9 +492,9 @@ test('hints on execution directives having inconsistent locations', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentExecutionDirectiveLocations,
-    'Execution directive @t has inconsistent locations accross subgraphs '
-    + 'and will use location(s) FIELD (intersection of all subgraphs) in the supergraph, but has: '
-    + 'location(s) FIELD in subgraph "Subgraph2" and location(s) FIELD, QUERY in subgraph "Subgraph1"'
+    'Execution directive "@t" has inconsistent locations accross subgraphs '
+    + 'and will use location "FIELD" (intersection of all subgraphs) in the supergraph, but has: '
+    + 'location "FIELD" in subgraph "Subgraph2" and locations "FIELD, QUERY" in subgraph "Subgraph1".'
   );
 })
 
@@ -515,8 +514,8 @@ test('hints on execution directives argument not being in all subgraphs', () => 
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentArgumentPresence,
-    'Argument @t(a:) will not be added to @t in the supergraph as it does not appear in all subgraphs: '
-    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2"'
+    'Argument "@t(a:)" will not be added to "@t" in the supergraph as it does not appear in all subgraphs: '
+    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
   );
 })
 
@@ -596,7 +595,7 @@ test('hints on inconsistent description for field', () => {
   const result = mergeDocuments(subgraph1, subgraph2, subgraph3);
   expect(result).toRaiseHint(
     hintInconsistentDescription,
-    'Element T.f has inconsistent descriptions across subgraphs. The supergraph will use description (from subgraphs "Subgraph2" and "Subgraph3"):\n'
+    'Element "T.f" has inconsistent descriptions across subgraphs. The supergraph will use description (from subgraphs "Subgraph2" and "Subgraph3"):\n'
     + '  """\n'
     + '  Return a super secret integer\n'
     + '  """\n'

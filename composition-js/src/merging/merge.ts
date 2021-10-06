@@ -238,6 +238,13 @@ function hasTagUsage(subgraph: Schema): boolean {
   return !!directive && directive.applications().length > 0;
 }
 
+function locationString(locations: DirectiveLocationEnum[]): string {
+  if (locations.length === 0) {
+    return "";
+  }
+  return (locations.length === 1 ? 'location ' : 'locations ') + '"' + locations.join(', ') + '"';
+}
+
 class Merger {
   readonly names: readonly string[];
   readonly subgraphsSchema: readonly Schema[];
@@ -436,7 +443,8 @@ class Merger {
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     ignorePredicate?: (elt: string | undefined) => boolean,
-    includeMissingSources: boolean = false
+    includeMissingSources: boolean = false,
+    noEndOfMessageDot: boolean = false
   ) {
     this.reportMismatch(
       supergraphElement,
@@ -447,7 +455,7 @@ class Merger {
       (distribution, astNodes) => {
         this.hints.push(new CompositionHint(
           hintId,
-          message + distribution[0] + join(distribution.slice(1), ' and '),
+          message + distribution[0] + join(distribution.slice(1), ' and ') + (noEndOfMessageDot ? '' : '.'),
           supergraphElement instanceof NamedSchemaElement ? supergraphElement.coordinate : '<schema>',
           astNodes
         ));
@@ -563,7 +571,7 @@ class Merger {
         // And we could even switch between diff/non-diff modes based on the levenshtein distances between the description we found.
         // That said, we should decide if we want to bother here: maybe we can leave it to studio so handle a better experience (as
         // it can more UX wise).
-        const name = dest instanceof NamedSchemaElement ? 'Element ' + dest.coordinate : 'The schema definition';
+        const name = dest instanceof NamedSchemaElement ? `Element "${dest.coordinate}"` : 'The schema definition';
         this.reportMismatchHint(
           hintInconsistentDescription,
           `${name} has inconsistent descriptions across subgraphs. `,
@@ -572,7 +580,9 @@ class Merger {
           elt => elt.description,
           (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${desciptionString(desc, '  ')}`,
           (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${desciptionString(desc!, '  ')}`,
-          elt => elt === undefined
+          elt => elt === undefined,
+          false,  // Don't including sources with no description
+          true    // Skip the end-of-message '.' since it would look ugly in that specific case
         );
       }
     }
@@ -676,7 +686,7 @@ class Merger {
     } else {
       for (const destField of dest.fields()) {
         if (isValueType) {
-          this.hintOnInconsistentValueTypeField(sources, dest, destField.name);
+          this.hintOnInconsistentValueTypeField(sources, dest, destField);
         }
         const subgraphFields = sources.map(t => t?.field(destField.name));
         this.mergeField(subgraphFields, destField);
@@ -701,7 +711,7 @@ class Merger {
     if (sourceAsEntity.length > 0 && sourceAsNonEntity.length > 0) {
       this.reportMismatchHint(
         hintInconsistentEntity,
-        `Type ${dest} is declared as an entity (has a @key applied) in only some subgraphs: `,
+        `Type "${dest}" is declared as an entity (has a @key applied) in only some subgraphs: `,
         dest,
         sources,
         // All we use the string of the next line for is to categorize source with a @key of the others.
@@ -718,7 +728,7 @@ class Merger {
   private hintOnInconsistentValueTypeField(
     sources: (ObjectType | InterfaceType | InputObjectType | undefined)[],
     dest: ObjectType | InterfaceType | InputObjectType,
-    fieldName: string
+    field: FieldDefinition<any> | InputFieldDefinition
   ) {
     let hintId: HintID;
     let typeDescription: String;
@@ -738,16 +748,16 @@ class Merger {
     }
     for (const source of sources) {
       // As soon as we find a subgraph that has the type but not the field, we hint.
-      if (source && !source.field(fieldName)) {
+      if (source && !source.field(field.name)) {
         this.reportMismatchHint(
           hintId,
           // Note that at the time this code run, we haven't run validation yet and so we don't truly know that the field is always resolvable, but
           // we can anticipate it since hints will not surface to users if there is a validation error anyway.
-          `Field ${fieldName} of ${typeDescription} type ${dest} is not defined in all the subgraphs defining ${dest} (but can always be resolved from these subgraphs): `,
+          `Field "${field.coordinate}" of ${typeDescription} type "${dest}" is not defined in all the subgraphs defining "${dest}" (but can always be resolved from these subgraphs): `,
           dest,
           sources,
-          type => type.field(fieldName) ? 'yes' : 'no',
-          (_, subgraphs) => `${fieldName} is defined in ${subgraphs}`,
+          type => type.field(field.name) ? 'yes' : 'no',
+          (_, subgraphs) => `"${field.coordinate}" is defined in ${subgraphs}`,
           (_, subgraphs) => ` but not in ${subgraphs}`,
         );
       }
@@ -1003,7 +1013,7 @@ class Merger {
         if (!source) {
           this.reportMismatchHint(
             hintInconsistentArgumentPresence,
-            `Argument ${dest.coordinate} will not be added to ${dest.parent} in the supergraph as it does not appear in all subgraphs: `,
+            `Argument "${dest.coordinate}" will not be added to "${dest.parent}" in the supergraph as it does not appear in all subgraphs: `,
             dest,
             sources,
             _ => 'yes',
@@ -1078,7 +1088,7 @@ class Merger {
   private mergeInterface(sources: (InterfaceType | undefined)[], dest: InterfaceType) {
     this.addFieldsShallow(sources, dest);
     for (const destField of dest.fields()) {
-      this.hintOnInconsistentValueTypeField(sources, dest, destField.name);
+      this.hintOnInconsistentValueTypeField(sources, dest, destField);
       const subgraphFields = sources.map(t => t?.field(destField.name));
       this.mergeField(subgraphFields, destField);
     }
@@ -1113,11 +1123,11 @@ class Merger {
           hintInconsistentUnionMember,
           // Note that at the time this code run, we haven't run validation yet and so we don't truly know that the field is always resolvable, but
           // we can anticipate it since hints will not surface to users if there is a validation error anyway.
-          `Member type ${memberName} in union type ${dest} is only defined in a subset of subgraphs defining ${dest} (but can always be resolved from these subgraphs): `,
+          `Member type "${memberName}" in union type "${dest}" is only defined in a subset of subgraphs defining "${dest}" (but can always be resolved from these subgraphs): `,
           dest,
           sources,
           type => type.hasTypeMember(memberName) ? 'yes' : 'no',
-          (_, subgraphs) => `${memberName} is defined in ${subgraphs}`,
+          (_, subgraphs) => `"${memberName}" is defined in ${subgraphs}`,
           (_, subgraphs) => ` but not in ${subgraphs}`,
         );
       }
@@ -1157,11 +1167,11 @@ class Merger {
           hintInconsistentEnumValue,
           // Note that at the time this code run, we haven't run validation yet and so we don't truly know that the field is always resolvable, but
           // we can anticipate it since hints will not surface to users if there is a validation error anyway.
-          `Value ${valueName} of enum type ${dest} is only defined in a subset of the subgraphs defining ${dest} (but can always be resolved from these subgraphs): `,
+          `Value "${valueName}" of enum type "${dest}" is only defined in a subset of the subgraphs defining "${dest}" (but can always be resolved from these subgraphs): `,
           dest,
           sources,
           type => type.value(valueName) ? 'yes' : 'no',
-          (_, subgraphs) => `${valueName} is defined in ${subgraphs}`,
+          (_, subgraphs) => `"${valueName}" is defined in ${subgraphs}`,
           (_, subgraphs) => ` but not in ${subgraphs}`,
         );
       }
@@ -1171,7 +1181,7 @@ class Merger {
   private mergeInput(sources: (InputObjectType | undefined)[], dest: InputObjectType) {
     this.addFieldsShallow(sources, dest);
     for (const destField of dest.fields()) {
-      this.hintOnInconsistentValueTypeField(sources, dest, destField.name);
+      this.hintOnInconsistentValueTypeField(sources, dest, destField);
       const subgraphFields = sources.map(t => t?.field(destField.name));
       this.mergeInputField(subgraphFields, destField);
     }
@@ -1248,7 +1258,7 @@ class Merger {
     if (inconsistentRepeatable) {
       this.reportMismatchHint(
         hintInconsistentTypeSystemDirectiveRepeatable,
-        `Type system directive ${dest} is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: `,
+        `Type system directive "${dest}" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: `,
         dest,
         sources,
         directive => directive.repeatable ? 'yes' : 'no',
@@ -1260,13 +1270,13 @@ class Merger {
     if (inconsistentLocations) {
       this.reportMismatchHint(
         hintInconsistentTypeSystemDirectiveLocations,
-        `Type system directive ${dest} has inconsistent locations accross subgraphs `,
+        `Type system directive "${dest}" has inconsistent locations accross subgraphs `,
         dest,
         sources,
-        directive => this.extractLocations(directive).join(', '),
+        directive => locationString(this.extractLocations(directive)),
         // Note that the first callback is for element that are "like the supergraph".
-        (locs, subgraphs) => `and will use location(s) ${locs} (union of all subgraphs) in the supergraph, but has: ${subgraphs ? `location(s) ${locs} in ${subgraphs} and ` : ''}`,
-        (locs, subgraphs) => `location(s) ${locs} in ${subgraphs}`,
+        (locs, subgraphs) => `and will use ${locs} (union of all subgraphs) in the supergraph, but has: ${subgraphs ? `${locs} in ${subgraphs} and ` : ''}`,
+        (locs, subgraphs) => `${locs} in ${subgraphs}`,
       );
     }
   }
@@ -1284,7 +1294,7 @@ class Merger {
         assert(usages.length === 0, () => `Found usages of execution directive ${dest}: ${usages}`);
         this.reportMismatchHint(
           hintInconsistentExecutionDirectivePresence,
-          `Execution directive ${dest} will not be part of the supergraph as it does not appear in all subgraphs: `,
+          `Execution directive "${dest}" will not be part of the supergraph as it does not appear in all subgraphs: `,
           dest,
           sources,
           _ => 'yes',
@@ -1320,14 +1330,14 @@ class Merger {
           assert(usages.length === 0, () => `Found usages of execution directive ${dest}: ${usages}`);
           this.reportMismatchHint(
             hintNoExecutionDirectiveLocationsIntersection,
-            `Execution directive ${dest} has no location that is common to all subgraphs: `,
+            `Execution directive "${dest}" has no location that is common to all subgraphs: `,
             dest,
             sources,
-            directive => this.extractLocations(directive).join(', '),
+            directive => locationString(this.extractLocations(directive)),
             // Note that the first callback is for element that are "like the supergraph" and only the subgraph will have no locations (the
             // source that do not have the directive are not included).
             () => `it will not appear in the subgraph as there no intersection between `,
-            (locs, subgraphs) => `location(s) ${locs} in ${subgraphs}`,
+            (locs, subgraphs) => `${locs} in ${subgraphs}`,
           );
           return;
         }
@@ -1339,7 +1349,7 @@ class Merger {
     if (inconsistentRepeatable) {
       this.reportMismatchHint(
         hintInconsistentExecutionDirectiveRepeatable,
-        `Execution directive ${dest} will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
+        `Execution directive "${dest}" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
         dest,
         sources,
         directive => directive.repeatable ? 'yes' : 'no',
@@ -1351,13 +1361,13 @@ class Merger {
     if (inconsistentLocations) {
       this.reportMismatchHint(
         hintInconsistentExecutionDirectiveLocations,
-        `Execution directive ${dest} has inconsistent locations accross subgraphs `,
+        `Execution directive "${dest}" has inconsistent locations accross subgraphs `,
         dest,
         sources,
-        directive => this.extractLocations(directive).join(', '),
+        directive => locationString(this.extractLocations(directive)),
         // Note that the first callback is for element that are "like the supergraph".
-        (locs, subgraphs) => `and will use location(s) ${locs} (intersection of all subgraphs) in the supergraph, but has: ${subgraphs ? `location(s) ${locs} in ${subgraphs} and ` : ''}`,
-        (locs, subgraphs) => `location(s) ${locs} in ${subgraphs}`,
+        (locs, subgraphs) => `and will use ${locs} (intersection of all subgraphs) in the supergraph, but has: ${subgraphs ? `${locs} in ${subgraphs} and ` : ''}`,
+        (locs, subgraphs) => `${locs} in ${subgraphs}`,
       );
     }
 
