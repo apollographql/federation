@@ -306,7 +306,7 @@ export function traversePath(
   }
 }
 
-export type ConditionResolver = (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges) => null | [OpPathTree, number] | undefined;
+export type ConditionResolver = (conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions) => null | [OpPathTree, number] | undefined;
 
 // Note: conditions resolver should return `null` if the condition cannot be satisfied. If it is satisfied, it has the choice of computing
 // the actual tree, which we need for query planning, or simply returning "undefined" which means "The condition can be satisfied but I didn't
@@ -321,8 +321,7 @@ export function advancePathWithTransition<V extends Vertex>(
   transition: Transition,
   targetType: NamedType,
   conditionResolver: ConditionResolver,
-  cache: QueryGraphState<GraphPath<Transition>[]>,
-  excludedNonCollectingEdges: ExcludedEdges = []
+  cache: QueryGraphState<GraphPath<Transition>[]>
 ) : GraphPath<Transition, V>[] | undefined {
   // The `transition` comes from the supergraph. Now, it is possible that a transition can be expressed on the supergraph, but correspond
   // to an 'unsatisfiable' condition on the subgraph. Let's consider:
@@ -398,7 +397,14 @@ export function advancePathWithTransition<V extends Vertex>(
     return options;
   }
   // Otherwise, let's try non-collecting edges and see if we can find some (more) options there.
-  const pathsWithNonCollecting = advancePathWithNonCollectingAndTypePreservingTransitions(subgraphPath, emptyContext, conditionResolver, excludedNonCollectingEdges, t => t, cache);
+  const pathsWithNonCollecting = advancePathWithNonCollectingAndTypePreservingTransitions(
+    subgraphPath,
+    emptyContext,
+    conditionResolver,
+    [],
+    [],
+    t => t, cache
+  );
   if (pathsWithNonCollecting.length > 0) {
     options = options.concat(pathsWithNonCollecting.flatMap(p => advancePathWithDirectTransition(p, transition, targetType.name, conditionResolver)));
   }
@@ -408,25 +414,40 @@ export function advancePathWithTransition<V extends Vertex>(
 // A set of excluded edges, that is a pair of a head vertex index and an edge index (since edge indexes are relative to their vertex).
 export type ExcludedEdges = readonly [number, number][];
 
-function isExcluded(edge: Edge, excluded: ExcludedEdges): boolean {
+function isEdgeExcluded(edge: Edge, excluded: ExcludedEdges): boolean {
   return excluded.some(([vIdx, eIdx]) => edge.head.index === vIdx && edge.index === eIdx);
 }
 
-function addExclusion(excluded: ExcludedEdges, newExclusion: Edge): ExcludedEdges {
+function addEdgeExclusion(excluded: ExcludedEdges, newExclusion: Edge): ExcludedEdges {
   return [...excluded, [newExclusion.head.index, newExclusion.index]];
 }
 
 function isPathExcluded<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
   path: GraphPath<TTrigger, V, TNullEdge>,
-  excluded: ExcludedEdges
+  excludedEdges: ExcludedEdges,
+  excludedConditions: ExcludedConditions
 ): boolean {
   for (const [e] of path.elements()) {
-    if (e && isExcluded(e, excluded)) {
+    if (e && (isEdgeExcluded(e, excludedEdges) || isConditionExcluded(e.conditions, excludedConditions))) {
       return true;
     }
   }
   return false;
 }
+
+export type ExcludedConditions = readonly SelectionSet[];
+
+function isConditionExcluded(condition: SelectionSet | undefined, excluded: ExcludedConditions): boolean {
+  if (!condition) {
+    return false;
+  }
+  return excluded.find(e => condition.equals(e)) !== undefined;
+}
+
+function addConditionExclusion(excluded: ExcludedConditions, newExclusion: SelectionSet | undefined): ExcludedConditions {
+  return newExclusion ? [...excluded, newExclusion] : excluded;
+}
+
 
 function popMin<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
   paths: GraphPath<TTrigger, V, TNullEdge>[]
@@ -449,6 +470,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   context: PathContext,
   conditionResolver: ConditionResolver,
   excludedEdges: ExcludedEdges,
+  excludedConditions: ExcludedConditions,
   convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
   cache: QueryGraphState<GraphPath<TTrigger, Vertex, TNullEdge>[]>,
 ): GraphPath<TTrigger, V, TNullEdge>[] {
@@ -460,20 +482,22 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       context,
       conditionResolver,
       excludedEdges,
+      excludedConditions,
       convertTransitionWithCondition
     );
   }
 
   let cachedPaths = cache.getVertexState(path.tail);
   if (!cachedPaths) {
-    // We only cache where there was no excluded edges (that way we know we can always use the cache, whatever the excluded edges are
-    // by excluding anythign cached that has the exluded edges).
-    if (excludedEdges.length !== 0) {
+    // We only cache where there was no excluded edges/conditions (that way we know we can always use the cache, whatever the excluded edges/conditions are
+    // by excluding anything cached that has what is excluded).
+    if (excludedEdges.length !== 0 || excludedConditions.length !== 0) {
       return advancePathWithNonCollectingAndTypePreservingTransitionsNoCache(
         path,
         context,
         conditionResolver,
         excludedEdges,
+        excludedConditions,
         convertTransitionWithCondition
       );
     }
@@ -482,13 +506,14 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       GraphPath.create(path.graph, path.tail),
       context,
       conditionResolver,
-      excludedEdges,
+      [],
+      [],
       convertTransitionWithCondition
     );
     cache.setVertexState(path.tail, cachedPaths);
   }
-  if (excludedEdges.length > 0) {
-    cachedPaths = cachedPaths.filter(p => isPathExcluded(p, excludedEdges));
+  if (excludedEdges.length > 0 || excludedConditions.length > 0) {
+    cachedPaths = cachedPaths.filter(p => isPathExcluded(p, excludedEdges, excludedConditions));
   }
   return cachedPaths.map(p => path.concat(p));
 }
@@ -502,13 +527,13 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
   context: PathContext,
   conditionResolver: ConditionResolver,
   excludedEdges: ExcludedEdges,
+  excludedConditions: ExcludedConditions,
   convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
 ): GraphPath<TTrigger, V, TNullEdge>[] {
   const typeName = isFederatedGraphRootType(path.tail.type) ? undefined : path.tail.type.name;
   const originalSource = path.tail.source;
   const bestPathBySource = new Map<string, [GraphPath<TTrigger, V, TNullEdge>, number]>();
   const toTry = [ path ];
-  let excluded = excludedEdges;
   while (toTry.length > 0) {
     // Note that through `excluded` we avoid taking the same edge from multiple options. But that means it's important we try
     // the smallest paths first. That is, if we could in theory have path A -> B and A -> C -> B, and we can do B -> D,
@@ -518,11 +543,17 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
     const nextEdges =  toAdvance.nextEdges().filter(e => !e.transition.collectOperationElements);
     for (const edge of nextEdges) {
       debug.group(`Testing edge ${edge}`);
-      if (isExcluded(edge, excluded)) {
+      if (isEdgeExcluded(edge, excludedEdges)) {
         debug.groupEnd(`Ignored: edge is excluded`);
         continue;
       }
-      excluded = addExclusion(excluded, edge);
+      excludedEdges = addEdgeExclusion(excludedEdges, edge);
+
+      if (isConditionExcluded(edge.conditions, excludedConditions)) {
+        debug.groupEnd(`Ignored: edge condition is excluded`);
+        continue;
+      }
+
       // We can only take a non-collecting transition that preserves the current type (typically,
       // jumping subgraphs through a key), with the exception of the federated graph roots, where
       // the type is fake and jumping to any given subgraph is ok and desirable.
@@ -538,9 +569,9 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
         continue;
       }
 
-      // We have edges before Query objects, but let's not bother using them where we're at the beginning of a
-      // root path since the edge from the federated graph root already chose a subgraph.
-      if (edge.transition.kind === 'QueryResolution' && isRootVertex(toAdvance.root) && toAdvance.size === 1) {
+      // We have edges between Query objects so that if a field returns a query object, we can jump to any subgraph
+      // at that point. However, there is no point of using those edges at the beginning of a path.
+      if (edge.transition.kind === 'QueryResolution' && (toAdvance.size === 0 || (isRootVertex(toAdvance.root) && toAdvance.size === 1))) {
         debug.groupEnd(`Ignored: edge is a top-level "QueryResolution"`);
         continue;
       }
@@ -564,8 +595,15 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
         continue;
       }
 
+
       debug.group(() => `Validating conditions ${edge.conditions}`);
-      const [isSatisfied, resolution] = canSatisfyConditions(toAdvance, edge, conditionResolver, excluded);
+      const [isSatisfied, resolution] = canSatisfyConditions(
+        toAdvance,
+        edge,
+        conditionResolver,
+        excludedEdges,
+        addConditionExclusion(excludedConditions, edge.conditions)
+      );
       debug.groupEnd(() => isSatisfied ? 'Condition satisfied' : 'Condition unsatisfiable'); // End of condition validation
       if (isSatisfied) {
         const cost = resolution ? resolution[1] : 0;
@@ -600,7 +638,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
       return [];
     }
     // Additionaly, we can only take an edge if we can satisfy its conditions.
-    const [isSatisfied, resolution] = canSatisfyConditions(path, edge, conditionResolver, []);
+    const [isSatisfied, resolution] = canSatisfyConditions(path, edge, conditionResolver, [], []);
     return isSatisfied ? [ path.add(transition, edge, conditionTree(resolution)) ] : [];
   });
 }
@@ -619,13 +657,14 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   path: GraphPath<TTrigger, V, TNullEdge>,
   edge: Edge,
   conditionResolver: ConditionResolver,
-  excludedEdges: ExcludedEdges
+  excludedEdges: ExcludedEdges,
+  excludedConditions: ExcludedConditions
 ): [boolean, [OpPathTree, number] | undefined] {
   const conditions = edge.conditions;
   if (!conditions) {
     return [true, undefined];
   }
-  const resolution = conditionResolver(conditions, path.tail, excludedEdges);
+  const resolution = conditionResolver(conditions, path.tail, excludedEdges, excludedConditions);
   if (resolution === null) {
     return [false, undefined];
   }
@@ -636,7 +675,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     && lastEdge?.transition.kind !== 'KeyResolution'
     && (!pathTree || pathTree.isAllInSameSubgraph())) {
     const additionalConditions = requireEdgeAdditionalConditions(edge);
-    const additionalResolution = conditionResolver(additionalConditions, path.tail, excludedEdges);
+    const additionalResolution = conditionResolver(additionalConditions, path.tail, excludedEdges, excludedConditions);
     if (additionalResolution === null) {
       return [false, undefined];
     }
@@ -685,7 +724,8 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   context: PathContext,
   conditionResolver: ConditionResolver,
   cache: QueryGraphState<OpGraphPath[]>,
-  excludedNonCollectingEdges: ExcludedEdges = []
+  excludedNonCollectingEdges: ExcludedEdges = [],
+  excludedConditionsOnNonCollectingEdges: ExcludedConditions = []
 ) : SimultaneousPaths<V>[] | undefined {
   debug.group(() => `Trying to advance ${simultaneousPathsToString(subgraphSimultaneousPaths)} for ${operation}`);
   debug.group('Direct options:');
@@ -709,7 +749,14 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   options = options ?? [];
   debug.group(`Indirect options:`);
   // Then adds whatever options can be obtained by taking some non-collecting edges first.
-  const pathsWithNonCollecting = advanceAllWithNonCollectingAndTypePreservingTransitions(subgraphSimultaneousPaths, context, conditionResolver, excludedNonCollectingEdges, cache);
+  const pathsWithNonCollecting = advanceAllWithNonCollectingAndTypePreservingTransitions(
+    subgraphSimultaneousPaths,
+    context,
+    conditionResolver,
+    excludedNonCollectingEdges,
+    excludedConditionsOnNonCollectingEdges,
+    cache
+  );
   for (const pathWithNonCollecting of pathsWithNonCollecting) {
     const pathWithOperation = advanceWithOperation(supergraphSchema, pathWithNonCollecting, operation, context, conditionResolver, cache);
     // If we can't advance the operation after that path, ignore it, it's just not an option.
@@ -735,6 +782,7 @@ function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Verte
   context: PathContext,
   conditionResolver: ConditionResolver,
   excludedEdges: ExcludedEdges,
+  excludedConditions: ExcludedConditions,
   cache: QueryGraphState<OpGraphPath[]>,
 ): SimultaneousPaths<V>[] {
   const optionsForEachPaths = paths.map(p => 
@@ -743,6 +791,7 @@ function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Verte
       context,
       conditionResolver,
       excludedEdges,
+      excludedConditions,
       // the transitions taken by this function are non collecting transitions, and we ship the context as trigger (a slight hack admittedly,
       // but as we'll need the context handy for keys ...).
       (_t, context) => context,
@@ -963,7 +1012,7 @@ function addFieldEdge<V extends Vertex>(
   edge: Edge,
   conditionResolver: ConditionResolver
 ): OpGraphPath<V>[][] {
-  const [isSatisfied, resolution] = canSatisfyConditions(path, edge, conditionResolver, []);
+  const [isSatisfied, resolution] = canSatisfyConditions(path, edge, conditionResolver, [], []);
   return isSatisfied ? [[ path.add(fieldOperation, edge, conditionTree(resolution)) ]] : [];
 }
 

@@ -52,7 +52,8 @@ import {
   requireEdgeAdditionalConditions,
   RootVertex,
   Vertex,
-  isRootVertex
+  isRootVertex,
+  ExcludedConditions
 } from "@apollo/query-graphs";
 import { Kind, DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -103,6 +104,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     readonly costFunction: CostFunction,
     private readonly cache: QueryGraphState<OpGraphPath[]>,
     private readonly excludedEdges: ExcludedEdges = [],
+    private readonly excludedConditions: ExcludedConditions = [],
   ) {
     const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
     const initialTree = PathTree.createOp(subgraphs, startVertex);
@@ -143,9 +145,10 @@ class QueryPlanningTaversal<RV extends Vertex> {
       path,
       operation,
       updatedContext,
-      (conditions, vertex, excluded) => this.resolveConditionPlan(conditions, vertex, excluded),
+      (conditions, vertex, excludedEdges, excludedConditions) => this.resolveConditionPlan(conditions, vertex, excludedEdges, excludedConditions),
       this.cache,
-      this.excludedEdges
+      this.excludedEdges,
+      this.excludedConditions
     );
     if (!newPaths) {
       // This means there is no valid way to advance the current `operation`. Which in turns means the whole state is
@@ -174,7 +177,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     }
   }
 
-  private resolveConditionPlan(conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges): [OpPathTree, number] | null {
+  private resolveConditionPlan(conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions): [OpPathTree, number] | null {
     const bestPlan = new QueryPlanningTaversal(
       this.supergraphSchema,
       this.subgraphs,
@@ -183,7 +186,8 @@ class QueryPlanningTaversal<RV extends Vertex> {
       vertex,
       this.costFunction,
       this.cache,
-      excludedEdges
+      excludedEdges,
+      excludedConditions
     ).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
