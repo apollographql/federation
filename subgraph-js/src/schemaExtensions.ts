@@ -4,7 +4,7 @@ import {
   FieldNode,
   GraphQLResolveInfo,
   InlineFragmentNode,
-} from "graphql";
+} from 'graphql';
 
 export type GraphQLReferenceResolver<TContext> = (
   reference: object,
@@ -47,7 +47,7 @@ export interface FederationType {
     [serviceName: string]: ExternalFieldDefinition[];
   };
   isValueType?: boolean;
-  directiveUsages?: DirectiveUsages
+  directiveUsages?: DirectiveUsages;
 }
 
 // Without rewriting a number of AST types from graphql-js, this typing is
@@ -60,5 +60,5 @@ export interface FederationField {
   requires?: FieldSet;
   provides?: FieldSet;
   belongsToValueType?: boolean;
-  directiveUsages?: DirectiveUsages
+  directiveUsages?: DirectiveUsages;
 }

@@ -87,7 +87,8 @@
       "<rootDir>/federation-js",
       "<rootDir>/federation-integration-testsuite-js",
       "<rootDir>/gateway-js",
-      "<rootDir>/query-planner-js"
+      "<rootDir>/query-planner-js",
+      "<rootDir>/subgraph-js"
     ]
   }
 }

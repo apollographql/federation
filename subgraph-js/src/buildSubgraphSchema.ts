@@ -92,11 +92,11 @@ export function buildSubgraphSchema(
   }
 
   const entityTypes = Object.values(schema.getTypeMap()).filter(
-    type => isObjectType(type) && typeIncludesDirective(type, 'key'),
+    (type) => isObjectType(type) && typeIncludesDirective(type, 'key'),
   );
   const hasEntities = entityTypes.length > 0;
 
-  schema = transformSchema(schema, type => {
+  schema = transformSchema(schema, (type) => {
     // Add `_entities` and `_service` fields to query root type
     if (isObjectType(type) && type === schema.getQueryType()) {
       const config = type.toConfig();
@@ -116,7 +116,7 @@ export function buildSubgraphSchema(
     return undefined;
   });
 
-  schema = transformSchema(schema, type => {
+  schema = transformSchema(schema, (type) => {
     if (hasEntities && isUnionType(type) && type.name === EntityType.name) {
       return new GraphQLUnionType({
         ...EntityType.toConfig(),
