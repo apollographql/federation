@@ -4,13 +4,18 @@ import {
   FieldDefinition,
   InputObjectType,
   InputType,
+  InterfaceType,
   isEnumType,
   isInputObjectType,
   isListType,
   isNonNullType,
   isScalarType,
   isSubtype,
+  ObjectType,
   SchemaElement,
+  SubtypingRule,
+  SUBTYPING_RULES,
+  UnionType,
 } from '@apollo/core';
 
 function typeComparison<T>(
@@ -98,12 +103,17 @@ function getArg(field: FieldDefinition<any>, argName: string): ArgumentDefinitio
   return arg && isAccessible(arg) ? arg : undefined;
 }
 
-
-export function isStructuralFieldSubtype(fieldDef: FieldDefinition<any>, maybeSubType: FieldDefinition<any>): boolean {
+export function isStructuralFieldSubtype(
+  fieldDef: FieldDefinition<any>,
+  maybeSubType: FieldDefinition<any>,
+  allowedRules: SubtypingRule[] = SUBTYPING_RULES,
+  unionMembershipTester: (union: UnionType, maybeMember: ObjectType) => boolean = (u, m) => u.hasTypeMember(m),
+  implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i)
+): boolean {
   if (fieldDef.name !== maybeSubType.name) {
     return false;
   }
-  if (!isSubtype(maybeSubType.type!, fieldDef.type!)) {
+  if (!isSubtype(maybeSubType.type!, fieldDef.type!, allowedRules, unionMembershipTester, implementsInterfaceTester)) {
     return false;
   }
   for (const argDef of [...maybeSubType.arguments()].filter(isAccessible)) {

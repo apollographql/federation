@@ -530,8 +530,9 @@ export class SelectionSet {
     return cloned;
   }
 
-  toString(): string {
-    return '{ ' + this.selections().join(' ') + ' }';
+  toString(includeExternalBrackets: boolean = true): string {
+    const selectionsToString = this.selections().join(' ');
+    return includeExternalBrackets ?  '{ ' + selectionsToString  + ' }' : selectionsToString;
   }
 }
 

@@ -9,6 +9,7 @@ import {
   InputType,
   isLeafType,
   isNullableType,
+  MultiMap,
   newDebugLogger,
   Operation,
   operationToAST,
@@ -35,6 +36,11 @@ import {
   QueryGraphState,
   SimultaneousPaths,
   ExcludedConditions,
+  Unadvanceables,
+  isUnadvanceable,
+  Unadvanceable,
+  IndirectPaths,
+  OpIndirectPaths,
 } from "@apollo/query-graphs";
 import { print } from "graphql";
 
@@ -52,14 +58,41 @@ export class ValidationError extends Error {
   }
 }
 
-function validationError(unsatisfiablePath: RootPath<Transition>, subgraphsPaths: RootPath<Transition>[]): ValidationError {
+function validationError(
+  unsatisfiablePath: RootPath<Transition>,
+  subgraphsPaths: RootPath<Transition>[],
+  subgraphsPathsUnadvanceables: Unadvanceables[]
+): ValidationError {
   const witness = buildWitnessOperation(unsatisfiablePath);
 
   // TODO: we should build a more detailed error message, not just the unsatisfiable query. Doing that well is likely a tad
   // involved though as there may be a lot of different reason why it doesn't validate. But by looking at the last edge on the
   // supergraph and the subgraphsPath, we should be able to roughly infer what's going on. 
-  const message = `Example unsatisfiable query:\n${print(operationToAST(witness))}`;
+  const operation = print(operationToAST(witness));
+  const message = `The follow supergraph API query:\n${operation}\n`
+    + 'cannot be satisfied by the subgraphs because:\n'
+    + displayReasons(subgraphsPathsUnadvanceables);
   return new ValidationError(message, unsatisfiablePath, subgraphsPaths, witness);
+}
+
+function displayReasons(reasons: Unadvanceables[]): string {
+  const bySubraph = new MultiMap<string, Unadvanceable>();
+  for (const reason of reasons) {
+    for (const unadvanceable of reason.reasons) {
+      bySubraph.add(unadvanceable.subgraph, unadvanceable);
+    }
+  }
+  return [...bySubraph.entries()].map(([subgraph, reasons]) => {
+    let msg = `- from subgraph "${subgraph}":`;
+    if (reasons.length === 1) {
+      msg += ' ' + reasons[0].details + '.';
+    } else {
+      for (const reason of reasons) {
+        msg += '\n  - ' + reason.details + '.';
+      }
+    }
+    return msg;
+  }).join('\n');
 }
 
 function buildWitnessOperation(witness: RootPath<Transition>): Operation {
@@ -188,8 +221,8 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = [...supergraphPath.graph.sources.values()][0];
     let initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
-    const cache = new QueryGraphState<GraphPath<Transition>[]>(subgraphs);
-    const conditionsCache = new QueryGraphState<OpGraphPath[]>(subgraphs);
+    const cache = new QueryGraphState<IndirectPaths<Transition>>(subgraphs);
+    const conditionsCache = new QueryGraphState<OpIndirectPaths>(subgraphs);
     let state = initialState;
     let isIncomplete = false;
     for (const [edge] of supergraphPath.elements()) {
@@ -226,9 +259,6 @@ export class ValidationState {
     // All the possible paths we could be in the subgraph.
     public readonly subgraphPaths: RootPath<Transition>[]
   ) {
-    assert(
-      subgraphPaths.every(p => p.tail.type.name == this.supergraphPath.tail.type.name),
-      () => `Invalid state ${this}: some subgraphs type don't match the supergraph.`);
   }
 
   static initial(supergraph: QueryGraph, kind: SchemaRootKind, subgraphs: QueryGraph) {
@@ -242,23 +272,26 @@ export class ValidationState {
   validateTransition(
     supergraphSchema: Schema,
     supergraphEdge: Edge,
-    cache: QueryGraphState<GraphPath<Transition>[]>,
-    conditionCache: QueryGraphState<OpGraphPath[]>
+    cache: QueryGraphState<IndirectPaths<Transition>>,
+    conditionCache: QueryGraphState<OpIndirectPaths>
   ): ValidationState | undefined {
     assert(!supergraphEdge.conditions, () => `Supergraph edges should not have conditions (${supergraphEdge})`);
 
     const transition = supergraphEdge.transition;
     const targetType = supergraphEdge.tail.type;
     const newSubgraphPaths = [];
+    const deadEnds: Unadvanceables[] = [];
     for (const path of this.subgraphPaths) {
       const options = advancePathWithTransition(
+        supergraphSchema,
         path,
         transition,
         targetType,
         (conditions, vertex, excludedEdges, excludedConditions) => validateConditions(supergraphSchema, conditions, GraphPath.create(path.graph, vertex), conditionCache, excludedEdges, excludedConditions),
         cache
       );
-      if (!options) {
+      if (isUnadvanceable(options)) {
+        deadEnds.push(options);
         continue;
       }
       if (options.length === 0) {
@@ -270,7 +303,7 @@ export class ValidationState {
     }
     const newPath = this.supergraphPath.add(transition, supergraphEdge);
     if (newSubgraphPaths.length === 0) {
-      throw validationError(newPath, this.subgraphPaths);
+      throw validationError(newPath, this.subgraphPaths, deadEnds);
     }
     return new ValidationState(newPath, newSubgraphPaths);
   }
@@ -284,14 +317,6 @@ export class ValidationState {
       }
     }
     return subgraphs;
-  }
-
-  hasCycled(): boolean {
-    // A state is a configuration that points to a particular type/vertex in the supergraph and to
-    // a number of subgraph vertex _for the same type_. So if any of the subgraph state is such that
-    // the current vertex (in the subgraph) has already been visited, then we've cycled (in a particular
-    // subgraph, but that also imply in the supergraph).
-    return this.subgraphPaths.some(p => p.hasJustCycled());
   }
 
   toString(): string {
@@ -308,8 +333,8 @@ class ValidationTaversal {
   private readonly supergraphSchema: Schema;
   // The stack contains all states that aren't terminal.
   private readonly stack: ValidationState[] = [];
-  private readonly cache: QueryGraphState<GraphPath<Transition>[]>;
-  private readonly conditionsCache: QueryGraphState<OpGraphPath[]>;
+  private readonly cache: QueryGraphState<IndirectPaths<Transition>>;
+  private readonly conditionsCache: QueryGraphState<OpIndirectPaths>;
 
   // For each vertex in the supergraph, records if we've already visited that vertex and in which subgraphs we were.
   // For a vertex, we may have multipe "sets of subgraphs", hence the double-array.
@@ -366,7 +391,7 @@ class ValidationTaversal {
       // The check for `isTerminal` is not strictly necessary as if we add a terminal
       // state to the stack this method, `handleState`, will do nothing later. But it's
       // worth checking it now and save some memory/cycles.
-      if (newState && !newState.supergraphPath.isTerminal() && !newState.hasCycled()) {
+      if (newState && !newState.supergraphPath.isTerminal()) {
         this.stack.push(newState);
         debug.groupEnd(() => `Reached new state ${newState}`);
       } else {
@@ -385,7 +410,12 @@ class ConditionValidationState {
     readonly subgraphPaths: SimultaneousPaths[]
   ) {}
 
-  validateCurrentSelection(supergraphSchema: Schema, cache: QueryGraphState<OpGraphPath[]>, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions): ConditionValidationState[] | null {
+  validateCurrentSelection(
+    supergraphSchema: Schema,
+    cache: QueryGraphState<OpIndirectPaths>,
+    excludedEdges: ExcludedEdges,
+    excludedConditions: ExcludedConditions
+  ): ConditionValidationState[] | null {
     let newPaths: SimultaneousPaths[] = [];
     for (const path of this.subgraphPaths) {
       const pathOptions = advanceSimultaneousPathsWithOperation(
@@ -423,7 +453,7 @@ function validateConditions(
   supergraphSchema: Schema,
   conditions: SelectionSet,
   initialPath: OpGraphPath,
-  cache: QueryGraphState<OpGraphPath[]>,
+  cache: QueryGraphState<OpIndirectPaths>,
   excludedEdges: ExcludedEdges,
   excludedConditions: ExcludedConditions
 ): null | undefined {

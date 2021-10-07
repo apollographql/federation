@@ -53,7 +53,8 @@ import {
   RootVertex,
   Vertex,
   isRootVertex,
-  ExcludedConditions
+  ExcludedConditions,
+  OpIndirectPaths
 } from "@apollo/query-graphs";
 import { Kind, DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -102,7 +103,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     readonly variableDefinitions: VariableDefinitions,
     startVertex: RV,
     readonly costFunction: CostFunction,
-    private readonly cache: QueryGraphState<OpGraphPath[]>,
+    private readonly cache: QueryGraphState<OpIndirectPaths>,
     private readonly excludedEdges: ExcludedEdges = [],
     private readonly excludedConditions: ExcludedConditions = [],
   ) {
@@ -312,7 +313,7 @@ function computeRootParallelBestPlan(
     variables,
     root,
     defaultCostFunction,
-    new QueryGraphState<OpGraphPath[]>(federatedQueryGraph)
+    new QueryGraphState<OpIndirectPaths>(federatedQueryGraph)
   );
   const bestPlan = planningTraversal.findBestPlan();
   if (!bestPlan) {

@@ -1,48 +1,7 @@
 import { buildSchema, extractSubgraphsFromSupergraph, ObjectType, printSchema, Schema, Subgraphs } from '@apollo/core';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
-
-// TODO: this is the same than in definition.test.ts. Would be nice to extract somewhere (tough maybe there is
-// a better, more jest-native, way to do this).
-declare global {
-  namespace jest {
-    interface Matchers<R> {
-      toMatchString(actual: string): R;
-    }
-  }
-}
-
-function deIndent(str: string): string {
-  // Strip leading \n
-  str = str.slice(str.search(/[^\n]/));
-  // Strip trailing \n or space
-  while (str.charAt(str.length - 1) === '\n' || str.charAt(str.length - 1) === ' ') {
-    str = str.slice(0, str.length - 1);
-  }
-  const indent = str.search(/[^ ]/);
-  return str
-    .split('\n')
-    .map(line => line.slice(indent))
-    .join('\n');
-}
-
-expect.extend({
-  toMatchString(expected: string, received: string) {
-    received = deIndent(received);
-    const pass = this.equals(expected, received);
-    const message = pass
-      ? () => this.utils.matcherHint('toMatchString', undefined, undefined)
-          + '\n\n'
-          + `Expected: not ${this.printExpected(expected)}`
-      : () => {
-        return (
-          this.utils.matcherHint('toMatchString', undefined, undefined,)
-          + '\n\n'
-          + this.utils.printDiffOrStringify(expected, received, 'Expected', 'Received', true));
-      };
-    return {received, expected, message, name: 'toMatchString', pass};
-  }
-});
+import './matchers';
 
 function assertCompositionSuccess(r: CompositionResult): asserts r is CompositionSuccess {
   if (r.errors) {
@@ -732,7 +691,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-               f: A
+              f: A
             }
           `,
         };
@@ -1261,7 +1220,6 @@ describe('composition', () => {
           }
         `);
       });
-
     });
   });
 });

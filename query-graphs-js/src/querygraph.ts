@@ -21,7 +21,8 @@ import {
   isExternal,
   extractSubgraphsFromSupergraph,
   FieldDefinition,
-  isCompositeType
+  isCompositeType,
+  SUBTYPING_RULES
 } from '@apollo/core';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, freeTransition, FreeTransition, Transition, KeyResolution, QueryResolution } from './transition';
@@ -150,12 +151,20 @@ export class Edge {
     return this.transition.kind === 'FieldCollection' && this.transition.definition.name === name;
   }
 
-  matchesTransition(otherTransition: Transition): boolean {
+  matchesSupergraphTransition(supergraph: Schema, otherTransition: Transition): boolean {
     const transition = this.transition;
     switch (transition.kind) {
       case 'FieldCollection':
         if (otherTransition.kind === 'FieldCollection') {
-          return isStructuralFieldSubtype(transition.definition, otherTransition.definition);
+          // isStructuralFieldSubtype relies on being about to check subtypes. And when comparing types, we
+          // want to know if types are subtypes 'in the supergraph'.
+          return isStructuralFieldSubtype(
+            transition.definition,
+            otherTransition.definition,
+            SUBTYPING_RULES, // We can safely use all rules, even if merge didn't. It just mean some rules will never be needed.
+            (union, maybeMember) => (supergraph.type(union.name)! as UnionType).hasTypeMember(maybeMember.name),
+            (maybeImplementer, itf) => (supergraph.type(maybeImplementer.name)! as (ObjectType | InterfaceType)).implementsInterface(itf)
+          );
         } else {
           return false;
         }
