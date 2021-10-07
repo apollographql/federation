@@ -221,7 +221,7 @@ The `@opentelemetry/instrumentation-graphql` library enables subgraphs and monol
 | `graphql.parse` | The amount of time the server spent parsing an operation string. |
 | `graphql.validate` | The amount of time the server spent validating an operation string. |
 | `graphql.execute` | The total amount of time the server spent executing an operation. |
-| `graphql.resolve` | The amount of time the gateway spent resolving a particular field. |
+| `graphql.resolve` | The amount of time the server spent resolving a particular field. |
 
 Note that not every GraphQL span appears in every operation trace. This is because Apollo server can _skip_ parsing or validating an operation string if that string is available in the operation cache.
 
