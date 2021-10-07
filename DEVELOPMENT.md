@@ -33,6 +33,7 @@ There is not a root `CHANGELOG.md` on this monorepo.  Instead, there are `CHANGE
  
 - `./federation-js/CHANGELOG.md` for `@apollo/federation`
 - `./query-planner-js/CHANGELOG.md` for `@apollo/query-planner`
+- `./subgraph-js/CHANGELOG.md` for `@apollo/subgraph`
 
   > Since this is not a direct dependency of our _primary_ consumers, it is best to *also* surface important changes in `@apollo/gateway`'s `CHANGELOG.md`.
 - `./gateway-js/CHANGELOG.md` for `@apollo/gateway`.

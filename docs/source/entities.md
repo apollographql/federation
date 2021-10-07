@@ -110,7 +110,7 @@ The gateway provides this representation to the entity's originating subgraph to
 }
 ```
 
-> Reference resolvers are a special addition to Apollo Server that enable entities to be referenced by other subgraphs. They are called whenever a query references an `entity` across subgraph boundaries. To learn more about `__resolveReference`, see the [API docs](/api/apollo-federation/).
+> Reference resolvers are a special addition to Apollo Server that enable entities to be referenced by other subgraphs. They are called whenever a query references an `entity` across subgraph boundaries. To learn more about `__resolveReference`, see the [API docs](/api/apollo-subgraph/).
 
 With this model, each implementing subgraph's schema represents a true subset of the complete graph. This prevents the need for defining foreign-key fields in individual schemas, and enables clients to transparently execute a query like the following, which hits both the `products` and `reviews` subgraphs:
 

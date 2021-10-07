@@ -17,18 +17,18 @@ A service that you want to act as a subgraph can use any GraphQL server that sup
 
 > If you're using a GraphQL server besides Apollo Server, consult its documentation to learn how to configure it for use as a federated service.
 
-If you have an existing GraphQL API that uses Apollo Server, you can use that server as a subgraph with the `@apollo/federation` library. You can get started with [this example server](https://github.com/apollographql/docs-examples/tree/main/apollo-server/v3/getting-started) (which is not yet federated).
+If you have an existing GraphQL API that uses Apollo Server, you can use that server as a subgraph with the `@apollo/subgraph` library. You can get started with [this example server](https://github.com/apollographql/docs-examples/tree/main/apollo-server/v3/getting-started) (which is not yet federated).
 
-First, install the `@apollo/federation` library in your project:
+First, install the `@apollo/subgraph` library in your project:
 
 ```shell
-npm install @apollo/federation
+npm install @apollo/subgraph
 ```
 
 Next, import the `buildSubgraphSchema` function in the file where you initialize `ApolloServer`:
 
 ```js:title=index.js
-const { buildSubgraphSchema } = require('@apollo/federation');
+const { buildSubgraphSchema } = require('@apollo/subgraph');
 ```
 
 Finally, modify your `ApolloServer` constructor by passing it a `schema` option instead of `typeDefs` and `resolvers`, like so:

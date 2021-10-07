@@ -21,9 +21,10 @@ import {
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
 import {
-  otherKnownDirectiveDefinitions,
+  otherKnownDirectives,
   federationDirectives,
-} from '../directives';
+  isFederationDirective,
+} from '@apollo/subgraph/dist/directives';
 import {
   findDirectivesOnNode,
   isStringValueNode,
@@ -36,17 +37,18 @@ import {
   getFederationMetadata,
   CompositionResult,
   isDirectiveDefinitionNode,
-  isFederationDirective,
   parseFieldSet,
 } from './utils';
 import {
   ServiceDefinition,
   ExternalFieldDefinition,
-  ServiceNameToKeyDirectivesMap,
-  FederationType,
-  FederationField,
   FederationDirective,
 } from './types';
+import type {
+  FederationField,
+  FederationType,
+  ServiceNameToKeyDirectivesMap,
+} from '@apollo/subgraph/dist/schemaExtensions';
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
 import { printSupergraphSdl } from '../service/printSupergraphSdl';
@@ -361,8 +363,8 @@ export function buildSchemaFromDefinitionsAndExtensions({
 
   // We only want to include the definitions of other known Apollo directives
   // (currently just @tag) if there are usages.
-  const otherKnownDirectiveDefinitionsToInclude =
-    otherKnownDirectiveDefinitions.filter((directive) =>
+  const otherKnownDirectivesToInclude =
+    otherKnownDirectives.filter((directive) =>
       directiveMetadata.hasUsages(directive.name),
     );
 
@@ -385,7 +387,7 @@ export function buildSchemaFromDefinitionsAndExtensions({
       JoinGraphDirective,
       ...specifiedDirectives,
       ...federationDirectives,
-      ...otherKnownDirectiveDefinitionsToInclude,
+      ...otherKnownDirectivesToInclude,
     ],
     types: [FieldSetScalar, JoinGraphEnum],
   });

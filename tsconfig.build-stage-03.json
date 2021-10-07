@@ -7,5 +7,6 @@
   "references": [
     { "path": "./gateway-js" },
     { "path": "./federation-integration-testsuite-js" },
+    { "path": "./subgraph-js" }
   ]
 }

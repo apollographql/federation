@@ -34,6 +34,7 @@
     "@apollo/gateway": "file:gateway-js",
     "@apollo/harmonizer": "file:harmonizer",
     "@apollo/query-planner": "file:query-planner-js",
+    "@apollo/subgraph": "file:subgraph-js",
     "@apollographql/apollo-tools": "0.5.1",
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
@@ -86,7 +87,8 @@
       "<rootDir>/federation-js",
       "<rootDir>/federation-integration-testsuite-js",
       "<rootDir>/gateway-js",
-      "<rootDir>/query-planner-js"
+      "<rootDir>/query-planner-js",
+      "<rootDir>/subgraph-js"
     ]
   }
 }

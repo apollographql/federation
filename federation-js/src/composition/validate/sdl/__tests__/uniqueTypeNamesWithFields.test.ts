@@ -10,7 +10,7 @@ import {
   graphqlErrorSerializer,
   gql,
 } from 'apollo-federation-integration-testsuite';
-import apolloTypeSystemDirectives from '../../../../directives';
+import { knownSubgraphDirectives } from '@apollo/subgraph/dist/directives';
 import { UniqueTypeNamesWithFields } from '..';
 import { ServiceDefinition } from '../../../types';
 import { buildMapsFromServiceList } from '../../../compose';
@@ -43,7 +43,7 @@ describe('UniqueTypeNamesWithFields', () => {
   beforeEach(() => {
     schema = new GraphQLSchema({
       query: undefined,
-      directives: [...specifiedDirectives, ...apolloTypeSystemDirectives],
+      directives: [...specifiedDirectives, ...knownSubgraphDirectives],
     });
   });
 

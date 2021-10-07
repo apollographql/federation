@@ -12,7 +12,7 @@ import {
   graphqlErrorSerializer,
   gql,
 } from 'apollo-federation-integration-testsuite';
-import apolloTypeSystemDirectives from '../../../../directives';
+import { knownSubgraphDirectives } from '@apollo/subgraph/dist/directives';
 import { ServiceDefinition } from '../../../types';
 import { PossibleTypeExtensions } from '../possibleTypeExtensions';
 
@@ -48,7 +48,7 @@ describe('PossibleTypeExtensionsType', () => {
   beforeEach(() => {
     schema = new GraphQLSchema({
       query: undefined,
-      directives: [...specifiedDirectives, ...apolloTypeSystemDirectives],
+      directives: [...specifiedDirectives, ...knownSubgraphDirectives],
     });
   });
 

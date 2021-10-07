@@ -1,7 +1,7 @@
 import {
-  directiveDefinitionsAreCompatible,
   federationDirectives,
-} from '../../../directives';
+  directiveDefinitionsAreCompatible,
+} from '@apollo/subgraph/dist/directives';
 import {
   DirectiveDefinitionNode,
   KnownDirectivesRule,

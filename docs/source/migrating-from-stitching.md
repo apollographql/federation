@@ -35,17 +35,17 @@ Because of this, we recommend that you migrate your subgraphs in-place instead o
 
 ### Using Apollo Server
 
-If your subgraphs use Apollo Server, add federation support to them by installing the `@apollo/federation` package:
+If your subgraphs use Apollo Server, add federation support to them by installing the `@apollo/subgraph` package:
 
 ```bash
-npm install @apollo/federation
+npm install @apollo/subgraph
 ```
 
 Then use the `buildSubgraphSchema` function to augment your schema with fields that are necessary for federation support:
 
 ```js
 const { ApolloServer } = require('apollo-server');
-const { buildSubgraphSchema } = require('@apollo/federation');
+const { buildSubgraphSchema } = require('@apollo/subgraph');
 
 const server = new ApolloServer({
   schema: buildSubgraphSchema([

@@ -4,8 +4,8 @@ import {
   logDirective,
   typeNodesAreEquivalent,
   getFederationMetadata,
-  isApolloTypeSystemDirective,
 } from '../../utils';
+import { isKnownSubgraphDirective } from '@apollo/subgraph/dist/directives';
 import { PostCompositionValidator } from '.';
 
 /**
@@ -21,7 +21,7 @@ export const executableDirectivesIdentical: PostCompositionValidator = ({
 
   const customDirectives = schema
     .getDirectives()
-    .filter(x => !isApolloTypeSystemDirective(x) && !isSpecifiedDirective(x));
+    .filter(x => !isKnownSubgraphDirective(x) && !isSpecifiedDirective(x));
 
   customDirectives.forEach(directive => {
     const directiveFederationMetadata = getFederationMetadata(directive);

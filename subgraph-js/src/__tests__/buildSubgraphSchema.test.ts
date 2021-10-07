@@ -328,8 +328,7 @@ type Query {
 
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl)
-        .toEqual(`type Review {
+      expect(data?._service.sdl).toEqual(`type Review {
   id: ID
   title: String
 }
@@ -457,8 +456,7 @@ extend interface Product @key(fields: "upc") {
 
       const { data, errors } = await graphql(schema, query);
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl)
-        .toEqual(`type Review @key(fields: "id") {
+      expect(data?._service.sdl).toEqual(`type Review @key(fields: "id") {
   id: ID!
   body: String
   author: User @provides(fields: "email")

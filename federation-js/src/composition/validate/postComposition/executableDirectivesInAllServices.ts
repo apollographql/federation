@@ -3,8 +3,8 @@ import {
   errorWithCode,
   logDirective,
   getFederationMetadata,
-  isApolloTypeSystemDirective,
 } from '../../utils';
+import { isKnownSubgraphDirective } from '@apollo/subgraph/dist/directives';
 import { PostCompositionValidator } from '.';
 /**
  * All custom directives with executable locations must be implemented in every
@@ -20,7 +20,7 @@ export const executableDirectivesInAllServices: PostCompositionValidator = ({
 
   const customExecutableDirectives = schema
     .getDirectives()
-    .filter(x => !isApolloTypeSystemDirective(x) && !isSpecifiedDirective(x));
+    .filter(x => !isKnownSubgraphDirective(x) && !isSpecifiedDirective(x));
 
   customExecutableDirectives.forEach(directive => {
     const directiveFederationMetadata = getFederationMetadata(directive);

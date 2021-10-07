@@ -16,7 +16,11 @@ import {
   VisitFn,
 } from 'graphql';
 import { mapGetOrSet } from '../utilities';
-import { FederationField, FederationType, ServiceDefinition } from './types';
+import { ServiceDefinition } from './types';
+import type {
+  FederationField,
+  FederationType,
+} from '@apollo/subgraph/dist/schemaExtensions';
 import { getFederationMetadata } from './utils';
 
 // directive name => usages

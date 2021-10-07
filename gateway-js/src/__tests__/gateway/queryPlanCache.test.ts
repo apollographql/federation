@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
-import { buildSubgraphSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/subgraph';
 
 import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
 import { ApolloGateway } from '../../';

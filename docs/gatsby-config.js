@@ -50,7 +50,7 @@ module.exports = {
             'opentelemetry',
           ],
           'Third-Party Support': ['other-servers', 'federation-spec'],
-          'API Reference': ['api/apollo-federation', 'api/apollo-gateway'],
+          'API Reference': ['api/apollo-subgraph', 'api/apollo-gateway'],
         },
       },
     },

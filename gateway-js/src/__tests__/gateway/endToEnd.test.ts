@@ -1,5 +1,5 @@
 import { GraphQLSchemaModule } from 'apollo-graphql';
-import { buildFederatedSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/subgraph';
 import { ApolloServer } from 'apollo-server';
 import fetch from 'node-fetch';
 import { ApolloGateway } from '../..';
@@ -7,7 +7,7 @@ import { fixtures } from 'apollo-federation-integration-testsuite';
 import { ApolloServerPluginInlineTrace } from 'apollo-server-core';
 
 async function startFederatedServer(modules: GraphQLSchemaModule[]) {
-  const schema = buildFederatedSchema(modules);
+  const schema = buildSubgraphSchema(modules);
   const server = new ApolloServer({
     schema,
     // Manually installing the inline trace plugin means it doesn't log a message.

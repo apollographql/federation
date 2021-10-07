@@ -6,11 +6,10 @@ import {
 import { GraphQLRequest, GraphQLExecutionResult, Logger } from 'apollo-server-types';
 import {
   composeAndValidate,
-  buildSubgraphSchema,
   ServiceDefinition,
   compositionHasErrors,
 } from '@apollo/federation';
-
+import { buildSubgraphSchema } from '@apollo/subgraph';
 import {
   executeQueryPlan,
   buildOperationContext,

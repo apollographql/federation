@@ -1,5 +1,5 @@
 import { LocalGraphQLDataSource } from '../LocalGraphQLDataSource';
-import { buildSubgraphSchema } from '@apollo/federation';
+import { buildSubgraphSchema } from '@apollo/subgraph';
 import gql from 'graphql-tag';
 import { GraphQLResolverMap } from 'apollo-graphql';
 import { GraphQLRequestContext } from 'apollo-server-types';

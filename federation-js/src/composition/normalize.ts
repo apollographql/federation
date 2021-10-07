@@ -15,7 +15,7 @@ import {
   reservedRootFields,
   defaultRootOperationNameLookup
 } from './utils';
-import apolloTypeSystemDirectives from '../directives';
+import { knownSubgraphDirectives } from '@apollo/subgraph/dist/directives';
 
 export function normalizeTypeDefs(typeDefs: DocumentNode) {
   // The order of this is important - `stripCommonPrimitives` must come after
@@ -299,7 +299,7 @@ export function stripCommonPrimitives(document: DocumentNode) {
     // Remove all common directive definitions from the document
     DirectiveDefinition(node) {
       const isCommonDirective = [
-        ...apolloTypeSystemDirectives,
+        ...knownSubgraphDirectives,
         ...specifiedDirectives,
       ].some((directive) => directive.name === node.name.value);
       return isCommonDirective ? null : node;

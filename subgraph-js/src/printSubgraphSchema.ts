@@ -3,7 +3,6 @@
  * This file has been modified to support printing subgraph
  * schema, including associated federation directives.
  */
-import { deprecate } from 'util';
 import {
   GraphQLSchema,
   isSpecifiedDirective,
@@ -30,18 +29,13 @@ import {
   GraphQLField,
   DEFAULT_DEPRECATION_REASON,
 } from 'graphql';
-import { FederationField, FederationType, Maybe } from '../composition';
-import { isFederationType } from '../types';
-import { isApolloTypeSystemDirective } from '../composition/utils';
-import { federationDirectives, gatherDirectives } from '../directives';
-
-/**
- * @deprecated Use `printSubgraphSchema` instead.
- */
-export const printSchema = deprecate(
-  printSubgraphSchema,
-  `'printSchema' is deprecated. Use 'printSubgraphSchema' instead.`,
-);
+import { isFederationType, Maybe } from './types';
+import { FederationField, FederationType } from './schemaExtensions';
+import {
+  gatherDirectives,
+  isKnownSubgraphDirective,
+  federationDirectives,
+} from './directives';
 
 export function printSubgraphSchema(schema: GraphQLSchema): string {
   return printFilteredSchema(
@@ -49,17 +43,13 @@ export function printSubgraphSchema(schema: GraphQLSchema): string {
     // Apollo change: treat the directives defined by the federation spec
     // similarly to the directives defined by the GraphQL spec (ie, don't print
     // their definitions).
-    (n) => !isSpecifiedDirective(n) && !isApolloTypeSystemDirective(n),
+    (n) => !isSpecifiedDirective(n) && !isKnownSubgraphDirective(n),
     isDefinedType,
   );
 }
 
 export function printIntrospectionSchema(schema: GraphQLSchema): string {
-  return printFilteredSchema(
-    schema,
-    isSpecifiedDirective,
-    isIntrospectionType,
-  );
+  return printFilteredSchema(schema, isSpecifiedDirective, isIntrospectionType);
 }
 
 // Apollo change: treat the types defined by the federation spec
@@ -274,8 +264,7 @@ function printEnum(type: GraphQLEnumType): string {
 
 function printInputObject(type: GraphQLInputObjectType): string {
   const fields = Object.values(type.getFields()).map(
-    (f, i) =>
-      printDescription(f, '  ', !i) + '  ' + printInputValue(f),
+    (f, i) => printDescription(f, '  ', !i) + '  ' + printInputValue(f),
   );
   return printDescription(type) + `input ${type.name}` + printBlock(fields);
 }
@@ -317,16 +306,16 @@ function printFederationDirectives(
 // Apollo addition: print `@tag` directive usages (and possibly other future known
 // directive usages) found in subgraph SDL.
 function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
- const tagUsages = (
-   field.extensions?.federation as FederationField
- )?.directiveUsages?.get('tag');
+  const tagUsages = (
+    field.extensions?.federation as FederationField
+  )?.directiveUsages?.get('tag');
   if (!tagUsages || tagUsages.length < 1) return '';
   return ` ${tagUsages
     .slice()
     .sort((a, b) => a.name.value.localeCompare(b.name.value))
     .map(print)
     .join(' ')}`;
-};
+}
 
 function printBlock(items: string[]) {
   return items.length !== 0 ? ' {\n' + items.join('\n') + '\n}' : '';
@@ -434,7 +423,7 @@ function printDescription(
  * trailing blank line. However, if a block string starts with whitespace and is
  * a single-line, adding a leading blank line would strip that whitespace.
  */
- export function printBlockString(
+export function printBlockString(
   value: string,
   preferMultipleLines: boolean = false,
 ): string {

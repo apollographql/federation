@@ -1,0 +1,1 @@
+export { buildSubgraphSchema } from './buildSubgraphSchema';
