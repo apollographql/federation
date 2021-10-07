@@ -1,4 +1,4 @@
-import { printSchema, Schema, Subgraphs, defaultPrintOptions, orderPrintedDefinitions, ServiceDefinition, subgraphsFromServiceList } from "@apollo/core";
+import { printSchema, Schema, Subgraphs, defaultPrintOptions, orderPrintedDefinitions, ServiceDefinition, subgraphsFromServiceList, error } from "@apollo/core";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
 import { mergeSubgraphs } from "./merging";
@@ -31,8 +31,8 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraphSchema);
   const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema);
   const validationResult = validateGraphComposition(supergraphQueryGraph, federatedQueryGraph);
-  if (validationResult.error) {
-    return { errors: [new GraphQLError(validationResult.error.message)] };
+  if (validationResult.errors) {
+    return { errors: validationResult.errors.map(e => error('COMPOSITION_SATISFIABILITY_ERROR', e.message)) };
   }
 
   return {

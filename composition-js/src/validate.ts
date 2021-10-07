@@ -75,6 +75,10 @@ function validationError(
   return new ValidationError(message, unsatisfiablePath, subgraphsPaths, witness);
 }
 
+function isValidationError(e: any): e is ValidationError {
+  return e instanceof ValidationError;
+}
+
 function displayReasons(reasons: Unadvanceables[]): string {
   const bySubraph = new MultiMap<string, Unadvanceable>();
   for (const reason of reasons) {
@@ -204,16 +208,9 @@ function generateWitnessValue(type: InputType): any {
   }
 }
 
-export function validateGraphComposition(supergraph: QueryGraph, subgraphs: QueryGraph): {error? : ValidationError} {
-  try {
-    new ValidationTaversal(supergraph, subgraphs).validate();
-    return {};
-  } catch (e) {
-    if (e instanceof ValidationError) {
-      return {error: e};
-    }
-    throw e;
-  }
+export function validateGraphComposition(supergraph: QueryGraph, subgraphs: QueryGraph): {errors? : ValidationError[]} {
+  const errors = new ValidationTaversal(supergraph, subgraphs).validate();
+  return errors.length > 0 ? {errors} : {};
 }
 
 export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgraphs: QueryGraph): {traversal?: ValidationState, isComplete?: boolean, error?: ValidationError} {
@@ -230,6 +227,9 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
       if (!updated) {
         isIncomplete = true;
         break;
+      }
+      if (isValidationError(updated)) {
+        throw updated;
       }
       state = updated;
     }
@@ -265,7 +265,7 @@ export class ValidationState {
     return new ValidationState(GraphPath.fromGraphRoot(supergraph, kind)!, initialSubgraphPaths(kind, subgraphs));
   }
 
-  // Either throw (we've found a path that cannot be validated), return a new state (we've successfully handled the edge
+  // Either return an error (we've found a path that cannot be validated), a new state (we've successfully handled the edge
   // and can continue validation from this new state) or 'undefined' if we can handle that edge by returning no results
   // as it gets us in a (valid) situation where we can guarantee there will be no results (in other words, the edge correspond
   // to a type condition for which there cannot be any runtime types, and so no point in continuing this "branch").
@@ -274,7 +274,7 @@ export class ValidationState {
     supergraphEdge: Edge,
     cache: QueryGraphState<IndirectPaths<Transition>>,
     conditionCache: QueryGraphState<OpIndirectPaths>
-  ): ValidationState | undefined {
+  ): ValidationState | undefined | ValidationError {
     assert(!supergraphEdge.conditions, () => `Supergraph edges should not have conditions (${supergraphEdge})`);
 
     const transition = supergraphEdge.transition;
@@ -303,7 +303,7 @@ export class ValidationState {
     }
     const newPath = this.supergraphPath.add(transition, supergraphEdge);
     if (newSubgraphPaths.length === 0) {
-      throw validationError(newPath, this.subgraphPaths, deadEnds);
+      return validationError(newPath, this.subgraphPaths, deadEnds);
     }
     return new ValidationState(newPath, newSubgraphPaths);
   }
@@ -340,6 +340,7 @@ class ValidationTaversal {
   // For a vertex, we may have multipe "sets of subgraphs", hence the double-array.
   private readonly previousVisits: QueryGraphState<string[][]>;
 
+  private readonly validationErrors: ValidationError[] = [];
 
   constructor(supergraph: QueryGraph, subgraphs: QueryGraph) {
     this.supergraphSchema = [...supergraph.sources.values()][0];
@@ -349,10 +350,11 @@ class ValidationTaversal {
     this.previousVisits = new QueryGraphState(supergraph);
   }
 
-  validate() {
+  validate(): ValidationError[] {
     while (this.stack.length > 0) {
       this.handleState(this.stack.pop()!);
     }
+    return this.validationErrors;
   }
 
   private handleState(state: ValidationState) {
@@ -388,6 +390,12 @@ class ValidationTaversal {
 
       debug.group(() => `Validating supergraph edge ${edge}`);
       const newState = state.validateTransition(this.supergraphSchema, edge, this.cache, this.conditionsCache);
+      if (isValidationError(newState)) {
+        debug.groupEnd(`Validation error!`);
+        this.validationErrors.push(newState);
+        continue;
+      }
+
       // The check for `isTerminal` is not strictly necessary as if we add a terminal
       // state to the stack this method, `handleState`, will do nothing later. But it's
       // worth checking it now and save some memory/cycles.
