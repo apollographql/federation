@@ -4,7 +4,9 @@ sidebar_title: Subgraph specification
 description: For implementing subgraphs in other languages
 ---
 
-> This content is meant for developers adding federated subgraph support to alternative GraphQL servers, and for anyone curious about the inner workings of federation. It is not needed to use or understand federation when using Apollo Server.
+> This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. It is _not_ required if you're already using a [subgraph-compatible library](./other-servers/) like Apollo Server.
+>
+> Servers that are partially or fully compatible with this specification are tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility).
 
 To make a GraphQL service subgraph-capable, it needs the following:
 
