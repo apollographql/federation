@@ -4,7 +4,11 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- Emit a deprecation warning for deprecated functions. [PR #1033](https://github.com/apollographql/federation/pull/1033)
+- _Nothing yet. Stay tuned._
+
+## v0.42.1
+
+- Emit a deprecation warning for deprecated functions. We would advise to adjust the code to use the new functionality, as the deprecated functions will be removed in a future version. If needed, deprecation warnings can be muted with either the --no-deprecation or --no-warnings command-line flags for node.js. Please keep in mind in doing so will also prevent any future deprecation warnings from node.js itself as well as from any package.[PR #1033](https://github.com/apollographql/federation/pull/1033).
 
 ## v0.42.0
 
