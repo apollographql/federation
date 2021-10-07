@@ -30,7 +30,7 @@ import {
   GraphQLEnumValue,
   DEFAULT_DEPRECATION_REASON,
 } from 'graphql';
-import {
+import type {
   FederationType,
   FederationField,
   FieldSet,

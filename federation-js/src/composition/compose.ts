@@ -44,7 +44,7 @@ import {
   ExternalFieldDefinition,
   FederationDirective,
 } from './types';
-import {
+import type {
   FederationField,
   FederationType,
   ServiceNameToKeyDirectivesMap,

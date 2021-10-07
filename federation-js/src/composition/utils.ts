@@ -40,15 +40,13 @@ import {
   FederationDirective,
   ServiceDefinition,
 } from './types';
-import {
+import type {
   FederationType,
   FederationField,
   FieldSet,
 } from '@apollo/subgraph/dist/schemaExtensions';
-import {
-  knownSubgraphDirectives,
-  ASTNodeWithDirectives,
-} from '@apollo/subgraph/dist/directives';
+import type { ASTNodeWithDirectives } from '@apollo/subgraph/dist/directives';
+import { knownSubgraphDirectives } from '@apollo/subgraph/dist/directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
 import { Parser } from 'graphql/language/parser';
 

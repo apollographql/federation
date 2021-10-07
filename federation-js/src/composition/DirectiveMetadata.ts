@@ -17,7 +17,7 @@ import {
 } from 'graphql';
 import { mapGetOrSet } from '../utilities';
 import { ServiceDefinition } from './types';
-import {
+import type {
   FederationField,
   FederationType,
 } from '@apollo/subgraph/dist/schemaExtensions';
