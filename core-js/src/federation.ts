@@ -144,8 +144,10 @@ export class FederationBuiltIns extends BuiltIns {
   addBuiltInDirectives(schema: Schema) {
     super.addBuiltInDirectives(schema);
 
+    // Note that fed 1 also allow @key on interfaces. But this doesn't do anything and this is wrong: we should only allow @key on interfaces
+    // when that actually work and do something.
     const keyDirective = this.addBuiltInDirective(schema, keyDirectiveName)
-      .addLocations('OBJECT', 'INTERFACE');
+      .addLocations('OBJECT');
     // TODO: I believe fed 1 does not mark key repeatable and relax validation to accept repeating non-repeatable directive.
     // Do we want to perputuate this? (Obviously, this is for historical reason and some graphQL implementations still do
     // not support 'repeatable'. But since this code does not kick in within users' code, not sure we have to accomodate

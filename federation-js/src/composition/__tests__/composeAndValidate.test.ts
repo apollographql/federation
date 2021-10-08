@@ -236,7 +236,7 @@ it('treats interfaces with @extends as interface extensions', () => {
         products: [Product]!
       }
 
-      interface Product @key(fields: "sku") {
+      interface Product {
         sku: String!
         upc: String!
       }
@@ -246,9 +246,8 @@ it('treats interfaces with @extends as interface extensions', () => {
 
   const serviceB = {
     typeDefs: gql`
-      interface Product @extends @key(fields: "sku") {
-        sku: String! @external
-        price: Int! @requires(fields: "sku")
+      interface Product @extends {
+        price: Int!
       }
     `,
     name: 'serviceB',
