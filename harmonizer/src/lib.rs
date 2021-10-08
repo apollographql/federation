@@ -174,7 +174,7 @@ mod tests {
                     "users",
                     "undefined",
                     "
-            type User {
+            type User @key(fields: \"id\") {
               id: ID
               name: String
             }
@@ -193,7 +193,8 @@ mod tests {
               name: String
             }
 
-            extend type User {
+            type User @key(fields: \"id\") {
+              id: ID
               favorites: [Movie!]
             }
 
