@@ -387,7 +387,11 @@ export function isFederationSubgraphSchema(schema: Schema): boolean {
 }
 
 export function isFederationType(type: NamedType): boolean {
-  return FEDERATION_TYPES.includes(type.name);
+  return isFederationTypeName(type.name);
+}
+
+export function isFederationTypeName(typeName: string): boolean {
+  return FEDERATION_TYPES.includes(typeName);
 }
 
 export function isFederationField(field: FieldDefinition<CompositeType>): boolean {

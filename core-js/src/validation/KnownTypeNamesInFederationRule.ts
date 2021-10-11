@@ -1,12 +1,15 @@
 import { ASTNode, ASTVisitor, GraphQLError, introspectionTypes, isTypeDefinitionNode, isTypeExtensionNode, isTypeSystemDefinitionNode, isTypeSystemExtensionNode, specifiedScalarTypes, ValidationContext } from "graphql";
 import { SDLValidationContext } from "graphql/validation/ValidationContext";
+import { isFederationTypeName } from "../federation";
 import { didYouMean, suggestionList } from "../suggestions";
 
 /**
  * Modified version of the 'Known type names' GraphQL-js rule that allows types to only be defined as "extensions".
  *
- * A GraphQL document is only valid if referenced types (specifically
- * variable definitions and fragment conditions) are defined by the type schema.
+ * This also ignore the types specific by federation (_Entity, _Any and _Service): those will exists even if they
+ * are not in the original user AST (note that this exception was added to support some strange customer schema
+ * where the subgraph declared `_entities` and `_service` fields where declared in `Query` _but_ the related type
+ * were not.
  */
 export function KnownTypeNamesInFederationRule(
   context: ValidationContext | SDLValidationContext,
@@ -56,7 +59,7 @@ const standardTypeNames = [...specifiedScalarTypes, ...introspectionTypes].map(
 );
 
 function isStandardTypeName(typeName: string): boolean {
-  return standardTypeNames.indexOf(typeName) !== -1;
+  return standardTypeNames.indexOf(typeName) !== -1 || isFederationTypeName(typeName);
 }
 
 function isSDLNode(value: ASTNode | readonly ASTNode[]): boolean {
