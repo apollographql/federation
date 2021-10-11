@@ -15,6 +15,8 @@ describe('printSubgraphSchema', () => {
 
       directive @transform(from: String!) on FIELD
 
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+
       directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
       enum CacheControlScope {
@@ -32,7 +34,7 @@ describe('printSubgraphSchema', () => {
         number: String
       }
 
-      union AccountType = PasswordAccount | SMSAccount
+      union AccountType @tag(name: \\"from-accounts\\") = PasswordAccount | SMSAccount
 
       type UserMetadata {
         name: String
@@ -40,11 +42,11 @@ describe('printSubgraphSchema', () => {
         description: String
       }
 
-      type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") {
-        id: ID!
+      type User @key(fields: \\"id\\") @key(fields: \\"username name { first last }\\") @tag(name: \\"from-accounts\\") {
+        id: ID! @tag(name: \\"accounts\\")
         name: Name
         username: String
-        birthDate(locale: String): String
+        birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\")
         account: AccountType
         metadata: [UserMetadata]
         ssn: String
@@ -81,6 +83,8 @@ describe('printSubgraphSchema', () => {
       "directive @stream on FIELD
 
       directive @transform(from: String!) on FIELD
+
+      directive @tag(name: String!) repeatable on INTERFACE | FIELD_DEFINITION | OBJECT | UNION
 
       type Review @key(fields: \\"id\\") {
         id: ID!
@@ -123,8 +127,8 @@ describe('printSubgraphSchema', () => {
         address: String @external
       }
 
-      extend type User @key(fields: \\"id\\") {
-        id: ID! @external
+      extend type User @key(fields: \\"id\\") @tag(name: \\"from-reviews\\") {
+        id: ID! @external @tag(name: \\"on-external\\")
         username: String @external
         reviews: [Review]
         numberOfReviews: Int!
@@ -132,7 +136,7 @@ describe('printSubgraphSchema', () => {
         goodAddress: Boolean @requires(fields: \\"metadata { address }\\")
       }
 
-      extend interface Product {
+      extend interface Product @tag(name: \\"from-reviews\\") {
         reviews: [Review]
       }
 
