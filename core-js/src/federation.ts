@@ -109,7 +109,11 @@ function validateFieldSet(
       if (msg.endsWith('.')) {
         msg = msg.slice(0, msg.length - 1);
       }
-      msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
+      if (directive.name === keyDirectiveName) {
+        msg = msg + ' (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
+      } else {
+        msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
+      }
     }
     return new GraphQLError(`On ${targetDescription}, for ${directive}: ${msg}`, nodes);
   }
