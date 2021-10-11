@@ -1209,6 +1209,7 @@ class Merger {
     //   Which we can only guarantee if all the subgraphs know the directive, and that the directive
     //   definition is the intersection of all definitions (meaning that if there divergence in
     //   locations, we only expose locations that are common everywhere).
+    this.mergeDescription(sources, dest);
     if (MERGED_TYPE_SYSTEM_DIRECTIVES.includes(dest.name)) {
       this.mergeTypeSystemDirectiveDefinition(sources, dest);
     } else {

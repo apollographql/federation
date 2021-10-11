@@ -2941,4 +2941,5 @@ function copyDirectiveDefinitionInner(source: DirectiveDefinition, dest: Directi
   dest.repeatable = source.repeatable;
   dest.addLocations(...source.locations);
   dest.sourceAST = source.sourceAST;
+  dest.description = source.description;
 }
