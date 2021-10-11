@@ -30,7 +30,6 @@ import {
   DEFAULT_DEPRECATION_REASON,
 } from 'graphql';
 import { isFederationType, Maybe } from './types';
-import { FederationField, FederationType } from './schemaExtensions';
 import {
   gatherDirectives,
   federationDirectives,

@@ -34,7 +34,7 @@ import type {
   FederationType,
   FederationField,
   FieldSet,
-} from '@apollo/subgraph/dist/schemaExtensions';
+} from '../composition/types';
 import { Maybe } from '../composition';
 import { assert } from '../utilities';
 import { printFieldSet } from '../composition/utils';
