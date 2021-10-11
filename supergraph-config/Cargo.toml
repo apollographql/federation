@@ -1,0 +1,17 @@
+[package]
+name = "supergraph-config"
+version = "0.1.0"
+authors = ["Apollo Developers <opensource@apollographql.com>"]
+edition = "2018"
+license ="MIT"
+
+[dependencies]
+camino = { version = "1", features = [ "serde1" ] }
+log = "0.4"
+serde = "1"
+serde_yaml = "0.8"
+thiserror = "1"
+url = { version = "2", features = [ "serde" ] }
+
+[dev-dependencies]
+assert_fs = "1"

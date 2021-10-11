@@ -11,15 +11,23 @@ license = "MIT"
 readme = "README.md"
 include = [ "dist/**/*", "js/**/*", "src/**/*", "Cargo.toml" ]
 
+[lib]
+name = "harmonizer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "harmonizer"
+path = "src/bin.rs"
+
 [dependencies]
 anyhow = "1.0.39"
 deno_core = "0.86.0"
 serde_json = "1.0.60"
 thiserror = "1.0.23"
 
-  [dependencies.serde]
-  version = "1.0"
-  features = [ "derive" ]
+[dependencies.serde]
+version = "1.0"
+features = [ "derive" ]
 
 [dev-dependencies]
 insta = "1.8.0"

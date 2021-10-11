@@ -1,6 +1,7 @@
 [workspace]
+resolver = "2"
 members = [
   "harmonizer",
-  "harmonizer-bin",
   "router-bridge",
+  "supergraph-config",
 ]
