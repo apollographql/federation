@@ -19,7 +19,7 @@ import {
   Type,
   VariableDefinitions
 } from "./definitions";
-import { federationBuiltIns } from "./federation";
+import { addSubgraphToError, federationBuiltIns } from "./federation";
 import { CoreSpecDefinition, FeatureVersion } from "./coreSpec";
 import { JoinSpecDefinition } from "./joinSpec";
 import { parseSelectionSet } from "./operations";
@@ -27,6 +27,7 @@ import { Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";
 import { builtTypeReference } from "./buildSchema";
+import { GraphQLError } from "graphql";
 
 function filteredTypes(
   supergraph: Schema,
@@ -242,7 +243,13 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
   // We're done with the subgraphs, so call validate (which, amongst other things, sets up the _entities query field, which ensures
   // all entities in all subgraphs are reachable from a query and so are properly included in the "query graph" later).
   for (const subgraph of subgraphs) {
-    subgraph.schema.validate();
+    try {
+      subgraph.schema.validate();
+    } catch (e) {
+      // This is a "bug": we shouldn't be extracting invalid subgraphs if the supergraph is valid.
+      const details = e instanceof GraphQLError ? addSubgraphToError(e, subgraph.name).toString() : String(e);
+      throw new Error(`Unexpected error extracting subgraph information from the supergraph. This is either a bug, or the supergraph has been corrupted.\nCaused by: ${details}`);
+    }
   }
 
   return subgraphs;

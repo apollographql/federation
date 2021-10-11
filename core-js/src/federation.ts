@@ -16,6 +16,7 @@ import {
   ErrGraphQLValidationFailed,
   SchemaElement,
   baseType,
+  isInterfaceType,
   isObjectType,
   sourceASTs
 } from "./definitions";
@@ -26,7 +27,7 @@ import { ASTNode, DocumentNode, GraphQLError, KnownTypeNamesRule, parse, Possibl
 import { defaultPrintOptions, printDirectiveDefinition } from "./print";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
-import { parseSelectionSet } from './operations';
+import { parseSelectionSet, SelectionSet } from './operations';
 import { tagLocations, TAG_VERSIONS } from "./tagSpec";
 import { error } from "./error";
 
@@ -82,14 +83,28 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
+function allExternalFieldsCoordinates(selectionSet: SelectionSet): string[] {
+  const coordinates: string[] = [];
+  for (const selection of selectionSet.selections()) {
+    if (selection.kind === 'FieldSelection' && selection.element().definition.hasAppliedDirective(externalDirectiveName)) {
+      coordinates.push(selection.element().definition.coordinate);
+    }
+    if (selection.selectionSet) {
+      coordinates.push(...allExternalFieldsCoordinates(selection.selectionSet));
+    }
+  }
+  return coordinates;
+}
+
 function validateFieldSet(
   type: CompositeType,
   directive: Directive<any, {fields: string}>,
   targetDescription: string
-): GraphQLError | undefined {
+): GraphQLError | string[] {
   try {
-    parseSelectionSet(type, directive.arguments().fields).validate();
-    return undefined;
+    const selectionSet = parseSelectionSet(type, directive.arguments().fields);
+    selectionSet.validate();
+    return allExternalFieldsCoordinates(selectionSet);
   } catch (e) {
     if (!(e instanceof GraphQLError)) {
       throw e;
@@ -122,18 +137,44 @@ function validateFieldSet(
 function validateAllFieldSet<TParent extends SchemaElement<any>>(
   definition: DirectiveDefinition<{fields: string}>,
   parentTypeExtractor: (element: TParent) => CompositeType,
-  targetDescriptionExtractor: (element: TParent) => string
-): GraphQLError[] {
-  const errors: GraphQLError[] = [];
+  targetDescriptionExtractor: (element: TParent) => string,
+  errorCollector: GraphQLError[],
+  externalFieldCoordinatesCollector: string[]
+): void {
   for (const application of definition.applications()) {
     const elt = application.parent! as TParent;
     const type = parentTypeExtractor(elt);
-    const error = validateFieldSet(type, application, targetDescriptionExtractor(elt));
-    if (error) {
-      errors.push(error);
+    const errorOrFields = validateFieldSet(type, application, targetDescriptionExtractor(elt));
+    if (Array.isArray(errorOrFields)) {
+      externalFieldCoordinatesCollector.push(...errorOrFields);
+    } else {
+      errorCollector.push(errorOrFields);
     }
   }
-  return errors;
+}
+
+/**
+ * Checks that all fields marked @external is used in a @key, @provides or @requires
+ */
+function validateAllExternalFieldsUsed(
+  schema: Schema,
+  allUsedExternalFieldsCoordinates: string[],
+  errorCollector: GraphQLError[],
+): void {
+  for (const type of schema.types()) {
+    if (!isObjectType(type) && !isInterfaceType(type)) {
+      continue;
+    }
+    for (const field of type.fields()) {
+      if (field.hasAppliedDirective(externalDirectiveName) && !allUsedExternalFieldsCoordinates.includes(field.coordinate)) {
+        errorCollector.push(new GraphQLError(
+          `Field ${field.coordinate} is marked @external but is not used in any @key, @provides or @requires `
+          + '(@external is only used to mark fields that are used in a @key, @provides or @requires "fields" argument but are not resolvable by the subgraph).',
+          field.sourceAST
+        ));
+      }
+    }
+  }
 }
 
 export class FederationBuiltIns extends BuiltIns {
@@ -219,7 +260,7 @@ export class FederationBuiltIns extends BuiltIns {
 
   onValidation(schema: Schema): GraphQLError[] {
     // We skip the validation on tagDirective to have a more targeted error message later below
-    let errors = super.onValidation(schema, [tagDirectiveName]);
+    const errors = super.onValidation(schema, [tagDirectiveName]);
 
     // We rename all root type to their default names (we do here rather than in `prepareValidation` because
     // that can actually fail).
@@ -243,18 +284,23 @@ export class FederationBuiltIns extends BuiltIns {
       }
     }
 
+    const externalFieldCoordinates: string[] = [];
     // We validate the @key, @requires and @provides.
-    errors = errors.concat(validateAllFieldSet<CompositeType>(
+    validateAllFieldSet<CompositeType>(
       this.keyDirective(schema),
       type => type,
-      type => `type "${type}"`
-    ));
-    errors = errors.concat(validateAllFieldSet<FieldDefinition<CompositeType>>(
+      type => `type "${type}"`,
+      errors,
+      externalFieldCoordinates
+    );
+    validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.requiresDirective(schema),
       field => field.parent!,
-      field => `field "${field.coordinate}"`
-    ));
-    errors = errors.concat(validateAllFieldSet<FieldDefinition<CompositeType>>(
+      field => `field "${field.coordinate}"`,
+      errors,
+      externalFieldCoordinates
+    );
+    validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.providesDirective(schema),
       field => {
         const type = baseType(field.type!);
@@ -265,8 +311,11 @@ export class FederationBuiltIns extends BuiltIns {
         }
         return type;
       },
-      field => `field ${field.coordinate}`
-    ));
+      field => `field ${field.coordinate}`,
+      errors,
+      externalFieldCoordinates
+    );
+    validateAllExternalFieldsUsed(schema, externalFieldCoordinates, errors);
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = this.tagDirective(schema);
@@ -490,5 +539,5 @@ export function addSubgraphToError(e: GraphQLError, subgraphName: string): Graph
     cause.extensions
   ));
 
-  throw ErrGraphQLValidationFailed(updatedCauses);
+  return ErrGraphQLValidationFailed(updatedCauses);
 }
