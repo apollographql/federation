@@ -18,7 +18,8 @@ import {
   externalDirectiveName,
   isCompositeType,
   federationBuiltIns,
-  parseFieldSetArgument
+  parseFieldSetArgument,
+  keyDirectiveName
 } from "@apollo/core";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, QueryGraphState } from "./querygraph";
@@ -316,10 +317,12 @@ export enum UnadvanceableReason {
   UNSATISFIABLE_KEY_CONDITION,
   UNSATISFIABLE_REQUIRES_CONDITION,
   NO_MATCHING_TRANSITION,
+  UNREACHABLE_TYPE,
 }
 
 export type Unadvanceable = {
-  subgraph: string,
+  sourceSubgraph: string,
+  destSubgraph: string,
   reason: UnadvanceableReason,
   details: string
 };
@@ -464,9 +467,35 @@ export function advancePathWithTransition<V extends Vertex>(
     debug.groupEnd('no indirect paths');
   }
   debug.groupEnd(() => options.length > 0 ? advanceOptionsToString(options) : `Cannot advance ${transition} for this path`);
-  return options.length > 0
-    ? options
-    : new Unadvanceables(deadEnds.concat(pathsWithNonCollecting.deadEnds.reasons));
+  if (options.length > 0) {
+    return options;
+  }
+
+  const allDeadEnds = deadEnds.concat(pathsWithNonCollecting.deadEnds.reasons);
+  if (transition.kind === 'FieldCollection') {
+    const typeName = transition.definition.parent!.name;
+    const fieldName = transition.definition.name;
+    const subgraphsWithDeadEnd = new Set(allDeadEnds.map(e => e.destSubgraph));
+    for (const [subgraph, schema] of subgraphPath.graph.sources.entries()) {
+      if (subgraphsWithDeadEnd.has(subgraph)) {
+        continue;
+      }
+      const type = schema.type(typeName);
+      if (type && isCompositeType(type) && type.field(fieldName)) {
+        // That subgraph has the type we look for, but we have recorded no dead-ends. This means there is no edge to that type,
+        // and thus that it has no keys.
+        assert(!type.hasAppliedDirective(keyDirectiveName), () => `Expected type ${type} in ${subgraph} to not have keys`);
+        allDeadEnds.push({
+          sourceSubgraph: subgraphPath.tail.source,
+          destSubgraph: subgraph,
+          reason: UnadvanceableReason.UNREACHABLE_TYPE,
+          details: `cannot move to subgraph "${subgraph}", which has field "${transition.definition.coordinate}", because type "${typeName}" has no @key defined in subgraph "${subgraph}"`
+        });
+      }
+    }
+  }
+
+  return new Unadvanceables(allDeadEnds);
 }
 
 // A set of excluded edges, that is a pair of a head vertex index and an edge index (since edge indexes are relative to their vertex).
@@ -707,9 +736,10 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
       } else {
         debug.groupEnd('Condition unsatisfiable');
         deadEnds.push({
-          subgraph: toAdvance.tail.source,
+          sourceSubgraph: toAdvance.tail.source,
+          destSubgraph: edge.tail.source,
           reason: UnadvanceableReason.UNSATISFIABLE_KEY_CONDITION,
-          details: `cannot move to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(false)}"), the key field(s) cannot be resolved from ${toAdvance.tail.source}`
+          details: `cannot move to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(false)}") of "${edge.head.type}", the key field(s) cannot be resolved from subgraph "${toAdvance.tail.source}"`
         });
       }
       debug.groupEnd(); // End of edge
@@ -748,7 +778,8 @@ function advancePathWithDirectTransition<V extends Vertex>(
       const field = transition.definition;
       const parentTypeInSubgraph = path.graph.sources.get(edge.head.source)!.type(field.parent!.name)! as CompositeType;
       deadEnds.push({
-        subgraph: edge.head.source,
+        sourceSubgraph: edge.head.source,
+        destSubgraph: edge.head.source,
         reason: UnadvanceableReason.UNSATISFIABLE_REQUIRES_CONDITION,
         details: `cannot satisfy @require conditions on field "${field.coordinate}"${warnOnKeyFieldsMarkedExternal(parentTypeInSubgraph)}`
       });
@@ -760,8 +791,8 @@ function advancePathWithDirectTransition<V extends Vertex>(
     return new Unadvanceables(deadEnds);
   } else {
     let details: string;
+    const subgraph = path.tail.source;
     if (transition.kind === 'FieldCollection') {
-      const subgraph = path.tail.source;
       const schema = path.graph.sources.get(subgraph)!;
       const typeInSubgraph = schema.type(path.tail.type.name);
       const fieldInSubgraph = typeInSubgraph && isCompositeType(typeInSubgraph)
@@ -783,7 +814,8 @@ function advancePathWithDirectTransition<V extends Vertex>(
       details = `cannot find type "${transition.castedType}"`;
     }
     return new Unadvanceables([{
-      subgraph: path.tail.source,
+      sourceSubgraph: subgraph,
+      destSubgraph: subgraph,
       reason: UnadvanceableReason.NO_MATCHING_TRANSITION,
       details
     }]);

@@ -83,7 +83,7 @@ function displayReasons(reasons: Unadvanceables[]): string {
   const bySubraph = new MultiMap<string, Unadvanceable>();
   for (const reason of reasons) {
     for (const unadvanceable of reason.reasons) {
-      bySubraph.add(unadvanceable.subgraph, unadvanceable);
+      bySubraph.add(unadvanceable.sourceSubgraph, unadvanceable);
     }
   }
   return [...bySubraph.entries()].map(([subgraph, reasons]) => {
