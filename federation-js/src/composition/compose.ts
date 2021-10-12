@@ -48,7 +48,7 @@ import type {
   FederationField,
   FederationType,
   ServiceNameToKeyDirectivesMap,
-} from '@apollo/subgraph/dist/schemaExtensions';
+} from '../composition/types';
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
 import { printSupergraphSdl } from '../service/printSupergraphSdl';

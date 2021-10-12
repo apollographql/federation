@@ -30,11 +30,11 @@ import {
   DEFAULT_DEPRECATION_REASON,
 } from 'graphql';
 import { isFederationType, Maybe } from './types';
-import { FederationField, FederationType } from './schemaExtensions';
 import {
   gatherDirectives,
-  isKnownSubgraphDirective,
   federationDirectives,
+  otherKnownDirectives,
+  isFederationDirective,
 } from './directives';
 
 export function printSubgraphSchema(schema: GraphQLSchema): string {
@@ -43,7 +43,7 @@ export function printSubgraphSchema(schema: GraphQLSchema): string {
     // Apollo change: treat the directives defined by the federation spec
     // similarly to the directives defined by the GraphQL spec (ie, don't print
     // their definitions).
-    (n) => !isSpecifiedDirective(n) && !isKnownSubgraphDirective(n),
+    (n) => !isSpecifiedDirective(n) && !isFederationDirective(n),
     isDefinedType,
   );
 }
@@ -197,22 +197,10 @@ function printObject(type: GraphQLObjectType): string {
     printImplementedInterfaces(type) +
     // Apollo addition: print @key usages
     printFederationDirectives(type) +
-    printKnownDirectiveUsagesOnType(type) +
+    // Apollo addition: print @tag usages (or other known directives)
+    printKnownDirectiveUsagesOnTypeOrField(type) +
     printFields(type)
   );
-}
-
-// Apollo addition: print @tag usages (+ other future Apollo-specific directives)
-function printKnownDirectiveUsagesOnType(
-  type: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
-): string {
-  const tagUsages =
-    (type.extensions?.federation as FederationType)?.directiveUsages?.get(
-      'tag',
-    ) ?? [];
-  if (tagUsages.length === 0) return '';
-
-  return ' ' + tagUsages.map(print).join(' ');
 }
 
 function printInterface(type: GraphQLInterfaceType): string {
@@ -230,7 +218,7 @@ function printInterface(type: GraphQLInterfaceType): string {
     `interface ${type.name}` +
     printImplementedInterfaces(type) +
     printFederationDirectives(type) +
-    printKnownDirectiveUsagesOnType(type) +
+    printKnownDirectiveUsagesOnTypeOrField(type) +
     printFields(type)
   );
 }
@@ -243,7 +231,7 @@ function printUnion(type: GraphQLUnionType): string {
     'union ' +
     type.name +
     // Apollo addition: print @tag usages
-    printKnownDirectiveUsagesOnType(type) +
+    printKnownDirectiveUsagesOnTypeOrField(type) +
     possibleTypes
   );
 }
@@ -281,7 +269,7 @@ function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
       printDeprecated(f.deprecationReason) +
       // Apollo addition: print Apollo directives on fields
       printFederationDirectives(f) +
-      printKnownDirectiveUsagesOnFields(f),
+      printKnownDirectiveUsagesOnTypeOrField(f),
   );
   return printBlock(fields);
 }
@@ -305,16 +293,21 @@ function printFederationDirectives(
 
 // Apollo addition: print `@tag` directive usages (and possibly other future known
 // directive usages) found in subgraph SDL.
-function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
-  const tagUsages = (
-    field.extensions?.federation as FederationField
-  )?.directiveUsages?.get('tag');
-  if (!tagUsages || tagUsages.length < 1) return '';
-  return ` ${tagUsages
-    .slice()
-    .sort((a, b) => a.name.value.localeCompare(b.name.value))
-    .map(print)
-    .join(' ')}`;
+function printKnownDirectiveUsagesOnTypeOrField(
+  typeOrField: GraphQLNamedType | GraphQLField<any, any>,
+): string {
+  if (!typeOrField.astNode) return '';
+  if (isInputObjectType(typeOrField)) return '';
+
+  const knownSubgraphDirectivesOnTypeOrField = gatherDirectives(typeOrField)
+    .filter((n) =>
+      otherKnownDirectives.some((directive) => directive.name === n.name.value),
+    )
+    .map(print);
+
+  return knownSubgraphDirectivesOnTypeOrField.length > 0
+    ? ' ' + knownSubgraphDirectivesOnTypeOrField.join(' ')
+    : '';
 }
 
 function printBlock(items: string[]) {

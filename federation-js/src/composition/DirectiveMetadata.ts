@@ -17,10 +17,7 @@ import {
 } from 'graphql';
 import { mapGetOrSet } from '../utilities';
 import { ServiceDefinition } from './types';
-import type {
-  FederationField,
-  FederationType,
-} from '@apollo/subgraph/dist/schemaExtensions';
+import type { FederationField, FederationType } from '../composition/types';
 import { getFederationMetadata } from './utils';
 
 // directive name => usages
