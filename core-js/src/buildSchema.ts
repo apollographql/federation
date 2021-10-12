@@ -211,7 +211,7 @@ function buildSchemaDefinitionInner(
 
 function buildAppliedDirectives(
   elementNode: NodeWithDirectives,
-  element: SchemaElement<any>,
+  element: SchemaElement<any, any>,
   extension?: Extension<any>
 ) {
   for (const directive of elementNode.directives ?? []) {

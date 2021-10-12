@@ -95,7 +95,7 @@ expect.extend({
     }
   },
 
-  toHaveDirective(element: SchemaElement<any>, definition: DirectiveDefinition, args?: Record<string, any>) {
+  toHaveDirective(element: SchemaElement<any, any>, definition: DirectiveDefinition, args?: Record<string, any>) {
     const directives = element.appliedDirectivesOf(definition);
     if (directives.length == 0) {
       return {

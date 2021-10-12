@@ -414,7 +414,7 @@ class Merger {
     );
   }
 
-  private reportMismatchError<TMismatched extends SchemaElement<any>>(
+  private reportMismatchError<TMismatched extends SchemaElement<any, any>>(
     code: string,
     message: string,
     mismatchedElement:TMismatched,
@@ -434,7 +434,7 @@ class Merger {
     );
   }
 
-  private reportMismatchHint<TMismatched extends SchemaElement<any>>(
+  private reportMismatchHint<TMismatched extends SchemaElement<any, any>>(
     hintId: HintID,
     message: string,
     supergraphElement: TMismatched,
@@ -465,7 +465,7 @@ class Merger {
     );
   }
 
-  private reportMismatch<TMismatched extends SchemaElement<any>>(
+  private reportMismatch<TMismatched extends SchemaElement<any, any>>(
     supergraphElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
     mismatchAcessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
@@ -537,7 +537,7 @@ class Merger {
     implemented.forEach(itf => dest.addImplementedInterface(itf));
   }
 
-  private mergeDescription<T extends SchemaElement<any>>(sources: (T | undefined)[], dest: T) {
+  private mergeDescription<T extends SchemaElement<any, any>>(sources: (T | undefined)[], dest: T) {
     let descriptions: string[] = [];
     let counts: number[] = [];
     for (const source of sources) {
@@ -887,7 +887,7 @@ class Merger {
         continue;
       }
 
-      const isExternal = source.appliedDirectivesOf('external').length > 0;
+      const isExternal = source.hasAppliedDirective('external');
       // We don't put a join__field if the field is marked @external in that subgraph, unless
       // we need it because types aren't all equal.
       if (isExternal && allTypesEqual) {
@@ -905,7 +905,7 @@ class Merger {
     }
   }
 
-  private getFieldSet(element: SchemaElement<any>, directive: DirectiveDefinition<{fields: string}>): string | undefined {
+  private getFieldSet(element: SchemaElement<any, any>, directive: DirectiveDefinition<{fields: string}>): string | undefined {
     const applications = element.appliedDirectivesOf(directive);
     assert(applications.length <= 1, () => `Found more than one application of ${directive} on ${element}`);
     return applications.length === 0 ? undefined : applications[0].arguments().fields;
@@ -913,7 +913,7 @@ class Merger {
 
   // Returns `true` if the type references were all completely equal and `false` if some subtyping happened (or
   // if types were incompatible since an error is logged in this case but the method does not throw).
-  private mergeTypeReference<TType extends Type, TElement extends NamedSchemaElementWithType<TType, any, any>>(
+  private mergeTypeReference<TType extends Type, TElement extends NamedSchemaElementWithType<TType, any, any, any>>(
     sources: (TElement | undefined)[],
     dest: TElement,
     isContravariant: boolean = false
@@ -1392,14 +1392,14 @@ class Merger {
     return source.locations.filter(loc => executableDirectiveLocations.includes(loc));
   }
 
-  private mergeAppliedDirectives(sources: (SchemaElement<any> | undefined)[], dest: SchemaElement<any>) {
+  private mergeAppliedDirectives(sources: (SchemaElement<any, any> | undefined)[], dest: SchemaElement<any, any>) {
     const names = this.gatherAppliedDirectiveNames(sources);
     for (const name of names) {
       this.mergeAppliedDirective(name, sources, dest);
     }
   }
 
-  private gatherAppliedDirectiveNames(sources: (SchemaElement<any> | undefined)[]): Set<string> {
+  private gatherAppliedDirectiveNames(sources: (SchemaElement<any, any> | undefined)[]): Set<string> {
     const names = new Set<string>();
     for (const source of sources) {
       if (source) {
@@ -1413,7 +1413,7 @@ class Merger {
     return names;
   }
 
-  private mergeAppliedDirective(name: string, sources: (SchemaElement<any> | undefined)[], dest: SchemaElement<any>) {
+  private mergeAppliedDirective(name: string, sources: (SchemaElement<any, any> | undefined)[], dest: SchemaElement<any, any>) {
     // TODO: we currently only merge together applications that have the exact same arguments.
     // There is however 2 cases where we could be more subtle:
     //  1) default values: if a directive has an argument with a default value, and one subgraph pass a value

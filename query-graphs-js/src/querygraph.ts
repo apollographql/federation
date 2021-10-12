@@ -15,14 +15,14 @@ import {
   baseType,
   SelectionSet,
   federationBuiltIns,
-  parseSelectionSet,
   isFederationSubgraphSchema,
   CompositeType,
   isExternal,
   extractSubgraphsFromSupergraph,
   FieldDefinition,
   isCompositeType,
-  SUBTYPING_RULES
+  SUBTYPING_RULES,
+  parseFieldSetArgument
 } from '@apollo/core';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, freeTransition, FreeTransition, Transition, KeyResolution, QueryResolution } from './transition';
@@ -586,7 +586,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           // restriction, and this may be useful at least temporarily to allow convert a type to
           // an entity).
           assert(isInterfaceType(type) || isObjectType(type), () => `Invalid "@key" application on non Object || Interface type "${type}"`);
-          const conditions = parseSelectionSet(type, keyApplication.arguments().fields);
+          const conditions = parseFieldSetArgument(type, keyApplication);
           for (let [j, otherSubgraph] of subgraphs.entries()) {
             if (i == j) {
               continue;
@@ -615,7 +615,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const requiresApplication of field.appliedDirectivesOf(requireDirective)) {
-            const conditions = parseSelectionSet(type, requiresApplication.arguments().fields);
+            const conditions = parseFieldSetArgument(type, requiresApplication);
             const head = copyPointers[i].copiedVertex(e.head);
             // We rely on the fact that the edge indexes will be the same in the copied builder. But there is no real reason for
             // this to not be the case at this point so...
@@ -643,7 +643,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
             const fieldType = baseType(field.type!);
             assert(isInterfaceType(fieldType) || isObjectType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not an object or interface`)
-            const provided = parseSelectionSet(fieldType, providesApplication.arguments().fields);
+            const provided = parseFieldSetArgument(fieldType, providesApplication);
             const head = copyPointers[i].copiedVertex(e.head);
             const tail = copyPointers[i].copiedVertex(e.tail);
             // We rely on the fact that the edge indexes will be the same in the copied builder. But there is no real reason for

@@ -18,7 +18,8 @@ import {
   baseType,
   isInterfaceType,
   isObjectType,
-  sourceASTs
+  sourceASTs,
+  VariableDefinitions
 } from "./definitions";
 import { assert } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -34,6 +35,7 @@ import { error } from "./error";
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
 export const anyTypeName = '_Any';
+export const fieldSetTypeName = '_FieldSet';
 
 export const keyDirectiveName = 'key';
 export const extendsDirectiveName = 'extends';
@@ -52,7 +54,8 @@ const tagSpec = TAG_VERSIONS.latest()!;
 const FEDERATION_TYPES = [
   entityTypeName,
   serviceTypeName,
-  anyTypeName
+  anyTypeName,
+  fieldSetTypeName
 ];
 const FEDERATION_DIRECTIVES = [
   keyDirectiveName,
@@ -98,11 +101,11 @@ function allExternalFieldsCoordinates(selectionSet: SelectionSet): string[] {
 
 function validateFieldSet(
   type: CompositeType,
-  directive: Directive<any, {fields: string}>,
+  directive: Directive<any, {fields: any}>,
   targetDescription: string
 ): GraphQLError | string[] {
   try {
-    const selectionSet = parseSelectionSet(type, directive.arguments().fields);
+    const selectionSet = parseFieldSetArgument(type, directive);
     selectionSet.validate();
     return allExternalFieldsCoordinates(selectionSet);
   } catch (e) {
@@ -134,8 +137,8 @@ function validateFieldSet(
   }
 }
 
-function validateAllFieldSet<TParent extends SchemaElement<any>>(
-  definition: DirectiveDefinition<{fields: string}>,
+function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
+  definition: DirectiveDefinition<{fields: any}>,
   parentTypeExtractor: (element: TParent) => CompositeType,
   targetDescriptionExtractor: (element: TParent) => string,
   errorCollector: GraphQLError[],
@@ -184,21 +187,24 @@ export class FederationBuiltIns extends BuiltIns {
     this.addBuiltInUnion(schema, entityTypeName);
     this.addBuiltInObject(schema, serviceTypeName).addField('sdl', schema.stringType());
     this.addBuiltInScalar(schema, anyTypeName);
+    this.addBuiltInScalar(schema, fieldSetTypeName);
   }
 
   addBuiltInDirectives(schema: Schema) {
     super.addBuiltInDirectives(schema);
 
-    // Note that fed 1 also allow @key on interfaces. But this doesn't do anything and this is wrong: we should only allow @key on interfaces
-    // when that actually work and do something.
+    const fieldSetType = new NonNullType(schema.type(fieldSetTypeName)!);
+
+    // Note that we allow @key on interfaces in the definition to not break backward compatibility, because it has historically unfortunately be declared this way, but
+    // @key is actually not suppported on interfaces at the moment, so if if is "used" then it is rejected.
     const keyDirective = this.addBuiltInDirective(schema, keyDirectiveName)
-      .addLocations('OBJECT');
+      .addLocations('OBJECT', 'INTERFACE');
     // TODO: I believe fed 1 does not mark key repeatable and relax validation to accept repeating non-repeatable directive.
-    // Do we want to perputuate this? (Obviously, this is for historical reason and some graphQL implementations still do
+    // Do we want to perpetuate this? (Obviously, this is for historical reason and some graphQL implementations still do
     // not support 'repeatable'. But since this code does not kick in within users' code, not sure we have to accomodate
-    // for those implementations).
+    // for those implementations. Besides, we _do_ accept if people re-defined @key as non-repeatable).
     keyDirective.repeatable = true;
-    keyDirective.addArgument('fields', new NonNullType(schema.stringType()));
+    keyDirective.addArgument('fields', fieldSetType);
 
     this.addBuiltInDirective(schema, extendsDirectiveName)
       .addLocations('OBJECT', 'INTERFACE');
@@ -209,7 +215,7 @@ export class FederationBuiltIns extends BuiltIns {
     for (const name of [requiresDirectiveName, providesDirectiveName]) {
       this.addBuiltInDirective(schema, name)
         .addLocations('FIELD_DEFINITION')
-        .addArgument('fields', new NonNullType(schema.stringType()));
+        .addArgument('fields', fieldSetType);
     }
 
     const directive = this.addBuiltInDirective(schema, 'tag').addLocations(...tagLocations);
@@ -286,8 +292,9 @@ export class FederationBuiltIns extends BuiltIns {
 
     const externalFieldCoordinates: string[] = [];
     // We validate the @key, @requires and @provides.
+    const keyDirective = this.keyDirective(schema);
     validateAllFieldSet<CompositeType>(
-      this.keyDirective(schema),
+      keyDirective,
       type => type,
       type => `type "${type}"`,
       errors,
@@ -317,6 +324,13 @@ export class FederationBuiltIns extends BuiltIns {
     );
     validateAllExternalFieldsUsed(schema, externalFieldCoordinates, errors);
 
+    for (const key of keyDirective.applications()) {
+      const parent = key.parent! as CompositeType;
+      if (isInterfaceType(parent)) {
+        throw new GraphQLError(`Invalid @key on interface ${parent.coordinate}: @key is not yet supported on interfaces`, key.sourceAST);
+      }
+    }
+
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = this.tagDirective(schema);
     if (!tagDirective.isBuiltIn) {
@@ -333,7 +347,7 @@ export class FederationBuiltIns extends BuiltIns {
     return FEDERATION_VALIDATION_RULES;
   }
 
-  keyDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
+  keyDirective(schema: Schema): DirectiveDefinition<{fields: any}> {
     return this.getTypedDirective(schema, keyDirectiveName);
   }
 
@@ -345,11 +359,11 @@ export class FederationBuiltIns extends BuiltIns {
     return this.getTypedDirective(schema, externalDirectiveName);
   }
 
-  requiresDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
+  requiresDirective(schema: Schema): DirectiveDefinition<{fields: any}> {
     return this.getTypedDirective(schema, requiresDirectiveName);
   }
 
-  providesDirective(schema: Schema): DirectiveDefinition<{fields: string}> {
+  providesDirective(schema: Schema): DirectiveDefinition<{fields: any}> {
     return this.getTypedDirective(schema, providesDirectiveName);
   }
 
@@ -425,6 +439,25 @@ function buildSubgraph(name: string, source: DocumentNode | string): Schema {
       throw e;
     }
   }
+}
+
+export function parseFieldSetArgument(
+  parentType: CompositeType,
+  directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
+  fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
+): SelectionSet {
+  return parseSelectionSet(parentType, validateFieldSetValue(directive), new VariableDefinitions(), undefined, fieldAccessor);
+}
+
+function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>): string {
+  const fields = directive.arguments().fields;
+  if (typeof fields !== 'string') {
+    throw new GraphQLError(
+      `Invalid value for argument ${directive.definition!.argument('fields')!.coordinate} on ${directive.parent!.coordinate}: must be a string.`,
+      directive.sourceAST
+    );
+  }
+  return fields;
 }
 
 // 'ServiceDefinition' is originally defined in federation-js and we don't want to create a dependency

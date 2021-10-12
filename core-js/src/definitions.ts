@@ -366,7 +366,7 @@ export function sourceASTs(...elts: Element<any>[]): ASTNode[] {
 
 // Not exposed: mostly about avoid code duplication between SchemaElement and Directive (which is not a SchemaElement as it can't
 // have applied directives or a description
-abstract class Element<TParent extends SchemaElement<any> | Schema | DirectiveTargetElement<any>> {
+abstract class Element<TParent extends SchemaElement<any, any> | Schema | DirectiveTargetElement<any>> {
   protected _parent?: TParent;
   sourceAST?: ASTNode;
 
@@ -380,7 +380,7 @@ abstract class Element<TParent extends SchemaElement<any> | Schema | DirectiveTa
       // 'A & B' should always be assignable to both 'A' and 'B').
       return this._parent as any;
     } else {
-      return (this._parent as SchemaElement<any> | DirectiveTargetElement<any>).schema();
+      return (this._parent as SchemaElement<any, any> | DirectiveTargetElement<any>).schema();
     }
   }
 
@@ -427,19 +427,17 @@ export class Extension<TElement extends ExtendableElement> {
 }
 
 // TODO: ideally, we should hide the ctor of this class as we rely in places on the fact the no-one external defines new implementations.
-export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema> extends Element<TParent> {
-  protected readonly _appliedDirectives: Directive[] = [];
+export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>, TParent extends SchemaElement<any, any> | Schema> extends Element<TParent> {
+  protected readonly _appliedDirectives: Directive<TOwnType>[] = [];
   description?: string;
 
-  get appliedDirectives(): readonly Directive[] {
+  get appliedDirectives(): readonly Directive<TOwnType>[] {
     return this._appliedDirectives;
   }
 
-  appliedDirectivesOf(name: string): Directive[];
-  appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(definition: DirectiveDefinition<TApplicationArgs>): Directive<SchemaElement<any>, TApplicationArgs>[];
-  appliedDirectivesOf(nameOrDefinition: string | DirectiveDefinition): Directive[] {
+  appliedDirectivesOf<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(nameOrDefinition: string | DirectiveDefinition<TApplicationArgs>): Directive<TOwnType, TApplicationArgs>[] {
     const directiveName = typeof nameOrDefinition === 'string' ? nameOrDefinition : nameOrDefinition.name;
-    return this._appliedDirectives.filter(d => d.name == directiveName);
+    return this._appliedDirectives.filter(d => d.name == directiveName) as Directive<TOwnType, TApplicationArgs>[];
   }
 
   hasAppliedDirective(nameOrDefinition: string | DirectiveDefinition<any>): boolean {
@@ -454,10 +452,10 @@ export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema>
   }
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
-    nameOrDefOrDirective: Directive<SchemaElement<any>, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
+    nameOrDefOrDirective: Directive<TOwnType, TApplicationArgs> | DirectiveDefinition<TApplicationArgs> | string,
     args?: TApplicationArgs
-  ): Directive<SchemaElement<any>, TApplicationArgs> {
-    let toAdd: Directive<SchemaElement<any>, TApplicationArgs>;
+  ): Directive<TOwnType, TApplicationArgs> {
+    let toAdd: Directive<TOwnType, TApplicationArgs>;
     if (nameOrDefOrDirective instanceof Directive) {
       this.checkUpdate(nameOrDefOrDirective);
       toAdd = nameOrDefOrDirective;
@@ -477,7 +475,7 @@ export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema>
         this.checkUpdate(nameOrDefOrDirective);
         name = nameOrDefOrDirective.name;
       }
-      toAdd = new Directive<SchemaElement<any>, TApplicationArgs>(name, args ?? Object.create(null));
+      toAdd = new Directive<TOwnType, TApplicationArgs>(name, args ?? Object.create(null));
       Element.prototype['setParent'].call(toAdd, this);
     }
     // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
@@ -528,7 +526,7 @@ export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema>
     super.checkUpdate();
     if (!Schema.prototype['canModifyBuiltIn'].call(this.schema()!)) {
       // Ensure this element (the modified one), is not a built-in, or part of one.
-      let thisElement: SchemaElement<any> | Schema | undefined = this;
+      let thisElement: SchemaElement<TOwnType, any> | Schema | undefined = this;
       while (thisElement && thisElement instanceof SchemaElement) {
         if (thisElement.isElementBuiltIn()) {
           throw error(`Cannot modify built-in (or part of built-in) ${this}`);
@@ -546,7 +544,7 @@ export abstract class SchemaElement<TParent extends SchemaElement<any> | Schema>
 }
 
 // TODO: ideally, we should hide the ctor of this class as we rely in places on the fact the no-one external defines new implementations.
-export abstract class NamedSchemaElement<TParent extends NamedSchemaElement<any, any> | Schema, TReferencer> extends SchemaElement<TParent> implements Named {
+export abstract class NamedSchemaElement<TOwnType extends NamedSchemaElement<TOwnType, TParent, TReferencer>, TParent extends NamedSchemaElement<any, any, any> | Schema, TReferencer> extends SchemaElement<TOwnType, TParent> implements Named {
   // We want to be able to rename some elements, but we prefer offering that through a `rename`
   // method rather than exposing a name setter, as this feel more explicit (but that's arguably debatable).
   // We also currently only offer renames on types (because that's the only one we currently need),
@@ -567,7 +565,7 @@ export abstract class NamedSchemaElement<TParent extends NamedSchemaElement<any,
   abstract remove(): TReferencer[];
 }
 
-abstract class BaseNamedType<TReferencer, TOwnType extends NamedType> extends NamedSchemaElement<Schema, TReferencer> {
+abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSchemaElement<TOwnType, Schema, TReferencer>> extends NamedSchemaElement<TOwnType, Schema, TReferencer> {
   protected readonly _referencers: Set<TReferencer> = new Set();
   protected readonly _extensions: Set<Extension<TOwnType>> = new Set();
 
@@ -587,7 +585,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType> extends Na
     return this.name;
   }
 
-  *allChildElements(): Generator<NamedSchemaElement<any, any>, void, undefined> {
+  *allChildElements(): Generator<NamedSchemaElement<any, TOwnType, any>, void, undefined> {
     // Overriden by those types that do have chidrens
   }
 
@@ -690,7 +688,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType> extends Na
 }
 
 // TODO: ideally, we should hide the ctor of this class as we rely in places on the fact the no-one external defines new implementations.
-export abstract class NamedSchemaElementWithType<TType extends Type, P extends NamedSchemaElement<any, any> | Schema, Referencer> extends NamedSchemaElement<P, Referencer> {
+export abstract class NamedSchemaElementWithType<TType extends Type, TOwnType extends NamedSchemaElementWithType<TType, TOwnType, P, Referencer>, P extends NamedSchemaElement<any, any, any> | Schema, Referencer> extends NamedSchemaElement<TOwnType, P, Referencer> {
   private _type?: TType;
 
   get type(): TType | undefined {
@@ -763,12 +761,12 @@ export class BuiltIns {
   addBuiltInDirectives(schema: Schema) {
     for (const name of ['include', 'skip']) {
       this.addBuiltInDirective(schema, name)
-        .addLocations('FIELD', 'FRAGMENT_SPREAD', 'FRAGMENT_DEFINITION')
+        .addLocations('FIELD', 'FRAGMENT_SPREAD', 'INLINE_FRAGMENT')
         .addArgument('if', new NonNullType(schema.booleanType()));
     }
     this.addBuiltInDirective(schema, 'deprecated')
       .addLocations('FIELD_DEFINITION', 'ENUM_VALUE')
-      .addArgument('reason', schema.stringType(), 'No Longer Supported');
+      .addArgument('reason', schema.stringType(), 'No longer supported');
     this.addBuiltInDirective(schema, 'specifiedBy')
       .addLocations('SCALAR')
       .addArgument('url', new NonNullType(schema.stringType()));
@@ -789,7 +787,7 @@ export class BuiltIns {
       }
     }
 
-    for (const directive of schema.builtInDirectives()) {
+    for (const directive of schema.builtInDirectives(true)) {
       if (unvalidatedDirectives && unvalidatedDirectives.includes(directive.name)) {
         continue;
       }
@@ -837,8 +835,8 @@ export class BuiltIns {
       const foundArgument = manuallyDefined.argument(expectedArgument.name)!;
       if (!sameType(expectedArgument.type!, foundArgument.type!)) {
         errors.push(error(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have type ${expectedArgument.type!} but found type ${foundArgument.type!}`));
-      } else  if (!valueEquals(expectedArgument.defaultValue, foundArgument.defaultValue)) {
-        errors.push(error(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have default value ${expectedArgument.defaultValue} but found type ${foundArgument.defaultValue}`));
+      } else if (!valueEquals(expectedArgument.defaultValue, foundArgument.defaultValue)) {
+        errors.push(error(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have default value ${valueToString(expectedArgument.defaultValue)} but found default value ${valueToString(foundArgument.defaultValue)}`));
       }
     }
   }
@@ -1219,9 +1217,9 @@ export class Schema {
   /**
    * All the built-in directives for this schema (those that are not displayed when printing the schema).
    */
-  *builtInDirectives(): Generator<DirectiveDefinition, void, undefined> {
+  *builtInDirectives(includeShadowed: boolean = false): Generator<DirectiveDefinition, void, undefined> {
     for (const directive of this._builtInDirectives.values()) {
-      if (!this.isShadowedBuiltIn(directive)) {
+      if (includeShadowed || !this.isShadowedBuiltIn(directive)) {
         yield directive;
       }
     }
@@ -1241,7 +1239,7 @@ export class Schema {
     return directive ? directive : this._builtInDirectives.get(name);
   }
 
-  *allNamedSchemaElement(): Generator<NamedSchemaElement<any, any>, void, undefined> {
+  *allNamedSchemaElement(): Generator<NamedSchemaElement<any, any, any>, void, undefined> {
     for (const type of this.types()) {
       yield type;
       yield* type.allChildElements();
@@ -1252,7 +1250,7 @@ export class Schema {
     }
   }
 
-  *allSchemaElement(): Generator<SchemaElement<any>, void, undefined> {
+  *allSchemaElement(): Generator<SchemaElement<any, any>, void, undefined> {
     yield this._schemaDefinition;
     yield* this.allNamedSchemaElement();
   }
@@ -1351,7 +1349,7 @@ export class RootType extends BaseExtensionMember<SchemaDefinition> {
   }
 }
 
-export class SchemaDefinition extends SchemaElement<Schema>  {
+export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   readonly kind = 'SchemaDefinition' as const;
   protected readonly _roots: Map<SchemaRootKind, RootType> = new Map();
   protected readonly _extensions: Set<Extension<SchemaDefinition>> = new Set();
@@ -1496,7 +1494,7 @@ export class InterfaceImplementation<T extends ObjectType | InterfaceType> exten
 // Abstract class for ObjectType and InterfaceType as they share most of their structure. Note that UnionType also
 // technically has one field (__typename), but because it's only one, it is special cased and UnionType is not a
 // subclass of this class.
-abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends BaseNamedType<R, T> {
+abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSchemaElement<T, Schema, R>, R> extends BaseNamedType<R, T> {
   // Note that we only keep one InterfaceImplementation per interface name, and so each `implements X` belong
   // either to the main type definition _or_ to a single extension. In theory, a document could have `implements X`
   // in both of those places (or on 2 distinct extensions). We don't preserve that level of detail, but this
@@ -1633,7 +1631,7 @@ abstract class FieldBasedType<T extends ObjectType | InterfaceType, R> extends B
     return toAdd;
   }
 
-  *allChildElements(): Generator<NamedSchemaElement<any, any>, void, undefined> {
+  *allChildElements(): Generator<NamedSchemaElement<any, any, any>, void, undefined> {
     for (const field of this._fields.values()) {
       yield field;
       yield* field.arguments();
@@ -1923,7 +1921,7 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
     return toAdd;
   }
 
-  *allChildElements(): Generator<NamedSchemaElement<any, any>, void, undefined> {
+  *allChildElements(): Generator<NamedSchemaElement<any, any, any>, void, undefined> {
     yield* this._fields.values();
   }
 
@@ -1988,7 +1986,7 @@ export class NonNullType<T extends NullableType> extends BaseWrapperType<T> {
   }
 }
 
-export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaElementWithType<OutputType, TParent, never> {
+export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaElementWithType<OutputType, FieldDefinition<TParent>, TParent, never> {
   readonly kind = 'FieldDefinition' as const;
   private readonly _args: Map<string, ArgumentDefinition<FieldDefinition<TParent>>> = new Map();
   private _extension?: Extension<TParent>;
@@ -2117,7 +2115,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
   }
 }
 
-export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, InputObjectType, never> {
+export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, InputFieldDefinition, InputObjectType, never> {
   readonly kind = 'InputFieldDefinition' as const;
   private _extension?: Extension<InputObjectType>;
   defaultValue?: any
@@ -2165,7 +2163,7 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
   }
 }
 
-export class ArgumentDefinition<TParent extends FieldDefinition<any> | DirectiveDefinition> extends NamedSchemaElementWithType<InputType, TParent, never> {
+export class ArgumentDefinition<TParent extends FieldDefinition<any> | DirectiveDefinition> extends NamedSchemaElementWithType<InputType, ArgumentDefinition<TParent>, TParent, never> {
   readonly kind = 'ArgumentDefinition' as const;
   defaultValue?: any
 
@@ -2206,7 +2204,7 @@ export class ArgumentDefinition<TParent extends FieldDefinition<any> | Directive
   }
 }
 
-export class EnumValue extends NamedSchemaElement<EnumType, never> {
+export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
   readonly kind = 'EnumValue' as const;
   private _extension?: Extension<EnumType>;
 
@@ -2258,13 +2256,13 @@ export class EnumValue extends NamedSchemaElement<EnumType, never> {
   }
 }
 
-export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}> extends NamedSchemaElement<Schema, Directive> {
+export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}> extends NamedSchemaElement<DirectiveDefinition<TApplicationArgs>, Schema, Directive> {
   readonly kind = 'DirectiveDefinition' as const;
 
   private readonly _args: Map<string, ArgumentDefinition<DirectiveDefinition>> = new Map();
   repeatable: boolean = false;
   private readonly _locations: DirectiveLocationEnum[] = [];
-  private readonly _referencers: Set<Directive<SchemaElement<any>, TApplicationArgs>> = new Set();
+  private readonly _referencers: Set<Directive<SchemaElement<any, any>, TApplicationArgs>> = new Set();
 
   constructor(name: string, readonly isBuiltIn: boolean = false) {
     super(name);
@@ -2351,16 +2349,16 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     return this;
   }
 
-  applications(): readonly Directive<SchemaElement<any>, TApplicationArgs>[] {
+  applications(): readonly Directive<SchemaElement<any, any>, TApplicationArgs>[] {
     return [...this._referencers];
   }
 
-  private addReferencer(referencer: Directive<SchemaElement<any>, TApplicationArgs>) {
+  private addReferencer(referencer: Directive<SchemaElement<any, any>, TApplicationArgs>) {
     assert(referencer, 'Referencer should exists');
     this._referencers.add(referencer);
   }
 
-  private removeReferencer(referencer: Directive<SchemaElement<any>, TApplicationArgs>) {
+  private removeReferencer(referencer: Directive<SchemaElement<any, any>, TApplicationArgs>) {
     this._referencers.delete(referencer);
   }
 
@@ -2393,7 +2391,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
 }
 
 export class Directive<
-  TParent extends SchemaElement<any> | DirectiveTargetElement<any> = SchemaElement<any>,
+  TParent extends SchemaElement<any, any> | DirectiveTargetElement<any> = SchemaElement<any, any>,
   TArgs extends {[key: string]: any} = {[key: string]: any}
 > extends Element<TParent> implements Named {
   // Note that _extension will only be set for directive directly applied to an extendable element. Meaning that if a directive is
@@ -2537,7 +2535,7 @@ export class Directive<
     }
     const definition = this.definition;
     if (definition && this.isAttachedToSchemaElement()) {
-      DirectiveDefinition.prototype['removeReferencer'].call(definition, this as Directive<SchemaElement<any>>);
+      DirectiveDefinition.prototype['removeReferencer'].call(definition, this as Directive<SchemaElement<any, any>>);
     }
     const parentDirectives = this._parent.appliedDirectives as Directive<TParent>[];
     const index = parentDirectives.indexOf(this);
@@ -2720,7 +2718,7 @@ export function variableDefinitionFromAST(schema: Schema, definitionNode: Variab
 
 export const graphQLBuiltIns = new BuiltIns();
 
-function addReferenceToType(referencer: SchemaElement<any>, type: Type) {
+function addReferenceToType(referencer: SchemaElement<any, any>, type: Type) {
   switch (type.kind) {
     case 'ListType':
       addReferenceToType(referencer, type.baseType());
@@ -2734,7 +2732,7 @@ function addReferenceToType(referencer: SchemaElement<any>, type: Type) {
   }
 }
 
-function removeReferenceToType(referencer: SchemaElement<any>, type: Type) {
+function removeReferenceToType(referencer: SchemaElement<any, any>, type: Type) {
   switch (type.kind) {
     case 'ListType':
       removeReferenceToType(referencer, type.baseType());
@@ -2883,7 +2881,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
   }
 }
 
-function copyAppliedDirectives(source: SchemaElement<any>, dest: SchemaElement<any>) {
+function copyAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>) {
   for (const directive of source.appliedDirectives) {
     dest.applyDirective(directive.name, { ...directive.arguments() });
   }

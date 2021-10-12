@@ -12,13 +12,13 @@ import {
   typenameFieldName,
   isLeafType,
   baseType,
-  parseSelectionSet,
   CompositeType,
   isAbstractType,
   newDebugLogger,
-  keyDirectiveName,
   externalDirectiveName,
-  isCompositeType
+  isCompositeType,
+  federationBuiltIns,
+  parseFieldSetArgument
 } from "@apollo/core";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, QueryGraphState } from "./querygraph";
@@ -796,13 +796,14 @@ function warnOnKeyFieldsMarkedExternal(type: CompositeType): string {
   // on their key field. The problem is that doing that make the key field truly external, and that could easily make @require
   // condition no satisfiable (because the key you'd need to get the require is now external). To help user locate that mistake
   // we add a specific pointer to this potential problem is the type is indeed an entity.
-  const keys = type.appliedDirectivesOf(keyDirectiveName);
+  const keyDirective = federationBuiltIns.keyDirective(type.schema()!);
+  const keys = type.appliedDirectivesOf(keyDirective);
   if (keys.length === 0) {
     return "";
   }
   const keyFieldMarkedExternal: string[] = [];
   for (const key of keys) {
-    const fieldSet = parseSelectionSet(type, key.arguments()['fields'] as string);
+    const fieldSet = parseFieldSetArgument(type, key);
     for (const selection of fieldSet.selections()) {
       if (selection.kind === 'FieldSelection' && selection.field.definition.hasAppliedDirective(externalDirectiveName)) {
         const fieldName = selection.field.name;
@@ -825,9 +826,10 @@ export function requireEdgeAdditionalConditions(edge: Edge): SelectionSet {
   // which is not perfect, as maybe we can't satisfy that key but we could another, but this ensure
   // query planning later knows which keys to use. We'd have to communicate that somehow otherwise.
   const type = edge.head.type as CompositeType;
-  const keyDirectives = type.appliedDirectivesOf('key');
+  const keyDirective = federationBuiltIns.keyDirective(type.schema()!);
+  const keyDirectives = type.appliedDirectivesOf(keyDirective);
   assert(keyDirectives.length > 0, () => `We should have a require on ${edge} if ${type} has no key directive`);
-  return parseSelectionSet(type, keyDirectives[0].arguments()['fields']);
+  return parseFieldSetArgument(type, keyDirectives[0]);
 }
 
 function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(

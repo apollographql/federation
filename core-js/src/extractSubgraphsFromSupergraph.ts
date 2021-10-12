@@ -1,6 +1,7 @@
 import {
   baseType,
   CompositeType,
+  Directive,
   FieldDefinition,
   InputFieldDefinition,
   InputObjectType,
@@ -17,12 +18,10 @@ import {
   ObjectType,
   Schema,
   Type,
-  VariableDefinitions
 } from "./definitions";
-import { addSubgraphToError, federationBuiltIns } from "./federation";
+import { addSubgraphToError, federationBuiltIns, parseFieldSetArgument } from "./federation";
 import { CoreSpecDefinition, FeatureVersion } from "./coreSpec";
 import { JoinSpecDefinition } from "./joinSpec";
-import { parseSelectionSet } from "./operations";
 import { Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";
@@ -350,26 +349,26 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema, isFed1: boole
       // Also note that for fed 1 supergraphs, the 'ofExtension' information is not available so we have to default of forcing
       // non-external on all key fields. Which is ok because "true" external on key fields was not supported anyway.
       const forceNonExternal = isFed1 || !!keyApplication.ofExtension();
-      addFieldsFromSelection(subgraph, type, keyApplication.arguments().fields, supergraph, forceNonExternal);
+      addFieldsFromDirectiveFieldSet(subgraph, type, keyApplication, supergraph, forceNonExternal);
     }
     // Then any @requires or @provides on fields
     for (const field of type.fields()) {
       for (const requiresApplication of field.appliedDirectivesOf(federationBuiltIns.requiresDirective(subgraph.schema))) {
-        addFieldsFromSelection(subgraph, type, requiresApplication.arguments().fields, supergraph);
+        addFieldsFromDirectiveFieldSet(subgraph, type, requiresApplication, supergraph);
       }
       const fieldBaseType = baseType(field.type!);
       for (const providesApplication of field.appliedDirectivesOf(federationBuiltIns.providesDirective(subgraph.schema))) {
         assert(isObjectType(fieldBaseType) || isInterfaceType(fieldBaseType), () => `Found @provides on field ${field.coordinate} whose type ${field.type!} (${fieldBaseType.kind}) is not an object or interface `);
-        addFieldsFromSelection(subgraph, fieldBaseType, providesApplication.arguments().fields, supergraph);
+        addFieldsFromDirectiveFieldSet(subgraph, fieldBaseType, providesApplication, supergraph);
       }
     }
   }
 }
 
-function addFieldsFromSelection(
+function addFieldsFromDirectiveFieldSet(
   subgraph: Subgraph, 
   parentType: ObjectType | InterfaceType,
-  selection: string,
+  directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
   supergraph: Schema,
   forceNonExternal: boolean = false,
 ) {
@@ -396,5 +395,5 @@ function addFieldsFromSelection(
     }
     return created;
   };
-  parseSelectionSet(parentType, selection, new VariableDefinitions(), undefined, accessor);
+  parseFieldSetArgument(parentType, directive, accessor);
 }

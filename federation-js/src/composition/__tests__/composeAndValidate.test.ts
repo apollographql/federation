@@ -913,12 +913,8 @@ it('composition of full-SDL schemas without any errors', () => {
         reason: String = "No longer supported"
       ) on FIELD_DEFINITION | ENUM_VALUE
       directive @specifiedBy(url: String!) on SCALAR
-      directive @include(
-        if: String = "Included when true."
-      ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
-      directive @skip(
-        if: String = "Skipped when true."
-      ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+      directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+      directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       # Federation directives
       directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
@@ -971,12 +967,8 @@ it('composition of full-SDL schemas without any errors', () => {
         reason: String = "No longer supported"
       ) on FIELD_DEFINITION | ENUM_VALUE
       directive @specifiedBy(url: String!) on SCALAR
-      directive @include(
-        if: String = "Included when true."
-      ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
-      directive @skip(
-        if: String = "Skipped when true."
-      ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+      directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+      directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       # Federation directives
       directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE

@@ -34,7 +34,7 @@ function isSubset<T>(set: T[], maybeSubset: T[]): boolean {
   return maybeSubset.every(v => set.includes(v));
 }
 
-function isAccessible(element: SchemaElement<any>): boolean {
+function isAccessible(element: SchemaElement<any, any>): boolean {
   return element.hasAppliedDirective('inaccessible');
 }
 

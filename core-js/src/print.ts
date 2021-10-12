@@ -193,7 +193,7 @@ function printAppliedDirectives(
 }
 
 function printDescription(
-  element: SchemaElement<any>,
+  element: SchemaElement<any, any>,
   options: Options,
   indentation: string = '',
   firstInBlock: boolean = true
@@ -225,7 +225,7 @@ function printImplementedInterfaces(implementations: readonly InterfaceImplement
 }
 
 function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType | InterfaceType, options: Options, extension?: Extension<any> | null): string | undefined {
-  const directives = forExtension(type.appliedDirectives, extension);
+  const directives = forExtension<Directive<ObjectType | InterfaceType>>(type.appliedDirectives, extension);
   const interfaces = forExtension([...type.interfaceImplementations()], extension);
   const fields = forExtension([...(options.showBuiltIns ? type.allFields() : type.fields())], extension);
   if (!directives.length && !interfaces.length && !fields.length) {
