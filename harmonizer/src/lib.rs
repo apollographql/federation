@@ -30,121 +30,21 @@ composition implementation while we work toward something else.
 #![deny(missing_debug_implementations, nonstandard_style)]
 #![warn(missing_docs, future_incompatible, unreachable_pub, rust_2018_idioms)]
 use deno_core::{op_sync, JsRuntime};
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
 use std::sync::mpsc::channel;
-use thiserror::Error;
 
-/// The `ServiceDefinition` represents everything we need to know about a
-/// service (subgraph) for its GraphQL runtime responsibilities.  It is not
-/// at all different from the notion of [`ServiceDefinition` in TypeScript]
-/// used in Apollo Gateway's operation.
-///
-/// Since we'll be running this within a JavaScript environment these properties
-/// will be serialized into camelCase, to match the JavaScript expectations.
-///
-/// [`ServiceDefinition` in TypeScript]: https://github.com/apollographql/federation/blob/d2e34909/federation-js/src/composition/types.ts#L49-L53
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ServiceDefinition {
-    /// The name of the service (subgraph).  We use this name internally to
-    /// in the representation of the composed schema and for designations
-    /// within the human-readable QueryPlan.
-    pub name: String,
-    /// The routing/runtime URL where the subgraph can be found that will
-    /// be able to fulfill the requests it is responsible for.
-    pub url: String,
-    /// The Schema Definition Language (SDL)
-    pub type_defs: String,
-}
+use supergraph_config::SubgraphDefinition;
 
-impl ServiceDefinition {
-    /// Create a new [`ServiceDefinition`]
-    pub fn new<N: Into<String>, U: Into<String>, D: Into<String>>(
-        name: N,
-        url: U,
-        type_defs: D,
-    ) -> ServiceDefinition {
-        ServiceDefinition {
-            name: name.into(),
-            url: url.into(),
-            type_defs: type_defs.into(),
-        }
-    }
-}
+mod error;
+mod js_types;
 
-/// An ordered stack of the services (subgraphs) that, when composed in order
-/// by the composition algorithm, will represent the supergraph.
-pub type ServiceList = Vec<ServiceDefinition>;
+pub use error::CompositionErrors;
+use js_types::{CompositionError, CompositionOutput};
 
-/// An error which occurred during JavaScript composition.
-///
-/// The shape of this error is meant to mimic that of the error created within
-/// JavaScript, which is a [`GraphQLError`] from the [`graphql-js`] library.
-///
-/// [`graphql-js']: https://npm.im/graphql
-/// [`GraphQLError`]: https://github.com/graphql/graphql-js/blob/3869211/src/error/GraphQLError.js#L18-L75
-#[derive(Debug, Error, Serialize, Deserialize, PartialEq)]
-pub struct CompositionError {
-    /// A human-readable description of the error that prevented composition.
-    pub message: Option<String>,
-    /// [`CompositionErrorExtensions`]
-    pub extensions: Option<CompositionErrorExtensions>,
-}
-
-impl Display for CompositionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(msg) = &self.message {
-            f.write_fmt(format_args!("{code}: {msg}", code = self.code(), msg = msg))
-        } else {
-            f.write_str(self.code())
-        }
-    }
-}
-
-/// Mimicking the JavaScript-world from which this error comes, this represents
-/// the `extensions` property of a JavaScript [`GraphQLError`] from the
-/// [`graphql-js`] library. Such errors are created when errors have prevented
-/// successful composition, which is accomplished using [`errorWithCode`]. An
-/// [example] of this can be seen within the `federation-js` JavaScript library.
-///
-/// [`graphql-js']: https://npm.im/graphql
-/// [`GraphQLError`]: https://github.com/graphql/graphql-js/blob/3869211/src/error/GraphQLError.js#L18-L75
-/// [`errorWithCode`]: https://github.com/apollographql/federation/blob/d7ca0bc2/federation-js/src/composition/utils.ts#L200-L216
-/// [example]: https://github.com/apollographql/federation/blob/d7ca0bc2/federation-js/src/composition/validate/postComposition/executableDirectivesInAllServices.ts#L47-L53
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct CompositionErrorExtensions {
-    /// An Apollo Federation composition error code.
-    ///
-    /// A non-exhaustive list of error codes that this includes, is:
-    ///
-    ///   - EXTERNAL_TYPE_MISMATCH
-    ///   - EXTERNAL_UNUSED
-    ///   - KEY_FIELDS_MISSING_ON_BASE
-    ///   - KEY_MISSING_ON_BASE
-    ///   - KEY_NOT_SPECIFIED
-    ///   - PROVIDES_FIELDS_MISSING_EXTERNAL
-    ///
-    /// ...and many more!  See the `federation-js` composition library for
-    /// more details (and search for `errorWithCode`).
-    pub code: String,
-}
-
-/// An error that was received during composition within JavaScript.
-impl CompositionError {
-    /// Retrieve the error code from an error received during composition.
-    pub fn code(&self) -> &str {
-        match self.extensions {
-            Some(ref ext) => &*ext.code,
-            None => "UNKNOWN",
-        }
-    }
-}
-
-/// The `harmonize` function receives a [`ServiceList`] and invokes JavaScript
-/// composition on it.
-///
-pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionError>> {
+/// The `harmonize` function receives a [`Vec<SubgraphDefinition>`] and invokes JavaScript
+/// composition on it, either returning the successful output, or a list of error messages.
+pub fn harmonize(
+    subgraph_definitions: Vec<SubgraphDefinition>,
+) -> Result<CompositionOutput, CompositionErrors> {
     // Initialize a runtime instance
     let mut runtime = JsRuntime::new(Default::default());
 
@@ -174,8 +74,16 @@ pub fn harmonize(service_list: ServiceList) -> Result<String, Vec<CompositionErr
     runtime.register_op(
         "op_composition_result",
         op_sync(move |_state, value, _zero_copy| {
-            tx.send(serde_json::from_value(value).expect("deserializing composition result"))
-                .expect("channel must be open");
+            let js_composition_result: Result<String, Vec<CompositionError>> =
+                serde_json::from_value(value)
+                    .expect("could not deserialize composition result from JS.");
+
+            tx.send(
+                js_composition_result
+                    .map(|supergraph_sdl| CompositionOutput { supergraph_sdl })
+                    .map_err(|e| e.into()),
+            )
+            .expect("channel must be open");
 
             Ok(serde_json::json!(null))
 
@@ -241,7 +149,7 @@ exports = {};
     // the runtime.
     let service_list_javascript = format!(
         "serviceList = {}",
-        serde_json::to_string(&service_list)
+        serde_json::to_string(&subgraph_definitions)
             .expect("unable to serialize service list into JavaScript runtime")
     );
 
@@ -260,14 +168,15 @@ exports = {};
 mod tests {
     #[test]
     fn it_works() {
-        use crate::{harmonize, ServiceDefinition};
+        use crate::{harmonize, SubgraphDefinition};
 
-        insta::assert_snapshot!(harmonize(vec![
-            ServiceDefinition::new(
-                "users",
-                "undefined",
-                "
-            type User {
+        insta::assert_snapshot!(
+            harmonize(vec![
+                SubgraphDefinition::new(
+                    "users",
+                    "undefined",
+                    "
+            type User @key(fields: \"id\") {
               id: ID
               name: String
             }
@@ -276,11 +185,11 @@ mod tests {
               users: [User!]
             }
           "
-            ),
-            ServiceDefinition::new(
-                "movies",
-                "undefined",
-                "
+                ),
+                SubgraphDefinition::new(
+                    "movies",
+                    "undefined",
+                    "
             type Movie {
               title: String
               name: String
@@ -294,8 +203,10 @@ mod tests {
               movies: [Movie!]
             }
           "
-            )
-        ])
-        .unwrap());
+                )
+            ])
+            .unwrap()
+            .supergraph_sdl
+        );
     }
 }

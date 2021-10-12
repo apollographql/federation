@@ -54,7 +54,6 @@ pub enum SchemaSource {
 /// Since we'll be running this within a JavaScript environment these properties
 /// will be serialized into camelCase, to match the JavaScript expectations.
 ///
-/// // TODO: This path isn't actually correct - it now lives in the internal `core-js` package.
 /// [`ServiceDefinition` in TypeScript]: https://github.com/apollographql/federation/blob/d2e34909/federation-js/src/composition/types.ts#L49-L53
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

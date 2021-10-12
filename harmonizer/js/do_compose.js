@@ -21,16 +21,17 @@ if (!serviceList || !Array.isArray(serviceList)) {
 
 serviceList.some((service) => {
   if (
-    typeof service.name !== "string" || !service.name ||
-    typeof service.url !== "string" && service.url ||
-    typeof service.typeDefs !== "string" && service.typeDefs
+    typeof service.name !== 'string' ||
+    !service.name ||
+    (typeof service.url !== 'string' && service.url) ||
+    (typeof service.sdl !== 'string' && service.sdl)
   ) {
     throw new Error("Missing required data structure on service.");
   }
 });
 
-serviceList = serviceList.map(({ typeDefs, ...rest }) => ({
-  typeDefs: parseTypedefs(typeDefs),
+serviceList = serviceList.map(({ sdl, ...rest }) => ({
+  typeDefs: parseTypedefs(sdl),
   ...rest,
 }));
 

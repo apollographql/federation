@@ -30,10 +30,13 @@ type Query {
   users: [User!] @join__field(graph: USERS)
 }
 
-type User {
+type User
+  @join__owner(graph: USERS)
+  @join__type(graph: USERS, key: "id")
+{
   favorites: [Movie!] @join__field(graph: MOVIES)
-  id: ID
-  name: String
+  id: ID @join__field(graph: USERS)
+  name: String @join__field(graph: USERS)
 }
 
 enum core__Purpose {
@@ -54,3 +57,4 @@ enum join__Graph {
   MOVIES @join__graph(name: "movies" url: "undefined")
   USERS @join__graph(name: "users" url: "undefined")
 }
+
