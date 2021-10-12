@@ -833,9 +833,17 @@ export class BuiltIns {
     }
     for (const expectedArgument of expectedArguments) {
       const foundArgument = manuallyDefined.argument(expectedArgument.name)!;
-      if (!sameType(expectedArgument.type!, foundArgument.type!)) {
+      const expectedType = expectedArgument.type!;
+      let actualType = foundArgument.type!;
+      if (isNonNullType(actualType) && !isNonNullType(expectedType)) {
+        // It's ok to redefine an optional argument as mandatory. For instance, if you want to force people on your team to provide a "deprecation reason", you can
+        // redefine @deprecated as `directive @deprecated(reason: String!)...` to get validation. In other words, you are allowed to always pass an argument that
+        // is optional if you so wish.
+        actualType = actualType.ofType;
+      }
+      if (!sameType(expectedType, actualType)) {
         errors.push(error(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have type ${expectedArgument.type!} but found type ${foundArgument.type!}`));
-      } else if (!valueEquals(expectedArgument.defaultValue, foundArgument.defaultValue)) {
+      } else if (!isNonNullType(actualType) && !valueEquals(expectedArgument.defaultValue, foundArgument.defaultValue)) {
         errors.push(error(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have default value ${valueToString(expectedArgument.defaultValue)} but found default value ${valueToString(foundArgument.defaultValue)}`));
       }
     }
