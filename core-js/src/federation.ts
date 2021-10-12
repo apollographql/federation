@@ -86,14 +86,21 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
-function allExternalFieldsCoordinates(selectionSet: SelectionSet): string[] {
+// Returns a list of the coordinate of all the fields in the selection that are marked external.
+function validateFieldSetSelections(directiveName: string, selectionSet: SelectionSet): string[] {
   const coordinates: string[] = [];
   for (const selection of selectionSet.selections()) {
-    if (selection.kind === 'FieldSelection' && selection.element().definition.hasAppliedDirective(externalDirectiveName)) {
-      coordinates.push(selection.element().definition.coordinate);
+    if (selection.kind === 'FieldSelection') {
+      const field = selection.element().definition;
+      if (field.hasArguments()) {
+        throw new GraphQLError(`field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`, field.sourceAST);
+      }
+      if (field.hasAppliedDirective(externalDirectiveName)) {
+        coordinates.push(field.coordinate);
+      }
     }
     if (selection.selectionSet) {
-      coordinates.push(...allExternalFieldsCoordinates(selection.selectionSet));
+      coordinates.push(...validateFieldSetSelections(directiveName, selection.selectionSet));
     }
   }
   return coordinates;
@@ -107,7 +114,7 @@ function validateFieldSet(
   try {
     const selectionSet = parseFieldSetArgument(type, directive);
     selectionSet.validate();
-    return allExternalFieldsCoordinates(selectionSet);
+    return validateFieldSetSelections(directive.name, selectionSet);
   } catch (e) {
     if (!(e instanceof GraphQLError)) {
       throw e;
