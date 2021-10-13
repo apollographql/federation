@@ -204,7 +204,10 @@ class QueryPlanningTaversal<RV extends Vertex> {
     //  console.log(`[PLAN] cost: ${cost}, path:\n${pathSet.toString('', true)}`);
     //}
     if (!this.bestPlan || cost < this.bestPlan[2]) {
+      debug.log(() => this.bestPlan ? `Found better with cost ${cost} (previous had cost ${this.bestPlan[2]}): ${pathSet}`: `Computed plan with cost ${cost}: ${pathSet}`);
       this.bestPlan = [dependencyGraph, pathSet, cost];
+    } else {
+      debug.log(() => `Ignoring plan with cost ${cost} (a better plan with cost ${this.bestPlan![2]} exists): ${pathSet}`);
     }
   }
 }
@@ -218,8 +221,16 @@ type CostFunction = FetchGroupProcessor<number, number[], number>;
 const fetchCost = 1000;
 const pipeliningCost = 10;
 
+function selectionCost(selection?: SelectionSet, depth: number = 1): number {
+  // The cost is essentially the number of elements in the selection, but we make deeped element cost a tiny bit more, mostly to make things a tad more
+  // deterministic (typically, if we have an interface with a single implementation, then we can have a choice between a query plan that type-explode a
+  // field of the interface and one that doesn't, and both will be almost identical, except that the type-exploded field will be a different depth; by
+  // favoring lesser depth in that case, we favor not type-expoding).
+  return selection ? selection.selections().reduce((prev, curr) => prev + depth + selectionCost(curr.selectionSet, depth + 1), 0) : 0;
+}
+
 const defaultCostFunction: CostFunction = {
-  onFetchGroup: (_group: FetchGroup) => 1,
+  onFetchGroup: (group: FetchGroup) =>  selectionCost(group.selection),
   reduceParallel: (values: number[]) => values,
   // That math goes the following way:
   // - we add the costs in a sequence (the `acc + ...`)
@@ -227,13 +238,14 @@ const defaultCostFunction: CostFunction = {
   // - but each group in a stage require a fetch, so we add a cost proportional to how many we have
   // - each group within a stage has its own cost plus a flat cost associated to doing that fetch (`fetchCost + s`).
   // - lastly, we also want to minimize the number of steps in the pipeline, so later stages are more costly (`idx * pipelineCost`)
-  reduceSequence: (values: (number[] | number)[]) => values.reduceRight(
-    (acc: number, value, idx) => {
-      const valueArray = Array.isArray(value) ? value : [value];
-      return acc + (idx * pipeliningCost) * (fetchCost * valueArray.length) *  Math.max(...valueArray)
-    },
-    0
-  ),
+  reduceSequence: (values: (number[] | number)[]) =>
+    values.reduceRight(
+      (acc: number, value, idx) => {
+        const valueArray = Array.isArray(value) ? value : [value];
+        return acc + ((idx + 1) * pipeliningCost) * (fetchCost * valueArray.length) *  Math.max(...valueArray)
+      },
+      0
+    ),
   finalize: (roots: number[], rootsAreParallel: boolean) => roots.length === 0 ? 0 : (rootsAreParallel ? Math.max(...roots) : sum(roots))
 };
 

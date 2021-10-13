@@ -146,15 +146,27 @@ function validateFieldSet(
 
 function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   definition: DirectiveDefinition<{fields: any}>,
-  parentTypeExtractor: (element: TParent) => CompositeType,
+  targetTypeExtractor: (element: TParent) => CompositeType,
   targetDescriptionExtractor: (element: TParent) => string,
   errorCollector: GraphQLError[],
-  externalFieldCoordinatesCollector: string[]
+  externalFieldCoordinatesCollector: string[],
+  isOnParentType: boolean
 ): void {
   for (const application of definition.applications()) {
     const elt = application.parent! as TParent;
-    const type = parentTypeExtractor(elt);
-    const errorOrFields = validateFieldSet(type, application, targetDescriptionExtractor(elt));
+    const type = targetTypeExtractor(elt);
+    const targetDescription = targetDescriptionExtractor(elt);
+    const parentType = isOnParentType ? type : (elt.parent as NamedType);
+    if (isInterfaceType(parentType)) {
+      errorCollector.push(new GraphQLError(
+        isOnParentType
+          ? `Cannot use ${definition.coordinate} on interface ${parentType.coordinate}: ${definition.coordinate} is not yet supported on interfaces`
+          : `Cannot use ${definition.coordinate} on ${targetDescription} of parent type ${parentType}: ${definition.coordinate} is not yet supported within interfaces`,
+        sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type))
+      ));
+    }
+
+    const errorOrFields = validateFieldSet(type, application, targetDescription);
     if (Array.isArray(errorOrFields)) {
       externalFieldCoordinatesCollector.push(...errorOrFields);
     } else {
@@ -305,14 +317,16 @@ export class FederationBuiltIns extends BuiltIns {
       type => type,
       type => `type "${type}"`,
       errors,
-      externalFieldCoordinates
+      externalFieldCoordinates,
+      true
     );
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.requiresDirective(schema),
       field => field.parent!,
       field => `field "${field.coordinate}"`,
       errors,
-      externalFieldCoordinates
+      externalFieldCoordinates,
+      false
     );
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.providesDirective(schema),
@@ -327,16 +341,10 @@ export class FederationBuiltIns extends BuiltIns {
       },
       field => `field ${field.coordinate}`,
       errors,
-      externalFieldCoordinates
+      externalFieldCoordinates,
+      false
     );
     validateAllExternalFieldsUsed(schema, externalFieldCoordinates, errors);
-
-    for (const key of keyDirective.applications()) {
-      const parent = key.parent! as CompositeType;
-      if (isInterfaceType(parent)) {
-        throw new GraphQLError(`Invalid @key on interface ${parent.coordinate}: @key is not yet supported on interfaces`, key.sourceAST);
-      }
-    }
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = this.tagDirective(schema);

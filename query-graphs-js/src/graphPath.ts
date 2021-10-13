@@ -19,7 +19,8 @@ import {
   isCompositeType,
   federationBuiltIns,
   parseFieldSetArgument,
-  keyDirectiveName
+  keyDirectiveName,
+  providesDirectiveName
 } from "@apollo/core";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, QueryGraphState } from "./querygraph";
@@ -1062,6 +1063,18 @@ function cartesianProduct<V>(arr:V[][]): V[][] {
   );
 }
 
+function anImplementationHasAProvides(fieldName: string, itf: InterfaceType): boolean {
+  for (const implem of itf.possibleRuntimeTypes()) {
+    const field = implem.field(fieldName);
+    // Note that this should only be called if field exists, but no reason to fail otherwise.
+    if (field && field.hasAppliedDirective(providesDirectiveName)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
 // The result has the same meaning than in advanceSimultaneousPathsWithOperation.
 // We also actually need to return a set of options of simultaneous paths. Cause when we type explode, we create simultaneous paths, but
 // as a field might be resolve by multiple subgraphs, we may have options created.
@@ -1090,11 +1103,20 @@ function advanceOneWithOperation<V extends Vertex>(
         return addFieldEdge(path, operation, edge, conditionResolver);
       case 'InterfaceType':
         // First, we check if there is a direct edge from the interface (which only happens if we're in a subgraph that knows all of the
-        // implementations of that interface globally). If there is one, we always favor that (it's just always more efficient that
-        // type-exploding in practice).
+        // implementations of that interface globally and all of them resolve the field).
+        // If there is one, then we have 2 options: either we take that edge, or we type-explode (like when we don't have a direct interface edge).
+        // In general, taking the interface edge is better than type explosion. However, there is a special case: if the field has a @provides in
+        // at least some of the implementations. In that case, it could be that type-exploding ends up faster because the @provides saves on a fetch
+        // we have to do if we take the direct edge. So if any implementation has a @provides, we include both options (direct interface or type explosion
+        // and let the later query-plan "cost" evaluation decide what is best).
         const itfEdge = edgeForField(path, operation);
+        let itfOptions: SimultaneousPaths<V>[] | undefined = undefined;
         if (itfEdge) {
-          return addFieldEdge(path, operation, itfEdge, conditionResolver);
+          itfOptions = addFieldEdge(path, operation, itfEdge, conditionResolver);
+          // Further, if we've getting the __typename, we must _not_ type-explode.
+          if (operation.definition.name === typenameFieldName || !anImplementationHasAProvides(operation.definition.name, currentType)) {
+            return itfOptions;
+          }
         }
         // Otherwise, that means we need to type explode and descend into every possible implementations (on the supergraph!)
         // and try to advance the field (which may require taking a key...).
@@ -1113,8 +1135,9 @@ function advanceOneWithOperation<V extends Vertex>(
             conditionResolver,
             cache
           );
+          // If we find no option for that implementation, we bail (as we need to simultaneously advance all implementations).
           if (!implemOptions) {
-            return undefined;
+            return itfOptions;
           }
           // If the new fragment makes it so that we're on an unsatisfiable branch, we just ignore that implementation.
           if (implemOptions.length === 0) {
@@ -1139,14 +1162,14 @@ function advanceOneWithOperation<V extends Vertex>(
             assert(withFieldOptions.length > 0, () => `Unexpected unsatisfiable path after ${optPaths} for ${operation}`);
             withField = withField.concat(withFieldOptions);
           }
-          // If we find no option to advance that implementation, we bail (as we need to simultaneously advance all
-          // implementations).
+          // If we find no option to advance that implementation, we bail (as we need to simultaneously advance all implementations).
           if (withField.length === 0) {
-            return undefined;
+            return itfOptions;
           }
           optionsByImplems.push(withField);
         }
-        return cartesianProduct(optionsByImplems).map(opt => opt.flat());
+        const implemOptions = cartesianProduct(optionsByImplems).map(opt => opt.flat());
+        return itfOptions ? itfOptions.concat(implemOptions) : implemOptions;
       case 'UnionType':
         assert(operation.definition.name === typenameFieldName, () => `Invalid field selection ${operation} for union type ${currentType}`);
         const typenameEdge = edgeForField(path, operation);
