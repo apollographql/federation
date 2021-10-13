@@ -1,0 +1,23 @@
+{
+  "name": "@apollo/router-bridge",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Apollo Router JS Bridge Entrypoint",
+  "scripts": {
+    "rollup": "rollup -c ./rollup.config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollographql/federation.git",
+    "directory": "router-bridge/"
+  },
+  "author": "Apollo <opensource@apollographql.com>",
+  "license": "MIT",
+  "dependencies": {
+    "fast-text-encoding": "1.0.3",
+    "whatwg-url": "9.1.0"
+  },
+  "peerDependencies": {
+    "graphql": "^14.5.0 || ^15.0.0"
+  }
+}

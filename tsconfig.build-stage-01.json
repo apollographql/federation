@@ -5,6 +5,8 @@
   "files": [],
   "include": [],
   "references": [
+    { "path": "./router-bridge" },
     { "path": "./federation-js" },
+    { "path": "./query-planner-js" },
   ]
 }
