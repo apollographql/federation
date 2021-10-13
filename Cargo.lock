@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "harmonizer"
-version = "0.33.2"
+version = "0.33.3"
 dependencies = [
  "anyhow",
  "deno_core",
