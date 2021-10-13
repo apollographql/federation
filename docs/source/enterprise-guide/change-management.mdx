@@ -67,19 +67,23 @@ The release steps for backward compatible changes are as follows:
    - Deployment manifests such as Kubernetes YAML or SAM templates
    - The subgraph SDL document
 4. The release pipeline then triggers two "deployments" in sequence.
-   1. A publish of the subgraph SDL document to Apollo Studio, which in turn updates the gateways with a new supergraph schema (if the subgraph composes successfully; more on that later).
-   2. A rolling deploy of the runtime code.
+   1. A rolling deploy of the runtime code.
+   2. A publish of the subgraph SDL document to Apollo Studio, which in turn updates the gateways with a new supergraph schema (if the subgraph composes successfully; more on that later).
 5. The release pipeline performs postrelease steps such as smoke tests.
 
 ### Sequencing schema publishing with service deployments
 
 During Step 4, our system will most likely end up in an inconsistent state, where the gateway's version of the schema is out of sync with the subgraph's version.
 
-When the gateway updates first, a client _could_ request the new schema elements, and the subgraph will raise an operation validation error because it is not yet aware of changes.
+When the subgraphs update first, a client _could_ request the new schema elements, and the gateway will raise an operation validation error because it is not yet aware of changes.
 
 In practice, however, this rarely matters. Due to the declarative nature of GraphQL, clients must update their operations to use the new schema elements. **Clients aren’t polling our schema's introspection response to discover new fields and immediately start requesting them.** (Also, Apollo recommends [disabling introspection in production][disableprod]!) Only after the system reaches a consistent state will we announce the availability of these new schema elements to clients.
 
 [disableprod]: https://www.apollographql.com/blog/graphql/security/why-you-should-disable-graphql-introspection-in-production/
+
+If we enable [Schema Change Notifications][notifications], Apollo Studio will automatically notify our colleagues that the new schema is available right after the gateway updates.
+
+[notifications]: https://www.apollographql.com/docs/studio/schema-change-integration/
 
 ### Concurrent subgraph schema changes
 
@@ -235,12 +239,12 @@ When determining the safest sequence of events, we must make sure that our resol
 In this example, we must release Subgraph B first so that its resolver for `fieldToMigrate` is in production before the gateway starts creating new query plans.
 
 1. In the Subgraph B repository, commit a changeset containing the schema change and the resolver implementations to the release branch, then trigger the release pipeline.
-2. The release pipeline executes: building artifacts, publishing subgraph SDL, and triggering a rolling deploy of Subgraph B.
+2. The release pipeline executes: building artifacts, triggering a rolling deploy of Subgraph B, and publishing subgraph SDL.
 
    At this point, the gateway continues to generate the the same query plans with Subgraph A as the owner of the `User.fieldToMigrate` field. **Composition is broken**, so Apollo Studio does not publish the new supergraph to the gateway.
 
 3. In the Subgraph A repository, commit a changeset containing the schema change to the release branch, then trigger the release pipeline. **For rollback purposes, we should leave the resolver for `User.fieldToMigrate` in place.**
-4. The release pipeline executes: building artifacts, publishing subgraph SDL, and triggering a rolling deploy of Subgraph A.
+4. The release pipeline executes: building artifacts, triggering a rolling deploy of Subgraph A, and publishing subgraph SDL.
 
    As soon as the pipeline publishes the subgraph schema, composition resolves and gateways update. They will now create query plans that use Subgraph B to resolve the field.
 
