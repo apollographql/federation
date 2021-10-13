@@ -41,8 +41,7 @@ export function featureSupport(this: CoreSchemaContext) {
   }
 
   for (const feature of this.features) {
-    if (!feature.purpose) continue;
-    if (feature.purpose === 'EXECUTION' || feature.purpose === 'SECURITY') {
+    if (coreVersionZeroDotOne || feature.purpose === 'EXECUTION' || feature.purpose === 'SECURITY') {
       if (!SUPPORTED_FEATURES.has(feature.url.base.toString())) {
         this.report(ErrUnsupportedFeature(feature));
       }
