@@ -9,7 +9,6 @@
  */
 export function assert(condition: any, message: string | (() => string)): asserts condition {
   if (!condition) {
-
     throw new Error(typeof message === 'string' ? message : message());
   }
 }

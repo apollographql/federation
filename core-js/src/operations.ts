@@ -39,9 +39,9 @@ import {
 import { MultiMap } from "./utils";
 import { argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
-function validate(condition: any, message: string, sourceAST?: ASTNode): asserts condition {
+function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
-    throw new GraphQLError(message, sourceAST);
+    throw new GraphQLError(message(), sourceAST);
   }
 }
 
@@ -148,7 +148,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   }
 
   private validate() {
-    validate(this.name === this.definition.name, `Field name "${this.name}" cannot select field "${this.definition.coordinate}: name mismatch"`);
+    validate(this.name === this.definition.name, () => `Field name "${this.name}" cannot select field "${this.definition.coordinate}: name mismatch"`);
 
     // We need to make sure the field has valid values for every non-optional argument.
     for (const argDef of this.definition.arguments()) {
@@ -156,11 +156,11 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       if (appliedValue === undefined) {
         validate(
           argDef.defaultValue !== undefined || isNullableType(argDef.type!),
-          `Missing mandatory value "${argDef.name}" in field selection "${this}"`);
+          () => `Missing mandatory value "${argDef.name}" in field selection "${this}"`);
       } else {
         validate(
           isValidValue(appliedValue, argDef, this.variableDefinitions),
-          `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
+          () => `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
       }
     }
 
@@ -168,7 +168,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     for (const [name, value] of Object.entries(this.args)) {
       validate(
         value === null || this.definition.argument(name) !== undefined,
-        `Unknown argument "${name}" in field application of "${this.name}"`);
+        () => `Unknown argument "${name}" in field application of "${this.name}"`);
     }
   }
 
@@ -291,7 +291,7 @@ function addDirectiveNodesToElement(directiveNodes: readonly DirectiveNode[] | u
   const schema = element.parentType.schema()!;
   for (const node of directiveNodes) {
     const directiveDef = schema.directive(node.name.value);
-    validate(directiveDef, `Unknown directive "@${node.name.value}" in selection`)
+    validate(directiveDef, () => `Unknown directive "@${node.name.value}" in selection`)
     element.applyDirective(directiveDef, argumentsFromAST(directiveDef.coordinate, node.arguments, directiveDef));
   }
 }
@@ -308,7 +308,7 @@ export class SelectionSet {
   private readonly _selections = new MultiMap<string, Selection>();
 
   constructor(readonly parentType: CompositeType) {
-    validate(!isLeafType(parentType), `Cannot have selection on non-leaf type ${parentType}`);
+    validate(!isLeafType(parentType), () => `Cannot have selection on non-leaf type ${parentType}`);
   }
 
   selections():  Selection[] {
@@ -358,7 +358,7 @@ export class SelectionSet {
     let previousSelections: SelectionSet = this;
     let currentSelections: SelectionSet | undefined = this;
     for (const element of path) {
-      validate(currentSelections, `Cannot apply selection ${element} to non-selectable parent type "${previousSelections.parentType}"`);
+      validate(currentSelections, () => `Cannot apply selection ${element} to non-selectable parent type "${previousSelections.parentType}"`);
       const mergedSelection: Selection = currentSelections.add(selectionOfElement(element));
       previousSelections = currentSelections;
       currentSelections = mergedSelection.selectionSet;
@@ -398,10 +398,10 @@ export class SelectionSet {
     switch (node.kind) {
       case 'Field':
         const definition: FieldDefinition<any> | undefined  = fieldAccessor(this.parentType, node.name.value);
-        validate(definition, `Cannot query field "${node.name.value}" on type "${this.parentType}".`, this.parentType.sourceAST);
+        validate(definition, () => `Cannot query field "${node.name.value}" on type "${this.parentType}".`, this.parentType.sourceAST);
         selection = new FieldSelection(new Field(definition, argumentsFromAST(definition.coordinate, node.arguments, definition), variableDefinitions, node.alias?.value));
         if (node.selectionSet) {
-          validate(selection.selectionSet, `Unexpected selection set on leaf field "${selection.element()}"`, selection.element().definition.sourceAST);
+          validate(selection.selectionSet, () => `Unexpected selection set on leaf field "${selection.element()}"`, selection.element().definition.sourceAST);
           selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments, fieldAccessor);
         }
         break;
@@ -412,7 +412,7 @@ export class SelectionSet {
       case 'FragmentSpread':
         const fragmentName = node.name.value;
         const fragmentDef = fragments.get(fragmentName);
-        validate(fragmentDef, `Unknown fragment "...${fragmentName}"`);
+        validate(fragmentDef, () => `Unknown fragment "...${fragmentName}"`);
         selection = new FragmentSelection(new FragmentElement(this.parentType, fragmentDef.typeCondition.name.value));
         selection.selectionSet.addSelectionSetNode(fragmentDef.selectionSet, variableDefinitions, fragments, fieldAccessor);
         addDirectiveNodesToElement(fragmentDef.directives, selection.element());
@@ -461,7 +461,7 @@ export class SelectionSet {
   }
 
   validate() {
-    validate(!this.isEmpty(), `Invalid empty selection set`);
+    validate(!this.isEmpty(), () => `Invalid empty selection set`);
     for (const selection of this.selections()) {
       selection.validate();
     }
@@ -547,7 +547,7 @@ export function selectionOfElement(element: OperationElement, subSelection?: Sel
 }
 
 export function selectionSetOfPath(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void): SelectionSet {
-  validate(path.length > 0, `Cannot create a selection set from an empty path`);
+  validate(path.length > 0, () => `Cannot create a selection set from an empty path`);
   const last = selectionSetOfElement(path[path.length - 1]);
   let current = last;
   for (let i = path.length - 2; i >= 0; i--) {
@@ -602,7 +602,7 @@ export class FieldSelection {
     // allow to provide much better error messages.
     validate(
       !(this.selectionSet && this.selectionSet.isEmpty()),
-      `Invalid empty selection set for field "${this.field.definition.coordinate}" of non-leaf type ${this.field.definition.type}`,
+      () => `Invalid empty selection set for field "${this.field.definition.coordinate}" of non-leaf type ${this.field.definition.type}`,
       this.field.definition.sourceAST
     );
     this.selectionSet?.validate();
@@ -622,10 +622,10 @@ export class FieldSelection {
           (isInterfaceType(fieldParent) && fieldParent.allImplementations().some(i => i.name == selectionParent.name)) 
           || (isObjectType(fieldParent) && fieldParent.name == selectionParent.name)
         ),
-        `Cannot add selection of field "${this.field.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
+        () => `Cannot add selection of field "${this.field.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
       );
       const fieldDef = selectionParent.field(this.field.name);
-      validate(fieldDef, `Cannot add selection of field "${this.field.definition.coordinate}" to selection set of parent type "${selectionParent} (that does not declare that type)"`);
+      validate(fieldDef, () => `Cannot add selection of field "${this.field.definition.coordinate}" to selection set of parent type "${selectionParent} (that does not declare that type)"`);
       return new FieldSelection(this.field.withUpdatedDefinition(fieldDef), this.selectionSet);
     }
     return this;
@@ -706,7 +706,7 @@ export class FragmentSelection {
     // allow to provide much better error messages.
     validate(
       !this.selectionSet.isEmpty(),
-      `Invalid empty selection set for fragment "${this.fragmentElement}"}`
+      () => `Invalid empty selection set for fragment "${this.fragmentElement}"}`
     );
     this.selectionSet.validate();
   }
@@ -723,7 +723,7 @@ export class FragmentSelection {
       // As long as there an intersection between the type we cast into and the selection parent, it's ok.
       validate(
         !typeCondition || runtimeTypesIntersects(selectionParent, typeCondition),
-        `Cannot add fragment of parent type "${this.fragmentElement.parentType}" to selection set of parent type "${selectionSet.parentType}"`
+        () => `Cannot add fragment of parent type "${this.fragmentElement.parentType}" to selection set of parent type "${selectionSet.parentType}"`
       );
       return new FragmentSelection(this.fragmentElement.withUpdatedSourceType(selectionParent), this.selectionSet);
     }
@@ -781,7 +781,7 @@ export function operationFromDocument(
   document.definitions.forEach(definition => {
     switch (definition.kind) {
       case Kind.OPERATION_DEFINITION:
-        validate(!operation || operationName, 'Must provide operation name if query contains multiple operations.');
+        validate(!operation || operationName, () => 'Must provide operation name if query contains multiple operations.');
         if (!operationName || (definition.name && definition.name.value === operationName)) {
           operation = definition;
         }
@@ -791,7 +791,7 @@ export function operationFromDocument(
         break;
     }
   });
-  validate(operation, operationName ? `Unknown operation named "${operationName}"` :  'No operation found in provided document.');
+  validate(operation, () => operationName ? `Unknown operation named "${operationName}"` : 'No operation found in provided document.');
   return operationFromAST(schema, operation, fragments);
 }
 
@@ -801,7 +801,7 @@ export function operationFromAST(
   fragments?: Map<string, FragmentDefinitionNode>
 ) : Operation {
   const rootType = schema.schemaDefinition.root(operation.operation);
-  validate(rootType, `The schema has no "${operation.operation}" root type defined`);
+  validate(rootType, () => `The schema has no "${operation.operation}" root type defined`);
   const variableDefinitions = operation.variableDefinitions ? variableDefinitionsFromAST(schema, operation.variableDefinitions) : new VariableDefinitions();
   return new Operation(
     operation.operation,
@@ -834,9 +834,9 @@ export function parseSelectionSet(
 
 function parseOperationAST(source: string): OperationDefinitionNode {
   const parsed = parse(source);
-  validate(parsed.definitions.length === 1, 'Selections should contain a single definitions, found ' + parsed.definitions.length);
+  validate(parsed.definitions.length === 1, () => 'Selections should contain a single definitions, found ' + parsed.definitions.length);
   const def = parsed.definitions[0];
-  validate(def.kind === 'OperationDefinition', 'Expected an operation definition but got a ' + def.kind);
+  validate(def.kind === 'OperationDefinition', () => 'Expected an operation definition but got a ' + def.kind);
   return def;
 }
 
