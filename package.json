@@ -42,8 +42,8 @@
   },
   "devDependencies": {
     "@graphql-codegen/cli": "2.2.1",
-    "@graphql-codegen/typescript": "2.2.3",
-    "@graphql-codegen/typescript-operations": "2.1.7",
+    "@graphql-codegen/typescript": "2.2.4",
+    "@graphql-codegen/typescript-operations": "2.1.8",
     "@iarna/toml": "2.2.5",
     "@opentelemetry/node": "0.24.0",
     "@rollup/plugin-commonjs": "20.0.0",
