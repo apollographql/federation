@@ -58,7 +58,7 @@ function haveSameDirectives<TElement extends OperationElement>(op1: TElement, op
   return true;
 }
 
-class AbstractOperationElement<T extends AbstractOperationElement<T>> extends DirectiveTargetElement<T> {
+abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> extends DirectiveTargetElement<T> {
   constructor(
     schema: Schema,
     private readonly variablesInElement: Variables
@@ -69,6 +69,9 @@ class AbstractOperationElement<T extends AbstractOperationElement<T>> extends Di
   variables(): Variables {
     return mergeVariables(this.variablesInElement, this.variablesInAppliedDirectives());
   }
+
+  abstract updateForAddingTo(selection: SelectionSet): T;
+
 }
 
 export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> extends AbstractOperationElement<Field<TArgs>> {
@@ -172,6 +175,29 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     }
   }
 
+  updateForAddingTo(selectionSet: SelectionSet): Field<TArgs> {
+    const selectionParent = selectionSet.parentType;
+    const fieldParent = this.definition.parent!;
+    if (selectionParent.name !== fieldParent.name) {
+      // We accept adding a selection of an interface field to a selection of one of its subtype. But otherwise, it's invalid.
+      // Do note that the field might come from a supergraph while the selection is on a subgraph, so we avoid relying on isDirectSubtype (because
+      // isDirectSubtype relies on the subtype knowing which interface it implements, but the one of the subgraph might not declare implementing
+      // the supergraph interface, even if it does in the subgraph).
+      validate(
+        !isUnionType(selectionParent)
+        && (
+          (isInterfaceType(fieldParent) && fieldParent.allImplementations().some(i => i.name == selectionParent.name))
+          || (isObjectType(fieldParent) && fieldParent.name == selectionParent.name)
+        ),
+        () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
+      );
+      const fieldDef = selectionParent.field(this.name);
+      validate(fieldDef, () => `Cannot add selection of field "${this.definition.coordinate}" to selection set of parent type "${selectionParent} (that does not declare that type)"`);
+      return this.withUpdatedDefinition(fieldDef);
+    }
+    return this;
+  }
+
   equals(that: OperationElement): boolean {
     if (this === that) {
       return true;
@@ -219,6 +245,21 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
       newFragment.applyDirective(directive.definition!, directive.arguments());
     }
     return newFragment;
+  }
+
+  updateForAddingTo(selectionSet: SelectionSet): FragmentElement {
+    const selectionParent = selectionSet.parentType;
+    const fragmentParent = this.parentType;
+    const typeCondition = this.typeCondition;
+    if (selectionParent != fragmentParent) {
+      // As long as there an intersection between the type we cast into and the selection parent, it's ok.
+      validate(
+        !typeCondition || runtimeTypesIntersects(selectionParent, typeCondition),
+        () => `Cannot add fragment of parent type "${this.parentType}" to selection set of parent type "${selectionSet.parentType}"`
+      );
+      return this.withUpdatedSourceType(selectionParent);
+    }
+    return this;
   }
 
   equals(that: OperationElement): boolean {
@@ -354,12 +395,30 @@ export class SelectionSet {
     return selection;
   }
 
+  addElement(element: OperationElement): Selection {
+    // Pretty similar to `add(Selection)`, but this is called often enough that saving some trashing when we add an element that already exists
+    // slightly improve perf on some heavy query plans. And it's not that much code duplication.
+    const toAdd = element.updateForAddingTo(this);
+    const key = elementKey(toAdd);
+    let existing: Selection[] | undefined = this._selections.get(key);
+    if (existing) {
+      for (const existingSelection of existing) {
+        if (existingSelection.element().kind === toAdd.kind && haveSameDirectives(existingSelection.element(), toAdd)) {
+          return existingSelection;
+        }
+      }
+    }
+    const newSelection = selectionOfElement(toAdd);
+    this._selections.add(key, newSelection);
+    return newSelection;
+  }
+
   addPath(path: OperationPath) {
     let previousSelections: SelectionSet = this;
     let currentSelections: SelectionSet | undefined = this;
     for (const element of path) {
       validate(currentSelections, () => `Cannot apply selection ${element} to non-selectable parent type "${previousSelections.parentType}"`);
-      const mergedSelection: Selection = currentSelections.add(selectionOfElement(element));
+      const mergedSelection: Selection = currentSelections.addElement(element);
       previousSelections = currentSelections;
       currentSelections = mergedSelection.selectionSet;
     }
@@ -609,26 +668,8 @@ export class FieldSelection {
   }
 
   updateForAddingTo(selectionSet: SelectionSet): FieldSelection {
-    const selectionParent = selectionSet.parentType;
-    const fieldParent = this.field.definition.parent!;
-    if (selectionParent.name !== fieldParent.name) {
-      // We accept adding a selection of an interface field to a selection of one of its subtype. But otherwise, it's invalid.
-      // Do note that the field might come from a supergraph while the selection is on a subgraph, so we avoid relying on isDirectSubtype (because
-      // isDirectSubtype relies on the subtype knowing which interface it implements, but the one of the subgraph might not declare implementing
-      // the supergraph interface, even if it does in the subgraph).
-      validate(
-        !isUnionType(selectionParent) 
-        && (
-          (isInterfaceType(fieldParent) && fieldParent.allImplementations().some(i => i.name == selectionParent.name)) 
-          || (isObjectType(fieldParent) && fieldParent.name == selectionParent.name)
-        ),
-        () => `Cannot add selection of field "${this.field.definition.coordinate}" to selection set of parent type "${selectionSet.parentType}"`
-      );
-      const fieldDef = selectionParent.field(this.field.name);
-      validate(fieldDef, () => `Cannot add selection of field "${this.field.definition.coordinate}" to selection set of parent type "${selectionParent} (that does not declare that type)"`);
-      return new FieldSelection(this.field.withUpdatedDefinition(fieldDef), this.selectionSet);
-    }
-    return this;
+    const updatedField = this.field.updateForAddingTo(selectionSet);
+    return this.field === updatedField ? this : new FieldSelection(updatedField, this.selectionSet);
   }
 
   toSelectionNode(): FieldNode {
@@ -716,18 +757,8 @@ export class FragmentSelection {
   }
 
   updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
-    const selectionParent = selectionSet.parentType;
-    const fragmentParent = this.fragmentElement.parentType;
-    const typeCondition = this.fragmentElement.typeCondition;
-    if (selectionParent != fragmentParent) {
-      // As long as there an intersection between the type we cast into and the selection parent, it's ok.
-      validate(
-        !typeCondition || runtimeTypesIntersects(selectionParent, typeCondition),
-        () => `Cannot add fragment of parent type "${this.fragmentElement.parentType}" to selection set of parent type "${selectionSet.parentType}"`
-      );
-      return new FragmentSelection(this.fragmentElement.withUpdatedSourceType(selectionParent), this.selectionSet);
-    }
-    return this;
+    const updatedFragment = this.fragmentElement.updateForAddingTo(selectionSet);
+    return this.fragmentElement === updatedFragment ? this : new FragmentSelection(updatedFragment, this.selectionSet);
   }
 
   toSelectionNode(): InlineFragmentNode {

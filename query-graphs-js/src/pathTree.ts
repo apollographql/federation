@@ -25,6 +25,9 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
 
   static createOp<RV extends Vertex = Vertex>(graph: QueryGraph, root: RV): OpPathTree<RV> {
     const opEquals = (op1: OperationElement | PathContext, op2: OperationElement | PathContext) => {
+      if (op1 === op2) {
+        return true;
+      }
       if (isPathContext(op1)) {
         return isPathContext(op2) && op1.equals(op2);
       }
