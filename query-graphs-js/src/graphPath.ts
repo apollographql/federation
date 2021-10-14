@@ -1050,17 +1050,43 @@ function advanceWithOperation<V extends Vertex>(
   return cartesianProduct(newPaths).map(v => v.flat());
 }
 
+// This can be written more tersely with a bunch of reduce/flatMap and friends, but when interfaces type-explode into many
+// implementations, this can end up with fairly large arrays and be a bottleneck, and a more iterative version that pre-allocate
+// arrays is quite a bit faster.
 function cartesianProduct<V>(arr:V[][]): V[][] {
-  if (arr.length === 0) {
-    return [];
+  const size = arr.length;
+
+  // Track, for each element, at which index we are
+  const eltIndexes = new Array<number>(size);
+  let totalCombinations = 1;
+  for (let i = 0; i < size; ++i){
+    const eltSize = arr[i].length;
+    if(!eltSize) {
+      totalCombinations = 0;
+      break;
+    }
+    eltIndexes[i] = 0;
+    totalCombinations *= eltSize;
   }
-  const first: V[] = arr[0];
-  const initialAcc: V[][] = first.map(v => [v]);
-  const remainder: V[][] = arr.slice(1);
-  return remainder.reduce(
-    (acc: V[][], val: V[]) => acc.flatMap((prod: V[]) => val.map((elt: V) => [prod, elt].flat() as V[])),
-    initialAcc
-  );
+
+  const product = new Array<V[]>(totalCombinations);
+  for (let i = 0; i < totalCombinations; ++i){
+    const item = new Array<V>(size);
+    for (var j = 0; j < size; ++j) {
+      item[j] = arr[j][eltIndexes[j]];
+    }
+    product[i] = item;
+
+    for (let idx = 0; idx < size; ++idx) {
+      if (eltIndexes[idx] == arr[idx].length - 1) {
+        eltIndexes[idx] = 0;
+      } else {
+        eltIndexes[idx] += 1;
+        break;
+      }
+    }
+  }
+  return product;
 }
 
 function anImplementationHasAProvides(fieldName: string, itf: InterfaceType): boolean {
