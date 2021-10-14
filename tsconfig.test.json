@@ -5,7 +5,6 @@
     { "path": "./federation-js/tsconfig.test.json" },
     { "path": "./gateway-js/tsconfig.test.json" },
     { "path": "./query-planner-js/tsconfig.test.json" },
-    { "path": "./router-bridge/tsconfig.test.json" },
     { "path": "./subgraph-js/tsconfig.test.json" },
   ]
 }
