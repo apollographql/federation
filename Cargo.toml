@@ -2,4 +2,5 @@
 members = [
   "harmonizer",
   "harmonizer-bin",
+  "router-bridge",
 ]
