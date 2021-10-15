@@ -1,2 +1,2 @@
-export { introspect, batchIntrospect } from "./introspection";
-export { parse as parseGraphqlDocument } from "graphql";
+export { introspect, batchIntrospect } from './introspection';
+export { plan } from './plan';

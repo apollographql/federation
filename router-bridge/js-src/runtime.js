@@ -7,11 +7,11 @@ Deno.core.ops();
 const _newline = new Uint8Array([10]);
 
 function print(value) {
-    Deno.core.dispatchByName('op_print', 0, value.toString(), _newline);
+  Deno.core.dispatchByName('op_print', 0, value.toString(), _newline);
 }
 
 function done(result) {
-    Deno.core.opSync('op_result', result);
+  Deno.core.opSync('op_result', result);
 }
 
 // We build some of the preliminary objects that our Rollup-built package is
@@ -24,7 +24,7 @@ node_fetch_1 = {};
 // particular, to determine whether or not we are running in a debug
 // mode.  For the purposes of harmonizer, we don't gain anything from
 // running in such a mode.
-process = {argv: [], env: {"NODE_ENV": "production"}};
+process = { argv: [], env: { NODE_ENV: 'production' } };
 // Some JS runtime implementation specific bits that we rely on that
 // need to be initialized as empty objects.
 global = {};

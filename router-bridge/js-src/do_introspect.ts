@@ -1,13 +1,12 @@
-import type { batchIntrospect } from './introspection';
+import type { batchIntrospect } from '.';
+import type { OperationResult } from './types';
+
 /**
  * There are several global properties that we make available in our V8 runtime
  * and these are the types for those that we expect to use within this script.
  * They'll be stripped in the emitting of this file as JS, of course.
  */
 declare var bridge: { batchIntrospect: typeof batchIntrospect };
-
-// TODO: Maybe tighten the type, and put it somewhere else
-type OperationResult = { Ok: any, Err?: undefined } | { Ok?: undefined, Err: any };
 
 declare var done: (operationResult: OperationResult) => void;
 declare var sdl: string;

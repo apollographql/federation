@@ -87,7 +87,7 @@ pub type IntrospectionResult = Result<Vec<IntrospectionResponse>, IntrospectionE
 /// The `batch_introspect` function receives a [`string`] representing the SDL and invokes JavaScript
 /// introspection on it, with the `queries` to run against the SDL.
 ///
-pub fn batch_introspect(sdl: String, queries: Vec<String>) -> IntrospectionResult {
+pub fn batch_introspect(sdl: &str, queries: Vec<String>) -> IntrospectionResult {
     Js::new()
         .with_parameter("sdl", sdl)
         .with_parameter("queries", queries)
@@ -112,11 +112,8 @@ mod tests {
         }
         "#;
 
-        let introspected = batch_introspect(
-            raw_sdl.to_string(),
-            vec![DEFAULT_INTROSPECTION_QUERY.to_string()],
-        )
-        .unwrap();
+        let introspected =
+            batch_introspect(raw_sdl, vec![DEFAULT_INTROSPECTION_QUERY.to_string()]).unwrap();
         insta::assert_snapshot!(serde_json::to_string(&introspected).unwrap());
     }
 
@@ -129,8 +126,7 @@ mod tests {
         let response = batch_introspect(
             "schema {
                 query: Query
-            }"
-            .to_string(),
+            }",
             vec![DEFAULT_INTROSPECTION_QUERY.to_string()],
         )
         .unwrap();
@@ -147,8 +143,7 @@ mod tests {
         let response = batch_introspect(
             "schema {
                 query: Query
-            }"
-            .to_string(),
+            }",
             vec![DEFAULT_INTROSPECTION_QUERY.to_string()],
         )
         .unwrap();

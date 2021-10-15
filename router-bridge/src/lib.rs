@@ -7,3 +7,4 @@
 #![warn(missing_docs, future_incompatible, unreachable_pub, rust_2018_idioms)]
 pub mod introspect;
 mod js;
+pub mod plan;
