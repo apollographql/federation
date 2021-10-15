@@ -183,4 +183,28 @@ mod tests {
             )
         );
     }
+
+    #[test]
+    fn parseable_yet_invalid_query_is_caught() {
+        let expected_error_message = r#"Field "reviews" of type "[Review]" must have a selection of subfields. Did you mean "reviews { ... }"?"#;
+        let result = Err::<String, _>(PlanningErrors {
+            errors: vec![PlanningError {
+                message: Some(expected_error_message.to_string()),
+                extensions: None,
+            }],
+        });
+        // This query contains reviews, which requires subfields
+        let query_missing_subfields = "query ExampleQuery {  me { id reviews }  }".to_string();
+        assert_eq!(
+            result,
+            plan(
+                OperationalContext {
+                    schema: SCHEMA.to_string(),
+                    query: query_missing_subfields,
+                    operation_name: "".to_string(),
+                },
+                QueryPlanOptions::default(),
+            )
+        );
+    }
 }
