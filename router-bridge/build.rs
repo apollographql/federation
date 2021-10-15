@@ -25,7 +25,7 @@ fn main() {
     };
 
     match (&bridge_last_update, &js_dist_last_update) {
-        // the federation folder has evolved since the last time we built harmonizer.
+        // the federation folder has evolved since the last time we built the rust-bridge.
         (Ok(bridge), Some(js)) if js > bridge => update_bridge(),
         // Os didn't allow to query for metadata, we can't know for sure the bridge is up to date.
         (Err(_), _) => update_bridge(),

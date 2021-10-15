@@ -1,4 +1,4 @@
-import { ExecutionResult, parse } from 'graphql';
+import { ExecutionResult, parse, validate } from 'graphql';
 import {
   QueryPlanner,
   buildOperationContext,
@@ -16,6 +16,12 @@ export function plan(
     const schema = parse(schemaString);
     const query = parse(queryString);
     const composedSchema = buildComposedSchema(schema);
+
+    const validationErrors = validate(composedSchema, query);
+    if (validationErrors.length > 0) {
+      return { errors: validationErrors };
+    }
+
     const operationContext = buildOperationContext(
       composedSchema,
       query,
