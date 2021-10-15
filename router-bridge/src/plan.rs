@@ -60,10 +60,10 @@ impl Display for PlanningErrors {
 
 /// An error which occurred during JavaScript planning.
 ///
-/// The shape of this error is meant to mimick that of the error created within
-/// JavaScript.
+/// The shape of this error is meant to mimic that of the error created within
+/// JavaScript, which is a [`GraphQLError`] from the [`graphql-js`] library.
 ///
-/// [`graphql-js']: https://npm.im/graphql
+/// [`graphql-js`]: https://npm.im/graphql
 /// [`GraphQLError`]: https://github.com/graphql/graphql-js/blob/3869211/src/error/GraphQLError.js#L18-L75
 #[derive(Debug, Error, Serialize, Deserialize, PartialEq)]
 pub struct PlanningError {
