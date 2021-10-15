@@ -17,13 +17,13 @@ import { FieldDefinition, CompositeType } from "@apollo/core";
   *   the query root type of a subgraph to the query subgraph of another subgraph. It encodes
   *   the fact that if a subgraph field returns the query type, any subgraph can be queried
   *   from there.
-  * - a "free" edge: this is a special case only used for the edges out of the root vertices of
-  *   "federated" query graphs. It does not correspond to any physical graphQL elements but
-  *   can be understood as the fact that the gateway is always free to start querying any of
+  * - a "subgraph entering" edge: this is a special case only used for the edges out of the root
+  *   vertices of "federated" query graphs. It does not correspond to any physical graphQL elements
+  *   but can be understood as the fact that the gateway is always free to start querying any of
   *   the subgraph services as needed.
   *
  */
-export type Transition = FieldCollection | DownCast | KeyResolution | QueryResolution | FreeTransition;
+export type Transition = FieldCollection | DownCast | KeyResolution | QueryResolution | SubgraphEnteringTransition;
 
 export class KeyResolution {
   readonly kind = 'KeyResolution' as const;
@@ -71,8 +71,8 @@ export class DownCast {
   }
 }
 
-export class FreeTransition {
-  readonly kind = 'FreeTransition' as const;
+export class SubgraphEnteringTransition {
+  readonly kind = 'SubgraphEnteringTransition' as const;
   readonly collectOperationElements = false as const;
 
   toString() {
@@ -80,5 +80,5 @@ export class FreeTransition {
   }
 }
 
-export const freeTransition = new FreeTransition();
+export const subgraphEnteringTransition = new SubgraphEnteringTransition();
 

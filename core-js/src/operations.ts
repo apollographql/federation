@@ -179,6 +179,10 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     const selectionParent = selectionSet.parentType;
     const fieldParent = this.definition.parent!;
     if (selectionParent.name !== fieldParent.name) {
+      if (this.name === typenameFieldName) {
+        return this.withUpdatedDefinition(selectionParent.typenameField()!);
+      }
+
       // We accept adding a selection of an interface field to a selection of one of its subtype. But otherwise, it's invalid.
       // Do note that the field might come from a supergraph while the selection is on a subgraph, so we avoid relying on isDirectSubtype (because
       // isDirectSubtype relies on the subtype knowing which interface it implements, but the one of the subgraph might not declare implementing

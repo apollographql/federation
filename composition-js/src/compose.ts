@@ -29,7 +29,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
 
   const supergraphSchema = mergeResult.supergraph;
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraphSchema);
-  const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema);
+  const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, false);
   const validationResult = validateGraphComposition(supergraphQueryGraph, federatedQueryGraph);
   if (validationResult.errors) {
     return { errors: validationResult.errors.map(e => error('COMPOSITION_SATISFIABILITY_ERROR', e.message)) };

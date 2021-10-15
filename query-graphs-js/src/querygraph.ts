@@ -28,7 +28,7 @@ import {
   possibleRuntimeTypes
 } from '@apollo/core';
 import { inspect } from 'util';
-import { DownCast, FieldCollection, freeTransition, FreeTransition, Transition, KeyResolution, QueryResolution } from './transition';
+import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, QueryResolution } from './transition';
 import { isStructuralFieldSubtype } from './structuralSubtyping';
 
 const FEDERATED_GRAPH_ROOT_SOURCE = "federated_subgraphs";
@@ -179,7 +179,7 @@ export class Edge {
   }
 
   label(): string {
-    if (this.transition instanceof FreeTransition && !this._conditions) {
+    if (this.transition instanceof SubgraphEnteringTransition && !this._conditions) {
       return "";
     }
     return this._conditions ? `${this._conditions} ⊢ ${this.transition}` : this.transition.toString();
@@ -555,7 +555,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   // that point.
   for (let [i, subgraph] of subgraphs.entries()) {
     const copyPointer = copyPointers[i];
-    subgraph.rootKinds().forEach(k => builder.addEdge(builder.root(k)!, copyPointer.copiedVertex(subgraph.root(k)!), freeTransition));
+    subgraph.rootKinds().forEach(k => builder.addEdge(builder.root(k)!, copyPointer.copiedVertex(subgraph.root(k)!), subgraphEnteringTransition));
 
     const queryRoot = subgraph.root("query");
     if (queryRoot) {
@@ -1082,7 +1082,15 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // edges to add. Note that in practice, we only care about 'Union -> Interface' and 'Interface -> Interface'
     for (let i = 0; i < abstractTypesWithTheirRuntimeTypes.length - 1; i++) {
       const [t1, t1Runtimes] = abstractTypesWithTheirRuntimeTypes[i];
-      const t1Vertex = this.existingVertexForNamedType(t1);
+      // Note that in general, t1 is already part of the graph `addTypeRecursively` don't really add anything, it
+      // just return the existing vertex. That said, if t1 is returned by no field (at least no field reachable from
+      // a root type), the type will not be part of the graph. And in that case, we do add it. And it's actually
+      // possible that we don't create any edge to that created vertex, so we may be creating a disconnected subset
+      // of the graph, a part that is not reachable from any root. It's not optimal, but it's a bit hard to avoid
+      // in the first place (we could also try to purge such subset after this method, but it's probably not worth
+      // it in general) and it's not a big deal: it will just a bit more memory than necessary, and it's probably
+      // pretty rare in the first place.
+      const t1Vertex = this.addTypeRecursively(t1);
       for (let j = i; j < abstractTypesWithTheirRuntimeTypes.length; j++) {
         const [t2, t2Runtimes] = abstractTypesWithTheirRuntimeTypes[j];
         // We ignore the pair if both are interfaces and one implements the other. We'll already have appropriate
@@ -1093,18 +1101,13 @@ class GraphBuilderFromSchema extends GraphBuilder {
         // Note that as everything comes from the same subgraph schema, using reference equality is fine.
         const intersecting = t1Runtimes.filter(o1 => t2Runtimes.includes(o1));
         if (intersecting.length >= 2) {
-          const t2Vertex = this.existingVertexForNamedType(t2);
+          // Same remark as for t1 above.
+          const t2Vertex = this.addTypeRecursively(t2);
           this.addEdge(t1Vertex, t2Vertex, new DownCast(t1, t2));
           this.addEdge(t2Vertex, t1Vertex, new DownCast(t2, t1));
         }
       }
     }
-  }
-
-  private existingVertexForNamedType(namedType: NamedType): Vertex {
-    const existing = this.verticesForType(namedType.name);
-    assert(existing.length === 1, () => `We should exactly one vertex for type ${namedType}, got ${existing.length}: ${inspect(this)}`);
-    return existing[0];
   }
 
   build(): QueryGraph {

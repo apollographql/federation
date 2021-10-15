@@ -25,7 +25,7 @@ import {
   federatedGraphRootTypeName,
   QueryGraph,
   emptyContext,
-  freeTransition,
+  subgraphEnteringTransition,
   GraphPath,
   RootPath,
   advancePathWithTransition,
@@ -145,7 +145,7 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
       const field = edge.transition.definition;
       selection = new FieldSelection(buildWitnessField(field), subSelection);
       break
-    case 'FreeTransition':
+    case 'SubgraphEnteringTransition':
     case 'KeyResolution':
     case 'QueryResolution':
       return subSelection;
@@ -249,7 +249,7 @@ function initialSubgraphPaths(kind: SchemaRootKind, subgraphs: QueryGraph): Root
     root.type.name == federatedGraphRootTypeName(kind),
     () => `Unexpected type ${root.type} for subgraphs root type (expected ${federatedGraphRootTypeName(kind)}`);
   const initialState = GraphPath.fromGraphRoot<Transition>(subgraphs, kind)!;
-  return subgraphs.outEdges(root).map(e => initialState.add(freeTransition, e));
+  return subgraphs.outEdges(root).map(e => initialState.add(subgraphEnteringTransition, e));
 }
 
 export class ValidationState {

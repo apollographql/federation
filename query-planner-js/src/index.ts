@@ -19,7 +19,7 @@ export class QueryPlanner {
   private readonly federatedQueryGraph: QueryGraph;
 
   constructor(public readonly supergraphSchema: Schema) {
-    this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema);
+    this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
   }
 
   buildQueryPlan(operation: Operation): QueryPlan {

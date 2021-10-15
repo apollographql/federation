@@ -1,5 +1,5 @@
 import { ObjectType } from "@apollo/core";
-import { FieldCollection, freeTransition } from "@apollo/query-graphs";
+import { FieldCollection, subgraphEnteringTransition } from "@apollo/query-graphs";
 import { namedEdges, testGraphFromSchemaString } from './testUtils';
 
 test('building query graphs from schema handles object types', () => {
@@ -43,7 +43,7 @@ test('building query graphs from schema handles object types', () => {
   const schema = [...graph.sources.values()][0];
   const t1Field = (schema.type('Query')! as ObjectType).field('t1')!;
   expect(rootEdge.matchesSupergraphTransition(schema, new FieldCollection(t1Field))).toBe(true);
-  expect(rootEdge.matchesSupergraphTransition(schema, freeTransition)).toBe(false);
+  expect(rootEdge.matchesSupergraphTransition(schema, subgraphEnteringTransition)).toBe(false);
 
   const t1 = rootEdge.tail;
   expect(t1.type.name).toBe('T1');
