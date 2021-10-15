@@ -104,7 +104,12 @@ function printSchemaDefinition(schema: GraphQLSchema): string | undefined {
     operationTypes.push(`  subscription: ${subscriptionType.name}`);
   }
 
-  return printDescription(schema) + `schema {\n${operationTypes.join('\n')}\n}`;
+  return (
+    printDescription(schema) +
+    `schema${printKnownDirectiveUsagesOnTypeOrField(schema)} {\n${operationTypes.join(
+      '\n',
+    )}\n}`
+  );
 }
 
 /**
@@ -120,6 +125,12 @@ function printSchemaDefinition(schema: GraphQLSchema): string | undefined {
  * When using this naming convention, the schema description can be omitted.
  */
 function isSchemaOfCommonNames(schema: GraphQLSchema): boolean {
+  // If the schema definition includes directives (like @contact) we want to
+  // include it.
+  if (schema.astNode?.directives?.length) {
+    return false;
+  }
+
   const queryType = schema.getQueryType();
   if (queryType && queryType.name !== 'Query') {
     return false;
@@ -294,7 +305,7 @@ function printFederationDirectives(
 // Apollo addition: print `@tag` directive usages (and possibly other future known
 // directive usages) found in subgraph SDL.
 function printKnownDirectiveUsagesOnTypeOrField(
-  typeOrField: GraphQLNamedType | GraphQLField<any, any>,
+  typeOrField: GraphQLNamedType | GraphQLField<any, any> | GraphQLSchema,
 ): string {
   if (!typeOrField.astNode) return '';
   if (isInputObjectType(typeOrField)) return '';

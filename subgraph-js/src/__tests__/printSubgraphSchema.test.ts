@@ -1,4 +1,4 @@
-import { fixtures } from 'apollo-federation-integration-testsuite';
+import { fixtures, gql } from 'apollo-federation-integration-testsuite';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { printSubgraphSchema } from '../printSubgraphSchema';
 
@@ -172,6 +172,39 @@ describe('printSubgraphSchema', () => {
         reviewProduct(input: ReviewProduct!): Product
         updateReview(review: UpdateReviewInput!): Review
         deleteReview(id: ID!): Boolean
+      }
+      "
+    `);
+  });
+
+  it('prints schema type when it has directives', () => {
+    const typeDefs = gql`
+      directive @contact(
+        name: String!
+        url: String!
+        description: String!
+      ) on SCHEMA
+
+      extend type Query {
+        hello: String
+      }
+
+      schema @contact(name: "hi", url: "https://hi.com", description: "hi") {
+        query: Query
+      }
+    `;
+
+    const schema = buildSubgraphSchema({ typeDefs });
+    expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
+      "schema @contact(name: \\"hi\\", url: \\"https://hi.com\\", description: \\"hi\\") {
+        query: Query
+      }
+
+      directive @contact(name: String!, url: String!, description: String!) on SCHEMA
+
+      extend type Query {
+        _service: _Service!
+        hello: String
       }
       "
     `);
