@@ -22,7 +22,7 @@
   "dependencies": {
     "@apollo/federation": "file:../federation-js",
     "fast-text-encoding": "^1.0.3",
-    "whatwg-url": "^9.1.0"
+    "whatwg-url": "^10.0.0"
   },
   "peerDependencies": {
     "graphql": "^14.5.0 || ^15.0.0"
