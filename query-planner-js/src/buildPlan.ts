@@ -18,7 +18,6 @@ import {
   ObjectType,
   Operation,
   OperationPath,
-  operationToAST,
   sameOperationPaths,
   Schema,
   SchemaRootKind,
@@ -34,6 +33,8 @@ import {
   newDebugLogger,
   selectionOfElement,
   selectionSetOfElement,
+  NamedFragments,
+  operationToDocument,
 } from "@apollo/core";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -59,7 +60,7 @@ import {
   OpIndirectPaths,
   SimultaneousPaths
 } from "@apollo/query-graphs";
-import { Kind, DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
+import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
@@ -308,7 +309,7 @@ export function computeQueryPlan(supergraphSchema: Schema, federatedQueryGraph: 
 
   const root = federatedQueryGraph.root(operation.rootKind);
   assert(root, `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
-  const processor = fetchGroupToPlanProcessor(operation.rootKind, operation.variableDefinitions);
+  const processor = fetchGroupToPlanProcessor(operation.rootKind, operation.variableDefinitions, operation.selectionSet.fragments);
   if (operation.rootKind === 'mutation') {
     const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
     const rootNode = processor.finalize(dependencyGraphs.flatMap(g => g.process(processor)), false);
@@ -404,9 +405,13 @@ function splitTopLevelFields(selectionSet: SelectionSet): SelectionSet[] {
   });
 }
 
-function fetchGroupToPlanProcessor(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions): FetchGroupProcessor<PlanNode, PlanNode, PlanNode | undefined> {
+function fetchGroupToPlanProcessor(
+  rootKind: SchemaRootKind,
+  variableDefinitions: VariableDefinitions,
+  fragments?: NamedFragments
+): FetchGroupProcessor<PlanNode, PlanNode, PlanNode | undefined> {
   return {
-    onFetchGroup: (group: FetchGroup) => group.toPlanNode(rootKind, variableDefinitions),
+    onFetchGroup: (group: FetchGroup) => group.toPlanNode(rootKind, variableDefinitions, fragments),
     reduceParallel: (values: PlanNode[]) => flatWrap('Parallel', values),
     reduceSequence: (values: PlanNode[]) => flatWrap('Sequence', values),
     finalize: (roots: PlanNode[], rootsAreParallel) => roots.length == 0 ? undefined : flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)
@@ -494,7 +499,7 @@ class FetchGroup {
     this.dependencyGraph.onMergedIn(this, toMerge);
   }
 
-  toPlanNode(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions) : PlanNode {
+  toPlanNode(rootKind: SchemaRootKind, variableDefinitions: VariableDefinitions, fragments?: NamedFragments) : PlanNode {
     addTypenameFieldForAbstractTypes(this.selection);
 
     this.selection.validate();
@@ -506,8 +511,8 @@ class FetchGroup {
     // TODO: Handle internalFragments? (and collect their variables if so)
 
     const operation = this.isEntityFetch
-      ? operationForEntitiesFetch(this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!, this.selection, variableDefinitions)
-      : operationForQueryFetch(rootKind, this.selection, variableDefinitions);
+      ? operationForEntitiesFetch(this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!, this.selection, variableDefinitions, fragments)
+      : operationForQueryFetch(rootKind, this.selection, variableDefinitions, fragments);
 
     const fetchNode: FetchNode = {
       kind: 'Fetch',
@@ -1339,8 +1344,8 @@ function representationsVariableDefinition(schema: Schema): VariableDefinition {
 function operationForEntitiesFetch(
   subgraphSchema: Schema,
   selectionSet: SelectionSet,
-  allVariableDefinitions: VariableDefinitions
-  //internalFragments: Set<FragmentDefinitionNode>,
+  allVariableDefinitions: VariableDefinitions,
+  fragments?: NamedFragments
 ): DocumentNode {
   const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
@@ -1358,13 +1363,7 @@ function operationForEntitiesFetch(
     selectionSet
   ));
 
-  return {
-    kind: Kind.DOCUMENT,
-    definitions: [
-      operationToAST(new Operation('query', entitiesCall, variableDefinitions)),
-      //...internalFragments,
-    ],
-  };
+  return operationToDocument(new Operation('query', entitiesCall, variableDefinitions).optimize(fragments));
 }
 
 // Wraps the given nodes in a ParallelNode or SequenceNode, unless there's only
@@ -1389,17 +1388,9 @@ function flatWrap(
 function operationForQueryFetch(
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
-  allVariableDefinitions: VariableDefinitions
-  //internalFragments: Set<FragmentDefinitionNode>,
+  allVariableDefinitions: VariableDefinitions,
+  fragments?: NamedFragments
 ): DocumentNode {
-  // TODO: do we want to include internal fragments?
-  return {
-    kind: Kind.DOCUMENT,
-    definitions: [
-      operationToAST(
-        new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()))
-      ),
-      //...internalFragments,
-    ],
-  };
+  const operation = new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables())).optimize(fragments);
+  return operationToDocument(operation);
 }

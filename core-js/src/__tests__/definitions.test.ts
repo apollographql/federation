@@ -15,6 +15,7 @@ import {
 import { defaultPrintOptions, printSchema } from '../../dist/print';
 import { buildSchema } from '../../dist/buildSchema';
 import { federationBuiltIns } from '../../dist/federation';
+import './matchers';
 
 function parseSchema(schema: string, builtIns?: BuiltIns): Schema {
   try {
@@ -49,23 +50,8 @@ declare global {
     interface Matchers<R> {
       toHaveField(name: string, type?: Type): R;
       toHaveDirective<TArgs extends {[key: string]: any}>(directive: DirectiveDefinition<TArgs>, args?: TArgs): R;
-      toMatchString(actual: string): R;
     }
   }
-}
-
-function deIndent(str: string): string {
-  // Strip leading \n
-  str = str.slice(str.search(/[^\n]/));
-  // Strip trailing \n or space
-  while (str.charAt(str.length - 1) === '\n' || str.charAt(str.length - 1) === ' ') {
-    str = str.slice(0, str.length - 1);
-  }
-  const indent = str.search(/[^ ]/);
-  return str
-    .split('\n')
-    .map(line => line.slice(indent))
-    .join('\n');
 }
 
 expect.extend({
@@ -124,26 +110,6 @@ expect.extend({
       pass: false
     }
   },
-
-  toMatchString(expected: string, received: string) {
-    received = deIndent(received);
-    // If the expected string as a trailing '\n', add one since we removed it.
-    if (expected.charAt(expected.length - 1) === '\n') {
-      received = received + '\n';
-    }
-    const pass = this.equals(expected, received);
-    const message = pass
-      ? () => this.utils.matcherHint('toMatchString', undefined, undefined)
-          + '\n\n'
-          + `Expected: not ${this.printExpected(expected)}`
-      : () => {
-        return (
-          this.utils.matcherHint('toMatchString', undefined, undefined,)
-          + '\n\n'
-          + this.utils.printDiffOrStringify(expected, received, 'Expected', 'Received', true));
-      };
-    return {received, expected, message, name: 'toMatchString', pass};
-  }
 });
 
 test('building a simple schema programatically', () => {
@@ -618,7 +584,6 @@ test('default arguments for directives', () => {
 });
 
 test('correctly convert to a graphQL-js schema', () => {
-  global.console = require('console');
   const sdl = `
     schema {
       query: MyQuery

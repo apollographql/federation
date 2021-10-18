@@ -11,7 +11,7 @@ import {
   MultiMap,
   newDebugLogger,
   Operation,
-  operationToAST,
+  operationToDocument,
   Schema,
   SchemaRootKind,
   Selection,
@@ -68,8 +68,8 @@ function validationError(
   // TODO: we should build a more detailed error message, not just the unsatisfiable query. Doing that well is likely a tad
   // involved though as there may be a lot of different reason why it doesn't validate. But by looking at the last edge on the
   // supergraph and the subgraphsPath, we should be able to roughly infer what's going on. 
-  const operation = print(operationToAST(witness));
-  const message = `The follow supergraph API query:\n${operation}\n`
+  const operation = print(operationToDocument(witness));
+  const message = `The follow supergraph API query:\n${operation}`
     + 'cannot be satisfied by the subgraphs because:\n'
     + displayReasons(subgraphsPathsUnadvanceables);
   return new ValidationError(message, unsatisfiablePath, subgraphsPaths, witness);

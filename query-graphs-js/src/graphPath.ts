@@ -400,7 +400,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   }
 
   toString(): string {
-    const pathStr = this.mapMainPath(edge => edge ? ` --[${edge.label()}](${edge.index})--> ${edge.tail}` : ' -- <null> ').join('');
+    const pathStr = this.mapMainPath((edge, idx) => edge ? ` --[${edge.label()}](${edge.index})--> ${edge.tail}` : ` (${this.edgeTriggers[idx]}) `).join('');
     return `${this.root}${pathStr} (types: [${this.runtimeTypesOfTail.join(', ')}])`;
   }
 }

@@ -2,9 +2,12 @@ import deepEqual from "deep-equal";
 import {
   ArgumentNode,
   ASTNode,
+  DefinitionNode,
   DirectiveNode,
   DocumentNode,
   FieldNode,
+  FragmentDefinitionNode,
+  FragmentSpreadNode,
   GraphQLError,
   InlineFragmentNode,
   Kind,
@@ -36,6 +39,7 @@ import {
   variableDefinitionsFromAST,
   CompositeType,
   typenameFieldName,
+  NamedType,
 } from "./definitions";
 import { assert, MultiMap } from "./utils";
 import { argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
@@ -314,13 +318,37 @@ export class Operation {
     readonly name?: string) {
   }
 
+  optimize(fragments?: NamedFragments, minUsagesToOptimize: number = 2): Operation {
+    if (!fragments) {
+      return this;
+    }
+    let optimizedSelection = this.selectionSet.optimize(fragments);
+    if (optimizedSelection === this.selectionSet) {
+      return this;
+    }
+
+    // Optimizing fragments away, and then de-optimizing if it's used less than we want, feels a bit wasteful,
+    // but it's simple and probably don't matter too much in practice (we only call this optimization on the
+    // final compted query plan, so not a very hot path; plus in most case we won't even reach that point
+    // either because there is no fragment, or none will have been optimized away and we'll exit above). We
+    // can optimize later if this show up in profiling though.
+    if (minUsagesToOptimize > 1) {
+      const usages = new Map<string, number>();
+      optimizedSelection.collectUsedFragmentNames(usages);
+      for (const fragment of fragments.names()) {
+        if (!usages.has(fragment)) {
+          usages.set(fragment, 0);
+        }
+      }
+      const toDeoptimize = [...usages.entries()].filter(([_, count]) => count < minUsagesToOptimize).map(([name]) => name);
+      optimizedSelection = optimizedSelection.expandFragments(toDeoptimize);
+    }
+    return new Operation(this.rootKind, optimizedSelection, this.variableDefinitions, this.name);
+  }
+
   toString(expandFragments: boolean = false, prettyPrint: boolean = true): string {
     return this.selectionSet.toOperationString(this.rootKind, this.variableDefinitions, this.name, expandFragments, prettyPrint);
   }
-}
-
-function elementKey(elt: OperationElement): string {
-  return elt instanceof Field ? elt.responseName() : elt.typeCondition?.name ?? '';
 }
 
 function addDirectiveNodesToElement(directiveNodes: readonly DirectiveNode[] | undefined, element: DirectiveTargetElement<any>) {
@@ -355,6 +383,28 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     return mergeVariables(this.variablesInAppliedDirectives(), this.selectionSet.usedVariables());
   }
 
+  collectUsedFragmentNames(collector: Map<string, number>) {
+    this.selectionSet.collectUsedFragmentNames(collector);
+  }
+
+  toFragmentDefinitionNode() : FragmentDefinitionNode {
+    return {
+      kind: 'FragmentDefinition',
+      name: {
+        kind: 'Name',
+        value: this.name
+      },
+      typeCondition: {
+        kind: 'NamedType',
+        name: {
+          kind: 'Name',
+          value: this.typeCondition.name
+        }
+      },
+      selectionSet: this.selectionSet.toSelectionSetNode()
+    };
+  }
+
   toString(indent?: string): string {
     return (indent ?? '') + `fragment ${this.name} on ${this.typeCondition}${this.appliedDirectivesToString()} ${this.selectionSet.toString(false, true, indent)}`;
   }
@@ -367,6 +417,18 @@ export class NamedFragments {
     return this.fragments.size === 0;
   }
 
+  variables(): Variables {
+    let variables: Variables = [];
+    for (const fragment of this.fragments.values()) {
+      variables = mergeVariables(variables, fragment.variables());
+    }
+    return variables;
+  }
+
+  names(): string[] {
+    return [...this.fragments.keys()];
+  }
+
   add(fragment: NamedFragmentDefinition) {
     if (this.fragments.has(fragment.name)) {
       throw new GraphQLError(`Duplicate fragment name '${fragment}'`);
@@ -374,14 +436,52 @@ export class NamedFragments {
     this.fragments.set(fragment.name, fragment);
   }
 
+  addIfNotExist(fragment: NamedFragmentDefinition) {
+    if (!this.fragments.has(fragment.name)) {
+      this.fragments.set(fragment.name, fragment);
+    }
+  }
+
+  onType(type: NamedType): NamedFragmentDefinition[] {
+    return [...this.fragments.values()].filter(f => f.typeCondition.name === type.name);
+  }
+
+  without(names: string[]): NamedFragments {
+    if (!names.some(n => this.fragments.has(n))) {
+      return this;
+    }
+
+    const newFragments = new NamedFragments();
+    for (const fragment of this.fragments.values()) {
+      if (!names.includes(fragment.name)) {
+        // We want to keep that fragment. But that fragment might use a fragment we
+        // remove, and if so, we need to expand that removed fragment.
+        const updatedSelection = fragment.selectionSet.expandFragments(names, false);
+        const newFragment = updatedSelection === fragment.selectionSet
+          ? fragment
+          : new NamedFragmentDefinition(fragment.schema(), fragment.name, fragment.typeCondition, updatedSelection);
+        newFragments.add(newFragment);
+      }
+    }
+    return newFragments;
+  }
+
   get(name: string): NamedFragmentDefinition | undefined {
     return this.fragments.get(name);
+  }
+
+  definitions(): NamedFragmentDefinition[] {
+    return [...this.fragments.values()];
   }
 
   validate() {
     for (const fragment of this.fragments.values()) {
       fragment.selectionSet.validate();
     }
+  }
+
+  toFragmentDefinitionNodes() : FragmentDefinitionNode[] {
+    return [...this.fragments.values()].map(f => f.toFragmentDefinitionNode());
   }
 
   toString(indent?: string) {
@@ -412,10 +512,13 @@ export class SelectionSet {
         variables = mergeVariables(variables, selection.usedVariables());
       }
     }
+    if (this.fragments) {
+      variables = mergeVariables(variables, this.fragments.variables());
+    }
     return variables;
   }
 
-  collectUsedFragmentNames(collector: Set<string>) {
+  collectUsedFragmentNames(collector: Map<string, number>) {
     if (!this.fragments) {
       return;
     }
@@ -425,6 +528,41 @@ export class SelectionSet {
         selection.collectUsedFragmentNames(collector);
       }
     }
+  }
+
+  optimize(fragments?: NamedFragments): SelectionSet {
+    if (!fragments || fragments.isEmpty()) {
+      return this;
+    }
+
+    // If any of the existing fragments of the selection set is also a name in the provided one,
+    // we bail out of optimizing anyting. Not ideal, but dealing with it properly complicate things
+    // and we probably don't care for now as we'll call `optimize` mainly on result sets that have
+    // no named fragments in the first place.
+    if (this.fragments && this.fragments.definitions().some(def => fragments.get(def.name))) {
+      return this;
+    }
+
+    const optimized = new SelectionSet(this.parentType, fragments);
+    for (const selection of this.selections()) {
+      optimized.add(selection.optimize(fragments));
+    }
+    return optimized;
+  }
+
+  expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): SelectionSet {
+    if (names && names.length === 0) {
+      return this;
+    }
+
+    const newFragments = updateSelectionSetFragments
+      ? (names ? this.fragments?.without(names) : undefined)
+      : this.fragments;
+    const withExpanded = new SelectionSet(this.parentType, newFragments);
+    for (const selection of this.selections()) {
+      withExpanded.add(selection.expandFragments(names, updateSelectionSetFragments));
+    }
+    return withExpanded;
   }
 
   mergeIn(selectionSet: SelectionSet) {
@@ -440,7 +578,7 @@ export class SelectionSet {
 
   add(selection: Selection): Selection {
     const toAdd = selection.updateForAddingTo(this);
-    const key = elementKey(toAdd.element());
+    const key = toAdd.key();
     let existing: Selection[] | undefined = this._selections.get(key);
     if (existing) {
       for (const existingSelection of existing) {
@@ -456,30 +594,12 @@ export class SelectionSet {
     return selection;
   }
 
-  addElement(element: OperationElement): Selection {
-    // Pretty similar to `add(Selection)`, but this is called often enough that saving some trashing when we add an element that already exists
-    // slightly improve perf on some heavy query plans. And it's not that much code duplication.
-    const toAdd = element.updateForAddingTo(this);
-    const key = elementKey(toAdd);
-    let existing: Selection[] | undefined = this._selections.get(key);
-    if (existing) {
-      for (const existingSelection of existing) {
-        if (existingSelection.element().kind === toAdd.kind && haveSameDirectives(existingSelection.element(), toAdd)) {
-          return existingSelection;
-        }
-      }
-    }
-    const newSelection = selectionOfElement(toAdd);
-    this._selections.add(key, newSelection);
-    return newSelection;
-  }
-
   addPath(path: OperationPath) {
     let previousSelections: SelectionSet = this;
     let currentSelections: SelectionSet | undefined = this;
     for (const element of path) {
       validate(currentSelections, () => `Cannot apply selection ${element} to non-selectable parent type "${previousSelections.parentType}"`);
-      const mergedSelection: Selection = currentSelections.addElement(element);
+      const mergedSelection: Selection = currentSelections.add(selectionOfElement(element));
       previousSelections = currentSelections;
       currentSelections = mergedSelection.selectionSet;
     }
@@ -663,7 +783,9 @@ export class SelectionSet {
     prettyPrint: boolean = true
   ): string {
     const indent = prettyPrint ? '' : undefined;
-    const fragmentsDefinitions = this.fragments && !this.fragments.isEmpty() ? this.fragments.toString(indent) + "\n\n" : "";
+    const fragmentsDefinitions = !expandFragments && this.fragments && !this.fragments.isEmpty()
+      ? this.fragments.toString(indent) + "\n\n"
+      : "";
     if (rootKind == "query" && !operationName && variableDefinitions.isEmpty()) {
       return fragmentsDefinitions + this.toString(expandFragments, true, indent);
     }
@@ -738,6 +860,10 @@ export class FieldSelection {
     this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet : new SelectionSet(type as CompositeType));
   }
 
+  key(): string {
+    return this.element().responseName();
+  }
+
   element(): Field<any> {
     return this.field;
   }
@@ -746,12 +872,25 @@ export class FieldSelection {
     return mergeVariables(this.element().variables(), this.selectionSet?.usedVariables() ?? []);
   }
 
-  collectUsedFragmentNames(collector: Set<string>) {
+  collectUsedFragmentNames(collector: Map<string, number>) {
     if (this.selectionSet) {
       this.selectionSet.collectUsedFragmentNames(collector);
     }
   }
 
+  optimize(fragments: NamedFragments): FieldSelection {
+    const optimizedSelection = this.selectionSet ? this.selectionSet.optimize(fragments) : undefined;
+    return this.selectionSet === optimizedSelection
+      ? this
+      : new FieldSelection(this.field, optimizedSelection);
+  }
+
+  expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FieldSelection {
+    const expandedSelection = this.selectionSet ? this.selectionSet.expandFragments(names, updateSelectionSetFragments) : undefined;
+    return this.selectionSet === expandedSelection
+      ? this
+      : new FieldSelection(this.field, expandedSelection);
+  }
 
   private fieldArgumentsToAST(): ArgumentNode[] | undefined {
     const entries = Object.entries(this.field.args);
@@ -843,23 +982,24 @@ export class FieldSelection {
 export abstract class FragmentSelection {
   readonly kind = 'FragmentSelection' as const;
 
+  abstract key(): string;
+
   abstract element(): FragmentElement;
 
   abstract get selectionSet(): SelectionSet;
 
-  abstract collectUsedFragmentNames(collector: Set<string>): void; 
+  abstract collectUsedFragmentNames(collector: Map<string, number>): void;
 
   abstract namedFragments(): NamedFragments | undefined;
 
-  validate() {
-    // Note that validation is kind of redudant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
-    // allow to provide much better error messages.
-    validate(
-      !this.selectionSet.isEmpty(),
-      () => `Invalid empty selection set for fragment "${this.element()}"`
-    );
-    this.selectionSet.validate();
-  }
+  abstract optimize(fragments: NamedFragments): FragmentSelection;
+
+  abstract expandFragments(names?: string[]): FragmentSelection;
+
+  abstract toSelectionNode(): SelectionNode;
+
+  abstract validate(): void;
+
 
   usedVariables(): Variables {
     return mergeVariables(this.element().variables(), this.selectionSet.usedVariables());
@@ -868,24 +1008,6 @@ export abstract class FragmentSelection {
   updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
     const updatedFragment = this.element().updateForAddingTo(selectionSet);
     return this.element() === updatedFragment ? this : new InlineFragmentSelection(updatedFragment, this.selectionSet);
-  }
-
-  toSelectionNode(): InlineFragmentNode {
-    const typeCondition = this.element().typeCondition;
-    return {
-      kind: Kind.INLINE_FRAGMENT,
-      typeCondition: typeCondition
-        ? {
-          kind: Kind.NAMED_TYPE,
-          name: {
-            kind: Kind.NAME,
-            value: typeCondition.name,
-          },
-        }
-        : undefined,
-      directives: this.element().appliedDirectivesToDirectiveNodes(),
-      selectionSet: this.selectionSet.toSelectionSetNode()
-    };
   }
 
   equals(that: Selection): boolean {
@@ -922,6 +1044,21 @@ class InlineFragmentSelection extends FragmentSelection {
       : new SelectionSet(fragmentElement.typeCondition ? fragmentElement.typeCondition : fragmentElement.parentType);
   }
 
+  key(): string {
+    return this.element().typeCondition?.name ?? '';
+  }
+
+  validate() {
+    // Note that validation is kind of redudant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
+    // allow to provide much better error messages.
+    validate(
+      !this.selectionSet.isEmpty(),
+      () => `Invalid empty selection set for fragment "${this.element()}"`
+    );
+    this.selectionSet.validate();
+  }
+
+
   get selectionSet(): SelectionSet {
     return this._selectionSet;
   }
@@ -934,7 +1071,49 @@ class InlineFragmentSelection extends FragmentSelection {
     return this.fragmentElement;
   }
 
-  collectUsedFragmentNames(collector: Set<string>): void {
+  toSelectionNode(): InlineFragmentNode {
+    const typeCondition = this.element().typeCondition;
+    return {
+      kind: Kind.INLINE_FRAGMENT,
+      typeCondition: typeCondition
+        ? {
+          kind: Kind.NAMED_TYPE,
+          name: {
+            kind: Kind.NAME,
+            value: typeCondition.name,
+          },
+        }
+        : undefined,
+      directives: this.element().appliedDirectivesToDirectiveNodes(),
+      selectionSet: this.selectionSet.toSelectionSetNode()
+    };
+  }
+
+
+  optimize(fragments: NamedFragments): FragmentSelection {
+    const optimizedSelection = this.selectionSet.optimize(fragments);
+    const typeCondition = this.element().typeCondition;
+    if (typeCondition) {
+      for (const candidate of fragments.onType(typeCondition)) {
+        if (candidate.selectionSet.equals(optimizedSelection)) {
+          fragments.addIfNotExist(candidate);
+          return new FragmentSpreadSelection(this.element().parentType, fragments, candidate.name);
+        }
+      }
+    }
+    return this.selectionSet === optimizedSelection
+      ? this
+      : new InlineFragmentSelection(this.fragmentElement, optimizedSelection);
+  }
+
+  expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FragmentSelection {
+    const expandedSelection = this.selectionSet.expandFragments(names, updateSelectionSetFragments);
+    return this.selectionSet === expandedSelection
+      ? this
+      : new InlineFragmentSelection(this.element(), expandedSelection);
+  }
+
+  collectUsedFragmentNames(collector: Map<string, number>): void {
     this.selectionSet.collectUsedFragmentNames(collector);
   }
 
@@ -964,6 +1143,10 @@ class FragmentSpreadSelection extends FragmentSelection {
     }
   }
 
+  key(): string {
+    return '...' + this.namedFragment.name;
+  }
+
   element(): FragmentElement {
     return this._element;
   }
@@ -976,9 +1159,46 @@ class FragmentSpreadSelection extends FragmentSelection {
     return this.namedFragment.selectionSet;
   }
 
-  collectUsedFragmentNames(collector: Set<string>): void {
-    collector.add(this.namedFragment.name);
+  validate(): void {
+    // We don't do anything because fragment definition are validated when created.
+  }
+
+  toSelectionNode(): FragmentSpreadNode {
+    const spreadDirectives = this.spreadDirectives();
+    const directiveNodes = spreadDirectives.length === 0
+      ? undefined
+      : spreadDirectives.map(directive => {
+        return {
+          kind: 'Directive',
+          name: {
+            kind: Kind.NAME,
+            value: directive.name,
+          },
+          arguments: directive.argumentsToAST()
+        } as DirectiveNode;
+      });
+    return {
+      kind: 'FragmentSpread',
+      name: { kind: 'Name', value: this.namedFragment.name },
+      directives: directiveNodes,
+    };
+  }
+
+  optimize(_: NamedFragments): FragmentSelection {
+    return this;
+  }
+
+  expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): FragmentSelection {
+    if (names && !names.includes(this.namedFragment.name)) {
+      return this;
+    }
+    return new InlineFragmentSelection(this._element, this.selectionSet.expandFragments(names, updateSelectionSetFragments));
+  }
+
+  collectUsedFragmentNames(collector: Map<string, number>): void {
     this.selectionSet.collectUsedFragmentNames(collector);
+    const usageCount = collector.get(this.namedFragment.name);
+    collector.set(this.namedFragment.name, usageCount === undefined ? 1 : usageCount + 1);
   }
 
   private spreadDirectives(): Directive<FragmentElement>[] {
@@ -1094,11 +1314,18 @@ function parseOperationAST(source: string): OperationDefinitionNode {
   return def;
 }
 
-export function operationToAST(operation: Operation): OperationDefinitionNode {
-  return {
+export function operationToDocument(operation: Operation): DocumentNode {
+  const operationAST: OperationDefinitionNode = {
     kind: 'OperationDefinition',
     operation: operation.rootKind,
     selectionSet: operation.selectionSet.toSelectionSetNode(),
-    variableDefinitions: operation.variableDefinitions.toVariableDefinitionNodes()
+    variableDefinitions: operation.variableDefinitions.toVariableDefinitionNodes(),
+  };
+  const fragmentASTs: DefinitionNode[] = operation.selectionSet.fragments
+    ? operation.selectionSet.fragments?.toFragmentDefinitionNodes()
+    : [];
+  return {
+    kind: Kind.DOCUMENT,
+    definitions: [operationAST as DefinitionNode].concat(fragmentASTs),
   };
 }
