@@ -5,7 +5,6 @@ import {
   FieldDefinition,
   FieldSelection,
   FragmentElement,
-  FragmentSelection,
   InputType,
   isLeafType,
   isNullableType,
@@ -16,6 +15,7 @@ import {
   Schema,
   SchemaRootKind,
   Selection,
+  selectionOfElement,
   SelectionSet,
   typenameFieldName,
   VariableDefinitions
@@ -136,7 +136,7 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
   switch (edge.transition.kind) {
     case 'DownCast':
       const type = edge.transition.castedType;
-      selection = new FragmentSelection(
+      selection = selectionOfElement(
         new FragmentElement(edge.transition.sourceType, type.name),
         subSelection!
       );

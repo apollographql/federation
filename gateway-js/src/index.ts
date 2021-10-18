@@ -69,7 +69,7 @@ import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 
 import {
   buildSupergraphSchema,
-  operationFromAST,
+  operationFromDocument,
   Schema,
 } from '@apollo/core';
 import { composeServices } from '@apollo/composition'
@@ -1032,7 +1032,7 @@ export class ApolloGateway implements GraphQLService {
               OpenTelemetrySpanNames.PLAN,
               (span) => {
                 try {
-                  const operation = operationFromAST(this.apiSchema!, operationContext.operation, new Map(Object.entries(operationContext.fragments)));
+                  const operation = operationFromDocument(this.apiSchema!, document, request.operationName);
                   // TODO(#631): Can we be sure the query planner has been initialized here?
                   return this.queryPlanner!.buildQueryPlan(operation);
                 } catch (err) {

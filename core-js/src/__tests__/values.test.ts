@@ -31,7 +31,7 @@ test('handles non-list value for list argument (as singleton)', () => {
     }
   `);
 
-  expect(operation.toString()).toBe('{ f(v: [MONDAY]) }');
+  expect(operation.toString(false, false)).toBe('{ f(v: [MONDAY]) }');
   expect(operation.selectionSet.toSelectionSetNode()).toMatchInlineSnapshot(`
     Object {
       "kind": "SelectionSet",

@@ -31,7 +31,9 @@ import {
   Variable,
   VariableDefinition,
   VariableDefinitions,
-  newDebugLogger
+  newDebugLogger,
+  selectionOfElement,
+  selectionSetOfElement,
 } from "@apollo/core";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -54,7 +56,8 @@ import {
   Vertex,
   isRootVertex,
   ExcludedConditions,
-  OpIndirectPaths
+  OpIndirectPaths,
+  SimultaneousPaths
 } from "@apollo/query-graphs";
 import { Kind, DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -63,22 +66,17 @@ const debug = newDebugLogger('plan');
 
 class State<RV extends Vertex> {
   constructor(
-    readonly openPaths: [Selection, PathContext, OpGraphPath<RV>[]][],
+    readonly openPaths: [Selection, PathContext, SimultaneousPaths<RV>[]][],
     readonly closedPaths: OpPathTree<RV>
   ) {
   }
 
-  addPaths(selections: SelectionSet | undefined, context: PathContext, paths: OpGraphPath<RV>[]): State<RV> {
-    if (!selections) {
-      const newState = new State([...this.openPaths], paths.reduce((closed, p) => closed.mergePath(p), this.closedPaths));
-      return newState;
-    } else {
-      // We reverse the selections because we're going to pop from `openPaths` and this ensure we end up handling things in
-      // the query order.
-      const newOpenPaths: [Selection, PathContext, OpGraphPath<RV>[]][] = selections.selections().reverse().map(node => [node, context, paths]);
-      const newState = new State(this.openPaths.concat(newOpenPaths), this.closedPaths);
-      return newState;
-    }
+  withOpenPaths(newOpenPaths: [Selection, PathContext, SimultaneousPaths<RV>[]][]): State<RV> {
+    return new State(this.openPaths.concat(newOpenPaths), this.closedPaths);
+  }
+
+  withClosedPaths(options: SimultaneousPaths<RV>[]): State<RV>[] {
+    return options.map(path => new State([...this.openPaths], path.reduce((closed, p) => closed.mergePath(p), this.closedPaths)));
   }
 
   isTerminal(): boolean {
@@ -109,7 +107,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
   ) {
     const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
     const initialTree = PathTree.createOp(subgraphs, startVertex);
-    const opens: [Selection, PathContext, OpGraphPath<RV>[]][] = selectionSet.selections().reverse().map(node => [node, emptyContext, [initialPath]]);
+    const opens: [Selection, PathContext, SimultaneousPaths<RV>[]][] = selectionSet.selections().reverse().map(node => [node, emptyContext, [[initialPath]]]);
     this.stack.push(new State(opens, initialTree));
     this.isTopLevel = isRootVertex(startVertex);
   }
@@ -138,36 +136,56 @@ class QueryPlanningTaversal<RV extends Vertex> {
   }
 
   private handleState(state: State<RV>) {
-    const [selection, context, path] = state.openPaths.pop()!;
+    const [selection, context, options] = state.openPaths.pop()!;
     const operation = selection.element();
     const updatedContext = context.withContextOf(operation);
-    const newPaths = advanceSimultaneousPathsWithOperation(
-      this.supergraphSchema,
-      path,
-      operation,
-      updatedContext,
-      (conditions, vertex, excludedEdges, excludedConditions) => this.resolveConditionPlan(conditions, vertex, excludedEdges, excludedConditions),
-      this.cache,
-      this.excludedEdges,
-      this.excludedConditions
-    );
-    if (!newPaths) {
-      // This means there is no valid way to advance the current `operation`. Which in turns means the whole state is
-      // a dead end, it cannot yield a proper query plan. Since we've already pop'ed the state from the stack, we
-      // simply return (and we'll try other states if there is more).
+    let newOptions: SimultaneousPaths<RV>[] = [];
+    for (const option of options) {
+      const followupForOption = advanceSimultaneousPathsWithOperation(
+        this.supergraphSchema,
+        option,
+        operation,
+        updatedContext,
+        (conditions, vertex, excludedEdges, excludedConditions) => this.resolveConditionPlan(conditions, vertex, excludedEdges, excludedConditions),
+        this.cache,
+        this.excludedEdges,
+        this.excludedConditions
+      );
+      if (!followupForOption) {
+        // There is no valid way to advance the current `operation` from this option, so this option is a dead branch
+        // that cannot produce a valid query plan. So we simply ignore it and rely on other options.
+        continue;
+      }
+      if (followupForOption.length === 0) {
+        // This `operation` is valid from that option but is guarantee to yield no result (it's a type condition that, along
+        // with prior condition, has no intersection). Given that (assuming the user do properly resolve all versions of a
+        // given field the same way from all subgraphs) all options should return the same results, we know that operation
+        // should return no result from all options (even if we can't provide it technically) and it's valid to just
+        // ignore the operation (which we've already pop'ed from the state).
+        this.onUpdatedState(state);
+        return;
+      }
+      newOptions = newOptions.concat(followupForOption);
+    }
+
+    if (newOptions.length === 0) {
+      // If we have no options, this state is just a dead-end and we can ignore it.
       return;
     }
-    if (newPaths.length === 0) {
-      // This `operation` is valid from that state but is guarantee to yield no result (it's a type condition that, along
-      // with prior condition, has no intersection). So we can essentially ignore the operation (which we've already
-      // pop'ed from the state) and continue with the rest of the state.
-      this.onUpdatedState(state);
+
+    if (!selection.selectionSet) {
+      this.onUpdatedStates(state.withClosedPaths(newOptions));
     } else {
-      for (const possiblePath of newPaths) {
-        const updatedState = state.addPaths(selection.selectionSet, updatedContext, possiblePath);
-        this.onUpdatedState(updatedState);
-      }
+      // We reverse the selections because we're going to pop from `openPaths` and this ensure we end up handling things in
+      // the query order.
+      const newOpenPaths: [Selection, PathContext, SimultaneousPaths<RV>[]][] = 
+        selection.selectionSet.selections().reverse().map(node => [node, updatedContext, newOptions]);
+      this.onUpdatedState(state.withOpenPaths(newOpenPaths));
     }
+  }
+
+  private onUpdatedStates(states: State<RV>[]) {
+    states.forEach(s => this.onUpdatedState(s));
   }
 
   private onUpdatedState(state: State<RV>) {
@@ -218,8 +236,9 @@ function sum(arr: number[]): number {
 
 type CostFunction = FetchGroupProcessor<number, number[], number>;
 
-const fetchCost = 1000;
-const pipeliningCost = 10;
+const fetchCost = 10000;
+const pipeliningCost = 100;
+const sameLevelFetchCost = 100;
 
 function selectionCost(selection?: SelectionSet, depth: number = 1): number {
   // The cost is essentially the number of elements in the selection, but we make deeped element cost a tiny bit more, mostly to make things a tad more
@@ -234,7 +253,8 @@ const defaultCostFunction: CostFunction = {
   reduceParallel: (values: number[]) => values,
   // That math goes the following way:
   // - we add the costs in a sequence (the `acc + ...`)
-  // - within a stage of the sequence, the groups are done in parallel, hence the `Math.max(...)`
+  // - within a stage of the sequence, the groups are done in parallel, hence the `Math.max(...)` (but still, we prefer querying less services if
+  //   we can help it, hence the `+ (valueArray.length - 1) * sameLevelFetchCost`).
   // - but each group in a stage require a fetch, so we add a cost proportional to how many we have
   // - each group within a stage has its own cost plus a flat cost associated to doing that fetch (`fetchCost + s`).
   // - lastly, we also want to minimize the number of steps in the pipeline, so later stages are more costly (`idx * pipelineCost`)
@@ -242,11 +262,11 @@ const defaultCostFunction: CostFunction = {
     values.reduceRight(
       (acc: number, value, idx) => {
         const valueArray = Array.isArray(value) ? value : [value];
-        return acc + ((idx + 1) * pipeliningCost) * (fetchCost * valueArray.length) *  Math.max(...valueArray)
+        return acc + ((idx + 1) * pipeliningCost) * (fetchCost * valueArray.length) * (Math.max(...valueArray) + (valueArray.length - 1) * sameLevelFetchCost)
       },
       0
     ),
-  finalize: (roots: number[], rootsAreParallel: boolean) => roots.length === 0 ? 0 : (rootsAreParallel ? Math.max(...roots) : sum(roots))
+  finalize: (roots: number[], rootsAreParallel: boolean) => roots.length === 0 ? 0 : (rootsAreParallel ? (Math.max(...roots) + (roots.length - 1) * sameLevelFetchCost) : sum(roots))
 };
 
 function isIntrospectionSelection(selection: Selection): boolean {
@@ -379,7 +399,7 @@ function splitTopLevelFields(selectionSet: SelectionSet): SelectionSet[] {
     if (selection.kind === 'FieldSelection') {
       return [selectionSetOf(selectionSet.parentType, selection)];
     } else {
-      return splitTopLevelFields(selection.selectionSet).map(s => selectionSetOf(selectionSet.parentType, new FragmentSelection(selection.element(), s)));
+      return splitTopLevelFields(selection.selectionSet).map(s => selectionSetOfElement(selection.element(), s));
     }
   });
 }
@@ -1019,7 +1039,7 @@ function computeNonRootFetchGroups(subgraphSchemas: ReadonlyMap<string, Schema>,
 
 function createNewFetchSelectionContext(type: CompositeType, selections: SelectionSet | undefined, context: PathContext): [Selection, OperationPath] {
   const typeCast = new FragmentElement(type, type.name);
-  let inputSelection = new FragmentSelection(typeCast, selections);
+  let inputSelection = selectionOfElement(typeCast, selections);
   let path = [typeCast];
   if (context.isEmpty()) {
     return [inputSelection, path];
@@ -1037,7 +1057,7 @@ function createNewFetchSelectionContext(type: CompositeType, selections: Selecti
     let [name, ifs] = context.directives[i];
     const fragment = new FragmentElement(type, type.name);
     fragment.applyDirective(schema.directive(name)!, { 'if': ifs });
-    inputSelection = new FragmentSelection(fragment, selectionSetOf(type, inputSelection));
+    inputSelection = selectionOfElement(fragment, selectionSetOf(type, inputSelection));
     path = [fragment].concat(path);
   }
 
@@ -1305,7 +1325,7 @@ function inputsForRequire(entityType: ObjectType, edge: Edge, includeKeyInputs: 
   if (includeKeyInputs) {
     fullSelectionSet.mergeIn(requireEdgeAdditionalConditions(edge));
   }
-  return [new FragmentSelection(typeCast, fullSelectionSet), [typeCast]];
+  return [selectionOfElement(typeCast, fullSelectionSet), [typeCast]];
 }
 
 const representationsVariable = new Variable('representations');

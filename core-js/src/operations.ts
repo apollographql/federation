@@ -5,7 +5,6 @@ import {
   DirectiveNode,
   DocumentNode,
   FieldNode,
-  FragmentDefinitionNode,
   GraphQLError,
   InlineFragmentNode,
   Kind,
@@ -16,9 +15,11 @@ import {
 } from "graphql";
 import {
   baseType,
+  Directive,
   DirectiveTargetElement,
   FieldDefinition,
   InterfaceType,
+  isCompositeType,
   isInterfaceType,
   isLeafType,
   isNullableType,
@@ -36,7 +37,7 @@ import {
   CompositeType,
   typenameFieldName,
 } from "./definitions";
-import { MultiMap } from "./utils";
+import { assert, MultiMap } from "./utils";
 import { argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
@@ -71,7 +72,6 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
   }
 
   abstract updateForAddingTo(selection: SelectionSet): T;
-
 }
 
 export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> extends AbstractOperationElement<Field<TArgs>> {
@@ -314,14 +314,8 @@ export class Operation {
     readonly name?: string) {
   }
 
-  toString(): string {
-    if (this.rootKind == "query" && !this.name && this.variableDefinitions.isEmpty) {
-      return this.selectionSet.toString();
-    }
-    const nameAndVariables = this.name
-      ? " " + (this.name + (this.variableDefinitions.isEmpty() ? "" : this.variableDefinitions.toString()))
-      : (this.variableDefinitions.isEmpty() ? "" : " " + this.variableDefinitions.toString());
-    return this.rootKind + nameAndVariables + " " + this.selectionSet;
+  toString(expandFragments: boolean = false, prettyPrint: boolean = true): string {
+    return this.selectionSet.toOperationString(this.rootKind, this.variableDefinitions, this.name, expandFragments, prettyPrint);
   }
 }
 
@@ -329,11 +323,11 @@ function elementKey(elt: OperationElement): string {
   return elt instanceof Field ? elt.responseName() : elt.typeCondition?.name ?? '';
 }
 
-function addDirectiveNodesToElement(directiveNodes: readonly DirectiveNode[] | undefined, element: OperationElement) {
+function addDirectiveNodesToElement(directiveNodes: readonly DirectiveNode[] | undefined, element: DirectiveTargetElement<any>) {
   if (!directiveNodes) {
     return;
   }
-  const schema = element.parentType.schema()!;
+  const schema = element.schema()!;
   for (const node of directiveNodes) {
     const directiveDef = schema.directive(node.name.value);
     validate(directiveDef, () => `Unknown directive "@${node.name.value}" in selection`)
@@ -347,12 +341,63 @@ export function selectionSetOf(parentType: CompositeType, selection: Selection):
   return selectionSet;
 }
 
+export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmentDefinition> {
+  constructor(
+    schema: Schema,
+    readonly name: string,
+    readonly typeCondition: CompositeType,
+    readonly selectionSet: SelectionSet
+  ) {
+    super(schema);
+  }
+
+  variables(): Variables {
+    return mergeVariables(this.variablesInAppliedDirectives(), this.selectionSet.usedVariables());
+  }
+
+  toString(indent?: string): string {
+    return (indent ?? '') + `fragment ${this.name} on ${this.typeCondition}${this.appliedDirectivesToString()} ${this.selectionSet.toString(false, true, indent)}`;
+  }
+}
+
+export class NamedFragments {
+  private readonly fragments = new Map<string, NamedFragmentDefinition>();
+
+  isEmpty(): boolean {
+    return this.fragments.size === 0;
+  }
+
+  add(fragment: NamedFragmentDefinition) {
+    if (this.fragments.has(fragment.name)) {
+      throw new GraphQLError(`Duplicate fragment name '${fragment}'`);
+    }
+    this.fragments.set(fragment.name, fragment);
+  }
+
+  get(name: string): NamedFragmentDefinition | undefined {
+    return this.fragments.get(name);
+  }
+
+  validate() {
+    for (const fragment of this.fragments.values()) {
+      fragment.selectionSet.validate();
+    }
+  }
+
+  toString(indent?: string) {
+    return [...this.fragments.values()].map(f => f.toString(indent)).join('\n\n');
+  }
+}
+
 export class SelectionSet {
   // The argument is either the responseName (for fields), or the type name (for fragments), with the empty string being used as a special
   // case for a fragment with no type condition.
   private readonly _selections = new MultiMap<string, Selection>();
 
-  constructor(readonly parentType: CompositeType) {
+  constructor(
+    readonly parentType: CompositeType,
+    readonly fragments?: NamedFragments
+  ) {
     validate(!isLeafType(parentType), () => `Cannot have selection on non-leaf type ${parentType}`);
   }
 
@@ -368,6 +413,18 @@ export class SelectionSet {
       }
     }
     return variables;
+  }
+
+  collectUsedFragmentNames(collector: Set<string>) {
+    if (!this.fragments) {
+      return;
+    }
+
+    for (const byResponseName of this._selections.values()) {
+      for (const selection of byResponseName) {
+        selection.collectUsedFragmentNames(collector);
+      }
+    }
   }
 
   mergeIn(selectionSet: SelectionSet) {
@@ -431,30 +488,27 @@ export class SelectionSet {
   addSelectionSetNode(
     node: SelectionSetNode | undefined,
     variableDefinitions: VariableDefinitions,
-    fragments: Map<string, FragmentDefinitionNode> = new Map(),
     fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
   ) {
     if (!node) {
       return;
     }
     for (const selectionNode of node.selections) {
-      this.addSelectionNode(selectionNode, variableDefinitions, fragments, fieldAccessor);
+      this.addSelectionNode(selectionNode, variableDefinitions, fieldAccessor);
     }
   }
 
   addSelectionNode(
     node: SelectionNode,
     variableDefinitions: VariableDefinitions,
-    fragments: Map<string, FragmentDefinitionNode> = new Map(),
     fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
   ) {
-    this.add(this.nodeToSelection(node, variableDefinitions, fragments, fieldAccessor));
+    this.add(this.nodeToSelection(node, variableDefinitions, fieldAccessor));
   }
 
   private nodeToSelection(
     node: SelectionNode,
     variableDefinitions: VariableDefinitions,
-    fragments: Map<string, FragmentDefinitionNode>,
     fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined
   ): Selection {
     let selection: Selection;
@@ -462,23 +516,28 @@ export class SelectionSet {
       case 'Field':
         const definition: FieldDefinition<any> | undefined  = fieldAccessor(this.parentType, node.name.value);
         validate(definition, () => `Cannot query field "${node.name.value}" on type "${this.parentType}".`, this.parentType.sourceAST);
-        selection = new FieldSelection(new Field(definition, argumentsFromAST(definition.coordinate, node.arguments, definition), variableDefinitions, node.alias?.value));
+        const type = baseType(definition.type!);
+        selection = new FieldSelection(
+          new Field(definition, argumentsFromAST(definition.coordinate, node.arguments, definition), variableDefinitions, node.alias?.value),
+          isLeafType(type) ? undefined : new SelectionSet(type as CompositeType, this.fragments)
+        );
         if (node.selectionSet) {
           validate(selection.selectionSet, () => `Unexpected selection set on leaf field "${selection.element()}"`, selection.element().definition.sourceAST);
-          selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments, fieldAccessor);
+          selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fieldAccessor);
         }
         break;
       case 'InlineFragment':
-        selection = new FragmentSelection(new FragmentElement(this.parentType, node.typeCondition?.name.value));
-        selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fragments, fieldAccessor);
+        const element = new FragmentElement(this.parentType, node.typeCondition?.name.value);
+        selection = new InlineFragmentSelection(
+          element,
+          new SelectionSet(element.typeCondition ? element.typeCondition : element.parentType, this.fragments)
+        );
+        selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fieldAccessor);
         break;
       case 'FragmentSpread':
         const fragmentName = node.name.value;
-        const fragmentDef = fragments.get(fragmentName);
-        validate(fragmentDef, () => `Unknown fragment "...${fragmentName}"`);
-        selection = new FragmentSelection(new FragmentElement(this.parentType, fragmentDef.typeCondition.name.value));
-        selection.selectionSet.addSelectionSetNode(fragmentDef.selectionSet, variableDefinitions, fragments, fieldAccessor);
-        addDirectiveNodesToElement(fragmentDef.directives, selection.element());
+        validate(this.fragments, () => `Cannot find fragment name "${fragmentName}" (no fragments were provided)`);
+        selection = new FragmentSpreadSelection(this.parentType, this.fragments, fragmentName);
         break;
     }
     addDirectiveNodesToElement(node.directives, selection.element());
@@ -527,6 +586,9 @@ export class SelectionSet {
     validate(!this.isEmpty(), () => `Invalid empty selection set`);
     for (const selection of this.selections()) {
       selection.validate();
+      const selectionFragments = selection.namedFragments();
+      // We make this an assertion because this is a programming error. But validate is a convenient place for this in practice.
+      assert(!selectionFragments || selectionFragments === this.fragments, () => `Selection fragments (${selectionFragments}) for ${selection} does not match selection set one (${this.fragments})`);
     }
   }
 
@@ -593,9 +655,48 @@ export class SelectionSet {
     return cloned;
   }
 
-  toString(includeExternalBrackets: boolean = true): string {
-    const selectionsToString = this.selections().join(' ');
-    return includeExternalBrackets ?  '{ ' + selectionsToString  + ' }' : selectionsToString;
+  toOperationString(
+    rootKind: SchemaRootKind,
+    variableDefinitions: VariableDefinitions,
+    operationName?: string,
+    expandFragments: boolean = false,
+    prettyPrint: boolean = true
+  ): string {
+    const indent = prettyPrint ? '' : undefined;
+    const fragmentsDefinitions = this.fragments && !this.fragments.isEmpty() ? this.fragments.toString(indent) + "\n\n" : "";
+    if (rootKind == "query" && !operationName && variableDefinitions.isEmpty()) {
+      return fragmentsDefinitions + this.toString(expandFragments, true, indent);
+    }
+    const nameAndVariables = operationName
+      ? " " + (operationName + (variableDefinitions.isEmpty() ? "" : variableDefinitions.toString()))
+      : (variableDefinitions.isEmpty() ? "" : " " + variableDefinitions.toString());
+    return fragmentsDefinitions + rootKind + nameAndVariables + " " + this.toString(expandFragments, true, indent);
+  }
+
+
+  /**
+   * The string respresentation of this selection set.
+   *
+   * By default, this expand all fragments so that the returned string is self-contained. You can
+   * use the `expandFragments` boolean to force fragments to not be expanded but the fragments
+   * definitions will _not_ be included in the returned string. If you want a representation of
+   * this selection set with fragements definitions included, use `toOperationString` instead.
+   */
+  toString(
+    expandFragments: boolean = true,
+    includeExternalBrackets: boolean = true,
+    indent?: string
+  ): string {
+    if (indent === undefined) {
+      const selectionsToString = this.selections().map(s => s.toString(expandFragments)).join(' ');
+      return includeExternalBrackets ?  '{ ' + selectionsToString  + ' }' : selectionsToString;
+    } else {
+      const selectionIndent = includeExternalBrackets ? indent + "  " : indent;
+      const selectionsToString = this.selections().map(s => s.toString(expandFragments, selectionIndent)).join('\n');
+      return includeExternalBrackets
+        ? '{\n' + selectionsToString  + '\n' + indent + '}'
+        : selectionsToString;
+    }
   }
 }
 
@@ -606,7 +707,7 @@ export function selectionSetOfElement(element: OperationElement, subSelection?: 
 }
 
 export function selectionOfElement(element: OperationElement, subSelection?: SelectionSet): Selection {
-  return element.kind === 'Field' ? new FieldSelection(element, subSelection) : new FragmentSelection(element, subSelection);
+  return element.kind === 'Field' ? new FieldSelection(element, subSelection) : new InlineFragmentSelection(element, subSelection);
 }
 
 export function selectionSetOfPath(path: OperationPath, onPathEnd?: (finalSelectionSet: SelectionSet | undefined) => void): SelectionSet {
@@ -644,6 +745,13 @@ export class FieldSelection {
   usedVariables(): Variables {
     return mergeVariables(this.element().variables(), this.selectionSet?.usedVariables() ?? []);
   }
+
+  collectUsedFragmentNames(collector: Set<string>) {
+    if (this.selectionSet) {
+      this.selectionSet.collectUsedFragmentNames(collector);
+    }
+  }
+
 
   private fieldArgumentsToAST(): ArgumentNode[] | undefined {
     const entries = Object.entries(this.field.args);
@@ -716,6 +824,10 @@ export class FieldSelection {
     return !!this.selectionSet && this.selectionSet.contains(that.selectionSet);
   }
 
+  namedFragments(): NamedFragments | undefined {
+    return this.selectionSet?.fragments;
+  }
+
   clone(): FieldSelection {
     if (!this.selectionSet) {
       return this;
@@ -723,35 +835,28 @@ export class FieldSelection {
     return new FieldSelection(this.field, this.selectionSet.clone());
   }
 
-  toString(): string {
-    return this.field + (this.selectionSet ? ' ' + this.selectionSet : '');
+  toString(expandFragments: boolean = true, indent?: string): string {
+    return (indent ?? '') + this.field + (this.selectionSet ? ' ' + this.selectionSet.toString(expandFragments, true, indent) : '');
   }
 }
 
-export class FragmentSelection {
+export abstract class FragmentSelection {
   readonly kind = 'FragmentSelection' as const;
-  readonly selectionSet: SelectionSet;
 
-  constructor(
-    readonly fragmentElement: FragmentElement,
-    initialSelectionSet?: SelectionSet
-  ) {
-    // TODO: we should do validate the type of the initial selection set.
-    this.selectionSet = initialSelectionSet
-      ? initialSelectionSet
-      : new SelectionSet(fragmentElement.typeCondition ? fragmentElement.typeCondition : fragmentElement.parentType);
-  }
+  abstract element(): FragmentElement;
 
-  element(): FragmentElement {
-    return this.fragmentElement;
-  }
+  abstract get selectionSet(): SelectionSet;
+
+  abstract collectUsedFragmentNames(collector: Set<string>): void; 
+
+  abstract namedFragments(): NamedFragments | undefined;
 
   validate() {
     // Note that validation is kind of redudant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
       !this.selectionSet.isEmpty(),
-      () => `Invalid empty selection set for fragment "${this.fragmentElement}"}`
+      () => `Invalid empty selection set for fragment "${this.element()}"`
     );
     this.selectionSet.validate();
   }
@@ -761,23 +866,24 @@ export class FragmentSelection {
   }
 
   updateForAddingTo(selectionSet: SelectionSet): FragmentSelection {
-    const updatedFragment = this.fragmentElement.updateForAddingTo(selectionSet);
-    return this.fragmentElement === updatedFragment ? this : new FragmentSelection(updatedFragment, this.selectionSet);
+    const updatedFragment = this.element().updateForAddingTo(selectionSet);
+    return this.element() === updatedFragment ? this : new InlineFragmentSelection(updatedFragment, this.selectionSet);
   }
 
   toSelectionNode(): InlineFragmentNode {
+    const typeCondition = this.element().typeCondition;
     return {
       kind: Kind.INLINE_FRAGMENT,
-      typeCondition: this.fragmentElement.typeCondition
+      typeCondition: typeCondition
         ? {
           kind: Kind.NAMED_TYPE,
           name: {
             kind: Kind.NAME,
-            value: this.fragmentElement.typeCondition.name,
+            value: typeCondition.name,
           },
         }
         : undefined,
-      directives: this.fragmentElement.appliedDirectivesToDirectiveNodes(),
+      directives: this.element().appliedDirectivesToDirectiveNodes(),
       selectionSet: this.selectionSet.toSelectionSetNode()
     };
   }
@@ -787,22 +893,106 @@ export class FragmentSelection {
       return true;
     }
     return (that instanceof FragmentSelection)
-      && this.fragmentElement.equals(that.fragmentElement)
+      && this.element().equals(that.element())
       && this.selectionSet.equals(that.selectionSet);
   }
 
   contains(that: Selection): boolean {
     return (that instanceof FragmentSelection)
-      && this.fragmentElement.equals(that.fragmentElement)
+      && this.element().equals(that.element())
       && this.selectionSet.contains(that.selectionSet);
   }
 
   clone(): FragmentSelection {
-    return new FragmentSelection(this.fragmentElement, this.selectionSet.clone());
+    return new InlineFragmentSelection(this.element(), this.selectionSet.clone());
+  }
+}
+
+class InlineFragmentSelection extends FragmentSelection {
+  private readonly _selectionSet: SelectionSet;
+
+  constructor(
+    private readonly fragmentElement: FragmentElement,
+    initialSelectionSet?: SelectionSet
+  ) {
+    super();
+    // TODO: we should do validate the type of the initial selection set.
+    this._selectionSet = initialSelectionSet
+      ? initialSelectionSet
+      : new SelectionSet(fragmentElement.typeCondition ? fragmentElement.typeCondition : fragmentElement.parentType);
   }
 
-  toString(): string {
-    return this.fragmentElement + ' ' + this.selectionSet;
+  get selectionSet(): SelectionSet {
+    return this._selectionSet;
+  }
+
+  namedFragments(): NamedFragments | undefined {
+    return this.selectionSet.fragments;
+  }
+
+  element(): FragmentElement {
+    return this.fragmentElement;
+  }
+
+  collectUsedFragmentNames(collector: Set<string>): void {
+    this.selectionSet.collectUsedFragmentNames(collector);
+  }
+
+  toString(expandFragments: boolean = true, indent?: string): string {
+    return (indent ?? '') + this.fragmentElement + ' ' + this.selectionSet.toString(expandFragments, true, indent);
+  }
+}
+
+class FragmentSpreadSelection extends FragmentSelection {
+  private readonly namedFragment: NamedFragmentDefinition;
+  // Note that the named fragement directives are copied on this element and appear first (the spreadDirectives
+  // method rely on this to be able to extract the directives that are specific to the spread itself).
+  private readonly _element : FragmentElement;
+
+  constructor(
+    sourceType: CompositeType,
+    private readonly fragments: NamedFragments,
+    fragmentName: string
+  ) {
+    super();
+    const fragmentDefinition = fragments.get(fragmentName);
+    validate(fragmentDefinition, () => `Unknown fragment "...${fragmentName}"`);
+    this.namedFragment = fragmentDefinition;
+    this._element = new FragmentElement(sourceType, fragmentDefinition.typeCondition);
+    for (const directive of fragmentDefinition.appliedDirectives) {
+      this._element.applyDirective(directive.definition!, directive.arguments());
+    }
+  }
+
+  element(): FragmentElement {
+    return this._element;
+  }
+
+  namedFragments(): NamedFragments | undefined {
+    return this.fragments;
+  }
+
+  get selectionSet(): SelectionSet {
+    return this.namedFragment.selectionSet;
+  }
+
+  collectUsedFragmentNames(collector: Set<string>): void {
+    collector.add(this.namedFragment.name);
+    this.selectionSet.collectUsedFragmentNames(collector);
+  }
+
+  private spreadDirectives(): Directive<FragmentElement>[] {
+    return this._element.appliedDirectives.slice(this.namedFragment.appliedDirectives.length);
+  }
+
+  toString(expandFragments: boolean = true, indent?: string): string {
+    if (expandFragments) {
+      return (indent ?? '') + this._element + ' ' + this.selectionSet.toString(true, true, indent);
+    } else {
+      const directives = this.spreadDirectives();
+      const directiveString = directives.length == 0 ? '' : ' ' + directives.join(' ');
+      return (indent ?? '') + '...' + this.namedFragment.name + directiveString;
+    }
   }
 }
 
@@ -812,7 +1002,9 @@ export function operationFromDocument(
   operationName?: string,
 ) : Operation {
   let operation: OperationDefinitionNode | undefined;
-  const fragments = new  Map<string, FragmentDefinitionNode>();
+  const fragments = new NamedFragments();
+  // We do a first pass to collect the operation, and create all named fragment, but without their selection set yet.
+  // This allow later to be able to access any fragment regardless of the order in which the fragments are defined.
   document.definitions.forEach(definition => {
     switch (definition.kind) {
       case Kind.OPERATION_DEFINITION:
@@ -822,18 +1014,45 @@ export function operationFromDocument(
         }
         break;
       case Kind.FRAGMENT_DEFINITION:
-        fragments.set(definition.name.value, definition);
+        const name = definition.name.value;
+        const typeName = definition.typeCondition.name.value;
+        const typeCondition = schema.type(typeName);
+        if (!typeCondition) {
+          throw new GraphQLError(`Unknown type "${typeName}" for fragment "${name}"`, definition);
+        }
+        if (!isCompositeType(typeCondition)) {
+          throw new GraphQLError(`Invalid fragment "${name}" on non-composite type "${typeName}"`, definition);
+        }
+        const fragment = new NamedFragmentDefinition(schema, name, typeCondition, new SelectionSet(typeCondition, fragments));
+        addDirectiveNodesToElement(definition.directives, fragment);
+        fragments.add(fragment);
         break;
     }
   });
+
   validate(operation, () => operationName ? `Unknown operation named "${operationName}"` : 'No operation found in provided document.');
+  // Note that we need the variables to handle the fragments, as they can be used there.
+  const variableDefinitions = operation.variableDefinitions 
+    ? variableDefinitionsFromAST(schema, operation.variableDefinitions)
+    : new VariableDefinitions();
+
+  // We can now parse all fragments.
+  document.definitions.forEach(definition => {
+    switch (definition.kind) {
+      case Kind.FRAGMENT_DEFINITION:
+        const fragment = fragments.get(definition.name.value)!;
+        fragment.selectionSet.addSelectionSetNode(definition.selectionSet, variableDefinitions);
+        break;
+    }
+  });
+  fragments.validate();
   return operationFromAST(schema, operation, fragments);
 }
 
-export function operationFromAST(
+function operationFromAST(
   schema: Schema,
   operation: OperationDefinitionNode,
-  fragments?: Map<string, FragmentDefinitionNode>
+  fragments: NamedFragments
 ) : Operation {
   const rootType = schema.schemaDefinition.root(operation.operation);
   validate(rootType, () => `The schema has no "${operation.operation}" root type defined`);
@@ -854,15 +1073,15 @@ export function parseSelectionSet(
   parentType: CompositeType,
   source: string | SelectionSetNode,
   variableDefinitions: VariableDefinitions = new VariableDefinitions(),
-  fragments?: Map<string, FragmentDefinitionNode>,
+  fragments?: NamedFragments,
   fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
 ): SelectionSet {
   // TODO: we sould maybe allow the selection, when a string, to contain fragment definitions?
   const node = typeof source === 'string'
     ? parseOperationAST(source.trim().startsWith('{') ? source : `{${source}}`).selectionSet
     : source;
-  const selectionSet = new SelectionSet(parentType);
-  selectionSet.addSelectionSetNode(node, variableDefinitions, fragments, fieldAccessor);
+  const selectionSet = new SelectionSet(parentType, fragments);
+  selectionSet.addSelectionSetNode(node, variableDefinitions, fieldAccessor);
   selectionSet.validate();
   return selectionSet;
 }
