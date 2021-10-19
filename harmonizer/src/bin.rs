@@ -1,4 +1,4 @@
-use harmonizer::harmonize;
+use harmonizer::{harmonize, CompositionOutput};
 
 use supergraph_config::SupergraphConfig;
 
@@ -18,13 +18,25 @@ fn main() -> Result<(), anyhow::Error> {
 struct Harmonizer {
     #[structopt(subcommand)]
     command: Command,
+
+    /// Print output as JSON.
+    #[structopt(long, global = true)]
+    json: bool,
 }
 
 impl Harmonizer {
     fn run(&self) -> Result<(), anyhow::Error> {
-        match &self.command {
+        let output = match &self.command {
             Command::Compose(command) => command.run(),
+        }?;
+
+        if self.json {
+            println!("{}", serde_json::json!(output));
+        } else {
+            println!("{}", output.supergraph_sdl)
         }
+
+        Ok(())
     }
 }
 
@@ -44,12 +56,9 @@ struct Compose {
 }
 
 impl Compose {
-    fn run(&self) -> Result<(), anyhow::Error> {
+    fn run(&self) -> Result<CompositionOutput, anyhow::Error> {
         let supergraph_config = SupergraphConfig::new_from_yaml_file(&self.config_file)?;
         let subgraph_definitions = supergraph_config.get_subgraph_definitions()?;
-        harmonize(subgraph_definitions).map(|composition_result| {
-            println!("{}", composition_result.supergraph_sdl);
-        })?;
-        Ok(())
+        Ok(harmonize(subgraph_definitions)?)
     }
 }

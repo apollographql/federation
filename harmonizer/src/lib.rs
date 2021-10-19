@@ -38,7 +38,8 @@ mod error;
 mod js_types;
 
 pub use error::CompositionErrors;
-use js_types::{CompositionError, CompositionOutput};
+use js_types::CompositionError;
+pub use js_types::CompositionOutput;
 
 /// The `harmonize` function receives a [`Vec<SubgraphDefinition>`] and invokes JavaScript
 /// composition on it, either returning the successful output, or a list of error messages.
