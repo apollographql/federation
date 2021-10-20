@@ -51,6 +51,12 @@ export const entitiesFieldName = '_entities';
 
 const tagSpec = TAG_VERSIONS.latest()!;
 
+// We don't let user use this as a subgraph name. That allows us to use it in `query graphs` to name the source of roots 
+// in the "federated query graph" without worrying about conflict (see `FEDERATED_GRAPH_ROOT_SOURCE` in `querygraph.ts`).
+// (note that we could deal with this in other ways, but having a graph named '_' feels like a terrible idea anyway, so
+// disallowing it feels like more a good thing than a real restriction).
+export const FEDERATION_RESERVED_SUBGRAPH_NAME = '_';
+
 const FEDERATION_TYPES = [
   entityTypeName,
   serviceTypeName,
@@ -87,34 +93,61 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
 // Returns a list of the coordinate of all the fields in the selection that are marked external.
-function validateFieldSetSelections(directiveName: string, selectionSet: SelectionSet): string[] {
-  const coordinates: string[] = [];
+function validateFieldSetSelections(
+  directiveName: string,
+  selectionSet: SelectionSet,
+  hasExternalInParents: boolean | undefined,
+  externalFieldCoordinatesCollector: string[],
+  externalExtensionFieldCoordinatesCollector: string[] | undefined,
+  allowOnNonExternalLeafFields: boolean,
+  fakeExternalFields: string[],
+): void {
   for (const selection of selectionSet.selections()) {
     if (selection.kind === 'FieldSelection') {
       const field = selection.element().definition;
       if (field.hasArguments()) {
         throw new GraphQLError(`field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`, field.sourceAST);
       }
-      if (field.hasAppliedDirective(externalDirectiveName)) {
-        coordinates.push(field.coordinate);
+      // The field must be external if we don't allow non-external leaf fields, it's a leaft, and we haven't traversed an external field in parent chain leading here.
+      const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && hasExternalInParents === false;
+      const isExternal = field.hasAppliedDirective(externalDirectiveName);
+      if (isExternal) {
+        externalFieldCoordinatesCollector.push(field.coordinate);
+        if (externalExtensionFieldCoordinatesCollector && field.ofExtension()) {
+          externalExtensionFieldCoordinatesCollector.push(field.coordinate);
+        }
+        if (mustBeExternal && fakeExternalFields.includes(field.coordinate)) {
+          throw new GraphQLError(
+            `field "${field.coordinate}" should not be part of a @${directiveName} since it is already "effectively" provided by this subgraph `
+            + `(while it is marked @${externalDirectiveName}, it is a @${keyDirectiveName} field of an extension type, which are not internally considered external for historical/backward compatibility reasons)`,
+            field.sourceAST);
+        }
+      } else if (mustBeExternal) {
+        throw new GraphQLError(`field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveName})`, field.sourceAST);
       }
-    }
-    if (selection.selectionSet) {
-      coordinates.push(...validateFieldSetSelections(directiveName, selection.selectionSet));
+      if (selection.selectionSet) {
+        validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents || isExternal, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
+      }
+    } else {
+      validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
     }
   }
-  return coordinates;
 }
 
 function validateFieldSet(
   type: CompositeType,
   directive: Directive<any, {fields: any}>,
-  targetDescription: string
-): GraphQLError | string[] {
+  targetDescription: string,
+  externalFieldCoordinatesCollector: string[],
+  externalExtensionFieldCoordinatesCollector: string[] | undefined,
+  allowOnNonExternalLeafFields: boolean,
+  fakeExternalFields: string[],
+): GraphQLError | undefined {
   try {
     const selectionSet = parseFieldSetArgument(type, directive);
     selectionSet.validate();
-    return validateFieldSetSelections(directive.name, selectionSet);
+    validateFieldSetSelections(directive.name, selectionSet, undefined, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
+    return undefined;
   } catch (e) {
     if (!(e instanceof GraphQLError)) {
       throw e;
@@ -150,7 +183,10 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   targetDescriptionExtractor: (element: TParent) => string,
   errorCollector: GraphQLError[],
   externalFieldCoordinatesCollector: string[],
-  isOnParentType: boolean
+  externalExtensionFieldCoordinatesCollector: string[] | undefined,
+  isOnParentType: boolean,
+  allowOnNonExternalLeafFields: boolean,
+  fakeExternalFields: string[] = [],
 ): void {
   for (const application of definition.applications()) {
     const elt = application.parent! as TParent;
@@ -165,12 +201,9 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
         sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type))
       ));
     }
-
-    const errorOrFields = validateFieldSet(type, application, targetDescription);
-    if (Array.isArray(errorOrFields)) {
-      externalFieldCoordinatesCollector.push(...errorOrFields);
-    } else {
-      errorCollector.push(errorOrFields);
+    const error = validateFieldSet(type, application, targetDescription, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
+    if (error) {
+      errorCollector.push(error);
     }
   }
 }
@@ -255,7 +288,7 @@ export class FederationBuiltIns extends BuiltIns {
       if (entityType.membersCount() === 0) {
         entityType.remove();
       }
-      entityType = [...schema.builtInTypes<UnionType>('UnionType')].find(u => u.name === entityTypeName)!
+      entityType = schema.builtInTypes<UnionType>('UnionType').find(u => u.name === entityTypeName)!
     }
     entityType.clearTypes();
     for (const objectType of schema.types<ObjectType>("ObjectType")) {
@@ -264,7 +297,7 @@ export class FederationBuiltIns extends BuiltIns {
       }
     }
 
-    const hasEntities = [...entityType.members()].length > 0;
+    const hasEntities = entityType.membersCount() > 0;
     if (!hasEntities) {
       entityType.remove();
     }
@@ -310,6 +343,7 @@ export class FederationBuiltIns extends BuiltIns {
     }
 
     const externalFieldCoordinates: string[] = [];
+    const externalExtensionFieldCollector: string[] = [];
     // We validate the @key, @requires and @provides.
     const keyDirective = this.keyDirective(schema);
     validateAllFieldSet<CompositeType>(
@@ -318,16 +352,32 @@ export class FederationBuiltIns extends BuiltIns {
       type => `type "${type}"`,
       errors,
       externalFieldCoordinates,
+      externalExtensionFieldCollector,
+      true,
       true
     );
+    // Note that we currently reject @requires where a leaf field of the selection is not external,
+    // because if it's provided by the current subgraph, why "requires" it? That said, it's not 100%
+    // non-sensical if you wanted a local field to be part of the subgraph fetch even if it's not
+    // truly queried _for some reason_. But it's unclear such reasons exists, so for now we prefer
+    // rejecting it as it also make it less likely user misunderstand what @requires actually do.
+    // But we could consider lifting that limitation if users comes with a good rational for allowing
+    // it.
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.requiresDirective(schema),
       field => field.parent!,
       field => `field "${field.coordinate}"`,
       errors,
       externalFieldCoordinates,
-      false
+      undefined,
+      false,
+      false,
+      externalExtensionFieldCollector
     );
+    // Note that like for @requires above, we error out if a leaf field of the selection is not
+    // external in a @provides (we pass `false` for the `allowOnNonExternalLeafFields` parameter),
+    // but contrarily to @requires, there is probaly no reason to ever change this, as a @provides
+    // of a field already provides is 100% non-sensical.
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.providesDirective(schema),
       field => {
@@ -342,7 +392,10 @@ export class FederationBuiltIns extends BuiltIns {
       field => `field ${field.coordinate}`,
       errors,
       externalFieldCoordinates,
-      false
+      undefined,
+      false,
+      false,
+      externalExtensionFieldCollector
     );
     validateAllExternalFieldsUsed(schema, externalFieldCoordinates, errors);
 
@@ -389,7 +442,7 @@ export class FederationBuiltIns extends BuiltIns {
   maybeUpdateSubgraphDocument(schema: Schema, document: DocumentNode): DocumentNode {
     document = super.maybeUpdateSubgraphDocument(schema, document);
 
-    let definitions = [...document.definitions];
+    let definitions = document.definitions.concat();
     for (const directiveName of FEDERATION_DIRECTIVES) {
       const directive = schema.directive(directiveName);
       assert(directive, 'This method should only have been called on a schema with federation built-ins')
@@ -518,6 +571,10 @@ export class Subgraphs {
     const toAdd: Subgraph = typeof subgraphOrName  === 'string'
       ? new Subgraph(subgraphOrName, url!, schema instanceof Schema ? schema! : buildSubgraph(subgraphOrName, schema!))
       : subgraphOrName;
+
+    if (toAdd.name === FEDERATION_RESERVED_SUBGRAPH_NAME) {
+      throw new GraphQLError(`Invalid name ${FEDERATION_RESERVED_SUBGRAPH_NAME} for a subgraph: this name is reserved`);
+    }
 
     const idx = this.idx(toAdd.name);
     if (idx >= 0) {
