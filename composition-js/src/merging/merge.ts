@@ -47,6 +47,8 @@ import {
   isObjectType,
   SubgraphASTNode,
   addSubgraphToASTNode,
+  firstOf,
+  Extension,
 } from "@apollo/core";
 import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
 import {
@@ -169,7 +171,7 @@ function copyTypeReference(source: Type, dest: Schema): Type {
       return new NonNullType(copyTypeReference(source.ofType, dest) as NullableType);
     default:
       const type = dest.type(source.name);
-      assert(type, () => `Cannot find type ${source} in destination schema (with types: ${[...dest.types()].join(', ')})`);
+      assert(type, () => `Cannot find type ${source} in destination schema (with types: ${dest.types().join(', ')})`);
       return type!;
   }
 }
@@ -209,7 +211,12 @@ function filteredRoot(def: SchemaDefinition, rootKind: SchemaRootKind): ObjectTy
 }
 
 function hasMergedFields(type: ObjectType): boolean {
-  return [...type.fields()].some(f => isMergedField(f));
+  for (const field of type.fields()) {
+    if (isMergedField(field)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function indexOfMax(arr: number[]): number {
@@ -637,7 +644,7 @@ class Merger {
       }
       if (source.hasExtensionElements()) {
         extensionSubgraphs.push(this.names[i]);
-        extensionASTs.push([...source.extensions().values()][0].sourceAST);
+        extensionASTs.push(firstOf<Extension<any>>(source.extensions().values())!.sourceAST);
       }
     }
     if (extensionSubgraphs.length > 0 && defSubgraphs.length === 0) {
@@ -678,7 +685,7 @@ class Merger {
     const isValueType = !isEntity && !dest.isRootType();
 
     this.addFieldsShallow(sources, dest);
-    if ([...dest.fields()].length === 0) {
+    if (!dest.hasFields()) {
       // This can happen for a type that existing in the subgraphs but had only non-merged fields
       // (currently, this can only be the 'Query' type, in the rare case where the federated schema
       // exposes no queries) .
@@ -1382,7 +1389,7 @@ class Merger {
 
   private extractLocations(source: DirectiveDefinition): DirectiveLocationEnum[] {
     // We sort the locations so that the return list of locations essentially act like a set.
-    return [...this.filterExecutableDirectiveLocations(source)].sort();
+    return this.filterExecutableDirectiveLocations(source).concat().sort();
   }
 
   private filterExecutableDirectiveLocations(source: DirectiveDefinition): readonly DirectiveLocationEnum[] {

@@ -1,4 +1,3 @@
-import deepEqual from 'deep-equal';
 import {
   ArgumentDefinition,
   InputObjectType,
@@ -87,9 +86,61 @@ export function valueToString(v: any, expectedType?: InputType): string {
   return String(v);
 }
 
+// Fundamentally a deep-equal, but the generic 'deep-equal' was showing up on profiling and
+// as we know our values can only so many things, we can do faster fairly simply.
 export function valueEquals(a: any, b: any): boolean {
-  return deepEqual(a, b);
+  if (a === b) {
+    return true;
+  }
+  if (Array.isArray(a)) {
+    return Array.isArray(b) && arrayValueEquals(a, b) ;
+  }
+  if (typeof a === 'object') {
+    return typeof b === 'object' && objectEquals(a, b);
+  }
+  return a === b;
 }
+
+function arrayValueEquals(a: any[], b: any[]): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; ++i) {
+    if (!valueEquals(a[i], b[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function objectEquals(a: {[key: string]: any}, b: {[key: string]: any}): boolean {
+  const keys1 = Object.keys(a);
+  const keys2 = Object.keys(b);
+  if (keys1.length != keys2.length) {
+    return false;
+  }
+  for (const key of keys1) {
+    const v1 = a[key];
+    const v2 = b[key];
+    // Beware of false-negative due to getting undefined because the property is not
+    // in args2.
+    if (v2 === undefined) {
+      return v1 === undefined && b.hasOwnProperty(key);
+    }
+    if (!valueEquals(v1, v2)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function argumentsEquals(args1: {[key: string]: any}, args2: {[key: string]: any}): boolean {
+  if (args1 === args2) {
+    return true;
+  }
+  return objectEquals(args1, args2);
+}
+
 
 function buildError(message: string): Error {
   // Maybe not the right error for this?
@@ -145,7 +196,7 @@ function applyDefaultValues(value: any, type: InputType): any {
     // Ensure every provided field is defined.
     for (const fieldName of Object.keys(value)) {
       if (!type.field(fieldName)) {
-        const suggestions = suggestionList(fieldName, [...type.fields()].map(f => f.name));
+        const suggestions = suggestionList(fieldName, type.fields().map(f => f.name));
         throw new GraphQLError(`Field "${fieldName}" is not defined by type "${type}".` + didYouMean(suggestions));
       }
     }
@@ -402,7 +453,7 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
     if (typeof value !== 'object') {
       return false;
     }
-    const isValid = [...locationType.fields()].every(field => isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions));
+    const isValid = locationType.fields().every(field => isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions));
     return isValid;
   }
 

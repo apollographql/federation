@@ -25,13 +25,20 @@ import {
   parseFieldSetArgument,
   AbstractType,
   isAbstractType,
-  possibleRuntimeTypes
+  possibleRuntimeTypes,
+  MapWithCachedArrays,
+  mapKeys,
+  firstOf,
+  FEDERATION_RESERVED_SUBGRAPH_NAME
 } from '@apollo/core';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, QueryResolution } from './transition';
 import { isStructuralFieldSubtype } from './structuralSubtyping';
 
-const FEDERATED_GRAPH_ROOT_SOURCE = "federated_subgraphs";
+// We use our federation reserved subgraph name to avoid risk of conflict with other subgraph names (wouldn't be a huge
+// deal, but safer that way). Using something short like `_` is also on purpose: it makes it stand out in debug messages
+// without taking space.
+const FEDERATED_GRAPH_ROOT_SOURCE = FEDERATION_RESERVED_SUBGRAPH_NAME;
 const FEDERATED_GRAPH_ROOT_SCHEMA = new Schema();
 
 export function federatedGraphRootTypeName(rootKind: SchemaRootKind): string {
@@ -62,7 +69,7 @@ export class Vertex {
   ) {}
 
   toString(): string {
-    return `${this.type}[${this.index}](${this.source})`;
+    return `${this.type}(${this.source})`;
   }
 }
 
@@ -203,7 +210,7 @@ export class Edge {
   }
 
   toString(): string {
-    return `${this.head} -> ${this.tail} (${this.label()})[${this.index}]`;
+    return `${this.head} -> ${this.tail} (${this.label()})`;
   }
 }
 
@@ -256,7 +263,7 @@ export class QueryGraph {
      */
     private readonly typesToVertices: MultiMap<string, number>,
     /** The set of distinguished root vertices (pointers to vertices in `vertices`), keyed by their kind.  */
-    private readonly rootVertices: Map<SchemaRootKind, RootVertex>,
+    private readonly rootVertices: MapWithCachedArrays<SchemaRootKind, RootVertex>,
     /**
      * The sources on which the query graph was built, that is a set (which can be of size 1) of graphQL schema keyed by
      * the name identifying them. Note that the `source` string in the `Vertex` of a query graph is guaranteed to be 
@@ -283,14 +290,14 @@ export class QueryGraph {
    * which `root(SchemaRootKind)` will _not_ return `undefined`).
    */
   rootKinds(): readonly SchemaRootKind[] {
-    return [...this.rootVertices.keys()];
+    return this.rootVertices.keys();
   }
 
   /**
    * The set of root vertices in this query graph.
    */
   roots(): readonly RootVertex[] {
-    return [...this.rootVertices.values()];
+    return this.rootVertices.values();
   }
 
   /**
@@ -527,8 +534,8 @@ function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<SchemaRootK
   for (let subgraph of subgraphs) {
     vertices += subgraph.verticesCount();
     subgraph.rootKinds().forEach(k => rootKinds.add(k));
-    assert(subgraph.sources.size === 1, () => `Subgraphs should only have one sources, got ${subgraph.sources.size} ([${[...subgraph.sources.keys()].join(', ')}])`);
-    schemas.push([...subgraph.sources.values()][0]);
+    assert(subgraph.sources.size === 1, () => `Subgraphs should only have one sources, got ${subgraph.sources.size} ([${mapKeys(subgraph.sources).join(', ')}])`);
+    schemas.push(firstOf(subgraph.sources.values())!);
   }
   return [vertices + rootKinds.size, rootKinds, schemas];
 }
@@ -678,7 +685,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
   while (stack.length > 0) {
     const [v, selectionSet] = stack.pop()!;
     // We reverse the selections to cancel the reversing that the stack does.
-    for (const selection of selectionSet.selections().reverse()) {
+    for (const selection of selectionSet.selections(true)) {
       const element = selection.element();
       if (element.kind == 'Field') {
         const fieldDef = element.definition;
@@ -729,7 +736,7 @@ class GraphBuilder {
   private nextIndex: number = 0;
   private readonly adjacencies: Edge[][];
   private readonly typesToVertices: MultiMap<string, number> = new MultiMap();
-  private readonly rootVertices: Map<SchemaRootKind, RootVertex> = new Map();
+  private readonly rootVertices: MapWithCachedArrays<SchemaRootKind, RootVertex> = new MapWithCachedArrays();
   private readonly sources: Map<string, Schema> = new Map();
 
   constructor(verticesCount?: number) {

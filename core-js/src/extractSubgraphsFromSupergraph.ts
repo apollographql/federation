@@ -36,13 +36,13 @@ function filteredTypes(
   // Note: we skip coreSpec to avoid having core__Purpose since we don't create core schema subgraph.
   // But once we support core schema subgraphs and start shipping federation core features, we may need
   // to revisit this.
-  return [...supergraph.types()].filter(t => !joinSpec.isSpecType(t) && !coreSpec.isSpecType(t));
+  return supergraph.types().filter(t => !joinSpec.isSpecType(t) && !coreSpec.isSpecType(t));
 }
 
 export function extractSubgraphsNamesAndUrlsFromSupergraph(supergraph: Schema): {name: string, url: string}[] {
   const [_, joinSpec] = validateSupergraph(supergraph);
   const [subgraphs] = collectEmptySubgraphs(supergraph, joinSpec);
-  return [...subgraphs].map(subgraph => {return { name: subgraph.name, url: subgraph.url }});
+  return subgraphs.values().map(subgraph => {return { name: subgraph.name, url: subgraph.url }});
 }
 
 function collectEmptySubgraphs(supergraph: Schema, joinSpec: JoinSpecDefinition): [Subgraphs, Map<string, string>] {
@@ -232,7 +232,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           }
         }
         // And it may be that the interface wasn't part of the subgraph at all!
-        if ([...itf.fields()].length === 0) {
+        if (!itf.hasFields()) {
           itf.remove();
         }
       }

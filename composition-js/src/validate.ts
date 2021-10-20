@@ -4,6 +4,7 @@ import {
   Field,
   FieldDefinition,
   FieldSelection,
+  firstOf,
   FragmentElement,
   InputType,
   isLeafType,
@@ -216,7 +217,7 @@ export function validateGraphComposition(supergraph: QueryGraph, subgraphs: Quer
 export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgraphs: QueryGraph): {traversal?: ValidationState, isComplete?: boolean, error?: ValidationError} {
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
-    const supergraphSchema = [...supergraphPath.graph.sources.values()][0];
+    const supergraphSchema = firstOf(supergraphPath.graph.sources.values())!;
     let initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
     const cache = new QueryGraphState<IndirectPaths<Transition>>(subgraphs);
     const conditionsCache = new QueryGraphState<OpIndirectPaths>(subgraphs);
@@ -343,7 +344,7 @@ class ValidationTaversal {
   private readonly validationErrors: ValidationError[] = [];
 
   constructor(supergraph: QueryGraph, subgraphs: QueryGraph) {
-    this.supergraphSchema = [...supergraph.sources.values()][0];
+    this.supergraphSchema = firstOf(supergraph.sources.values())!;
     supergraph.rootKinds().forEach(k => this.stack.push(ValidationState.initial(supergraph, k, subgraphs)));
     this.cache = new QueryGraphState(subgraphs);
     this.conditionsCache = new QueryGraphState(subgraphs);
@@ -448,7 +449,7 @@ class ConditionValidationState {
       return null;
     }
     return this.selection.selectionSet
-      ? [...this.selection.selectionSet.selections()].map(s => new ConditionValidationState(s, newPaths))
+      ? this.selection.selectionSet.selections().map(s => new ConditionValidationState(s, newPaths))
       : [];
   }
 

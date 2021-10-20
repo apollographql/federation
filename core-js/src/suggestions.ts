@@ -1,4 +1,5 @@
 import levenshtein from 'js-levenshtein';
+import { mapKeys } from './utils';
 
 /**
  * Given an invalid input string and a list of valid options, returns a filtered
@@ -20,7 +21,7 @@ export function suggestionList(input: string, options: string[]): string[] {
     }
   }
 
-  return [...optionsByDistance.keys()].sort((a, b) => {
+  return mapKeys(optionsByDistance).sort((a, b) => {
     const distanceDiff = optionsByDistance.get(a)! - optionsByDistance.get(b)!;
     return distanceDiff !== 0 ? distanceDiff : a.localeCompare(b);
   });

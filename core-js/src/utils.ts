@@ -48,44 +48,108 @@ export function arrayEquals<T>(a: readonly T[], b: readonly T[]) {
   return true;
 }
 
-// This can be written more tersely with a bunch of reduce/flatMap and friends, but when interfaces type-explode into many
-// implementations, this can end up with fairly large arrays and be a bottleneck, and a more iterative version that pre-allocate
-// arrays is quite a bit faster.
-export function cartesianProduct<V>(arr:V[][]): V[][] {
-  const size = arr.length;
-  if (size === 0) {
-    return [];
+export function firstOf<T>(iterable: Iterable<T>): T | undefined {
+  const res = iterable[Symbol.iterator]().next();
+  return res.done ? undefined : res.value;
+}
+
+export function mapValues<V>(map: ReadonlyMap<any, V>): V[] {
+  const array = new Array(map.size);
+  let i = 0;
+  for (const v of map.values()) {
+    array[i++] = v;
+  }
+  return array;
+}
+
+export function mapKeys<K>(map: ReadonlyMap<K, any>): K[] {
+  const array = new Array(map.size);
+  let i = 0;
+  for (const k of map.keys()) {
+    array[i++] = k;
+  }
+  return array;
+}
+
+export function mapEntries<K, V>(map: ReadonlyMap<K, V>): [K, V][] {
+  const array = new Array(map.size);
+  let i = 0;
+  for (const entry of map.entries()) {
+    array[i++] = entry;
+  }
+  return array;
+}
+
+export function setValues<V>(set: ReadonlySet<V>): V[] {
+  const array = new Array(set.size);
+  let i = 0;
+  for (const v of set.values()) {
+    array[i++] = v;
+  }
+  return array;
+}
+
+export class MapWithCachedArrays<K, V> {
+  private readonly map = new Map<K, V>();
+  private cachedKeys?: readonly K[];
+  private cachedValues?: readonly V[];
+
+  private clearCaches() {
+    this.cachedKeys = undefined;
+    this.cachedValues = undefined;
   }
 
-  // Track, for each element, at which index we are
-  const eltIndexes = new Array<number>(size);
-  let totalCombinations = 1;
-  for (let i = 0; i < size; ++i){
-    const eltSize = arr[i].length;
-    if(!eltSize) {
-      totalCombinations = 0;
-      break;
-    }
-    eltIndexes[i] = 0;
-    totalCombinations *= eltSize;
+  get size(): number {
+    return this.map.size;
   }
 
-  const product = new Array<V[]>(totalCombinations);
-  for (let i = 0; i < totalCombinations; ++i){
-    const item = new Array<V>(size);
-    for (var j = 0; j < size; ++j) {
-      item[j] = arr[j][eltIndexes[j]];
-    }
-    product[i] = item;
-
-    for (let idx = 0; idx < size; ++idx) {
-      if (eltIndexes[idx] == arr[idx].length - 1) {
-        eltIndexes[idx] = 0;
-      } else {
-        eltIndexes[idx] += 1;
-        break;
-      }
-    }
+  has(key: K): boolean {
+    return this.map.has(key);
   }
-  return product;
+
+  get(key: K): V | undefined {
+    return this.map.get(key);
+  }
+
+  set(key: K, value: V): this {
+    this.map.set(key, value);
+    this.clearCaches();
+    return this;
+  }
+
+  delete(key: K): boolean {
+    const deleted = this.map.delete(key);
+    if (deleted) {
+      this.clearCaches();
+    }
+    return deleted;
+  }
+
+  clear(): void {
+    this.map.clear();
+    this.clearCaches();
+  }
+
+  keys(): readonly K[] {
+    if (!this.cachedKeys) {
+      this.cachedKeys = mapKeys(this.map);
+    }
+    return this.cachedKeys;
+  }
+
+  values(): readonly V[] {
+    if (!this.cachedValues) {
+      this.cachedValues = mapValues(this.map);
+    }
+    return this.cachedValues;
+  }
+}
+
+export function copyWitNewLength<T>(arr: T[], newLength: number): T[] {
+  assert(newLength >= arr.length, () => `${newLength} < ${arr.length}`);
+  const copy = new Array(newLength);
+  for (let i = 0; i < arr.length; i++) {
+    copy[i] = arr[i];
+  }
+  return copy;
 }

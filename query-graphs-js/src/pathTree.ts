@@ -1,4 +1,4 @@
-import { assert, OperationElement } from "@apollo/core";
+import { assert, copyWitNewLength, OperationElement } from "@apollo/core";
 import { GraphPath } from "./graphPath";
 import { Edge, QueryGraph, RootVertex, isRootVertex, Vertex } from "./querygraph";
 import { PathContext, isPathContext } from "./pathContext";
@@ -90,20 +90,30 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     if (!this.childs.length) {
       return other;
     }
-    // Note that in some cases we could save ourselves some duplications, when the set of trigger/index/conditions of one is completely
-    // included in that of the other. That said, not sure it's worth the trouble (both in term of code complexity and on whether such
-    // "optimization" would actually pay off in practice).
-    const newChilds = [...this.childs];
-    const newChildsTrigger = [...this.childsTrigger];
-    const newChildsIndexes = [...this.childsIndexes];
-    const newChildsConditions = [...this.childsConditions];
+
+    const mergeIndexes: number[] = new Array(other.childs.length);
+    let countToAdd = 0;
     for (let i = 0; i < other.childs.length; i++) {
       const idx = this.findIndex(other.childsTrigger[i], other.childsIndexes[i]);
+      mergeIndexes[i] = idx;
       if (idx < 0) {
-        newChilds.push(other.childs[i]);
-        newChildsTrigger.push(other.childsTrigger[i]);
-        newChildsIndexes.push(other.childsIndexes[i]);
-        newChildsConditions.push(other.childsConditions[i]);
+        ++countToAdd;
+      }
+    }
+
+    const thisSize = this.childs.length;
+    const newSize = thisSize + countToAdd;
+    const newChilds = copyWitNewLength(this.childs, newSize);
+    const newChildsTrigger = copyWitNewLength(this.childsTrigger, newSize);
+    const newChildsIndexes = copyWitNewLength(this.childsIndexes, newSize);
+    const newChildsConditions = copyWitNewLength(this.childsConditions, newSize);
+    for (let i = 0; i < other.childs.length; i++) {
+      const idx = mergeIndexes[i];
+      if (idx < 0) {
+        newChilds[thisSize + i] = other.childs[i];
+        newChildsTrigger[thisSize + i] = other.childsTrigger[i];
+        newChildsIndexes[thisSize + i] = other.childsIndexes[i];
+        newChildsConditions[thisSize + i] = other.childsConditions[i];
       } else {
         newChilds[idx] = newChilds[idx].merge(other.childs[i]);
         const otherConditions = other.childsConditions[i];
@@ -176,20 +186,20 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
         this.graph,
         this.vertex,
         this.triggerEquality,
-        [...this.childs, empty.mergePathInternal(elements)],
-        [...this.childsTrigger, trigger],
-        [...this.childsIndexes, edgeIndex],
-        [...this.childsConditions, conditions]
+        this.childs.concat(empty.mergePathInternal(elements)),
+        this.childsTrigger.concat(trigger),
+        this.childsIndexes.concat(edgeIndex),
+        this.childsConditions.concat(conditions)
       );
     } else {
       // The child already exists, we just want to 1) merge the conditions if necessary and 2) continue merging downward.
       let newChildConditions = this.childsConditions;
       if (conditions) {
-        newChildConditions = [...this.childsConditions];
+        newChildConditions = this.childsConditions.concat(); // copy the array
         const existingConditions = newChildConditions[idx];
         newChildConditions[idx] = existingConditions ? existingConditions.merge(conditions) : conditions;
       }
-      const newChilds = [...this.childs];
+      const newChilds = this.childs.concat();
       newChilds[idx] = this.childs[idx].mergePathInternal(elements);
       return new PathTree<TTrigger, RV, TNullEdge>(
         this.graph,

@@ -1,6 +1,7 @@
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   DirectiveDefinition,
+  FieldDefinition,
   isCompositeType,
   isInterfaceType,
   isObjectType,
@@ -50,9 +51,7 @@ export function removeInaccessibleElements(schema: Schema) {
     );
   }
 
-  // We copy the list of types first to avoid issues of removal-during-iteration
-  const allTypes = [...schema.types()];
-  for (const type of allTypes) {
+  for (const type of schema.types()) {
     // @inacessible can only be on composite types.
     if (!isCompositeType(type)) {
       continue;
@@ -77,7 +76,7 @@ export function removeInaccessibleElements(schema: Schema) {
         //  - the type may an interface that other types implements: those other will simply not implement the (non-existing) interface.
       }
     } else if (isObjectType(type) || isInterfaceType(type)) {
-      const toRemove = [...type.fields()].filter(f => f.hasAppliedDirective(inaccessibleDirective));
+      const toRemove = (type.fields() as FieldDefinition<any>[]).filter(f => f.hasAppliedDirective(inaccessibleDirective));
       toRemove.forEach(f => f.remove());
     }
   }

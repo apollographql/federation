@@ -1,4 +1,3 @@
-import deepEqual from "deep-equal";
 import {
   ArgumentNode,
   ASTNode,
@@ -41,8 +40,8 @@ import {
   typenameFieldName,
   NamedType,
 } from "./definitions";
-import { assert, MultiMap } from "./utils";
-import { argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
+import { assert, mapEntries, MapWithCachedArrays, MultiMap } from "./utils";
+import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
@@ -56,7 +55,7 @@ function haveSameDirectives<TElement extends OperationElement>(op1: TElement, op
   }
 
   for (const thisDirective of op1.appliedDirectives) {
-    if (!op2.appliedDirectives.some(thatDirective => thisDirective.name === thatDirective.name && deepEqual(thisDirective.arguments(), thatDirective.arguments()))) {
+    if (!op2.appliedDirectives.some(thatDirective => thisDirective.name === thatDirective.name && argumentsEquals(thisDirective.arguments(), thatDirective.arguments()))) {
       return false;
     }
   }
@@ -213,7 +212,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return that.kind === 'Field'
       && this.name === that.name
       && this.alias === that.alias
-      && deepEqual(this.args, that.args)
+      && argumentsEquals(this.args, that.args)
       && haveSameDirectives(this, that);
   }
 
@@ -340,10 +339,24 @@ export class Operation {
           usages.set(fragment, 0);
         }
       }
-      const toDeoptimize = [...usages.entries()].filter(([_, count]) => count < minUsagesToOptimize).map(([name]) => name);
+      const toDeoptimize = mapEntries(usages).filter(([_, count]) => count < minUsagesToOptimize).map(([name]) => name);
       optimizedSelection = optimizedSelection.expandFragments(toDeoptimize);
     }
     return new Operation(this.rootKind, optimizedSelection, this.variableDefinitions, this.name);
+  }
+
+  expandAllFragments(): Operation {
+    const expandedSelections = this.selectionSet.expandFragments();
+    if (expandedSelections === this.selectionSet) {
+      return this;
+    }
+
+    return new Operation(
+      this.rootKind,
+      expandedSelections,
+      this.variableDefinitions,
+      this.name
+    );
   }
 
   toString(expandFragments: boolean = false, prettyPrint: boolean = true): string {
@@ -411,7 +424,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 }
 
 export class NamedFragments {
-  private readonly fragments = new Map<string, NamedFragmentDefinition>();
+  private readonly fragments = new MapWithCachedArrays<string, NamedFragmentDefinition>();
 
   isEmpty(): boolean {
     return this.fragments.size === 0;
@@ -425,8 +438,8 @@ export class NamedFragments {
     return variables;
   }
 
-  names(): string[] {
-    return [...this.fragments.keys()];
+  names(): readonly string[] {
+    return this.fragments.keys();
   }
 
   add(fragment: NamedFragmentDefinition) {
@@ -443,7 +456,7 @@ export class NamedFragments {
   }
 
   onType(type: NamedType): NamedFragmentDefinition[] {
-    return [...this.fragments.values()].filter(f => f.typeCondition.name === type.name);
+    return this.fragments.values().filter(f => f.typeCondition.name === type.name);
   }
 
   without(names: string[]): NamedFragments {
@@ -470,8 +483,8 @@ export class NamedFragments {
     return this.fragments.get(name);
   }
 
-  definitions(): NamedFragmentDefinition[] {
-    return [...this.fragments.values()];
+  definitions(): readonly NamedFragmentDefinition[] {
+    return this.fragments.values();
   }
 
   validate() {
@@ -481,11 +494,11 @@ export class NamedFragments {
   }
 
   toFragmentDefinitionNodes() : FragmentDefinitionNode[] {
-    return [...this.fragments.values()].map(f => f.toFragmentDefinitionNode());
+    return this.definitions().map(f => f.toFragmentDefinitionNode());
   }
 
   toString(indent?: string) {
-    return [...this.fragments.values()].map(f => f.toString(indent)).join('\n\n');
+    return this.definitions().map(f => f.toString(indent)).join('\n\n');
   }
 }
 
@@ -493,6 +506,8 @@ export class SelectionSet {
   // The argument is either the responseName (for fields), or the type name (for fragments), with the empty string being used as a special
   // case for a fragment with no type condition.
   private readonly _selections = new MultiMap<string, Selection>();
+  private _selectionCount = 0;
+  private _cachedSelections?: readonly Selection[];
 
   constructor(
     readonly parentType: CompositeType,
@@ -501,8 +516,26 @@ export class SelectionSet {
     validate(!isLeafType(parentType), () => `Cannot have selection on non-leaf type ${parentType}`);
   }
 
-  selections():  Selection[] {
-    return [...this._selections.values()].flat();
+  selections(reversedOrder: boolean = false): readonly Selection[] {
+    if (!this._cachedSelections) {
+      const selections = new Array(this._selectionCount);
+      let idx = 0;
+      for (const byResponseName of this._selections.values()) {
+        for (const selection of byResponseName) {
+          selections[idx++] = selection;
+        }
+      }
+      this._cachedSelections = selections;
+    }
+    assert(this._cachedSelections, 'Cache should have been populated');
+    if (reversedOrder) {
+      const reversed = new Array(this._selectionCount);
+      for (let i = 0; i < this._selectionCount; i++) {
+        reversed[i] = this._cachedSelections[this._selectionCount - i - 1];
+      }
+      return reversed;
+    }
+    return this._cachedSelections;
   }
 
   usedVariables(): Variables {
@@ -551,6 +584,10 @@ export class SelectionSet {
   }
 
   expandFragments(names?: string[], updateSelectionSetFragments: boolean = true): SelectionSet {
+    if (!this.fragments) {
+      return this;
+    }
+
     if (names && names.length === 0) {
       return this;
     }
@@ -591,6 +628,8 @@ export class SelectionSet {
       }
     }
     this._selections.add(key, toAdd);
+    ++this._selectionCount;
+    this._cachedSelections = undefined;
     return selection;
   }
 
@@ -760,7 +799,7 @@ export class SelectionSet {
 
   private toOperationPathsInternal(parentPaths: OperationPath[]): OperationPath[] {
     return this.selections().flatMap((selection) => {
-      const updatedPaths = parentPaths.map(path => [...path, selection.element()]);
+      const updatedPaths = parentPaths.map(path => path.concat(selection.element()));
       return selection.selectionSet
         ? selection.selectionSet.toOperationPathsInternal(updatedPaths)
         : updatedPaths;
@@ -794,7 +833,6 @@ export class SelectionSet {
       : (variableDefinitions.isEmpty() ? "" : " " + variableDefinitions.toString());
     return fragmentsDefinitions + rootKind + nameAndVariables + " " + this.toString(expandFragments, true, indent);
   }
-
 
   /**
    * The string respresentation of this selection set.

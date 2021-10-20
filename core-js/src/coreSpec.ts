@@ -468,10 +468,10 @@ export const CORE_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(coreIden
 export function removeFeatureElements(schema: Schema, feature: CoreFeature) {
   // Removing directives first, so that when we remove types, the checks that there is no references don't fail due a directive of a the feature
   // actually using the type.
-  const featureDirectives = [...schema.directives()].filter(d => feature.isFeatureDefinition(d));
+  const featureDirectives = schema.directives().filter(d => feature.isFeatureDefinition(d));
   featureDirectives.forEach(d => d.remove().forEach(application => application.remove()));
 
-  const featureTypes = [...schema.types()].filter(t => feature.isFeatureDefinition(t));
+  const featureTypes = schema.types().filter(t => feature.isFeatureDefinition(t));
   featureTypes.forEach(type => {
     const references = type.remove();
     if (references.length > 0) {

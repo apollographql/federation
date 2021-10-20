@@ -66,13 +66,13 @@ function validateOptions(options: Options) {
 
 export function printSchema(schema: Schema, options: Options = defaultPrintOptions): string {
   validateOptions(options);
-  let directives = [...(options.showBuiltIns ? schema.allDirectives() : schema.directives())];
+  let directives = options.showBuiltIns ? schema.allDirectives() : schema.directives();
   if (options.directiveCompareFn) {
-    directives = directives.sort(options.directiveCompareFn);
+    directives = directives.concat().sort(options.directiveCompareFn);
   }
-  let types = [...(options.showBuiltIns ? schema.allTypes() : schema.types())];
+  let types = options.showBuiltIns ? schema.allTypes() : schema.types();
   if (options.typeCompareFn) {
-    types.sort(options.typeCompareFn);
+    types = types.concat().sort(options.typeCompareFn);
   }
   const definitions: string[][] = new Array(3);
   definitions[options.definitionsOrder.indexOf('schema')] = printSchemaDefinitionAndExtensions(schema.schemaDefinition, options);
@@ -114,7 +114,7 @@ function forExtension<T extends {ofExtension(): Extension<any> | undefined}>(ts:
 }
 
 function orderRoots(roots: readonly RootType[], options: Options): RootType[] {
-  return [...roots].sort((r1, r2) => options.rootTypesOrder.indexOf(r1.rootKind) - options.rootTypesOrder.indexOf(r2.rootKind));
+  return roots.concat().sort((r1, r2) => options.rootTypesOrder.indexOf(r1.rootKind) - options.rootTypesOrder.indexOf(r2.rootKind));
 }
 
 function printSchemaDefinitionOrExtension(
@@ -122,7 +122,7 @@ function printSchemaDefinitionOrExtension(
   options: Options,
   extension?: Extension<SchemaDefinition> | null
 ): string | undefined {
-  const roots = forExtension([...schemaDefinition.roots()],  extension);
+  const roots = forExtension(schemaDefinition.roots(),  extension);
   const directives = forExtension(schemaDefinition.appliedDirectives, extension);
   if (!roots.length && !directives.length) {
     return undefined;
@@ -149,7 +149,7 @@ function printSchemaDefinitionOrExtension(
  * When using this naming convention, the schema description can be omitted.
  */
 function isSchemaOfCommonNames(schema: SchemaDefinition): boolean {
-  return schema.appliedDirectives.length === 0 && !schema.description && [...schema.roots()].every(r => r.isDefaultRootName());
+  return schema.appliedDirectives.length === 0 && !schema.description && schema.roots().every(r => r.isDefaultRootName());
 }
 
 /**
@@ -175,7 +175,7 @@ export function printTypeDefinitionAndExtensions(type: NamedType, options: Optio
 
 export function printDirectiveDefinition(directive: DirectiveDefinition, options: Options): string {
   const locations = directive.locations.join(' | ');
-  return `${printDescription(directive, options)}directive ${directive}${printArgs([...directive.arguments()], options)}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
+  return `${printDescription(directive, options)}directive ${directive}${printArgs(directive.arguments(), options)}${directive.repeatable ? ' repeatable' : ''} on ${locations}`;
 }
 
 function printAppliedDirectives(
@@ -226,8 +226,8 @@ function printImplementedInterfaces(implementations: readonly InterfaceImplement
 
 function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType | InterfaceType, options: Options, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension<Directive<ObjectType | InterfaceType>>(type.appliedDirectives, extension);
-  const interfaces = forExtension([...type.interfaceImplementations()], extension);
-  const fields = forExtension([...(options.showBuiltIns ? type.allFields() : type.fields())], extension);
+  const interfaces = forExtension<InterfaceImplementation<any>>(type.interfaceImplementations(), extension);
+  const fields = forExtension<FieldDefinition<any>>(options.showBuiltIns ? type.allFields() : type.fields(), extension);
   if (!directives.length && !interfaces.length && !fields.length) {
     return undefined;
   }
@@ -242,7 +242,7 @@ function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType
 
 function printUnionDefinitionOrExtension(type: UnionType, options: Options, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
-  const members = forExtension([...type.members()], extension);
+  const members = forExtension(type.members(), extension);
   if (!directives.length && !members.length) {
     return undefined;
   }
@@ -275,7 +275,7 @@ function printEnumDefinitionOrExtension(type: EnumType, options: Options, extens
 
 function printInputDefinitionOrExtension(type: InputObjectType, options: Options, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension(type.appliedDirectives, extension);
-  const fields = forExtension([...type.fields()], extension);
+  const fields = forExtension(type.fields(), extension);
   if (!directives.length && !fields.length) {
     return undefined;
   }
@@ -296,14 +296,14 @@ function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefiniti
 }
 
 function printField(field: FieldDefinition<any> | InputFieldDefinition, options: Options): string {
-  let args = field.kind == 'FieldDefinition' ? printArgs([...field.arguments()], options, options.indentString) : '';
+  let args = field.kind == 'FieldDefinition' ? printArgs(field.arguments(), options, options.indentString) : '';
   let defaultValue = field.kind === 'InputFieldDefinition' && field.defaultValue !== undefined
     ? ' = ' + valueToString(field.defaultValue, field.type)
     : '';
   return `${field.name}${args}: ${field.type}${defaultValue}`;
 }
 
-function printArgs(args: ArgumentDefinition<any>[], options: Options, indentation = '') {
+function printArgs(args: readonly ArgumentDefinition<any>[], options: Options, indentation = '') {
   if (args.length === 0) {
     return '';
   }

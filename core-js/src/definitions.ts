@@ -18,7 +18,7 @@ import {
   VariableNode
 } from "graphql";
 import { CoreDirectiveArgs, CoreSpecDefinition, CORE_VERSIONS, FeatureUrl, isCoreSpecDirectiveApplication, removeFeatureElements } from "./coreSpec";
-import { arrayEquals, assert } from "./utils";
+import { arrayEquals, assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
 import { printSchema } from './print';
@@ -210,7 +210,7 @@ export function isCompositeType(type: Type): type is CompositeType {
 export function possibleRuntimeTypes(type: CompositeType): readonly ObjectType[] {
   switch (type.kind) {
     case 'InterfaceType': return type.possibleRuntimeTypes();
-    case 'UnionType': return [...type.members()].map(m => m.type);
+    case 'UnionType': return type.types();
     case 'ObjectType': return [type];
   }
 }
@@ -487,7 +487,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
 
   protected removeAppliedDirectives() {
     // We copy the array because this._appliedDirectives is modified in-place by `directive.remove()`
-    const applied = [...this._appliedDirectives];
+    const applied = this._appliedDirectives.concat();
     applied.forEach(d => d.remove());
   }
 
@@ -663,7 +663,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
     Schema.prototype['removeTypeInternal'].call(this._parent, this);
     this.removeAppliedDirectives();
     this.sourceAST = undefined;
-    const toReturn = [... this._referencers].map(r => {
+    const toReturn = setValues(this._referencers).map(r => {
       SchemaElement.prototype['removeTypeReferenceInternal'].call(r, this);
       return r;
     });
@@ -673,7 +673,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   referencers(): readonly TReferencer[] {
-    return [...this._referencers];
+    return setValues(this._referencers);
   }
 
   isReferenced(): boolean {
@@ -748,7 +748,7 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
 }
 
 function sortedMemberNames(u: UnionType): string[] {
-  return [...u.members()].map(m => m.type.name).sort((n1, n2) => n1.localeCompare(n2));
+  return u.members().map(m => m.type.name).sort((n1, n2) => n1.localeCompare(n2));
 }
 
 export class BuiltIns {
@@ -820,13 +820,13 @@ export class BuiltIns {
   }
 
   private ensureSameArguments(
-    builtIn: { arguments(): IterableIterator<ArgumentDefinition<any>> },
-    manuallyDefined: { argument(name: string): ArgumentDefinition<any> | undefined, arguments(): IterableIterator<ArgumentDefinition<any>> },
+    builtIn: { arguments(): readonly ArgumentDefinition<any>[] },
+    manuallyDefined: { argument(name: string): ArgumentDefinition<any> | undefined, arguments(): readonly ArgumentDefinition<any>[] },
     what: string,
     errors: GraphQLError[]
   ) {
-    const expectedArguments = [...builtIn.arguments()];
-    const foundArguments = [...manuallyDefined.arguments()];
+    const expectedArguments = builtIn.arguments();
+    const foundArguments = manuallyDefined.arguments();
     if (expectedArguments.length !== foundArguments.length) {
       errors.push(error(`Invalid redefinition of built-in ${what}: should have ${expectedArguments.length} arguments but ${foundArguments.length} found in redefinition`));
       return;
@@ -1010,10 +1010,10 @@ export class CoreFeatures {
 
 export class Schema {
   private _schemaDefinition: SchemaDefinition;
-  private readonly _builtInTypes: Map<string, NamedType> = new Map();
-  private readonly _types: Map<string, NamedType> = new Map();
-  private readonly _builtInDirectives: Map<string, DirectiveDefinition> = new Map();
-  private readonly _directives: Map<string, DirectiveDefinition> = new Map();
+  private readonly _builtInTypes = new MapWithCachedArrays<string, NamedType>();
+  private readonly _types = new MapWithCachedArrays<string, NamedType>();
+  private readonly _builtInDirectives = new MapWithCachedArrays<string, DirectiveDefinition>();
+  private readonly _directives = new MapWithCachedArrays<string, DirectiveDefinition>();
   private _coreFeatures?: CoreFeatures;
   private isConstructed: boolean = false;
   private isValidated: boolean = false;
@@ -1122,35 +1122,24 @@ export class Schema {
   /**
    * All the types defined on this schema, excluding the built-in types.
    */
-  *types<T extends NamedType>(kind?: T['kind']): Generator<T, void, undefined> {
-    if (kind) {
-      for (const type of this._types.values()) {
-        if (kind === type.kind) {
-          yield type as T;
-        }
-      }
-    } else {
-      yield* this._types.values() as IterableIterator<T>
-    }
+  types<T extends NamedType>(kind?: T['kind']): readonly T[] {
+    const allTypes = this._types.values();
+    return (kind ? allTypes.filter(t => t.kind === kind) : allTypes) as readonly T[];
   }
 
   /**
    * All the built-in types for this schema (those that are not displayed when printing the schema).
    */
-  *builtInTypes<T extends NamedType>(kind?: T['kind']): Generator<T, void, undefined> {
-    for (const type of this._builtInTypes.values()) {
-      if (!kind || kind === type.kind) {
-        yield type as T;
-      }
-    }
+  builtInTypes<T extends NamedType>(kind?: T['kind']): readonly T[] {
+    const allBuiltIns = this._builtInTypes.values();
+    return (kind ? allBuiltIns.filter(t => t.kind === kind) : allBuiltIns) as readonly T[];
   }
 
   /**
     * All the types, including the built-in ones.
     */
-  *allTypes<T extends NamedType>(kind?: T['kind']): Generator<T, void, undefined> {
-    yield* this.builtInTypes(kind);
-    yield* this.types(kind);
+  allTypes<T extends NamedType>(kind?: T['kind']): readonly T[] {
+    return this.builtInTypes(kind).concat(this.types(kind));
   }
 
   /**
@@ -1218,24 +1207,21 @@ export class Schema {
   /**
    * All the directive defined on this schema, excluding the built-in directives.
    */
-  *directives(): Generator<DirectiveDefinition, void, undefined> {
-    yield* this._directives.values();
+  directives(): readonly DirectiveDefinition[] {
+    return this._directives.values();
   }
 
   /**
    * All the built-in directives for this schema (those that are not displayed when printing the schema).
    */
-  *builtInDirectives(includeShadowed: boolean = false): Generator<DirectiveDefinition, void, undefined> {
-    for (const directive of this._builtInDirectives.values()) {
-      if (includeShadowed || !this.isShadowedBuiltIn(directive)) {
-        yield directive;
-      }
-    }
+  builtInDirectives(includeShadowed: boolean = false): readonly DirectiveDefinition[] {
+    return includeShadowed
+      ? this._builtInDirectives.values()
+      : this._builtInDirectives.values().filter(d => !this.isShadowedBuiltIn(d));
   }
 
-  *allDirectives(): Generator<DirectiveDefinition, void, undefined> {
-    yield* this.builtInDirectives();
-    yield* this.directives();
+  allDirectives(): readonly DirectiveDefinition[] {
+    return this.builtInDirectives().concat(this.directives());
   }
 
   private isShadowedBuiltIn(directive: DirectiveDefinition) {
@@ -1359,11 +1345,11 @@ export class RootType extends BaseExtensionMember<SchemaDefinition> {
 
 export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   readonly kind = 'SchemaDefinition' as const;
-  protected readonly _roots: Map<SchemaRootKind, RootType> = new Map();
-  protected readonly _extensions: Set<Extension<SchemaDefinition>> = new Set();
+  protected readonly _roots = new MapWithCachedArrays<SchemaRootKind, RootType>();
+  protected readonly _extensions = new Set<Extension<SchemaDefinition>>();
 
-  *roots(): Generator<RootType, void, undefined> {
-    yield* this._roots.values();
+  roots(): readonly RootType[] {
+    return this._roots.values();
   }
 
   applyDirective<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}>(
@@ -1460,7 +1446,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   }
 
   toString() {
-    return `schema[${[...this._roots.keys()].join(', ')}]`;
+    return `schema[${this._roots.keys().join(', ')}]`;
   }
 }
 
@@ -1507,8 +1493,9 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
   // either to the main type definition _or_ to a single extension. In theory, a document could have `implements X`
   // in both of those places (or on 2 distinct extensions). We don't preserve that level of detail, but this
   // feels like a very minor limitation with little practical impact, and it avoids additional complexity.
-  protected readonly _interfaceImplementations: Map<string, InterfaceImplementation<T>> = new Map();
-  protected readonly _fields: Map<string, FieldDefinition<T>> = new Map();
+  private readonly _interfaceImplementations: MapWithCachedArrays<string, InterfaceImplementation<T>> = new MapWithCachedArrays();
+  private readonly _fields: MapWithCachedArrays<string, FieldDefinition<T>> = new MapWithCachedArrays();
+  private _cachedNonBuiltInFields?: readonly FieldDefinition<T>[];
 
   protected onAttached() {
     // Note that we can only add the __typename built-in field when we're attached, because we need access to the
@@ -1521,16 +1508,15 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
 
   private removeFieldInternal(field: FieldDefinition<T>) {
     this._fields.delete(field.name);
+    this._cachedNonBuiltInFields = undefined;
   }
 
-  *interfaceImplementations(): Generator<InterfaceImplementation<T>, void, undefined> {
-    yield* this._interfaceImplementations.values();
+  interfaceImplementations(): readonly InterfaceImplementation<T>[] {
+    return this._interfaceImplementations.values();
   }
 
-  *interfaces(): Generator<InterfaceType, void, undefined> {
-    for (const impl of this._interfaceImplementations.values()) {
-      yield impl.interface;
-    }
+  interfaces(): readonly InterfaceType[] {
+    return this.interfaceImplementations().map(impl => impl.interface);
   }
 
   implementsInterface(type: string | InterfaceType): boolean {
@@ -1573,31 +1559,29 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
   /**
    * All the fields of this type, excluding the built-in ones.
    */
-  *fields(): Generator<FieldDefinition<T>, void, undefined> {
-    for (const field of this._fields.values()) {
-      if (!field.isBuiltIn) {
-        yield field;
-      }
+  fields(): readonly FieldDefinition<T>[] {
+    if (!this._cachedNonBuiltInFields) {
+      this._cachedNonBuiltInFields = this._fields.values().filter(f => !f.isBuiltIn);
     }
+    return this._cachedNonBuiltInFields;
+  }
+
+  hasFields(): boolean {
+    return this.fields().length > 0;
   }
 
   /**
    * All the built-in fields for this type (those that are not displayed when printing the schema).
    */
-  *builtInFields(): Generator<FieldDefinition<T>, void, undefined> {
-    for (const field of this._fields.values()) {
-      if (field.isBuiltIn) {
-        yield field;
-      }
-    }
+  builtInFields(): FieldDefinition<T>[] {
+    return this.allFields().filter(f => f.isBuiltIn);
   }
 
   /**
     * All the fields of this type, including the built-in ones.
     */
-  *allFields(): Generator<FieldDefinition<T>, void, undefined> {
-    yield* this.builtInFields();
-    yield* this.fields();
+  allFields(): readonly FieldDefinition<T>[] {
+    return this._fields.values();
   }
 
   field(name: string): FieldDefinition<T> | undefined {
@@ -1630,6 +1614,7 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
       throw error(`Invalid input type ${type} for field ${toAdd.name}: object and interface field types should be output types.`);
     }
     this._fields.set(toAdd.name, toAdd);
+    this._cachedNonBuiltInFields = undefined;
     Element.prototype['setParent'].call(toAdd, this);
     // Note that we need to wait we have attached the field to set the type.
     if (type) {
@@ -1656,11 +1641,10 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
   }
 
   protected removeInnerElements(): void {
-    // Note that we copy values into an array and iterate on that because the `remove()` calls modify what we iterate on.
-    for (const interfaceImpl of [...this._interfaceImplementations.values()]) {
+    for (const interfaceImpl of this.interfaceImplementations()) {
       interfaceImpl.remove();
     }
-    for (const field of [...this._fields.values()]) {
+    for (const field of this.allFields()) {
       if (field.isBuiltIn) {
         // Calling remove on a built-in (think _typename) throws, with reason (we don't want
         // to allow removing _typename from a type in general). So all we do for built-in is
@@ -1673,8 +1657,8 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
   }
 
   protected hasNonExtensionInnerElements(): boolean {
-    return [...this.interfaceImplementations()].some(itf => itf.ofExtension() === undefined)
-      || [...this.fields()].some(f => f.ofExtension() === undefined);
+    return this.interfaceImplementations().some(itf => itf.ofExtension() === undefined)
+      || this.fields().some(f => f.ofExtension() === undefined);
   }
 }
 
@@ -1690,8 +1674,7 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
       return false;
     }
 
-    const rootTypes = [...schema.schemaDefinition.roots()];
-    return rootTypes.some(rt => rt.type == this);
+    return schema.schemaDefinition.roots().some(rt => rt.type == this);
   }
 }
 
@@ -1699,7 +1682,7 @@ export class InterfaceType extends FieldBasedType<InterfaceType, InterfaceTypeRe
   readonly kind = 'InterfaceType' as const;
 
   allImplementations(): (ObjectType | InterfaceType)[] {
-    return [...this._referencers].filter(ref => ref.kind === 'ObjectType' || ref.kind === 'InterfaceType') as (ObjectType | InterfaceType)[];
+    return setValues(this._referencers).filter(ref => ref.kind === 'ObjectType' || ref.kind === 'InterfaceType') as (ObjectType | InterfaceType)[];
   }
 
   possibleRuntimeTypes(): readonly ObjectType[] {
@@ -1725,7 +1708,7 @@ export class UnionMember extends BaseExtensionMember<UnionType> {
 
 export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
   readonly kind = 'UnionType' as const;
-  protected readonly _members: Map<string, UnionMember> = new Map();
+  protected readonly _members: MapWithCachedArrays<string, UnionMember> = new MapWithCachedArrays();
   private _typenameField?: FieldDefinition<UnionType>;
 
   protected onAttached() {
@@ -1739,14 +1722,12 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
     });
   }
 
-  *types(): Generator<ObjectType, void, undefined> {
-    for (const member of this._members.values()) {
-      yield member.type;
-    }
+  types(): ObjectType[] {
+    return this.members().map(m => m.type);
   }
 
-  *members(): Generator<UnionMember, void, undefined> {
-    yield* this._members.values();
+  members(): readonly UnionMember[] {
+    return this._members.values();
   }
 
   membersCount(): number {
@@ -1829,13 +1810,13 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
   }
 
   protected removeInnerElements(): void {
-    for (const member of [...this.members()]) {
+    for (const member of this.members()) {
       member.remove();
     }
   }
 
   protected hasNonExtensionInnerElements(): boolean {
-    return [...this.members()].some(m => m.ofExtension() === undefined);
+    return this.members().some(m => m.ofExtension() === undefined);
   }
 }
 
@@ -1896,12 +1877,16 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
 export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObjectType> {
   readonly kind = 'InputObjectType' as const;
   private readonly _fields: Map<string, InputFieldDefinition> = new Map();
+  private _cachedFieldsArray?: InputFieldDefinition[];
 
   /**
    * All the fields of this input type.
    */
-  *fields(): Generator<InputFieldDefinition, void, undefined> {
-    yield* this._fields.values();
+  fields(): InputFieldDefinition[] {
+    if (!this._cachedFieldsArray) {
+      this._cachedFieldsArray = mapValues(this._fields);
+    }
+    return this._cachedFieldsArray;
   }
 
   field(name: string): InputFieldDefinition | undefined {
@@ -1920,6 +1905,7 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
       throw error(`Invalid ouptut type ${type} for field ${toAdd.name}: input field types should be input types.`);
     }
     this._fields.set(toAdd.name, toAdd);
+    this._cachedFieldsArray = undefined;
     Element.prototype['setParent'].call(toAdd, this);
     // Note that we need to wait we have attached the field to set the type.
     if (typeof nameOrField === 'string' && type) {
@@ -1938,17 +1924,19 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
   }
 
   protected removeInnerElements(): void {
-    for (const field of [...this._fields.values()]) {
+    // Not that we modify the type during iteration, but the reference we get from `this.fields()` will not change
+    for (const field of this.fields()) {
       field.remove();
     }
   }
 
   private removeFieldInternal(field: InputFieldDefinition) {
     this._fields.delete(field.name);
+    this._cachedFieldsArray = undefined;
   }
 
   protected hasNonExtensionInnerElements(): boolean {
-    return [...this._fields.values()].some(f => f.ofExtension() === undefined);
+    return this.fields().some(f => f.ofExtension() === undefined);
   }
 }
 
@@ -1996,7 +1984,7 @@ export class NonNullType<T extends NullableType> extends BaseWrapperType<T> {
 
 export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaElementWithType<OutputType, FieldDefinition<TParent>, TParent, never> {
   readonly kind = 'FieldDefinition' as const;
-  private readonly _args: Map<string, ArgumentDefinition<FieldDefinition<TParent>>> = new Map();
+  private readonly _args: MapWithCachedArrays<string, ArgumentDefinition<FieldDefinition<TParent>>> = new MapWithCachedArrays();
   private _extension?: Extension<TParent>;
 
   constructor(name: string, readonly isBuiltIn: boolean = false) {
@@ -2016,7 +2004,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
     return this._args.size > 0;
   }
 
-  arguments(): IterableIterator<ArgumentDefinition<FieldDefinition<TParent>>> {
+  arguments(): readonly ArgumentDefinition<FieldDefinition<TParent>>[] {
     return this._args.values();
   }
 
@@ -2106,7 +2094,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
     this.removeAppliedDirectives();
     this.type = undefined;
     this._extension = undefined;
-    for (const arg of [...this._args.values()]) {
+    for (const arg of this.arguments()) {
       arg.remove();
     }
     FieldBasedType.prototype['removeFieldInternal'].call(this._parent, this);
@@ -2118,7 +2106,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
   toString(): string {
     const args = this._args.size == 0
       ? "" 
-      : '(' + [...this._args.values()].map(arg => arg.toString()).join(', ') + ')';
+      : '(' + this.arguments().map(arg => arg.toString()).join(', ') + ')';
     return `${this.name}${args}: ${this.type}`;
   }
 }
@@ -2267,7 +2255,7 @@ export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
 export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} = {[key: string]: any}> extends NamedSchemaElement<DirectiveDefinition<TApplicationArgs>, Schema, Directive> {
   readonly kind = 'DirectiveDefinition' as const;
 
-  private readonly _args: Map<string, ArgumentDefinition<DirectiveDefinition>> = new Map();
+  private readonly _args: MapWithCachedArrays<string, ArgumentDefinition<DirectiveDefinition>> = new MapWithCachedArrays();
   repeatable: boolean = false;
   private readonly _locations: DirectiveLocationEnum[] = [];
   private readonly _referencers: Set<Directive<SchemaElement<any, any>, TApplicationArgs>> = new Set();
@@ -2280,7 +2268,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     return `@${this.name}`;
   }
 
-  arguments(): IterableIterator<ArgumentDefinition<DirectiveDefinition>> {
+  arguments(): readonly ArgumentDefinition<DirectiveDefinition>[] {
     return this._args.values();
   }
 
@@ -2358,7 +2346,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
   }
 
   applications(): readonly Directive<SchemaElement<any, any>, TApplicationArgs>[] {
-    return [...this._referencers];
+    return setValues(this._referencers);
   }
 
   private addReferencer(referencer: Directive<SchemaElement<any, any>, TApplicationArgs>) {
@@ -2382,13 +2370,13 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     Schema.prototype['removeDirectiveInternal'].call(this._parent, this);
     this._parent = undefined;
     assert(this._appliedDirectives.length === 0, "Directive definition should not have directive applied to it");
-    for (const arg of [...this._args.values()]) {
+    for (const arg of this.arguments()) {
       arg.remove();
     }
     // Note that directive applications don't link directly to their definitions. Instead, we fetch
     // their definition from the schema when requested. So we don't have to do anything on the referencers
     // other than return them.
-    const toReturn = [... this._referencers];
+    const toReturn = setValues(this._referencers);
     this._referencers.clear();
     return toReturn;
   }
@@ -2585,7 +2573,7 @@ export function mergeVariables(v1s: Variables, v2s: Variables): Variables {
   if (v2s.length == 0) {
     return v1s;
   }
-  const res: Variable[] = [...v1s];
+  const res: Variable[] = v1s.concat();
   for (const v of v2s) {
     if (!containsVariable(v1s, v)) {
       res.push(v);
@@ -2640,7 +2628,7 @@ export class VariableDefinition extends DirectiveTargetElement<VariableDefinitio
 }
 
 export class VariableDefinitions {
-  private readonly _definitions: Map<string, VariableDefinition> = new Map();
+  private readonly _definitions: MapWithCachedArrays<string, VariableDefinition> = new MapWithCachedArrays();
 
   add(definition: VariableDefinition): boolean {
     if (this._definitions.has(definition.variable.name)) {
@@ -2665,8 +2653,8 @@ export class VariableDefinitions {
     return this._definitions.size === 0;
   }
 
-  definitions(): VariableDefinition[] {
-    return [...this._definitions.values()];
+  definitions(): readonly VariableDefinition[] {
+    return this._definitions.values();
   }
 
   filter(variables: Variables): VariableDefinitions {

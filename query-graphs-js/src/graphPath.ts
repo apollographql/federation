@@ -23,7 +23,7 @@ import {
   possibleRuntimeTypes,
   ObjectType,
   isObjectType,
-  cartesianProduct
+  mapValues,
 } from "@apollo/core";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, QueryGraphState } from "./querygraph";
@@ -276,9 +276,9 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       this.graph,
       this.root,
       edge ? edge.tail : this.tail,
-      [...this.edgeTriggers, trigger],
-      [...this.edgeIndexes, (edge ? edge.index : null) as number | TNullEdge],
-      [...this.edgeConditions, conditions ?? null],
+      this.edgeTriggers.concat(trigger),
+      this.edgeIndexes.concat((edge ? edge.index : null) as number | TNullEdge),
+      this.edgeConditions.concat(conditions ?? null),
       edge,
       updateRuntimeTypes(this.runtimeTypesOfTail, edge),
       edge?.transition?.kind === 'DownCast' ? this.runtimeTypesOfTail : undefined
@@ -399,9 +399,44 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return this.edgeConditions.some(c => c !== null);
   }
 
+  isOnTopLevelQueryRoot(): boolean {
+    if (!isRootVertex(this.root)) {
+      return false;
+    }
+    // We walk the vertices and as soon as we move out of the Query type,
+    // we know we're not on the top-query root anymore. The reason we don't
+    // just check that size <= 1 is that we could have top-leve `... on Query`
+    // conditions that don't actually move us.
+    let vertex: Vertex = this.root;
+    for (let i = 0; i < this.size; i++) {
+      const edge = this.edgeAt(i, vertex);
+      if (!edge) {
+        continue;
+      }
+      if (edge.tail.type.name !== "Query") {
+        return false;
+      }
+      vertex = edge.tail;
+    }
+    return true;
+  }
+
   toString(): string {
-    const pathStr = this.mapMainPath((edge, idx) => edge ? ` --[${edge.label()}](${edge.index})--> ${edge.tail}` : ` (${this.edgeTriggers[idx]}) `).join('');
-    return `${this.root}${pathStr} (types: [${this.runtimeTypesOfTail.join(', ')}])`;
+    const isRoot = isRootVertex(this.root);
+    if (isRoot && this.size === 0) {
+      return '_';
+    }
+    const pathStr = this.mapMainPath((edge, idx) => {
+      if (edge) {
+        if (isRoot && idx == 0) {
+          return edge.tail.toString();
+        }
+        const label = edge.label();
+        return ` -${label === "" ? "" : '-[' + label + ']-'}-> ${edge.tail}`
+      }
+      return ` (${this.edgeTriggers[idx]}) `;
+    }).join('');
+    return `${isRoot ? '' : this.root}${pathStr} (types: [${this.runtimeTypesOfTail.join(', ')}])`;
   }
 }
 
@@ -632,7 +667,7 @@ function isEdgeExcluded(edge: Edge, excluded: ExcludedEdges): boolean {
 }
 
 function addEdgeExclusion(excluded: ExcludedEdges, newExclusion: Edge): ExcludedEdges {
-  return [...excluded, [newExclusion.head.index, newExclusion.index]];
+  return excluded.concat([[newExclusion.head.index, newExclusion.index]]);
 }
 
 function isPathExcluded<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
@@ -658,7 +693,7 @@ function isConditionExcluded(condition: SelectionSet | undefined, excluded: Excl
 }
 
 function addConditionExclusion(excluded: ExcludedConditions, newExclusion: SelectionSet | undefined): ExcludedConditions {
-  return newExclusion ? [...excluded, newExclusion] : excluded;
+  return newExclusion ? excluded.concat(newExclusion) : excluded;
 }
 
 function popMin<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
@@ -693,7 +728,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
 ): IndirectPaths<TTrigger, V, TNullEdge>  {
   // We ignore the first edge when decide if a top-level path because that first edge is out federated-graph fake edge. What
   // we care about below is to know if we're on a Query object at the very beginning of a query.
-  const isTopLevelPath = isRootVertex(path.root) && path.size <= 1;
+  const isTopLevelPath = path.isOnTopLevelQueryRoot();
 
   // if there is a context (some @skip/@include), we completely bypass the cache (because the context will need to be added to any key edges, and while
   // we could have a cache per-context, it doesn't seem worth it).
@@ -858,7 +893,12 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
         const updatedPath = toAdvance.add(convertTransitionWithCondition(edge.transition, context), edge, conditionTree(resolution));
         debug.log(() => `Using edge, advance path: ${updatedPath}`);
         bestPathBySource.set(target.source, [updatedPath, cost]);
-        toTry.push(updatedPath);
+        // It can be necessary to "chain" keys, because different subgraphs may have different keys exposed, and so we when we took
+        // a key, we want to check if there is new key we can now take that take us to other subgraphs. For other 'non-collecting'
+        // edges ('QueryResolution' and 'SubgraphEnteringTransition') however, chaining never give us additional value.
+        if (edge.transition.kind === 'KeyResolution') {
+          toTry.push(updatedPath);
+        }
       } else {
         debug.groupEnd('Condition unsatisfiable');
         deadEnds.push({
@@ -873,7 +913,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitionsNoCache<TTrigge
     debug.groupEnd();
   }
   return {
-    paths: [...bestPathBySource.values()].map(b => b[0]),
+    paths: mapValues(bestPathBySource).map(b => b[0]),
     deadEnds: new Unadvanceables(deadEnds) as TDeadEnds
   }
 }
@@ -1033,11 +1073,14 @@ function isNonConditionFragment(type: NamedType, operation: OperationElement): b
 
 export type SimultaneousPaths<V extends Vertex = Vertex> = OpGraphPath<V>[];
 
-export function simultaneousPathsToString(paths: SimultaneousPaths<any>): string {
+export function simultaneousPathsToString(paths: SimultaneousPaths<any>, indentOnNewLine: string=""): string {
   if (paths.length === 0) {
     return '<no path>';
   }
-  return paths.length === 1 ? paths[0].toString() : '[' + paths.join(' | ') + ']';
+  if (paths.length === 1) {
+    return paths[0].toString();
+  }
+  return `{\n${indentOnNewLine}  ` + paths.join(`\n${indentOnNewLine}  `) + `\n${indentOnNewLine}}`;
 }
 
 export function advanceOptionsToString(options: (SimultaneousPaths<any>| GraphPath<any>)[] | undefined): string {
@@ -1047,7 +1090,10 @@ export function advanceOptionsToString(options: (SimultaneousPaths<any>| GraphPa
   if (options.length === 0) {
     return '<unsatisfiable branch>';
   }
-  return '[' + options.join(', ') + ']';
+  if (options.length === 1) {
+    return '[' + options[0] + ']';
+  }
+  return '[\n  ' + options.map(opt => Array.isArray(opt) ? simultaneousPathsToString(opt, "  ") : opt.toString()).join('\n  ') + '\n]';
 }
 
 // Returns undefined if the operation cannot be dealt with/advanced. Otherwise, it returns a list of options we can be in after advancing the operation, each option
@@ -1173,7 +1219,95 @@ function advanceWithOperation<V extends Vertex>(
 
   // Each entry of newPaths is all the options for 1 of our simultaneous path. So what we want to return is all the options
   // composed of taking one of each element of newPaths. In other words, we want the cartesian product.
-  return cartesianProduct(newPaths).map(v => v.flat());
+  return flatCartesianProduct(newPaths);
+}
+
+// This can be written more tersely with a bunch of reduce/flatMap and friends, but when interfaces type-explode into many
+// implementations, this can end up with fairly large arrays and be a bottleneck, and a more iterative version that pre-allocate
+// arrays is quite a bit faster.
+function cartesianProduct<V>(arr:V[][]): V[][] {
+  const size = arr.length;
+  if (size === 0) {
+    return [];
+  }
+
+  // Track, for each element, at which index we are
+  const eltIndexes = new Array<number>(size);
+  let totalCombinations = 1;
+  for (let i = 0; i < size; ++i){
+    const eltSize = arr[i].length;
+    if(!eltSize) {
+      totalCombinations = 0;
+      break;
+    }
+    eltIndexes[i] = 0;
+    totalCombinations *= eltSize;
+  }
+
+  const product = new Array<V[]>(totalCombinations);
+  for (let i = 0; i < totalCombinations; ++i){
+    const item = new Array<V>(size);
+    for (var j = 0; j < size; ++j) {
+      item[j] = arr[j][eltIndexes[j]];
+    }
+    product[i] = item;
+
+    for (let idx = 0; idx < size; ++idx) {
+      if (eltIndexes[idx] == arr[idx].length - 1) {
+        eltIndexes[idx] = 0;
+      } else {
+        eltIndexes[idx] += 1;
+        break;
+      }
+    }
+  }
+  return product;
+}
+
+function flatCartesianProduct<V>(arr:V[][][]): V[][] {
+  const size = arr.length;
+  if (size === 0) {
+    return [];
+  }
+
+  // Track, for each element, at which index we are
+  const eltIndexes = new Array<number>(size);
+  let totalCombinations = 1;
+  for (let i = 0; i < size; ++i){
+    const eltSize = arr[i].length;
+    if(!eltSize) {
+      totalCombinations = 0;
+      break;
+    }
+    eltIndexes[i] = 0;
+    totalCombinations *= eltSize;
+  }
+
+  const product = new Array<V[]>(totalCombinations);
+  for (let i = 0; i < totalCombinations; ++i){
+    let itemSize = 0;
+    for (var j = 0; j < size; ++j) {
+      itemSize += arr[j][eltIndexes[j]].length;
+    }
+    const item = new Array<V>(itemSize);
+    let k = 0;
+    for (var j = 0; j < size; ++j) {
+      for (const v of arr[j][eltIndexes[j]]) {
+        item[k++] = v;
+      }
+    }
+    product[i] = item;
+
+    for (let idx = 0; idx < size; ++idx) {
+      if (eltIndexes[idx] == arr[idx].length - 1) {
+        eltIndexes[idx] = 0;
+      } else {
+        eltIndexes[idx] += 1;
+        break;
+      }
+    }
+  }
+  return product;
 }
 
 function anImplementationHasAProvides(fieldName: string, itf: InterfaceType): boolean {
@@ -1240,6 +1374,8 @@ function advanceOneWithOperation<V extends Vertex>(
           if (field.name === typenameFieldName || !anImplementationHasAProvides(field.name, currentType)) {
             debug.groupEnd(() => `Collecting field ${field} on interface ${currentType} without type-exploding`);
             return itfOptions;
+          } else {
+            debug.log(() => `Collecting field ${field} on interface ${currentType} as 1st option`);
           }
         }
         // Otherwise, that means we need to type explode and descend into every possible implementations (implementations "in the current
@@ -1247,7 +1383,10 @@ function advanceOneWithOperation<V extends Vertex>(
         // local implementations).
         // TODO: once we add @key on interfaces, this will have to be updated.
         const implementations = path.tailPossibleRuntimeTypes();
-        debug.log(() => `Type exploding interface ${currentType} into possible runtime types [${implementations.join(', ')}]`);
+        debug.log(() => itfOptions
+          ? `No direct edge: type exploding interface ${currentType} into possible runtime types [${implementations.join(', ')}]`
+          : `Type exploding interface ${currentType} into possible runtime types [${implementations.join(', ')}] as 2nd option`
+        );
         // For all implementations, We need to call advanceSimultaneousPathsWithOperation on a made-up Fragment. If any
         // gives use empty options, we bail.
         const optionsByImplems: OpGraphPath<V>[][][] = [];
@@ -1305,7 +1444,7 @@ function advanceOneWithOperation<V extends Vertex>(
           debug.groupEnd(() => `Collected field ${field} from ${implemType}`);
           optionsByImplems.push(withField);
         }
-        const implemOptions = cartesianProduct(optionsByImplems).map(opt => opt.flat());
+        const implemOptions = flatCartesianProduct(optionsByImplems);
         const allOptions = itfOptions ? itfOptions.concat(implemOptions) : implemOptions;
         debug.groupEnd(() => `With type-exploded options: ${advanceOptionsToString(allOptions)}`);
         return allOptions;
@@ -1324,9 +1463,12 @@ function advanceOneWithOperation<V extends Vertex>(
     if (!operation.typeCondition || currentType.name === operation.typeCondition.name) {
       // If there is no typename (or the condition is the type we're already one), it means we're essentially
       // just applying some directives (could be a @skip/@include for instance). This doesn't make us take any
-      // edge, we just record the operation.
+      // edge but if operation does have directives, we record it.
       debug.groupEnd(() => `No edge to take for condition ${operation} from current type ${currentType}`);
-      return [[ path.add(operation, null) ]];
+      const updatedPath = operation.appliedDirectives.length > 0
+        ? path.add(operation, null)
+        : path;
+      return [[ updatedPath ]];
     }
     const typeName = operation.typeCondition.name;
     switch (currentType.kind) {
@@ -1370,7 +1512,7 @@ function advanceOneWithOperation<V extends Vertex>(
           debug.groupEnd(() => `Advanced into ${tName} from ${currentType}: ${advanceOptionsToString(implemOptions)}`);
           optionsByImplems.push(implemOptions);
         }
-        const allCastOptions = cartesianProduct(optionsByImplems).map(opt => opt.flat());
+        const allCastOptions = flatCartesianProduct(optionsByImplems);
         debug.groupEnd(() => `Type-exploded options: ${advanceOptionsToString(allCastOptions)}`);
         return allCastOptions;
       case 'ObjectType':
@@ -1384,7 +1526,10 @@ function advanceOneWithOperation<V extends Vertex>(
         const conditionType = supergraphSchema.type(typeName)!;
         if (isAbstractType(conditionType) && possibleRuntimeTypes(conditionType).some(t => t.name == currentType.name)) {
           debug.groupEnd(() => `${typeName} is a super-type of current type ${currentType}: no edge to take`);
-          return [[ path.add(operation, null) ]];
+          const updatedPath = operation.appliedDirectives.length > 0
+            ? path.add(operation, null)
+            : path;
+          return [[ updatedPath ]];
         }
         // The operation we're dealing with can never return results (the type conditions applies have no intersection).
         // This means we _can_ fullfill this operation (by doing nothing and returning an empty result), which we indicate

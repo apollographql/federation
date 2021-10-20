@@ -35,6 +35,7 @@ import {
   selectionSetOfElement,
   NamedFragments,
   operationToDocument,
+  MapWithCachedArrays,
 } from "@apollo/core";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -58,7 +59,8 @@ import {
   isRootVertex,
   ExcludedConditions,
   OpIndirectPaths,
-  SimultaneousPaths
+  SimultaneousPaths,
+  advanceOptionsToString
 } from "@apollo/query-graphs";
 import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -77,7 +79,7 @@ class State<RV extends Vertex> {
   }
 
   withClosedPaths(options: SimultaneousPaths<RV>[]): State<RV>[] {
-    return options.map(path => new State([...this.openPaths], path.reduce((closed, p) => closed.mergePath(p), this.closedPaths)));
+    return options.map(path => new State(this.openPaths.concat(), path.reduce((closed, p) => closed.mergePath(p), this.closedPaths)));
   }
 
   isTerminal(): boolean {
@@ -108,7 +110,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
   ) {
     const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
     const initialTree = PathTree.createOp(subgraphs, startVertex);
-    const opens: [Selection, PathContext, SimultaneousPaths<RV>[]][] = selectionSet.selections().reverse().map(node => [node, emptyContext, [[initialPath]]]);
+    const opens: [Selection, PathContext, SimultaneousPaths<RV>[]][] = selectionSet.selections(true).map(node => [node, emptyContext, [[initialPath]]]);
     this.stack.push(new State(opens, initialTree));
     this.isTopLevel = isRootVertex(startVertex);
   }
@@ -118,7 +120,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       debug.group('Query planning stack:');
       for (const [i, state] of this.stack.entries()) {
         debug.group(`State ${i}:`);
-        debug.groupedValues(state.openPaths, ([n, _, p]) => `${n.element()} => ${p}`, 'OPEN');
+        debug.groupedValues(state.openPaths, ([n, _, p]) => `${n.element()} => ${advanceOptionsToString(p)}`, 'OPEN');
         debug.group('CLOSED');
         debug.log(state.closedPaths.toString());
         debug.groupEnd();
@@ -180,7 +182,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       // We reverse the selections because we're going to pop from `openPaths` and this ensure we end up handling things in
       // the query order.
       const newOpenPaths: [Selection, PathContext, SimultaneousPaths<RV>[]][] = 
-        selection.selectionSet.selections().reverse().map(node => [node, updatedContext, newOptions]);
+        selection.selectionSet.selections(true).map(node => [node, updatedContext, newOptions]);
       this.onUpdatedState(state.withOpenPaths(newOpenPaths));
     }
   }
@@ -298,7 +300,9 @@ export function computeQueryPlan(supergraphSchema: Schema, federatedQueryGraph: 
       [parse(operation.toString())],
     );
   }
-
+  // We expand all fragments. This might merge a number of common branches and save us
+  // some work, and we're going to expand everything during the algorithm anyway.
+  operation = operation.expandAllFragments();
   operation = withoutIntrospection(operation);
 
   debug.group(() => `Computing plan for\n${operation}`);
@@ -419,7 +423,7 @@ function fetchGroupToPlanProcessor(
 }
 
 function addToResponsePath(path: ResponsePath, responseName: string, type: Type) {
-  path = [...path, responseName];
+  path = path.concat(responseName);
   while (!isNamedType(type)) {
     if (isListType(type)) {
       path.push('@');
@@ -566,7 +570,7 @@ function sameMergeAt(m1: ResponsePath | undefined, m2: ResponsePath | undefined)
 }
 
 class FetchDependencyGraph {
-  private readonly rootGroups: Map<string, FetchGroup> = new Map();
+  private readonly rootGroups: MapWithCachedArrays<string, FetchGroup> = new MapWithCachedArrays();
   private readonly groups: FetchGroup[] = [];
   private readonly adjacencies: number[][] = [];
   private readonly inEdges: number[][] = [];
@@ -586,8 +590,8 @@ class FetchDependencyGraph {
     return group;
   }
 
-  rootSubgraphs(): string[] {
-    return [...this.rootGroups.keys()];
+  rootSubgraphs(): readonly string[] {
+    return this.rootGroups.keys();
   }
 
   createRootFetchGroup(subgraphName: string, parentType: CompositeType): FetchGroup {
@@ -662,7 +666,7 @@ class FetchDependencyGraph {
   // Returns true if `toCheck` is either part of `conditions`, or is a dependency (potentially recursively) 
   // of one of the gorup of conditions.
   private isDependedOn(toCheck: FetchGroup, conditions: FetchGroup[]): boolean  {
-    const stack = [...conditions];
+    const stack = conditions.concat();
     while (stack.length > 0) {
       const group = stack.pop()!;
       if (toCheck.index === group.index) {
@@ -977,7 +981,7 @@ class FetchDependencyGraph {
   process<G, P>(processor: FetchGroupProcessor<G, P, any>): G[] {
     this.reduce();
 
-    const rootNodes: G[] = [...this.rootGroups.values()].map(rootGroup => {
+    const rootNodes: G[] = this.rootGroups.values().map(rootGroup => {
       const [node, remaining] = this.processGroup(processor, rootGroup);
       assert(remaining.length == 0, `A root group should have no remaining groups unhandled`);
       return node;
@@ -1001,7 +1005,7 @@ class FetchDependencyGraph {
   }
 
   toString() : string {
-    return [...this.rootGroups.values()].map(g => this.toStringInternal(g, "")).join('\n');
+    return this.rootGroups.values().map(g => this.toStringInternal(g, "")).join('\n');
   }
 
   toStringInternal(group: FetchGroup, indent: string): string {
@@ -1111,7 +1115,7 @@ function computeGroupsForTree(
             newGroup.addInputs(inputs);
 
             // We also ensure to get the __typename of the current type in the "original" group.
-            group.addSelection([...path, new Field((edge.head.type as CompositeType).typenameField()!)]);
+            group.addSelection(path.concat(new Field((edge.head.type as CompositeType).typenameField()!)));
 
             stack.push([child, newGroup, mergeAt, newPath]);
           } else {
@@ -1126,7 +1130,7 @@ function computeGroupsForTree(
             // subgraph. But that mean that on the original subgraph, we may not have added _any_ selection for
             // type `q` and that make the query to the original subgraph invalid. To avoid this, we request the
             // __typename field.
-            group.addSelection([...path, new Field((edge.head.type as CompositeType).typenameField()!)]);
+            group.addSelection(path.concat(new Field((edge.head.type as CompositeType).typenameField()!)));
 
             // We take the edge, creating a new group. Note that we always create a new group because this
             // correspond to jumping subgraph after a field returned the query root type, and we want to
@@ -1140,7 +1144,7 @@ function computeGroupsForTree(
           // If it does contains directives, we preserve the operation, otherwise, we just skip it
           // as a minor optimization (it makes the query slighly smaller, but on complex queries, it
           // might also deduplicate similar selections).
-          const newPath = operation.appliedDirectives.length === 0 ? path : [...path, operation];
+          const newPath = operation.appliedDirectives.length === 0 ? path : path.concat(operation);
           stack.push([child, group, mergeAt, newPath]);
         } else {
           assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
@@ -1162,7 +1166,7 @@ function computeGroupsForTree(
           const newMergeAt = operation.kind === 'Field'
             ? addToResponsePath(updatedMergeAt, operation.responseName(), (edge.transition as FieldCollection).definition.type!)
             : updatedMergeAt;
-          stack.push([child, updatedGroup, newMergeAt, [...updatedPath, operation]]);
+          stack.push([child, updatedGroup, newMergeAt, updatedPath.concat(operation)]);
         }
       }
     }
