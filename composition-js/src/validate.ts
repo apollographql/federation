@@ -25,7 +25,6 @@ import {
   Edge,
   federatedGraphRootTypeName,
   QueryGraph,
-  emptyContext,
   subgraphEnteringTransition,
   GraphPath,
   RootPath,
@@ -40,8 +39,13 @@ import {
   Unadvanceables,
   isUnadvanceable,
   Unadvanceable,
-  IndirectPaths,
-  OpIndirectPaths,
+  noConditionsResolution,
+  ConditionResolution,
+  unsatisfiedConditionsResolution,
+  ConditionResolver,
+  cachingConditionResolver,
+  PathContext,
+  addConditionExclusion,
 } from "@apollo/query-graphs";
 import { print } from "graphql";
 
@@ -219,12 +223,11 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = firstOf(supergraphPath.graph.sources.values())!;
     let initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
-    const cache = new QueryGraphState<IndirectPaths<Transition>>(subgraphs);
-    const conditionsCache = new QueryGraphState<OpIndirectPaths>(subgraphs);
+    const conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
     let state = initialState;
     let isIncomplete = false;
     for (const [edge] of supergraphPath.elements()) {
-      const updated = state.validateTransition(supergraphSchema, edge, cache, conditionsCache);
+      const updated = state.validateTransition(supergraphSchema, edge, conditionResolver);
       if (!updated) {
         isIncomplete = true;
         break;
@@ -250,7 +253,7 @@ function initialSubgraphPaths(kind: SchemaRootKind, subgraphs: QueryGraph): Root
     root.type.name == federatedGraphRootTypeName(kind),
     () => `Unexpected type ${root.type} for subgraphs root type (expected ${federatedGraphRootTypeName(kind)}`);
   const initialState = GraphPath.fromGraphRoot<Transition>(subgraphs, kind)!;
-  return subgraphs.outEdges(root).map(e => initialState.add(subgraphEnteringTransition, e));
+  return subgraphs.outEdges(root).map(e => initialState.add(subgraphEnteringTransition, e, noConditionsResolution));
 }
 
 export class ValidationState {
@@ -273,8 +276,7 @@ export class ValidationState {
   validateTransition(
     supergraphSchema: Schema,
     supergraphEdge: Edge,
-    cache: QueryGraphState<IndirectPaths<Transition>>,
-    conditionCache: QueryGraphState<OpIndirectPaths>
+    conditionResolver: ConditionValidationResolver
   ): ValidationState | undefined | ValidationError {
     assert(!supergraphEdge.conditions, () => `Supergraph edges should not have conditions (${supergraphEdge})`);
 
@@ -288,8 +290,7 @@ export class ValidationState {
         path,
         transition,
         targetType,
-        (conditions, vertex, excludedEdges, excludedConditions) => validateConditions(supergraphSchema, conditions, GraphPath.create(path.graph, vertex), conditionCache, excludedEdges, excludedConditions),
-        cache
+        conditionResolver.resolver
       );
       if (isUnadvanceable(options)) {
         deadEnds.push(options);
@@ -302,7 +303,7 @@ export class ValidationState {
       }
       newSubgraphPaths.push(...options);
     }
-    const newPath = this.supergraphPath.add(transition, supergraphEdge);
+    const newPath = this.supergraphPath.add(transition, supergraphEdge, noConditionsResolution);
     if (newSubgraphPaths.length === 0) {
       return validationError(newPath, this.subgraphPaths, deadEnds);
     }
@@ -332,10 +333,9 @@ function isSupersetOrEqual(maybeSuperset: String[], other: String[]): boolean {
 
 class ValidationTaversal {
   private readonly supergraphSchema: Schema;
+  private readonly conditionResolver: ConditionValidationResolver;
   // The stack contains all states that aren't terminal.
   private readonly stack: ValidationState[] = [];
-  private readonly cache: QueryGraphState<IndirectPaths<Transition>>;
-  private readonly conditionsCache: QueryGraphState<OpIndirectPaths>;
 
   // For each vertex in the supergraph, records if we've already visited that vertex and in which subgraphs we were.
   // For a vertex, we may have multipe "sets of subgraphs", hence the double-array.
@@ -345,9 +345,8 @@ class ValidationTaversal {
 
   constructor(supergraph: QueryGraph, subgraphs: QueryGraph) {
     this.supergraphSchema = firstOf(supergraph.sources.values())!;
+    this.conditionResolver = new ConditionValidationResolver(this.supergraphSchema, subgraphs);
     supergraph.rootKinds().forEach(k => this.stack.push(ValidationState.initial(supergraph, k, subgraphs)));
-    this.cache = new QueryGraphState(subgraphs);
-    this.conditionsCache = new QueryGraphState(subgraphs);
     this.previousVisits = new QueryGraphState(supergraph);
   }
 
@@ -390,7 +389,7 @@ class ValidationTaversal {
       }
 
       debug.group(() => `Validating supergraph edge ${edge}`);
-      const newState = state.validateTransition(this.supergraphSchema, edge, this.cache, this.conditionsCache);
+      const newState = state.validateTransition(this.supergraphSchema, edge, this.conditionResolver);
       if (isValidationError(newState)) {
         debug.groupEnd(`Validation error!`);
         this.validationErrors.push(newState);
@@ -419,21 +418,73 @@ class ConditionValidationState {
     readonly subgraphPaths: SimultaneousPaths[]
   ) {}
 
-  validateCurrentSelection(
-    supergraphSchema: Schema,
-    cache: QueryGraphState<OpIndirectPaths>,
+  toString(): string {
+    return `${this.selection} <=> [${this.subgraphPaths.map(s => s.toString()).join(', ')}]`;
+  }
+}
+
+
+class ConditionValidationResolver {
+  readonly resolver: ConditionResolver;
+
+  constructor(
+    private readonly supergraphSchema: Schema,
+    private readonly federatedQueryGraph: QueryGraph
+  ) {
+    this.resolver = cachingConditionResolver(
+      federatedQueryGraph,
+      (
+        edge: Edge,
+        context: PathContext,
+        excludedEdges: ExcludedEdges,
+        excludedConditions: ExcludedConditions
+      ) => this.validateConditions(edge, context, excludedEdges, excludedConditions)
+    );
+  }
+
+  private validateConditions(
+    edge: Edge,
+    context: PathContext,
+    excludedEdges: ExcludedEdges,
+    excludedConditions: ExcludedConditions
+  ): ConditionResolution {
+    const conditions = edge.conditions!;
+    excludedConditions = addConditionExclusion(excludedConditions, conditions);
+
+    const initialPath: OpGraphPath = GraphPath.create(this.federatedQueryGraph, edge.head);
+
+    const stack: ConditionValidationState[] = [];
+    for (const selection of conditions.selections()) {
+      stack.push(new ConditionValidationState(selection, [[initialPath]]));
+    }
+  
+    while (stack.length > 0) {
+      const state = stack.pop()!;
+      const newStates = this.validateCurrentSelection(state, context, excludedEdges, excludedConditions);
+      if (newStates === null) {
+        return unsatisfiedConditionsResolution;
+      }
+      newStates.forEach(s => stack.push(s));
+    }
+    // If we exhaust the stack, it means we've been able to find "some" path for every possible selection in the condition, so the
+    // condition is validated. Note that we use a cost of 1 for all conditions as we don't care about efficiency.
+    return { satisfied: true, cost: 1 };
+  }
+
+  private validateCurrentSelection(
+    state: ConditionValidationState,
+    context: PathContext,
     excludedEdges: ExcludedEdges,
     excludedConditions: ExcludedConditions
   ): ConditionValidationState[] | null {
     let newPaths: SimultaneousPaths[] = [];
-    for (const path of this.subgraphPaths) {
+    for (const path of state.subgraphPaths) {
       const pathOptions = advanceSimultaneousPathsWithOperation(
-        supergraphSchema,
+        this.supergraphSchema,
         path,
-        this.selection.element(),
-        emptyContext,
-        (conditions, vertex, excludedEdges, excludedConditions) => validateConditions(supergraphSchema, conditions, GraphPath.create(path[0].graph, vertex), cache, excludedEdges, excludedConditions),
-        cache,
+        state.selection.element(),
+        context,
+        this.resolver,
         excludedEdges,
         excludedConditions
       );
@@ -448,39 +499,8 @@ class ConditionValidationState {
     if (newPaths.length === 0) {
       return null;
     }
-    return this.selection.selectionSet
-      ? this.selection.selectionSet.selections().map(s => new ConditionValidationState(s, newPaths))
+    return state.selection.selectionSet
+      ? state.selection.selectionSet.selections().map(s => new ConditionValidationState(s, newPaths))
       : [];
   }
-
-  toString(): string {
-    return `${this.selection} <=> [${this.subgraphPaths.map(s => s.toString()).join(', ')}]`;
-  }
 }
-
-function validateConditions(
-  supergraphSchema: Schema,
-  conditions: SelectionSet,
-  initialPath: OpGraphPath,
-  cache: QueryGraphState<OpIndirectPaths>,
-  excludedEdges: ExcludedEdges,
-  excludedConditions: ExcludedConditions
-): null | undefined {
-  const stack: ConditionValidationState[] = [];
-  for (const selection of conditions.selections()) {
-    stack.push(new ConditionValidationState(selection, [[initialPath]]));
-  }
-
-  while (stack.length > 0) {
-    const state = stack.pop()!;
-    const newStates = state.validateCurrentSelection(supergraphSchema, cache, excludedEdges, excludedConditions);
-    if (newStates === null) {
-      return null;
-    }
-    newStates.forEach(s => stack.push(s));
-  }
-  // If we exhaust the stack, it means we've been able to find "some" path for every possible selection in the condition, so the
-  // condition is validated.
-  return undefined;
-}
-

@@ -222,25 +222,12 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     return -1;
   }
 
-  toPaths(): GraphPath<TTrigger, RV, TNullEdge>[] {
-    return this.toPathsInternal([ GraphPath.create(this.graph, this.vertex) ]);
-  }
-
   isAllInSameSubgraph(): boolean {
     return this.isAllInSameSubgraphInternal(this.vertex.source);
   }
 
   private isAllInSameSubgraphInternal(target: string): boolean {
     return this.vertex.source === target && this.childs.every(c => c.isAllInSameSubgraphInternal(target));
-  }
-
-  private toPathsInternal<V extends Vertex>(parentPaths: GraphPath<TTrigger, V, TNullEdge>[]): GraphPath<TTrigger, V, TNullEdge>[] {
-    if (this.isLeaf()) {
-      return parentPaths;
-    }
-    return this.childs.flatMap((child, i) => 
-      child.toPathsInternal(parentPaths.map(path => path.add(this.childsTrigger[i], this.edgeAt(i, this.vertex), this.childsConditions[i] ?? undefined)))
-    );
   }
 
   toString(indent: string = "", includeConditions: boolean = false): string {

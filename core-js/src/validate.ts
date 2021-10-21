@@ -9,7 +9,6 @@ export function validateSchema(schema: Schema): GraphQLError[] {
   return new Validator(schema).validate();
 }
 
-
 class Validator {
   private readonly emptyVariables = new VariableDefinitions();
   private readonly errors: GraphQLError[] = [];

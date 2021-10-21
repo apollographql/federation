@@ -45,7 +45,6 @@ import {
   FieldCollection,
   QueryGraph,
   GraphPath,
-  QueryGraphState,
   isPathContext,
   isRootPathTree,
   OpGraphPath,
@@ -53,14 +52,18 @@ import {
   OpRootPathTree,
   PathContext,
   PathTree,
-  requireEdgeAdditionalConditions,
   RootVertex,
   Vertex,
   isRootVertex,
   ExcludedConditions,
-  OpIndirectPaths,
   SimultaneousPaths,
-  advanceOptionsToString
+  advanceOptionsToString,
+  ConditionResolution,
+  unsatisfiedConditionsResolution,
+  cachingConditionResolver,
+  ConditionResolver,
+  additionalKeyEdgeForRequireEdge,
+  addConditionExclusion
 } from "@apollo/query-graphs";
 import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -96,6 +99,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
   private readonly stack: State<RV>[] = [];
   private bestPlan: [FetchDependencyGraph, OpPathTree<RV>, number] | undefined;
   private readonly isTopLevel: boolean;
+  private conditionResolver: ConditionResolver;
 
   constructor(
     readonly supergraphSchema: Schema,
@@ -104,15 +108,20 @@ class QueryPlanningTaversal<RV extends Vertex> {
     readonly variableDefinitions: VariableDefinitions,
     startVertex: RV,
     readonly costFunction: CostFunction,
-    private readonly cache: QueryGraphState<OpIndirectPaths>,
+    initialContext: PathContext,
     private readonly excludedEdges: ExcludedEdges = [],
     private readonly excludedConditions: ExcludedConditions = [],
   ) {
     const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
     const initialTree = PathTree.createOp(subgraphs, startVertex);
-    const opens: [Selection, PathContext, SimultaneousPaths<RV>[]][] = selectionSet.selections(true).map(node => [node, emptyContext, [[initialPath]]]);
+    const opens: [Selection, PathContext, SimultaneousPaths<RV>[]][] = selectionSet.selections(true).map(node => [node, initialContext, [[initialPath]]]);
     this.stack.push(new State(opens, initialTree));
     this.isTopLevel = isRootVertex(startVertex);
+
+    this.conditionResolver = cachingConditionResolver(
+      subgraphs, 
+      (edge, context, excludedEdges, excludedConditions) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions),
+    );
   }
 
   private debugStack() {
@@ -149,8 +158,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
         option,
         operation,
         updatedContext,
-        (conditions, vertex, excludedEdges, excludedConditions) => this.resolveConditionPlan(conditions, vertex, excludedEdges, excludedConditions),
-        this.cache,
+        this.conditionResolver,
         this.excludedEdges,
         this.excludedConditions
       );
@@ -199,21 +207,21 @@ class QueryPlanningTaversal<RV extends Vertex> {
     }
   }
 
-  private resolveConditionPlan(conditions: SelectionSet, vertex: Vertex, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions): [OpPathTree, number] | null {
+  private resolveConditionPlan(edge: Edge, context: PathContext, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions): ConditionResolution {
     const bestPlan = new QueryPlanningTaversal(
       this.supergraphSchema,
       this.subgraphs,
-      conditions,
+      edge.conditions!,
       this.variableDefinitions,
-      vertex,
+      edge.head,
       this.costFunction,
-      this.cache,
+      context,
       excludedEdges,
-      excludedConditions
+      addConditionExclusion(excludedConditions, edge.conditions)
     ).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
-    return bestPlan ? [bestPlan[1], bestPlan[2]] : null;
+    return bestPlan ? { satisfied: true, cost: bestPlan[2], pathTree: bestPlan[1] } : unsatisfiedConditionsResolution;
   }
 
   private handleFinalPathSet(pathSet: OpPathTree<RV>) {
@@ -350,7 +358,7 @@ function computeRootParallelBestPlan(
     variables,
     root,
     defaultCostFunction,
-    new QueryGraphState<OpIndirectPaths>(federatedQueryGraph)
+    emptyContext
   );
   const bestPlan = planningTraversal.findBestPlan();
   if (!bestPlan) {
@@ -579,7 +587,10 @@ class FetchDependencyGraph {
   private readonly pathsInParents: (OperationPath | undefined)[] = [];
   private isReduced: boolean = false;
 
-  constructor(readonly subgraphSchemas: ReadonlyMap<String, Schema>) {}
+  constructor(
+    readonly subgraphSchemas: ReadonlyMap<String, Schema>,
+    readonly federatedQueryGraph: QueryGraph
+  ) {}
 
   getOrCreateRootFetchGroup(subgraphName: string, parentType: CompositeType): FetchGroup {
     let group = this.rootGroups.get(subgraphName);
@@ -1020,7 +1031,7 @@ class FetchDependencyGraph {
 }
 
 function computeRootFetchGroups(subgraphSchemas: ReadonlyMap<string, Schema>, pathTree: OpRootPathTree): FetchDependencyGraph {
-  const dependencyGraph = new FetchDependencyGraph(subgraphSchemas);
+  const dependencyGraph = new FetchDependencyGraph(subgraphSchemas, pathTree.graph);
   // The root of the pathTree is one of the "fake" root of the subgraphs graph, which belongs to no subgraph but points to each ones.
   // So we "unpack" the first level of the tree to find out our top level groups (and initialize our stack).
   // Note that we can safely ignore the triggers of that first level as it will all be free transition, and we know we cannot have conditions.
@@ -1036,7 +1047,7 @@ function computeRootFetchGroups(subgraphSchemas: ReadonlyMap<string, Schema>, pa
 }
 
 function computeNonRootFetchGroups(subgraphSchemas: ReadonlyMap<string, Schema>, pathTree: OpPathTree): FetchDependencyGraph {
-  const dependencyGraph = new FetchDependencyGraph(subgraphSchemas);
+  const dependencyGraph = new FetchDependencyGraph(subgraphSchemas, pathTree.graph);
   const source = pathTree.vertex.source;
   // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
   const rootType = pathTree.vertex.type;
@@ -1295,7 +1306,7 @@ function handleRequires(
     if (unmergedGroups.length == 0) {
       // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
       // we don't need one).
-      group.addInputs(inputsForRequire(entityType, edge, false)[0]);
+      group.addInputs(inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge, false)[0]);
       return [group, mergeAt, path];
     }
 
@@ -1304,7 +1315,7 @@ function handleRequires(
     // depends on all the created groups and return that.
     const postRequireGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, group.mergeAt!);
     postRequireGroup.addDependencyOn(unmergedGroups);
-    let [inputs, newPath] = inputsForRequire(entityType, edge);
+    let [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
     // The post-require group needs both the inputs from `group` (the key to `group` subgraph essentially, and the additional requires conditions)
     postRequireGroup.addInputs(inputs);
     return [postRequireGroup, mergeAt, newPath];
@@ -1320,19 +1331,19 @@ function handleRequires(
     // Note that we know the conditions will include a key for our group so we can resume properly.
     const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, mergeAt);
     newGroup.addDependencyOn(createdGroups);
-    let [inputs, newPath] = inputsForRequire(entityType, edge);
+    let [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
     newGroup.addInputs(inputs);
     return [newGroup, mergeAt, newPath];
   }
 }
 
-function inputsForRequire(entityType: ObjectType, edge: Edge, includeKeyInputs: boolean = true): [Selection, OperationPath] {
+function inputsForRequire(graph: QueryGraph, entityType: ObjectType, edge: Edge, includeKeyInputs: boolean = true): [Selection, OperationPath] {
   const typeCast = new FragmentElement(entityType, entityType.name);
   const fullSelectionSet = new SelectionSet(entityType);
   fullSelectionSet.add(new FieldSelection(new Field(entityType.typenameField()!)));
   fullSelectionSet.mergeIn(edge.conditions!);
   if (includeKeyInputs) {
-    fullSelectionSet.mergeIn(requireEdgeAdditionalConditions(edge));
+    fullSelectionSet.mergeIn(additionalKeyEdgeForRequireEdge(graph, edge).conditions!);
   }
   return [selectionOfElement(typeCast, fullSelectionSet), [typeCast]];
 }

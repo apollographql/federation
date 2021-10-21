@@ -5,3 +5,4 @@ export * from './graphviz';
 export * from './structuralSubtyping';
 export * from './transition';
 export * from './pathContext';
+export * from './conditionsCaching';
