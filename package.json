@@ -52,7 +52,7 @@
     "@types/bunyan": "1.8.7",
     "@types/deep-equal": "1.0.1",
     "@types/deep-freeze": "0.1.2",
-    "@types/jest": "26.0.24",
+    "@types/jest": "27.0.2",
     "@types/lodash.xorby": "4.7.6",
     "@types/loglevel": "1.5.4",
     "@types/nock": "10.0.3",
