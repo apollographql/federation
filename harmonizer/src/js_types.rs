@@ -85,3 +85,43 @@ pub(crate) struct JsCompositionErrorExtensions {
     /// more details (and search for `errorWithCode`).
     code: String,
 }
+
+/// The `SubgraphDefinition` represents everything we need to know about a
+/// service (subgraph) for its GraphQL runtime responsibilities. It is not
+/// at all different from the notion of [`ServiceDefinition` in TypeScript]
+/// used in Apollo Gateway's operation.
+///
+/// This struct has nothing to do with the configuration file itself.
+///
+/// Since we'll be running this within a JavaScript environment these properties
+/// will be serialized into camelCase, to match the JavaScript expectations.
+///
+/// [`ServiceDefinition` in TypeScript]: https://github.com/apollographql/federation/blob/d2e34909/federation-js/src/composition/types.ts#L49-L53
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubgraphDefinition {
+    /// The name of the service (subgraph).  We use this name internally to
+    /// in the representation of the composed schema and for designations
+    /// within the human-readable QueryPlan.
+    pub name: String,
+    /// The routing/runtime URL where the subgraph can be found that will
+    /// be able to fulfill the requests it is responsible for.
+    pub url: String,
+    /// The Schema Definition Language (SDL)
+    pub sdl: String,
+}
+
+impl SubgraphDefinition {
+    /// Create a new [`SubgraphDefinition`]
+    pub fn new<N: Into<String>, U: Into<String>, S: Into<String>>(
+        name: N,
+        url: U,
+        sdl: S,
+    ) -> SubgraphDefinition {
+        SubgraphDefinition {
+            name: name.into(),
+            url: url.into(),
+            sdl: sdl.into(),
+        }
+    }
+}
