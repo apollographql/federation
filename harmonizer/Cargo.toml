@@ -15,18 +15,10 @@ include = [ "dist/**/*", "js/**/*", "src/**/*", "Cargo.toml" ]
 name = "harmonizer"
 path = "src/lib.rs"
 
-[[bin]]
-name = "harmonizer"
-path = "src/bin.rs"
-
 [dependencies]
-anyhow = "1.0.39"
-camino = "1"
 deno_core = "0.86.0"
-serde_json = "1.0.60"
-structopt = "0.3"
-supergraph-config = { version = "*", path = "../supergraph-config" }
-log = "0.4"
+serde_json = "1"
+supergraph-config = { git = "https://github.com/apollographql/rover", branch = "avery/build-rover-fed-bin" }
 
 [dependencies.serde]
 version = "1.0"

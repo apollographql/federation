@@ -9,7 +9,7 @@ Immediately Invoked Function Expression ([IIFE]) that is created by running the
 [Rollup.js] bundler on the `@apollo/federation` package.
 
 When the [`harmonize`] function that this crate provides is called with a
-[`ServiceList`] (which is synonymous with the terminology and service list
+[`Vec<SubgraphDefinition>`] (which is synonymous with the terminology and service list
 notion that exists within the JavaScript composition library), this crate uses
 [`deno_core`] to invoke the JavaScript within V8.  This is ultimately
 accomplished using [`rusty_v8`]'s V8 bindings to V8.

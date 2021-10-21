@@ -3,5 +3,4 @@ resolver = "2"
 members = [
   "harmonizer",
   "router-bridge",
-  "supergraph-config",
 ]
