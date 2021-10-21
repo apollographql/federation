@@ -87,6 +87,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
+name = "fed-types"
+version = "0.1.0"
+source = "git+https://github.com/apollographql/rover?branch=avery/build-rover-fed-bin#d9e07f9b85464505f60a8cdf8fb1defeb311b909"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "form_urlencoded"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -202,20 +210,7 @@ dependencies = [
 
 [[package]]
 name = "harmonizer"
-version = "0.33.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "985a164be21ccfe513b6df031ac69bdf611fca469452bbfb0d442cda40a646f0"
-dependencies = [
- "anyhow",
- "deno_core",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "harmonizer"
-version = "0.33.3"
+version = "0.33.4"
 dependencies = [
  "deno_core",
  "insta",
@@ -281,9 +276,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.104"
+version = "0.2.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b2f96d100e1cf1929e7719b7edb3b90ab5298072638fccd77be9ce942ecdfce"
+checksum = "869d572136620d55835903746bcb5cdc54cb2851fd0aeec53220b4bb65ef3013"
 
 [[package]]
 name = "linked-hash-map"
@@ -481,10 +476,10 @@ checksum = "9def91fd1e018fe007022791f865d0ccc9b3a0d5001e01aabb8b40e46000afb5"
 [[package]]
 name = "supergraph-config"
 version = "0.1.0"
-source = "git+https://github.com/apollographql/rover?branch=avery/build-rover-fed-bin#e8bb01e468b9d72a9e1498393d2da74efc3247a5"
+source = "git+https://github.com/apollographql/rover?branch=avery/build-rover-fed-bin#d9e07f9b85464505f60a8cdf8fb1defeb311b909"
 dependencies = [
  "camino",
- "harmonizer 0.33.0",
+ "fed-types",
  "log",
  "serde",
  "serde_yaml",
