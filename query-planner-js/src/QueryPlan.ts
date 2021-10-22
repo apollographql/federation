@@ -1,4 +1,5 @@
 import {
+  DocumentNode,
   Kind,
   SelectionNode as GraphQLJSSelectionNode,
 } from 'graphql';
@@ -30,6 +31,11 @@ export interface FetchNode {
   variableUsages?: string[];
   requires?: QueryPlanSelectionNode[];
   operation: string;
+  document: DocumentNode;
+  inclusionConditions?: {
+    skip?: string | boolean;
+    include?: string | boolean;
+  }[]
 }
 
 export interface FlattenNode {

@@ -110,7 +110,11 @@ export function getTestingSupergraphSdl(services: typeof fixtures = fixtures) {
   if (!compositionHasErrors(compositionResult)) {
     return compositionResult.supergraphSdl;
   }
-  throw new Error("Testing fixtures don't compose properly!");
+  throw new Error(
+    `Testing fixtures don't compose properly!\n${compositionResult.errors.join(
+      '\t\n',
+    )}`,
+  );
 }
 
 export function wait(ms: number) {

@@ -1,5 +1,5 @@
 import { Config, Plugin, Refs } from 'pretty-format';
-import { PlanNode, QueryPlan } from '../';
+import { FetchNode, PlanNode, QueryPlan } from '../';
 import { parse, Kind, visit, DocumentNode } from 'graphql';
 
 export default {
@@ -45,7 +45,9 @@ function printNode(
   switch (node.kind) {
     case 'Fetch':
       result +=
-        `Fetch(service: "${node.serviceName}")` +
+        `Fetch(service: "${node.serviceName}"${printInclusionConditions(
+          node,
+        )})` +
         ' {' +
         config.spacingOuter +
         (node.requires
@@ -90,6 +92,26 @@ function printNode(
   }
 
   return result;
+}
+
+function printInclusionConditions(node: FetchNode) {
+  return node.inclusionConditions
+    ? `, inclusionConditions: [${node.inclusionConditions
+        .map((e) => {
+          return `{ ${
+            'include' in e
+              ? `include: ${
+                  typeof e.include === 'string' ? `"${e.include}"` : e.include
+                }`
+              : ''
+          }${'include' in e && 'skip' in e ? ', ' : ''}${
+            'skip' in e
+              ? `skip: ${typeof e.skip === 'string' ? `"${e.skip}"` : e.skip}`
+              : ''
+          } }`;
+        })
+        .join(', ')}]`
+    : '';
 }
 
 function printNodes(

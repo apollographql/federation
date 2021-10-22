@@ -2,15 +2,9 @@ import fs from 'fs';
 import { DocumentNode, GraphQLSchema, parse, validate } from 'graphql';
 import { defineFeature, loadFeatures } from 'jest-cucumber';
 import path from 'path';
-import {
-  QueryPlan, QueryPlanner
-} from '..';
-import {
-  buildComposedSchema
-} from '../composedSchema';
-import {
-  buildOperationContext,
-} from '../buildQueryPlan';
+import { QueryPlan, QueryPlanner, serializeQueryPlan } from '..';
+import { buildComposedSchema } from '../composedSchema';
+import { buildOperationContext } from '../buildQueryPlan';
 
 // This test looks over all directories under tests/features and finds "supergraphSdl.graphql" in
 // each of those directories. It runs all of the .feature cases in that directory against that schema.
@@ -69,7 +63,9 @@ for (const directory of directories) {
 
               const expectedQueryPlan = JSON.parse(expectedQueryPlanString);
 
-              expect(queryPlan).toMatchQueryPlan(expectedQueryPlan);
+              expect(serializeQueryPlan(queryPlan)).toMatch(
+                serializeQueryPlan(expectedQueryPlan),
+              );
             });
           };
 

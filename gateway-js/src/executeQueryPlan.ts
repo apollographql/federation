@@ -1,6 +1,7 @@
 import {
   GraphQLExecutionResult,
   GraphQLRequestContext,
+  VariableValues,
 } from 'apollo-server-types';
 import { Headers } from 'apollo-server-env';
 import {
@@ -232,6 +233,10 @@ async function executeNode<TContext>(
       });
     }
     case 'Fetch': {
+      if (shouldSkipFetchNode(node, context.requestContext.request.variables)) {
+        return new Trace.QueryPlanNode();
+      }
+
       const traceNode = new Trace.QueryPlanNode.FetchNode({
         serviceName: node.serviceName,
         // executeFetch will fill in the other fields if desired.
@@ -250,6 +255,45 @@ async function executeNode<TContext>(
       return new Trace.QueryPlanNode({ fetch: traceNode });
     }
   }
+}
+
+export function shouldSkipFetchNode(
+  node: FetchNode,
+  variables: VariableValues = {},
+) {
+  if (node.inclusionConditions) {
+    const shouldSkip = node.inclusionConditions.every((conditionals) => {
+      function resolveConditionalValue(conditional: 'skip' | 'include') {
+        const conditionalType = typeof conditionals[conditional];
+        switch (conditionalType) {
+          case 'boolean':
+            return conditionals[conditional] as boolean;
+          case 'string':
+            return variables[conditionals[conditional] as string] as boolean;
+          case 'undefined':
+            return undefined;
+          default:
+            throw new Error('Programming error: unexpected conditional type');
+        }
+      }
+
+      const includeValue = resolveConditionalValue('include');
+      const skipValue = resolveConditionalValue('skip');
+
+      if (includeValue !== undefined && skipValue !== undefined) {
+        return !includeValue || skipValue;
+      } else if (includeValue !== undefined) {
+        return !includeValue;
+      } else if (skipValue !== undefined) {
+        return skipValue;
+      }
+
+      throw new Error('Programming error: unexpected value for conditional directive');
+    });
+
+    return shouldSkip;
+  }
+  return false;
 }
 
 async function executeFetch<TContext>(

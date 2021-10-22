@@ -1,4 +1,5 @@
 import { QueryPlan, PlanNode } from '@apollo/query-planner';
+import { shouldSkipFetchNode } from '@apollo/gateway/src/executeQueryPlan';
 import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
 const prettyFormat = require('pretty-format');
 
@@ -10,15 +11,6 @@ declare global {
   }
 }
 
-// function printNode(node: ExecutionNode) {
-//   return prettyFormat(
-//     { nodes: [node], kind: 'QueryPlan' },
-//     {
-//       plugins: [queryPlanSerializer, astSerializer],
-//     },
-//   );
-// }
-
 const lineEndRegex = /^/gm;
 function indentString(string: string, count = 2) {
   if (!string) return string;
@@ -27,11 +19,11 @@ function indentString(string: string, count = 2) {
 
 function toCallService(
   this: jest.MatcherUtils,
-  queryPlan: QueryPlan,
+  input: QueryPlan | { queryPlan: QueryPlan, variables: Record<string, any> },
   service: string,
 ): { message(): string; pass: boolean } {
-  // const receivedString = print(received);
-  // const expectedString = print(expected);
+  const { queryPlan, variables } =
+    'kind' in input ? { queryPlan: input, variables: {} } : input;
 
   const printReceived = (string: string) =>
     this.utils.RECEIVED_COLOR(indentString(string));
@@ -44,7 +36,7 @@ function toCallService(
   function walkExecutionNode(node?: PlanNode) {
     if (!node) return;
     if (node.kind === 'Fetch' && node.serviceName === service) {
-      pass = true;
+      pass = !shouldSkipFetchNode(node, variables);
       // initialServiceCall = node;
       return;
     }
