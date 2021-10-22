@@ -118,6 +118,23 @@ export const typeDefs = gql`
 
   # Value type
   union MetadataOrError = KeyValue | Error
+
+  # test 1234 in abstract-types: "it doesn't expand interfaces with inline type conditions if all possibilities are fufilled by one service"
+  extend type Query {
+    topProducts_1234: [Product_1234]
+  }
+
+  interface Product_1234 {
+    name: String
+  }
+
+  type Shoe_1234 implements Product_1234 {
+    name: String
+  }
+
+  type Car_1234 implements Product_1234 {
+    name: String
+  }
 `;
 
 const products = [
