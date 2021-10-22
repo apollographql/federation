@@ -32,18 +32,18 @@ composition implementation while we work toward something else.
 use deno_core::{op_sync, JsRuntime};
 use std::sync::mpsc::channel;
 
-mod error;
 mod js_types;
 
-pub use error::CompositionErrors;
 use js_types::CompositionError;
-pub use js_types::{CompositionOutput, SubgraphDefinition};
+pub use js_types::CompositionOutput;
+
+pub use fed_types::{BuildError, BuildErrors, SubgraphDefinition};
 
 /// The `harmonize` function receives a [`Vec<SubgraphDefinition>`] and invokes JavaScript
 /// composition on it, either returning the successful output, or a list of error messages.
 pub fn harmonize(
     subgraph_definitions: Vec<SubgraphDefinition>,
-) -> Result<CompositionOutput, CompositionErrors> {
+) -> Result<CompositionOutput, BuildErrors> {
     // Initialize a runtime instance
     let mut runtime = JsRuntime::new(Default::default());
 
@@ -80,7 +80,7 @@ pub fn harmonize(
             tx.send(
                 js_composition_result
                     .map(|supergraph_sdl| CompositionOutput { supergraph_sdl })
-                    .map_err(|e| e.into()),
+                    .map_err(|errs| errs.iter().map(|err| err.clone().into()).collect()),
             )
             .expect("channel must be open");
 

@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt::{self, Display};
 
+use fed_types::BuildError;
+
 /// CompositionOutput contains information about the supergraph that was composed.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -31,16 +33,6 @@ pub(crate) struct CompositionError {
     extensions: Option<JsCompositionErrorExtensions>,
 }
 
-impl CompositionError {
-    #[cfg(test)]
-    pub(crate) fn new(code: String, message: Option<String>) -> CompositionError {
-        CompositionError {
-            extensions: Some(JsCompositionErrorExtensions { code }),
-            message,
-        }
-    }
-}
-
 impl Display for CompositionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let code = if let Some(extensions) = &self.extensions {
@@ -53,6 +45,12 @@ impl Display for CompositionError {
         } else {
             write!(f, "{}", code)
         }
+    }
+}
+
+impl From<CompositionError> for BuildError {
+    fn from(input: CompositionError) -> Self {
+        Self::composition_error(input.extensions.map(|x| x.code), input.message)
     }
 }
 
@@ -84,44 +82,4 @@ pub(crate) struct JsCompositionErrorExtensions {
     /// ...and many more!  See the `federation-js` composition library for
     /// more details (and search for `errorWithCode`).
     code: String,
-}
-
-/// The `SubgraphDefinition` represents everything we need to know about a
-/// service (subgraph) for its GraphQL runtime responsibilities. It is not
-/// at all different from the notion of [`ServiceDefinition` in TypeScript]
-/// used in Apollo Gateway's operation.
-///
-/// This struct has nothing to do with the configuration file itself.
-///
-/// Since we'll be running this within a JavaScript environment these properties
-/// will be serialized into camelCase, to match the JavaScript expectations.
-///
-/// [`ServiceDefinition` in TypeScript]: https://github.com/apollographql/federation/blob/d2e34909/federation-js/src/composition/types.ts#L49-L53
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SubgraphDefinition {
-    /// The name of the service (subgraph).  We use this name internally to
-    /// in the representation of the composed schema and for designations
-    /// within the human-readable QueryPlan.
-    pub name: String,
-    /// The routing/runtime URL where the subgraph can be found that will
-    /// be able to fulfill the requests it is responsible for.
-    pub url: String,
-    /// The Schema Definition Language (SDL)
-    pub sdl: String,
-}
-
-impl SubgraphDefinition {
-    /// Create a new [`SubgraphDefinition`]
-    pub fn new<N: Into<String>, U: Into<String>, S: Into<String>>(
-        name: N,
-        url: U,
-        sdl: S,
-    ) -> SubgraphDefinition {
-        SubgraphDefinition {
-            name: name.into(),
-            url: url.into(),
-            sdl: sdl.into(),
-        }
-    }
 }

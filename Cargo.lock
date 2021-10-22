@@ -213,6 +213,7 @@ name = "harmonizer"
 version = "0.33.4"
 dependencies = [
  "deno_core",
+ "fed-types",
  "insta",
  "serde",
  "serde_json",
