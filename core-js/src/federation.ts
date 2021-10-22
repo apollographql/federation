@@ -92,6 +92,10 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
+function isFieldOfExtension(field: FieldDefinition<CompositeType>): boolean {
+  return field.ofExtension() !== undefined || field.parent!.hasAppliedDirective(extendsDirectiveName);
+}
+
 // Returns a list of the coordinate of all the fields in the selection that are marked external.
 function validateFieldSetSelections(
   directiveName: string,
@@ -111,12 +115,13 @@ function validateFieldSetSelections(
       // The field must be external if we don't allow non-external leaf fields, it's a leaft, and we haven't traversed an external field in parent chain leading here.
       const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && hasExternalInParents === false;
       const isExternal = field.hasAppliedDirective(externalDirectiveName);
+      const isFakeExternal = isExternal && fakeExternalFields.includes(field.coordinate);
       if (isExternal) {
         externalFieldCoordinatesCollector.push(field.coordinate);
-        if (externalExtensionFieldCoordinatesCollector && field.ofExtension()) {
+        if (externalExtensionFieldCoordinatesCollector && isFieldOfExtension(field)) {
           externalExtensionFieldCoordinatesCollector.push(field.coordinate);
         }
-        if (mustBeExternal && fakeExternalFields.includes(field.coordinate)) {
+        if (mustBeExternal && isFakeExternal) {
           throw new GraphQLError(
             `field "${field.coordinate}" should not be part of a @${directiveName} since it is already "effectively" provided by this subgraph `
             + `(while it is marked @${externalDirectiveName}, it is a @${keyDirectiveName} field of an extension type, which are not internally considered external for historical/backward compatibility reasons)`,
@@ -126,7 +131,7 @@ function validateFieldSetSelections(
         throw new GraphQLError(`field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveName})`, field.sourceAST);
       }
       if (selection.selectionSet) {
-        validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents || isExternal, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
+        validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents || (isExternal && !isFakeExternal), externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
       }
     } else {
       validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);

@@ -39,12 +39,11 @@ export const ErrGraphQLValidationFailed = (causes: GraphQLError[]) =>
     causes
   });
 
-
 /**
  * Given an error that may have been thrown during schema validation, extract the causes of validation failure.
  * If the error is not a graphQL error, undefined is returned.
  */
-export function errorCauses(e: any): GraphQLError[] | undefined {
+export function errorCauses(e: Error): GraphQLError[] | undefined {
   if (e instanceof GraphQLErrorExt) {
     if (e.code === validationErrorCode) {
       return ((e as any).causes) as GraphQLError[];
@@ -55,6 +54,14 @@ export function errorCauses(e: any): GraphQLError[] | undefined {
     return [e];
   }
   return undefined;
+}
+
+export function printGraphQLErrorsOrRethrow(e: Error): string {
+  const causes = errorCauses(e);
+  if (!causes) {
+    throw e;
+  }
+  return causes.map(e => printError(e)).join('\n\n');
 }
 
 export function printErrors(errors: GraphQLError[]): string {
