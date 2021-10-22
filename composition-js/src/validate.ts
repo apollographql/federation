@@ -34,7 +34,6 @@ import {
   advanceSimultaneousPathsWithOperation,
   ExcludedEdges,
   QueryGraphState,
-  SimultaneousPaths,
   ExcludedConditions,
   Unadvanceables,
   isUnadvanceable,
@@ -46,6 +45,8 @@ import {
   cachingConditionResolver,
   PathContext,
   addConditionExclusion,
+  SimultaneousPathsWithLazyIndirectPaths,
+  advanceOptionsToString,
 } from "@apollo/query-graphs";
 import { print } from "graphql";
 
@@ -415,14 +416,13 @@ class ConditionValidationState {
     // Selection that belongs to the condition we're validating.
     readonly selection: Selection,
     // All the possible "simultaneous paths" we could be in the subgraph when we reach this state selection.
-    readonly subgraphPaths: SimultaneousPaths[]
+    readonly subgraphOptions: SimultaneousPathsWithLazyIndirectPaths[]
   ) {}
 
   toString(): string {
-    return `${this.selection} <=> [${this.subgraphPaths.map(s => s.toString()).join(', ')}]`;
+    return `${this.selection} <=> ${advanceOptionsToString(this.subgraphOptions)}`;
   }
 }
-
 
 class ConditionValidationResolver {
   readonly resolver: ConditionResolver;
@@ -452,15 +452,16 @@ class ConditionValidationResolver {
     excludedConditions = addConditionExclusion(excludedConditions, conditions);
 
     const initialPath: OpGraphPath = GraphPath.create(this.federatedQueryGraph, edge.head);
+    const initialOptions = [new SimultaneousPathsWithLazyIndirectPaths([initialPath], context, this.resolver, excludedEdges, excludedConditions)];
 
     const stack: ConditionValidationState[] = [];
     for (const selection of conditions.selections()) {
-      stack.push(new ConditionValidationState(selection, [[initialPath]]));
+      stack.push(new ConditionValidationState(selection, initialOptions));
     }
   
     while (stack.length > 0) {
       const state = stack.pop()!;
-      const newStates = this.validateCurrentSelection(state, context, excludedEdges, excludedConditions);
+      const newStates = this.advanceState(state);
       if (newStates === null) {
         return unsatisfiedConditionsResolution;
       }
@@ -471,36 +472,25 @@ class ConditionValidationResolver {
     return { satisfied: true, cost: 1 };
   }
 
-  private validateCurrentSelection(
-    state: ConditionValidationState,
-    context: PathContext,
-    excludedEdges: ExcludedEdges,
-    excludedConditions: ExcludedConditions
-  ): ConditionValidationState[] | null {
-    let newPaths: SimultaneousPaths[] = [];
-    for (const path of state.subgraphPaths) {
-      const pathOptions = advanceSimultaneousPathsWithOperation(
+  private advanceState(state: ConditionValidationState): ConditionValidationState[] | null {
+    let newOptions: SimultaneousPathsWithLazyIndirectPaths[] = [];
+    for (const paths of state.subgraphOptions) {
+      const pathsOptions = advanceSimultaneousPathsWithOperation(
         this.supergraphSchema,
-        path,
+        paths,
         state.selection.element(),
-        context,
-        this.resolver,
-        excludedEdges,
-        excludedConditions
       );
-      if (!pathOptions) {
+      if (!pathsOptions) {
         continue;
       }
-      newPaths = newPaths.concat(pathOptions);
+      newOptions = newOptions.concat(pathsOptions);
     }
 
-    // If we got no paths, it means that particular selection of the conditions cannot be satisfied, so the
+    // If we got no optoins, it means that particular selection of the conditions cannot be satisfied, so the
     // overall condition cannot.
-    if (newPaths.length === 0) {
+    if (newOptions.length === 0) {
       return null;
     }
-    return state.selection.selectionSet
-      ? state.selection.selectionSet.selections().map(s => new ConditionValidationState(s, newPaths))
-      : [];
+    return state.selection.selectionSet ? state.selection.selectionSet.selections().map(s => new ConditionValidationState(s, newOptions)) : [];
   }
 }

@@ -2155,7 +2155,8 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
   }
 
   toString(): string {
-    return `${this.name}: ${this.type}`;
+    const defaultStr = this.defaultValue === undefined ? "" : ` = ${valueToString(this.defaultValue, this.type)}`;
+    return `${this.name}: ${this.type}${defaultStr}`;
   }
 }
 

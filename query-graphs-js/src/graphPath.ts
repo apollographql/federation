@@ -449,9 +449,9 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     if (!isRootVertex(this.root)) {
       return false;
     }
-    // We walk the vertices and as soon as we move out of the Query type,
-    // we know we're not on the top-query root anymore. The reason we don't
-    // just check that size <= 1 is that we could have top-leve `... on Query`
+    // We walk the vertices and as soon as we take a field (or move out of the Query type),
+    // we know we're not on the top-level query root anymore. The reason we don't
+    // just check that size <= 1 is that we could have top-level `... on Query`
     // conditions that don't actually move us.
     let vertex: Vertex = this.root;
     for (let i = 0; i < this.size; i++) {
@@ -459,7 +459,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       if (!edge) {
         continue;
       }
-      if (edge.tail.type.name !== "Query") {
+      if (edge.transition.kind === 'FieldCollection' || edge.tail.type.name !== "Query") {
         return false;
       }
       vertex = edge.tail;
@@ -482,8 +482,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       }
       return ` (${this.edgeTriggers[idx]}) `;
     }).join('');
-    //return `${isRoot ? '' : this.root}${pathStr} (types: [${this.runtimeTypesOfTail.join(', ')}])`;
-    return `${isRoot ? '' : this.root}${pathStr} (entering: ${this.subgraphEnteringEdge})`;
+    return `${isRoot ? '' : this.root}${pathStr} (types: [${this.runtimeTypesOfTail.join(', ')}])`;
   }
 }
 
@@ -820,7 +819,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
     }
     debug.group(() => `From ${toAdvance}:`);
     for (const edge of nextEdges) {
-      debug.group(`Testing edge ${edge}`);
+      debug.group(() => `Testing edge ${edge}`);
       if (isEdgeExcluded(edge, excludedEdges)) {
         debug.groupEnd(`Ignored: edge is excluded`);
         continue;
@@ -915,7 +914,10 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // In that case, we can ignore the edge, knowing a better path exists.
         // Doing this drastically reduce state explosion in a number of cases.
         const subgraphEnteringEdge = toAdvance.subgraphEnteringEdge;
-        if (subgraphEnteringEdge && edge.transition.kind === 'KeyResolution') {
+        // Note that we ignore the case where the "entering edge" is the "current" type as we might end up in an infinite
+        // loop when calling `hasValidDirectKeyEdge` in that case without additional care and it's not useful because this
+        // very method already ensure we don't create unnecessay chains of keys for the "current type"
+        if (subgraphEnteringEdge && edge.transition.kind === 'KeyResolution' && subgraphEnteringEdge.tail.type.name !== typeName) {
           const prevSubgraphVertex = toAdvance.checkDirectPathFomPreviousSubgraphTo(edge.tail.type.name, triggerToEdge);
           const backToPreviousSubgraph = subgraphEnteringEdge.head.source === edge.tail.source;
           const maxCost = toAdvance.subgraphEnteringEdgeCost + (backToPreviousSubgraph ? 0 : conditionResolution.cost);
@@ -946,7 +948,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
               sourceSubgraph: toAdvance.tail.source,
               destSubgraph: edge.tail.source,
               reason: UnadvanceableReason.IGNORED_INDIRECT_PATH,
-              details: `ignoring moving to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(false)}") of "${edge.head.type}" because there is a more direct path in ${edge.tail.source} that avoids ${toAdvance.tail.source} altogether."`
+              details: `ignoring moving to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(true, false)}") of "${edge.head.type}" because there is a more direct path in ${edge.tail.source} that avoids ${toAdvance.tail.source} altogether."`
             });
             continue;
           }
@@ -967,7 +969,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
           sourceSubgraph: toAdvance.tail.source,
           destSubgraph: edge.tail.source,
           reason: UnadvanceableReason.UNSATISFIABLE_KEY_CONDITION,
-          details: `cannot move to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(false)}") of "${edge.head.type}", the key field(s) cannot be resolved from subgraph "${toAdvance.tail.source}"`
+          details: `cannot move to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(true, false)}") of "${edge.head.type}", the key field(s) cannot be resolved from subgraph "${toAdvance.tail.source}"`
         });
       }
       debug.groupEnd(); // End of edge
@@ -1109,7 +1111,7 @@ export function additionalKeyEdgeForRequireEdge(graph: QueryGraph, requireEdge: 
   // which is not perfect, as maybe we can't satisfy that key but we could another, but this ensure
   // query planning later knows which keys to use. We'd have to communicate that somehow otherwise.
   const firstKeyEdge = graph.outEdges(requireEdge.head).find(e => e.transition.kind === 'KeyResolution');
-  assert(firstKeyEdge, () => `We shouldn't have a require on ${requireEdge} if ${requireEdge.head.type} has no key directive`);
+  assert(firstKeyEdge, () => `This should not have been called if for ${requireEdge} if ${requireEdge.head.type} has no key directive`);
   return firstKeyEdge;
 }
 
@@ -1159,7 +1161,44 @@ function isNonConditionFragment(type: NamedType, operation: OperationElement): b
 
 export type SimultaneousPaths<V extends Vertex = Vertex> = OpGraphPath<V>[];
 
-export function simultaneousPathsToString(paths: SimultaneousPaths<any>, indentOnNewLine: string=""): string {
+export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
+  private lazilyComputedIndirectPaths?: SimultaneousPaths<V>[];
+
+  constructor(
+    readonly paths: SimultaneousPaths<V>,
+    readonly context: PathContext,
+    readonly conditionResolver: ConditionResolver,
+    readonly excludedNonCollectingEdges: ExcludedEdges = [],
+    readonly excludedConditionsOnNonCollectingEdges: ExcludedConditions = [],
+  ) {
+  }
+
+  indirectPaths(updatedContext: PathContext): SimultaneousPaths<V>[] {
+    // Note that the provided context will usually be one we had during construction (the `updatedContext` will be `this.context` updated
+    // by whichver operation we're looking at, but only operation with a @skip/@include will change the context so it's pretty rare),
+    // which is why we save recomputation by caching the computed value in that case, but in case it's different, we compute without caching.
+    if (updatedContext !== this.context) {
+      return this.computeIndirectPaths();
+    }
+    if (!this.lazilyComputedIndirectPaths) {
+      this.lazilyComputedIndirectPaths = this.computeIndirectPaths();
+    }
+    return this.lazilyComputedIndirectPaths;
+  }
+
+  private computeIndirectPaths(): SimultaneousPaths<V>[] {
+    return advanceAllWithNonCollectingAndTypePreservingTransitions(
+      this.paths,
+      this.context,
+      this.conditionResolver,
+      this.excludedNonCollectingEdges,
+      this.excludedConditionsOnNonCollectingEdges
+    );
+  }
+};
+
+export function simultaneousPathsToString(simultaneousPaths: SimultaneousPaths<any> | SimultaneousPathsWithLazyIndirectPaths<any>, indentOnNewLine: string=""): string {
+  const paths = Array.isArray(simultaneousPaths) ? simultaneousPaths : simultaneousPaths.paths;
   if (paths.length === 0) {
     return '<no path>';
   }
@@ -1169,7 +1208,7 @@ export function simultaneousPathsToString(paths: SimultaneousPaths<any>, indentO
   return `{\n${indentOnNewLine}  ` + paths.join(`\n${indentOnNewLine}  `) + `\n${indentOnNewLine}}`;
 }
 
-export function advanceOptionsToString(options: (SimultaneousPaths<any>| GraphPath<any>)[] | undefined): string {
+export function advanceOptionsToString(options: (SimultaneousPaths<any> | SimultaneousPathsWithLazyIndirectPaths<any> | GraphPath<any>)[] | undefined): string {
   if (!options) {
     return '<no options>';
   }
@@ -1188,16 +1227,19 @@ export function advanceOptionsToString(options: (SimultaneousPaths<any>| GraphPa
 // meaning that as far as query planning goes, we can just ignore the operation but otherwise continue.
 export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
-  subgraphSimultaneousPaths: SimultaneousPaths<V>,
+  subgraphSimultaneousPaths: SimultaneousPathsWithLazyIndirectPaths<V>,
   operation: OperationElement,
-  context: PathContext,
-  conditionResolver: ConditionResolver,
-  excludedNonCollectingEdges: ExcludedEdges = [],
-  excludedConditionsOnNonCollectingEdges: ExcludedConditions = []
-) : SimultaneousPaths<V>[] | undefined {
+) : SimultaneousPathsWithLazyIndirectPaths<V>[] | undefined {
   debug.group(() => `Trying to advance ${simultaneousPathsToString(subgraphSimultaneousPaths)} for ${operation}`);
   debug.group('Direct options:');
-  let options = advanceWithOperation(supergraphSchema, subgraphSimultaneousPaths, operation, context, conditionResolver);
+  const updatedContext = subgraphSimultaneousPaths.context.withContextOf(operation);
+  let options = advanceWithOperation(
+    supergraphSchema,
+    subgraphSimultaneousPaths.paths,
+    operation,
+    updatedContext,
+    subgraphSimultaneousPaths.conditionResolver
+  );
   debug.groupEnd(() => advanceOptionsToString(options));
   // Like with transitions, if we can find a terminal field with a direct edge, there is no point in trying to
   // take indirect paths (this is not true for non-terminal, because for those, the direct paths may be dead ends,
@@ -1209,27 +1251,27 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   // take the same exact edges (we're staying on the same type) but have more context to do so. In fact, it's better not to
   // take those edges (yet) in general as the condition might have a skip/include, and it's more efficient to apply those skip/include
   // as soon as possible (so before taking an edge if we end up taking one).
-  if (options && (options.length === 0 || isTerminalOperation(operation) || (isNonConditionFragment(subgraphSimultaneousPaths[0].tail.type, operation)))) {
+  if (options && (options.length === 0 || isTerminalOperation(operation) || (isNonConditionFragment(subgraphSimultaneousPaths.paths[0].tail.type, operation)))) {
     debug.groupEnd(() => advanceOptionsToString(options));
-    return options;
+    return createLazyOptions(options, subgraphSimultaneousPaths, updatedContext);
   }
   // If there was not valid direct path, that's ok, we'll just try with non-collecting edges.
   options = options ?? [];
   debug.group(`Computing indirect paths:`);
   // Then adds whatever options can be obtained by taking some non-collecting edges first.
-  const pathsWithNonCollecting = advanceAllWithNonCollectingAndTypePreservingTransitions(
-    subgraphSimultaneousPaths,
-    context,
-    conditionResolver,
-    excludedNonCollectingEdges,
-    excludedConditionsOnNonCollectingEdges,
-  );
+  const pathsWithNonCollecting = subgraphSimultaneousPaths.indirectPaths(updatedContext);
   debug.groupEnd(() => pathsWithNonCollecting.length == 0 ? `no indirect paths` : `${pathsWithNonCollecting.length} indirect paths`);
   if (pathsWithNonCollecting.length > 0) {
     debug.group('Validating indirect options:');
     for (const pathWithNonCollecting of pathsWithNonCollecting) {
       debug.group(() => `For indirect path ${pathWithNonCollecting}:`);
-      const pathWithOperation = advanceWithOperation(supergraphSchema, pathWithNonCollecting, operation, context, conditionResolver);
+      const pathWithOperation = advanceWithOperation(
+        supergraphSchema,
+        pathWithNonCollecting,
+        operation,
+        updatedContext,
+        subgraphSimultaneousPaths.conditionResolver
+      );
       // If we can't advance the operation after that path, ignore it, it's just not an option.
       if (!pathWithOperation) {
         debug.groupEnd(() => `Ignoring: cannot be advanced with ${operation}`);
@@ -1245,9 +1287,27 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     debug.groupEnd();
   }
   // At this point, if options is empty, it means we found no ways to advance the operation, so we should return undefined.
-  options = options.length === 0 ? undefined : options;
-  debug.groupEnd(() => advanceOptionsToString(options));
-  return options;
+  if (options.length === 0) {
+    debug.groupEnd(() => 'No valid options');
+    return undefined;
+  } else {
+    debug.groupEnd(() => advanceOptionsToString(options));
+    return createLazyOptions(options, subgraphSimultaneousPaths, updatedContext);
+  }
+}
+
+function createLazyOptions<V extends Vertex>(
+  options: SimultaneousPaths<V>[],
+  origin: SimultaneousPathsWithLazyIndirectPaths<V>,
+  context: PathContext
+) : SimultaneousPathsWithLazyIndirectPaths<V>[] {
+  return options.map(option => new SimultaneousPathsWithLazyIndirectPaths(
+    option,
+    context,
+    origin.conditionResolver,
+    origin.excludedNonCollectingEdges,
+    origin.excludedConditionsOnNonCollectingEdges
+  ));
 }
 
 function opPathTriggerToEdge(graph: QueryGraph, vertex: Vertex, trigger: OperationElement | PathContext): Edge | null | undefined {
@@ -1485,10 +1545,8 @@ function advanceOneWithOperation<V extends Vertex>(
           debug.group(() => `Handling implementation ${implemType}`);
           const implemOptions = advanceSimultaneousPathsWithOperation(
             supergraphSchema,
-            [path],
-            castOp,
-            context,
-            conditionResolver,
+            new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver),
+            castOp
           );
           // If we find no option for that implementation, we bail (as we need to simultaneously advance all implementations).
           if (!implemOptions) {
@@ -1510,9 +1568,7 @@ function advanceOneWithOperation<V extends Vertex>(
             const withFieldOptions = advanceSimultaneousPathsWithOperation(
               supergraphSchema,
               optPaths,
-              operation,
-              context,
-              conditionResolver,
+              operation
             );
             if (!withFieldOptions) {
               debug.groupEnd(() => `Cannot collect ${field}`);
@@ -1521,7 +1577,7 @@ function advanceOneWithOperation<V extends Vertex>(
             // Advancing a field should never get us into an unsatisfiable condition. Only fragments can.
             assert(withFieldOptions.length > 0, () => `Unexpected unsatisfiable path after ${optPaths} for ${operation}`);
             debug.groupEnd(() => `Collected field ${field}: adding ${advanceOptionsToString(withFieldOptions)}`);
-            withField = withField.concat(withFieldOptions);
+            withField = withField.concat(withFieldOptions.map(opt => opt.paths));
           }
           // If we find no option to advance that implementation, we bail (as we need to simultaneously advance all implementations).
           if (withField.length === 0) {
@@ -1581,10 +1637,8 @@ function advanceOneWithOperation<V extends Vertex>(
           const castOp = new FragmentElement(currentType, tName);
           const implemOptions = advanceSimultaneousPathsWithOperation(
             supergraphSchema,
-            [path],
+            new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver),
             castOp,
-            context,
-            conditionResolver,
           );
           if (!implemOptions) {
             debug.groupEnd();
@@ -1597,7 +1651,7 @@ function advanceOneWithOperation<V extends Vertex>(
             continue;
           }
           debug.groupEnd(() => `Advanced into ${tName} from ${currentType}: ${advanceOptionsToString(implemOptions)}`);
-          optionsByImplems.push(implemOptions);
+          optionsByImplems.push(implemOptions.map(opt => opt.paths));
         }
         const allCastOptions = flatCartesianProduct(optionsByImplems);
         debug.groupEnd(() => `Type-exploded options: ${advanceOptionsToString(allCastOptions)}`);

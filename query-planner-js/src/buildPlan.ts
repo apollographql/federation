@@ -56,14 +56,14 @@ import {
   Vertex,
   isRootVertex,
   ExcludedConditions,
-  SimultaneousPaths,
   advanceOptionsToString,
   ConditionResolution,
   unsatisfiedConditionsResolution,
   cachingConditionResolver,
   ConditionResolver,
   additionalKeyEdgeForRequireEdge,
-  addConditionExclusion
+  addConditionExclusion,
+  SimultaneousPathsWithLazyIndirectPaths,
 } from "@apollo/query-graphs";
 import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -72,17 +72,17 @@ const debug = newDebugLogger('plan');
 
 class State<RV extends Vertex> {
   constructor(
-    readonly openPaths: [Selection, PathContext, SimultaneousPaths<RV>[]][],
+    readonly openPaths: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][],
     readonly closedPaths: OpPathTree<RV>
   ) {
   }
 
-  withOpenPaths(newOpenPaths: [Selection, PathContext, SimultaneousPaths<RV>[]][]): State<RV> {
+  withOpenPaths(newOpenPaths: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][]): State<RV> {
     return new State(this.openPaths.concat(newOpenPaths), this.closedPaths);
   }
 
-  withClosedPaths(options: SimultaneousPaths<RV>[]): State<RV>[] {
-    return options.map(path => new State(this.openPaths.concat(), path.reduce((closed, p) => closed.mergePath(p), this.closedPaths)));
+  withClosedPaths(options: SimultaneousPathsWithLazyIndirectPaths<RV>[]): State<RV>[] {
+    return options.map(path => new State(this.openPaths.concat(), path.paths.reduce((closed, p) => closed.mergePath(p), this.closedPaths)));
   }
 
   isTerminal(): boolean {
@@ -90,8 +90,16 @@ class State<RV extends Vertex> {
   }
 
   toString(): string {
-    return `OPEN\n${this.openPaths.map(([n, _, p]) => ` > ${n.element()} => ${p}`).join('\n')}\nCLOSED\n${this.closedPaths}`;
+    return `OPEN\n${this.openPaths.map(([n, p]) => ` > ${n.element()} => ${advanceOptionsToString(p)}`).join('\n')}\nCLOSED\n${this.closedPaths}`;
   }
+}
+
+function mapOptionsToSelections<RV extends Vertex>(
+  selectionSet: SelectionSet,
+  options: SimultaneousPathsWithLazyIndirectPaths<RV>[]
+): [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][]  {
+  // We reverse the selections because we're going to pop from `openPaths` and this ensure we end up handling things in the query order.
+  return selectionSet.selections(true).map(node => [node, options]);
 }
 
 class QueryPlanningTaversal<RV extends Vertex> {
@@ -109,19 +117,19 @@ class QueryPlanningTaversal<RV extends Vertex> {
     startVertex: RV,
     readonly costFunction: CostFunction,
     initialContext: PathContext,
-    private readonly excludedEdges: ExcludedEdges = [],
-    private readonly excludedConditions: ExcludedConditions = [],
+    excludedEdges: ExcludedEdges = [],
+    excludedConditions: ExcludedConditions = [],
   ) {
-    const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
-    const initialTree = PathTree.createOp(subgraphs, startVertex);
-    const opens: [Selection, PathContext, SimultaneousPaths<RV>[]][] = selectionSet.selections(true).map(node => [node, initialContext, [[initialPath]]]);
-    this.stack.push(new State(opens, initialTree));
     this.isTopLevel = isRootVertex(startVertex);
-
     this.conditionResolver = cachingConditionResolver(
       subgraphs, 
       (edge, context, excludedEdges, excludedConditions) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions),
     );
+
+    const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
+    const initialTree = PathTree.createOp(subgraphs, startVertex);
+    const initialOptions = [ new SimultaneousPathsWithLazyIndirectPaths([initialPath], initialContext, this.conditionResolver, excludedEdges, excludedConditions)];
+    this.stack.push(new State(mapOptionsToSelections(selectionSet, initialOptions), initialTree));
   }
 
   private debugStack() {
@@ -129,7 +137,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       debug.group('Query planning stack:');
       for (const [i, state] of this.stack.entries()) {
         debug.group(`State ${i}:`);
-        debug.groupedValues(state.openPaths, ([n, _, p]) => `${n.element()} => ${advanceOptionsToString(p)}`, 'OPEN');
+        debug.groupedValues(state.openPaths, ([n, p]) => `${n.element()} => ${advanceOptionsToString(p)}`, 'OPEN');
         debug.group('CLOSED');
         debug.log(state.closedPaths.toString());
         debug.groupEnd();
@@ -148,20 +156,11 @@ class QueryPlanningTaversal<RV extends Vertex> {
   }
 
   private handleState(state: State<RV>) {
-    const [selection, context, options] = state.openPaths.pop()!;
+    const [selection, options] = state.openPaths.pop()!;
     const operation = selection.element();
-    const updatedContext = context.withContextOf(operation);
-    let newOptions: SimultaneousPaths<RV>[] = [];
+    let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
-      const followupForOption = advanceSimultaneousPathsWithOperation(
-        this.supergraphSchema,
-        option,
-        operation,
-        updatedContext,
-        this.conditionResolver,
-        this.excludedEdges,
-        this.excludedConditions
-      );
+      const followupForOption = advanceSimultaneousPathsWithOperation(this.supergraphSchema, option, operation);
       if (!followupForOption) {
         // There is no valid way to advance the current `operation` from this option, so this option is a dead branch
         // that cannot produce a valid query plan. So we simply ignore it and rely on other options.
@@ -187,11 +186,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     if (!selection.selectionSet) {
       this.onUpdatedStates(state.withClosedPaths(newOptions));
     } else {
-      // We reverse the selections because we're going to pop from `openPaths` and this ensure we end up handling things in
-      // the query order.
-      const newOpenPaths: [Selection, PathContext, SimultaneousPaths<RV>[]][] = 
-        selection.selectionSet.selections(true).map(node => [node, updatedContext, newOptions]);
-      this.onUpdatedState(state.withOpenPaths(newOpenPaths));
+      this.onUpdatedState(state.withOpenPaths(mapOptionsToSelections(selection.selectionSet, newOptions)));
     }
   }
 

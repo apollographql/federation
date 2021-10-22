@@ -1,7 +1,6 @@
 import { 
   assert,
   OperationElement,
-  FragmentElement,
 } from "@apollo/core";
 import deepEqual from "deep-equal";
 
@@ -9,10 +8,10 @@ export function isPathContext(v: any): v is PathContext {
   return v instanceof PathContext;
 }
 
-function addExtractedDirective(fragment: FragmentElement, directiveName: string, addTo: [string, any][]) {
-  const applied = fragment.appliedDirectivesOf(directiveName);
+function addExtractedDirective(operation: OperationElement, directiveName: string, addTo: [string, any][]) {
+  const applied = operation.appliedDirectivesOf(directiveName);
   if (applied.length > 0) {
-    assert(applied.length === 1, () => `${directiveName} shouldn't be repeated on ${fragment}`)
+    assert(applied.length === 1, () => `${directiveName} shouldn't be repeated on ${operation}`)
     const value = applied[0].arguments()['if'];
     addTo.push([directiveName, value]);
   }
@@ -36,7 +35,7 @@ export class PathContext {
   }
 
   withContextOf(operation: OperationElement): PathContext {
-    if (operation.kind !== 'FragmentElement') {
+    if (operation.appliedDirectives.length === 0) {
       return this;
     }
 

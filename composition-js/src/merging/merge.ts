@@ -1052,7 +1052,7 @@ class Merger {
         continue;
       }
       const sourceDefault = source.defaultValue;
-      if (!destDefault) {
+      if (destDefault === undefined) {
         destDefault = sourceDefault
         // destDefault may be undefined either because we haven't seen any source (having the argument)
         // or because we've seen one but that source had no default. In the later case (`hasSeenSource`), 
@@ -1077,7 +1077,7 @@ class Merger {
         `${kind} "${dest.coordinate}" has incompatible default values accross subgraphs: it has default value `,
         dest,
         sources,
-        arg => arg.defaultValue ? valueToString(arg.defaultValue, arg.type) : undefined
+        arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined
       );
     } else if (isInconsistent) {
       this.reportMismatchHint(
@@ -1085,7 +1085,7 @@ class Merger {
         `${kind} "${dest.coordinate}" has a default value in only some subgraphs: `,
         dest,
         sources,
-        arg => arg.defaultValue ? valueToString(arg.defaultValue, arg.type) : undefined,
+        arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined,
         (elt, subgraphs) => `will use default value ${elt} (from ${subgraphs}) in supergraph but `,
         (_, subgraphs) => `no default value is defined in ${subgraphs}`
       );
