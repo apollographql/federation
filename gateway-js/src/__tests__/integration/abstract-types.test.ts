@@ -738,41 +738,20 @@ describe('unions', () => {
   it("doesn't expand interfaces with inline type conditions if all possibilities are fufilled by one service", async () => {
     const query = `#graphql
       query GetProducts {
-        topProducts {
+        topProducts_1234 {
           name
         }
       }
     `;
 
-    const { queryPlan, errors } = await execute({ query }, [
-      {
-        name: 'products',
-        typeDefs: gql`
-          extend type Query {
-            topProducts: [Product]
-          }
-
-          interface Product {
-            name: String
-          }
-
-          type Shoe implements Product {
-            name: String
-          }
-
-          type Car implements Product {
-            name: String
-          }
-        `,
-      },
-    ]);
+    const { queryPlan, errors } = await execute({ query });
 
     expect(errors).toBeUndefined();
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
-        Fetch(service: "products") {
+        Fetch(service: "product") {
           {
-            topProducts {
+            topProducts_1234 {
               __typename
               name
             }

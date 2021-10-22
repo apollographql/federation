@@ -79,6 +79,19 @@ export const typeDefs = gql`
     name: String @external
     userAccount(id: ID! = "1"): User @requires(fields: "name")
   }
+
+  # test 5678 in single-service.ts
+  type User_5678 @key(fields: "id") {
+    id: Int!
+    name: String
+    account: Account_5678
+  }
+  type Account_5678 {
+    type: String
+  }
+  extend type RootQuery {
+    me_5678: User_5678
+  }
 `;
 
 const users = [
@@ -130,6 +143,10 @@ export const resolvers: GraphQLResolverMap<any> = {
     me() {
       return { id: '1' };
     },
+
+    me_5678() {
+      return { id: 1, name: 'James' };
+    }
   },
   User: {
     __resolveObject(object) {
