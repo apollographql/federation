@@ -14,7 +14,7 @@
     "federation",
     "apollo"
   ],
-  "author": "Apollo <opensource@apollographql.com>",
+  "author": "Apollo <packages@apollographql.com>",
   "license": "MIT",
   "engines": {
     "node": ">=12.13.0 <17.0"
