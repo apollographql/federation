@@ -1,6 +1,6 @@
 ---
 source: harmonizer/src/lib.rs
-expression: "harmonize(vec![ServiceDefinition ::\n               new(\"users\", \"undefined\",\n                   \"\n            type User {\n              id: ID\n              name: String\n            }\n\n            type Query {\n              users: [User!]\n            }\n          \"),\n               ServiceDefinition ::\n               new(\"movies\", \"undefined\",\n                   \"\n            type Movie {\n              title: String\n              name: String\n            }\n\n            extend type User {\n              favorites: [Movie!]\n            }\n\n            type Query {\n              movies: [Movie!]\n            }\n          \")]).unwrap()"
+expression: "harmonize(vec![SubgraphDefinition ::\n               new(\"users\", \"undefined\",\n                   \"\n            type User @key(fields: \\\"id\\\") {\n              id: ID\n              name: String\n            }\n\n            type Query {\n              users: [User!]\n            }\n          \"),\n               SubgraphDefinition ::\n               new(\"movies\", \"undefined\",\n                   \"\n            type Movie {\n              title: String\n              name: String\n            }\n\n            extend type User {\n              favorites: [Movie!]\n            }\n\n            type Query {\n              movies: [Movie!]\n            }\n          \")]).unwrap().supergraph_sdl"
 
 ---
 schema
@@ -30,10 +30,13 @@ type Query {
   users: [User!] @join__field(graph: USERS)
 }
 
-type User {
+type User
+  @join__owner(graph: USERS)
+  @join__type(graph: USERS, key: "id")
+{
   favorites: [Movie!] @join__field(graph: MOVIES)
-  id: ID
-  name: String
+  id: ID @join__field(graph: USERS)
+  name: String @join__field(graph: USERS)
 }
 
 enum core__Purpose {

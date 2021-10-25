@@ -1,6 +1,6 @@
 [package]
 name = "harmonizer"
-version = "0.33.3"
+version = "0.33.4-0"
 authors = [ "Apollo Graph, Inc. <packages@apollographql.com>" ]
 edition = "2018"
 description = "Apollo Federation utility to compose a supergraph from subgraphs"
@@ -11,15 +11,19 @@ license = "MIT"
 readme = "README.md"
 include = [ "dist/**/*", "js/**/*", "src/**/*", "Cargo.toml" ]
 
-[dependencies]
-anyhow = "1.0.39"
-deno_core = "0.86.0"
-serde_json = "1.0.60"
-thiserror = "1.0.23"
+[lib]
+name = "harmonizer"
+path = "src/lib.rs"
 
-  [dependencies.serde]
-  version = "1.0"
-  features = [ "derive" ]
+[dependencies]
+deno_core = "0.86.0"
+fed-types = { git = "https://github.com/apollographql/rover", rev = "beeb47ab895dc5920ef43c16a58c2d6eb949f14b" }
+serde_json = "1"
+supergraph-config = { git = "https://github.com/apollographql/rover", rev = "beeb47ab895dc5920ef43c16a58c2d6eb949f14b" }
+
+[dependencies.serde]
+version = "1.0"
+features = [ "derive" ]
 
 [dev-dependencies]
 insta = "1.8.0"
