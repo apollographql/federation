@@ -62,10 +62,7 @@ function checkFeatureSupport(coreFeatures: CoreFeatures) {
   }
 
   for (const feature of coreFeatures.allFeatures()) {
-    if (!feature.purpose) {
-      continue;
-    }
-    if (feature.purpose === 'EXECUTION' || feature.purpose === 'SECURITY') {
+    if (feature.url.equals(coreVersionZeroDotOneUrl) || feature.purpose === 'EXECUTION' || feature.purpose === 'SECURITY') {
       if (!SUPPORTED_FEATURES.has(feature.url.base.toString())) {
         errors.push(ErrUnsupportedFeature(feature));
       }
