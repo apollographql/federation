@@ -89,7 +89,15 @@ checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 [[package]]
 name = "fed-types"
 version = "0.1.0"
-source = "git+https://github.com/apollographql/rover?branch=avery/build-rover-fed-bin#d9e07f9b85464505f60a8cdf8fb1defeb311b909"
+source = "git+https://github.com/apollographql/rover?rev=acb560a9b6ee142d08f87e37443be8ad6e158e7c#acb560a9b6ee142d08f87e37443be8ad6e158e7c"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "fed-types"
+version = "0.1.0"
+source = "git+https://github.com/apollographql/rover?rev=beeb47ab895dc5920ef43c16a58c2d6eb949f14b#beeb47ab895dc5920ef43c16a58c2d6eb949f14b"
 dependencies = [
  "serde",
 ]
@@ -210,10 +218,10 @@ dependencies = [
 
 [[package]]
 name = "harmonizer"
-version = "0.33.4"
+version = "0.33.4-0"
 dependencies = [
  "deno_core",
- "fed-types",
+ "fed-types 0.1.0 (git+https://github.com/apollographql/rover?rev=beeb47ab895dc5920ef43c16a58c2d6eb949f14b)",
  "insta",
  "serde",
  "serde_json",
@@ -477,10 +485,10 @@ checksum = "9def91fd1e018fe007022791f865d0ccc9b3a0d5001e01aabb8b40e46000afb5"
 [[package]]
 name = "supergraph-config"
 version = "0.1.0"
-source = "git+https://github.com/apollographql/rover?branch=avery/build-rover-fed-bin#d9e07f9b85464505f60a8cdf8fb1defeb311b909"
+source = "git+https://github.com/apollographql/rover?rev=beeb47ab895dc5920ef43c16a58c2d6eb949f14b#beeb47ab895dc5920ef43c16a58c2d6eb949f14b"
 dependencies = [
  "camino",
- "fed-types",
+ "fed-types 0.1.0 (git+https://github.com/apollographql/rover?rev=acb560a9b6ee142d08f87e37443be8ad6e158e7c)",
  "log",
  "serde",
  "serde_yaml",

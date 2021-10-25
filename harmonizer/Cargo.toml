@@ -17,9 +17,9 @@ path = "src/lib.rs"
 
 [dependencies]
 deno_core = "0.86.0"
-fed-types = { git = "https://github.com/apollographql/rover", branch = "avery/build-rover-fed-bin" }
+fed-types = { git = "https://github.com/apollographql/rover", rev = "beeb47ab895dc5920ef43c16a58c2d6eb949f14b" }
 serde_json = "1"
-supergraph-config = { git = "https://github.com/apollographql/rover", branch = "avery/build-rover-fed-bin" }
+supergraph-config = { git = "https://github.com/apollographql/rover", rev = "beeb47ab895dc5920ef43c16a58c2d6eb949f14b" }
 
 [dependencies.serde]
 version = "1.0"
