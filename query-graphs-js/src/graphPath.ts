@@ -1167,10 +1167,6 @@ function isTerminalOperation(operation: OperationElement): boolean {
   return operation.kind === 'Field' && isLeafType(baseType(operation.definition.type!));
 }
 
-function isNonConditionFragment(type: NamedType, operation: OperationElement): boolean {
-  return operation.kind === 'FragmentElement' && (!operation.typeCondition || operation.typeCondition.name === type.name);
-}
-
 export type SimultaneousPaths<V extends Vertex = Vertex> = OpGraphPath<V>[];
 
 export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
@@ -1206,6 +1202,10 @@ export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
       this.excludedNonCollectingEdges,
       this.excludedConditionsOnNonCollectingEdges
     );
+  }
+
+  toString(): string {
+    return simultaneousPathsToString(this.paths);
   }
 };
 
@@ -1253,17 +1253,17 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     subgraphSimultaneousPaths.conditionResolver
   );
   debug.groupEnd(() => advanceOptionsToString(options));
-  // Like with transitions, if we can find a terminal field with a direct edge, there is no point in trying to
-  // take indirect paths (this is not true for non-terminal, because for those, the direct paths may be dead ends,
-  // but for terminal, we're at the end so ...).
-  // Similarly, if we gets options but an empty set, it means the operation correspond to unsatisfiable conditions and we
-  // can essentially ignore it. So no point in trying to take non-collecting edges.
-  // Lastly, we have the case of a fragment that doesnt change the type (no type condition or the condition is the current type).
-  // In that case too there is no point in looking for non-collecting edges since the "next" operation will be able to
-  // take the same exact edges (we're staying on the same type) but have more context to do so. In fact, it's better not to
-  // take those edges (yet) in general as the condition might have a skip/include, and it's more efficient to apply those skip/include
-  // as soon as possible (so before taking an edge if we end up taking one).
-  if (options && (options.length === 0 || isTerminalOperation(operation) || (isNonConditionFragment(subgraphSimultaneousPaths.paths[0].tail.type, operation)))) {
+  // If we got some options, there is number of cases where there is no point looking for indirect paths:
+  // - if the operation is terminal: this mean we just found a direct edge that is terminal, so no
+  //   indirect options could be better (this is no true for non-terminal where the direct route may
+  //   end up being a dead end later).
+  // - if we get options, but an empty set of them, which signifies the operation correspond to unsatisfiable
+  //   conditions and we can essentially ignore it.
+  // - if the operation is a fragment in general: if we were able to find a direct option, that means the type
+  //   is known in the "current" subgraph, and so we'll still be able to take any indirect edges that we could
+  //   take now later, for the follow-up operation. And pushing the decision will give us more context and may
+  //   avoid a bunch of state explosion in practice.
+  if (options && (options.length === 0 || isTerminalOperation(operation) || operation.kind === 'FragmentElement')) {
     debug.groupEnd(() => advanceOptionsToString(options));
     return createLazyOptions(options, subgraphSimultaneousPaths, updatedContext);
   }
