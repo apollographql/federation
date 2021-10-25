@@ -110,7 +110,7 @@ function buildWitnessOperation(witness: RootPath<Transition>): Operation {
   const root = witness.root;
   return new Operation(
     root.rootKind,
-    buildWitnessNextStep([...witness.elements()].map(e => e[0]), 0)!,
+    buildWitnessNextStep([...witness].map(e => e[0]), 0)!,
     new VariableDefinitions()
   );
 }
@@ -227,7 +227,7 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
     const conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
     let state = initialState;
     let isIncomplete = false;
-    for (const [edge] of supergraphPath.elements()) {
+    for (const [edge] of supergraphPath) {
       const updated = state.validateTransition(supergraphSchema, edge, conditionResolver);
       if (!updated) {
         isIncomplete = true;

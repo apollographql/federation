@@ -116,7 +116,7 @@ function withReplacedLastElement<T>(arr: readonly T[], newLast: T): T[] {
  * @param TNullEdge - typing information to indicate whether the path can have "null" edges or not. Either `null` (
  *   meaning that the path may have null edges) or `never` (the path cannot have null edges).
  */
-export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> {
+export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> implements Iterable<[Edge | TNullEdge, TTrigger, OpPathTree | null]> {
   private constructor(
     /** The query graph of which this is a path. */
     readonly graph: QueryGraph,
@@ -183,18 +183,23 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return this.edgeIndexes.length;
   }
 
-  /**
-   * The elements of the path, that is its edges accompagnied by the edge trigger and potential conditions paths.
-   */
-  *elements(): Generator<[Edge | TNullEdge, TTrigger, OpPathTree | null], void, undefined> {
-    let vertex: Vertex = this.root;
-    for (let i = 0; i < this.size; i++) {
-      const edge = this.edgeAt(i, vertex);
-      yield [edge, this.edgeTriggers[i], this.edgeConditions[i]];
-      if (edge) {
-        vertex = edge.tail;
+  [Symbol.iterator](): PathIterator<TTrigger, TNullEdge> {
+    const path = this;
+    return {
+      currentIndex: 0,
+      currentVertex: this.root,
+      next(): IteratorResult<[Edge | TNullEdge, TTrigger, OpPathTree | null]> {
+        if (this.currentIndex >= path.size) {
+          return { done: true, value: undefined };
+        }
+        const idx = this.currentIndex++;
+        const edge = path.edgeAt(idx, this.currentVertex);
+        if (edge) {
+          this.currentVertex = edge.tail;
+        }
+        return { done: false, value: [edge, path.edgeTriggers[idx], path.edgeConditions[idx]] };
       }
-    }
+    };
   }
 
   /**
@@ -317,7 +322,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
 
     let prevRuntimeTypes = this.runtimeTypesBeforeTailIfLastIsCast;
     let runtimeTypes = this.runtimeTypesOfTail;
-    for (const [edge] of tailPath.elements()) {
+    for (const [edge] of tailPath) {
       prevRuntimeTypes = runtimeTypes;
       runtimeTypes = updateRuntimeTypes(runtimeTypes, edge);
     }
@@ -486,15 +491,22 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   }
 }
 
+export interface PathIterator<TTrigger, TNullEdge extends null | never = never> extends Iterator<[Edge | TNullEdge, TTrigger, OpPathTree | null]> {
+  currentIndex: number,
+  currentVertex: Vertex
+}
+
 /**
  * A `GraphPath` that starts on a vertex that is a root vertex (of the query graph of which this is a path).
  */
 export type RootPath<TTrigger, TNullEdge extends null | never = never> = GraphPath<TTrigger, RootVertex, TNullEdge>;
 
+export type OpTrigger = OperationElement | PathContext;
+
 /**
  * A `GraphPath` whose triggers are `OperationElement` (essentially meaning that the path has been guided by a graphQL query).
  */
-export type OpGraphPath<RV extends Vertex = Vertex> = GraphPath<OperationElement | PathContext, RV, null>;
+export type OpGraphPath<RV extends Vertex = Vertex> = GraphPath<OpTrigger, RV, null>;
 
 /**
  * An `OpGraphPath` that starts on a vertex that is a root vertex (of the query graph of which this is a path).
@@ -509,7 +521,7 @@ export function traversePath(
   path: GraphPath<any>,
   onEdges: (edge: Edge) => void
 ){
-  for (const [edge, _, conditions] of path.elements()) {
+  for (const [edge, _, conditions] of path) {
     if (conditions) {
       traversePathTree(conditions, onEdges);
     }
@@ -1310,7 +1322,7 @@ function createLazyOptions<V extends Vertex>(
   ));
 }
 
-function opPathTriggerToEdge(graph: QueryGraph, vertex: Vertex, trigger: OperationElement | PathContext): Edge | null | undefined {
+function opPathTriggerToEdge(graph: QueryGraph, vertex: Vertex, trigger: OpTrigger): Edge | null | undefined {
   if (trigger instanceof PathContext) {
     return undefined;
   }
