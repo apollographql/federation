@@ -21,7 +21,6 @@ import {
   extractSubgraphsFromSupergraph,
   FieldDefinition,
   isCompositeType,
-  SUBTYPING_RULES,
   parseFieldSetArgument,
   AbstractType,
   isAbstractType,
@@ -29,7 +28,8 @@ import {
   MapWithCachedArrays,
   mapKeys,
   firstOf,
-  FEDERATION_RESERVED_SUBGRAPH_NAME
+  FEDERATION_RESERVED_SUBGRAPH_NAME,
+  ALL_SUBTYPING_RULES
 } from '@apollo/core';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, QueryResolution } from './transition';
@@ -171,7 +171,7 @@ export class Edge {
           return isStructuralFieldSubtype(
             transition.definition,
             otherTransition.definition,
-            SUBTYPING_RULES, // We can safely use all rules, even if merge didn't. It just mean some rules will never be needed.
+            ALL_SUBTYPING_RULES, // We can safely use all rules, even if merge didn't. It just mean some rules will never be needed.
             (union, maybeMember) => (supergraph.type(union.name)! as UnionType).hasTypeMember(maybeMember.name),
             (maybeImplementer, itf) => (supergraph.type(maybeImplementer.name)! as (ObjectType | InterfaceType)).implementsInterface(itf)
           );

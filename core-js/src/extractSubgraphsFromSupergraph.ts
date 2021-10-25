@@ -210,11 +210,34 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     }
   }
 
-  // let's make sure we had @external fields so code doesn't get confused later when it tries to parse one of
-  // the @key, @requires or @provides directive field-set.
   for (const subgraph of subgraphs) {
+    // let's make sure we had @external fields so code doesn't get confused later when it tries to parse one of
+    // the @key, @requires or @provides directive field-set.
     addExternalFields(subgraph, supergraph, isFed1);
     removeNeedlessProvides(subgraph);
+
+    // We now do an additional path on all typesbecause we sometimes added types to subgraphs without
+    // being sure that the subgraph had the type in the first place (especially with the 0.1 join spec), and because
+    // we later might not have added any fields/members to said type, they may be empty (indicating they clearly
+    // didn't belong to the subgraph in the first) and we need to remove them.
+    // Note that need to do this _after_ the `addExternalFields` call above since it may have added (external) fields
+    // to some of the types.
+    for (const type of subgraph.schema.types()) {
+      switch (type.kind) {
+        case 'ObjectType':
+        case 'InterfaceType':
+        case 'InputObjectType':
+          if (!type.hasFields()) {
+            type.remove();
+          }
+          break;
+        case 'UnionType':
+          if (type.membersCount() === 0) {
+            type.remove();
+          }
+          break;
+      }
+    }
   }
 
   if (joinSpec.version.equals(new FeatureVersion(0, 1))) {

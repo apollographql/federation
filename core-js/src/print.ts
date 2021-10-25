@@ -30,7 +30,8 @@ export type Options = {
   typeCompareFn?: (t1: NamedType, t2: NamedType) => number;
   directiveCompareFn?: (d1: DirectiveDefinition, d2: DirectiveDefinition) => number;
   mergeTypesAndExtensions: boolean;
-  showBuiltIns: boolean;
+  showAllBuiltIns: boolean;
+  showNonGraphQLBuiltIns: boolean;
   noDesciptions: boolean;
 }
 
@@ -39,7 +40,8 @@ export const defaultPrintOptions: Options = {
   definitionsOrder: ['schema', 'directives', 'types'],
   rootTypesOrder: ['query', 'mutation', 'subscription'],
   mergeTypesAndExtensions: false,
-  showBuiltIns: false,
+  showAllBuiltIns: false,
+  showNonGraphQLBuiltIns: false,
   noDesciptions: false,
 }
 
@@ -66,11 +68,11 @@ function validateOptions(options: Options) {
 
 export function printSchema(schema: Schema, options: Options = defaultPrintOptions): string {
   validateOptions(options);
-  let directives = options.showBuiltIns ? schema.allDirectives() : schema.directives();
+  let directives = options.showAllBuiltIns ? schema.allDirectives() : schema.directives(options.showNonGraphQLBuiltIns);
   if (options.directiveCompareFn) {
     directives = directives.concat().sort(options.directiveCompareFn);
   }
-  let types = options.showBuiltIns ? schema.allTypes() : schema.types();
+  let types = options.showAllBuiltIns ? schema.allTypes() : schema.types(undefined, options.showNonGraphQLBuiltIns);
   if (options.typeCompareFn) {
     types = types.concat().sort(options.typeCompareFn);
   }
@@ -227,7 +229,7 @@ function printImplementedInterfaces(implementations: readonly InterfaceImplement
 function printFieldBasedTypeDefinitionOrExtension(kind: string, type: ObjectType | InterfaceType, options: Options, extension?: Extension<any> | null): string | undefined {
   const directives = forExtension<Directive<ObjectType | InterfaceType>>(type.appliedDirectives, extension);
   const interfaces = forExtension<InterfaceImplementation<any>>(type.interfaceImplementations(), extension);
-  const fields = forExtension<FieldDefinition<any>>(options.showBuiltIns ? type.allFields() : type.fields(), extension);
+  const fields = forExtension<FieldDefinition<any>>(type.fields(options.showNonGraphQLBuiltIns), extension);
   if (!directives.length && !interfaces.length && !fields.length) {
     return undefined;
   }

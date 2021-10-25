@@ -249,7 +249,13 @@ function buildNamedTypeInner(
       }
       for (const itfNode of definitionNode.interfaces ?? []) {
         withNodeAttachedToError(
-          () => fieldBasedType.addImplementedInterface(itfNode.name.value).setOfExtension(extension),
+          () => {
+            const itfName = itfNode.name.value;
+            if (fieldBasedType.implementsInterface(itfName)) {
+              throw new GraphQLError(`Type ${type} can only implement ${itfName} once.`);
+            }
+            fieldBasedType.addImplementedInterface(itfName).setOfExtension(extension);
+          },
           itfNode);
       }
       break;
@@ -258,7 +264,13 @@ function buildNamedTypeInner(
       const unionType = type as UnionType;
       for (const namedType of definitionNode.types ?? []) {
         withNodeAttachedToError(
-          () => unionType.addType(namedType.name.value).setOfExtension(extension),
+          () => {
+            const name = namedType.name.value;
+            if (unionType.hasTypeMember(name)) {
+              throw new GraphQLError(`Union type ${unionType} can only include type ${name} once.`);
+            }
+            unionType.addType(name).setOfExtension(extension);
+          },
           namedType);
       }
       break;

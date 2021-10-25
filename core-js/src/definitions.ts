@@ -21,9 +21,9 @@ import { CoreDirectiveArgs, CoreSpecDefinition, CORE_VERSIONS, FeatureUrl, isCor
 import { arrayEquals, assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
 import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
-import { printSchema } from './print';
+import { printSchema, Options, defaultPrintOptions } from './print';
 import { sameType } from './types';
-import { addIntrospectionFields, introspectionFieldNames } from "./introspection";
+import { addIntrospectionFields, introspectionFieldNames, isIntrospectionName } from "./introspection";
 import { err } from '@apollo/core-schema';
 import { GraphQLErrorExt } from "@apollo/core-schema/dist/error";
 import { validateSDL } from "graphql/validation/validate";
@@ -367,7 +367,7 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
   }
 }
 
-export function sourceASTs(...elts: Element<any>[]): ASTNode[] {
+export function sourceASTs(...elts: { sourceAST?: ASTNode }[]): ASTNode[] {
   return elts.map(elt => elt.sourceAST).filter(elt => elt !== undefined) as ASTNode[];
 }
 
@@ -620,7 +620,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   isIntrospectionType(): boolean {
-    return this.name.startsWith('__');
+    return isIntrospectionName(this.name);
   }
 
   hasExtensionElements(): boolean {
@@ -665,6 +665,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
     if (!this._parent) {
       return [];
     }
+    this.checkRemoval();
     this.onModification();
     this.removeInnerElements();
     Schema.prototype['removeTypeInternal'].call(this._parent, this);
@@ -760,6 +761,7 @@ function sortedMemberNames(u: UnionType): string[] {
 
 export class BuiltIns {
   readonly defaultGraphQLBuiltInTypes: readonly string[] = [ 'Int', 'Float', 'String', 'Boolean', 'ID' ];
+  private readonly defaultGraphQLBuiltInDirectives: readonly string[] = [ 'include', 'skip', 'deprecated', 'specifiedBy' ];
 
   addBuiltInTypes(schema: Schema) {
     this.defaultGraphQLBuiltInTypes.forEach(t => this.addBuiltInScalar(schema, t));
@@ -772,11 +774,24 @@ export class BuiltIns {
         .addArgument('if', new NonNullType(schema.booleanType()));
     }
     this.addBuiltInDirective(schema, 'deprecated')
-      .addLocations('FIELD_DEFINITION', 'ENUM_VALUE')
+      .addLocations('FIELD_DEFINITION', 'ENUM_VALUE', 'ARGUMENT_DEFINITION', 'INPUT_FIELD_DEFINITION')
       .addArgument('reason', schema.stringType(), 'No longer supported');
     this.addBuiltInDirective(schema, 'specifiedBy')
       .addLocations('SCALAR')
       .addArgument('url', new NonNullType(schema.stringType()));
+  }
+
+  isGraphQLBuiltIn(element: NamedType | DirectiveDefinition | FieldDefinition<any>): boolean {
+    if (isIntrospectionName(element.name)) {
+      return true;
+    }
+    if (element instanceof FieldDefinition) {
+      return false;
+    } else if (element instanceof DirectiveDefinition) {
+      return this.defaultGraphQLBuiltInDirectives.includes(element.name);
+    } else {
+      return this.defaultGraphQLBuiltInTypes.includes(element.name);
+    }
   }
 
   prepareValidation(_: Schema) {
@@ -787,7 +802,7 @@ export class BuiltIns {
     const errors: GraphQLError[] = [];
     // We make sure that if any of the built-ins has been redefined, then the redifinition is
     // the same as the built-in one.
-    for (const type of schema.builtInTypes()) {
+    for (const type of schema.builtInTypes(undefined, true)) {
       const maybeRedefined = schema.type(type.name)!;
       if (!maybeRedefined.isBuiltIn) {
         this.ensureSameTypeStructure(type, maybeRedefined, errors);
@@ -1015,6 +1030,8 @@ export class CoreFeatures {
   }
 }
 
+const toASTPrintOptions: Options = { ...defaultPrintOptions, showNonGraphQLBuiltIns: true };
+
 export class Schema {
   private _schemaDefinition: SchemaDefinition;
   private readonly _builtInTypes = new MapWithCachedArrays<string, NamedType>();
@@ -1077,8 +1094,10 @@ export class Schema {
     }
   }
 
-  private forceSetCachedDocument(document: DocumentNode) {
-    this.cachedDocument = this.builtIns.maybeUpdateSubgraphDocument(this, document);;
+  private forceSetCachedDocument(document: DocumentNode, addNonGraphQLBuiltIns: boolean = true) {
+    this.cachedDocument = addNonGraphQLBuiltIns
+    ? this.builtIns.maybeUpdateSubgraphDocument(this, document)
+    : document;
   }
 
   isCoreSchema(): boolean {
@@ -1092,7 +1111,7 @@ export class Schema {
   toAST(): DocumentNode {
     if (!this.cachedDocument) {
       // As we're not building the document from a file, having locations info might be more confusing that not.
-      this.forceSetCachedDocument(parse(printSchema(this), { noLocation: true }));
+      this.forceSetCachedDocument(parse(printSchema(this, toASTPrintOptions), { noLocation: true }), false);
     }
     return this.cachedDocument!;
   }
@@ -1129,17 +1148,27 @@ export class Schema {
   /**
    * All the types defined on this schema, excluding the built-in types.
    */
-  types<T extends NamedType>(kind?: T['kind']): readonly T[] {
-    const allTypes = this._types.values();
-    return (kind ? allTypes.filter(t => t.kind === kind) : allTypes) as readonly T[];
+  types<T extends NamedType>(kind?: T['kind'], includeNonGraphQLBuiltIns: boolean = false): readonly T[] {
+    const allKinds = this._types.values();
+    const forKind = (kind ? allKinds.filter(t => t.kind === kind) : allKinds) as readonly T[];
+    return includeNonGraphQLBuiltIns
+      ? this.builtInTypes(kind).filter(t => !graphQLBuiltIns.isGraphQLBuiltIn(t)).concat(forKind)
+      : forKind;
   }
 
   /**
    * All the built-in types for this schema (those that are not displayed when printing the schema).
    */
-  builtInTypes<T extends NamedType>(kind?: T['kind']): readonly T[] {
+  builtInTypes<T extends NamedType>(kind?: T['kind'], includeShadowed: boolean = false): readonly T[] {
     const allBuiltIns = this._builtInTypes.values();
-    return (kind ? allBuiltIns.filter(t => t.kind === kind) : allBuiltIns) as readonly T[];
+    const forKind = (kind ? allBuiltIns.filter(t => t.kind === kind) : allBuiltIns) as readonly T[];
+    return includeShadowed
+      ? forKind
+      : forKind.filter(t => !this.isShadowedBuiltInType(t));
+  }
+
+  private isShadowedBuiltInType(type: NamedType) {
+    return type.isBuiltIn && this._types.has(type.name);
   }
 
   /**
@@ -1214,8 +1243,10 @@ export class Schema {
   /**
    * All the directive defined on this schema, excluding the built-in directives.
    */
-  directives(): readonly DirectiveDefinition[] {
-    return this._directives.values();
+  directives(includeNonGraphQLBuiltIns: boolean = false): readonly DirectiveDefinition[] {
+    return includeNonGraphQLBuiltIns
+      ? this.builtInDirectives().filter(d => !graphQLBuiltIns.isGraphQLBuiltIn(d)).concat(this._directives.values())
+      : this._directives.values();
   }
 
   /**
@@ -1224,14 +1255,14 @@ export class Schema {
   builtInDirectives(includeShadowed: boolean = false): readonly DirectiveDefinition[] {
     return includeShadowed
       ? this._builtInDirectives.values()
-      : this._builtInDirectives.values().filter(d => !this.isShadowedBuiltIn(d));
+      : this._builtInDirectives.values().filter(d => !this.isShadowedBuiltInDirective(d));
   }
 
   allDirectives(): readonly DirectiveDefinition[] {
     return this.builtInDirectives().concat(this.directives());
   }
 
-  private isShadowedBuiltIn(directive: DirectiveDefinition) {
+  private isShadowedBuiltInDirective(directive: DirectiveDefinition) {
     return directive.isBuiltIn && this._directives.has(directive.name);
   }
 
@@ -1314,8 +1345,6 @@ export class Schema {
         errors = this.builtIns.onValidation(this);
       });
     }
-
-
 
     if (errors.length > 0) {
       throw ErrGraphQLValidationFailed(errors);
@@ -1522,6 +1551,10 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
     return this._interfaceImplementations.values();
   }
 
+  interfaceImplementation(type: string | InterfaceType): InterfaceImplementation<T> | undefined {
+    return this._interfaceImplementations.get(typeof type === 'string' ? type : type.name);
+  }
+
   interfaces(): readonly InterfaceType[] {
     return this.interfaceImplementations().map(impl => impl.interface);
   }
@@ -1566,15 +1599,18 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
   /**
    * All the fields of this type, excluding the built-in ones.
    */
-  fields(): readonly FieldDefinition<T>[] {
+  fields(includeNonGraphQLBuiltIns: boolean = false): readonly FieldDefinition<T>[] {
+    if (includeNonGraphQLBuiltIns) {
+      return this.allFields().filter(f => !graphQLBuiltIns.isGraphQLBuiltIn(f));
+    }
     if (!this._cachedNonBuiltInFields) {
       this._cachedNonBuiltInFields = this._fields.values().filter(f => !f.isBuiltIn);
     }
     return this._cachedNonBuiltInFields;
   }
 
-  hasFields(): boolean {
-    return this.fields().length > 0;
+  hasFields(includeNonGraphQLBuiltIns: boolean = false): boolean {
+    return this.fields(includeNonGraphQLBuiltIns).length > 0;
   }
 
   /**
@@ -1680,8 +1716,18 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
     if (!schema) {
       return false;
     }
-
     return schema.schemaDefinition.roots().some(rt => rt.type == this);
+  }
+
+  /**
+   *  Whether this type is the "query" root type of the schema (will return false if the type is detached).
+   */
+  isQueryRootType(): boolean {
+    const schema = this.schema();
+    if (!schema) {
+      return false;
+    }
+    return schema.schemaDefinition.root('query')?.type === this;
   }
 }
 
@@ -1756,9 +1802,9 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
         this.checkUpdate();
         const maybeObj = this.schema()!.type(nameOrTypeOrMember);
         if (!maybeObj) {
-          throw new GraphQLError(`Cannot implement unkown type ${nameOrTypeOrMember}`);
+          throw new GraphQLError(`Cannot add unkown type ${nameOrTypeOrMember} as member of union type ${this.name}`);
         } else if (maybeObj.kind != 'ObjectType') {
-          throw new GraphQLError(`Cannot implement non-object type ${nameOrTypeOrMember} (of type ${maybeObj.kind})`);
+          throw new GraphQLError(`Cannot add non-object type ${nameOrTypeOrMember} (of type ${maybeObj.kind}) as member of union type ${this.name}`);
         }
         obj = maybeObj;
       } else {
@@ -1922,6 +1968,10 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
     return toAdd;
   }
 
+  hasFields(): boolean {
+    return this._fields.size > 0;
+  }
+
   *allChildElements(): Generator<NamedSchemaElement<any, any, any>, void, undefined> {
     yield* this._fields.values();
   }
@@ -2071,7 +2121,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
   }
 
   isIntrospectionField(): boolean {
-    return this.name.startsWith('__');
+    return isIntrospectionName(this.name);
   }
 
   isSchemaIntrospectionField(): boolean {
@@ -2085,6 +2135,10 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
   // Only called through the prototype from FieldBasedType.removeInnerElements because we don't want to expose it.
   private removeParent() {
     this._parent = undefined;
+  }
+
+  isDeprecated(): boolean {
+    return this.hasAppliedDirective('deprecated');
   }
 
   /**
@@ -2128,6 +2182,10 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
     return `${parent == undefined ? '<detached>' : parent.coordinate}.${this.name}`;
   }
 
+  isRequired(): boolean {
+    return isNonNullType(this.type!) && this.defaultValue === undefined;
+  }
+
   ofExtension(): Extension<InputObjectType> | undefined {
     return this._extension;
   }
@@ -2141,6 +2199,10 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
     }
     this._extension = extension;
     this.onModification();
+  }
+
+  isDeprecated(): boolean {
+    return this.hasAppliedDirective('deprecated');
   }
 
   /**
@@ -2178,6 +2240,14 @@ export class ArgumentDefinition<TParent extends FieldDefinition<any> | Directive
   get coordinate(): string {
     const parent = this.parent;
     return `${parent == undefined ? '<detached>' : parent.coordinate}(${this.name}:)`;
+  }
+
+  isRequired(): boolean {
+    return isNonNullType(this.type!) && this.defaultValue === undefined;
+  }
+
+  isDeprecated(): boolean {
+    return this.hasAppliedDirective('deprecated');
   }
 
   /**
@@ -2228,6 +2298,10 @@ export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
     }
     this._extension = extension;
     this.onModification();
+  }
+
+  isDeprecated(): boolean {
+    return this.hasAppliedDirective('deprecated');
   }
 
   /**

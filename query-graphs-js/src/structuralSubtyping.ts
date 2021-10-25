@@ -1,5 +1,6 @@
 import {
   ArgumentDefinition,
+  DEFAULT_SUBTYPING_RULES,
   EnumType,
   FieldDefinition,
   InputObjectType,
@@ -14,7 +15,6 @@ import {
   ObjectType,
   SchemaElement,
   SubtypingRule,
-  SUBTYPING_RULES,
   UnionType,
 } from '@apollo/core';
 
@@ -106,7 +106,7 @@ function getArg(field: FieldDefinition<any>, argName: string): ArgumentDefinitio
 export function isStructuralFieldSubtype(
   fieldDef: FieldDefinition<any>,
   maybeSubType: FieldDefinition<any>,
-  allowedRules: SubtypingRule[] = SUBTYPING_RULES,
+  allowedRules: SubtypingRule[] = DEFAULT_SUBTYPING_RULES,
   unionMembershipTester: (union: UnionType, maybeMember: ObjectType) => boolean = (u, m) => u.hasTypeMember(m),
   implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i)
 ): boolean {

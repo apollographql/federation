@@ -18,7 +18,7 @@ import {
   UnionType
 } from "./definitions";
 
-export const SUBTYPING_RULES = [
+export const ALL_SUBTYPING_RULES = [
   'direct' as const,
   'nonNullable_downgrade' as const,
   'list_upgrade' as const,
@@ -26,7 +26,10 @@ export const SUBTYPING_RULES = [
   'nonNullable_propagation' as const
 ];
 
-export type SubtypingRule = typeof SUBTYPING_RULES[number];
+export type SubtypingRule = typeof ALL_SUBTYPING_RULES[number];
+
+// The subtyping rules that graphQL-js enforces in particular
+export const DEFAULT_SUBTYPING_RULES = ALL_SUBTYPING_RULES.filter(r => r !== "list_upgrade");
 
 /**
  * Tests whether 2 types are the same type.
@@ -97,7 +100,7 @@ export function isDirectSubtype(
 export function isSubtype(
   type: Type,
   maybeSubType: Type,
-  allowedRules: SubtypingRule[] = SUBTYPING_RULES,
+  allowedRules: SubtypingRule[] = DEFAULT_SUBTYPING_RULES,
   unionMembershipTester: (union: UnionType, maybeMember: ObjectType) => boolean = (u, m) => u.hasTypeMember(m),
   implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i)
 ): boolean {
@@ -113,14 +116,10 @@ export function isSubtype(
 export function isStrictSubtype(
   type: Type,
   maybeSubType: Type,
-  allowedRules: SubtypingRule[] = SUBTYPING_RULES,
+  allowedRules: SubtypingRule[] = DEFAULT_SUBTYPING_RULES,
   unionMembershipTester: (union: UnionType, maybeMember: ObjectType) => boolean = (u, m) => u.hasTypeMember(m),
   implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i)
 ): boolean {
-  if (isListType(type) && !isListType(maybeSubType)) {
-    return allowedRules.includes('list_upgrade')
-      && isSubtype(type.ofType, maybeSubType, allowedRules, unionMembershipTester, implementsInterfaceTester);
-  }
   switch (maybeSubType.kind) {
     case 'ListType':
       return allowedRules.includes('list_propagation')
@@ -135,10 +134,16 @@ export function isStrictSubtype(
         && isSubtype(type, maybeSubType.ofType, allowedRules, unionMembershipTester, implementsInterfaceTester);
     case 'ObjectType':
     case 'InterfaceType':
+      if (isListType(type)) {
+        return allowedRules.includes('list_upgrade')
+          && isSubtype(type.ofType, maybeSubType, allowedRules, unionMembershipTester, implementsInterfaceTester);
+      }
       return allowedRules.includes('direct')
         && (isInterfaceType(type) || isUnionType(type))
         && isDirectSubtype(type, maybeSubType, unionMembershipTester, implementsInterfaceTester);
     default:
-      return false;
+      return isListType(type)
+        && allowedRules.includes('list_upgrade')
+        && isSubtype(type.ofType, maybeSubType, allowedRules, unionMembershipTester, implementsInterfaceTester);
   }
 }

@@ -293,7 +293,7 @@ export class FederationBuiltIns extends BuiltIns {
       if (entityType.membersCount() === 0) {
         entityType.remove();
       }
-      entityType = schema.builtInTypes<UnionType>('UnionType').find(u => u.name === entityTypeName)!
+      entityType = schema.builtInTypes<UnionType>('UnionType', true).find(u => u.name === entityTypeName)!
     }
     entityType.clearTypes();
     for (const objectType of schema.types<ObjectType>("ObjectType")) {
@@ -310,11 +310,22 @@ export class FederationBuiltIns extends BuiltIns {
     // Adds the _entities and _service fields to the root query type.
     const queryRoot = schema.schemaDefinition.root("query");
     const queryType = queryRoot ? queryRoot.type : schema.addType(new ObjectType("Query"));
-    if (hasEntities && !queryType.field(entitiesFieldName)) {
+    let entityField = queryType.field(entitiesFieldName);
+    if (hasEntities) {
       const anyType = schema.type(anyTypeName);
       assert(anyType, `The schema should have the _Any type`);
-      this.addBuiltInField(queryType, entitiesFieldName, new NonNullType(new ListType(entityType)))
-        .addArgument('representations', new NonNullType(new ListType(new NonNullType(anyType))));
+      const entityFieldType = new NonNullType(new ListType(entityType));
+      if (!entityField) {
+        this.addBuiltInField(queryType, entitiesFieldName, entityFieldType)
+          .addArgument('representations', new NonNullType(new ListType(new NonNullType(anyType))));
+      } else if (!entityField.type) {
+        // This can happen when the schema had an empty redefinition of _Entity as we've removed it in
+        // that clear and that would have clear the type of the correspond field. Let's re-populate it
+        // in that case.
+        entityField.type = entityType;
+      }
+    } else if (entityField) {
+      entityField.remove();
     }
     if (!queryType.field(serviceFieldName)) {
       this.addBuiltInField(queryType, serviceFieldName, schema.type(serviceTypeName) as ObjectType);

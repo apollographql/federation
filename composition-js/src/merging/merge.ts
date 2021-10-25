@@ -18,7 +18,6 @@ import {
   sameType,
   isStrictSubtype,
   SubtypingRule,
-  SUBTYPING_RULES,
   ListType,
   NonNullType,
   Type,
@@ -49,6 +48,7 @@ import {
   addSubgraphToASTNode,
   firstOf,
   Extension,
+  DEFAULT_SUBTYPING_RULES,
 } from "@apollo/core";
 import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
 import {
@@ -95,7 +95,7 @@ export type CompositionOptions = {
 // recognize situation and "coerce" results from the first subraph (the one returning
 // `String`) into singleton lists.
 const defaultCompositionOptions: CompositionOptions = {
-  allowedFieldTypeMergingSubtypingRules: SUBTYPING_RULES.filter(r => r !== "list_upgrade")
+  allowedFieldTypeMergingSubtypingRules: DEFAULT_SUBTYPING_RULES
 }
 
 export interface MergeSuccess {

@@ -3,6 +3,10 @@ import { EnumType, FieldDefinition, ListType, NonNullType, ObjectType, Schema } 
 
 export const introspectionFieldNames = [ '__schema', '__type' ];
 
+export function isIntrospectionName(name: string): boolean {
+  return name.startsWith('__');
+}
+
 export function addIntrospectionFields(schema: Schema) {
   if (schema.type('__Schema')) {
     return;
