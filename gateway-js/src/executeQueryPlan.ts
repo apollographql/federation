@@ -1,6 +1,7 @@
 import {
   GraphQLExecutionResult,
   GraphQLRequestContext,
+  GraphQLResponse,
 } from 'apollo-server-types';
 import { Headers } from 'apollo-server-env';
 import {
@@ -174,6 +175,7 @@ async function executeNode<TContext>(
   results: ResultMap | ResultMap[],
   path: ResponsePath,
   captureTraces: boolean,
+  rootEntityFieldNames?: string[],
 ): Promise<Trace.QueryPlanNode> {
   if (!results) {
     // XXX I don't understand `results` threading well enough to understand when this happens
@@ -195,6 +197,7 @@ async function executeNode<TContext>(
           results,
           path,
           captureTraces,
+          rootEntityFieldNames,
         );
         traceNode.nodes.push(childTraceNode!);
       }
@@ -203,7 +206,12 @@ async function executeNode<TContext>(
     case 'Parallel': {
       const childTraceNodes = await Promise.all(
         node.nodes.map(async childNode =>
-          executeNode(context, childNode, results, path, captureTraces),
+          executeNode(
+            context, childNode,
+            results, path,
+            captureTraces,
+            rootEntityFieldNames,
+          ),
         ),
       );
       return new Trace.QueryPlanNode({
@@ -227,6 +235,7 @@ async function executeNode<TContext>(
             flattenResultsAtPath(results, node.path),
             [...path, ...node.path],
             captureTraces,
+            node.rootEntityFieldNames ?? rootEntityFieldNames,
           ),
         }),
       });
@@ -243,6 +252,7 @@ async function executeNode<TContext>(
           results,
           path,
           captureTraces ? traceNode : null,
+          rootEntityFieldNames,
         );
       } catch (error) {
         context.errors.push(error);
@@ -258,6 +268,7 @@ async function executeFetch<TContext>(
   results: ResultMap | (ResultMap | null | undefined)[],
   _path: ResponsePath,
   traceNode: Trace.QueryPlanNode.FetchNode | null,
+  rootEntityFieldNames?: string[],
 ): Promise<void> {
 
   const logger = context.requestContext.logger || console;
@@ -294,10 +305,13 @@ async function executeFetch<TContext>(
 
       if (!fetch.requires) {
         const dataReceivedFromService = await sendOperation(
-            context,
-            fetch.operation,
-            variables,
+          context,
+          fetch.operation,
+          variables,
+          _path,
         );
+
+        if (!dataReceivedFromService) return;
 
         for (const entity of entities) {
           deepMerge(entity, dataReceivedFromService);
@@ -329,9 +343,12 @@ async function executeFetch<TContext>(
         }
 
         const dataReceivedFromService = await sendOperation(
-            context,
-            fetch.operation,
-            {...variables, representations},
+          context,
+          fetch.operation,
+          { ...variables, representations },
+          _path,
+          rootEntityFieldNames,
+          representationToEntity,
         );
 
         if (!dataReceivedFromService) {
@@ -373,6 +390,9 @@ async function executeFetch<TContext>(
     context: ExecutionContext<TContext>,
     source: string,
     variables: Record<string, any>,
+    nodePath: ResponsePath,
+    rootEntityFieldNames?: string[],
+    representationToEntity?: number[],
   ): Promise<ResultMap | void | null> {
     // We declare this as 'any' because it is missing url and method, which
     // GraphQLRequest.http is supposed to have if it exists.
@@ -396,20 +416,70 @@ async function executeFetch<TContext>(
       traceNode.sentTime = dateToProtoTimestamp(new Date());
     }
 
-    const response = await service.process({
-      kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION,
-      request: {
-        query: source,
-        variables,
-        http,
-      },
-      incomingRequestContext: context.requestContext,
-      context: context.requestContext.context,
-    });
+    let response: GraphQLResponse;
+
+    try {
+      response = await service.process({
+        kind: GraphQLDataSourceRequestKind.INCOMING_OPERATION,
+        request: {
+          query: source,
+          variables,
+          http,
+        },
+        incomingRequestContext: context.requestContext,
+        context: context.requestContext.context,
+      });
+    } catch (originalError) {
+      const representations = variables.representations;
+
+      // Generating errors with correct path for each entity in case
+      // of a network error (the idea is that on the client we don't care
+      // about the federation and we want to know why we did not receive
+      // each specific field)
+      if (
+        !originalError.path
+        && representations
+        && rootEntityFieldNames
+        && rootEntityFieldNames.length !== 0
+        && representationToEntity
+      ) {
+        const errors: any = [];
+
+        representations.forEach((_: ResultMap, index: number) => {
+          rootEntityFieldNames.forEach((fieldName) => {
+            const path = ['_entities', representationToEntity[index], fieldName];
+
+            const error = new GraphQLError(
+              originalError.message,
+              undefined,
+              undefined,
+              undefined,
+              path,
+              originalError,
+            );
+
+            errors.push(downstreamServiceError(
+              error,
+              fetch.serviceName,
+              nodePath,
+            ));
+          });
+        });
+
+        context.errors.push(...errors);
+        return;
+      }
+
+      throw originalError;
+    }
 
     if (response.errors) {
       const errors = response.errors.map((error) =>
-        downstreamServiceError(error, fetch.serviceName),
+        downstreamServiceError(
+          error,
+          fetch.serviceName,
+          nodePath,
+        ),
       );
       context.errors.push(...errors);
     }
@@ -571,8 +641,9 @@ function flattenResultsAtPath(value: any, path: ResponsePath): any {
 function downstreamServiceError(
   originalError: GraphQLFormattedError,
   serviceName: string,
+  nodePath: ResponsePath,
 ) {
-  let { message, extensions } = originalError;
+  let { message, extensions, path: errorPath } = originalError;
 
   if (!message) {
     message = `Error while fetching subquery from service "${serviceName}"`;
@@ -584,15 +655,50 @@ function downstreamServiceError(
     serviceName,
     ...extensions,
   };
+
+  const path = downstreamServiceErrorPath({
+    nodePath,
+    errorPath,
+  });
+
   return new GraphQLError(
     message,
     undefined,
     undefined,
     undefined,
-    undefined,
+    path,
     originalError as Error,
     extensions,
   );
+}
+
+// Here we compose correct error path by combining the path to the federated
+// entity and the path of the original error. If it's not error for federated
+// entity - we just return path as it is
+function downstreamServiceErrorPath({ nodePath, errorPath }: {
+  nodePath: ResponsePath;
+  errorPath: GraphQLFormattedError['path'];
+}) {
+  if (nodePath.length === 0) return errorPath;
+
+  const pathStart = nodePath.slice();
+  const pathEnd = errorPath?.slice() ?? [];
+
+  const atIndex = pathStart.indexOf('@');
+  let entityIndex;
+
+  if (pathEnd[0] === '_entities' && typeof pathEnd[1] === 'number') {
+    entityIndex = pathEnd[1];
+    pathEnd.splice(0, 2);
+  }
+
+  if (atIndex !== -1 && entityIndex !== undefined) {
+    pathStart[atIndex] = entityIndex;
+  }
+
+  const path = pathStart.concat(pathEnd);
+
+  return path.length !== 0 ? path : undefined;
 }
 
 export const defaultFieldResolverWithAliasSupport: GraphQLFieldResolver<

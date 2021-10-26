@@ -8,7 +8,7 @@ import {
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { GraphQLRequestContext } from 'apollo-server-types';
-import { AuthenticationError } from 'apollo-server-core';
+import { AuthenticationError, ForbiddenError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
@@ -137,7 +137,7 @@ describe('executeQueryPlan', () => {
         'errors.0.message',
         'Something went wrong',
       );
-      expect(response).toHaveProperty('errors.0.path', undefined);
+      expect(response).toHaveProperty('errors.0.path', ['me']);
       expect(response).toHaveProperty(
         'errors.0.extensions.code',
         'UNAUTHENTICATED',
@@ -148,6 +148,55 @@ describe('executeQueryPlan', () => {
       );
       expect(response).not.toHaveProperty('errors.0.extensions.query');
       expect(response).not.toHaveProperty('errors.0.extensions.variables');
+    });
+
+    it(`should include correct error path in case one of the services raised an error for federated entity`, async () => {
+      overrideResolversInService('accounts', {
+        User: {
+          __resolveObject() {
+            throw new ForbiddenError('Something went wrong');
+          },
+        },
+      });
+
+      const operationString = `#graphql
+        query {
+          topReviews(first: 2) {
+            id
+            author {
+              name {
+                first
+              }
+            }
+          }
+        }
+      `;
+
+      const operationDocument = gql(operationString);
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(response).toHaveProperty(
+        'errors.0.path',
+        ['topReviews', 0, 'author', 'name'],
+      );
+
+      expect(response).toHaveProperty(
+        'errors.1.path',
+        ['topReviews', 1, 'author', 'name'],
+      );
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {

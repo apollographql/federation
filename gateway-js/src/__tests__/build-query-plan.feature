@@ -91,6 +91,7 @@ Scenario: should use two independent fetches when requesting root fields from tw
               {
                 "kind": "Flatten",
                 "path": ["topProducts", "@"],
+                "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "books",
@@ -111,6 +112,7 @@ Scenario: should use two independent fetches when requesting root fields from tw
               {
                 "kind": "Flatten",
                 "path": ["topProducts", "@"],
+                "rootEntityFieldNames": ["name"],
                 "node": {
                   "kind": "Fetch",
                   "serviceName": "product",
@@ -171,6 +173,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                   {
                     "kind": "Flatten",
                     "path": ["topProducts", "@"],
+                    "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
                     "node": {
                       "kind": "Fetch",
                       "serviceName": "books",
@@ -191,6 +194,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                   {
                     "kind": "Flatten",
                     "path": ["topProducts", "@"],
+                    "rootEntityFieldNames": ["name"],
                     "node": {
                       "kind": "Fetch",
                       "serviceName": "product",
@@ -218,6 +222,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                   {
                     "kind": "Flatten",
                     "path": ["product"],
+                    "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
                     "node": {
                       "kind": "Fetch",
                       "serviceName": "books",
@@ -238,6 +243,7 @@ Scenario: should use a single fetch when requesting multiple root fields from th
                   {
                     "kind": "Flatten",
                     "path": ["product"],
+                    "rootEntityFieldNames": ["name"],
                     "node": {
                       "kind": "Fetch",
                       "serviceName": "product",
@@ -349,6 +355,7 @@ Scenario: when requesting an extension field from another service, it should add
           {
             "kind": "Flatten",
             "path": ["me"],
+            "rootEntityFieldNames": ["reviews"],
             "node": {
               "kind": "Fetch",
               "serviceName": "reviews",
@@ -398,6 +405,7 @@ Scenario: when requesting an extension field from another service, when the pare
           {
             "kind": "Flatten",
             "path": ["me"],
+            "rootEntityFieldNames": ["reviews"],
             "node": {
               "kind": "Fetch",
               "serviceName": "reviews",
@@ -448,6 +456,7 @@ Scenario: when requesting an extension field from another service, should only a
           {
             "kind": "Flatten",
             "path": ["me"],
+            "rootEntityFieldNames": ["reviews", "numberOfReviews"],
             "node": {
               "kind": "Fetch",
               "serviceName": "reviews",
@@ -498,6 +507,7 @@ Scenario: when requesting a composite field with subfields from another service,
           {
             "kind": "Flatten",
             "path": ["topReviews", "@", "author"],
+            "rootEntityFieldNames": ["name"],
             "node": {
               "kind": "Fetch",
               "serviceName": "accounts",
@@ -545,6 +555,7 @@ Scenario: when requesting a composite field with subfields from another service,
           {
             "kind": "Flatten",
             "path": ["topCars", "@"],
+            "rootEntityFieldNames": ["retailPrice"],
             "node": {
               "kind": "Fetch",
               "serviceName": "reviews",
@@ -595,6 +606,7 @@ Scenario: when requesting a composite field with subfields from another service,
           {
             "kind": "Flatten",
             "path": ["topReviews", "@", "author"],
+            "rootEntityFieldNames": ["name"],
             "node": {
               "kind": "Fetch",
               "serviceName": "accounts",
@@ -644,6 +656,7 @@ Scenario: when requesting a relationship field with extension subfields from a d
           {
             "kind": "Flatten",
             "path": ["topReviews", "@", "author"],
+            "rootEntityFieldNames": ["birthDate"],
             "node": {
               "kind": "Fetch",
               "serviceName": "accounts",
@@ -716,6 +729,7 @@ Scenario: should break up when traversing an extension field on an interface typ
           {
             "kind": "Flatten",
             "path": ["topProducts", "@"],
+            "rootEntityFieldNames": ["reviews"],
             "node": {
               "kind": "Fetch",
               "serviceName": "reviews",
@@ -776,6 +790,7 @@ Scenario: interface fragments should expand into possible types only
           {
             "kind": "Flatten",
             "path": ["books", "@"],
+            "rootEntityFieldNames": ["name"],
             "node": {
               "kind": "Fetch",
               "serviceName": "product",
@@ -1002,6 +1017,7 @@ Scenario: supports mutations with a cross-service request
           "path": [
             "login"
           ],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -1033,6 +1049,7 @@ Scenario: supports mutations with a cross-service request
             "@",
             "product"
           ],
+          "rootEntityFieldNames": ["upc"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -1094,6 +1111,7 @@ Scenario: returning across service boundaries
           "path": [
             "reviewProduct"
           ],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -1167,6 +1185,7 @@ Scenario: supports multiple root mutations
           "path": [
             "login"
           ],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -1198,6 +1217,7 @@ Scenario: supports multiple root mutations
             "@",
             "product"
           ],
+          "rootEntityFieldNames": ["upc"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -1235,6 +1255,7 @@ Scenario: supports multiple root mutations
           "path": [
             "reviewProduct"
           ],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -1325,6 +1346,7 @@ Scenario: multiple root mutations with correct service order
           "path": [
             "login"
           ],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -1356,6 +1378,7 @@ Scenario: multiple root mutations with correct service order
             "@",
             "product"
           ],
+          "rootEntityFieldNames": ["upc"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",

@@ -28,6 +28,7 @@ Scenario: supports @skip when a boolean condition is met
         {
           "kind": "Flatten",
           "path": ["topReviews", "@", "author"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "accounts",
@@ -103,6 +104,7 @@ Scenario: supports @skip when a boolean condition is not met
         {
           "kind": "Flatten",
           "path": ["topReviews", "@", "author"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "accounts",
@@ -153,6 +155,7 @@ Scenario: supports @skip when a boolean condition is not met (variable driven)
         {
           "kind": "Flatten",
           "path": ["topReviews", "@", "author"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "accounts",
@@ -253,6 +256,7 @@ Scenario: supports @include when a boolean condition is met
         {
           "kind": "Flatten",
           "path": ["topReviews", "@", "author"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "accounts",
@@ -305,6 +309,7 @@ Scenario: supports @include when a boolean condition is met (variable driven)
         {
           "kind": "Flatten",
           "path": ["topReviews", "@", "author"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "accounts",

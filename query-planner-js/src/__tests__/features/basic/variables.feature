@@ -26,6 +26,7 @@ Scenario: passes variables to root fields
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
           "node": {
             "kind": "Fetch",
             "serviceName": "books",
@@ -46,6 +47,7 @@ Scenario: passes variables to root fields
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -96,6 +98,7 @@ Scenario: supports default variables in a variable definition
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["__typename", "isbn", "title", "year"],
           "node": {
             "kind": "Fetch",
             "serviceName": "books",
@@ -116,6 +119,7 @@ Scenario: supports default variables in a variable definition
         {
           "kind": "Flatten",
           "path": ["product"],
+          "rootEntityFieldNames": ["name"],
           "node": {
             "kind": "Fetch",
             "serviceName": "product",
@@ -168,6 +172,7 @@ Scenario: passes variables to nested services
         {
           "kind": "Flatten",
           "path": ["me"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -219,6 +224,7 @@ Scenario: works with default variables in the schema
         {
           "kind": "Flatten",
           "path": ["library"],
+          "rootEntityFieldNames": ["userAccount"],
           "node": {
             "kind": "Fetch",
             "serviceName": "accounts",

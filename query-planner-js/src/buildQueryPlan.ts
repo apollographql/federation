@@ -23,6 +23,7 @@ import {
   OperationTypeNode,
   print,
   stripIgnoredCharacters,
+  SelectionNode,
 } from 'graphql';
 import {
   Field,
@@ -184,12 +185,15 @@ function executionNodeForGroup(
     operation: stripIgnoredCharacters(print(operation)),
   };
 
+  const rootFieldNames = requires && rootEntityFieldNames(selectionSet);
+
   const node: PlanNode =
     mergeAt && mergeAt.length > 0
       ? {
           kind: 'Flatten',
           path: mergeAt,
           node: fetchNode,
+          rootEntityFieldNames: rootFieldNames,
         }
       : fetchNode;
 
@@ -304,6 +308,31 @@ function operationForEntitiesFetch({
       ...internalFragments,
     ],
   };
+}
+
+// Returns root field names of federated entities. This is used for generating
+// correct error paths if a network error occurs
+function rootEntityFieldNames(selectionSet: SelectionSetNode) {
+  const getNodeFieldNames = (rootNode: SelectionNode) => {
+    if (
+      rootNode.kind === "InlineFragment"
+      && rootNode.selectionSet.kind === "SelectionSet"
+    ) {
+      return rootNode.selectionSet.selections.map((nestedNode) => {
+        if (nestedNode.kind !== "Field") return undefined;
+
+        return nestedNode.alias?.value ?? nestedNode.name.value;
+      });
+    }
+
+    return undefined;
+  };
+
+  const fieldNames = selectionSet.selections.map(getNodeFieldNames).flat().filter(
+    (value, index, array) => value && array.indexOf(value) === index
+  ) as string[];
+
+  return fieldNames.length ? fieldNames : undefined;
 }
 
 // Wraps the given nodes in a ParallelNode or SequenceNode, unless there's only

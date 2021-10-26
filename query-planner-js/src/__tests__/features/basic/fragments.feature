@@ -60,6 +60,7 @@ Scenario: supports inline fragments (multi level)
         {
           "kind": "Flatten",
           "path": ["me"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -83,6 +84,7 @@ Scenario: supports inline fragments (multi level)
             {
               "kind": "Flatten",
               "path": ["me", "reviews", "@", "product"],
+              "rootEntityFieldNames": ["title"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "books",
@@ -103,6 +105,7 @@ Scenario: supports inline fragments (multi level)
             {
               "kind": "Flatten",
               "path": ["me", "reviews", "@", "product"],
+              "rootEntityFieldNames": ["name"],
               "node": {
                 "kind": "Fetch",
                 "serviceName": "product",
@@ -219,6 +222,7 @@ Scenario: supports multiple named fragments (multi level, mixed ordering)
         {
           "kind": "Flatten",
           "path": ["me"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
@@ -274,6 +278,7 @@ Scenario: supports variables within fragments
         {
           "kind": "Flatten",
           "path": ["me"],
+          "rootEntityFieldNames": ["reviews"],
           "node": {
             "kind": "Fetch",
             "serviceName": "reviews",
