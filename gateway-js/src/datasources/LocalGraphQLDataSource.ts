@@ -21,16 +21,13 @@ export class LocalGraphQLDataSource<
     request,
     context,
   }: GraphQLDataSourceProcessOptions<TContext>): Promise<GraphQLResponse> {
-    const result = await graphql({
+    return graphql({
       schema: this.schema,
       source: request.query!,
       variableValues: request.variables,
       operationName: request.operationName,
       contextValue: context,
     });
-
-    debugger;
-    return result;
   }
 
   public sdl(): DocumentNode {
