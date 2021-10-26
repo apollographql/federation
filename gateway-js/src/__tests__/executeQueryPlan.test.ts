@@ -1411,7 +1411,7 @@ describe('executeQueryPlan', () => {
 
     it(`top-level skip never calls reviews service (using variables)`, async () => {
       const operationDocument = gql`
-        query TopReviews($shouldSkip: Boolean) {
+        query TopReviews($shouldSkip: Boolean!) {
           topReviews @skip(if: $shouldSkip) {
             body
           }
@@ -1504,7 +1504,7 @@ describe('executeQueryPlan', () => {
     describe('@skip and @include combinations', () => {
       it(`include: false, skip: false`, async () => {
         const operationDocument = gql`
-          query TopReviews($shouldInclude: Boolean, $shouldSkip: Boolean) {
+          query TopReviews($shouldInclude: Boolean!, $shouldSkip: Boolean!) {
             topReviews @include(if: $shouldInclude) @skip(if: $shouldSkip) {
               body
             }
@@ -1532,7 +1532,7 @@ describe('executeQueryPlan', () => {
 
       it(`include: false, skip: true`, async () => {
         const operationDocument = gql`
-          query TopReviews($shouldInclude: Boolean, $shouldSkip: Boolean) {
+          query TopReviews($shouldInclude: Boolean!, $shouldSkip: Boolean!) {
             topReviews @include(if: $shouldInclude) @skip(if: $shouldSkip) {
               body
             }
@@ -1560,8 +1560,8 @@ describe('executeQueryPlan', () => {
 
       it(`include: true, skip: false`, async () => {
         const operationDocument = gql`
-          query TopReviews($shouldInclude: Boolean, $shouldSkip: Boolean) {
-            topReviews @include(if: $shouldInclude) @skip(if: $shouldSkip) {
+          query TopReviews($shouldInclude: Boolean!, $shouldSkip: Boolean!) {
+            topReviews(first: 2) @include(if: $shouldInclude) @skip(if: $shouldSkip) {
               body
             }
           }
@@ -1582,17 +1582,22 @@ describe('executeQueryPlan', () => {
           operationContext,
         );
 
-        // TODO: is this actually a bad response from the "server"?
-        // This is incorrect but it seems the query planning is correct.
         expect(response.data).toMatchObject({
-          topReviews: null,
+          topReviews: [
+            {
+              body: 'Love it!',
+            },
+            {
+              body: 'Too expensive.',
+            },
+          ],
         });
         expect({ queryPlan, variables }).toCallService('reviews');
       });
 
       it(`include: true, skip: true`, async () => {
         const operationDocument = gql`
-          query TopReviews($shouldInclude: Boolean, $shouldSkip: Boolean) {
+          query TopReviews($shouldInclude: Boolean!, $shouldSkip: Boolean!) {
             topReviews @include(if: $shouldInclude) @skip(if: $shouldSkip) {
               body
             }
@@ -1615,6 +1620,18 @@ describe('executeQueryPlan', () => {
         );
 
         expect(response.data).toMatchObject({});
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Fetch(service: "reviews", inclusionConditions: [{ include: "shouldInclude", skip: "shouldSkip" }]) {
+              {
+                topReviews @include(if: $shouldInclude) @skip(if: $shouldSkip) {
+                  body
+                }
+              }
+            },
+          }
+        `);
+
         expect({ queryPlan, variables }).not.toCallService('reviews');
       });
     });

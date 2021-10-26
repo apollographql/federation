@@ -232,7 +232,7 @@ interface ConditionalValue {
 type ConditionalTreeNode =
   | null
   | ConditionalValue
-  | [ConditionalValue, ConditionalTreeNode[]];
+  | [ConditionalValue, ConditionalTree];
 type ConditionalTree = ConditionalTreeNode[];
 
 function buildConditionalTree(selectionSet: SelectionSetNode, fragmentMap: Fragments) {
