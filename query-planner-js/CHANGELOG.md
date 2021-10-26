@@ -4,7 +4,7 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- _Nothing yet. Stay tuned._
+- Skip fetches when possible (based on @skip and @include usages). The query planner now aggregates top-level skip and include usages in order to skip `FetchNode`s altogether when possible. [PR #1113](https://github.com/apollographql/federation/pull/1113)
 
 ## v0.5.0
 
