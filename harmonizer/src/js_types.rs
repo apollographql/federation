@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt::{self, Display};
 
-use fed_types::BuildError;
+use apollo_federation_types::BuildError;
 
 /// CompositionOutput contains information about the supergraph that was composed.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
