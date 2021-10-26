@@ -1,6 +1,9 @@
 import gql from 'graphql-tag';
 import { execute } from '../execution-utils';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  queryPlanSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -41,6 +44,154 @@ it('supports passing additional fields defined by a requires', async () => {
   expect(queryPlan).toCallService('reviews');
   expect(queryPlan).toCallService('product');
   expect(queryPlan).toCallService('books');
+});
+
+it('supports transitive requires', async () => {
+  const serviceA = {
+    name: 'a',
+    typeDefs: gql`
+      type Query {
+        getA: A
+      }
+      type A @key(fields: "id") {
+        id: ID!
+      }
+    `,
+    resolvers: {
+      Query: {
+        getA() {
+          return {
+            id: '1',
+          };
+        },
+      },
+    },
+  };
+  const serviceB = {
+    name: 'b',
+    typeDefs: gql`
+      extend type A @key(fields: "id") {
+        id: ID! @external
+        extendedbyB: String
+      }
+    `,
+    resolvers: {
+      A: {
+        extendedbyB(a: any) {
+          return `extendedbyB calculated using a.id = ${a.id}`;
+        },
+      },
+    },
+  };
+  const serviceC = {
+    name: 'c',
+    typeDefs: gql`
+      extend type A @key(fields: "id") {
+        id: ID! @external
+        extendedbyB: String @external
+        extendedbyC: String @requires(fields: "extendedbyB")
+      }
+    `,
+    resolvers: {
+      A: {
+        extendedbyC(a: any) {
+          return `extendedbyC calculated using a.extendedbyB = {${a.extendedbyB}}`;
+        },
+      },
+    },
+  };
+  const serviceD = {
+    name: 'd',
+    typeDefs: gql`
+      extend type A @key(fields: "id") {
+        id: ID! @external
+        extendedbyC: String @external
+        extendedbyD: String @requires(fields: "extendedbyC")
+      }
+    `,
+    resolvers: {
+      A: {
+        extendedbyD(a: any) {
+          return `extendedbyD calculated using a.extendedbyC = {${a.extendedbyC}}`;
+        },
+      },
+    },
+  };
+  const serviceE = {
+    name: 'e',
+    typeDefs: gql`
+      extend type A @key(fields: "id") {
+        id: ID! @external
+        extendedbyD: String @external
+        extendedbyE: String @requires(fields: "extendedbyD")
+      }
+    `,
+    resolvers: {
+      A: {
+        extendedbyE(a: any) {
+          return `extendedbyE calculated using a.extendedbyD = {${a.extendedbyD}}`;
+        },
+      },
+    },
+  };
+  const serviceF = {
+    name: 'f',
+    typeDefs: gql`
+      extend type A @key(fields: "id") {
+        id: ID! @external
+        extendedbyE: String @external
+        extendedbyD: String @external
+        extendedbyF: String @requires(fields: "extendedbyE extendedbyD")
+      }
+    `,
+    resolvers: {
+      A: {
+        extendedbyF(a: any) {
+          return `extendedbyF calculated using a.extendedbyE = {${a.extendedbyE}} AND {${a.extendedbyD}}`;
+        },
+      },
+    },
+  };
+
+  const query = `#graphql
+    query TestQuery {
+      getA {
+        id
+        extendedbyF
+      }
+    }
+  `;
+
+  const { data, queryPlan } = await execute(
+    {
+      query,
+    },
+    [serviceA, serviceB, serviceC, serviceD, serviceE, serviceF],
+  );
+
+  expect(data).toEqual({
+    getA: {
+      id: '1',
+      extendedbyF:
+        'extendedbyF calculated using ' +
+        'a.extendedbyE = {extendedbyE calculated using ' +
+        'a.extendedbyD = {extendedbyD calculated using ' +
+        'a.extendedbyC = {extendedbyC calculated using ' +
+        'a.extendedbyB = {extendedbyB calculated using ' +
+        'a.id = 1}}}} AND {' +
+        'extendedbyD calculated using ' +
+        'a.extendedbyC = {extendedbyC calculated using ' +
+        'a.extendedbyB = {extendedbyB calculated using ' +
+        'a.id = 1}}}',
+    },
+  });
+
+  expect(queryPlan).toCallService('a');
+  expect(queryPlan).toCallService('b');
+  expect(queryPlan).toCallService('c');
+  expect(queryPlan).toCallService('d');
+  expect(queryPlan).toCallService('e');
+  expect(queryPlan).toCallService('f');
 });
 
 const serviceA = {

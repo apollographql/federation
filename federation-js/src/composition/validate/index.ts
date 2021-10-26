@@ -5,6 +5,7 @@ import { ServiceDefinition } from '../types';
 import * as preNormalizationRules from './preNormalization';
 import * as preCompositionRules from './preComposition';
 import * as postCompositionRules from './postComposition';
+import {externalMissingOnBase, requiresFieldsMissingOnBase} from './postComposition';
 
 const preNormalizationValidators = Object.values(preNormalizationRules);
 
@@ -38,7 +39,8 @@ export const validateServicesBeforeComposition = (
   return warningsOrErrors;
 };
 
-const postCompositionValidators = Object.values(postCompositionRules);
+const postCompositionValidators = Object.values(postCompositionRules)
+    .filter(validator => validator !== externalMissingOnBase && validator !== requiresFieldsMissingOnBase);
 
 export const validateComposedSchema = ({
   schema,

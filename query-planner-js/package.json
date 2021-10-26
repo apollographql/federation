@@ -28,7 +28,8 @@
     "apollo-graphql": "^0.9.3",
     "chalk": "^4.1.0",
     "deep-equal": "^2.0.5",
-    "pretty-format": "^26.0.0"
+    "pretty-format": "^26.0.0",
+    "toposort": "^2.0.2"
   },
   "peerDependencies": {
     "graphql": "^15.5.3"
