@@ -6,6 +6,18 @@
 
 - _Nothing yet. Stay tuned._
 
+## v0.33.4
+
+- Updates to transitive dependencies.  No other substantial changes.
+
+## v0.33.3
+
+- Updates to transitive dependencies.  No other substantial changes.
+
+## v0.33.2
+
+- Updates to transitive dependencies.  No other substantial changes.
+
 ## v0.33.1
 
 - Refine internal types to `FieldSet`s in places where we previously used `SelectionNode[]` [PR #1030](https://github.com/apollographql/federation/pull/1030)

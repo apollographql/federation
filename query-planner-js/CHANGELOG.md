@@ -6,6 +6,14 @@
 
 - _Nothing yet. Stay tuned._
 
+## v0.5.2
+
+- Updates to transitive dependencies.  No other substantial changes.
+
+## v0.5.1
+
+- Adjustments to internal TypeScript types [PR #1030](https://github.com/apollographql/federation/pull/1030)
+
 ## v0.5.0
 
 - __BREAKING__: This is a breaking change due to a `peerDependencies` update (`graphql@^15.4.0` -> `graphql@^15.5.3`). This `graphql` version includes a fix which is being necessarily adopted within the `@apollo/federation` package. See associated CHANGELOG entry in the `federation-js` folder for additional details. [PR #1008](https://github.com/apollographql/federation/pull/1008)

@@ -6,6 +6,18 @@
 
 - _Nothing yet. Stay tuned._
 
+## v0.42.4
+
+- Updates to transitive dependencies.  No other substantial changes.
+
+## v0.42.3
+
+- Updates to transitive dependencies.  No other substantial changes.
+
+## v0.42.2
+
+- Updates to transitive dependencies.  No other substantial changes.
+
 ## v0.42.1
 
 - Emit a deprecation warning for deprecated functions. We would advise to adjust the code to use the new functionality, as the deprecated functions will be removed in a future version. If needed, deprecation warnings can be muted with either the --no-deprecation or --no-warnings command-line flags for node.js. Please keep in mind in doing so will also prevent any future deprecation warnings from node.js itself as well as from any package.[PR #1033](https://github.com/apollographql/federation/pull/1033).

@@ -6,6 +6,10 @@
 
 - _Nothing yet. Stay tuned._
 
+## v0.1.3
+
+- Updates to transitive dependencies.  No other substantial changes.
+
 ## v0.1.2
 
 - Expose `printSubgraphSchema()` as a top-level export of the `@apollo/subgraph` package to maintain backwards compatibility with the `printSchema()` export from `@apollo/federation` [#1078](https://github.com/apollographql/federation/pull/1078)
