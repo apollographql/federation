@@ -2,7 +2,7 @@ import fs from 'fs';
 import { DocumentNode, GraphQLSchema, parse, validate } from 'graphql';
 import { defineFeature, loadFeatures } from 'jest-cucumber';
 import path from 'path';
-import { QueryPlan, QueryPlanner, serializeQueryPlan } from '..';
+import { QueryPlan, QueryPlanner } from '..';
 import { buildComposedSchema } from '../composedSchema';
 import { buildOperationContext } from '../buildQueryPlan';
 
@@ -63,9 +63,7 @@ for (const directory of directories) {
 
               const expectedQueryPlan = JSON.parse(expectedQueryPlanString);
 
-              expect(serializeQueryPlan(queryPlan)).toMatch(
-                serializeQueryPlan(expectedQueryPlan),
-              );
+              expect(queryPlan).toMatchQueryPlan(expectedQueryPlan);
             });
           };
 

@@ -23,7 +23,6 @@ import {
   OperationTypeNode,
   print,
   stripIgnoredCharacters,
-  visit,
   SelectionNode,
   DirectiveNode,
   FragmentSpreadNode,
@@ -60,6 +59,7 @@ import { QueryPlanningContext } from './QueryPlanningContext';
 import { Scope } from './Scope';
 
 import deepEqual from 'deep-equal';
+import { getOperationAndFragments, FragmentMap as Fragments } from './utilities/getOperationAndFragments';
 
 function stringIsTrue(str?: string) : boolean {
   if (!str) {
@@ -137,19 +137,13 @@ export function buildQueryPlan(
     executionNodeForGroup(context, group, rootType),
   );
 
-  let node = nodes.length
-    ? // if an operation is a mutation, we run the root fields in sequence,
-      // otherwise we run them in parallel
-      flatWrap(isMutation ? 'Sequence' : 'Parallel', nodes)
-    : undefined;
-
-  node = node
-    ? appendFetchesWithBooleanConditions(node, context.fragments, context)
-    : undefined;
-
   return {
     kind: 'QueryPlan',
-    node
+    node: nodes.length
+      ? // if an operation is a mutation, we run the root fields in sequence,
+        // otherwise we run them in parallel
+        flatWrap(isMutation ? 'Sequence' : 'Parallel', nodes)
+      : undefined,
   };
 }
 
@@ -163,77 +157,43 @@ export function findDirectivesOnNode<
   );
 }
 
-function appendFetchesWithBooleanConditions(
-  node: PlanNode,
-  fragments: FragmentMap,
-  context: QueryPlanningContext
-): PlanNode {
-  switch (node.kind) {
-    case 'Parallel':
-    case 'Sequence':
-      return {
-        ...node,
-        nodes: node.nodes.map((n) =>
-          appendFetchesWithBooleanConditions(n, fragments, context),
-        ),
-      };
-    case 'Flatten':
-      return {
-        ...node,
-        node: appendFetchesWithBooleanConditions(node.node, fragments, context),
-      };
-    case 'Fetch': {
-      let operationDefinition: OperationDefinitionNode;
-      visit(node.document, {
-        OperationDefinition(od) {
-          operationDefinition = od;
-        }
-      });
+function collectInclusionConditions(document: DocumentNode) {
+  const { operation, fragmentMap } = getOperationAndFragments(document);
 
-      const topLevelSelections = collectTopLevelSelections(
-        operationDefinition!.selectionSet,
-        fragments,
-        context,
-      );
+  const topLevelSelections = collectTopLevelSelections(
+    operation.selectionSet,
+    fragmentMap,
+  );
 
-      // TODO: insufficient
-      const allTopLevelsHaveConditional =
-        topLevelSelections.every(isNotNullOrUndefined);
+  // TODO: insufficient
+  const allTopLevelsHaveConditional =
+    topLevelSelections.every(isNotNullOrUndefined);
 
-      // collect variables
-      let inclusionConditions;
-      if (allTopLevelsHaveConditional) {
-        inclusionConditions = collectConditionalVariables(topLevelSelections);
-        // Short circuit inclusion when, for any condition either is true:
-        //  1. include is true AND (skip is either not specified or false)
-        //  2. skip is false AND (include is either not specified or true)
-        if (
-          inclusionConditions.some(
-            (v) =>
-              v.include === true &&
-              (typeof v.skip === 'undefined' || v.skip === false),
-          ) ||
-          inclusionConditions.some(
-            (v) =>
-              v.skip === false &&
-              (typeof v.include === 'undefined' || v.include === true),
-          )
-        ) {
-          // In these cases we make no modification to the FetchNode - it should
-          // be included and needs no `inclusionConditions` appended to it.
-          return node;
-        }
-      }
-
-      return {
-        ...node,
-        // If inclusionConditions are omitted, the FetchNode will be fetched
-        ...(inclusionConditions ? { inclusionConditions } : {}),
-      };
+  // collect variables
+  if (allTopLevelsHaveConditional) {
+    const inclusionConditions = collectConditionalVariables(topLevelSelections);
+    // Short circuit inclusion when, for any condition either is true:
+    //  1. include is true AND (skip is either not specified or false)
+    //  2. skip is false AND (include is either not specified or true)
+    if (
+      inclusionConditions.some(
+        (v) =>
+          v.include === true &&
+          (typeof v.skip === 'undefined' || v.skip === false),
+      ) ||
+      inclusionConditions.some(
+        (v) =>
+          v.skip === false &&
+          (typeof v.include === 'undefined' || v.include === true),
+      )
+    ) {
+      // In these cases we make no modification to the FetchNode - it should
+      // be included and needs no `inclusionConditions` appended to it.
+      return null;
     }
-    default:
-      throw new Error('Unexpected QueryPlan node');
+    return inclusionConditions;
   }
+  return null;
 }
 
 type SelectionCollection = (
@@ -264,8 +224,7 @@ function collectConditionalDirectives(selection: SelectionNode) {
  */
 function collectTopLevelSelections(
   selectionSet: SelectionSetNode,
-  fragments: FragmentMap,
-  context: QueryPlanningContext,
+  fragmentMap: Fragments,
 ): SelectionCollection {
   const selections: SelectionCollection = [];
 
@@ -285,15 +244,14 @@ function collectTopLevelSelections(
     ) {
       const { selectionSet } =
         selection.kind === Kind.FRAGMENT_SPREAD
-          ? fragments[selection.name.value]
+          ? fragmentMap.get(selection.name.value)!
           : selection;
       if (!hasConditionalDirectives(selection)) {
         // If the Fragment selection itself has no conditionals, we can treat its
         // selections as if they were top-level selections.
         const nestedSelections = collectTopLevelSelections(
           selectionSet,
-          fragments,
-          context,
+          fragmentMap,
         );
         if (nestedSelections) {
           selections.push(...nestedSelections);
@@ -303,7 +261,7 @@ function collectTopLevelSelections(
       } else {
         selections.push([
           selection,
-          collectTopLevelSelections(selectionSet, fragments, context),
+          collectTopLevelSelections(selectionSet, fragmentMap),
         ]);
       }
     }
@@ -352,6 +310,8 @@ function collectConditionalVariables(selectionCollection: SelectionCollection) {
           variable[directiveName] = (ifValue as BooleanValueNode).value;
         }
       }
+
+      //TODO: recurse into selection[1]
     }
     variables.push(variable);
   }
@@ -394,13 +354,15 @@ function executionNodeForGroup(
         operation: context.operation.operation,
       });
 
+  const inclusionConditions = collectInclusionConditions(operation);
+
   const fetchNode: FetchNode = {
     kind: 'Fetch',
     serviceName,
     requires: requires ? trimSelectionNodes(requires?.selections) : undefined,
     variableUsages: Object.keys(variableUsages),
     operation: stripIgnoredCharacters(print(operation)),
-    document: operation,
+    ...(inclusionConditions ? { inclusionConditions } : {}),
   };
 
   const node: PlanNode =

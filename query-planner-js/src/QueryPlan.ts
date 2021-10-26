@@ -1,8 +1,4 @@
-import {
-  DocumentNode,
-  Kind,
-  SelectionNode as GraphQLJSSelectionNode,
-} from 'graphql';
+import { Kind, SelectionNode as GraphQLJSSelectionNode } from 'graphql';
 import prettyFormat from 'pretty-format';
 import { queryPlanSerializer, astSerializer } from './snapshotSerializers';
 
@@ -31,7 +27,6 @@ export interface FetchNode {
   variableUsages?: string[];
   requires?: QueryPlanSelectionNode[];
   operation: string;
-  document: DocumentNode;
   inclusionConditions?: {
     skip?: string | boolean;
     include?: string | boolean;

@@ -2,11 +2,7 @@ import gql from 'graphql-tag';
 import { defineFeature, loadFeature } from 'jest-cucumber';
 import { DocumentNode } from 'graphql';
 
-import {
-  QueryPlan,
-  BuildQueryPlanOptions,
-  serializeQueryPlan,
-} from '@apollo/query-planner';
+import { QueryPlan, BuildQueryPlanOptions } from '@apollo/query-planner';
 import { buildOperationContext } from '../operationContext';
 import { getFederatedTestingSchema } from './execution-utils';
 
@@ -54,9 +50,7 @@ features.forEach((feature) => {
 
             const parsedExpectedPlan = JSON.parse(expectedQueryPlan);
 
-            expect(serializeQueryPlan(queryPlan)).toEqual(
-              serializeQueryPlan(parsedExpectedPlan),
-            );
+            expect(queryPlan).toEqual(parsedExpectedPlan);
           })
         }
 
