@@ -28,8 +28,8 @@ export interface FetchNode {
   requires?: QueryPlanSelectionNode[];
   operation: string;
   inclusionConditions?: {
-    skip?: string | boolean;
-    include?: string | boolean;
+    skip: string | boolean | null;
+    include: string | boolean | null;
   }[]
 }
 

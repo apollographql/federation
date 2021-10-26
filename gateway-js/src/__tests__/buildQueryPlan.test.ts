@@ -1717,7 +1717,7 @@ describe('buildQueryPlan', () => {
 
       expect(
         (getQueryPlan(operation).node as FetchNode).inclusionConditions,
-      ).toEqual([{ skip: true }]);
+      ).toEqual([{ skip: true, include: null }]);
     });
 
     it('simple include', () => {
@@ -1731,7 +1731,7 @@ describe('buildQueryPlan', () => {
 
       expect(
         (getQueryPlan(operation).node as FetchNode).inclusionConditions,
-      ).toEqual([{ include: false }]);
+      ).toEqual([{ include: false, skip: null }]);
     });
 
     it('simple include with variables', () => {
@@ -1745,7 +1745,7 @@ describe('buildQueryPlan', () => {
 
       expect(
         (getQueryPlan(operation).node as FetchNode).inclusionConditions,
-      ).toEqual([{ include: 'shouldInclude' }]);
+      ).toEqual([{ include: 'shouldInclude', skip: null }]);
     });
 
     it('simple skip with variables', () => {
@@ -1759,7 +1759,7 @@ describe('buildQueryPlan', () => {
 
       expect(
         (getQueryPlan(operation).node as FetchNode).inclusionConditions,
-      ).toEqual([{ skip: 'shouldSkip' }]);
+      ).toEqual([{ skip: 'shouldSkip', include: null }]);
     });
 
     it('not all top-levels have conditionals', () => {
@@ -1793,7 +1793,10 @@ describe('buildQueryPlan', () => {
 
       expect(
         (getQueryPlan(operation).node as FetchNode).inclusionConditions,
-      ).toEqual([{ skip: 'shouldSkip' }, { skip: true }]);
+      ).toEqual([
+        { skip: 'shouldSkip', include: null },
+        { skip: true, include: null },
+      ]);
     });
 
     it('all top-levels use literals (include case)', () => {
@@ -1827,7 +1830,10 @@ describe('buildQueryPlan', () => {
 
       expect(
         (getQueryPlan(operation).node as FetchNode).inclusionConditions,
-      ).toEqual([{ skip: true }, { include: false }]);
+      ).toEqual([
+        { skip: true, include: null },
+        { include: false, skip: null },
+      ]);
     });
 
     it('skip: false, include: false', () => {
@@ -1902,7 +1908,7 @@ describe('buildQueryPlan', () => {
 
         expect(
           (getQueryPlan(operation).node as FetchNode).inclusionConditions,
-        ).toEqual([{ skip: 'shouldSkip' }]);
+        ).toEqual([{ skip: 'shouldSkip', include: null }]);
       });
 
       it('conditionals on top-level inline fragments are captured', () => {
@@ -1918,7 +1924,7 @@ describe('buildQueryPlan', () => {
 
         expect(
           (getQueryPlan(operation).node as FetchNode).inclusionConditions,
-        ).toEqual([{ skip: 'shouldSkip' }]);
+        ).toEqual([{ skip: 'shouldSkip', include: null }]);
       });
 
       it.todo(

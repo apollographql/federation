@@ -99,13 +99,13 @@ function printInclusionConditions(node: FetchNode) {
     ? `, inclusionConditions: [${node.inclusionConditions
         .map((e) => {
           return `{ ${
-            'include' in e
+            e.include !== null
               ? `include: ${
                   typeof e.include === 'string' ? `"${e.include}"` : e.include
                 }`
               : ''
-          }${'include' in e && 'skip' in e ? ', ' : ''}${
-            'skip' in e
+          }${e.include !== null && e.skip !== null ? ', ' : ''}${
+            e.skip !== null
               ? `skip: ${typeof e.skip === 'string' ? `"${e.skip}"` : e.skip}`
               : ''
           } }`;

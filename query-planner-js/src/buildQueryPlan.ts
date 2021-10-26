@@ -25,9 +25,8 @@ import {
   stripIgnoredCharacters,
   SelectionNode,
   DirectiveNode,
-  FragmentSpreadNode,
-  InlineFragmentNode,
   BooleanValueNode,
+  VariableNode,
 } from 'graphql';
 import {
   Field,
@@ -160,18 +159,26 @@ export function findDirectivesOnNode<
 function collectInclusionConditions(document: DocumentNode) {
   const { operation, fragmentMap } = getOperationAndFragments(document);
 
-  const topLevelSelections = collectTopLevelSelections(
+  const conditionalTree = buildConditionalTree(
     operation.selectionSet,
     fragmentMap,
   );
 
-  // TODO: insufficient
-  const allTopLevelsHaveConditional =
-    topLevelSelections.every(isNotNullOrUndefined);
+  let allTopLevelsHaveConditional = true;
+  const inclusionConditions: {
+    skip: boolean | string | null;
+    include: boolean | string | null;
+  }[] = [];
+  walkConditionalTree(conditionalTree, (node) => {
+    if (node === null || (Array.isArray(node) && node[0] === null)) {
+      allTopLevelsHaveConditional = false;
+    }
+    if (node !== null && !Array.isArray(node)) {
+      inclusionConditions.push(node);
+    }
+  });
 
-  // collect variables
   if (allTopLevelsHaveConditional) {
-    const inclusionConditions = collectConditionalVariables(topLevelSelections);
     // Short circuit inclusion when, for any condition either is true:
     //  1. include is true AND (skip is either not specified or false)
     //  2. skip is false AND (include is either not specified or true)
@@ -179,12 +186,12 @@ function collectInclusionConditions(document: DocumentNode) {
       inclusionConditions.some(
         (v) =>
           v.include === true &&
-          (typeof v.skip === 'undefined' || v.skip === false),
+          (v.skip === null || v.skip === false),
       ) ||
       inclusionConditions.some(
         (v) =>
           v.skip === false &&
-          (typeof v.include === 'undefined' || v.include === true),
+          (v.include === null || v.include === true),
       )
     ) {
       // In these cases we make no modification to the FetchNode - it should
@@ -196,47 +203,52 @@ function collectInclusionConditions(document: DocumentNode) {
   return null;
 }
 
-type SelectionCollection = (
-  | SelectionNode
+function collectConditionalValues(selection: SelectionNode) {
+  const skips = findDirectivesOnNode(selection, 'skip');
+  const includes = findDirectivesOnNode(selection, 'include');
+
+  const skip = skips.length > 0 ? extractConditionalValue(skips[0]) : null;
+  const include =
+    includes.length > 0 ? extractConditionalValue(includes[0]) : null;
+
+  return { skip, include };
+}
+
+function extractConditionalValue(conditionalDirective: DirectiveNode) {
+  const conditionalArg = conditionalDirective.arguments![0].value as
+    | BooleanValueNode
+    | VariableNode;
+
+  return 'name' in conditionalArg
+    ? conditionalArg.name.value
+    : conditionalArg.value;
+}
+
+interface ConditionalValue {
+  skip: string | boolean | null;
+  include: string | boolean | null;
+}
+
+type ConditionalTreeNode =
   | null
-  | [FragmentSpreadNode | InlineFragmentNode, SelectionCollection]
-)[];
+  | ConditionalValue
+  | [ConditionalValue, ConditionalTreeNode[]];
+type ConditionalTree = ConditionalTreeNode[];
 
-function hasConditionalDirectives(selection: SelectionNode): boolean {
-  return collectConditionalDirectives(selection).length > 0;
-}
-
-function collectConditionalDirectives(selection: SelectionNode) {
-  return [
-    ...findDirectivesOnNode(selection, 'skip'),
-    ...findDirectivesOnNode(selection, 'include'),
-  ];
-}
-
-/**
- * This fn builds up a list of the following:
- *   1. SelectionNode
- *   2. [FragmentSpreadNode, SelectionCollection]
- *   3. [InlineFragmentNode, SelectionCollection]
- *
- * This is recursive, and it's necessary to maintain associations from a
- * FragmentSpread (or InlineFragment) to its selections - hence the tuples.
- */
-function collectTopLevelSelections(
-  selectionSet: SelectionSetNode,
-  fragmentMap: Fragments,
-): SelectionCollection {
-  const selections: SelectionCollection = [];
+function buildConditionalTree(selectionSet: SelectionSetNode, fragmentMap: Fragments) {
+  const conditionalTree: ConditionalTree = [];
 
   // Inspecting the top-level selections only
   for (const selection of selectionSet.selections) {
     if (selection.kind === Kind.FIELD) {
-      if (hasConditionalDirectives(selection)) {
-        selections.push(selection);
+      const { skip, include } = collectConditionalValues(selection);
+
+      if (skip !== null || include !== null) {
+        conditionalTree.push({ skip, include });
       } else {
         // Any `null`s will inform us that we can't skip this selection since it
         // means that no conditionals were found.
-        selections.push(null);
+        conditionalTree.push(null);
       }
     } else if (
       selection.kind === Kind.FRAGMENT_SPREAD ||
@@ -246,77 +258,50 @@ function collectTopLevelSelections(
         selection.kind === Kind.FRAGMENT_SPREAD
           ? fragmentMap.get(selection.name.value)!
           : selection;
-      if (!hasConditionalDirectives(selection)) {
+
+      const { skip, include } = collectConditionalValues(selection);
+      if (skip === null && include === null) {
         // If the Fragment selection itself has no conditionals, we can treat its
         // selections as if they were top-level selections.
-        const nestedSelections = collectTopLevelSelections(
+        const nestedSelections = buildConditionalTree(
           selectionSet,
           fragmentMap,
         );
         if (nestedSelections) {
-          selections.push(...nestedSelections);
+          conditionalTree.push(...nestedSelections);
         } else {
-          selections.push(null);
+          conditionalTree.push(null);
         }
       } else {
-        selections.push([
-          selection,
-          collectTopLevelSelections(selectionSet, fragmentMap),
+        conditionalTree.push([
+          { skip, include },
+          buildConditionalTree(selectionSet, fragmentMap),
         ]);
       }
     }
   }
-  return selections;
+  return conditionalTree;
 }
 
-function collectConditionalVariables(selectionCollection: SelectionCollection) {
-  const variables: {
-    skip?: string | boolean;
-    include?: string | boolean;
-  }[] = [];
+function walkConditionalTree(
+  tree: ConditionalTree,
+  fn: (node: ConditionalTreeNode) => void,
+) {
+  tree.forEach((node) => walkConditionalTreeNode(node, fn));
+}
 
-  for (const selection of selectionCollection) {
-    // shouldn't be possible for null here
-    if (!selection) continue;
-    const variable: {
-      skip?: string | boolean;
-      include?: string | boolean;
-    } = {};
-    if (!Array.isArray(selection)) {
-      const conditionalDirectives =
-        collectConditionalDirectives(selection);
-      for (const conditionalDirective of conditionalDirectives) {
-        const directiveName = conditionalDirective.name.value as
-          | 'skip'
-          | 'include';
-        const ifValue = conditionalDirective.arguments![0].value;
-        if (ifValue.kind === Kind.VARIABLE) {
-          variable[directiveName] = ifValue.name.value;
-        } else {
-          variable[directiveName] = (ifValue as BooleanValueNode).value;
-        }
-      }
-    } else {
-      const conditionalDirectives =
-        collectConditionalDirectives(selection[0]);
-      for (const conditionalDirective of conditionalDirectives) {
-        const directiveName = conditionalDirective.name.value as
-          | 'skip'
-          | 'include';
-        const ifValue = conditionalDirective.arguments![0].value;
-        if (ifValue.kind === Kind.VARIABLE) {
-          variable[directiveName] = ifValue.name.value;
-        } else {
-          variable[directiveName] = (ifValue as BooleanValueNode).value;
-        }
-      }
-
-      //TODO: recurse into selection[1]
-    }
-    variables.push(variable);
+function walkConditionalTreeNode(
+  node: ConditionalTreeNode,
+  fn: (node: ConditionalTreeNode) => void,
+) {
+  if (Array.isArray(node)) {
+    fn(node);
+    node[1].forEach((n) => {
+      walkConditionalTreeNode(n, fn);
+    });
+  } else {
+    fn(node);
   }
-
-  return variables;
 }
 
 function executionNodeForGroup(

@@ -265,26 +265,23 @@ export function shouldSkipFetchNode(
     const shouldSkip = node.inclusionConditions.every((conditionals) => {
       function resolveConditionalValue(conditional: 'skip' | 'include') {
         const conditionalType = typeof conditionals[conditional];
-        switch (conditionalType) {
-          case 'boolean':
-            return conditionals[conditional] as boolean;
-          case 'string':
-            return variables[conditionals[conditional] as string] as boolean;
-          case 'undefined':
-            return undefined;
-          default:
-            throw new Error('Programming error: unexpected conditional type');
+        if (conditionalType === 'boolean') {
+          return conditionals[conditional] as boolean;
+        } else if (conditionalType === 'string') {
+          return variables[conditionals[conditional] as string] as string;
+        } else {
+          return null;
         }
       }
 
       const includeValue = resolveConditionalValue('include');
       const skipValue = resolveConditionalValue('skip');
 
-      if (includeValue !== undefined && skipValue !== undefined) {
+      if (includeValue !== null && skipValue !== null) {
         return !includeValue || skipValue;
-      } else if (includeValue !== undefined) {
+      } else if (includeValue !== null) {
         return !includeValue;
-      } else if (skipValue !== undefined) {
+      } else if (skipValue !== null) {
         return skipValue;
       }
 
