@@ -202,7 +202,7 @@ describe('value types', () => {
 
         type ValueType {
           id: ID!
-          user: User! @provides(fields: "id name")
+          user: User! @provides(fields: "name")
         }
 
         extend type User @key(fields: "id") {
@@ -228,7 +228,7 @@ describe('value types', () => {
 
         type ValueType {
           id: ID!
-          user: User! @provides(fields: "id name")
+          user: User! @provides(fields: "name")
         }
 
         extend type User @key(fields: "id") {

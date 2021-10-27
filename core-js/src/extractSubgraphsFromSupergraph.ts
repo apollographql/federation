@@ -85,7 +85,8 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     } else {
       for (const application of typeApplications) {
         const args = application.arguments();
-        const schema = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!.schema; 
+        const subgraphName = graphEnumNameToSubgraphName.get(args.graph)!;
+        const schema = subgraphs.get(subgraphName)!.schema;
         // We can have more than one type directive for a given subgraph
         let subgraphType = schema.type(type.name);
         if (!subgraphType) {

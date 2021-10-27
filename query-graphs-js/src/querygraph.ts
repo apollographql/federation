@@ -29,7 +29,7 @@ import {
   mapKeys,
   firstOf,
   FEDERATION_RESERVED_SUBGRAPH_NAME,
-  ALL_SUBTYPING_RULES
+  ALL_SUBTYPING_RULES,
 } from '@apollo/core';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, QueryResolution } from './transition';

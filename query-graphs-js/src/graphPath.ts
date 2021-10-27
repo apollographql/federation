@@ -183,6 +183,22 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return this.edgeIndexes.length;
   }
 
+  subgraphJumps(): number {
+    let jumps = 0;
+    let v: Vertex = this.root;
+    for (let i = 0; i < this.size; i++) {
+      const edge = this.edgeAt(i, v);
+      if (!edge) {
+        continue;
+      }
+      if (edge.transition.kind === 'KeyResolution' || edge.transition.kind === 'QueryResolution') {
+        ++jumps;
+      }
+      v = edge.tail;
+    }
+    return jumps;
+  }
+
   [Symbol.iterator](): PathIterator<TTrigger, TNullEdge> {
     const path = this;
     return {
@@ -305,7 +321,6 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       edge?.transition?.kind === 'DownCast' ? this.runtimeTypesOfTail : undefined
     );
   }
-
 
   /**
    * Creates a new path corresponding to concatenating the provide path _after_ this path.
@@ -1123,7 +1138,7 @@ export function additionalKeyEdgeForRequireEdge(graph: QueryGraph, requireEdge: 
   // which is not perfect, as maybe we can't satisfy that key but we could another, but this ensure
   // query planning later knows which keys to use. We'd have to communicate that somehow otherwise.
   const firstKeyEdge = graph.outEdges(requireEdge.head).find(e => e.transition.kind === 'KeyResolution');
-  assert(firstKeyEdge, () => `This should not have been called if for ${requireEdge} if ${requireEdge.head.type} has no key directive`);
+  assert(firstKeyEdge, () => `This should not have been called if for ${requireEdge} if ${requireEdge.head.type} has no key directive (all edges: [${graph.outEdges(requireEdge.head).join(', ')})])`);
   return firstKeyEdge;
 }
 

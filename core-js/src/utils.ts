@@ -30,10 +30,16 @@ export class MultiMap<K, V> extends Map<K, V[]> {
 }
 
 /**
- * Tests if the provided arrays have the same elements (using '===' equality).
- * This is _not_ a deep equality.
+ * Tests if the provided arrays have the same elements (using '===' equality or the provided
+ * equality function).
+ * This is _not_ a deep equality by default, though you can build one somewhat when passing
+ * an equality function.
  */
-export function arrayEquals<T>(a: readonly T[], b: readonly T[]) {
+export function arrayEquals<T>(
+  a: readonly T[],
+  b: readonly T[],
+  equalFct?: (e1: T, e2: T) => boolean
+): boolean {
   if (a === b) {
     return true;
   }
@@ -41,7 +47,8 @@ export function arrayEquals<T>(a: readonly T[], b: readonly T[]) {
     return false;
   }
   for (let i = 0; i < a.length; ++i) {
-    if (a[i] !== b[i]) {
+    const eltEqual = equalFct ? equalFct(a[i], b[i]) : a[i] === b[i];
+    if (!eltEqual) {
       return false;
     }
   }

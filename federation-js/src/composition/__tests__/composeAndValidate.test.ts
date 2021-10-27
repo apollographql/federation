@@ -211,7 +211,7 @@ it('treats types with @extends as type extensions', () => {
     typeDefs: gql`
       type Product @extends @key(fields: "sku") {
         sku: String! @external
-        price: Int! @requires(fields: "sku")
+        price: Int!
       }
     `,
     name: 'serviceB',

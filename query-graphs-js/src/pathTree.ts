@@ -1,5 +1,5 @@
-import { assert, copyWitNewLength } from "@apollo/core";
-import { GraphPath, OpTrigger, PathIterator } from "./graphPath";
+import { arrayEquals, assert, copyWitNewLength } from "@apollo/core";
+import { GraphPath, OpGraphPath, OpTrigger, PathIterator } from "./graphPath";
 import { Edge, QueryGraph, RootVertex, isRootVertex, Vertex } from "./querygraph";
 import { isPathContext } from "./pathContext";
 
@@ -23,6 +23,19 @@ type Child<TTrigger, RV extends Vertex, TNullEdge extends null | never> = {
   tree: PathTree<TTrigger, RV, TNullEdge>
 }
 
+function findTriggerIdx<TTrigger, TElements>(
+  triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
+  forIndex: [TTrigger, OpPathTree | null, TElements][],
+  trigger: TTrigger
+): number {
+  for (let i = 0; i < forIndex.length; i++) {
+    if (triggerEquality(forIndex[i][0], trigger)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> {
   private constructor(
     readonly graph: QueryGraph,
@@ -42,6 +55,151 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
 
   static createOp<RV extends Vertex = Vertex>(graph: QueryGraph, root: RV): OpPathTree<RV> {
     return this.create(graph, root, opTriggerEquality);
+  }
+
+  static createFromOpPaths<RV extends Vertex = Vertex>(graph: QueryGraph, root: RV, paths: OpGraphPath<RV>[]): OpPathTree<RV> {
+    assert(paths.length > 0, `Should compute on empty paths`);
+
+    return this.createFromPaths(
+      graph,
+      opTriggerEquality,
+      root,
+      paths.map(p => p[Symbol.iterator]())
+    );
+  }
+
+  private static createFromPaths<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never>(
+    graph: QueryGraph,
+    triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
+    currentVertex: RV,
+    paths: PathIterator<TTrigger, TNullEdge>[]
+  ): PathTree<TTrigger, RV, TNullEdge> {
+    const maxEdges = graph.outEdges(currentVertex).length;
+    // We store 'null' edges at `maxEdges` index
+    const forEdgeIndex: [TTrigger, OpPathTree | null, PathIterator<TTrigger, TNullEdge>[]][][] = new Array(maxEdges + 1);
+    const newVertices: Vertex[] = new Array(maxEdges);
+    const order: number[] = new Array(maxEdges + 1);
+    let currentOrder = 0;
+    let totalChilds = 0;
+    for (const path of paths) {
+      const iterResult = path.next();
+      if (iterResult.done) {
+        continue;
+      }
+      const [edge, trigger, conditions] = iterResult.value;
+      const idx = edge ? edge.index : maxEdges;
+      if (edge) {
+        newVertices[idx] = edge.tail;
+      }
+      let forIndex = forEdgeIndex[idx];
+      if (forIndex) {
+        const triggerIdx = findTriggerIdx(triggerEquality, forIndex, trigger);
+        if (triggerIdx < 0) {
+          forIndex.push([trigger, conditions, [path]]);
+          totalChilds++;
+        } else {
+          const existing = forIndex[triggerIdx];
+          const existingCond = existing[1];
+          const mergedConditions = existingCond ? (conditions ? existingCond.mergeIfNotEqual(conditions) : existingCond) : conditions;
+          const newPaths = existing[2];
+          newPaths.push(path);
+          forIndex[triggerIdx] = [trigger, mergedConditions, newPaths];
+          // Note that as we merge, we don't create a new child
+        }
+      } else {
+        // First time we see someone from that index; record the order
+        order[currentOrder++] = idx;
+        forEdgeIndex[idx] = [[trigger, conditions, [path]]];
+        totalChilds++;
+      }
+    }
+
+    const childs: Child<TTrigger, Vertex, TNullEdge>[] = new Array(totalChilds);
+    let idx = 0;
+    for (let i = 0; i < currentOrder; i++) {
+      const edgeIndex = order[i];
+      const index = (edgeIndex === maxEdges ? null : edgeIndex) as number | TNullEdge;
+      const newVertex = index === null ? currentVertex : newVertices[edgeIndex];
+      const values = forEdgeIndex[edgeIndex];
+      for (let [trigger, conditions, subPaths] of values) {
+        childs[idx++] = {
+          index,
+          trigger,
+          conditions,
+          tree: this.createFromPaths(graph, triggerEquality, newVertex, subPaths)
+        };
+      }
+    }
+    assert(idx === totalChilds, () => `Expected to have ${totalChilds} childs but only ${idx} added`);
+    return new PathTree<TTrigger, RV, TNullEdge>(graph, currentVertex, triggerEquality, childs);
+  }
+
+  // Assumes all root are rooted on the same vertex
+  static mergeAllOpTrees<RV extends Vertex = Vertex>(graph: QueryGraph, root: RV, trees: OpPathTree<RV>[]): OpPathTree<RV> {
+    return this.mergeAllTreesInternal(graph, opTriggerEquality, root, trees);
+  }
+
+  private static mergeAllTreesInternal<TTrigger, RV extends Vertex, TNullEdge extends null | never>(
+    graph: QueryGraph,
+    triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
+    currentVertex: RV,
+    trees: PathTree<TTrigger, RV, TNullEdge>[]
+  ): PathTree<TTrigger, RV, TNullEdge> {
+    const maxEdges = graph.outEdges(currentVertex).length;
+    // We store 'null' edges at `maxEdges` index
+    const forEdgeIndex: [TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>[]][][] = new Array(maxEdges + 1);
+    const newVertices: Vertex[] = new Array(maxEdges);
+    const order: number[] = new Array(maxEdges + 1);
+    let currentOrder = 0;
+    let totalChilds = 0;
+    for (const tree of trees) {
+      for (const child of tree.childs) {
+        const idx = child.index === null ? maxEdges : child.index;
+        if (!newVertices[idx]) {
+          newVertices[idx] = child.tree.vertex;
+        }
+        let forIndex = forEdgeIndex[idx];
+        if (forIndex) {
+          const triggerIdx = findTriggerIdx(triggerEquality, forIndex, child.trigger);
+          if (triggerIdx < 0) {
+            forIndex.push([child.trigger, child.conditions, [child.tree]]);
+            totalChilds++;
+          } else {
+            const existing = forIndex[triggerIdx];
+            const existingCond = existing[1];
+            const mergedConditions = existingCond ? (child.conditions ? existingCond.mergeIfNotEqual(child.conditions) : existingCond) : child.conditions;
+            const newTrees = existing[2];
+            newTrees.push(child.tree);
+            forIndex[triggerIdx] = [child.trigger, mergedConditions, newTrees];
+            // Note that as we merge, we don't create a new child
+          }
+        } else {
+          // First time we see someone from that index; record the order
+          order[currentOrder++] = idx;
+          forEdgeIndex[idx] = [[child.trigger, child.conditions, [child.tree]]];
+          totalChilds++;
+        }
+      }
+    }
+
+    const childs: Child<TTrigger, Vertex, TNullEdge>[] = new Array(totalChilds);
+    let idx = 0;
+    for (let i = 0; i < currentOrder; i++) {
+      const edgeIndex = order[i];
+      const index = (edgeIndex === maxEdges ? null : edgeIndex) as number | TNullEdge;
+      const newVertex = index === null ? currentVertex : newVertices[edgeIndex];
+      const values = forEdgeIndex[edgeIndex];
+      for (let [trigger, conditions, subTrees] of values) {
+        childs[idx++] = {
+          index,
+          trigger,
+          conditions,
+          tree: this.mergeAllTreesInternal(graph, triggerEquality, newVertex, subTrees)
+        };
+      }
+    }
+    assert(idx === totalChilds, () => `Expected to have ${totalChilds} childs but only ${idx} added`);
+    return new PathTree<TTrigger, RV, TNullEdge>(graph, currentVertex, triggerEquality, childs);
   }
 
   childCount(): number {
@@ -80,9 +238,16 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     return {
       index: c1.index,
       trigger: c1.trigger,
-      conditions: cond1 ? (cond2 ? cond1.merge(cond2) : cond1) : cond2,
+      conditions: cond1 ? (cond2 ? cond1.mergeIfNotEqual(cond2) : cond1) : cond2,
       tree: c1.tree.merge(c2.tree)
     };
+  }
+
+  mergeIfNotEqual(other: PathTree<TTrigger, RV, TNullEdge>): PathTree<TTrigger, RV, TNullEdge> {
+    if (this.equalsSameRoot(other)) {
+      return this;
+    }
+    return this.merge(other);
   }
 
   merge(other: PathTree<TTrigger, RV, TNullEdge>): PathTree<TTrigger, RV, TNullEdge> {
@@ -114,16 +279,33 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     const thisSize = this.childs.length;
     const newSize = thisSize + countToAdd;
     const newChilds = copyWitNewLength(this.childs, newSize);
+    let addIdx = thisSize;
     for (let i = 0; i < other.childs.length; i++) {
       const idx = mergeIndexes[i];
       if (idx < 0) {
-        newChilds[thisSize + i] = other.childs[i];
+        newChilds[addIdx++] = other.childs[i];
       } else {
         newChilds[idx] = this.mergeChilds(newChilds[idx], other.childs[i]);
       }
     }
+    assert(addIdx === newSize, () => `Expected ${newSize} childs but only got ${addIdx}`);
 
     return new PathTree(this.graph, this.vertex, this.triggerEquality, newChilds);
+  }
+
+  private equalsSameRoot(that: PathTree<TTrigger, RV, TNullEdge>): boolean {
+    if (this === that) {
+      return true;
+    }
+
+    // Note that we use '===' for trigger instead of `triggerEquality`: this method is all about avoid unecessary merging
+    // when we suspect conditions trees have been build from the exact same inputs and `===` is faster and good enough for this.
+    return arrayEquals(this.childs, that.childs, (c1, c2) => {
+      return c1.index === c2.index
+        && c1.trigger === c2.trigger
+        && (c1.conditions ? (c2.conditions ? c1.conditions.equalsSameRoot(c2.conditions) : false) : !c2.conditions)
+        && c1.tree.equalsSameRoot(c2.tree);
+    });
   }
 
   // Like merge(), this create a new tree that contains the content of both `this` and `other` to this pathTree, but contrarily 
@@ -221,6 +403,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
   toString(indent: string = "", includeConditions: boolean = false): string {
     return this.toStringInternal(indent, includeConditions);
   }
+
 
   private toStringInternal(indent: string, includeConditions: boolean): string {
     if (this.isLeaf()) {

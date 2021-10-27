@@ -665,7 +665,7 @@ class Merger {
         continue;
       }
 
-      //There is either 1 join__type per-key, or if there is no key, just one for the type.
+      // There is either 1 join__type per-key, or if there is no key, just one for the type.
       const sourceSchema = this.subgraphsSchema[idx];
       const keys = source.appliedDirectivesOf(federationBuiltIns.keyDirective(sourceSchema));
       const name = this.joinSpecName(idx);

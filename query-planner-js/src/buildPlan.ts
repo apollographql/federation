@@ -1,4 +1,4 @@
-import { 
+import {
   assert,
   arrayEquals,
   baseType,
@@ -64,35 +64,19 @@ import {
   additionalKeyEdgeForRequireEdge,
   addConditionExclusion,
   SimultaneousPathsWithLazyIndirectPaths,
+  simultaneousPathsToString,
+  SimultaneousPaths,
 } from "@apollo/query-graphs";
 import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
 
-class State<RV extends Vertex> {
-  constructor(
-    readonly openPaths: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][],
-    readonly closedPaths: OpPathTree<RV>
-  ) {
-  }
-
-  withOpenPaths(newOpenPaths: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][]): State<RV> {
-    return new State(this.openPaths.concat(newOpenPaths), this.closedPaths);
-  }
-
-  withClosedPaths(options: SimultaneousPathsWithLazyIndirectPaths<RV>[]): State<RV>[] {
-    return options.map(path => new State(this.openPaths.concat(), path.paths.reduce((closed, p) => closed.mergePath(p), this.closedPaths)));
-  }
-
-  isTerminal(): boolean {
-    return this.openPaths.length === 0;
-  }
-
-  toString(): string {
-    return `OPEN\n${this.openPaths.map(([n, p]) => ` > ${n.element()} => ${advanceOptionsToString(p)}`).join('\n')}\nCLOSED\n${this.closedPaths}`;
-  }
-}
+// If a query can be resolved by more than this number of plans, we'll try to reduce the possible options we'll look
+// at to get it below this number to void query planning running forever.
+// Note that this number is a tad arbitrary: it's a nice round number that, on my laptop, ensure query planning don't
+// take more than a handful of seconds.
+const MAX_COMPUTED_PLANS = 10000;
 
 function mapOptionsToSelections<RV extends Vertex>(
   selectionSet: SelectionSet,
@@ -104,17 +88,17 @@ function mapOptionsToSelections<RV extends Vertex>(
 
 class QueryPlanningTaversal<RV extends Vertex> {
   // The stack contains all states that aren't terminal.
-  private readonly stack: State<RV>[] = [];
   private bestPlan: [FetchDependencyGraph, OpPathTree<RV>, number] | undefined;
   private readonly isTopLevel: boolean;
   private conditionResolver: ConditionResolver;
 
+  private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
+  private readonly closedBranches: SimultaneousPaths<RV>[][] = [];
+
   constructor(
-    readonly supergraphSchema: Schema,
-    readonly subgraphs: QueryGraph,
-    selectionSet: SelectionSet,
+    readonly supergraphSchema: Schema, readonly subgraphs: QueryGraph, selectionSet: SelectionSet,
     readonly variableDefinitions: VariableDefinitions,
-    startVertex: RV,
+    private readonly startVertex: RV,
     readonly costFunction: CostFunction,
     initialContext: PathContext,
     excludedEdges: ExcludedEdges = [],
@@ -127,21 +111,15 @@ class QueryPlanningTaversal<RV extends Vertex> {
     );
 
     const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
-    const initialTree = PathTree.createOp(subgraphs, startVertex);
     const initialOptions = [ new SimultaneousPathsWithLazyIndirectPaths([initialPath], initialContext, this.conditionResolver, excludedEdges, excludedConditions)];
-    this.stack.push(new State(mapOptionsToSelections(selectionSet, initialOptions), initialTree));
+    this.stack = mapOptionsToSelections(selectionSet, initialOptions);
   }
 
   private debugStack() {
     if (this.isTopLevel && debug.enabled) {
-      debug.group('Query planning stack:');
-      for (const [i, state] of this.stack.entries()) {
-        debug.group(`State ${i}:`);
-        debug.groupedValues(state.openPaths, ([n, p]) => `${n.element()} => ${advanceOptionsToString(p)}`, 'OPEN');
-        debug.group('CLOSED');
-        debug.log(state.closedPaths.toString());
-        debug.groupEnd();
-        debug.groupEnd();
+      debug.group('Query planning open branches:');
+      for (const [selection, options] of this.stack) {
+        debug.groupedValues(options, opt => `${simultaneousPathsToString(opt)}`, `${selection}:`);
       }
       debug.groupEnd();
     }
@@ -150,13 +128,14 @@ class QueryPlanningTaversal<RV extends Vertex> {
   findBestPlan(): [FetchDependencyGraph, OpPathTree<RV>, number] | undefined {
     while (this.stack.length > 0) {
       this.debugStack();
-      this.handleState(this.stack.pop()!);
+      const [selection, options] = this.stack.pop()!;
+      this.handleOpenBranch(selection, options);
     }
+    this.computeBestPlanFromClosedBranches();
     return this.bestPlan;
   }
 
-  private handleState(state: State<RV>) {
-    const [selection, options] = state.openPaths.pop()!;
+  private handleOpenBranch(selection: Selection, options: SimultaneousPathsWithLazyIndirectPaths<RV>[]) {
     const operation = selection.element();
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
@@ -171,35 +150,203 @@ class QueryPlanningTaversal<RV extends Vertex> {
         // with prior condition, has no intersection). Given that (assuming the user do properly resolve all versions of a
         // given field the same way from all subgraphs) all options should return the same results, we know that operation
         // should return no result from all options (even if we can't provide it technically) and it's valid to just
-        // ignore the operation (which we've already pop'ed from the state).
-        this.onUpdatedState(state);
+        // ignore the operation.
         return;
       }
       newOptions = newOptions.concat(followupForOption);
     }
 
     if (newOptions.length === 0) {
-      // If we have no options, this state is just a dead-end and we can ignore it.
+      // If we have no options, it means there is no way to build a plan for that branch, and
+      // that means the whole query planning has no plan.
+      // This should never happen for a top-level query planning (unless the supergraph has *not* been
+      // validated), but can happen when computing sub-plans for a key condition.
+      if (this.isTopLevel) {
+        debug.log(`No valid options to advance ${selection} from ${advanceOptionsToString(options)}`);
+        throw new Error(`Was not able to find any options for ${selection}: This shouldn't have happened.`);
+      } else {
+        // We clear both open branches and closed ones as a mean to terminal the plan computation with
+        // no plan
+        this.stack.splice(0, this.stack.length);
+        this.closedBranches.splice(0, this.closedBranches.length);
+        return;
+      }
+    }
+
+    if (selection.selectionSet) {
+      for (const branch of mapOptionsToSelections(selection.selectionSet, newOptions)) {
+        this.stack.push(branch);
+      }
+    } else {
+      const updated = this.maybeEliminateStrictlyMoreCostlyPaths(newOptions);
+      this.closedBranches.push(updated);
+    }
+  }
+
+  // This method should be applied to "final" paths, that is when the tail of the paths is a leaf field. 
+  // TODO: this method was added for cases where we had the following options:
+  //   1) _ -[f1]-> T1(A) -[f2]-> T2(A) -[f3]-> T3(A) -[f4]-> Int(A)
+  //   2) _ -[f1]-> T1(A) -[f2]-> T2(A) -[key]-> T2(B) -[f3]-> T3(B) -[f4] -> Int(B)
+  // where clearly the 2nd option is not necessary (we're in A up to T2 in both case, so staying in A is never
+  // going to be more expensive that going to B; note that if _other_ branches do jump to B after T2(A) for
+  // other fieleds, the option 2 might well lead to a plan _as_ efficient as with option 1, but it will
+  // not be _more_ efficient).
+  // Anyway, while the implementation does handle this case, I believe it's a bit over-generic and can
+  // eliminiate options we could want to keep. Double-check that and fix.
+  private maybeEliminateStrictlyMoreCostlyPaths(options: SimultaneousPathsWithLazyIndirectPaths<RV>[]): SimultaneousPaths<RV>[] {
+    if (options.length === 1) {
+      return [options[0].paths];
+    }
+
+    const singlePathOptions = options.filter(opt => opt.paths.length === 1);
+    if (singlePathOptions.length === 0) {
+      // we can't easily compare multi-path options
+      return options.map(opt => opt.paths);
+    }
+
+    let minJumps = Number.MAX_SAFE_INTEGER;
+    let withMinJumps: SimultaneousPaths<RV>[] = [];
+    for (const option of singlePathOptions) {
+      const jumps = option.paths[0].subgraphJumps();
+      if (jumps < minJumps) {
+        minJumps = jumps;
+        withMinJumps = [option.paths];
+      } else if (jumps === minJumps) {
+        withMinJumps.push(option.paths);
+      }
+    }
+
+    // We then look at multi-path options. We can exclude those if the path with the least amount of jumps is
+    // more than our minJumps
+    for (const option of singlePathOptions.filter(opt => opt.paths.length > 1)) {
+      const jumps = option.paths.reduce((acc, p) => Math.min(acc, p.subgraphJumps()), Number.MAX_SAFE_INTEGER);
+      if (jumps <= minJumps) {
+        withMinJumps.push(option.paths);
+      }
+    }
+    return withMinJumps;
+  }
+
+  private newDependencyGraph(): FetchDependencyGraph {
+    return FetchDependencyGraph.create(this.subgraphs);
+  }
+
+  private computeBestPlanFromClosedBranches() {
+    if (this.closedBranches.length === 0) {
       return;
     }
 
-    if (!selection.selectionSet) {
-      this.onUpdatedStates(state.withClosedPaths(newOptions));
+    // We've computed all branches and need to compare all the possible plans to pick the best.
+    // Note however that "all the possible plans" is essentially a cartesian product of all
+    // the closed branches options, and if a lot of branches have multiple options, this can
+    // exponentially explode.
+    // So we first look at how many plans we'd have to generate, and if it's "too much", we
+    // reduce it to something manageable by arbitrarilly throwing out options. This effectively
+    // means that when a query has too many options, we give up on always finding the "best"
+    // query plan in favor of an "ok" query plan.
+    // TODO: currently, when we need to reduce options, we do so somewhat arbitrarilly. More
+    // precisely, we reduce the branches with the most options first and then drop the last
+    // option of the branch, repeating until we have a reasonable number of plans to consider.
+    // However, there is likely ways to drop options in a more "intelligent" way.
+
+    // We sort branches by those that have the most options first.
+    this.closedBranches.sort((b1, b2) => b1.length > b2.length ? -1 : (b1.length < b2.length ? 1 : 0));
+    let planCount = possiblePlans(this.closedBranches);
+    let firstBranch = this.closedBranches[0];
+    while (planCount > MAX_COMPUTED_PLANS && firstBranch.length > 1) {
+      // we remove the right-most option of the first branch, and them move that branch to it's new place.
+      const prevSize = firstBranch.length;
+      firstBranch.pop();
+      planCount -= planCount / prevSize;
+
+      // Move firstBranch to the end of all the branches having the same number of options (pre-removal)
+      for (let i = 1; i < this.closedBranches.length; i++) {
+        if (this.closedBranches[i].length < prevSize) {
+          // We've found the first element having the same number of elements than the updated one, so
+          // we switch the updated one with the "previous" (which has more elements). Note that we
+          // don't care about the order of branches having the same number of options so we can just
+          // switch (rather than move all elements in-between).
+          this.closedBranches[0] = this.closedBranches[i - 1];
+          this.closedBranches[i - 1] = firstBranch;
+          firstBranch = this.closedBranches[0];
+          break;
+        }
+      }
+      // Note that if firstBranch is our only branch, it's fine, we'll continue to remove options from
+      // it (but that is beyond unlikely).
+    }
+
+    // Note that usually, we'll have a majority of branches with just one option. We can group them in
+    // a PathTree first with no fuss. When then need to do a cartesian product between this created
+    // tree an other branches however to build the possible plans and chose.
+    let idxFirstOfLengthOne = 0;
+    while (idxFirstOfLengthOne < this.closedBranches.length && this.closedBranches[idxFirstOfLengthOne].length > 1) {
+      idxFirstOfLengthOne++;
+    }
+
+    let initialTree: OpPathTree<RV>;
+    let initialDependencyGraph: FetchDependencyGraph;
+    if (idxFirstOfLengthOne === this.closedBranches.length) {
+      initialTree = PathTree.createOp(this.subgraphs, this.startVertex);
+      initialDependencyGraph = this.newDependencyGraph();
     } else {
-      this.onUpdatedState(state.withOpenPaths(mapOptionsToSelections(selection.selectionSet, newOptions)));
+      initialTree = PathTree.createFromOpPaths(this.subgraphs, this.startVertex, this.closedBranches.slice(idxFirstOfLengthOne).flat(2));
+      initialDependencyGraph = this.updatedDependencyGraph(this.newDependencyGraph(), initialTree);
+      if (idxFirstOfLengthOne === 0) {
+        // Well, we have the only possible plan; it's also the best.
+        this.onNewPlan(initialDependencyGraph, initialTree);
+        return;
+      }
+    }
+
+    const otherTrees = this.closedBranches.slice(0, idxFirstOfLengthOne).map(b => b.map(opt => PathTree.createFromOpPaths(this.subgraphs, this.startVertex, opt)));
+    this.generateAllPlans(initialDependencyGraph, initialTree, otherTrees);
+  }
+
+  generateAllPlans(initialDependencyGraph: FetchDependencyGraph, initialTree: OpPathTree<RV>, others: OpPathTree<RV>[][]) {
+    // Track, for each element, at which index we are
+    const eltIndexes = new Array<number>(others.length);
+    let totalCombinations = 1;
+    for (let i = 0; i < others.length; ++i) {
+      const eltSize = others[i].length;
+      assert(eltSize, "Got empty option: this shouldn't have happened");
+      if(!eltSize) {
+        totalCombinations = 0;
+        break;
+      }
+      eltIndexes[i] = 0;
+      totalCombinations *= eltSize;
+    }
+
+    for (let i = 0; i < totalCombinations; ++i){
+      const dependencyGraph = initialDependencyGraph.clone();
+      let tree = initialTree;
+      for (var j = 0; j < others.length; ++j) {
+        const t = others[j][eltIndexes[j]];
+        this.updatedDependencyGraph(dependencyGraph, t);
+        tree = tree.merge(t);
+      }
+      this.onNewPlan(dependencyGraph, tree);
+
+      for (let idx = 0; idx < others.length; ++idx) {
+        if (eltIndexes[idx] == others[idx].length - 1) {
+          eltIndexes[idx] = 0;
+        } else {
+          eltIndexes[idx] += 1;
+          break;
+        }
+      }
     }
   }
 
-  private onUpdatedStates(states: State<RV>[]) {
-    states.forEach(s => this.onUpdatedState(s));
+  private cost(dependencyGraph: FetchDependencyGraph): number {
+    return this.costFunction.finalize(dependencyGraph.process(this.costFunction), true);
   }
 
-  private onUpdatedState(state: State<RV>) {
-    if (state.isTerminal()) {
-      this.handleFinalPathSet(state.closedPaths);
-    } else {
-      this.stack.push(state);
-    }
+  private updatedDependencyGraph(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>): FetchDependencyGraph {
+    return isRootPathTree(tree)
+      ? computeRootFetchGroups(dependencyGraph, tree)
+      : computeNonRootFetchGroups(dependencyGraph, tree);
   }
 
   private resolveConditionPlan(edge: Edge, context: PathContext, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions): ConditionResolution {
@@ -219,21 +366,31 @@ class QueryPlanningTaversal<RV extends Vertex> {
     return bestPlan ? { satisfied: true, cost: bestPlan[2], pathTree: bestPlan[1] } : unsatisfiedConditionsResolution;
   }
 
-  private handleFinalPathSet(pathSet: OpPathTree<RV>) {
-    const dependencyGraph = isRootPathTree(pathSet)
-      ? computeRootFetchGroups(this.subgraphs.sources, pathSet)
-      : computeNonRootFetchGroups(this.subgraphs.sources, pathSet);
-    const cost = this.costFunction.finalize(dependencyGraph.process(this.costFunction), true);
+  private onNewPlan(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>) {
+    const cost = this.cost(dependencyGraph);
     //if (isTopLevel) {
     //  console.log(`[PLAN] cost: ${cost}, path:\n${pathSet.toString('', true)}`);
     //}
     if (!this.bestPlan || cost < this.bestPlan[2]) {
-      debug.log(() => this.bestPlan ? `Found better with cost ${cost} (previous had cost ${this.bestPlan[2]}): ${pathSet}`: `Computed plan with cost ${cost}: ${pathSet}`);
-      this.bestPlan = [dependencyGraph, pathSet, cost];
+      debug.log(() => this.bestPlan ? `Found better with cost ${cost} (previous had cost ${this.bestPlan[2]}): ${tree}`: `Computed plan with cost ${cost}: ${tree}`);
+      this.bestPlan = [dependencyGraph, tree, cost];
     } else {
-      debug.log(() => `Ignoring plan with cost ${cost} (a better plan with cost ${this.bestPlan![2]} exists): ${pathSet}`);
+      debug.log(() => `Ignoring plan with cost ${cost} (a better plan with cost ${this.bestPlan![2]} exists): ${tree}`);
     }
   }
+}
+
+function possiblePlans(closedBranches: SimultaneousPaths<any>[][]): number {
+  let totalCombinations = 1;
+  for (let i = 0; i < closedBranches.length; ++i){
+    const eltSize = closedBranches[i].length;
+    if(!eltSize) {
+      totalCombinations = 0;
+      break;
+    }
+    totalCombinations *= eltSize;
+  }
+  return totalCombinations;
 }
 
 function sum(arr: number[]): number {
@@ -315,7 +472,7 @@ export function computeQueryPlan(supergraphSchema: Schema, federatedQueryGraph: 
   }
 
   const root = federatedQueryGraph.root(operation.rootKind);
-  assert(root, `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
+  assert(root, () => `Shouldn't have a ${operation.rootKind} operation if the subgraphs don't have a ${operation.rootKind} root`);
   const processor = fetchGroupToPlanProcessor(operation.rootKind, operation.variableDefinitions, operation.selectionSet.fragments);
   if (operation.rootKind === 'mutation') {
     const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
@@ -392,7 +549,7 @@ function computeRootSerialDependencyGraph(
       // }
       // then we should _not_ merge the 2 `mut1` fields (contrarily to what happens on queried fields).
       prevPaths = prevPaths.concat(newPaths);
-      prevDepGraph = computeRootFetchGroups(federatedQueryGraph.sources, prevPaths);
+      prevDepGraph = computeRootFetchGroups(FetchDependencyGraph.create(federatedQueryGraph), prevPaths);
     } else {
       graphs.push(prevDepGraph);
       [prevDepGraph, prevPaths, prevSubgraph] = [newDepGraph, newPaths, newSubgraph];
@@ -436,32 +593,96 @@ function addToResponsePath(path: ResponsePath, responseName: string, type: Type)
   return path;
 }
 
-class FetchGroup {
-  private readonly _selection: SelectionSet;
-  private readonly _inputs?: SelectionSet;
-
+class LazySelectionSet {
   constructor(
+    private _computed?: SelectionSet,
+    private readonly _toCloneOnWrite?: SelectionSet
+  ) {
+    assert(_computed || _toCloneOnWrite, 'Should have one of the argument');
+  }
+
+  forRead(): SelectionSet {
+    return this._computed ? this._computed : this._toCloneOnWrite!;
+  }
+
+  forWrite(): SelectionSet {
+    if (!this._computed) {
+      this._computed = this._toCloneOnWrite!.clone();
+    }
+    return this._computed;
+  }
+
+  clone(): LazySelectionSet {
+    if (this._computed) {
+      return new LazySelectionSet(undefined, this._computed);
+    } else {
+      return this;
+    }
+  }
+}
+
+class FetchGroup {
+  private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
     readonly subgraphName: string,
     readonly parentType: CompositeType,
     readonly isEntityFetch: boolean,
+    private readonly _selection: LazySelectionSet,
+    private readonly _inputs?: LazySelectionSet,
     readonly mergeAt?: ResponsePath,
   ) {
-    this._selection = new SelectionSet(parentType);
-    this._inputs = isEntityFetch ? new SelectionSet(parentType) : undefined;
+  }
+
+  static create(
+    dependencyGraph: FetchDependencyGraph,
+    index: number,
+    subgraphName: string,
+    parentType: CompositeType,
+    isEntityFetch: boolean,
+    mergeAt?: ResponsePath,
+  ): FetchGroup {
+    return new FetchGroup(
+      dependencyGraph,
+      index,
+      subgraphName,
+      parentType,
+      isEntityFetch,
+      new LazySelectionSet(new SelectionSet(parentType)),
+      isEntityFetch ? new LazySelectionSet(new SelectionSet(parentType)) : undefined,
+      mergeAt
+    );
+  }
+
+  clone(newDependencyGraph: FetchDependencyGraph): FetchGroup {
+    return new FetchGroup(
+      newDependencyGraph,
+      this.index,
+      this.subgraphName,
+      this.parentType,
+      this.isEntityFetch,
+      this._selection.clone(),
+      this._inputs?.clone(),
+      this.mergeAt
+    );
   }
 
   get isTopLevel(): boolean {
     return !this.mergeAt;
   }
 
+  // It's important that the returned selection is never modified. Use the other modification methods of this method instead!
   get selection(): SelectionSet {
-    return this._selection;
+    return this._selection.forRead();
   }
 
+  // It's important that the returned selection is never modified. Use the other modification methods of this method instead!
   get inputs(): SelectionSet | undefined {
-    return this._inputs;
+    return this._inputs?.forRead();
+  }
+
+  clonedInputs(): LazySelectionSet | undefined {
+    return this._inputs?.clone();
   }
 
   addDependencyOn(groups: FetchGroup | FetchGroup[]) {
@@ -475,18 +696,18 @@ class FetchGroup {
   addInputs(selection: Selection | SelectionSet) {
     assert(this._inputs, "Shouldn't try to add inputs to a root fetch group");
     if (selection instanceof SelectionSet) {
-      this._inputs.mergeIn(selection);
+      this._inputs.forWrite().mergeIn(selection);
     } else {
-      this._inputs.add(selection);
+      this._inputs.forWrite().add(selection);
     }
   }
 
   addSelection(path: OperationPath) {
-    this._selection.addPath(path);
+    this._selection.forWrite().addPath(path);
   }
 
   addSelections(selection: SelectionSet) {
-    this._selection.mergeIn(selection);
+    this._selection.forWrite().mergeIn(selection);
   }
 
   mergeIn(toMerge: FetchGroup, mergePath: OperationPath) {
@@ -502,7 +723,7 @@ class FetchGroup {
       }
     });
 
-    this._selection.mergeIn(selectionSet);
+    this._selection.forWrite().mergeIn(selectionSet);
     this.dependencyGraph.onMergedIn(this, toMerge);
   }
 
@@ -510,12 +731,12 @@ class FetchGroup {
     addTypenameFieldForAbstractTypes(this.selection);
 
     this.selection.validate();
-    if (this._inputs) {
-      this._inputs.validate();
+    const inputs = this._inputs?.forRead();
+    if (inputs) {
+      inputs.validate();
     }
 
-    const inputs = this._inputs ? this._inputs.toSelectionSetNode() : undefined;
-    // TODO: Handle internalFragments? (and collect their variables if so)
+    const inputNodes = inputs ? inputs.toSelectionSetNode() : undefined;
 
     const operation = this.isEntityFetch
       ? operationForEntitiesFetch(this.dependencyGraph.subgraphSchemas.get(this.subgraphName)!, this.selection, variableDefinitions, fragments)
@@ -524,7 +745,7 @@ class FetchGroup {
     const fetchNode: FetchNode = {
       kind: 'Fetch',
       serviceName: this.subgraphName,
-      requires: inputs ? trimSelectionNodes(inputs.selections) : undefined,
+      requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
       variableUsages: this.selection.usedVariables().map(v => v.name),
       operation: stripIgnoredCharacters(print(operation)),
     };
@@ -573,19 +794,51 @@ function sameMergeAt(m1: ResponsePath | undefined, m2: ResponsePath | undefined)
 }
 
 class FetchDependencyGraph {
-  private readonly rootGroups: MapWithCachedArrays<string, FetchGroup> = new MapWithCachedArrays();
-  private readonly groups: FetchGroup[] = [];
-  private readonly adjacencies: number[][] = [];
-  private readonly inEdges: number[][] = [];
-  // For each groups, an optional path in its "unique" parent. If a group has more than one parent, then
-  // this will be undefined. Even if the group has a unique parent, it's not guaranteed to be set.
-  private readonly pathsInParents: (OperationPath | undefined)[] = [];
   private isReduced: boolean = false;
 
-  constructor(
+  private constructor(
     readonly subgraphSchemas: ReadonlyMap<String, Schema>,
-    readonly federatedQueryGraph: QueryGraph
+    readonly federatedQueryGraph: QueryGraph,
+    private readonly rootGroups: MapWithCachedArrays<string, FetchGroup>,
+    private readonly groups: FetchGroup[],
+    private readonly adjacencies: number[][],
+    private readonly inEdges: number[][],
+    // For each groups, an optional path in its "unique" parent. If a group has more than one parent, then
+    // this will be undefined. Even if the group has a unique parent, it's not guaranteed to be set.
+    private readonly pathsInParents: (OperationPath | undefined)[]
   ) {}
+
+  static create(federatedQueryGraph: QueryGraph) {
+    return new FetchDependencyGraph(
+      federatedQueryGraph.sources,
+      federatedQueryGraph,
+      new MapWithCachedArrays(),
+      [],
+      [],
+      [],
+      []
+    );
+  }
+
+  clone(): FetchDependencyGraph {
+    const cloned = new FetchDependencyGraph(
+      this.subgraphSchemas,
+      this.federatedQueryGraph,
+      new MapWithCachedArrays<string, FetchGroup>(),
+      new Array(this.groups.length),
+      this.adjacencies.map(a => a.concat()),
+      this.inEdges.map(a => a.concat()),
+      this.pathsInParents.concat()
+    );
+
+    for (let i = 0; i < this.groups.length; i++) {
+      cloned.groups[i] = this.groups[i].clone(cloned);
+    }
+    for (const group of this.rootGroups.values()) {
+      cloned.rootGroups.set(group.subgraphName, cloned.groups[group.index]);
+    }
+    return cloned;
+  }
 
   getOrCreateRootFetchGroup(subgraphName: string, parentType: CompositeType): FetchGroup {
     let group = this.rootGroups.get(subgraphName);
@@ -615,7 +868,7 @@ class FetchDependencyGraph {
     pathInParent?: OperationPath
   ): FetchGroup {
     this.onModification();
-    const newGroup = new FetchGroup(
+    const newGroup = FetchGroup.create(
       this,
       this.groups.length,
       subgraphName,
@@ -849,7 +1102,7 @@ class FetchDependencyGraph {
           ) {
             // We replace g1 by a new group that is the same except (possibly) for it's parentType ...
             // (that's why we don't use `newKeyFetchGroup`, it assigns the index while we reuse g1's one here)
-            const merged = new FetchGroup(this, g1.index, g1.subgraphName, g1.selection.parentType, g1.isEntityFetch, g1.mergeAt);
+            const merged = FetchGroup.create(this, g1.index, g1.subgraphName, g1.selection.parentType, g1.isEntityFetch, g1.mergeAt);
             // Erase the pathsInParents as it's now potentially invalid (we won't really use it from that point on, but better
             // safe than sorry).
             this.pathsInParents[g1.index] = undefined;
@@ -1025,8 +1278,7 @@ class FetchDependencyGraph {
   }
 }
 
-function computeRootFetchGroups(subgraphSchemas: ReadonlyMap<string, Schema>, pathTree: OpRootPathTree): FetchDependencyGraph {
-  const dependencyGraph = new FetchDependencyGraph(subgraphSchemas, pathTree.graph);
+function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpRootPathTree): FetchDependencyGraph {
   // The root of the pathTree is one of the "fake" root of the subgraphs graph, which belongs to no subgraph but points to each ones.
   // So we "unpack" the first level of the tree to find out our top level groups (and initialize our stack).
   // Note that we can safely ignore the triggers of that first level as it will all be free transition, and we know we cannot have conditions.
@@ -1041,8 +1293,7 @@ function computeRootFetchGroups(subgraphSchemas: ReadonlyMap<string, Schema>, pa
   return dependencyGraph;
 }
 
-function computeNonRootFetchGroups(subgraphSchemas: ReadonlyMap<string, Schema>, pathTree: OpPathTree): FetchDependencyGraph {
-  const dependencyGraph = new FetchDependencyGraph(subgraphSchemas, pathTree.graph);
+function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree): FetchDependencyGraph {
   const source = pathTree.vertex.source;
   // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
   const rootType = pathTree.vertex.type;
@@ -1219,9 +1470,9 @@ function handleRequires(
   if (!group.isTopLevel && path.length == 1 && path[0].kind === 'FragmentElement') {
     // We start by computing the groups for the conditions. We do this using a copy of the current
     // group (with only the inputs) as that allows to modify this copy without modifying `group`.
-    const originalInputs = group.inputs!.clone();
+    const originalInputs = group.clonedInputs()!;
     const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, group.mergeAt!);
-    newGroup.addInputs(originalInputs);
+    newGroup.addInputs(originalInputs.forRead());
 
     let createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, mergeAt, path);
     if (createdGroups.length == 0) {
@@ -1287,7 +1538,7 @@ function handleRequires(
         if (pathInParent
           && created.subgraphName === parents[0].subgraphName
           && sameMergeAt(created.mergeAt, group.mergeAt)
-          && originalInputs.contains(created.inputs!)
+          && originalInputs.forRead().contains(created.inputs!)
         ) {
           parents[0].mergeIn(created, pathInParent);
         } else {

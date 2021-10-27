@@ -123,42 +123,6 @@ it('works fetches data correctly with complex / nested @key fields', async () =>
     [userService, reviewService],
   );
 
-  expect(data).toEqual({
-    reviews: [
-      {
-        author: {
-          name: 'Trevor Scheer',
-          organization: {
-            name: 'Apollo',
-          },
-        },
-      },
-      {
-        author: {
-          name: 'Trevor Scheer',
-          organization: {
-            name: 'Wayfair',
-          },
-        },
-      },
-      {
-        author: {
-          name: 'James Baxley',
-          organization: {
-            name: 'Apollo',
-          },
-        },
-      },
-      {
-        author: {
-          name: 'James Baxley',
-          organization: {
-            name: 'Major League Soccer',
-          },
-        },
-      },
-    ],
-  });
   expect(queryPlan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {
@@ -199,4 +163,40 @@ it('works fetches data correctly with complex / nested @key fields', async () =>
       },
     }
   `);
+  expect(data).toEqual({
+    reviews: [
+      {
+        author: {
+          name: 'Trevor Scheer',
+          organization: {
+            name: 'Apollo',
+          },
+        },
+      },
+      {
+        author: {
+          name: 'Trevor Scheer',
+          organization: {
+            name: 'Wayfair',
+          },
+        },
+      },
+      {
+        author: {
+          name: 'James Baxley',
+          organization: {
+            name: 'Apollo',
+          },
+        },
+      },
+      {
+        author: {
+          name: 'James Baxley',
+          organization: {
+            name: 'Major League Soccer',
+          },
+        },
+      },
+    ],
+  });
 });

@@ -100,7 +100,7 @@ function isFieldOfExtension(field: FieldDefinition<CompositeType>): boolean {
 function validateFieldSetSelections(
   directiveName: string,
   selectionSet: SelectionSet,
-  hasExternalInParents: boolean | undefined,
+  hasExternalInParents: boolean,
   externalFieldCoordinatesCollector: string[],
   externalExtensionFieldCoordinatesCollector: string[] | undefined,
   allowOnNonExternalLeafFields: boolean,
@@ -113,7 +113,7 @@ function validateFieldSetSelections(
         throw new GraphQLError(`field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`, field.sourceAST);
       }
       // The field must be external if we don't allow non-external leaf fields, it's a leaft, and we haven't traversed an external field in parent chain leading here.
-      const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && hasExternalInParents === false;
+      const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && !hasExternalInParents;
       const isExternal = field.hasAppliedDirective(externalDirectiveName);
       const isFakeExternal = isExternal && fakeExternalFields.includes(field.coordinate);
       if (isExternal) {
@@ -151,7 +151,7 @@ function validateFieldSet(
   try {
     const selectionSet = parseFieldSetArgument(type, directive);
     selectionSet.validate();
-    validateFieldSetSelections(directive.name, selectionSet, undefined, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
+    validateFieldSetSelections(directive.name, selectionSet, false, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
     return undefined;
   } catch (e) {
     if (!(e instanceof GraphQLError)) {
@@ -604,6 +604,10 @@ export class Subgraphs {
   get(name: string): Subgraph | undefined {
     const idx = this.idx(name);
     return idx >= 0 ? this.subgraphs[idx] : undefined;
+  }
+
+  getByIdx(idx: number): Subgraph {
+    return this.subgraphs[idx];
   }
 
   size(): number {
