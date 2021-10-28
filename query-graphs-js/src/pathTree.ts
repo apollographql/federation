@@ -1,4 +1,4 @@
-import { arrayEquals, assert, copyWitNewLength } from "@apollo/core";
+import { arrayEquals, assert, copyWitNewLength } from "@apollo/federation-internals";
 import { GraphPath, OpGraphPath, OpTrigger, PathIterator } from "./graphPath";
 import { Edge, QueryGraph, RootVertex, isRootVertex, Vertex } from "./querygraph";
 import { isPathContext } from "./pathContext";

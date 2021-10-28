@@ -1,4 +1,4 @@
-import { Subgraphs } from '@apollo/core';
+import { Subgraphs } from '@apollo/federation-internals';
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
 import {

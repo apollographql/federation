@@ -5,7 +5,7 @@
   "files": [],
   "include": [],
   "references": [
-    { "path": "./core-js" },
+    { "path": "./internals-js" },
     { "path": "./query-graphs-js" },
     { "path": "./gateway-js" },
     { "path": "./federation-integration-testsuite-js" },

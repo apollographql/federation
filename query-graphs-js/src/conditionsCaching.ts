@@ -1,4 +1,4 @@
-import { assert } from "@apollo/core";
+import { assert } from "@apollo/federation-internals";
 import { ConditionResolution, ConditionResolver, ExcludedConditions, ExcludedEdges, sameExcludedEdges } from "./graphPath";
 import { PathContext } from "./pathContext";
 import { Edge, QueryGraph, QueryGraphState } from "./querygraph";

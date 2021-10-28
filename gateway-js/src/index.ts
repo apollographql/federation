@@ -71,7 +71,7 @@ import {
   buildSupergraphSchema,
   operationFromDocument,
   Schema,
-} from '@apollo/core';
+} from '@apollo/federation-internals';
 import { composeServices } from '@apollo/composition'
 
 type DataSourceMap = {

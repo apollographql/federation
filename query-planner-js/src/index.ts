@@ -4,7 +4,7 @@ export { prettyFormatQueryPlan } from './prettyFormatQueryPlan';
 export * from './QueryPlan';
 import { QueryPlan } from './QueryPlan';
 
-import { Schema, Operation } from '@apollo/core';
+import { Schema, Operation } from '@apollo/federation-internals';
 import { buildFederatedQueryGraph, QueryGraph } from "@apollo/query-graphs";
 import { computeQueryPlan } from './buildPlan';
 

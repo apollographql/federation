@@ -4,7 +4,7 @@ import { DocumentNode } from 'graphql';
 
 import { QueryPlan } from '@apollo/query-planner';
 import { getFederatedTestingSchema } from './execution-utils';
-import { operationFromDocument } from '@apollo/core';
+import { operationFromDocument } from '@apollo/federation-internals';
 
 const buildQueryPlanFeature = loadFeature(
   './gateway-js/src/__tests__/build-query-plan.feature'

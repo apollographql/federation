@@ -30,7 +30,7 @@ import {
   firstOf,
   FEDERATION_RESERVED_SUBGRAPH_NAME,
   ALL_SUBTYPING_RULES,
-} from '@apollo/core';
+} from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, QueryResolution } from './transition';
 import { isStructuralFieldSubtype } from './structuralSubtyping';

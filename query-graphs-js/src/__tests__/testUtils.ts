@@ -1,4 +1,4 @@
-import { buildSchema, InterfaceType, ObjectType } from '@apollo/core';
+import { buildSchema, InterfaceType, ObjectType } from '@apollo/federation-internals';
 import { buildQueryGraph, Edge, FieldCollection, QueryGraph, Vertex } from '@apollo/query-graphs';
 
 export function testGraphFromSchemaString(schemaSDL: string): QueryGraph {

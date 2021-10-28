@@ -20,7 +20,7 @@ import {
   SelectionSet,
   typenameFieldName,
   VariableDefinitions
-} from "@apollo/core";
+} from "@apollo/federation-internals";
 import {
   Edge,
   federatedGraphRootTypeName,

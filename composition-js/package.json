@@ -27,7 +27,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@apollo/core": "file:../core-js"
+    "@apollo/federation-internals": "file:../internals-js"
   },
   "peerDependencies": {
     "graphql": "^14.5.0 || ^15.0.0"

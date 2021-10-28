@@ -20,7 +20,7 @@ import { queryPlanSerializer, astSerializer } from 'apollo-federation-integratio
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { composeServices } from '@apollo/composition';
-import { buildSchema, operationFromDocument } from '@apollo/core';
+import { buildSchema, operationFromDocument } from '@apollo/federation-internals';
 
 const prettyFormat = require('pretty-format');
 

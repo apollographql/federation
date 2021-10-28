@@ -1,7 +1,7 @@
 import { 
   assert,
   OperationElement,
-} from "@apollo/core";
+} from "@apollo/federation-internals";
 import deepEqual from "deep-equal";
 
 export function isPathContext(v: any): v is PathContext {

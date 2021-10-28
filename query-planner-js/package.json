@@ -25,7 +25,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@apollo/core": "file:../core-js",
+    "@apollo/federation-internals": "file:../internals-js",
     "@apollo/query-graphs": "file:../query-graphs-js",
     "apollo-graphql": "^0.9.3",
     "chalk": "^4.1.0",

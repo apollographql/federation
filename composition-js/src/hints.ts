@@ -1,4 +1,4 @@
-import { SubgraphASTNode } from "@apollo/core";
+import { SubgraphASTNode } from "@apollo/federation-internals";
 import { printLocation } from "graphql";
 
 export class HintID {

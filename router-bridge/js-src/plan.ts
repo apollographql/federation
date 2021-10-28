@@ -1,7 +1,7 @@
 import { ExecutionResult, parse } from 'graphql';
 import { QueryPlanner } from '@apollo/query-planner';
 
-import { buildSchema, operationFromDocument } from '@apollo/core';
+import { buildSchema, operationFromDocument } from '@apollo/federation-internals';
 
 export function plan(
   schemaString: string,

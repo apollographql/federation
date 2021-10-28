@@ -1,6 +1,6 @@
 import { execute, GraphQLError, parse } from "graphql";
 import { cleanErrorOfInaccessibleNames } from "../cleanErrorOfInaccessibleNames";
-import { buildSchema } from "@apollo/core";
+import { buildSchema } from "@apollo/federation-internals";
 
 describe('cleanErrorOfInaccessibleNames', () => {
   const coreSchema = buildSchema(`

@@ -1,6 +1,6 @@
 {
   "packages": [
-    "core-js",
+    "internals-js",
     "query-graphs-js",
     "federation-js",
     "federation-integration-testsuite-js",

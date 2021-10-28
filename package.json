@@ -31,12 +31,12 @@
     "npm": ">=7 <9"
   },
   "dependencies": {
-    "@apollo/core": "file:core-js",
-    "@apollo/query-graphs": "file:query-graphs-js",
+    "@apollo/composition": "file:composition-js",
+    "@apollo/federation-internals": "file:internals-js",
     "@apollo/federation": "file:federation-js",
     "@apollo/gateway": "file:gateway-js",
-    "@apollo/composition": "file:composition-js",
     "@apollo/harmonizer": "file:harmonizer",
+    "@apollo/query-graphs": "file:query-graphs-js",
     "@apollo/query-planner": "file:query-planner-js",
     "@apollo/router-bridge": "file:router-bridge",
     "@apollo/subgraph": "file:subgraph-js",
@@ -91,7 +91,7 @@
   },
   "jest": {
     "projects": [
-      "<rootDir>/core-js",
+      "<rootDir>/internals-js",
       "<rootDir>/federation-js",
       "<rootDir>/federation-integration-testsuite-js",
       "<rootDir>/gateway-js",

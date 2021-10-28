@@ -1,13 +1,13 @@
 {
-  "name": "@apollo/core",
+  "name": "@apollo/federation-internals",
   "version": "0.1.0",
-  "description": "Apollo Federation core utilities",
+  "description": "Apollo Federation internal utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/apollographql/federation.git",
-    "directory": "core-js/"
+    "directory": "internals-js/"
   },
   "scripts": {
     "test": "jest"

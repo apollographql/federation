@@ -1,4 +1,4 @@
-import { ObjectType } from "@apollo/core";
+import { ObjectType } from "@apollo/federation-internals";
 import { FieldCollection, subgraphEnteringTransition } from "@apollo/query-graphs";
 import { namedEdges, testGraphFromSchemaString } from './testUtils';
 

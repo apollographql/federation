@@ -9,7 +9,7 @@ import {
   Schema,
   buildSchema,
   parseOperation,
-} from '@apollo/core';
+} from '@apollo/federation-internals';
 
 
 // This test looks over all directories under tests/features and finds "supergraphSdl.graphql" in

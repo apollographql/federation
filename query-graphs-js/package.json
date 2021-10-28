@@ -23,7 +23,7 @@
     "node": ">=12.13.0 <17.0"
   },
   "dependencies": {
-    "@apollo/core": "file:../core-js",
+    "@apollo/federation-internals": "file:../internals-js",
     "ts-graphviz": "^0.15.1"
   },
   "devDependencies": {

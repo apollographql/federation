@@ -7,7 +7,7 @@
   "include": ["src/**/*"],
   "exclude": ["**/__tests__", "**/__mocks__"],
   "references": [
-    { "path": "../core-js" },
+    { "path": "../internals-js" },
     { "path": "../query-graphs-js" }
   ]
 }

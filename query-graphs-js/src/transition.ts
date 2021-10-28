@@ -1,4 +1,4 @@
-import { FieldDefinition, CompositeType } from "@apollo/core";
+import { FieldDefinition, CompositeType } from "@apollo/federation-internals";
 
 /**
  * The type of query graphs edge "transitions".

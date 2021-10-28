@@ -49,7 +49,7 @@ import {
   firstOf,
   Extension,
   DEFAULT_SUBTYPING_RULES,
-} from "@apollo/core";
+} from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
 import {
   CompositionHint,

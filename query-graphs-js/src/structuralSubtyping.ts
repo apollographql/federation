@@ -16,7 +16,7 @@ import {
   SchemaElement,
   SubtypingRule,
   UnionType,
-} from '@apollo/core';
+} from '@apollo/federation-internals';
 
 function typeComparison<T>(
   t1: any,

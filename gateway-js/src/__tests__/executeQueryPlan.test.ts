@@ -20,7 +20,7 @@ import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { getFederatedTestingSchema } from './execution-utils';
-import { Schema, Operation, parseOperation, buildSchemaFromAST } from '@apollo/core';
+import { Schema, Operation, parseOperation, buildSchemaFromAST } from '@apollo/federation-internals';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);

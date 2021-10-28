@@ -36,7 +36,7 @@ import {
   NamedFragments,
   operationToDocument,
   MapWithCachedArrays,
-} from "@apollo/core";
+} from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
   Edge,

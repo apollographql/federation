@@ -10,7 +10,7 @@ import {
   graphqlErrorSerializer,
   gql,
 } from 'apollo-federation-integration-testsuite';
-import { ObjectType, printSchema, printType } from '@apollo/core';
+import { ObjectType, printSchema, printType } from '@apollo/federation-internals';
 import { composeServices, CompositionResult } from '@apollo/composition';
 
 expect.addSnapshotSerializer(astSerializer);

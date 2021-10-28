@@ -1,6 +1,6 @@
 import { astSerializer, queryPlanSerializer, QueryPlanner } from '@apollo/query-planner';
 import { composeServices } from '@apollo/composition';
-import { buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/core';
+import { buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 
 expect.addSnapshotSerializer(astSerializer);

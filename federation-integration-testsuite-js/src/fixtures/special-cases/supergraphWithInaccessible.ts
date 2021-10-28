@@ -8,7 +8,7 @@ import {
   visit,
 } from 'graphql';
 import { fixtures } from '..';
-import { assert } from '@apollo/core';
+import { assert } from '@apollo/federation-internals';
 
 const compositionResult = composeServices(fixtures);
 assert(!compositionResult.errors, () => `Unexpected errors composing test fixtures:\n${compositionResult.errors!.join('\n\n')}`);

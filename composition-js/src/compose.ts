@@ -1,4 +1,13 @@
-import { printSchema, Schema, Subgraphs, defaultPrintOptions, orderPrintedDefinitions, ServiceDefinition, subgraphsFromServiceList, error } from "@apollo/core";
+import {
+  printSchema,
+  Schema,
+  Subgraphs,
+  defaultPrintOptions,
+  orderPrintedDefinitions,
+  ServiceDefinition,
+  subgraphsFromServiceList,
+  error
+} from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
 import { mergeSubgraphs } from "./merging";

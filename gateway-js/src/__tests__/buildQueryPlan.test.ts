@@ -1,7 +1,7 @@
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
-import { Schema, parseOperation } from '@apollo/core';
+import { Schema, parseOperation } from '@apollo/federation-internals';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);

@@ -24,7 +24,7 @@ import {
   ObjectType,
   isObjectType,
   mapValues,
-} from "@apollo/core";
+} from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType } from "./querygraph";
 import { Transition } from "./transition";
