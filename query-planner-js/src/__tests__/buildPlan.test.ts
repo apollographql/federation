@@ -1,6 +1,6 @@
 import { astSerializer, queryPlanSerializer, QueryPlanner } from '@apollo/query-planner';
 import { composeServices } from '@apollo/composition';
-import { assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
+import { asFed2SubgraphDocument, assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import { MAX_COMPUTED_PLANS } from '../buildPlan';
 import { FetchNode } from '../QueryPlan';
@@ -10,7 +10,9 @@ expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
-  const compositionResults = composeServices(services);
+  const compositionResults = composeServices(
+    services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
+  );
   expect(compositionResults.errors).toBeUndefined();
   return [
     compositionResults.schema!.toAPISchema(),

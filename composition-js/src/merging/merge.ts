@@ -56,6 +56,7 @@ import {
   joinStrings,
   FederationMetadata,
   federationMetadata,
+  printSubgraphNames,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -84,9 +85,6 @@ const coreSpec = CORE_VERSIONS.latest();
 const joinSpec = JOIN_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
 
-// When displaying a list of something in a human readable form, after what size (in
-// number of characters) we start displaying only a subset of the list.
-const MAX_HUMAN_READABLE_LIST_LENGTH = 100;
 
 const MERGED_TYPE_SYSTEM_DIRECTIVES = ['inaccessible', 'deprecated', 'specifiedBy', 'tag'];
 
@@ -126,33 +124,8 @@ export function isMergeFailure(mergeResult: MergeResult): mergeResult is MergeFa
 }
 
 export function mergeSubgraphs(subgraphs: Subgraphs, options: CompositionOptions = {}): MergeResult {
+  assert(subgraphs.values().every((s) => s.isFed2Subgraph()), 'Merging should only be applied to federation 2 subgraphs');
   return new Merger(subgraphs, { ...defaultCompositionOptions, ...options }).merge();
-}
-
-function printHumanReadableList(names: string[], prefixSingle?: string, prefixPlural?: string): string {
-  assert(names.length > 0, 'Should not have been called with no names');
-  if (names.length == 1) {
-    return prefixSingle ? prefixSingle + ' ' + names[0] : names[0];
-  }
-  let toDisplay = names;
-  let totalLength = toDisplay.reduce((count, name) => count + name.length, 0);
-  // In case the name we list have absurdly long names, let's ensure we at least display one.
-  while (totalLength > MAX_HUMAN_READABLE_LIST_LENGTH && toDisplay.length > 1) {
-    toDisplay = toDisplay.slice(0, toDisplay.length - 1);
-    totalLength = toDisplay.reduce((count, name) => count + name.length, 0);
-  }
-  const prefix = prefixPlural
-    ? prefixPlural + ' '
-    : (prefixSingle ? prefixSingle + ' ' : '');
-  if (toDisplay.length === names.length) {
-    return prefix + joinStrings(toDisplay);
-  } else {
-    return prefix + toDisplay.join(', ') + ', ...';
-  }
-}
-
-function printSubgraphNames(names: string[]): string {
-  return printHumanReadableList(names.map(n => `"${n}"`), 'subgraph', 'subgraphs');
 }
 
 function copyTypeReference(source: Type, dest: Schema): Type {

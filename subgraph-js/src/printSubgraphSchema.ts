@@ -75,6 +75,7 @@ function printFilteredSchema(
   return (
     [
       printSchemaDefinition(schema),
+      printSchemaDirectives(schema),
       ...directives.map((directive) => printDirective(directive)),
       ...types.map((type) => printType(type)),
     ]
@@ -106,6 +107,20 @@ function printSchemaDefinition(schema: GraphQLSchema): string | undefined {
   }
 
   return printDescription(schema) + `schema {\n${operationTypes.join('\n')}\n}`;
+}
+
+/*
+ * Apollo change: we write the fedederation directives put on the schema, if any,
+ * and we we do so on a schema extension block. The reason for the later part
+ * is that subgraphs printed by this function are allowed to not have a Query
+ * type and so we cannot guarantee that `printSchemaDefinition` will have
+ * any operation to display, and in that case the generated definition wouldn't
+ * parse correctly (at least with the GraphQL-js parser). Using a schema extension
+ * side-step that issue.
+ */
+function printSchemaDirectives(schema: GraphQLSchema): string | undefined {
+  const directives = printFederationDirectives(schema);
+  return directives === '' ? undefined : `extend schema${directives}`;
 }
 
 /**
@@ -277,12 +292,12 @@ function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
 
 // Apollo change: *do* print the usages of federation directives.
 function printFederationDirectives(
-  typeOrField: GraphQLNamedType | GraphQLField<any, any>,
+  typeOrFieldOrSchema: GraphQLNamedType | GraphQLField<any, any> | GraphQLSchema,
 ): string {
-  if (!typeOrField.astNode) return '';
-  if (isInputObjectType(typeOrField)) return '';
+  if (!typeOrFieldOrSchema.astNode) return '';
+  if (isInputObjectType(typeOrFieldOrSchema)) return '';
 
-  const federationDirectivesOnTypeOrField = gatherDirectives(typeOrField)
+  const federationDirectivesOnTypeOrField = gatherDirectives(typeOrFieldOrSchema)
     .filter((n) =>
       federationDirectives.some((fedDir) => fedDir.name === n.name.value),
     )

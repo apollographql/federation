@@ -1,4 +1,4 @@
-import { buildSchema, extractSubgraphsFromSupergraph, ObjectType, printSchema, Schema, Subgraphs } from '@apollo/federation-internals';
+import { asFed2SubgraphDocument, buildSchema, extractSubgraphsFromSupergraph, ObjectType, printSchema, Schema, ServiceDefinition, Subgraphs } from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
@@ -19,6 +19,15 @@ function schemas(result: CompositionSuccess): [Schema, Schema, Subgraphs] {
   const schema = buildSchema(result.supergraphSdl);
   expect(schema.isCoreSchema()).toBeTruthy();
   return [schema, schema.toAPISchema(), extractSubgraphsFromSupergraph(schema)];
+}
+
+// Note that tests for composition involving fed1 subgraph are in `composeFed1Subgraphs.test.ts` so all the test of this
+// file are on fed2 subgraphs, but to avoid needing to add the proper `@link(...)` everytime, we inject it here automatically.
+export function composeAsFed2Subgraphs(services: ServiceDefinition[]): CompositionResult {
+  return composeServices(services.map((s) => ({
+    ...s,
+    typeDefs: asFed2SubgraphDocument(s.typeDefs)
+  })));
 }
 
 describe('composition', () => {
@@ -49,7 +58,7 @@ describe('composition', () => {
       `
     }
 
-    const result = composeServices([subgraph1, subgraph2]);
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
 
     expect(result.supergraphSdl).toMatchString(`
@@ -156,7 +165,7 @@ describe('composition', () => {
       `
     }
 
-    const result = composeServices([subgraph1, subgraph2]);
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
 
     const [_, api] = schemas(result);
@@ -214,7 +223,7 @@ describe('composition', () => {
       name: 'subgraphB',
     };
 
-    const result = composeServices([subgraphA, subgraphB]);
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
     assertCompositionSuccess(result);
 
@@ -273,13 +282,13 @@ describe('composition', () => {
       typeDefs: gql`
         type Product @key(fields: "sku") {
           sku: String!
-          name: String!
+          name: String! @shareable
         }
       `,
       name: 'subgraphB',
     };
 
-    const result = composeServices([subgraphA, subgraphB]);
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
     assertCompositionSuccess(result);
 
     const [_, api, subgraphs] = schemas(result);
@@ -318,232 +327,6 @@ describe('composition', () => {
     `);
   });
 
-  describe('basic type extensions', () => {
-    it('works when extension subgraph is second', () => {
-      const subgraphA = {
-        typeDefs: gql`
-          type Query {
-            products: [Product!]
-          }
-
-          type Product @key(fields: "sku") {
-            sku: String!
-            name: String!
-          }
-        `,
-        name: 'subgraphA',
-      };
-
-      // Note that putting @external on the key is now frown upon, but putting it there for a fed1-compatible example.
-      const subgraphB = {
-        typeDefs: gql`
-          extend type Product @key(fields: "sku") {
-            sku: String! @external
-            price: Int!
-          }
-        `,
-        name: 'subgraphB',
-      };
-
-      const result = composeServices([subgraphA, subgraphB]);
-      assertCompositionSuccess(result);
-
-      const [_, api, subgraphs] = schemas(result);
-      expect(printSchema(api)).toMatchString(`
-        type Product {
-          sku: String!
-          name: String!
-          price: Int!
-        }
-
-        type Query {
-          products: [Product!]
-        }
-      `);
-
-      expect(printSchema(subgraphs.get('subgraphA')!.schema)).toMatchString(`
-        type Product
-          @key(fields: "sku")
-        {
-          sku: String!
-          name: String!
-        }
-
-        type Query {
-          products: [Product!]
-        }
-      `);
-
-      // Note that while this is a weird-looking schema, this is what is extract from
-      // the supergraph as we don't preserve enough information to say that the whole type
-      // was defined as an extension, only that the key part on an extension (the reason
-      // being that it's the only thing we truly need as the handling of @external on
-      // key fields of extension differs from that of non-extension, but nothing else
-      // does).
-      expect(printSchema(subgraphs.get('subgraphB')!.schema)).toMatchString(`
-        type Product {
-          sku: String!
-          price: Int!
-        }
-
-        extend type Product
-          @key(fields: "sku")
-      `);
-    });
-
-    it('works when extension subgraph is first', () => {
-      // Note that putting @external on the key is now frown upon, but putting it there for a fed1-compatible example.
-      const subgraphA = {
-        typeDefs: gql`
-          extend type Product @key(fields: "sku") {
-            sku: String! @external
-            price: Int!
-          }
-        `,
-        name: 'subgraphA',
-      };
-
-      const subgraphB = {
-        typeDefs: gql`
-          type Query {
-            products: [Product!]
-          }
-
-          type Product @key(fields: "sku") {
-            sku: String!
-            name: String!
-          }
-        `,
-        name: 'subgraphB',
-      };
-
-
-      const result = composeServices([subgraphA, subgraphB]);
-      assertCompositionSuccess(result);
-
-      const [_, api, subgraphs] = schemas(result);
-      expect(printSchema(api)).toMatchString(`
-        type Product {
-          sku: String!
-          price: Int!
-          name: String!
-        }
-
-        type Query {
-          products: [Product!]
-        }
-      `);
-
-      // Same remark than in prevoius test
-      expect(printSchema(subgraphs.get('subgraphA')!.schema)).toMatchString(`
-        type Product {
-          sku: String!
-          price: Int!
-        }
-
-        extend type Product
-          @key(fields: "sku")
-      `);
-
-      expect(printSchema(subgraphs.get('subgraphB')!.schema)).toMatchString(`
-        type Product
-          @key(fields: "sku")
-        {
-          sku: String!
-          name: String!
-        }
-
-        type Query {
-          products: [Product!]
-        }
-      `);
-    });
-
-    it('works with multiple extensions on the same type', () => {
-      const subgraphA = {
-        typeDefs: gql`
-          extend type Product @key(fields: "sku") {
-            sku: String!
-            price: Int!
-          }
-        `,
-        name: 'subgraphA',
-      };
-
-      const subgraphB = {
-        typeDefs: gql`
-          type Query {
-            products: [Product!]
-          }
-
-          type Product {
-            sku: String! @shareable
-            name: String!
-          }
-        `,
-        name: 'subgraphB',
-      };
-
-      const subgraphC = {
-        typeDefs: gql`
-          extend type Product @key(fields: "sku") {
-            sku: String!
-            color: String!
-          }
-        `,
-        name: 'subgraphC',
-      };
-
-      const result = composeServices([subgraphA, subgraphB, subgraphC]);
-      assertCompositionSuccess(result);
-
-      const [_, api, subgraphs] = schemas(result);
-      expect(printSchema(api)).toMatchString(`
-        type Product {
-          sku: String!
-          price: Int!
-          name: String!
-          color: String!
-        }
-
-        type Query {
-          products: [Product!]
-        }
-      `);
-
-      expect(printSchema(subgraphs.get('subgraphA')!.schema)).toMatchString(`
-        type Product {
-          sku: String!
-          price: Int!
-        }
-
-        extend type Product
-          @key(fields: "sku")
-      `);
-
-      expect(printSchema(subgraphs.get('subgraphB')!.schema)).toMatchString(`
-        type Product {
-          sku: String!
-          name: String!
-        }
-
-        type Query {
-          products: [Product!]
-        }
-      `);
-
-      expect(printSchema(subgraphs.get('subgraphC')!.schema)).toMatchString(`
-        type Product {
-          sku: String!
-          color: String!
-        }
-
-        extend type Product
-          @key(fields: "sku")
-      `);
-    });
-  });
-
   describe('merging of type references', () => {
     describe('for field types', () => {
       it('errors on incompatible types', () => {
@@ -571,7 +354,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"']
@@ -598,12 +381,12 @@ describe('composition', () => {
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
-              f: Int
+              f: Int @shareable
             }
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['EXTERNAL_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs (where marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
@@ -635,7 +418,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"']
@@ -667,7 +450,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         assertCompositionSuccess(result);
 
         const [_, api] = schemas(result);
@@ -728,7 +511,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         assertCompositionSuccess(result);
 
         const [_, api, subgraphs] = schemas(result);
@@ -807,7 +590,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         assertCompositionSuccess(result);
 
         const [_, api, subgraphs] = schemas(result);
@@ -889,7 +672,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         assertCompositionSuccess(result);
 
         const [_, api, subgraphs] = schemas(result);
@@ -975,7 +758,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         assertCompositionSuccess(result);
 
         const [_, api, subgraphs] = schemas(result);
@@ -1061,7 +844,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         assertCompositionSuccess(result);
 
         const [_, api, subgraphs] = schemas(result);
@@ -1124,7 +907,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"'],
@@ -1154,7 +937,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['INPUT_FIELD_DEFAULT_MISMATCH', 'Input field "T.f" has incompatible default values across subgraphs: it has default value 0 in subgraph "subgraphA" but default value 1 in subgraph "subgraphB"'],
@@ -1189,7 +972,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"']
@@ -1216,12 +999,12 @@ describe('composition', () => {
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
-              f(x: Int): String
+              f(x: Int): String @shareable
             }
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['EXTERNAL_ARGUMENT_MISSING', 'Field "T.f" is missing argument "T.f(x:)" in some subgraphs where it is marked @external: argument "T.f(x:)" is declared in subgraph "subgraphB" but not in subgraph "subgraphA" (where "T.f" is @external).'],
@@ -1257,7 +1040,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['EXTERNAL_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs (where "T.f" is marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
@@ -1289,7 +1072,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['FIELD_ARGUMENT_DEFAULT_MISMATCH', 'Argument "T.f(x:)" has incompatible default values across subgraphs: it has default value 0 in subgraph "subgraphA" but default value 1 in subgraph "subgraphB"'],
@@ -1325,7 +1108,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['EXTERNAL_ARGUMENT_DEFAULT_MISMATCH', 'Argument "T.f(x:)" has incompatible defaults across subgraphs (where "T.f" is marked @external): it has default value 1 in subgraph "subgraphB" but no default value in subgraph "subgraphA"'],
@@ -1357,7 +1140,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errors(result)).toStrictEqual([
           ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"']
@@ -1389,7 +1172,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         assertCompositionSuccess(result);
 
         const [_, api] = schemas(result);
@@ -1433,7 +1216,7 @@ describe('composition', () => {
           `,
         };
 
-        const result = composeServices([subgraphA, subgraphB]);
+        const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
         assertCompositionSuccess(result);
 
         const [_, api] = schemas(result);
@@ -1472,7 +1255,7 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
@@ -1501,7 +1284,7 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
@@ -1528,11 +1311,11 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['INVALID_SUBGRAPH_NAME', 'Invalid name _ for a subgraph: this name is reserved'],
+        ['INVALID_SUBGRAPH_NAME', '[_] Invalid name _ for a subgraph: this name is reserved'],
       ]);
     });
 
@@ -1555,7 +1338,7 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
@@ -1586,38 +1369,11 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
         ['TYPE_KIND_MISMATCH', 'Type "A" has mismatched kind: it is defined as Object Type in subgraph "subgraphA" but Interface Type in subgraph "subgraphB"'],
-      ]);
-    });
-
-    it('errors if a type extension has no definition counterpart', () => {
-      const subgraphA = {
-        typeDefs: gql`
-          type Query {
-            q: String
-          }
-        `,
-        name: 'subgraphA',
-      };
-
-      const subgraphB = {
-        typeDefs: gql`
-          extend type A @key(fields: "k") {
-            k: ID!
-          }
-        `,
-        name: 'subgraphB',
-      };
-
-      const result = composeServices([subgraphA, subgraphB]);
-
-      expect(result.errors).toBeDefined();
-      expect(errors(result)).toStrictEqual([
-        ['EXTENSION_WITH_NO_BASE', '[subgraphB] Type "A" is an extension type, but there is no type definition for "A" in any subgraph.'],
       ]);
     });
 
@@ -1645,7 +1401,7 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
@@ -1687,7 +1443,7 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
@@ -1732,7 +1488,7 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
@@ -1768,7 +1524,7 @@ describe('composition', () => {
       name: 'subgraphB',
     };
 
-    const result = composeServices([subgraphA, subgraphB]);
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
     assertCompositionSuccess(result);
 
     const [_, api] = schemas(result);
@@ -1811,7 +1567,7 @@ describe('composition', () => {
       name: 'subgraphB',
     };
 
-    const result = composeServices([subgraphA, subgraphB]);
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
     expect(result.errors).toBeDefined();
     expect(errors(result).map(([code]) => code)).toStrictEqual(['SATISFIABILITY_ERROR']);
@@ -1858,7 +1614,7 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
@@ -1893,7 +1649,7 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
@@ -1920,7 +1676,7 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
@@ -1961,7 +1717,7 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([

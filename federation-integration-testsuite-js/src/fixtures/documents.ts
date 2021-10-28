@@ -1,4 +1,4 @@
-import gql from 'graphql-tag';
+import { fed2gql as gql } from '../utils/fed2gql';
 
 export const name = 'documents';
 export const url = `https://${name}.api.com.invalid`;
@@ -6,7 +6,7 @@ export const typeDefs = gql`
   directive @stream on FIELD
   directive @transform(from: String!) on FIELD
 
-  extend type Query {
+  type Query {
     body: Body!
   }
 

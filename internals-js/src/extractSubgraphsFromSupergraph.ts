@@ -19,7 +19,13 @@ import {
   Schema,
   Type,
 } from "./definitions";
-import { addSubgraphToError, externalDirectiveName, federationBuiltIns, parseFieldSetArgument } from "./federation";
+import {
+  addSubgraphToError,
+  externalDirectiveName,
+  federationBuiltIns,
+  parseFieldSetArgument,
+  removeInactiveProvidesAndRequires
+} from "./federation";
 import { CoreSpecDefinition, FeatureVersion } from "./coreSpec";
 import { JoinSpecDefinition } from "./joinSpec";
 import { Subgraph, Subgraphs } from "./federation";
@@ -27,7 +33,6 @@ import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";
 import { builtTypeReference } from "./buildSchema";
 import { GraphQLError } from "graphql";
-import { selectionOfElement, SelectionSet } from "./operations";
 import { isSubtype } from "./types";
 import { printSchema } from "./print";
 import fs from 'fs';
@@ -62,7 +67,7 @@ function collectEmptySubgraphs(supergraph: Schema, joinSpec: JoinSpecDefinition)
       throw new Error(`Value ${value} of join__Graph enum has no @join__graph directive`);
     }
     const info = graphApplications[0].arguments();
-    const subgraph = new Subgraph(info.name, info.url, new Schema(federationBuiltIns), false);
+    const subgraph = new Subgraph(info.name, info.url, new Schema(federationBuiltIns));
     subgraphs.add(subgraph);
     graphEnumNameToSubgraphName.set(value.name, info.name);
   }
@@ -222,7 +227,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
       // errors later.
       addExternalFields(subgraph, supergraph, isFed1);
     }
-    removeNeedlessProvides(subgraph);
+    removeInactiveProvidesAndRequires(subgraph.schema);
 
     // We now do an additional path on all types because we sometimes added types to subgraphs without
     // being sure that the subgraph had the type in the first place (especially with the 0.1 join spec), and because
@@ -507,94 +512,4 @@ function maybeUpdateFieldForInterface(toModify: FieldDefinition<ObjectType | Int
     assert(isSubtype(toModify.type!, itfField.type!), () => `For ${toModify.coordinate}, expected ${itfField.type} and ${toModify.type} to be in a subtyping relationship`);
     toModify.type = itfField.type!;
   }
-}
-
-/*
- *
- * It makes no sense to have a @provides on a non-external leaf field, and we usually reject it during schema
- * validation but we may still have some when:
- * 1. we get a fed 1 supergraph, where such validation hadn't been run.
- * 2. in the special case of key fields of type extensions that are marked @external without being so (see details in
- *    `addExternalFields`). In that case, the validation will not have rejected it.
- *
- * This method checks for those cases and removes such fields (and often the whole @provides). The reason we do
- * it is that such provides have a negative impact on later query planning, because it sometimes make us to
- * try type-exploding some interfaces unnecessarily.
- */
-function removeNeedlessProvides(subgraph: Subgraph) {
-  for (const type of subgraph.schema.types()) {
-    if (!isObjectType(type) && !isInterfaceType(type)) {
-      continue;
-    }
-
-    const providesDirective = federationBuiltIns.providesDirective(subgraph.schema);
-    for (const field of type.fields()) {
-      const fieldBaseType = baseType(field.type!);
-      for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
-        const selection = parseFieldSetArgument(fieldBaseType as CompositeType, providesApplication);
-        if (selectsNonExternalLeafField(selection)) {
-          providesApplication.remove();
-          const updated = withoutNonExternalLeafFields(selection);
-          if (!updated.isEmpty()) {
-            field.applyDirective(providesDirective, { fields: updated.toString(true, false) });
-          }
-        }
-      }
-    }
-  }
-}
-
-function isExternalOrHasExternalImplementations(field: FieldDefinition<CompositeType>): boolean {
-  if (field.hasAppliedDirective(externalDirectiveName)) {
-    return true;
-  }
-  const parentType = field.parent;
-  if (isInterfaceType(parentType)) {
-    for (const implem of parentType.possibleRuntimeTypes()) {
-      const fieldInImplem = implem.field(field.name);
-      if (fieldInImplem && fieldInImplem.hasAppliedDirective(externalDirectiveName)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function selectsNonExternalLeafField(selection: SelectionSet): boolean {
-  return selection.selections().some(s => {
-    if (s.kind === 'FieldSelection') {
-      // If it's external, we're good and don't need to recurse.
-      if (isExternalOrHasExternalImplementations(s.field.definition)) {
-        return false;
-      }
-      // Otherwise, we select a non-external if it's a leaf, or the sub-selection does.
-      return !s.selectionSet || selectsNonExternalLeafField(s.selectionSet);
-    } else {
-      return selectsNonExternalLeafField(s.selectionSet);
-    }
-  });
-}
-
-function withoutNonExternalLeafFields(selectionSet: SelectionSet): SelectionSet {
-  const newSelectionSet = new SelectionSet(selectionSet.parentType);
-  for (const selection of selectionSet.selections()) {
-    if (selection.kind === 'FieldSelection') {
-      if (isExternalOrHasExternalImplementations(selection.field.definition)) {
-        // That field is external, so we can add the selection back entirely.
-        newSelectionSet.add(selection);
-        continue;
-      }
-    }
-    // Note that for fragments will always be true (and we just recurse), while
-    // for fields, we'll only get here if the field is not external, and so
-    // we want to add the selection only if it's not a leaf and even then, only
-    // the part where we've recursed.
-    if (selection.selectionSet) {
-      const updated = withoutNonExternalLeafFields(selection.selectionSet);
-      if (!updated.isEmpty()) {
-        newSelectionSet.add(selectionOfElement(selection.element(), updated));
-      }
-    }
-  }
-  return newSelectionSet;
 }

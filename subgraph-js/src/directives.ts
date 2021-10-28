@@ -18,6 +18,7 @@ import {
   print,
   ASTNode,
   visit,
+  GraphQLSchema,
 } from 'graphql';
 
 export const KeyDirective = new GraphQLDirective({
@@ -81,6 +82,16 @@ export const ShareableDirective = new GraphQLDirective({
   locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT],
 });
 
+export const LinkDirective = new GraphQLDirective({
+  name: 'link',
+  locations: [DirectiveLocation.SCHEMA],
+  args: {
+    url: {
+      type: new GraphQLNonNull(GraphQLString),
+    },
+  },
+});
+
 export const federationDirectives = [
   KeyDirective,
   ExtendsDirective,
@@ -88,6 +99,7 @@ export const federationDirectives = [
   RequiresDirective,
   ProvidesDirective,
   ShareableDirective,
+  LinkDirective,
 ];
 
 export function isFederationDirective(directive: GraphQLDirective): boolean {
@@ -128,7 +140,7 @@ function hasDirectives(
 }
 
 export function gatherDirectives(
-  type: GraphQLNamedTypeWithDirectives | GraphQLField<any, any>,
+  type: GraphQLNamedTypeWithDirectives | GraphQLField<any, any> | GraphQLSchema,
 ): DirectiveNode[] {
   let directives: DirectiveNode[] = [];
   if ('extensionASTNodes' in type && type.extensionASTNodes) {

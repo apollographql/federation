@@ -1,5 +1,5 @@
+import { asFed2SubgraphDocument, buildSubgraph, Subgraphs } from '@apollo/federation-internals';
 import { DocumentNode } from 'graphql';
-import { Subgraphs } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import {
   HintID,
@@ -29,7 +29,7 @@ function mergeDocuments(...documents: DocumentNode[]): MergeResult {
   for (const doc of documents) {
     const name = `Subgraph${i++}`;
     try {
-      subgraphs.add(name, `https://${name}`, doc);
+      subgraphs.add(buildSubgraph(name, `https://${name}`, asFed2SubgraphDocument(doc)));
     } catch (e) {
       throw new Error(e.toString());
     }

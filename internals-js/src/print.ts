@@ -88,9 +88,6 @@ function definitionAndExtensions<T extends ExtendableElement>(element: {extensio
 }
 
 function printSchemaDefinitionAndExtensions(schemaDefinition: SchemaDefinition, options: Options): string[] {
-  if (isSchemaOfCommonNames(schemaDefinition)) {
-    return [];
-  }
   return printDefinitionAndExtensions(schemaDefinition, options, printSchemaDefinitionOrExtension);
 }
 
@@ -129,13 +126,17 @@ function printSchemaDefinitionOrExtension(
   if (!roots.length && !directives.length) {
     return undefined;
   }
+  if (!extension && !directives.length && isSchemaOfCommonNames(schemaDefinition)) {
+    return undefined;
+  }
   const rootEntries = orderRoots(roots, options).map((rootType) => `${options.indentString}${rootType.rootKind}: ${rootType.type}`);
-  return printDescription(schemaDefinition, options)
+  // Note that that the description is never written with the extension as `extend schema` doesn _not_ support descriptions
+  return (extension ? '' : printDescription(schemaDefinition, options))
     + printIsExtension(extension)
     + 'schema'
-    + printAppliedDirectives(directives, options, true)
+    + printAppliedDirectives(directives, options, true, rootEntries.length !== 0)
     + (directives.length === 0 ? ' ' : '')
-    + '{\n' + rootEntries.join('\n') + '\n}';
+    + (rootEntries.length === 0 ? '' : '{\n' + rootEntries.join('\n') + '\n}');
 }
 
 /**
@@ -151,7 +152,7 @@ function printSchemaDefinitionOrExtension(
  * When using this naming convention, the schema description can be omitted.
  */
 function isSchemaOfCommonNames(schema: SchemaDefinition): boolean {
-  return schema.appliedDirectives.length === 0 && !schema.description && schema.roots().every(r => r.isDefaultRootName());
+  return !schema.description && schema.roots().every(r => r.isDefaultRootName());
 }
 
 /**

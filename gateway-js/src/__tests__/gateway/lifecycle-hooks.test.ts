@@ -18,6 +18,8 @@ import {
 } from 'apollo-federation-integration-testsuite';
 import { Logger } from 'apollo-server-types';
 import resolvable from '@josephg/resolvable';
+import { createHash } from '../../utilities/createHash';
+import { getTestingSupergraphSdl } from '../execution-utils';
 
 // The order of this was specified to preserve existing test coverage. Typically
 // we would just import and use the `fixtures` array.
@@ -135,13 +137,17 @@ describe('lifecycle hooks', () => {
 
     const [firstCall, secondCall] = mockDidUpdate.mock.calls;
 
-    const expectedFirstId = 'd20cfb7a9c51179aa494ed9e98153f0042892bd225437af064bf1c1aa68eab86'
+    // Note that we've composing our usual test fixtures here 
+    const expectedFirstId = createHash('sha256').update(getTestingSupergraphSdl()).digest('hex');
     expect(firstCall[0]!.compositionId).toEqual(expectedFirstId);
     // first call should have no second "previous" argument
     expect(firstCall[1]).toBeUndefined();
 
+    // Note that this assertion is a tad fragile in that every time we modify
+    // the supergraph (even just formatting differences), this ID will change
+    // and this test will have to updated. 
     expect(secondCall[0]!.compositionId).toEqual(
-      '7dad7ab8284165a86241b8973d71f0d6ac8cb142095c717dd23443522850c225',
+      '778ed1636b7b2ca13a078f577e093efb849b2eaf8dce2a9f813a4d66e1169bf5',
     );
     // second call should have previous info in the second arg
     expect(secondCall[1]!.compositionId).toEqual(expectedFirstId);

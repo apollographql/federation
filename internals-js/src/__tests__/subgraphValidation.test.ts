@@ -8,7 +8,7 @@ import { buildSubgraph } from "../federation"
 // If the subgraph is valid, return undefined.
 function buildForErrors(subgraphDefs: DocumentNode, subgraphName: string = 'S'): [string, string][] | undefined {
   try {
-    buildSubgraph(subgraphName, subgraphDefs);
+    buildSubgraph(subgraphName, `http://${subgraphName}`, subgraphDefs).validate();
     return undefined;
   } catch (e) {
     const causes = errorCauses(e);

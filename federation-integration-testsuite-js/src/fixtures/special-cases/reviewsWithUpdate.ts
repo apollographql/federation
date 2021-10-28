@@ -1,5 +1,4 @@
-import gql from 'graphql-tag';
-
+import { fed2gql as gql } from '../../utils/fed2gql';
 import * as reviewsService from '../reviews';
 
 export const name = reviewsService.name;

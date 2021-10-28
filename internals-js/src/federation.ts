@@ -40,11 +40,12 @@ import {
   print as printAST,
   Source,
   DirectiveLocation,
+  SchemaExtensionNode,
 } from "graphql";
 import { defaultPrintOptions, printDirectiveDefinition } from "./print";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
-import { parseSelectionSet, SelectionSet } from './operations';
+import { parseSelectionSet, selectionOfElement, SelectionSet } from './operations';
 import { tagLocations, TAG_VERSIONS } from "./tagSpec";
 import {
   errorCodeDef,
@@ -53,6 +54,7 @@ import {
   ERRORS,
 } from "./error";
 import { computeShareables } from "./sharing";
+import { printHumanReadableList } from ".";
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -69,9 +71,12 @@ export const providesDirectiveName = 'provides';
 export const tagDirectiveName = 'tag';
 
 export const shareableDirectiveName = 'shareable';
+export const linkDirectiveName = 'link';
 
 export const serviceFieldName = '_service';
 export const entitiesFieldName = '_entities';
+
+const FEDERATION_SPEC_URL = 'https://specs.apollo.dev/federation/v2.0'
 
 const tagSpec = TAG_VERSIONS.latest();
 
@@ -95,6 +100,7 @@ const FEDERATION_DIRECTIVES = [
   providesDirectiveName,
   tagDirectiveName,
   shareableDirectiveName,
+  linkDirectiveName,
 ];
 const FEDERATION_ROOT_FIELDS = [
   serviceFieldName,
@@ -360,9 +366,16 @@ function formatFieldsToReturnType([type, implems]: [string, FieldDefinition<Obje
   return `${joinStrings(implems.map(printFieldCoordinate))} ${implems.length == 1 ? 'has' : 'have'} type "${type}"`;
 }
 
+function checkIfFed2Schema(schema: Schema): boolean {
+  // TODO: this is over-simple and needs to be updated
+  const linkDirectives = schema.schemaDefinition.appliedDirectivesOf(federationBuiltIns.linkDirective(schema));
+  return linkDirectives.some((d) => d.arguments().url === FEDERATION_SPEC_URL);
+}
+
 export class FederationMetadata {
   private _externalTester?: ExternalTester;
   private _sharingPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
+  private _isFed2Schema?: boolean;
 
   constructor(readonly schema: Schema) {
   }
@@ -370,6 +383,14 @@ export class FederationMetadata {
   private onInvalidate() {
     this._externalTester = undefined;
     this._sharingPredicate = undefined;
+    this._isFed2Schema = undefined;
+  }
+
+  isFed2Schema(): boolean {
+    if (!this._isFed2Schema) {
+      this._isFed2Schema = checkIfFed2Schema(this.schema);
+    }
+    return this._isFed2Schema;
   }
 
   private externalTester(): ExternalTester {
@@ -449,11 +470,14 @@ export class FederationBuiltIns extends BuiltIns {
         .addArgument('fields', fieldSetType);
     }
 
-    const directive = this.addBuiltInDirective(schema, 'tag').addLocations(...tagLocations);
-    directive.addArgument("name", new NonNullType(schema.stringType()));
+    const tagDirective = this.addBuiltInDirective(schema, 'tag').addLocations(...tagLocations);
+    tagDirective.addArgument("name", new NonNullType(schema.stringType()));
 
     this.addBuiltInDirective(schema, shareableDirectiveName)
       .addLocations(DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION);
+
+    const linkDirective = this.addBuiltInDirective(schema, linkDirectiveName).addLocations(DirectiveLocation.SCHEMA);
+    linkDirective.addArgument("url", new NonNullType(schema.stringType()));
   }
 
   onConstructed(schema: Schema) {
@@ -665,6 +689,10 @@ export class FederationBuiltIns extends BuiltIns {
     return this.getTypedDirective(schema, shareableDirectiveName);
   }
 
+  linkDirective(schema: Schema): DirectiveDefinition<{url: string}> {
+    return this.getTypedDirective(schema, linkDirectiveName);
+  }
+
   maybeUpdateSubgraphDocument(schema: Schema, document: DocumentNode): DocumentNode {
     document = super.maybeUpdateSubgraphDocument(schema, document);
 
@@ -689,6 +717,53 @@ export class FederationBuiltIns extends BuiltIns {
 }
 
 export const federationBuiltIns = new FederationBuiltIns();
+
+export function setSchemaAsFed2Subgraph(schema: Schema) {
+  const linkDirective = federationBuiltIns.linkDirective(schema);
+  // We set the directive on a schema extension because the vast majority of subgraph don't
+  // have custom operations so it ends up looking cleaner/shorter to have
+  //   extend schema @link(...)
+  // at the beginning of the schema, rather:
+  //   schema @link(...) {
+  //     query: Query
+  //     mutation: Mutation
+  //   }
+  // As a minor aside, as federation subgraphs are allowed to be authored _without_ a Query
+  // type (one is automatically added for them ultimately by `buildSubgraphSchema`), using
+  // an extension also avoid confusing GraphQL-js in that case.
+  schema.schemaDefinition.applyDirective( linkDirective, { url: FEDERATION_SPEC_URL })
+    .setOfExtension(schema.schemaDefinition.newExtension());
+}
+
+export function asFed2SubgraphDocument(document: DocumentNode): DocumentNode {
+  const fed2LinkExtension: SchemaExtensionNode = {
+    kind: Kind.SCHEMA_EXTENSION,
+    directives: [{
+      kind: Kind.DIRECTIVE,
+      name: { kind: Kind.NAME, value: linkDirectiveName },
+      arguments: [{
+        kind: Kind.ARGUMENT,
+        name: { kind: Kind.NAME, value: 'url' },
+        value: { kind: Kind.STRING, value: FEDERATION_SPEC_URL }
+      }]
+    }]
+  };
+  return {
+    kind: Kind.DOCUMENT,
+    loc: document.loc,
+    definitions: document.definitions.concat(fed2LinkExtension)
+  }
+}
+
+export function printSubgraphNames(names: string[]): string {
+  return printHumanReadableList(
+    names.map(n => `"${n}"`),
+    {
+      prefix: 'subgraph',
+      prefixPlural: 'subgraphs',
+    }
+  );
+}
 
 export function federationMetadata(schema: Schema): FederationMetadata | undefined {
   return (schema as any)['_federationMetadata'];
@@ -721,21 +796,20 @@ export function isEntityType(type: NamedType): boolean {
   return type.kind == "ObjectType" && type.hasAppliedDirective(keyDirectiveName);
 }
 
-export function buildSubgraph(name: string, source: DocumentNode | string): Schema {
-  try {
-    return typeof source === 'string'
-      ? buildSchema(new Source(source, name), federationBuiltIns)
-      : buildSchemaFromAST(source, federationBuiltIns);
-  } catch (e) {
-    if (e instanceof GraphQLError) {
-      // Note that `addSubgraphToError` only adds the provided code if the original error
-      // didn't have one, and the only one that will not have a code are GraphQL errors
-      // (since we assign specific codes to the federation errors).
-      throw addSubgraphToError(e, name, ERRORS.INVALID_GRAPHQL);
-    } else {
-      throw e;
-    }
-  }
+export function buildSubgraph(
+  name: string,
+  url: string,
+  source: DocumentNode | string
+): Subgraph {
+  // Note that we don't validate right away for 2 reasons:
+  // 1. we wantt to use `Subgraph.validate` instead in general as it adds the subgraph
+  //    name to the error.
+  // 2. federation 1 subgraph won't always validate as is and we only want to run
+  //    validation later on the "upgraded" schema. 
+  const schema = typeof source === 'string'
+    ? buildSchema(new Source(source, name), federationBuiltIns, false)
+    : buildSchemaFromAST(source, federationBuiltIns, false)
+  return new Subgraph(name, url, schema);
 }
 
 export function parseFieldSetArgument(
@@ -846,11 +920,10 @@ export function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subg
   const subgraphs = new Subgraphs();
   for (const service of serviceList) {
     try {
-      subgraphs.add(service.name, service.url ?? '', service.typeDefs);
+      subgraphs.add(buildSubgraph(service.name, service.url ?? '', service.typeDefs));
     } catch (e) {
-      const causes = errorCauses(e);
-      if (causes) {
-        errors = errors.concat(causes);
+      if (e instanceof GraphQLError) {
+        errors.push(addSubgraphToError(e, service.name, ERRORS.INVALID_GRAPHQL));
       } else {
         throw e;
       }
@@ -865,22 +938,17 @@ export function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subg
 export class Subgraphs {
   private readonly subgraphs = new OrderedMap<string, Subgraph>();
 
-  add(subgraph: Subgraph): Subgraph;
-  add(name: string, url: string, schema: Schema | DocumentNode | string): Subgraph;
-  add(subgraphOrName: Subgraph | string, url?: string, schema?: Schema | DocumentNode | string): Subgraph {
-    const toAdd: Subgraph = typeof subgraphOrName  === 'string'
-      ? new Subgraph(subgraphOrName, url!, schema instanceof Schema ? schema! : buildSubgraph(subgraphOrName, schema!))
-      : subgraphOrName;
-
-    if (toAdd.name === FEDERATION_RESERVED_SUBGRAPH_NAME) {
+  add(subgraph: Subgraph): Subgraph {
+    if (subgraph.name === FEDERATION_RESERVED_SUBGRAPH_NAME) {
       throw ERRORS.INVALID_SUBGRAPH_NAME.err({ message: `Invalid name ${FEDERATION_RESERVED_SUBGRAPH_NAME} for a subgraph: this name is reserved` });
     }
 
-    if (this.subgraphs.has(toAdd.name)) {
-      throw new Error(`A subgraph named ${toAdd.name} already exists` + (toAdd.url ? ` (with url '${toAdd.url}')` : ''));
+    if (this.subgraphs.has(subgraph.name)) {
+      throw new Error(`A subgraph named ${subgraph.name} already exists` + (subgraph.url ? ` (with url '${subgraph.url}')` : ''));
     }
-    this.subgraphs.add(toAdd.name, toAdd);
-    return toAdd;
+
+    this.subgraphs.add(subgraph.name, subgraph);
+    return subgraph;
   }
 
   get(name: string): Subgraph | undefined {
@@ -905,6 +973,22 @@ export class Subgraphs {
     }
   }
 
+  validate(): GraphQLError[] | undefined {
+    let errors: GraphQLError[] = [];
+    for (const subgraph of this.values()) {
+      try {
+        subgraph.validate();
+      } catch (e) {
+        const causes = errorCauses(e);
+        if (!causes) {
+          throw e;
+        }
+        errors = errors.concat(causes);
+      }
+    }
+    return errors.length === 0 ? undefined : errors;
+  }
+
   toString(): string {
     return '[' + this.subgraphs.keys().join(', ') + ']'
   }
@@ -915,10 +999,31 @@ export class Subgraph {
     readonly name: string,
     readonly url: string,
     readonly schema: Schema,
-    validateSchema: boolean = true
   ) {
-    if (validateSchema) {
-      schema.validate();
+  }
+
+  metadata(): FederationMetadata {
+    const metadata = federationMetadata(this.schema);
+    assert(metadata, 'The subgraph schema should have built with the federation built-ins.');
+    return metadata;
+  }
+
+  isFed2Subgraph(): boolean {
+    return this.metadata().isFed2Schema();
+  }
+
+  validate() {
+    try {
+      return this.schema.validate();
+    } catch (e) {
+      if (e instanceof GraphQLError) {
+        // Note that `addSubgraphToError` only adds the provided code if the original error
+        // didn't have one, and the only one that will not have a code are GraphQL errors
+        // (since we assign specific codes to the federation errors).
+        throw addSubgraphToError(e, this.name, ERRORS.INVALID_GRAPHQL);
+      } else {
+        throw e;
+      }
     }
   }
 
@@ -951,7 +1056,7 @@ export function addSubgraphToError(e: GraphQLError, subgraphName: string, errorC
         source: cause.source,
         positions: cause.positions,
         path: cause.path,
-        originalError: cause.originalError,
+        originalError: cause,
         extensions: cause.extensions,
       });
     } else {
@@ -961,13 +1066,13 @@ export function addSubgraphToError(e: GraphQLError, subgraphName: string, errorC
         cause.source,
         cause.positions,
         cause.path,
-        cause.originalError,
+        cause,
         cause.extensions
       );
     }
   });
 
-  return ErrGraphQLValidationFailed(updatedCauses);
+  return updatedCauses.length === 1 ? updatedCauses[0] : ErrGraphQLValidationFailed(updatedCauses);
 }
 
 class ExternalTester {
@@ -1013,7 +1118,7 @@ class ExternalTester {
       const parent = provides.parent as FieldDefinition<CompositeType>;
       try {
         forEachFieldSetArgument(
-          parent.type as CompositeType,
+          baseType(parent.type!) as CompositeType,
           provides as Directive<any, {fields: any}>,
           (f) => this.providedFields.add(f.coordinate),
           true
@@ -1054,4 +1159,113 @@ class ExternalTester {
   isFullyExternal(field: FieldDefinition<any> | InputFieldDefinition) {
     return this.isExternal(field) && !this.providedFields.has(field.coordinate);
   }
+}
+
+export type ProvidesOrRequiresApplication = Directive<FieldDefinition<ObjectType | InterfaceType>, {fields: any}>
+
+/*
+ * It makes no sense to have a @provides/@requires on a non-external leaf field, and we usually reject it during schema
+ * validation but this method allows to remove those for:
+ *  1. when we extract subgraphs from a fed 1 supergraph, where such validation hadn't been run.
+ *  2. for the fed 1 -> fed 2 upgader code.
+ *
+ * The reason we do this (and generally reject it) is that such provides/requires have a negative impact on later query
+ * planning, because it sometimes make us to try type-exploding some interfaces unecessarily. Besides, if a use add
+ * something useless, there is a change it hasn't fully understood something, and warning it about that fact through
+ * an error is more helpful.
+ */
+export function removeInactiveProvidesAndRequires(
+  schema: Schema,
+  onModified: (field: FieldDefinition<any>, original: ProvidesOrRequiresApplication, updated?: ProvidesOrRequiresApplication) => void = () => {},
+) {
+  const providesDirective = federationBuiltIns.providesDirective(schema);
+  const requiresDirective = federationBuiltIns.requiresDirective(schema);
+
+  for (const type of schema.types()) {
+    if (!isObjectType(type) && !isInterfaceType(type)) {
+      continue;
+    }
+
+    for (const field of type.fields()) {
+      const fieldBaseType = baseType(field.type!) as CompositeType;
+      removeInactiveApplications(providesDirective, field, fieldBaseType, onModified);
+      removeInactiveApplications(requiresDirective, field, type, onModified);
+    }
+  }
+}
+
+function removeInactiveApplications(
+  directiveDefinition: DirectiveDefinition<{fields: any}>,
+  field: FieldDefinition<any>,
+  parentType: CompositeType,
+  onModified: (field: FieldDefinition<any>, original: ProvidesOrRequiresApplication, updated?: ProvidesOrRequiresApplication) => void
+) {
+  for (const application of field.appliedDirectivesOf(directiveDefinition)) {
+    const selection = parseFieldSetArgument(parentType, application);
+    if (selectsNonExternalLeafField(selection)) {
+      application.remove();
+      const updated = withoutNonExternalLeafFields(selection);
+      if (!updated.isEmpty()) {
+        const updatedDirective = field.applyDirective(directiveDefinition, { fields: updated.toString(true, false) });
+        onModified(field, application, updatedDirective);
+      } else {
+        onModified(field, application);
+      }
+    }
+  }
+}
+
+function isExternalOrHasExternalImplementations(field: FieldDefinition<CompositeType>): boolean {
+  if (field.hasAppliedDirective(externalDirectiveName)) {
+    return true;
+  }
+  const parentType = field.parent;
+  if (isInterfaceType(parentType)) {
+    for (const implem of parentType.possibleRuntimeTypes()) {
+      const fieldInImplem = implem.field(field.name);
+      if (fieldInImplem && fieldInImplem.hasAppliedDirective(externalDirectiveName)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function selectsNonExternalLeafField(selection: SelectionSet): boolean {
+  return selection.selections().some(s => {
+    if (s.kind === 'FieldSelection') {
+      // If it's external, we're good and don't need to recurse.
+      if (isExternalOrHasExternalImplementations(s.field.definition)) {
+        return false;
+      }
+      // Otherwise, we select a non-external if it's a leaf, or the sub-selection does.
+      return !s.selectionSet || selectsNonExternalLeafField(s.selectionSet);
+    } else {
+      return selectsNonExternalLeafField(s.selectionSet);
+    }
+  });
+}
+
+function withoutNonExternalLeafFields(selectionSet: SelectionSet): SelectionSet {
+  const newSelectionSet = new SelectionSet(selectionSet.parentType);
+  for (const selection of selectionSet.selections()) {
+    if (selection.kind === 'FieldSelection') {
+      if (isExternalOrHasExternalImplementations(selection.field.definition)) {
+        // That field is external, so we can add the selection back entirely.
+        newSelectionSet.add(selection);
+        continue;
+      }
+    }
+    // Note that for fragments will always be true (and we just recurse), while
+    // for fields, we'll only get here if the field is not external, and so
+    // we want to add the selection only if it's not a leaf and even then, only
+    // the part where we've recursed.
+    if (selection.selectionSet) {
+      const updated = withoutNonExternalLeafFields(selection.selectionSet);
+      if (!updated.isEmpty()) {
+        newSelectionSet.add(selectionOfElement(selection.element(), updated));
+      }
+    }
+  }
+  return newSelectionSet;
 }

@@ -636,6 +636,18 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
     return extension;
   }
 
+  removeExtensions() {
+    if (this._extensions.size === 0) {
+      return;
+    }
+
+    this._extensions.clear();
+    for (const directive of this._appliedDirectives) {
+      directive.removeOfExtension();
+    }
+    this.removeInnerElementsExtensions();
+  }
+
   isIntrospectionType(): boolean {
     return isIntrospectionName(this.name);
   }
@@ -649,6 +661,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   protected abstract hasNonExtensionInnerElements(): boolean;
+  protected abstract removeInnerElementsExtensions(): void;
 
   protected isElementBuiltIn(): boolean {
     return this.isBuiltIn;
@@ -771,6 +784,10 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
 
   ofExtension(): Extension<TExtended> | undefined {
     return this._extension;
+  }
+
+  removeOfExtension() {
+    this._extension = undefined;
   }
 
   setOfExtension(extension: Extension<TExtended> | undefined) {
@@ -1561,6 +1578,10 @@ export class ScalarType extends BaseNamedType<OutputTypeReferencer | InputTypeRe
     return false; // No inner elements
   }
 
+  protected removeInnerElementsExtensions(): void {
+    // No inner elements
+  }
+
   protected removeInnerElements(): void {
     // No inner elements
   }
@@ -1771,6 +1792,11 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
     return this.interfaceImplementations().some(itf => itf.ofExtension() === undefined)
       || this.fields().some(f => f.ofExtension() === undefined);
   }
+
+  protected removeInnerElementsExtensions(): void {
+    this.interfaceImplementations().forEach(itf => itf.removeOfExtension());
+    this.fields().forEach(f => f.removeOfExtension());
+  }
 }
 
 export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer> {
@@ -1959,6 +1985,10 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
   protected removeReferenceRecursive(ref: OutputTypeReferencer): void {
     ref.removeRecursive();
   }
+
+  protected removeInnerElementsExtensions(): void {
+    this.members().forEach(m => m.removeOfExtension());
+  }
 }
 
 export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
@@ -2016,6 +2046,10 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
 
   protected removeReferenceRecursive(ref: OutputTypeReferencer): void {
     ref.removeRecursive();
+  }
+
+  protected removeInnerElementsExtensions(): void {
+    this._values.forEach(v => v.removeOfExtension());
   }
 }
 
@@ -2099,6 +2133,10 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
     } else {
       ref.removeRecursive();
     }
+  }
+
+  protected removeInnerElementsExtensions(): void {
+    this.fields().forEach(f => f.removeOfExtension());
   }
 }
 
@@ -2218,6 +2256,10 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
     return this._extension;
   }
 
+  removeOfExtension() {
+    this._extension = undefined;
+  }
+
   setOfExtension(extension: Extension<TParent> | undefined) {
     this.checkUpdate();
     // It seems typescript "expand" `TParent` below into `ObjectType | Interface`, so it essentially lose the context that
@@ -2310,6 +2352,10 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
 
   ofExtension(): Extension<InputObjectType> | undefined {
     return this._extension;
+  }
+
+  removeOfExtension() {
+    this._extension = undefined;
   }
 
   setOfExtension(extension: Extension<InputObjectType> | undefined) {
@@ -2422,6 +2468,10 @@ export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
 
   ofExtension(): Extension<EnumType> | undefined {
     return this._extension;
+  }
+
+  removeOfExtension() {
+    this._extension = undefined;
   }
 
   setOfExtension(extension: Extension<EnumType> | undefined) {
@@ -2632,6 +2682,9 @@ export class Directive<
   }
 
   get definition(): DirectiveDefinition | undefined {
+    if (!this.isAttached()) {
+      return undefined;
+    }
     const doc = this.schema();
     return doc.directive(this.name);
   }
@@ -2689,6 +2742,10 @@ export class Directive<
 
   ofExtension(): Extension<any> | undefined {
     return this._extension;
+  }
+
+  removeOfExtension() {
+    this._extension = undefined;
   }
 
   setOfExtension(extension: Extension<any> | undefined) {
@@ -3053,7 +3110,7 @@ function copySchemaDefinitionInner(source: SchemaDefinition, dest: SchemaDefinit
   // Same as copyAppliedDirectives, but as the directive applies to the schema definition, we need to remember if the application
   // is for the extension or not.
   for (const directive of source.appliedDirectives) {
-    copyOfExtension(extensionsMap, directive, dest.applyDirective(directive.name, { ...directive.arguments() }));
+    copyOfExtension(extensionsMap, directive, copyAppliedDirective(directive, dest));
   }
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
@@ -3064,7 +3121,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
   // Same as copyAppliedDirectives, but as the directive applies to the type, we need to remember if the application
   // is for the extension or not.
   for (const directive of source.appliedDirectives) {
-    copyOfExtension(extensionsMap, directive, dest.applyDirective(directive.name, { ...directive.arguments() }));
+    copyOfExtension(extensionsMap, directive, copyAppliedDirective(directive, dest));
   }
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
@@ -3109,9 +3166,13 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
 }
 
 function copyAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>) {
-  for (const directive of source.appliedDirectives) {
-    dest.applyDirective(directive.name, { ...directive.arguments() });
-  }
+  source.appliedDirectives.forEach((d) => copyAppliedDirective(d, dest));
+}
+
+function copyAppliedDirective(source: Directive<any, any>, dest: SchemaElement<any, any>): Directive<any, any> {
+  const res = dest.applyDirective(source.name, { ...source.arguments() });
+  res.sourceAST = source.sourceAST
+  return res;
 }
 
 function copyFieldDefinitionInner<P extends ObjectType | InterfaceType>(source: FieldDefinition<P>, dest: FieldDefinition<P>) {

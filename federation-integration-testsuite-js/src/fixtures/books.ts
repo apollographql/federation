@@ -1,5 +1,5 @@
-import gql from 'graphql-tag';
 import { GraphQLResolverMap } from '../resolverMap';
+import { fed2gql as gql } from '../utils/fed2gql';
 
 export const name = 'books';
 export const url = `https://${name}.api.com.invalid`;
@@ -19,7 +19,7 @@ export const typeDefs = gql`
   ) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
 
 
-  extend type Query {
+  type Query {
     book(isbn: String!): Book
     books: [Book]
     library(id: ID!): Library

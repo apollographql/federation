@@ -59,19 +59,26 @@ function forEachFieldSetArgumentResolvingInterfaces(
   directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
   callback: (field: FieldDefinition<CompositeType>) => void,
 ) {
-  parseFieldSetArgument(parentType, directive, (t, f) => {
-    const field = t.field(f);
-    if (field) {
-      callback(field);
-      if (isInterfaceType(t)) {
-        for (const implType of t.possibleRuntimeTypes()) {
-          const implField = implType.field(f);
-          if (implField) {
-            callback(implField);
+  try {
+    parseFieldSetArgument(parentType, directive, (t, f) => {
+      const field = t.field(f);
+      if (field) {
+        callback(field);
+        if (isInterfaceType(t)) {
+          for (const implType of t.possibleRuntimeTypes()) {
+            const implField = implType.field(f);
+            if (implField) {
+              callback(implField);
+            }
           }
         }
       }
-    }
-    return field;
-  });
+      return field;
+    });
+  } catch (e) {
+    // Shareable computation can be run on a schema that hasn't yet be fully
+    // validated, so parsing a federation directive `fields` argument _can_
+    // fail, but we want to ignore this here and let later validation handle
+    // this more cleanly.
+  }
 }

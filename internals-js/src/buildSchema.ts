@@ -206,7 +206,9 @@ function buildSchemaDefinitionInner(
       opTypeNode);
   }
   schemaDefinition.sourceAST = schemaNode;
-  schemaDefinition.description = 'description' in schemaNode ? schemaNode.description?.value : undefined;
+  if ('description' in schemaNode) {
+    schemaDefinition.description = schemaNode.description?.value;
+  }
   buildAppliedDirectives(schemaNode, schemaDefinition, extension);
 }
 

@@ -1,4 +1,4 @@
-import gql from 'graphql-tag';
+import { fed2gql as gql } from '../../utils/fed2gql';
 
 export { name, url, resolvers } from '../accounts';
 export const typeDefs = gql`
@@ -10,7 +10,7 @@ export const typeDefs = gql`
     mutation: Mutation
   }
 
-  extend type RootQuery {
+  type RootQuery {
     user(id: ID!): User
     me: User
   }
@@ -50,9 +50,10 @@ export const typeDefs = gql`
     login(username: String!, password: String!): User
   }
 
-  extend type Library @key(fields: "id") {
-    id: ID! @external
+  type Library @key(fields: "id") {
+    id: ID!
     name: String @external
     userAccount(id: ID! = "1"): User @requires(fields: "name")
+
   }
 `;

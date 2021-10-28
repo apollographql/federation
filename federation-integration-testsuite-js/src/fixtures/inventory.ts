@@ -1,5 +1,5 @@
-import gql from 'graphql-tag';
 import { GraphQLResolverMap } from '../resolverMap';
+import { fed2gql as gql } from '../utils/fed2gql';
 
 export const name = 'inventory';
 export const url = `https://${name}.api.com.invalid`;
@@ -7,28 +7,28 @@ export const typeDefs = gql`
   directive @stream on FIELD
   directive @transform(from: String!) on FIELD
 
-  extend interface Product {
+  interface Product {
     inStock: Boolean
   }
 
-  extend type Furniture implements Product @key(fields: "sku") {
-    sku: String! @external
+  type Furniture implements Product @key(fields: "sku") {
+    sku: String!
     inStock: Boolean
     isHeavy: Boolean
   }
 
-  extend type Book implements Product @key(fields: "isbn") {
-    isbn: String! @external
+  type Book implements Product @key(fields: "isbn") {
+    isbn: String!
     inStock: Boolean
     isCheckedOut: Boolean
   }
 
-  extend type UserMetadata {
+  type UserMetadata {
     description: String @external
   }
 
-  extend type User @key(fields: "id") {
-    id: ID! @external
+  type User @key(fields: "id") {
+    id: ID!
     metadata: [UserMetadata] @external
     goodDescription: Boolean @requires(fields: "metadata { description }")
   }
