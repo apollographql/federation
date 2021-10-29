@@ -189,7 +189,7 @@ test('hints on merging argument with default value in only some subgraph', () =>
   expect(result).toRaiseHint(
     hintInconsistentDefaultValue,
     'Argument "T.f(a:)" has a default value in only some subgraphs: '
-    + 'will use default value "foo" (from subgraph "Subgraph1") in supergraph but no default value is defined in subgraph "Subgraph2".'
+    + 'will not use a default in the supergraph (there is no default in subgraph "Subgraph2") but "T.f(a:)" has default value "foo" in subgraph "Subgraph1".'
   );
 })
 
@@ -453,7 +453,6 @@ test('hints on execution directives having no locations intersection', () => {
     + 'it will not appear in the subgraph as there no intersection between location "QUERY" in subgraph "Subgraph1" and location "FIELD" in subgraph "Subgraph2".'
   );
 })
-
 
 test('hints on execution directives having inconsistent repeatable', () => {
   const subgraph1 = gql`

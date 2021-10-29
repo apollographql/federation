@@ -500,8 +500,7 @@ class Merger {
         astNodes.push(addSubgraphToASTNode(subgraphElt.sourceAST, this.names[i]));
       }
     }
-    const supergraphMismatch = mismatchAcessor(supergraphElement, true);
-    assert(supergraphMismatch !== undefined, () => `The accessor on ${supergraphElement} returned undefined`);
+    const supergraphMismatch = mismatchAcessor(supergraphElement, true) ?? '';
     assert(distributionMap.size > 1, () => `Should not have been called for ${supergraphElement}`);
     const distribution = [];
     // We always add the "supergraph" first (proper formatting of hints rely on this in particular).
@@ -1028,7 +1027,7 @@ class Merger {
             (_, subgraphs) => `it is defined in ${subgraphs}`,
             (_, subgraphs) => ` but not in ${subgraphs}`,
             undefined,
-            true
+            true // Do include undefined sources, that's the point
           );
           // Note that we remove the element after the hint because we acess the parent in the hint message.
           dest.remove();
@@ -1051,25 +1050,37 @@ class Merger {
       if (!source) {
         continue;
       }
+      // Because default values are always in input/contra-variant positions, we use an intersection strategy. Namely,
+      // the result only has a default if _all_ have a default (which has to be the same, but we error if we found
+      // 2 different defaults no matter what). Essentially, an argument/input field can only be made optional
+      // in the supergraph API if it is optional in all subgraphs, or we may query a subgraph that expects the
+      // value to be provided when it isn't. Note that an alternative could be to use an union strategy instead
+      // but have the router/gateway fill in the default for subgraphs that don't know it, but that imply parsing
+      // all the subgraphs fetches and we probably don't want that.
       const sourceDefault = source.defaultValue;
       if (destDefault === undefined) {
-        destDefault = sourceDefault
+        // Note that we set destDefault even if we have seen a source before and maybe thus be inconsistent.
+        // We won't use that value later if we're inconsistent, but keeping it allows us to always error out
+        // if we any 2 incompatible defaults.
+        destDefault = sourceDefault;
         // destDefault may be undefined either because we haven't seen any source (having the argument)
         // or because we've seen one but that source had no default. In the later case (`hasSeenSource`), 
         // if the new source _has_ a default, then we're inconsistent.
-        if (hasSeenSource && sourceDefault) {
+        if (hasSeenSource && sourceDefault !== undefined) {
           isInconsistent = true;
         }
       } else if (!valueEquals(destDefault, sourceDefault)) {
         isInconsistent = true;
         // It's only incompatible if neither is undefined
-        if (sourceDefault) {
+        if (sourceDefault !== undefined) {
           isIncompatible = true;
         }
       }
       hasSeenSource = true;
     }
-    dest.defaultValue = destDefault;
+    if (!isInconsistent && !isIncompatible) {
+      dest.defaultValue = destDefault;
+    }
 
     if (isIncompatible) {
       this.reportMismatchError(
@@ -1086,8 +1097,8 @@ class Merger {
         dest,
         sources,
         arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined,
-        (elt, subgraphs) => `will use default value ${elt} (from ${subgraphs}) in supergraph but `,
-        (_, subgraphs) => `no default value is defined in ${subgraphs}`
+        (_, subgraphs) => `will not use a default in the supergraph (there is no default in ${subgraphs}) but `,
+        (elt, subgraphs) => `"${dest.coordinate}" has default value ${elt} in ${subgraphs}`
       );
     }
   }
