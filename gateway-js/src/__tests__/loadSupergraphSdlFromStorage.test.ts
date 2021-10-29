@@ -417,7 +417,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl,
           fetcher,
           ifAfterId: null,
-        }) ,
+        }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input"`,
       );
@@ -461,7 +461,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl,
           fetcher,
           ifAfterId: null,
-        }) ,
+        }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"An error occurred while fetching your schema from Apollo: 413 Payload Too Large"`,
       );
