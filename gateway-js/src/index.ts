@@ -984,7 +984,7 @@ export class ApolloGateway implements GraphQLService {
         apiKey: this.apolloConfig!.key!,
         endpoint: this.schemaConfigDeliveryEndpoint!,
         fetcher: this.fetcher,
-        ifAfterId: this.compositionId,
+        ifAfterId: this.compositionId ? this.compositionId : null,
       });
     } else if (isLegacyManagedConfig(config)) {
       return getServiceDefinitionsFromStorage({
