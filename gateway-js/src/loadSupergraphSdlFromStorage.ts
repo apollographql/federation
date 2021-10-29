@@ -43,11 +43,13 @@ export async function loadSupergraphSdlFromStorage({
   apiKey,
   endpoint,
   fetcher,
+  ifAfterId,
 }: {
   graphRef: string;
   apiKey: string;
   endpoint: string;
   fetcher: typeof fetch;
+  ifAfterId: string;
 }) {
   let result: Response;
   const requestDetails = {
@@ -57,6 +59,7 @@ export async function loadSupergraphSdlFromStorage({
       variables: {
         ref: graphRef,
         apiKey,
+        ifAfterId,
       },
     }),
     headers: {
