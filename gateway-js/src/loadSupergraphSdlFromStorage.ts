@@ -5,8 +5,8 @@ import { SupergraphSdlQuery } from './__generated__/graphqlTypes';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
 export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql
-  query SupergraphSdl($apiKey: String!, $ref: String!) {
-    routerConfig(ref: $ref, apiKey: $apiKey) {
+  query SupergraphSdl($apiKey: String!, $ref: String!, $ifAfterId: String) {
+    routerConfig(ref: $ref, apiKey: $apiKey, ifAfterId: $ifAfterId) {
       __typename
       ... on RouterConfigResult {
         id

@@ -76,6 +76,7 @@ export function mockSupergraphSdlRequest() {
     variables: {
       ref: graphRef,
       apiKey: apiKey,
+      ifAfterId: null,
     },
   });
 }
