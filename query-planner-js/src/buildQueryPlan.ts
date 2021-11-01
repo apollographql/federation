@@ -163,44 +163,41 @@ function collectInclusionConditions(document: DocumentNode) {
     operation.selectionSet,
     fragmentMap,
   );
+  // A null tree means construction was short-circuited and inclusion is required.
+  // This allows us to bail early since we already know we can't skip this `FetchNode`
+  // (and there's no tree to walk).
+  if (conditionalTree === null) return null;
 
-  let allTopLevelsHaveConditional = true;
   const inclusionConditions: {
     skip: boolean | string | null;
     include: boolean | string | null;
   }[] = [];
+
+  // Flatten the conditional tree into a list of conditions. We no longer need
+  // the tree structure, since if any condition (effectively) resolves to inclusion,
+  // we know we can't skip the `FetchNode`.
   walkConditionalTree(conditionalTree, (node) => {
-    if (node === null || (Array.isArray(node) && node[0] === null)) {
-      allTopLevelsHaveConditional = false;
-    }
-    if (node !== null && !Array.isArray(node)) {
+    if (!Array.isArray(node)) {
       inclusionConditions.push(node);
     }
   });
 
-  if (allTopLevelsHaveConditional) {
-    // Short circuit inclusion when, for any condition either is true:
-    //  1. include is true AND (skip is either not specified or false)
-    //  2. skip is false AND (include is either not specified or true)
-    if (
-      inclusionConditions.some(
-        (v) =>
-          v.include === true &&
-          (v.skip === null || v.skip === false),
-      ) ||
-      inclusionConditions.some(
-        (v) =>
-          v.skip === false &&
-          (v.include === null || v.include === true),
-      )
-    ) {
-      // In these cases we make no modification to the FetchNode - it should
-      // be included and needs no `inclusionConditions` appended to it.
-      return null;
-    }
-    return inclusionConditions;
+  // Short circuit inclusion when, for any condition either is true:
+  //  1. include is true AND (skip is either not specified or false)
+  //  2. skip is false AND (include is either not specified or true)
+  if (
+    inclusionConditions.some(
+      (v) => v.include === true && (v.skip === null || v.skip === false),
+    ) ||
+    inclusionConditions.some(
+      (v) => v.skip === false && (v.include === null || v.include === true),
+    )
+  ) {
+    // In these cases we make no modification to the FetchNode - it should
+    // be included and needs no `inclusionConditions` appended to it.
+    return null;
   }
-  return null;
+  return inclusionConditions;
 }
 
 function collectConditionalValues(selection: SelectionNode) {
@@ -230,12 +227,14 @@ interface ConditionalValue {
 }
 
 type ConditionalTreeNode =
-  | null
   | ConditionalValue
   | [ConditionalValue, ConditionalTree];
 type ConditionalTree = ConditionalTreeNode[];
 
-function buildConditionalTree(selectionSet: SelectionSetNode, fragmentMap: Fragments) {
+function buildConditionalTree(
+  selectionSet: SelectionSetNode,
+  fragmentMap: Fragments,
+): ConditionalTree | null {
   const conditionalTree: ConditionalTree = [];
 
   // Inspecting the top-level selections only
@@ -246,9 +245,9 @@ function buildConditionalTree(selectionSet: SelectionSetNode, fragmentMap: Fragm
       if (skip !== null || include !== null) {
         conditionalTree.push({ skip, include });
       } else {
-        // Any `null`s will inform us that we can't skip this selection since it
-        // means that no conditionals were found.
-        conditionalTree.push(null);
+        // Returning null short circuits the building of the tree since we know
+        // from here that we can't skip the `FetchNode` in question.
+        return null;
       }
     } else if (
       selection.kind === Kind.FRAGMENT_SPREAD ||
@@ -270,12 +269,18 @@ function buildConditionalTree(selectionSet: SelectionSetNode, fragmentMap: Fragm
         if (nestedSelections) {
           conditionalTree.push(...nestedSelections);
         } else {
-          conditionalTree.push(null);
+          // Returning null short circuits the building of the tree since we know
+          // from here that we can't skip the `FetchNode` in question.
+          return null;
         }
       } else {
+        const subTree = buildConditionalTree(selectionSet, fragmentMap);
+        // Returning null short circuits the building of the tree since we know
+        // from here that we can't skip the `FetchNode` in question.
+        if (!subTree) return null;
         conditionalTree.push([
           { skip, include },
-          buildConditionalTree(selectionSet, fragmentMap),
+          subTree,
         ]);
       }
     }
@@ -285,7 +290,7 @@ function buildConditionalTree(selectionSet: SelectionSetNode, fragmentMap: Fragm
 
 function walkConditionalTree(
   tree: ConditionalTree,
-  fn: (node: ConditionalTreeNode) => void,
+  fn: (node: ConditionalTreeNode) => void | null,
 ) {
   tree.forEach((node) => walkConditionalTreeNode(node, fn));
 }
