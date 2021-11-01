@@ -261,36 +261,25 @@ export function shouldSkipFetchNode(
   node: FetchNode,
   variables: VariableValues = {},
 ) {
-  if (node.inclusionConditions) {
-    const shouldSkip = node.inclusionConditions.every((conditionals) => {
-      function resolveConditionalValue(conditional: 'skip' | 'include') {
-        const conditionalType = typeof conditionals[conditional];
-        if (conditionalType === 'boolean') {
-          return conditionals[conditional] as boolean;
-        } else if (conditionalType === 'string') {
-          return variables[conditionals[conditional] as string] as string;
-        } else {
-          return null;
-        }
+  if (!node.inclusionConditions) return false;
+
+  return node.inclusionConditions.every((conditionals) => {
+    function resolveConditionalValue(conditional: 'skip' | 'include') {
+      const conditionalType = typeof conditionals[conditional];
+      if (conditionalType === 'boolean') {
+        return conditionals[conditional] as boolean;
+      } else if (conditionalType === 'string') {
+        return variables[conditionals[conditional] as string] as boolean;
+      } else {
+        return null;
       }
+    }
 
-      const includeValue = resolveConditionalValue('include');
-      const skipValue = resolveConditionalValue('skip');
+    const includeValue = resolveConditionalValue('include');
+    const skipValue = resolveConditionalValue('skip');
 
-      if (includeValue !== null && skipValue !== null) {
-        return !includeValue || skipValue;
-      } else if (includeValue !== null) {
-        return !includeValue;
-      } else if (skipValue !== null) {
-        return skipValue;
-      }
-
-      throw new Error('Programming error: unexpected value for conditional directive');
-    });
-
-    return shouldSkip;
-  }
-  return false;
+    return includeValue === false || skipValue === true;
+  });
 }
 
 async function executeFetch<TContext>(
