@@ -4,7 +4,7 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- Skip fetches when possible (based on @skip and @include usages). The query planner now aggregates top-level skip and include usages in order to skip `FetchNode`s altogether when possible. [PR #1113](https://github.com/apollographql/federation/pull/1113)
+- `FetchNode`s may now contain a property `inclusionConditions` which informs the executor whether or not a `FetchNode` can be skipped entirely at runtime. Inclusion conditions may consist of literals and variables, so must be resolved at execution time rather than during query planning. This change to the query plan format is backwards compatible - query plan executors may ignore this property altogether and the results will be the same. Utilizing this property is simply an optimization to allow an executor to skip sending subgraph requests which will evaluate to no data. [PR #1113](https://github.com/apollographql/federation/pull/1113)
 
 ## v0.5.0
 
