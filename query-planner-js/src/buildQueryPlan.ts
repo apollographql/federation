@@ -290,7 +290,7 @@ function buildConditionalTree(
 
 function walkConditionalTree(
   tree: ConditionalTree,
-  fn: (node: ConditionalTreeNode) => void | null,
+  fn: (node: ConditionalTreeNode) => void,
 ) {
   tree.forEach((node) => walkConditionalTreeNode(node, fn));
 }
