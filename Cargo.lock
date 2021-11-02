@@ -202,7 +202,7 @@ dependencies = [
 
 [[package]]
 name = "harmonizer"
-version = "0.33.3"
+version = "0.33.4-0"
 dependencies = [
  "apollo-federation-types",
  "deno_core",

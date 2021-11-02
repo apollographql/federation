@@ -1,6 +1,6 @@
 [package]
 name = "harmonizer"
-version = "0.33.3"
+version = "0.33.4-0"
 authors = [ "Apollo <packages@apollographql.com>" ]
 edition = "2018"
 description = "Apollo Federation utility to compose a supergraph from subgraphs"
