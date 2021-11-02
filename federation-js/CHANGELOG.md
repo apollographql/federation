@@ -6,6 +6,10 @@
 
 - _Nothing yet. Stay tuned._
 
+## v0.33.5
+
+- Updates to transitive dependencies.  No other substantial changes.
+
 ## v0.33.4
 
 - Updates to transitive dependencies.  No other substantial changes.
