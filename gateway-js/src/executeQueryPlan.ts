@@ -355,9 +355,9 @@ async function executeFetch<TContext>(
           );
         }
 
-        for (let i = 0; i < entities.length; i++) {
-          deepMerge(entities[representationToEntity[i]], receivedEntities[i]);
-        }
+        receivedEntities.forEach((receivedEntity, index)=> {
+          deepMerge(entities[representationToEntity[index]], receivedEntity);
+        });
       }
     }
     catch (err) {
