@@ -1,6 +1,7 @@
 import {
   GraphQLExecutionResult,
   GraphQLRequestContext,
+  VariableValues,
 } from 'apollo-server-types';
 import { Headers } from 'apollo-server-env';
 import {
@@ -232,6 +233,10 @@ async function executeNode<TContext>(
       });
     }
     case 'Fetch': {
+      if (shouldSkipFetchNode(node, context.requestContext.request.variables)) {
+        return new Trace.QueryPlanNode();
+      }
+
       const traceNode = new Trace.QueryPlanNode.FetchNode({
         serviceName: node.serviceName,
         // executeFetch will fill in the other fields if desired.
@@ -250,6 +255,31 @@ async function executeNode<TContext>(
       return new Trace.QueryPlanNode({ fetch: traceNode });
     }
   }
+}
+
+export function shouldSkipFetchNode(
+  node: FetchNode,
+  variables: VariableValues = {},
+) {
+  if (!node.inclusionConditions) return false;
+
+  return node.inclusionConditions.every((conditionals) => {
+    function resolveConditionalValue(conditional: 'skip' | 'include') {
+      const conditionalType = typeof conditionals[conditional];
+      if (conditionalType === 'boolean') {
+        return conditionals[conditional] as boolean;
+      } else if (conditionalType === 'string') {
+        return variables[conditionals[conditional] as string] as boolean;
+      } else {
+        return null;
+      }
+    }
+
+    const includeValue = resolveConditionalValue('include');
+    const skipValue = resolveConditionalValue('skip');
+
+    return includeValue === false || skipValue === true;
+  });
 }
 
 async function executeFetch<TContext>(

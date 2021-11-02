@@ -1,9 +1,13 @@
 import { GraphQLSchema } from 'graphql';
 import gql from 'graphql-tag';
 import { buildOperationContext } from '../operationContext';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  queryPlanSerializer,
+  fixturesWithUpdate,
+} from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
-import { QueryPlanner } from '@apollo/query-planner';
+import { QueryPlanner, FetchNode } from '@apollo/query-planner';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -85,7 +89,7 @@ describe('buildQueryPlan', () => {
       buildOperationContext({
         schema,
         operationDocument,
-      })
+      }),
     );
 
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -119,7 +123,7 @@ describe('buildQueryPlan', () => {
       buildOperationContext({
         schema,
         operationDocument,
-      })
+      }),
     );
 
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -206,7 +210,7 @@ describe('buildQueryPlan', () => {
       buildOperationContext({
         schema,
         operationDocument,
-      })
+      }),
     );
 
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -337,7 +341,7 @@ describe('buildQueryPlan', () => {
       buildOperationContext({
         schema,
         operationDocument,
-      })
+      }),
     );
 
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -379,7 +383,7 @@ describe('buildQueryPlan', () => {
       buildOperationContext({
         schema,
         operationDocument,
-      })
+      }),
     );
 
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -420,7 +424,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -475,7 +479,7 @@ describe('buildQueryPlan', () => {
           buildOperationContext({
             schema,
             operationDocument,
-          })
+          }),
         );
 
         expect(queryPlan).toMatchInlineSnapshot(`
@@ -531,7 +535,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -571,7 +575,7 @@ describe('buildQueryPlan', () => {
 
   describe(`when requesting a composite field with subfields from another service`, () => {
     it(`should add key fields to the parent selection set and use a dependent fetch`, () => {
-       const operationString = `#graphql
+      const operationString = `#graphql
         query {
           topReviews {
             body
@@ -588,7 +592,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -641,7 +645,7 @@ describe('buildQueryPlan', () => {
           buildOperationContext({
             schema,
             operationDocument,
-          })
+          }),
         );
 
         expect(queryPlan).toMatchInlineSnapshot(`
@@ -696,7 +700,7 @@ describe('buildQueryPlan', () => {
           buildOperationContext({
             schema,
             operationDocument,
-          })
+          }),
         );
 
         expect(queryPlan).toMatchInlineSnapshot(`
@@ -751,7 +755,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -807,7 +811,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -854,7 +858,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -901,7 +905,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -942,7 +946,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -982,7 +986,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -1025,7 +1029,7 @@ describe('buildQueryPlan', () => {
       buildOperationContext({
         schema,
         operationDocument,
-      })
+      }),
     );
 
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -1099,7 +1103,7 @@ describe('buildQueryPlan', () => {
       buildOperationContext({
         schema,
         operationDocument,
-      })
+      }),
     );
 
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -1154,7 +1158,7 @@ describe('buildQueryPlan', () => {
       buildOperationContext({
         schema,
         operationDocument,
-      })
+      }),
     );
 
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -1550,7 +1554,7 @@ describe('buildQueryPlan', () => {
       buildOperationContext({
         schema,
         operationDocument,
-      })
+      }),
     );
 
     expect(queryPlan).toMatchInlineSnapshot(`
@@ -1612,7 +1616,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -1662,7 +1666,7 @@ describe('buildQueryPlan', () => {
         buildOperationContext({
           schema,
           operationDocument,
-        })
+        }),
       );
 
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -1682,6 +1686,253 @@ describe('buildQueryPlan', () => {
           },
         }
       `);
+    });
+  });
+
+  describe('top-level @skip/@include behavior', () => {
+    beforeEach(() => {
+      ({ schema, queryPlanner } =
+        getFederatedTestingSchema(fixturesWithUpdate));
+    });
+
+    function getQueryPlan(operation: string) {
+      const operationDocument = gql(operation);
+
+      return queryPlanner.buildQueryPlan(
+        buildOperationContext({
+          schema,
+          operationDocument,
+        }),
+      );
+    }
+
+    it('simple skip', () => {
+      const operation = `#graphql
+        query {
+          topReviews @skip(if: true) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toEqual([{ skip: true, include: null }]);
+    });
+
+    it('simple include', () => {
+      const operation = `#graphql
+        query {
+          topReviews @include(if: false) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toEqual([{ include: false, skip: null }]);
+    });
+
+    it('simple include with variables', () => {
+      const operation = `#graphql
+        query {
+          topReviews @include(if: $shouldInclude) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toEqual([{ include: 'shouldInclude', skip: null }]);
+    });
+
+    it('simple skip with variables', () => {
+      const operation = `#graphql
+        query {
+          topReviews @skip(if: $shouldSkip) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toEqual([{ skip: 'shouldSkip', include: null }]);
+    });
+
+    it('not all top-levels have conditionals', () => {
+      const operation = `#graphql
+        query {
+          topReviews @skip(if: $shouldSkip) {
+            body
+          }
+          review(id: "1") {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toBeUndefined();
+    });
+
+    it('all top-levels have conditionals', () => {
+      const operation = `#graphql
+        query {
+          topReviews @skip(if: $shouldSkip) {
+            body
+          }
+          review(id: "1") @skip(if: true) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toEqual([
+        { skip: 'shouldSkip', include: null },
+        { skip: true, include: null },
+      ]);
+    });
+
+    it('all top-levels use literals (include case)', () => {
+      const operation = `#graphql
+        query {
+          topReviews @skip(if: false) {
+            body
+          }
+          review(id: "1") @include(if: true) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toBeUndefined();
+    });
+
+    it('all top-levels use literals (skip case)', () => {
+      const operation = `#graphql
+        query {
+          topReviews @skip(if: true) {
+            body
+          }
+          review(id: "1") @include(if: false) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toEqual([
+        { skip: true, include: null },
+        { include: false, skip: null },
+      ]);
+    });
+
+    it('skip: false, include: false', () => {
+      const operation = `#graphql
+        query {
+          topReviews @skip(if: false) @include(if: false) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toEqual([{ skip: false, include: false }]);
+    });
+
+    it('skip: false, include: true', () => {
+      const operation = `#graphql
+        query {
+          topReviews @skip(if: false) @include(if: true) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toBeUndefined();
+    });
+
+    it('skip: true, include: false', () => {
+      const operation = `#graphql
+        query {
+          topReviews @skip(if: true) @include(if: false) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toEqual([{ skip: true, include: false }]);
+    });
+
+    it('skip: true, include: true', () => {
+      const operation = `#graphql
+        query {
+          topReviews @skip(if: true) @include(if: true) {
+            body
+          }
+        }
+      `;
+
+      expect(
+        (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+      ).toEqual([{ skip: true, include: true }]);
+    });
+
+    describe.skip('known limitations', () => {
+      it('conditionals on top-level fragment spreads are captured', () => {
+        const operation = `#graphql
+          query {
+            ...TopReviews @skip(if: $shouldSkip)
+          }
+
+          fragment TopReviews on Query {
+            topReviews {
+              body
+            }
+          }
+        `;
+
+        expect(
+          (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+        ).toEqual([{ skip: 'shouldSkip', include: null }]);
+      });
+
+      it('conditionals on top-level inline fragments are captured', () => {
+        const operation = `#graphql
+          query {
+            ... on Query @skip(if: $shouldSkip) {
+              topReviews {
+                body
+              }
+            }
+          }
+        `;
+
+        expect(
+          (getQueryPlan(operation).node as FetchNode).inclusionConditions,
+        ).toEqual([{ skip: 'shouldSkip', include: null }]);
+      });
+
+      it.todo(
+        'deeply-nested conditionals within fragment spreads are captured',
+      );
+      it.todo(
+        'deeply-nested conditionals within inline fragments are captured',
+      );
     });
   });
 });

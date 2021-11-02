@@ -7,7 +7,7 @@ import {
 } from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
-import { GraphQLRequestContext } from 'apollo-server-types';
+import { GraphQLRequestContext, VariableValues } from 'apollo-server-types';
 import { AuthenticationError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
@@ -26,10 +26,6 @@ expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 describe('executeQueryPlan', () => {
-  let serviceMap: {
-    [serviceName: string]: LocalGraphQLDataSource;
-  };
-
   function overrideResolversInService(
     serviceName: string,
     resolvers: GraphQLResolverMap,
@@ -44,6 +40,9 @@ describe('executeQueryPlan', () => {
     return jest.spyOn(entitiesField, 'resolve');
   }
 
+  let serviceMap: {
+    [serviceName: string]: LocalGraphQLDataSource;
+  };
   let schema: GraphQLSchema;
   let queryPlanner: QueryPlanner;
   beforeEach(() => {
@@ -53,13 +52,15 @@ describe('executeQueryPlan', () => {
     ).not.toThrow();
   });
 
-  function buildRequestContext(): GraphQLRequestContext {
+  function buildRequestContext(
+    variables: VariableValues = {},
+  ): GraphQLRequestContext {
     // @ts-ignore
     return {
       cache: undefined as any,
       context: {},
       request: {
-        variables: {},
+        variables,
       },
     };
   }
@@ -1377,6 +1378,262 @@ describe('executeQueryPlan', () => {
       //     [GraphQLError: Abstract type "Vehicle" was resolve to a type [inaccessible type] that does not exist inside schema.],
       //   ]
       // `);
+    });
+  });
+
+  describe('top-level @skip / @include usages', () => {
+    it(`top-level skip never calls reviews service (using literals)`, async () => {
+      const operationDocument = gql`
+        query {
+          topReviews @skip(if: true) {
+            body
+          }
+        }
+      `;
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(response.data).toMatchInlineSnapshot(`Object {}`);
+      expect(queryPlan).not.toCallService('reviews');
+    });
+
+    it(`top-level skip never calls reviews service (using variables)`, async () => {
+      const operationDocument = gql`
+        query TopReviews($shouldSkip: Boolean!) {
+          topReviews @skip(if: $shouldSkip) {
+            body
+          }
+        }
+      `;
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+      const variables = { shouldSkip: true };
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(variables),
+        operationContext,
+      );
+
+      expect(response.data).toMatchInlineSnapshot(`Object {}`);
+      expect({ queryPlan, variables }).not.toCallService('reviews');
+    });
+
+    it(`call to service isn't skipped unless all top-level fields are skipped`, async () => {
+      const operationDocument = gql`
+        query {
+          user(id: "1") @skip(if: true) {
+            username
+          }
+          me @include(if: true) {
+            username
+          }
+        }
+      `;
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(response.data).toMatchObject({
+        me: {
+          username: '@ada',
+        },
+      });
+      expect(queryPlan).toCallService('accounts');
+    });
+
+    it(`call to service is skipped when all top-level fields are skipped`, async () => {
+      const operationDocument = gql`
+        query {
+          user(id: "1") @skip(if: true) {
+            username
+          }
+          me @include(if: false) {
+            username
+          }
+        }
+      `;
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+      const response = await executeQueryPlan(
+        queryPlan,
+        serviceMap,
+        buildRequestContext(),
+        operationContext,
+      );
+
+      expect(response.data).toMatchObject({});
+      expect(queryPlan).not.toCallService('accounts');
+    });
+
+    describe('@skip and @include combinations', () => {
+      it(`include: false, skip: false`, async () => {
+        const operationDocument = gql`
+          query TopReviews($shouldInclude: Boolean!, $shouldSkip: Boolean!) {
+            topReviews @include(if: $shouldInclude) @skip(if: $shouldSkip) {
+              body
+            }
+          }
+        `;
+
+        const operationContext = buildOperationContext({
+          schema,
+          operationDocument,
+        });
+
+        const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+        const variables = { shouldInclude: false, shouldSkip: false };
+        const response = await executeQueryPlan(
+          queryPlan,
+          serviceMap,
+          buildRequestContext(variables),
+          operationContext,
+        );
+
+        expect(response.data).toMatchObject({});
+        expect({ queryPlan, variables }).not.toCallService('reviews');
+      });
+
+      it(`include: false, skip: true`, async () => {
+        const operationDocument = gql`
+          query TopReviews($shouldInclude: Boolean!, $shouldSkip: Boolean!) {
+            topReviews @include(if: $shouldInclude) @skip(if: $shouldSkip) {
+              body
+            }
+          }
+        `;
+
+        const operationContext = buildOperationContext({
+          schema,
+          operationDocument,
+        });
+
+        const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+        const variables = { shouldInclude: false, shouldSkip: true };
+        const response = await executeQueryPlan(
+          queryPlan,
+          serviceMap,
+          buildRequestContext(variables),
+          operationContext,
+        );
+
+        expect(response.data).toMatchObject({});
+        expect({ queryPlan, variables }).not.toCallService('reviews');
+      });
+
+      it(`include: true, skip: false`, async () => {
+        const operationDocument = gql`
+          query TopReviews($shouldInclude: Boolean!, $shouldSkip: Boolean!) {
+            topReviews(first: 2) @include(if: $shouldInclude) @skip(if: $shouldSkip) {
+              body
+            }
+          }
+        `;
+
+        const operationContext = buildOperationContext({
+          schema,
+          operationDocument,
+        });
+
+        const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+        const variables = { shouldInclude: true, shouldSkip: false };
+        const response = await executeQueryPlan(
+          queryPlan,
+          serviceMap,
+          buildRequestContext(variables),
+          operationContext,
+        );
+
+        expect(response.data).toMatchObject({
+          topReviews: [
+            {
+              body: 'Love it!',
+            },
+            {
+              body: 'Too expensive.',
+            },
+          ],
+        });
+        expect({ queryPlan, variables }).toCallService('reviews');
+      });
+
+      it(`include: true, skip: true`, async () => {
+        const operationDocument = gql`
+          query TopReviews($shouldInclude: Boolean!, $shouldSkip: Boolean!) {
+            topReviews @include(if: $shouldInclude) @skip(if: $shouldSkip) {
+              body
+            }
+          }
+        `;
+
+        const operationContext = buildOperationContext({
+          schema,
+          operationDocument,
+        });
+
+        const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+
+        const variables = { shouldInclude: true, shouldSkip: true };
+        const response = await executeQueryPlan(
+          queryPlan,
+          serviceMap,
+          buildRequestContext(variables),
+          operationContext,
+        );
+
+        expect(response.data).toMatchObject({});
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Fetch(service: "reviews", inclusionConditions: [{ include: "shouldInclude", skip: "shouldSkip" }]) {
+              {
+                topReviews @include(if: $shouldInclude) @skip(if: $shouldSkip) {
+                  body
+                }
+              }
+            },
+          }
+        `);
+
+        expect({ queryPlan, variables }).not.toCallService('reviews');
+      });
     });
   });
 });

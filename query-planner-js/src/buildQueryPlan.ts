@@ -23,6 +23,10 @@ import {
   OperationTypeNode,
   print,
   stripIgnoredCharacters,
+  SelectionNode,
+  DirectiveNode,
+  BooleanValueNode,
+  VariableNode,
 } from 'graphql';
 import {
   Field,
@@ -54,6 +58,7 @@ import { QueryPlanningContext } from './QueryPlanningContext';
 import { Scope } from './Scope';
 
 import deepEqual from 'deep-equal';
+import { getOperationAndFragments, FragmentMap as Fragments } from './utilities/getOperationAndFragments';
 
 function stringIsTrue(str?: string) : boolean {
   if (!str) {
@@ -134,11 +139,174 @@ export function buildQueryPlan(
   return {
     kind: 'QueryPlan',
     node: nodes.length
-      // if an operation is a mutation, we run the root fields in sequence,
-      // otherwise we run them in parallel
-      ? flatWrap(isMutation ? 'Sequence' : 'Parallel', nodes)
+      ? // if an operation is a mutation, we run the root fields in sequence,
+        // otherwise we run them in parallel
+        flatWrap(isMutation ? 'Sequence' : 'Parallel', nodes)
       : undefined,
   };
+}
+
+export function findDirectivesOnNode<
+  T extends { directives?: readonly DirectiveNode[] },
+>(node: T, directiveName: string) {
+  return (
+    node.directives?.filter(
+      (directive) => directive.name.value === directiveName,
+    ) ?? []
+  );
+}
+
+function collectInclusionConditions(document: DocumentNode) {
+  const { operation, fragmentMap } = getOperationAndFragments(document);
+
+  const conditionalTree = buildConditionalTree(
+    operation.selectionSet,
+    fragmentMap,
+  );
+  // A null tree means construction was short-circuited and inclusion is required.
+  // This allows us to bail early since we already know we can't skip this `FetchNode`
+  // (and there's no tree to walk).
+  if (conditionalTree === null) return null;
+
+  const inclusionConditions: {
+    skip: boolean | string | null;
+    include: boolean | string | null;
+  }[] = [];
+
+  // Flatten the conditional tree into a list of conditions. We no longer need
+  // the tree structure, since if any condition (effectively) resolves to inclusion,
+  // we know we can't skip the `FetchNode`.
+  walkConditionalTree(conditionalTree, (node) => {
+    if (!Array.isArray(node)) {
+      inclusionConditions.push(node);
+    }
+  });
+
+  // Short circuit inclusion when, for any condition either is true:
+  //  1. include is true AND (skip is either not specified or false)
+  //  2. skip is false AND (include is either not specified or true)
+  if (
+    inclusionConditions.some(
+      (v) => v.include === true && (v.skip === null || v.skip === false),
+    ) ||
+    inclusionConditions.some(
+      (v) => v.skip === false && (v.include === null || v.include === true),
+    )
+  ) {
+    // In these cases we make no modification to the FetchNode - it should
+    // be included and needs no `inclusionConditions` appended to it.
+    return null;
+  }
+  return inclusionConditions;
+}
+
+function collectConditionalValues(selection: SelectionNode) {
+  const skips = findDirectivesOnNode(selection, 'skip');
+  const includes = findDirectivesOnNode(selection, 'include');
+
+  const skip = skips.length > 0 ? extractConditionalValue(skips[0]) : null;
+  const include =
+    includes.length > 0 ? extractConditionalValue(includes[0]) : null;
+
+  return { skip, include };
+}
+
+function extractConditionalValue(conditionalDirective: DirectiveNode) {
+  const conditionalArg = conditionalDirective.arguments![0].value as
+    | BooleanValueNode
+    | VariableNode;
+
+  return 'name' in conditionalArg
+    ? conditionalArg.name.value
+    : conditionalArg.value;
+}
+
+interface ConditionalValue {
+  skip: string | boolean | null;
+  include: string | boolean | null;
+}
+
+type ConditionalTreeNode =
+  | ConditionalValue
+  | [ConditionalValue, ConditionalTree];
+type ConditionalTree = ConditionalTreeNode[];
+
+function buildConditionalTree(
+  selectionSet: SelectionSetNode,
+  fragmentMap: Fragments,
+): ConditionalTree | null {
+  const conditionalTree: ConditionalTree = [];
+
+  // Inspecting the top-level selections only
+  for (const selection of selectionSet.selections) {
+    if (selection.kind === Kind.FIELD) {
+      const { skip, include } = collectConditionalValues(selection);
+
+      if (skip !== null || include !== null) {
+        conditionalTree.push({ skip, include });
+      } else {
+        // Returning null short circuits the building of the tree since we know
+        // from here that we can't skip the `FetchNode` in question.
+        return null;
+      }
+    } else if (
+      selection.kind === Kind.FRAGMENT_SPREAD ||
+      selection.kind === Kind.INLINE_FRAGMENT
+    ) {
+      const { selectionSet } =
+        selection.kind === Kind.FRAGMENT_SPREAD
+          ? fragmentMap.get(selection.name.value)!
+          : selection;
+
+      const { skip, include } = collectConditionalValues(selection);
+      if (skip === null && include === null) {
+        // If the Fragment selection itself has no conditionals, we can treat its
+        // selections as if they were top-level selections.
+        const nestedSelections = buildConditionalTree(
+          selectionSet,
+          fragmentMap,
+        );
+        if (nestedSelections) {
+          conditionalTree.push(...nestedSelections);
+        } else {
+          // Returning null short circuits the building of the tree since we know
+          // from here that we can't skip the `FetchNode` in question.
+          return null;
+        }
+      } else {
+        const subTree = buildConditionalTree(selectionSet, fragmentMap);
+        // Returning null short circuits the building of the tree since we know
+        // from here that we can't skip the `FetchNode` in question.
+        if (!subTree) return null;
+        conditionalTree.push([
+          { skip, include },
+          subTree,
+        ]);
+      }
+    }
+  }
+  return conditionalTree;
+}
+
+function walkConditionalTree(
+  tree: ConditionalTree,
+  fn: (node: ConditionalTreeNode) => void,
+) {
+  tree.forEach((node) => walkConditionalTreeNode(node, fn));
+}
+
+function walkConditionalTreeNode(
+  node: ConditionalTreeNode,
+  fn: (node: ConditionalTreeNode) => void,
+) {
+  if (Array.isArray(node)) {
+    fn(node);
+    node[1].forEach((n) => {
+      walkConditionalTreeNode(n, fn);
+    });
+  } else {
+    fn(node);
+  }
 }
 
 function executionNodeForGroup(
@@ -176,12 +344,15 @@ function executionNodeForGroup(
         operation: context.operation.operation,
       });
 
+  const inclusionConditions = collectInclusionConditions(operation);
+
   const fetchNode: FetchNode = {
     kind: 'Fetch',
     serviceName,
     requires: requires ? trimSelectionNodes(requires?.selections) : undefined,
     variableUsages: Object.keys(variableUsages),
     operation: stripIgnoredCharacters(print(operation)),
+    ...(inclusionConditions ? { inclusionConditions } : {}),
   };
 
   const node: PlanNode =
