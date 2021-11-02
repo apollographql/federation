@@ -150,16 +150,6 @@ describe('unknown types', () => {
               ],
               "message": "[serviceA] Type \\"Bar\\" is an extension type, but there is no type definition for \\"Bar\\" in any subgraph.",
             },
-            Object {
-              "code": "EXTERNAL_MISSING_ON_BASE",
-              "locations": Array [
-                Object {
-                  "column": 3,
-                  "line": 7,
-                },
-              ],
-              "message": "Field \\"Bar.id\\" is marked @external on all the subgraphs in which it is listed (subgraph \\"serviceA\\").",
-            },
           ]
       `);
   });

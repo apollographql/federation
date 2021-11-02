@@ -17,7 +17,6 @@ import {
   federationBuiltIns,
   isFederationSubgraphSchema,
   CompositeType,
-  isExternal,
   extractSubgraphsFromSupergraph,
   FieldDefinition,
   isCompositeType,
@@ -30,6 +29,8 @@ import {
   firstOf,
   FEDERATION_RESERVED_SUBGRAPH_NAME,
   ALL_SUBTYPING_RULES,
+  externalDirectiveName,
+  requiresDirectiveName,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, QueryResolution } from './transition';
@@ -689,7 +690,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
       const element = selection.element();
       if (element.kind == 'Field') {
         const fieldDef = element.definition;
-        if (!isExternal(fieldDef)) {
+        if (!fieldDef.hasAppliedDirective(externalDirectiveName)) {
           // Because key fields used to be marked @external, someone my have put a provide for a key field
           // which is effectively already provided by the subgraph. In that case, just ignore that field
           // (otherwise, future code will get confused by the fact that there is more than 1 edge to
@@ -949,7 +950,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // We do skip introspection fields however.
     for (const field of type.allFields()) {
       // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't really exist as far as federation goes.
-      if (field.isSchemaIntrospectionField() || isExternal(field)) {
+      if (field.isSchemaIntrospectionField() || field.hasAppliedDirective(externalDirectiveName)) {
         continue;
       }
       this.addEdgeForField(field, head);
@@ -969,7 +970,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     //   3) it does not have a @require (essentially, this method is called on type implementations of an interface
     //      to decide if we can avoid type-explosion, but if the field has a @require on an implementation, then we
     //      need to type-explode to make we handle that @require).
-    return field && !isExternal(field) && !field.hasAppliedDirective('requires');
+    return field && !field.hasAppliedDirective(externalDirectiveName) && !field.hasAppliedDirective(requiresDirectiveName);
   }
 
   private maybeAddInterfaceFieldsEdges(type: InterfaceType, head: Vertex) {
@@ -993,7 +994,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // by all local runtime types, so will always have an edge added, which we want).
     for (const field of type.allFields()) {
       // To include the field, it must not be external himself, and it must be provided on every of the runtime types
-      if (isExternal(field) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
+      if (field.hasAppliedDirective(externalDirectiveName) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
         continue;
       }
       this.addEdgeForField(field, head);

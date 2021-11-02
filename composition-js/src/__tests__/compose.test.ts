@@ -382,8 +382,8 @@ describe('composition', () => {
       // does).
       expect(printSchema(subgraphs.get('subgraphB')!.schema)).toMatchString(`
         type Product {
-          price: Int!
           sku: String!
+          price: Int!
         }
 
         extend type Product
@@ -437,8 +437,8 @@ describe('composition', () => {
       // Same remark than in prevoius test
       expect(printSchema(subgraphs.get('subgraphA')!.schema)).toMatchString(`
         type Product {
-          price: Int!
           sku: String!
+          price: Int!
         }
 
         extend type Product
@@ -726,7 +726,7 @@ describe('composition', () => {
           }
         `);
 
-        // Making sur we properly extract the type of `f` for both subgraphs
+        // Making sure we properly extract the type of `f` for both subgraphs
         const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
         expect(fInA).toBeDefined();
         expect(fInA?.type?.toString()).toBe('I');
@@ -1221,5 +1221,92 @@ describe('composition', () => {
         `);
       });
     });
+  });
+
+  describe('post-merge validation', () => {
+    it('errors if a type does not implement one of its interface post-merge', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            I: [I!]
+          }
+
+          interface I {
+            a: Int
+          }
+
+          type A implements I {
+            a: Int
+            b: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          interface I {
+            b: Int
+          }
+
+          type B implements I {
+            b: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errorMessages(result)).toStrictEqual([
+        'Interface field I.a is declared in subgraph \"subgraphA\" but type B, which implements I only in subgraph \"subgraphB\" does not have field a.',
+      ]);
+    })
+
+    it('errors if a type does not implement one of its interface post-merge with interface on interface', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            I: [I!]
+          }
+
+          interface I {
+            a: Int
+          }
+
+          interface J implements I {
+            a: Int
+            b: Int
+          }
+
+          type A implements I & J {
+            a: Int
+            b: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          interface J {
+            b: Int
+          }
+
+          type B implements J {
+            b: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errorMessages(result)).toStrictEqual([
+        'Interface field J.a is declared in subgraph \"subgraphA\" but type B, which implements J only in subgraph \"subgraphB\" does not have field a.',
+      ]);
+    })
   });
 });

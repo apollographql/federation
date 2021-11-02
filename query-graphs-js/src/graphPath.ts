@@ -1184,8 +1184,10 @@ function isTerminalOperation(operation: OperationElement): boolean {
 
 export type SimultaneousPaths<V extends Vertex = Vertex> = OpGraphPath<V>[];
 
+type OpIndirectPaths<V extends Vertex> = IndirectPaths<OpTrigger, V, null, never>;
+
 export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
-  private lazilyComputedIndirectPaths?: SimultaneousPaths<V>[];
+  private lazilyComputedIndirectPaths: OpIndirectPaths<V>[];
 
   constructor(
     readonly paths: SimultaneousPaths<V>,
@@ -1194,28 +1196,34 @@ export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
     readonly excludedNonCollectingEdges: ExcludedEdges = [],
     readonly excludedConditionsOnNonCollectingEdges: ExcludedConditions = [],
   ) {
+    this.lazilyComputedIndirectPaths = new Array(paths.length);
   }
 
-  indirectPaths(updatedContext: PathContext): SimultaneousPaths<V>[] {
+  // For a given "input" path (identified by an idx in `paths`), each of its indirect options.
+  indirectOptions(updatedContext: PathContext, pathIdx: number): OpIndirectPaths<V> {
     // Note that the provided context will usually be one we had during construction (the `updatedContext` will be `this.context` updated
     // by whichver operation we're looking at, but only operation with a @skip/@include will change the context so it's pretty rare),
     // which is why we save recomputation by caching the computed value in that case, but in case it's different, we compute without caching.
     if (updatedContext !== this.context) {
-      return this.computeIndirectPaths();
+      return this.computeIndirectPaths(pathIdx);
     }
-    if (!this.lazilyComputedIndirectPaths) {
-      this.lazilyComputedIndirectPaths = this.computeIndirectPaths();
+    if (!this.lazilyComputedIndirectPaths[pathIdx]) {
+      this.lazilyComputedIndirectPaths[pathIdx] = this.computeIndirectPaths(pathIdx);
     }
-    return this.lazilyComputedIndirectPaths;
+    return this.lazilyComputedIndirectPaths[pathIdx];
   }
 
-  private computeIndirectPaths(): SimultaneousPaths<V>[] {
-    return advanceAllWithNonCollectingAndTypePreservingTransitions(
-      this.paths,
+  private computeIndirectPaths(idx: number): OpIndirectPaths<V>  {
+    return advancePathWithNonCollectingAndTypePreservingTransitions(
+      this.paths[idx],
       this.context,
       this.conditionResolver,
       this.excludedNonCollectingEdges,
-      this.excludedConditionsOnNonCollectingEdges
+      this.excludedConditionsOnNonCollectingEdges,
+      // the transitions taken by this function are non collecting transitions, and we ship the context as trigger (a slight hack admittedly,
+      // but as we'll need the context handy for keys ...).
+      (_t, context) => context,
+      opPathTriggerToEdge
     );
   }
 
@@ -1258,69 +1266,82 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   operation: OperationElement,
 ) : SimultaneousPathsWithLazyIndirectPaths<V>[] | undefined {
   debug.group(() => `Trying to advance ${simultaneousPathsToString(subgraphSimultaneousPaths)} for ${operation}`);
-  debug.group('Direct options:');
   const updatedContext = subgraphSimultaneousPaths.context.withContextOf(operation);
-  let options = advanceWithOperation(
-    supergraphSchema,
-    subgraphSimultaneousPaths.paths,
-    operation,
-    updatedContext,
-    subgraphSimultaneousPaths.conditionResolver
-  );
-  debug.groupEnd(() => advanceOptionsToString(options));
-  // If we got some options, there is number of cases where there is no point looking for indirect paths:
-  // - if the operation is terminal: this mean we just found a direct edge that is terminal, so no
-  //   indirect options could be better (this is no true for non-terminal where the direct route may
-  //   end up being a dead end later).
-  // - if we get options, but an empty set of them, which signifies the operation correspond to unsatisfiable
-  //   conditions and we can essentially ignore it.
-  // - if the operation is a fragment in general: if we were able to find a direct option, that means the type
-  //   is known in the "current" subgraph, and so we'll still be able to take any indirect edges that we could
-  //   take now later, for the follow-up operation. And pushing the decision will give us more context and may
-  //   avoid a bunch of state explosion in practice.
-  if (options && (options.length === 0 || isTerminalOperation(operation) || operation.kind === 'FragmentElement')) {
+  const optionsForEachPath: SimultaneousPaths<V>[][] = [];
+  for (const [i, path] of subgraphSimultaneousPaths.paths.entries()) {
+    debug.group(() => `Computing options for ${path}`);
+    debug.group(() => `Direct options`);
+    let options = advanceOneWithOperation(
+      supergraphSchema,
+      path,
+      operation,
+      updatedContext,
+      subgraphSimultaneousPaths.conditionResolver
+    );
     debug.groupEnd(() => advanceOptionsToString(options));
-    return createLazyOptions(options, subgraphSimultaneousPaths, updatedContext);
-  }
-  // If there was not valid direct path, that's ok, we'll just try with non-collecting edges.
-  options = options ?? [];
-  debug.group(`Computing indirect paths:`);
-  // Then adds whatever options can be obtained by taking some non-collecting edges first.
-  const pathsWithNonCollecting = subgraphSimultaneousPaths.indirectPaths(updatedContext);
-  debug.groupEnd(() => pathsWithNonCollecting.length == 0 ? `no indirect paths` : `${pathsWithNonCollecting.length} indirect paths`);
-  if (pathsWithNonCollecting.length > 0) {
-    debug.group('Validating indirect options:');
-    for (const pathWithNonCollecting of pathsWithNonCollecting) {
-      debug.group(() => `For indirect path ${pathWithNonCollecting}:`);
-      const pathWithOperation = advanceWithOperation(
-        supergraphSchema,
-        pathWithNonCollecting,
-        operation,
-        updatedContext,
-        subgraphSimultaneousPaths.conditionResolver
-      );
-      // If we can't advance the operation after that path, ignore it, it's just not an option.
-      if (!pathWithOperation) {
-        debug.groupEnd(() => `Ignoring: cannot be advanced with ${operation}`);
-        continue;
+    // If we got some options, there is number of cases where there is no point looking for indirect paths:
+    // - if the operation is terminal: this mean we just found a direct edge that is terminal, so no
+    //   indirect options could be better (this is no true for non-terminal where the direct route may
+    //   end up being a dead end later).
+    // - if we get options, but an empty set of them, which signifies the operation correspond to unsatisfiable
+    //   conditions and we can essentially ignore it.
+    // - if the operation is a fragment in general: if we were able to find a direct option, that means the type
+    //   is known in the "current" subgraph, and so we'll still be able to take any indirect edges that we could
+    //   take now later, for the follow-up operation. And pushing the decision will give us more context and may
+    //   avoid a bunch of state explosion in practice.
+    if (options && (options.length === 0 || isTerminalOperation(operation) || operation.kind === 'FragmentElement')) {
+      debug.groupEnd(() => `Final options for ${path}: ${advanceOptionsToString(options)}`);
+      // Note that options is empty, that means this particular "branch" is unsatisfiable, so we should just ignore it.
+      if (options.length > 0) {
+        optionsForEachPath.push(options);
       }
-      debug.groupEnd(() => `Adding valid option: ${pathWithOperation}`);
-      // advancedWithOperation can return an empty list only if the operation if a fragment with a condition that, on top of the "current" type
-      // is unsatisfiable. But as we've only taken type preserving transitions, we cannot get an empty results at this point if we haven't
-      // had one when testing direct transitions above (in which case we have exited the method early).
-      assert(pathWithOperation.length > 0, () => `Unexpected empty options after non-collecting path ${pathWithNonCollecting} for ${operation}`);
-      options = options.concat(pathWithOperation);
+      continue;
     }
-    debug.groupEnd();
+    // If there was not valid direct path, that's ok, we'll just try with non-collecting edges.
+    options = options ?? [];
+    debug.group(`Computing indirect paths:`);
+    // Then adds whatever options can be obtained by taking some non-collecting edges first.
+    const pathsWithNonCollecting = subgraphSimultaneousPaths.indirectOptions(updatedContext, i);
+    debug.groupEnd(() => pathsWithNonCollecting.paths.length == 0 ? `no indirect paths` : `${pathsWithNonCollecting.paths.length} indirect paths`);
+    if (pathsWithNonCollecting.paths.length > 0) {
+      debug.group('Validating indirect options:');
+      for (const pathWithNonCollecting of pathsWithNonCollecting.paths) {
+        debug.group(() => `For indirect path ${pathWithNonCollecting}:`);
+        const pathWithOperation = advanceOneWithOperation(
+          supergraphSchema,
+          pathWithNonCollecting,
+          operation,
+          updatedContext,
+          subgraphSimultaneousPaths.conditionResolver
+        );
+        // If we can't advance the operation after that path, ignore it, it's just not an option.
+        if (!pathWithOperation) {
+          debug.groupEnd(() => `Ignoring: cannot be advanced with ${operation}`);
+          continue;
+        }
+        debug.groupEnd(() => `Adding valid option: ${pathWithOperation}`);
+        // advancedWithOperation can return an empty list only if the operation if a fragment with a condition that, on top of the "current" type
+        // is unsatisfiable. But as we've only taken type preserving transitions, we cannot get an empty results at this point if we haven't
+        // had one when testing direct transitions above (in which case we have exited the method early).
+        assert(pathWithOperation.length > 0, () => `Unexpected empty options after non-collecting path ${pathWithNonCollecting} for ${operation}`);
+        options = options.concat(pathWithOperation);
+      }
+      debug.groupEnd();
+    }
+    // At this point, if options is empty, it means we found no ways to advance the operation for this path, so we should return undefined.
+    if (options.length === 0) {
+      debug.groupEnd(); // end of this input path
+      debug.groupEnd(() => `No valid options for ${operation}, aborting operation ${operation}`);
+      return undefined;
+    } else {
+      debug.groupEnd(() => advanceOptionsToString(options));
+      optionsForEachPath.push(options);
+    }
   }
-  // At this point, if options is empty, it means we found no ways to advance the operation, so we should return undefined.
-  if (options.length === 0) {
-    debug.groupEnd(() => 'No valid options');
-    return undefined;
-  } else {
-    debug.groupEnd(() => advanceOptionsToString(options));
-    return createLazyOptions(options, subgraphSimultaneousPaths, updatedContext);
-  }
+
+  const allOptions: SimultaneousPaths<V>[] = flatCartesianProduct(optionsForEachPath);
+  debug.groupEnd(() => advanceOptionsToString(allOptions));
+  return createLazyOptions(allOptions, subgraphSimultaneousPaths, updatedContext);
 }
 
 function createLazyOptions<V extends Vertex>(
@@ -1348,100 +1369,9 @@ function opPathTriggerToEdge(graph: QueryGraph, vertex: Vertex, trigger: OpTrigg
   }
 }
 
-function advanceAllWithNonCollectingAndTypePreservingTransitions<V extends Vertex>(
-  paths: SimultaneousPaths<V>,
-  context: PathContext,
-  conditionResolver: ConditionResolver,
-  excludedEdges: ExcludedEdges,
-  excludedConditions: ExcludedConditions,
-): SimultaneousPaths<V>[] {
-  const optionsForEachPaths = paths.map(p => 
-    advancePathWithNonCollectingAndTypePreservingTransitions(
-      p,
-      context,
-      conditionResolver,
-      excludedEdges,
-      excludedConditions,
-      // the transitions taken by this function are non collecting transitions, and we ship the context as trigger (a slight hack admittedly,
-      // but as we'll need the context handy for keys ...).
-      (_t, context) => context,
-      opPathTriggerToEdge
-    ).paths
-  );
-  // optionsForEachPaths[i] is all the possible paths we could go from paths[i]. As each paths[i] is a set of "simultaneous" paths,
-  // we need to compute the cartesien product of all those results.
-  return cartesianProduct(optionsForEachPaths);
-}
-
-
-// The result has the same meaning than in advanceSimultaneousPathsWithOperation.
-function advanceWithOperation<V extends Vertex>(
-  supergraphSchema: Schema,
-  simultaneousPaths: SimultaneousPaths<V>,
-  operation: OperationElement,
-  context: PathContext,
-  conditionResolver: ConditionResolver,
-): SimultaneousPaths<V>[] | undefined {
-  const newPaths: SimultaneousPaths<V>[][] = [];
-  for (const path of simultaneousPaths) {
-    const updated = advanceOneWithOperation(supergraphSchema, path, operation, context, conditionResolver);
-    // We must be able to apply the operation on all the simultaneous paths, otherwise the whole set of simultaneous paths cannot fullfill
-    // the operation and we can abort early.
-    if (!updated) {
-      return undefined;
-    }
-    if (updated.length > 0) {
-      newPaths.push(updated);
-    }
-  }
-
-  // Each entry of newPaths is all the options for 1 of our simultaneous path. So what we want to return is all the options
-  // composed of taking one of each element of newPaths. In other words, we want the cartesian product.
-  return flatCartesianProduct(newPaths);
-}
-
 // This can be written more tersely with a bunch of reduce/flatMap and friends, but when interfaces type-explode into many
 // implementations, this can end up with fairly large arrays and be a bottleneck, and a more iterative version that pre-allocate
 // arrays is quite a bit faster.
-function cartesianProduct<V>(arr:V[][]): V[][] {
-  const size = arr.length;
-  if (size === 0) {
-    return [];
-  }
-
-  // Track, for each element, at which index we are
-  const eltIndexes = new Array<number>(size);
-  let totalCombinations = 1;
-  for (let i = 0; i < size; ++i){
-    const eltSize = arr[i].length;
-    if(!eltSize) {
-      totalCombinations = 0;
-      break;
-    }
-    eltIndexes[i] = 0;
-    totalCombinations *= eltSize;
-  }
-
-  const product = new Array<V[]>(totalCombinations);
-  for (let i = 0; i < totalCombinations; ++i){
-    const item = new Array<V>(size);
-    for (var j = 0; j < size; ++j) {
-      item[j] = arr[j][eltIndexes[j]];
-    }
-    product[i] = item;
-
-    for (let idx = 0; idx < size; ++idx) {
-      if (eltIndexes[idx] == arr[idx].length - 1) {
-        eltIndexes[idx] = 0;
-      } else {
-        eltIndexes[idx] += 1;
-        break;
-      }
-    }
-  }
-  return product;
-}
-
 function flatCartesianProduct<V>(arr:V[][][]): V[][] {
   const size = arr.length;
   if (size === 0) {

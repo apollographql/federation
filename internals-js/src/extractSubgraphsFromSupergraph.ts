@@ -28,6 +28,7 @@ import { validateSupergraph } from "./supergraphs";
 import { builtTypeReference } from "./buildSchema";
 import { GraphQLError } from "graphql";
 import { selectionOfElement, SelectionSet } from "./operations";
+import { isSubtype } from "./types";
 
 function filteredTypes(
   supergraph: Schema,
@@ -212,12 +213,14 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
   }
 
   for (const subgraph of subgraphs) {
-    // let's make sure we had @external fields so code doesn't get confused later when it tries to parse one of
-    // the @key, @requires or @provides directive field-set.
-    addExternalFields(subgraph, supergraph, isFed1);
+    if (isFed1) {
+      // The join spec in fed1 was not including external fields. Let's make sure we had them or we'll get validation
+      // errors later.
+      addExternalFields(subgraph, supergraph, isFed1);
+    }
     removeNeedlessProvides(subgraph);
 
-    // We now do an additional path on all typesbecause we sometimes added types to subgraphs without
+    // We now do an additional path on all types because we sometimes added types to subgraphs without
     // being sure that the subgraph had the type in the first place (especially with the 0.1 join spec), and because
     // we later might not have added any fields/members to said type, they may be empty (indicating they clearly
     // didn't belong to the subgraph in the first) and we need to remove them.
@@ -241,7 +244,9 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     }
   }
 
-  if (joinSpec.version.equals(new FeatureVersion(0, 1))) {
+  // TODO: Not sure that code is needed anymore (any field necessary to validate an interface will have been marked
+  // external)?
+  if (isFed1) {
     // We now make a pass on every field of every interface and check that all implementers do have that field (even if
     // external). If not (which can happen because, again, the v0.1 spec had no information on where an interface was
     // truly defined, so we've so far added them everywhere with all their fields, but some fields may have been part
@@ -374,23 +379,26 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema, isFed1: boole
       // have to default of forcing non-external on all key fields. Which is ok because "true" external on key fields was not
       // supported anyway.
       const forceNonExternal = isFed1 || !!keyApplication.ofExtension();
-      addFieldsFromDirectiveFieldSet(subgraph, type, keyApplication, supergraph, forceNonExternal);
+      addExternalFieldsFromDirectiveFieldSet(subgraph, type, keyApplication, supergraph, forceNonExternal);
     }
     // Then any @requires or @provides on fields
     for (const field of type.fields()) {
       for (const requiresApplication of field.appliedDirectivesOf(federationBuiltIns.requiresDirective(subgraph.schema))) {
-        addFieldsFromDirectiveFieldSet(subgraph, type, requiresApplication, supergraph);
+        addExternalFieldsFromDirectiveFieldSet(subgraph, type, requiresApplication, supergraph);
       }
       const fieldBaseType = baseType(field.type!);
       for (const providesApplication of field.appliedDirectivesOf(federationBuiltIns.providesDirective(subgraph.schema))) {
         assert(isObjectType(fieldBaseType) || isInterfaceType(fieldBaseType), () => `Found @provides on field ${field.coordinate} whose type ${field.type!} (${fieldBaseType.kind}) is not an object or interface `);
-        addFieldsFromDirectiveFieldSet(subgraph, fieldBaseType, providesApplication, supergraph);
+        addExternalFieldsFromDirectiveFieldSet(subgraph, fieldBaseType, providesApplication, supergraph);
       }
     }
+
+    // And then any constraint due to implemented interfaces.
+    addExternalFieldsFromInterface(type);
   }
 }
 
-function addFieldsFromDirectiveFieldSet(
+function addExternalFieldsFromDirectiveFieldSet(
   subgraph: Subgraph, 
   parentType: ObjectType | InterfaceType,
   directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
@@ -421,6 +429,39 @@ function addFieldsFromDirectiveFieldSet(
     return created;
   };
   parseFieldSetArgument(parentType, directive, accessor);
+}
+
+function addExternalFieldsFromInterface(type: ObjectType | InterfaceType) {
+  for (const itf of type.interfaces()) {
+    for (const field of itf.fields()) {
+      const typeField = type.field(field.name);
+      if (!typeField) {
+        copyFieldAsExternal(field, type);
+      } else if (typeField.hasAppliedDirective(externalDirectiveName)) {
+        // A subtlety here is that a type may implements multiple interfaces providing a given field, and the field may
+        // not have the exact same defintion in all interface. So if we may have added the field in a previous loop
+        // iteration, we need to check if we shouldn't update the field type.
+        maybeUpdateFieldForInterface(typeField, field);
+      }
+    }
+  }
+}
+
+function copyFieldAsExternal(field: FieldDefinition<InterfaceType>, type: ObjectType | InterfaceType) {
+  const newField = type.addField(field.name, field.type);
+  for (const arg of field.arguments()) {
+    newField.addArgument(arg.name, arg.type, arg.defaultValue);
+  }
+  newField.applyDirective(externalDirectiveName);
+}
+
+function maybeUpdateFieldForInterface(toModify: FieldDefinition<ObjectType | InterfaceType>, itfField: FieldDefinition<InterfaceType>) {
+  // Note that we only care about the field type because while graphql does not allow contravariance of args for field implmenations.
+  // And while fed2 allow it when merging, this code doesn't run for fed2 generated supergraph, so this isn't a concern.
+  if (!isSubtype(itfField.type!, toModify.type!)) {
+    assert(isSubtype(toModify.type!, itfField.type!), () => `For ${toModify.coordinate}, expected ${itfField.type} and ${toModify.type} to be in a subtyping relationship`);
+    toModify.type = itfField.type!;
+  }
 }
 
 /*

@@ -34,7 +34,6 @@ import {
   CompositeType,
   Subgraphs,
   federationBuiltIns,
-  isExternal,
   CORE_VERSIONS,
   JOIN_VERSIONS,
   TAG_VERSIONS,
@@ -49,6 +48,11 @@ import {
   firstOf,
   Extension,
   DEFAULT_SUBTYPING_RULES,
+  providesDirectiveName,
+  requiresDirectiveName,
+  ExternalTester,
+  isInterfaceType,
+  sourceASTs,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
 import {
@@ -259,11 +263,13 @@ class Merger {
   readonly hints: CompositionHint[] = [];
   readonly merged: Schema = new Schema();
   readonly subgraphNamesToJoinSpecName: Map<string, string>;
+  readonly externalTesters: readonly ExternalTester[];
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
     this.subgraphsSchema = this.names.map(name => subgraphs.get(name)!.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
+    this.externalTesters = subgraphs.values().map(s => new ExternalTester(s.schema));
   }
 
   private prepareSupergraph(): Map<string, string> {
@@ -337,26 +343,30 @@ class Merger {
       this.errors.push(new GraphQLError("No queries found in any subgraph: a supergraph must have a query root type."));
     }
 
-    // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk addingA errors that
+    // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompletness as it's confusing.
     if (this.errors.length === 0) {
-      try {
-        // TODO: Errors thrown by the `validate` below are likely to be confusing for users, because they
-        // refer to a document they don't know about (the merged-but-not-returned supergraph) and don't
-        // point back to the subgraphs in any way.
-        // Given the subgraphs are valid and given how merging works (it takes the union of what is in the
-        // subgraphs), there is only so much things that can be invalid in the supergraph at this point. We
-        // should make sure we validate those specific things "manually" with good error messages (that point
-        // to subgraphs appropriately). We can then assert that `Schema.validate()` doesn't throw as a sanity
-        // check, but we shouldn't have those errors get to the user ideally.
-        this.merged.validate();
-      } catch (e) {
-        const causes = errorCauses(e);
-        if (causes) {
-          this.errors.push(...causes);
-        } else {
-          // Not a GraphQLError, so probably a programing error. Let's re-throw so it can be more easily tracked down.
-          throw e;
+      this.postMergeValidations();
+
+      if (this.errors.length === 0) {
+        try {
+          // TODO: Errors thrown by the `validate` below are likely to be confusing for users, because they
+          // refer to a document they don't know about (the merged-but-not-returned supergraph) and don't
+          // point back to the subgraphs in any way.
+          // Given the subgraphs are valid and given how merging works (it takes the union of what is in the
+          // subgraphs), there is only so much things that can be invalid in the supergraph at this point. We
+          // should make sure we add all such validation to `postMergeValidations` with good error messages (that points
+          // to subgraphs appropriately). and then simply _assert_ that `Schema.validate()` doesn't throw as a sanity
+          // check.
+          this.merged.validate();
+        } catch (e) {
+          const causes = errorCauses(e);
+          if (causes) {
+            this.errors.push(...causes);
+          } else {
+            // Not a GraphQLError, so probably a programing error. Let's re-throw so it can be more easily tracked down.
+            throw e;
+          }
         }
       }
     }
@@ -441,6 +451,29 @@ class Merger {
     );
   }
 
+  private reportMismatchErrorWithSpecifics<TMismatched extends SchemaElement<any, any>>(
+    code: string,
+    message: string,
+    mismatchedElement: TMismatched,
+    subgraphElements: (TMismatched | undefined)[],
+    mismatchAcessor: (elt: TMismatched | undefined, isSupergraph: boolean) => string | undefined,
+    supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
+    otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
+    ignorePredicate?: (elt: TMismatched | undefined) => boolean,
+  ) {
+    this.reportMismatch(
+      mismatchedElement,
+      subgraphElements,
+      mismatchAcessor,
+      supergraphElementPrinter,
+      otherElementsPrinter,
+      (distribution, astNodes) => {
+        this.errors.push(error(code, message + distribution[0] + join(distribution.slice(1), ' and '), astNodes));
+      },
+      ignorePredicate
+    );
+  }
+
   private reportMismatchHint<TMismatched extends SchemaElement<any, any>>(
     hintId: HintID,
     message: string,
@@ -449,7 +482,7 @@ class Merger {
     mismatchAcessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
-    ignorePredicate?: (elt: string | undefined) => boolean,
+    ignorePredicate?: (elt: TMismatched | undefined) => boolean,
     includeMissingSources: boolean = false,
     noEndOfMessageDot: boolean = false
   ) {
@@ -479,7 +512,7 @@ class Merger {
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     reporter: (distribution: string[], astNode: SubgraphASTNode[]) => void,
-    ignorePredicate?: (elt: string | undefined) => boolean,
+    ignorePredicate?: (elt: TMismatched | undefined) => boolean,
     includeMissingSources: boolean = false
   ) {
     const distributionMap = new MultiMap<string, string>();
@@ -491,10 +524,10 @@ class Merger {
         }
         continue;
       }
-      const elt = mismatchAcessor(subgraphElt, false);
-      if (ignorePredicate && ignorePredicate(elt)) {
+      if (ignorePredicate && ignorePredicate(subgraphElt)) {
         continue;
       }
+      const elt = mismatchAcessor(subgraphElt, false);
       distributionMap.add(elt ?? '', this.names[i]);
       if (subgraphElt.sourceAST) {
         astNodes.push(addSubgraphToASTNode(subgraphElt.sourceAST, this.names[i]));
@@ -586,7 +619,7 @@ class Merger {
           elt => elt.description,
           (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${desciptionString(desc, '  ')}`,
           (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${desciptionString(desc!, '  ')}`,
-          elt => elt === undefined,
+          elt => elt?.description === undefined,
           false,  // Don't including sources with no description
           true    // Skip the end-of-message '.' since it would look ugly in that specific case
         );
@@ -786,17 +819,20 @@ class Merger {
     }
   }
 
+  private isExternal(sourceIdx: number, field: FieldDefinition<any> | InputFieldDefinition) {
+    return this.externalTesters[sourceIdx].isExternal(field);
+  }
+
   private withoutExternal(sources: (FieldDefinition<any> | undefined)[]): (FieldDefinition<any> | undefined)[] {
-    return sources.map(s => s !== undefined && isExternal(s) ? undefined : s);
+    return sources.map((s, i) => s !== undefined && this.isExternal(i, s) ? undefined : s);
   }
 
   private hasExternal(sources: (FieldDefinition<any> | undefined)[]): boolean {
-    return sources.some(s => s !== undefined && isExternal(s));
+    return sources.some((s, i) => s !== undefined && this.isExternal(i, s));
   }
 
   private mergeField(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
-    const sourcesToMerge = this.withoutExternal(sources);
-    if (sourcesToMerge.every(s => s === undefined)) {
+    if (sources.every((s, i) => s === undefined || this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => source ? this.names[i] : undefined).filter(s => s !== undefined) as string[];
       const asts = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
       this.errors.push(error(
@@ -807,66 +843,121 @@ class Merger {
       return;
     }
 
-    this.mergeDescription(sourcesToMerge, dest);
-    this.mergeAppliedDirectives(sourcesToMerge, dest);
-    this.addArgumentsShallow(sourcesToMerge, dest);
+    const withoutExternal = this.withoutExternal(sources);
+    // Note that we don't truly merge externals: we don't want, for instance, a field that is non-nullable everywhere to appear nullabe in the
+    // supergraph just because someone fat-fingered the type in an external definition. But after merging the non-external definitions, we
+    // validate the external ones are consistent.
+    this.mergeDescription(withoutExternal, dest);
+    this.mergeAppliedDirectives(withoutExternal, dest);
+    this.addArgumentsShallow(withoutExternal, dest);
     for (const destArg of dest.arguments()) {
-      const subgraphArgs = sourcesToMerge.map(f => f?.argument(destArg.name));
+      const subgraphArgs = withoutExternal.map(f => f?.argument(destArg.name));
       this.mergeArgument(subgraphArgs, destArg);
     }
-    const allTypesEqual = this.mergeTypeReference(sourcesToMerge, dest);
-    this.addJoinField(sourcesToMerge, dest, allTypesEqual);
-
+    const allTypesEqual = this.mergeTypeReference(withoutExternal, dest);
     if (this.hasExternal(sources)) {
-      this.validateExternalFields(sources, dest);
-    }
-  } 
-
-  private validateExternalFields(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
-    // We shouldn't have an @external on a field having arguments: @external is mainly to mark field that are in
-    // @provides and @requires field-set, and it's really unclear how you could require/provide a field only for some
-    // arguments value. So as soon as the merged field has arguments, we reject composition as invalid (even if the
-    // subgraph declarations with @external themselves didn't declare the arguments).
-    if (dest.hasArguments()) {
-      this.reportMismatchError(
-        'EXTERNAL_FIELDS_WITH_ARGUMENTS',
-        `Field ${dest.coordinate} cannot have arguments and be marked @external in some subgraphs: it `,
-        dest,
-        sources,
-        field => isExternal(field) ? 'is marked @external' : (field.hasArguments() ? 'has arguments' : undefined)
-      );
+      this.validateExternalFields(sources, dest, allTypesEqual);
     }
 
-    let hasInvalid = false;
-    for (const source of sources) {
-      if (!source || !isExternal(source)) {
+    this.addJoinField(sources, dest, allTypesEqual);
+  }
+
+  private validateExternalFields(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>, allTypesEqual: boolean) {
+    let hasInvalidTypes = false;
+    let invalidArgsPresence = new Set<string>();
+    let invalidArgsTypes = new Set<string>();
+    let invalidArgsDefaults = new Set<string>();
+    for (const [i, source] of sources.entries()) {
+      if (!source || !this.isExternal(i, source)) {
         continue;
       }
       // To be valid, an external field must use the same type as the merged field (or "at least" a subtype).
-      if (!sameType(dest.type!, source.type!) && !this.isStrictSubtype(dest.type!, source.type!)) {
-        hasInvalid = true;
-        break;
+      if (!(sameType(dest.type!, source.type!) || (!allTypesEqual && this.isStrictSubtype(dest.type!, source.type!)))) {
+        hasInvalidTypes = true;
+      }
+
+      // For arguments, it should at least have all the arguments of the merged, and their type needs to be supertypes (contravariance).
+      // We also require the default is that of the supergraph (maybe we could relax that, but we should decide how we want
+      // to deal with field with arguments in @key, @provides, @requires first as this could impact it).
+      for (const destArg of dest.arguments()) {
+        const name = destArg.name;
+        const arg = source.argument(name);
+        if (!arg) {
+          invalidArgsPresence.add(name);
+          continue;
+        }
+        if (!sameType(destArg.type!, arg.type!) && !this.isStrictSubtype(arg.type!, destArg.type!)) {
+          invalidArgsTypes.add(name);
+        }
+        if (destArg.defaultValue !== arg.defaultValue) {
+          invalidArgsDefaults.add(name);
+        }
       }
     }
 
-    if (hasInvalid) {
+    if (hasInvalidTypes) {
       this.reportMismatchError(
         'EXTERNAL_TYPE_MISMATCH',
-        `Field "${dest.coordinate}" has incompatible types across subgraphs (when marked @external): it has `,
+        `Field "${dest.coordinate}" has incompatible types across subgraphs (where marked @external): it has `,
         dest,
         sources,
         field => `type "${field.type}"`
       );
     }
+    for (const arg of invalidArgsPresence) {
+      const destArg = dest.argument(arg)!;
+      this.reportMismatchErrorWithSpecifics(
+        'EXTERNAL_ARGUMENT_MISSING',
+        `Field "${dest.coordinate}" is missing argument "${destArg.coordinate}" in some subgraphs where it is marked @external: `,
+        destArg,
+        sources.map(s => s?.argument(destArg.name)),
+        arg => arg ? `argument "${arg.coordinate}"` : undefined,
+        (elt, subgraphs) => `${elt} is declared in ${subgraphs}`,
+        (_, subgraphs) => ` but not in ${subgraphs} where ${dest.coordinate} is @external.`,
+      );
+    }
+    for (const arg of invalidArgsTypes) {
+      const destArg = dest.argument(arg)!;
+      this.reportMismatchError(
+        'EXTERNAL_ARGUMENT_TYPE_MISMATCH',
+        `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where ${dest.coordinate} is marked @external): it has `,
+        destArg,
+        sources.map(s => s?.argument(destArg.name)),
+        arg => `type "${arg.type}"`
+      );
+    }
+    for (const arg of invalidArgsDefaults) {
+      const destArg = dest.argument(arg)!;
+      this.reportMismatchError(
+        'EXTERNAL_ARGUMENT_TYPE_MISMATCH',
+        `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where ${dest.coordinate} is marked @external): it has `,
+        destArg,
+        sources.map(s => s?.argument(destArg.name)),
+        arg => `type "${arg.type}"`
+      );
+    }
   }
 
-  private needsJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(sources: (T | undefined)[], parentName: string): boolean {
+  private needsJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(
+    sources: (T | undefined)[],
+    parentName: string,
+    allTypesEqual: boolean
+  ): boolean {
+    // If not all the types are equal, then we need to put a join__field to preserve the proper type information.
+    if (!allTypesEqual) {
+      return true;
+    }
+
     // We can avoid the join__field if:
     //   1) the field exists in all sources having the field parent type,
     //   2) none of the field instance has a @requires or @provides.
+    //   3) none of the field is @external.
     for (const [idx, source] of sources.entries()) {
       if (source) {
-        if (source.hasAppliedDirective('provides') || source.hasAppliedDirective('requires')) {
+        if (this.isExternal(idx, source)
+          || source.hasAppliedDirective(providesDirectiveName)
+          || source.hasAppliedDirective(requiresDirectiveName)
+        ) {
           return true;
         }
       } else {
@@ -884,7 +975,7 @@ class Merger {
     dest: T,
     allTypesEqual: boolean
   ) {
-    if (allTypesEqual && !this.needsJoinField(sources, dest.parent!.name)) {
+    if (!this.needsJoinField(sources, dest.parent!.name, allTypesEqual)) {
       return;
     }
     const joinFieldDirective = joinSpec.fieldDirective(this.merged);
@@ -893,20 +984,14 @@ class Merger {
         continue;
       }
 
-      const isExternal = source.hasAppliedDirective('external');
-      // We don't put a join__field if the field is marked @external in that subgraph, unless
-      // we need it because types aren't all equal.
-      if (isExternal && allTypesEqual) {
-        continue;
-      }
-
+      const external = this.isExternal(idx, source);
       const name = this.joinSpecName(idx);
       dest.applyDirective(joinFieldDirective, { 
         graph: name, 
         requires: this.getFieldSet(source, federationBuiltIns.requiresDirective(this.subgraphsSchema[idx])),
         provides: this.getFieldSet(source, federationBuiltIns.providesDirective(this.subgraphsSchema[idx])),
         type: allTypesEqual ? undefined : source.type?.toString(),
-        external: isExternal ? true : undefined,
+        external: external ? true : undefined,
       });
     }
   }
@@ -1211,7 +1296,7 @@ class Merger {
     const allTypesEqual = this.mergeTypeReference(sources, dest, true);
     this.addJoinField(sources, dest, allTypesEqual);
     this.mergeDefaultValue(sources, dest, 'Input field');
-  } 
+  }
 
   private mergeDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
     // We have 2 behavior depending on the kind of directives:
@@ -1514,6 +1599,49 @@ class Merger {
 
       // Because we rename all root type in subgraphs to their default names, we shouldn't ever have incompatibilities here.
       assert(!isIncompatible, () => `Should not have incompatile root type for ${rootKind}`);
+    }
+  }
+
+  private filterSubgraphs(predicate: (schema: Schema) => boolean): string[] {
+    return this.subgraphsSchema.map((s, i) => predicate(s) ? this.names[i] : undefined).filter(n => n !== undefined) as string[];
+  }
+
+  private subgraphByName(name: string): Schema {
+    return this.subgraphsSchema[this.names.indexOf(name)];
+  }
+
+  // TODO: the code here largely duplicate code that is in `internals-js/src/validate.ts`, except that when it detect an error, it
+  // provides an error in terms of subgraph inputs (rather than what is merge). We could maybe try to save some of that duplication.
+  private postMergeValidations() {
+    for (const type of this.merged.types()) {
+      if (!isObjectType(type) && !isInterfaceType(type)) {
+        continue;
+      }
+      for (const itf of type.interfaces()) {
+        for (const itfField of itf.fields()) {
+          const field = type.field(itfField.name);
+          if (!field) {
+            // This means that the type was defined (or at least implemented the interface) only in subgraphs where the interface didn't have
+            // that field.
+            const subgraphsWithTheField = this.filterSubgraphs(s => s.typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name) !== undefined);
+            const subgraphsWithTypeImplementingItf = this.filterSubgraphs(s => {
+              const typeInSubgraph = s.type(type.name);
+              return typeInSubgraph !== undefined && (typeInSubgraph as ObjectType | InterfaceType).implementsInterface(itf.name);
+            });
+            this.errors.push(new GraphQLError(
+              `Interface field ${itfField.coordinate} is declared in ${printSubgraphNames(subgraphsWithTheField)} but type ${type}, `
+              + `which implements ${itf} only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field ${itfField.name}.`,
+              sourceASTs(
+                ...subgraphsWithTheField.map(s => this.subgraphByName(s).typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name)),
+                ...subgraphsWithTypeImplementingItf.map(s => this.subgraphByName(s).type(type.name))
+              )
+            ));
+            continue;
+          }
+
+          // TODO: should we validate more? Can we have some invalid implementation of a field post-merging?
+        }
+      }
     }
   }
 }

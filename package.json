@@ -40,7 +40,7 @@
     "@apollo/query-planner": "file:query-planner-js",
     "@apollo/router-bridge": "file:router-bridge",
     "@apollo/subgraph": "file:subgraph-js",
-    "@apollographql/apollo-tools": "0.5.1",
+    "@apollographql/apollo-tools": "0.5.2",
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {

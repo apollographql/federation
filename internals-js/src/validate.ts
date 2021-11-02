@@ -225,7 +225,7 @@ class Validator {
         }
       }
 
-      // Now check that thsi type also declare implementations of all the interfaces of its interface.
+      // Now check that this type also declare implementations of all the interfaces of its interface.
       for (const itfOfItf of itf.interfaces()) {
         if (!type.implementsInterface(itfOfItf)) {
           if (itfOfItf === type) {
@@ -313,4 +313,3 @@ class Validator {
     }
   }
 }
-

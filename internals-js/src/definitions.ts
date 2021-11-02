@@ -367,8 +367,8 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
   }
 }
 
-export function sourceASTs(...elts: { sourceAST?: ASTNode }[]): ASTNode[] {
-  return elts.map(elt => elt.sourceAST).filter(elt => elt !== undefined) as ASTNode[];
+export function sourceASTs(...elts: ({ sourceAST?: ASTNode } | undefined)[]): ASTNode[] {
+  return elts.map(elt => elt?.sourceAST).filter(elt => elt !== undefined) as ASTNode[];
 }
 
 // Not exposed: mostly about avoid code duplication between SchemaElement and Directive (which is not a SchemaElement as it can't
@@ -1184,6 +1184,11 @@ export class Schema {
   type(name: string): NamedType | undefined {
     const type = this._types.get(name);
     return type ? type : this._builtInTypes.get(name);
+  }
+
+  typeOfKind<T extends NamedType>(name: string, kind: T['kind']): T | undefined {
+    const type = this.type(name);
+    return type && type.kind === kind ? type as T : undefined;
   }
 
   intType(): ScalarType {

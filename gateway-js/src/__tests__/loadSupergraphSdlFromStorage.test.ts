@@ -84,10 +84,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         @join__type(graph: PRODUCT, key: \\"isbn\\", extension: true)
         @join__type(graph: REVIEWS, key: \\"isbn\\", extension: true)
       {
-        isbn: String! @join__field(graph: BOOKS)
-        title: String @join__field(graph: BOOKS)
-        year: Int @join__field(graph: BOOKS)
-        similarBooks: [Book]! @join__field(graph: BOOKS)
+        isbn: String!
+        title: String @join__field(graph: BOOKS) @join__field(graph: PRODUCT, external: true)
+        year: Int @join__field(graph: BOOKS) @join__field(graph: PRODUCT, external: true)
+        similarBooks: [Book]! @join__field(graph: BOOKS) @join__field(graph: REVIEWS, external: true)
         metadata: [MetadataOrError] @join__field(graph: BOOKS)
         inStock: Boolean @join__field(graph: INVENTORY)
         isCheckedOut: Boolean @join__field(graph: INVENTORY)
@@ -119,9 +119,9 @@ describe('loadSupergraphSdlFromStorage', () => {
         @join__type(graph: PRODUCT, key: \\"id\\")
         @join__type(graph: REVIEWS, key: \\"id\\", extension: true)
       {
-        id: String! @join__field(graph: PRODUCT)
+        id: String!
         description: String @join__field(graph: PRODUCT)
-        price: String @join__field(graph: PRODUCT)
+        price: String @join__field(graph: PRODUCT) @join__field(graph: REVIEWS, external: true)
         retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
       }
 
@@ -155,10 +155,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         @join__type(graph: PRODUCT, key: \\"sku\\")
         @join__type(graph: REVIEWS, key: \\"upc\\", extension: true)
       {
-        sku: String! @join__field(graph: PRODUCT)
+        sku: String! @join__field(graph: INVENTORY) @join__field(graph: PRODUCT)
         inStock: Boolean @join__field(graph: INVENTORY)
         isHeavy: Boolean @join__field(graph: INVENTORY)
-        upc: String! @join__field(graph: PRODUCT)
+        upc: String! @join__field(graph: PRODUCT) @join__field(graph: REVIEWS)
         name: String @join__field(graph: PRODUCT)
         price: String @join__field(graph: PRODUCT)
         brand: Brand @join__field(graph: PRODUCT)
@@ -215,8 +215,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         @join__type(graph: ACCOUNTS, key: \\"id\\", extension: true)
         @join__type(graph: BOOKS, key: \\"id\\")
       {
-        id: ID! @join__field(graph: BOOKS)
-        name: String @join__field(graph: BOOKS)
+        id: ID!
+        name: String @join__field(graph: ACCOUNTS, external: true) @join__field(graph: BOOKS)
         userAccount(id: ID! = 1): User @join__field(graph: ACCOUNTS, requires: \\"name\\")
       }
 
@@ -372,12 +372,12 @@ describe('loadSupergraphSdlFromStorage', () => {
         @tag(name: \\"from-accounts\\")
         @tag(name: \\"from-reviews\\")
       {
-        id: ID! @tag(name: \\"accounts\\") @join__field(graph: ACCOUNTS)
+        id: ID! @tag(name: \\"accounts\\")
         name: Name @join__field(graph: ACCOUNTS)
-        username: String @join__field(graph: ACCOUNTS)
+        username: String @join__field(graph: ACCOUNTS) @join__field(graph: REVIEWS, external: true)
         birthDate(locale: String): String @tag(name: \\"admin\\") @tag(name: \\"dev\\") @join__field(graph: ACCOUNTS)
         account: AccountType @join__field(graph: ACCOUNTS)
-        metadata: [UserMetadata] @join__field(graph: ACCOUNTS)
+        metadata: [UserMetadata] @join__field(graph: ACCOUNTS) @join__field(graph: INVENTORY, external: true) @join__field(graph: REVIEWS, external: true)
         ssn: String @join__field(graph: ACCOUNTS)
         goodDescription: Boolean @join__field(graph: INVENTORY, requires: \\"metadata { description }\\")
         vehicle: Vehicle @join__field(graph: PRODUCT)
@@ -393,8 +393,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         @join__type(graph: REVIEWS)
       {
         name: String @join__field(graph: ACCOUNTS)
-        address: String @join__field(graph: ACCOUNTS)
-        description: String @join__field(graph: ACCOUNTS)
+        address: String @join__field(graph: ACCOUNTS) @join__field(graph: REVIEWS, external: true)
+        description: String @join__field(graph: ACCOUNTS) @join__field(graph: INVENTORY, external: true)
       }
 
       type Van implements Vehicle
@@ -403,9 +403,9 @@ describe('loadSupergraphSdlFromStorage', () => {
         @join__type(graph: PRODUCT, key: \\"id\\")
         @join__type(graph: REVIEWS, key: \\"id\\", extension: true)
       {
-        id: String! @join__field(graph: PRODUCT)
+        id: String!
         description: String @join__field(graph: PRODUCT)
-        price: String @join__field(graph: PRODUCT)
+        price: String @join__field(graph: PRODUCT) @join__field(graph: REVIEWS, external: true)
         retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
       }
 

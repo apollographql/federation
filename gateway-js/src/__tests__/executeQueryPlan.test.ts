@@ -1134,7 +1134,6 @@ describe('executeQueryPlan', () => {
     `;
 
     const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
-
       { name: 'S1', typeDefs: s1 },
       { name: 'S2', typeDefs: s2 }
     ]);
@@ -1213,4 +1212,434 @@ describe('executeQueryPlan', () => {
       }
       `);
   })
+
+  describe('interfaces on interfaces', () => {
+    it('can execute queries on an interface only implemented by other interfaces', async () => {
+      const s1 = gql`
+        type Query {
+          allValues: [TopInterface!]!
+        }
+
+        interface TopInterface {
+          a: Int
+        }
+
+        interface SubInterface1 implements TopInterface {
+          a: Int
+          b: String
+        }
+
+        interface SubInterface2 implements TopInterface {
+          a: Int
+          c: String
+        }
+
+        type T1 implements SubInterface1 & TopInterface {
+          a: Int
+          b: String
+        }
+
+        type T2 implements SubInterface1 & TopInterface @key(fields: "b") {
+          a: Int @external
+          b: String
+        }
+
+        type T3 implements SubInterface2 & TopInterface {
+          a: Int
+          c: String
+        }
+
+        type T4 implements SubInterface1 & SubInterface2 & TopInterface @key(fields: "a") {
+          a: Int
+          b: String @external
+          c: String @external
+        }
+      `;
+
+      const s2 = gql`
+        type T2 @key(fields: "b") {
+          a: Int
+          b: String
+        }
+
+        type T4 @key(fields: "a") {
+          a: Int
+          b: String
+          c: String
+        }
+      `;
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+        { name: 'S1', typeDefs: s1 },
+        { name: 'S2', typeDefs: s2 }
+      ]);
+
+      const t1s_s1: any[] = [{ __typename: 'T1', a: 1, b: 'T1_v1'}, {__typename: 'T1', a: 2, b: 'T1_v2'}];
+      const t2s_s1: any[] = [{__typename: 'T2', b: 'k1'}, {__typename: 'T2', b: 'k2'}];
+      const t3s_s1: any[] = [{__typename: 'T3', a: 42, c: 'T3_v1'}];
+      const t4s_s1: any[] = [{__typename: 'T4', a: 0}, {__typename: 'T4', a: 10}, {__typename: 'T4', a: 20}];
+
+      const t2s_s2 = new Map<string, {a: number, b: string}>();
+      t2s_s2.set('k1', {a: 12 , b: 'k1'});
+      t2s_s2.set('k2', {a: 24 , b: 'k2'});
+
+      const t4s_s2 = new Map<number, {a: number, b: string, c: string}>();
+      t4s_s2.set(0, {a: 0, b: 'b_0', c: 'c_0'});
+      t4s_s2.set(10, {a: 10, b: 'b_10', c: 'c_10'});
+      t4s_s2.set(20, {a: 20, b: 'b_20', c: 'c_20'});
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        Query: {
+          allValues() {
+            return t1s_s1.concat(t2s_s1).concat(t3s_s1).concat(t4s_s1);
+          },
+        },
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        T2: {
+          __resolveReference(ref) {
+            return t2s_s2.get(ref.b);
+          }
+        },
+        T4: {
+          __resolveReference(ref) {
+            return t4s_s2.get(ref.a);
+          }
+        },
+      });
+
+      let operation = parseOp(`
+        query {
+          allValues {
+            a
+            ... on SubInterface1 {
+              b
+            }
+            ... on SubInterface2 {
+              c
+            }
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                allValues {
+                  __typename
+                  ... on T1 {
+                    a
+                    b
+                  }
+                  ... on T2 {
+                    __typename
+                    b
+                  }
+                  ... on T3 {
+                    a
+                    c
+                  }
+                  ... on T4 {
+                    __typename
+                    a
+                  }
+                }
+              }
+            },
+            Flatten(path: "allValues.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on T2 {
+                    __typename
+                    b
+                  }
+                  ... on T4 {
+                    __typename
+                    a
+                  }
+                } =>
+                {
+                  ... on T2 {
+                    a
+                  }
+                  ... on T4 {
+                    b
+                    c
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allValues": Array [
+            Object {
+              "a": 1,
+              "b": "T1_v1",
+            },
+            Object {
+              "a": 2,
+              "b": "T1_v2",
+            },
+            Object {
+              "a": 12,
+              "b": "k1",
+            },
+            Object {
+              "a": 24,
+              "b": "k2",
+            },
+            Object {
+              "a": 42,
+              "c": "T3_v1",
+            },
+            Object {
+              "a": 0,
+              "b": "b_0",
+              "c": "c_0",
+            },
+            Object {
+              "a": 10,
+              "b": "b_10",
+              "c": "c_10",
+            },
+            Object {
+              "a": 20,
+              "b": "b_20",
+              "c": "c_20",
+            },
+          ],
+        }
+        `);
+    });
+
+    it('does not type explode when it does not need to', async () => {
+      // Fairly similar example than the previous one, but ensure field `a` don't need
+      // type explosion and unsure it isn't type-exploded.
+      const s1 = gql`
+        type Query {
+          allValues: [TopInterface!]!
+        }
+
+        interface TopInterface {
+          a: Int
+        }
+
+        interface SubInterface1 implements TopInterface {
+          a: Int
+          b: String
+        }
+
+        interface SubInterface2 implements TopInterface {
+          a: Int
+          c: String
+        }
+
+        type T1 implements SubInterface1 & TopInterface {
+          a: Int
+          b: String
+        }
+
+        type T2 implements SubInterface1 & TopInterface @key(fields: "a") {
+          a: Int
+          b: String @external
+        }
+
+        type T3 implements SubInterface2 & TopInterface {
+          a: Int
+          c: String
+        }
+
+        type T4 implements SubInterface1 & SubInterface2 & TopInterface @key(fields: "a") {
+          a: Int
+          b: String @external
+          c: String @external
+        }
+      `;
+
+      const s2 = gql`
+        type T2 @key(fields: "a") {
+          a: Int
+          b: String
+        }
+
+        type T4 @key(fields: "a") {
+          a: Int
+          b: String
+          c: String
+        }
+      `;
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+        { name: 'S1', typeDefs: s1 },
+        { name: 'S2', typeDefs: s2 }
+      ]);
+
+      const t1s_s1: any[] = [{ __typename: 'T1', a: 1, b: 'T1_v1'}, {__typename: 'T1', a: 2, b: 'T1_v2'}];
+      const t2s_s1: any[] = [{__typename: 'T2', a: 12}, {__typename: 'T2', a: 24}];
+      const t3s_s1: any[] = [{__typename: 'T3', a: 42, c: 'T3_v1'}];
+      const t4s_s1: any[] = [{__typename: 'T4', a: 0}, {__typename: 'T4', a: 10}, {__typename: 'T4', a: 20}];
+
+      const t2s_s2 = new Map<number, {a: number, b: string}>();
+      t2s_s2.set(12, {a: 12 , b: 'k1'});
+      t2s_s2.set(24, {a: 24 , b: 'k2'});
+
+      const t4s_s2 = new Map<number, {a: number, b: string, c: string}>();
+      t4s_s2.set(0, {a: 0, b: 'b_0', c: 'c_0'});
+      t4s_s2.set(10, {a: 10, b: 'b_10', c: 'c_10'});
+      t4s_s2.set(20, {a: 20, b: 'b_20', c: 'c_20'});
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        Query: {
+          allValues() {
+            return t1s_s1.concat(t2s_s1).concat(t3s_s1).concat(t4s_s1);
+          },
+        },
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        T2: {
+          __resolveReference(ref) {
+            return t2s_s2.get(ref.b);
+          }
+        },
+        T4: {
+          __resolveReference(ref) {
+            return t4s_s2.get(ref.a);
+          }
+        },
+      });
+
+      let operation = parseOp(`
+        query {
+          allValues {
+            a
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Fetch(service: "S1") {
+            {
+              allValues {
+                __typename
+                a
+              }
+            }
+          },
+        }
+      `);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allValues": Array [
+            Object {
+              "a": 1,
+            },
+            Object {
+              "a": 2,
+            },
+            Object {
+              "a": 12,
+            },
+            Object {
+              "a": 24,
+            },
+            Object {
+              "a": 42,
+            },
+            Object {
+              "a": 0,
+            },
+            Object {
+              "a": 10,
+            },
+            Object {
+              "a": 20,
+            },
+          ],
+        }
+        `);
+
+      operation = parseOp(`
+        query {
+          allValues {
+            ... on SubInterface1 {
+              a
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+
+      // TODO: we're actually type-exploding in this case because currently, as soon as we need to type-explode, we do
+      // so into all the runtime types, while here it could make sense to only type-explode into the direct sub-types=
+      // (the sub-interfaces). We should fix this (but it's only sub-optimal, not incorrect).
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Fetch(service: "S1") {
+            {
+              allValues {
+                __typename
+                ... on T1 {
+                  a
+                }
+                ... on T2 {
+                  a
+                }
+                ... on T4 {
+                  a
+                }
+              }
+            }
+          },
+        }
+      `);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allValues": Array [
+            Object {
+              "a": 1,
+            },
+            Object {
+              "a": 2,
+            },
+            Object {
+              "a": 12,
+            },
+            Object {
+              "a": 24,
+            },
+            Object {},
+            Object {
+              "a": 0,
+            },
+            Object {
+              "a": 10,
+            },
+            Object {
+              "a": 20,
+            },
+          ],
+        }
+        `);
+    });
+  });
 });

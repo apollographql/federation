@@ -19,7 +19,9 @@ import {
   isInterfaceType,
   isObjectType,
   sourceASTs,
-  VariableDefinitions
+  VariableDefinitions,
+  InterfaceType,
+  InputFieldDefinition
 } from "./definitions";
 import { assert } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -92,19 +94,14 @@ const FEDERATION_SPECIFIC_VALIDATION_RULES = [
 
 const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
-function isFieldOfExtension(field: FieldDefinition<CompositeType>): boolean {
-  return field.ofExtension() !== undefined || field.parent!.hasAppliedDirective(extendsDirectiveName);
-}
-
 // Returns a list of the coordinate of all the fields in the selection that are marked external.
 function validateFieldSetSelections(
   directiveName: string,
   selectionSet: SelectionSet,
   hasExternalInParents: boolean,
+  externalTester: ExternalTester,
   externalFieldCoordinatesCollector: string[],
-  externalExtensionFieldCoordinatesCollector: string[] | undefined,
   allowOnNonExternalLeafFields: boolean,
-  fakeExternalFields: string[],
 ): void {
   for (const selection of selectionSet.selections()) {
     if (selection.kind === 'FieldSelection') {
@@ -114,27 +111,24 @@ function validateFieldSetSelections(
       }
       // The field must be external if we don't allow non-external leaf fields, it's a leaft, and we haven't traversed an external field in parent chain leading here.
       const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && !hasExternalInParents;
-      const isExternal = field.hasAppliedDirective(externalDirectiveName);
-      const isFakeExternal = isExternal && fakeExternalFields.includes(field.coordinate);
+      const isExternal = externalTester.isExternal(field);
       if (isExternal) {
         externalFieldCoordinatesCollector.push(field.coordinate);
-        if (externalExtensionFieldCoordinatesCollector && isFieldOfExtension(field)) {
-          externalExtensionFieldCoordinatesCollector.push(field.coordinate);
-        }
-        if (mustBeExternal && isFakeExternal) {
+      } else if (mustBeExternal) {
+        if (externalTester.isFakeExternal(field)) {
           throw new GraphQLError(
             `field "${field.coordinate}" should not be part of a @${directiveName} since it is already "effectively" provided by this subgraph `
             + `(while it is marked @${externalDirectiveName}, it is a @${keyDirectiveName} field of an extension type, which are not internally considered external for historical/backward compatibility reasons)`,
             field.sourceAST);
+        } else {
+          throw new GraphQLError(`field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveName})`, field.sourceAST);
         }
-      } else if (mustBeExternal) {
-        throw new GraphQLError(`field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveName})`, field.sourceAST);
       }
       if (selection.selectionSet) {
-        validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents || (isExternal && !isFakeExternal), externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
+        validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents || isExternal, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
       }
     } else {
-      validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
+      validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
     }
   }
 }
@@ -143,15 +137,14 @@ function validateFieldSet(
   type: CompositeType,
   directive: Directive<any, {fields: any}>,
   targetDescription: string,
+  externalTester: ExternalTester,
   externalFieldCoordinatesCollector: string[],
-  externalExtensionFieldCoordinatesCollector: string[] | undefined,
   allowOnNonExternalLeafFields: boolean,
-  fakeExternalFields: string[],
 ): GraphQLError | undefined {
   try {
     const selectionSet = parseFieldSetArgument(type, directive);
     selectionSet.validate();
-    validateFieldSetSelections(directive.name, selectionSet, false, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
+    validateFieldSetSelections(directive.name, selectionSet, false, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
     return undefined;
   } catch (e) {
     if (!(e instanceof GraphQLError)) {
@@ -187,11 +180,10 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   targetTypeExtractor: (element: TParent) => CompositeType,
   targetDescriptionExtractor: (element: TParent) => string,
   errorCollector: GraphQLError[],
+  externalTester: ExternalTester,
   externalFieldCoordinatesCollector: string[],
-  externalExtensionFieldCoordinatesCollector: string[] | undefined,
   isOnParentType: boolean,
   allowOnNonExternalLeafFields: boolean,
-  fakeExternalFields: string[] = [],
 ): void {
   for (const application of definition.applications()) {
     const elt = application.parent! as TParent;
@@ -206,7 +198,7 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
         sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type))
       ));
     }
-    const error = validateFieldSet(type, application, targetDescription, externalFieldCoordinatesCollector, externalExtensionFieldCoordinatesCollector, allowOnNonExternalLeafFields, fakeExternalFields);
+    const error = validateFieldSet(type, application, targetDescription, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
     if (error) {
       errorCollector.push(error);
     }
@@ -214,11 +206,13 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
 }
 
 /**
- * Checks that all fields marked @external is used in a @key, @provides or @requires
+ * Checks that all fields marked @external is used in a federation directive (@key, @provides or @requires) _or_ to satisfy an
+ * interface implementation. Otherwise, the field declaration is somewhat useless.
  */
 function validateAllExternalFieldsUsed(
   schema: Schema,
-  allUsedExternalFieldsCoordinates: string[],
+  externalTester: ExternalTester,
+  allExternalFieldsUsedInFederationDirectivesCoordinates: string[],
   errorCollector: GraphQLError[],
 ): void {
   for (const type of schema.types()) {
@@ -226,15 +220,23 @@ function validateAllExternalFieldsUsed(
       continue;
     }
     for (const field of type.fields()) {
-      if (field.hasAppliedDirective(externalDirectiveName) && !allUsedExternalFieldsCoordinates.includes(field.coordinate)) {
+      if (!externalTester.isExternal(field) || allExternalFieldsUsedInFederationDirectivesCoordinates.includes(field.coordinate)) {
+        continue;
+      }
+
+      if (!isFieldSatisfyingInterface(field)) {
         errorCollector.push(new GraphQLError(
-          `Field ${field.coordinate} is marked @external but is not used in any @key, @provides or @requires `
-          + '(@external is only used to mark fields that are used in a @key, @provides or @requires "fields" argument but are not resolvable by the subgraph).',
+          `Field ${field.coordinate} is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
+          + ' the field declaration has no use and should be removed (or the field should not be @external).',
           field.sourceAST
         ));
       }
     }
   }
+}
+
+function isFieldSatisfyingInterface(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
+  return field.parent!.interfaces().some(itf => itf.field(field.name));
 }
 
 export class FederationBuiltIns extends BuiltIns {
@@ -358,8 +360,9 @@ export class FederationBuiltIns extends BuiltIns {
       }
     }
 
-    const externalFieldCoordinates: string[] = [];
-    const externalExtensionFieldCollector: string[] = [];
+    const externalTester = new ExternalTester(schema);
+
+    const externalFieldsInFedDirectivesCoordinates: string[] = [];
     // We validate the @key, @requires and @provides.
     const keyDirective = this.keyDirective(schema);
     validateAllFieldSet<CompositeType>(
@@ -367,8 +370,8 @@ export class FederationBuiltIns extends BuiltIns {
       type => type,
       type => `type "${type}"`,
       errors,
-      externalFieldCoordinates,
-      externalExtensionFieldCollector,
+      externalTester,
+      externalFieldsInFedDirectivesCoordinates,
       true,
       true
     );
@@ -384,11 +387,10 @@ export class FederationBuiltIns extends BuiltIns {
       field => field.parent!,
       field => `field "${field.coordinate}"`,
       errors,
-      externalFieldCoordinates,
-      undefined,
+      externalTester,
+      externalFieldsInFedDirectivesCoordinates,
       false,
       false,
-      externalExtensionFieldCollector
     );
     // Note that like for @requires above, we error out if a leaf field of the selection is not
     // external in a @provides (we pass `false` for the `allowOnNonExternalLeafFields` parameter),
@@ -407,13 +409,13 @@ export class FederationBuiltIns extends BuiltIns {
       },
       field => `field ${field.coordinate}`,
       errors,
-      externalFieldCoordinates,
-      undefined,
+      externalTester,
+      externalFieldsInFedDirectivesCoordinates,
       false,
       false,
-      externalExtensionFieldCollector
     );
-    validateAllExternalFieldsUsed(schema, externalFieldCoordinates, errors);
+
+    validateAllExternalFieldsUsed(schema, externalTester, externalFieldsInFedDirectivesCoordinates, errors);
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = this.tagDirective(schema);
@@ -505,10 +507,6 @@ export function isFederationDirective(directive: DirectiveDefinition | Directive
 
 export function isEntityType(type: NamedType): boolean {
   return type.kind == "ObjectType" && type.hasAppliedDirective(keyDirectiveName);
-}
-
-export function isExternal(field: FieldDefinition<CompositeType>): boolean {
-  return field.hasAppliedDirective(externalDirectiveName);
 }
 
 function buildSubgraph(name: string, source: DocumentNode | string): Schema {
@@ -669,4 +667,45 @@ export function addSubgraphToError(e: GraphQLError, subgraphName: string): Graph
   ));
 
   return ErrGraphQLValidationFailed(updatedCauses);
+}
+
+export class ExternalTester {
+  private readonly fakeExternalFields = new Set<string>();
+
+  constructor(readonly schema: Schema) {
+    this.collectFakeExternals();
+  }
+
+  private collectFakeExternals() {
+    const keyDirective = federationBuiltIns.keyDirective(this.schema);
+    if (!keyDirective) {
+      return;
+    }
+    for (const key of keyDirective.applications()) {
+      const parent = key.parent! as CompositeType;
+      if (!(key.ofExtension() || parent.hasAppliedDirective(extendsDirectiveName))) {
+        continue;
+      }
+      try {
+        parseFieldSetArgument(parent, key as Directive<any, {fields: any}>, (parentType, fieldName) => {
+          const field = parentType.field(fieldName);
+          if (field && field.hasAppliedDirective(externalDirectiveName)) {
+            this.fakeExternalFields.add(field.coordinate);
+          }
+          return field;
+        });
+      } catch (e) {
+        // This is not the right time to throw errors. If a directive is invalid, we'll throw
+        // an error later anyway, so just ignoring it for now.
+      }
+    }
+  }
+
+  isExternal(field: FieldDefinition<any> | InputFieldDefinition) {
+    return field.hasAppliedDirective(externalDirectiveName) && !this.isFakeExternal(field);
+  }
+
+  isFakeExternal(field: FieldDefinition<any> | InputFieldDefinition) {
+    return this.fakeExternalFields.has(field.coordinate);
+  }
 }
