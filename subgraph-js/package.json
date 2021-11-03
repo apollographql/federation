@@ -27,6 +27,6 @@
     "apollo-graphql": "^0.9.3"
   },
   "peerDependencies": {
-    "graphql": "^15.5.3"
+    "graphql": "^15.5.3 || ^16.0.0"
   }
 }
