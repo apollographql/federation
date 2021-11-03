@@ -159,12 +159,11 @@ It's time to enable our gateway to fetch its supergraph schema from Apollo! To d
   require('dotenv').config()
   ```
 
-6. Start up your gateway with `node index.js`. This time there's no error, and you'll output similar to the following:
+6. Start up your gateway with `node index.js`. This time there's no error, and you'll see output similar to the following:
 
     ```
-    No graph variant provided. Defaulting to `current`.
+    Apollo usage reporting starting! See your graph at https://studio.apollographql.com/graph/docs-example-graph@current/
     🚀 Gateway ready at http://localhost:4000/
-    Apollo usage reporting starting! See your graph at https://studio.apollographql.com/graph/docs-example-graph/?variant=current
     ```
 
 > By providing an API key to your gateway, you also automatically enable **federated trace reporting** to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](./metrics/)
