@@ -1,6 +1,6 @@
 ---
 title: "Federation quickstart"
-sidebar_title: "Part 2 - Composition in Apollo Studio"
+sidebar_title: "2️⃣ Composition in Apollo Studio"
 description: "Part 2 - Composition in Apollo Studio"
 ---
 
@@ -23,7 +23,7 @@ flowchart BT;
   subgraph " "
   serviceA[Products subgraph];
   serviceB[Reviews subgraph];
-  end  
+  end
   registry{{Apollo Schema Registry}};
   serviceA & serviceB -. Registers schema .-> registry;
   registry -- Composes supergraph schema--> registry;
@@ -46,7 +46,7 @@ Meanwhile, our gateway regularly polls the uplink for changes to its supergraph 
 flowchart BT;
   subgraph " "
   gateway[Gateway];
-  end  
+  end
   registry{{Apollo Uplink}};
   gateway -. Polls for changes .-> registry;
   registry -. Downloads changes .-> gateway;
@@ -110,7 +110,23 @@ If you refresh the Schema tab in Studio, you'll now see types and fields from ou
 
 Our supergraph schema has now been generated automatically by Apollo, but our _gateway_ doesn't know how to poll for it yet. Let's tackle that next.
 
-## 4. Authenticate the gateway with Apollo Studio
+## 4. Enable Federation 2 support
+
+To try out managed federation with the Federation 2 alpha, you set your graph's federation version in Apollo Studio.
+
+Open your graph's Settings page and find the Manage Variants section:
+
+<img class="screenshot" alt="Edit supported directives in Studio" src="./images/edit-build-configuration.jpg" width="600"/>
+
+Click **Edit Build Configuration** for the variant you want to move to Federation 2. The following dialog appears:
+
+<img class="screenshot" alt="Edit supported directives in Studio" src="./images/set-federation-version.jpg" width="600"/>
+
+In the Federation Version dropdown, select **Federation 2** and click **Save**.
+
+Studio automatically begins composing your supergraph schema using Federation 2 composition logic. You can switch this back at any time.
+
+## 5. Authenticate the gateway with Apollo Studio
 
 Right now in `index.js`, we're providing our supergraph schema to our `ApolloGateway` via the `supergraphSdl` option. We don't need to do this anymore!
 
@@ -140,6 +156,8 @@ So now, how do we connect and authenticate our gateway with Apollo Studio? With 
     _If you have an Enterprise plan, set the API key's role to `Contributor`._
 
 2. Create a new file named `.env` in your Node.js project folder.
+
+    * **Do not add the `.env` file to version control.** If you're working in a Git repository, add `.env` to your `.gitignore` file.
 
 3. Paste the following into `.env` and replace `YOUR_API_KEY` with your graph API key:
 

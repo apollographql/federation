@@ -39,7 +39,7 @@ type Book @key(fields: "isbn") @cacheControl(maxAge: 30) {
 
 When the `_entities` field is resolved it checks the applicable concrete type for a cache hint (e.g. the `Book` type in the example above) and applies that hint instead.
 
-To set cache hints dynamically, the [`cacheControl` object and its methods](#in-your-resolvers-dynamic) are also available in the `info` parameter of the `__resolveReference` resolver.
+To set cache hints dynamically, the [`cacheControl` object and its methods](https://www.apollographql.com/docs/apollo-server/performance/caching/#in-your-resolvers-dynamic) are also available in the `info` parameter of the `__resolveReference` resolver.
 
 ### Overriding subgraph cache hints in the gateway
 
@@ -211,7 +211,7 @@ const gateway = new ApolloGateway({
       didReceiveResponse({ response }) {
           if (name === "missions") {
             response.http.headers.set(
-              "cache-control", 
+              "cache-control",
               "max-age=5, public"
             );
           }

@@ -1,0 +1,136 @@
+---
+title: Backward compatibility in Federation 2
+sidebar_title: ⬅️ Backward compatibility
+description: FAQ
+---
+
+import { ExpansionPanel } from 'gatsby-theme-apollo-docs';
+
+## Do I need to modify my subgraph schemas for Federation 2?
+
+**Probably not.** You can move most existing graphs to Federation 2 and they compose successfully with no changes.
+
+> Graphs that _do_ require changes are graphs that _should_ cause certain composition errors that Federation 1 fails to detect. [See below.](#breaking-changes)
+
+### Breaking changes
+
+As mentioned above, the following Federation 1 examples _should_ produce composition errors, but they aren't detected. If your subgraph schemas include syntax that matches any of these, you need to update those schemas before moving to Federation 2.
+
+<ExpansionPanel title="See breaking changes">
+
+#### Invalid `@key` directives
+
+An entity's `@key` consists of one or more of the entity's own `fields`. If any of these fields have _subfields_, the `@key` must _also_ include at least one of those subfields:
+
+<p style="margin-bottom: 0">✅</p>
+
+```graphql{1}
+type User @key(fields: "id organization { id }") {
+ id: ID!
+ organization: Organization!
+}
+
+type Organization {
+ id: ID!
+ name: String!
+}
+```
+
+In this example, the `User`'s key fields are `User.id` and `User.organization.id`.
+
+Federation 1 composition _incorrectly_ allows a `@key` such as the following:
+
+<p style="margin-bottom: 0">❌</p>
+
+```graphql{1}
+type User @key(fields: "id organization") {
+ id: ID!
+ organization: Organization!
+}
+
+type Organization {
+ id: ID!
+ name: String!
+}
+```
+
+This `@key` should _break_ composition because it doesn't include at least one subfield of `Organization`.
+
+#### Invalid `@requires` directives
+
+An entity's extending subgraph can use the `@requires` directive to define [computed fields](https://www.apollographql.com/docs/federation/entities/#extending-an-entity-with-computed-fields-advanced) that depend on fields and subfields in the entity's _originating_ subgraph:
+
+<p style="margin-bottom: 0">✅</p>
+
+```graphql
+# Subgraph A
+type Product @key(fields:"sku") {
+  sku: ID!
+  dimensions: ProductDimensions!
+}
+
+type ProductDimensions {
+  size: Int!
+  weight: Int!
+}
+```
+
+```graphql{5}
+# Subgraph B
+extend type Product @key(fields:"sku") {
+  sku: ID! @external
+  dimensions: ProductDimensions! @external
+  shippingEstimate: Int! @requires(fields: "dimensions { size weight }")
+}
+
+type ProductDimensions {
+  size: Int!
+  weight: Int!
+}
+```
+
+In this example, Subgraph B's `shippingEstimate` field depends on the `dimensions.size` and `dimensions.weight` fields of Subgraph A.
+
+Federation 1 _incorrectly_ allows a `@requires` directive such as the following:
+
+<p style="margin-bottom: 0">❌</p>
+
+```graphql
+# Subgraph A
+type Product @key(fields:"sku") {
+  sku: ID!
+  dimensions: ProductDimensions!
+}
+
+type ProductDimensions {
+  size: Int!
+  weight: Int!
+}
+```
+
+```graphql{5}
+# Subgraph B
+extend type Product @key(fields:"sku") {
+  sku: ID! @external
+  dimensions: ProductDimensions! @external
+  shippingEstimate: Int! @requires(fields: "dimensions { length depth }")
+}
+
+type ProductDimensions {
+  size: Int!
+  weight: Int!
+}
+```
+
+This `@requires` directive should _break_ composition because it depends on subfields of `ProductDimensions` that _don't exist_ (`length` and `depth`).
+
+</ExpansionPanel>
+
+
+## Can Federation 1 compose my Federation 2 graph?
+
+**Probably not.** Federation 2 [relaxes composition rules](./new-in-federation-2/#relaxed-composition-rules) from Federation 1. If you modify your subgraph schemas to take advantage of these relaxed rules, your graph will no longer compose with Federation 1. You need to revert these changes to move _back_ to Federation 1.
+
+## Does `@apollo/gateway` v2 support Federation 1?
+
+**Yes.** If you want, you can update your gateway's `@apollo/gateway` library to its latest `2.x` version _before_ you're ready to [move your graph to Federation 2](./moving-to-federation-2/). This enables you to continue using any customizations or plugins that you've added to your gateway.

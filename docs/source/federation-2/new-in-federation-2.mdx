@@ -1,0 +1,172 @@
+---
+title: What's new in the Federation 2 alpha
+sidebar_title: ☀️ New in the alpha
+---
+
+import { CodeColumns, ExpansionPanel } from 'gatsby-theme-apollo-docs';
+
+> ⚠️ **Apollo Federation 2 is in public alpha.** It is not yet feature-complete, and breaking changes might occur between this release and general availability. [Learn about release stages.](https://www.apollographql.com/docs/resources/release-stages/#open-source-release-stages)
+
+**Apollo Federation 2** provides developer experience improvements to the original specification for Apollo Federation (called **Federation 1** in these docs). If your organization has an existing Federation 1 graph, this article summarizes the upcoming benefits of [moving to Federation 2](./moving-to-federation-2/).
+
+If you're just getting started with Federation, check out the [Quickstart](../quickstart/).
+
+## What _isn't_ changing?
+
+Before covering what's new, here's what _isn't_ changing in Federation 2:
+
+* Most importantly, **Federation 2 is backward compatible with most Federation 1 graphs.** You can probably move your existing graph to Federation 2 without needing to make any changes.
+    * Graphs that _do_ require changes are graphs that _should_ cause composition errors, but Federation 1 fails to detect them. [Learn more.](./backward-compatibility/#do-i-need-to-modify-my-subgraph-schemas-for-federation-2)
+
+* Subgraph servers have _no_ additional requirements. Any [subgraph-compatible library](../other-servers/) is automatically compatible with Federation 2.
+
+## Relaxed composition rules
+
+**Federation 2 improves the flexibility and independence of your subgraph schemas.** New composition logic _relaxes_ requirements from Federation 1, meaning teams can more confidently build out their subgraphs or migrate functionality between subgraphs.
+
+> In some cases, you still might want to enforce the stricter schema requirements defined in Federation 1. The full release of Federation 2 will include support for directives that enable this. For details, see [Federated ownership directives](../federated-types/restricting-types-fields/).
+
+Let's look at some examples!
+
+## Shared object / interface types
+
+In Federation 1, multiple subgraphs can define the same object or interface type, but those definitions must all be _identical_. These shared types are called **value types**:
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+type Book {
+  title: String!
+  author: String!
+}
+```
+
+```graphql
+# Subgraph B
+type Book {
+  title: String!
+  author: String!
+}
+```
+
+</CodeColumns>
+
+In Federation 2, shared object and interface types can _differ_ in certain ways:
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
+
+<CodeColumns>
+
+```graphql{3-4}
+# Subgraph A
+type Book {
+  title: String!
+  author: String!
+}
+```
+
+```graphql{3-5}
+# Subgraph B
+type Book {
+  title: String     # Nullable
+  author: [String!] # List
+  isbn: String!     # Not in A
+}
+```
+
+</CodeColumns>
+
+Because of this relaxed restriction, the term "value type" is not used in Federation 2. Instead, a type such as `Book` above is said to be shared across subgraphs.
+
+This relaxation is especially helpful when an organization has multiple standalone GraphQL APIs that they want to unify with federation. Such APIs often share some types, and this added flexibility reduces the work required to compose their schemas successfully.
+
+### Valid field differences between subgraphs
+
+* Fields of a shared object or interface type can vary in nullability (`String` / `String!`), and in whether they return a list (`String` / `[String]`).
+    * However, a field's _core_ return type _cannot_ differ (`String` / `Int`).
+* Shared object and interface types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
+
+> For details on how these field differences are handled, see [Sharing types and fields across subgraphs](../federated-types/types-fields/).
+
+## Shared enum / union types
+
+In Federation 1, shared enum and union types follow the same rule as other value types—they must be defined identically in every subgraph:
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+union Media = Book | Movie
+
+enum AllowedColor {
+  RED
+  GREEN
+  BLUE
+}
+```
+
+```graphql
+# Subgraph B
+union Media = Book | Movie
+
+enum AllowedColor {
+  RED
+  GREEN
+  BLUE
+}
+```
+
+</CodeColumns>
+
+In Federation 2, shared enums and unions can have _completely different_ definitions between subgraphs:
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+union Media = Book | Movie
+
+enum AllowedColor {
+  RED
+  GREEN
+  BLUE
+}
+```
+
+```graphql
+# Subgraph B
+union Media = Book | Podcast
+
+enum AllowedColor {
+  CYAN
+  MAGENTA
+  YELLOW
+}
+```
+
+</CodeColumns>
+
+Composition logic _merges_ these definitions in your supergraph schema:
+
+```graphql
+# Supergraph schema
+union Media = Book | Movie | Podcast
+
+enum AllowedColor {
+  RED
+  GREEN
+  BLUE
+  CYAN
+  MAGENTA
+  YELLOW
+}
+```
+
+This is useful when different subgraphs are responsible for different subsets of a particular set of related types or values.

@@ -293,11 +293,9 @@ We can configure the gateway to forward headers to subgraph services by [customi
 
 ## Changes to subgraph resolvers
 
-Changing the behavior of a resolver (such as calling a new data source, changing the computation of a value, or optimizing execution by adding [Dataloaders](dataloader)) might be performed in a single release for low-risk changes.
+Changing the behavior of a resolver (such as calling a new data source, changing the computation of a value, or optimizing execution by adding [Dataloaders](https://www.apollographql.com/docs/apollo-server/data/data-sources/#using-with-dataloader)) might be performed in a single release for low-risk changes.
 
 Because a resolver might be called in various contexts (nested at different layers of an operation) it can be challenging to reason about the effects of our change. We might choose to progressively release the change using feature flags or canary deploys.
-
-[dataloader]: https://www.apollographql.com/docs/apollo-server/data/data-sources/#using-with-dataloader
 
 Because this change does not require changes to other components, it allows rolling back the subgraph service should an issue arise in the new code.
 

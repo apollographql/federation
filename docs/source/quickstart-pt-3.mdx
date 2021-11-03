@@ -1,6 +1,6 @@
 ---
 title: "Federation quickstart"
-sidebar_title: "Part 3 - Working with subgraphs"
+sidebar_title: "3️⃣ Working with subgraphs"
 description: "Part 3 - Working with subgraphs"
 ---
 
@@ -11,7 +11,7 @@ import { VideoFrame } from 'gatsby-theme-apollo-docs';
 
 In [Part 1](./quickstart/) and [Part 2](./quickstart-pt-2/), we used Apollo-hosted services for our subgraphs. Now, let's see what we can do with our _own_ subgraphs.
 
-A service that you want to act as a subgraph can use any GraphQL server that supports Apollo Federation. This includes Apollo Server, along with the servers listed in [Supported libraries](./other-servers/).
+A service that you want to act as a subgraph can use any GraphQL server that supports Apollo Federation. This includes Apollo Server, along with the other servers listed in [Subgraph-compatible libraries](./other-servers/).
 
 ## 1. Configure Apollo Server
 
@@ -43,9 +43,9 @@ const server = new ApolloServer({
 
 And that's it! You can now perform all of the same subgraph setup on your _own_ service (introspection, schema registration, etc.) that you did with the Apollo-hosted services we used in the first two parts. Refer to those parts for guidance.
 
-## 2. Learn about federated entities
+## 2. Learn about federated types
 
-In a federated graph, each subgraph's schema can refer to types and fields in _another_ subgraph's schema.
+In a federated graph, each subgraph's schema can define or reference types and fields that are present in _another_ subgraph's schema.
 
 Consider the `Product` type in our composed supergraph schema from [Part 1](./quickstart/#performing-composition). This type includes the following fields:
 
