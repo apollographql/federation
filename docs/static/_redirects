@@ -1,7 +1,7 @@
-/v2/quickstart/ /v2/quickstart/setup/
-/v2/quickstart-pt-2/ /v2/quickstart/studio-composition/
-/v2/quickstart-pt-3/ /v2/quickstart/local-composition/
-/v2/quickstart-pt-4/ /v2/quickstart/local-subgraphs/
+/v2/quickstart/ /docs/federation/v2/quickstart/setup/
+/v2/quickstart-pt-2/ /docs/federation/v2/quickstart/studio-composition/
+/v2/quickstart-pt-3/ /docs/federation/v2/quickstart/local-composition/
+/v2/quickstart-pt-4/ /docs/federation/v2/quickstart/local-subgraphs/
 
 /core-concepts/ /docs/federation/implementing-services/
 /implementing-services/ /docs/federation/subgraphs/
