@@ -658,7 +658,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
             const fieldType = baseType(field.type!);
-            assert(isInterfaceType(fieldType) || isObjectType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not an object or interface`)
+            assert(isCompositeType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not a composite type`)
             const provided = parseFieldSetArgument(fieldType, providesApplication);
             const head = copyPointers[i].copiedVertex(e.head);
             const tail = copyPointers[i].copiedVertex(e.tail);
@@ -689,36 +689,46 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
       const element = selection.element();
       if (element.kind == 'Field') {
         const fieldDef = element.definition;
-        if (!fieldDef.hasAppliedDirective(externalDirectiveName)) {
-          // Because key fields used to be marked @external, someone my have put a provide for a key field
-          // which is effectively already provided by the subgraph. In that case, just ignore that field
-          // (otherwise, future code will get confused by the fact that there is more than 1 edge to
-          // resolve a field locally and would have to make a choice while lacking context).
-          continue;
-        }
-        const fieldType = baseType(fieldDef.type!);
-        if (selection.selectionSet) {
-          // We should create a brand new vertex, not reuse the existing one because we're still in
-          // the middle of the provide and only a subset of `fieldType` (and in fact, even if all
-          // of the fields `fieldType` are provided, maybe only a subset of _those_ field is
-          // provided..
-          const newVertex = builder.createNewVertex(fieldType, source, schema);
-          builder.addEdge(v, newVertex, new FieldCollection(fieldDef));
-          stack.push([newVertex, selection.selectionSet]);
+        const existingEdge = builder.edges(v).find(e => e.transition.kind === 'FieldCollection' && e.transition.definition.name === fieldDef.name);
+        if (existingEdge) {
+          // If this is a leaf field, then we don't really have anything to do. Otherwise, we need to copy
+          // the tail and continue propagating the provides from there.
+          if (selection.selectionSet) {
+            const copiedTail = builder.makeCopy(existingEdge.tail);
+            builder.updateEdgeTail(existingEdge, copiedTail);
+            stack.push([copiedTail, selection.selectionSet]);
+          }
         } else {
-          // this is a leaf type, we can just reuse the (probably) existing vertex for that leaf type.
-          const existing = builder.verticesForType(fieldType.name).find(v => v.source === source);
-          const vertex = existing ? existing : builder.createNewVertex(fieldType, v.source, schema);
-          builder.addEdge(v, vertex, new FieldCollection(fieldDef));
+          // There is no exisiting edges, which means that it's an edge added by the provide.
+          // We find the existing vertex it leads to, if it exists and create a new one otherwise.
+          const fieldType = baseType(fieldDef.type!);
+          const existingTail = builder.verticesForType(fieldType.name).find(v => v.source === source);
+          const newTail = existingTail ? existingTail : builder.createNewVertex(fieldType, v.source, schema);
+          // If the field is a leaf, then just create the new edge and we're done. Othewise, we
+          // should copy the vertex (unless we just created it), add the edge and continue.
+          if (selection.selectionSet) {
+            const copiedTail = existingTail ? builder.makeCopy(existingTail) : newTail;
+            builder.addEdge(v, copiedTail, new FieldCollection(fieldDef, true));
+            stack.push([copiedTail, selection.selectionSet]);
+          } else {
+            builder.addEdge(v, newTail, new FieldCollection(fieldDef, true));
+          }
         }
       } else {
         const typeCondition = element.typeCondition;
-        let newVertex = v;
         if (typeCondition) {
-          newVertex = builder.createNewVertex(typeCondition, source, schema);
-          builder.addEdge(v, newVertex, new DownCast(element.parentType, typeCondition));
+          const existingEdge = builder.edges(v).find(e => e.transition.kind === 'DownCast' && e.transition.castedType.name === typeCondition.name);
+          // We always should have an edge: otherwise it would mean we list a type condition for a type that isn't in the subgraph, but the
+          // @provides shouldn't have validated in the first place (another way to put it is, contrary to fields, there is no way currently
+          // to mark a full type as @external).
+          assert(existingEdge, () => `Shouldn't have ${selection} with no corresponding edge on ${v}`);
+          const copiedTail = builder.makeCopy(existingEdge.tail);
+          builder.updateEdgeTail(existingEdge, copiedTail);
+          stack.push([copiedTail, selection.selectionSet!]);
+        } else {
+          // Essentially ignore the condition, it's useless
+          stack.push([v, selection.selectionSet!]);
         }
-        stack.push([newVertex, selection.selectionSet!]);
       }
     }
   }
@@ -824,6 +834,10 @@ class GraphBuilder {
 
   edge(head: Vertex, index: number): Edge {
     return this.adjacencies[head.index][index];
+  }
+
+  edges(head: Vertex): Edge[] {
+    return this.adjacencies[head.index];
   }
 
   /**

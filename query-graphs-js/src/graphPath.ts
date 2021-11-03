@@ -1344,7 +1344,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
   for (const [i, path] of subgraphSimultaneousPaths.paths.entries()) {
     debug.group(() => `Computing options for ${path}`);
     debug.group(() => `Direct options`);
-    let options = advanceOneWithOperation(
+    let options = advanceWithOperation(
       supergraphSchema,
       path,
       operation,
@@ -1380,7 +1380,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
       debug.group('Validating indirect options:');
       for (const pathWithNonCollecting of pathsWithNonCollecting.paths) {
         debug.group(() => `For indirect path ${pathWithNonCollecting}:`);
-        const pathWithOperation = advanceOneWithOperation(
+        const pathWithOperation = advanceWithOperation(
           supergraphSchema,
           pathWithNonCollecting,
           operation,
@@ -1502,11 +1502,15 @@ function anImplementationHasAProvides(fieldName: string, itf: InterfaceType): bo
   return false;
 }
 
+function isProvidedEdge(edge: Edge): boolean {
+  return edge.transition.kind === 'FieldCollection' && edge.transition.isPartOfProvide;
+}
+
 
 // The result has the same meaning than in advanceSimultaneousPathsWithOperation.
 // We also actually need to return a set of options of simultaneous paths. Cause when we type explode, we create simultaneous paths, but
 // as a field might be resolve by multiple subgraphs, we may have options created.
-function advanceOneWithOperation<V extends Vertex>(
+function advanceWithOperation<V extends Vertex>(
   supergraphSchema: Schema,
   path: OpGraphPath<V>,
   operation: OperationElement,
@@ -1554,7 +1558,7 @@ function advanceOneWithOperation<V extends Vertex>(
           // if the direct edge cannot be satisfied? Probably depends on the exact semantic of @requires on interface fields).
           assert(itfOptions, () => `Interface edge ${itfEdge} shouldn't have conditions`);
           // Further, if we've getting the __typename, we must _not_ type-explode.
-          if (field.name === typenameFieldName || !anImplementationHasAProvides(field.name, currentType)) {
+          if (field.name === typenameFieldName || (!isProvidedEdge(itfEdge) && !anImplementationHasAProvides(field.name, currentType))) {
             debug.groupEnd(() => `Collecting field ${field} on interface ${currentType} without type-exploding`);
             return itfOptions;
           } else {

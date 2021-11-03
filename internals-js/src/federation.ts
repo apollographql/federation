@@ -21,7 +21,8 @@ import {
   sourceASTs,
   VariableDefinitions,
   InterfaceType,
-  InputFieldDefinition
+  InputFieldDefinition,
+  isCompositeType
 } from "./definitions";
 import { assert, OrderedMap } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -125,7 +126,21 @@ function validateFieldSetSelections(
         }
       }
       if (selection.selectionSet) {
-        validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents || isExternal, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
+        // When passing the 'hasExternalInParents', the field might be external himself, but we may also have
+        // the case where the field parent is an interface and some implementation of the field are external, in
+        // which case we should say we have an external on the path, because we may have one.
+        let newHasExternalInParents = hasExternalInParents || isExternal;
+        const parentType = field.parent;
+        if (!newHasExternalInParents && isInterfaceType(parentType)) {
+          for (const implem of parentType.possibleRuntimeTypes()) {
+            const fieldInImplem = implem.field(field.name);
+            if (fieldInImplem && externalTester.isExternal(fieldInImplem)) {
+              newHasExternalInParents = true;
+              break;
+            }
+          }
+        }
+        validateFieldSetSelections(directiveName, selection.selectionSet, newHasExternalInParents, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
       }
     } else {
       validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
@@ -399,10 +414,13 @@ export class FederationBuiltIns extends BuiltIns {
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.providesDirective(schema),
       field => {
+        if (externalTester.isExternal(field)) {
+          throw new GraphQLError(`Cannot have both @provides and @external on field "${field.coordinate}"`, field.sourceAST);
+        }
         const type = baseType(field.type!);
-        if (!isObjectType(type)) {
+        if (!isCompositeType(type)) {
           throw new GraphQLError(
-            `Invalid @provides directive on field "${field.coordinate}": field has type "${field.type}" which is not an Object Type`,
+            `Invalid @provides directive on field "${field.coordinate}": field has type "${field.type}" which is not a Composite Type`,
             field.sourceAST);
         }
         return type;

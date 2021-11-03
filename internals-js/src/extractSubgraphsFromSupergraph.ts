@@ -486,7 +486,7 @@ function removeNeedlessProvides(subgraph: Subgraph) {
     for (const field of type.fields()) {
       const fieldBaseType = baseType(field.type!);
       for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
-        const selection = parseFieldSetArgument(fieldBaseType as ObjectType | InterfaceType, providesApplication);
+        const selection = parseFieldSetArgument(fieldBaseType as CompositeType, providesApplication);
         if (selectsNonExternalLeafField(selection)) {
           providesApplication.remove();
           const updated = withoutNonExternalLeafFields(selection);
@@ -499,11 +499,27 @@ function removeNeedlessProvides(subgraph: Subgraph) {
   }
 }
 
+function isExternalOrHasExternalImplementations(field: FieldDefinition<CompositeType>): boolean {
+  if (field.hasAppliedDirective(externalDirectiveName)) {
+    return true;
+  }
+  const parentType = field.parent;
+  if (isInterfaceType(parentType)) {
+    for (const implem of parentType.possibleRuntimeTypes()) {
+      const fieldInImplem = implem.field(field.name);
+      if (fieldInImplem && fieldInImplem.hasAppliedDirective(externalDirectiveName)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function selectsNonExternalLeafField(selection: SelectionSet): boolean {
   return selection.selections().some(s => {
     if (s.kind === 'FieldSelection') {
       // If it's external, we're good and don't need to recurse.
-      if (s.field.definition.hasAppliedDirective(externalDirectiveName)) {
+      if (isExternalOrHasExternalImplementations(s.field.definition)) {
         return false;
       }
       // Otherwise, we select a non-external if it's a leaf, or the sub-selection does.
@@ -518,7 +534,7 @@ function withoutNonExternalLeafFields(selectionSet: SelectionSet): SelectionSet 
   const newSelectionSet = new SelectionSet(selectionSet.parentType);
   for (const selection of selectionSet.selections()) {
     if (selection.kind === 'FieldSelection') {
-      if (selection.field.definition.hasAppliedDirective(externalDirectiveName)) {
+      if (isExternalOrHasExternalImplementations(selection.field.definition)) {
         // That field is external, so we can add the selection back entirely.
         newSelectionSet.add(selection);
         continue;

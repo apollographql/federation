@@ -50,7 +50,10 @@ export class FieldCollection {
   readonly kind = 'FieldCollection' as const;
   readonly collectOperationElements = true as const;
 
-  constructor(readonly definition: FieldDefinition<CompositeType>) {}
+  constructor(
+    readonly definition: FieldDefinition<CompositeType>,
+    readonly isPartOfProvide: boolean = false
+  ) {}
 
   toString() {
     return this.definition.name;
