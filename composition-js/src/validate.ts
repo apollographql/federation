@@ -223,7 +223,7 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
   try {
     assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
     const supergraphSchema = firstOf(supergraphPath.graph.sources.values())!;
-    let initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
+    const initialState = ValidationState.initial(supergraphPath.graph, supergraphPath.root.rootKind, subgraphs);
     const conditionResolver = new ConditionValidationResolver(supergraphSchema, subgraphs);
     let state = initialState;
     let isIncomplete = false;
@@ -327,7 +327,7 @@ export class ValidationState {
   }
 }
 
-function isSupersetOrEqual(maybeSuperset: String[], other: String[]): boolean {
+function isSupersetOrEqual(maybeSuperset: string[], other: string[]): boolean {
   // `maybeSuperset` is a superset (or equal) if it contains all of `other`
   return other.every(v => maybeSuperset.includes(v));
 }

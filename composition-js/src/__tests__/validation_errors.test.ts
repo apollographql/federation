@@ -2,7 +2,7 @@ import { CompositionResult, composeServices } from '../compose';
 import gql from 'graphql-tag';
 import './matchers';
 
-function errorMessages(r: CompositionResult): String[] {
+function errorMessages(r: CompositionResult): string[] {
   return r.errors?.map(e => e.message) ?? [];
 }
 

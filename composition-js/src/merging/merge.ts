@@ -577,8 +577,8 @@ class Merger {
   }
 
   private mergeDescription<T extends SchemaElement<any, any>>(sources: (T | undefined)[], dest: T) {
-    let descriptions: string[] = [];
-    let counts: number[] = [];
+    const descriptions: string[] = [];
+    const counts: number[] = [];
     for (const source of sources) {
       if (!source || source.description === undefined) {
         continue;
@@ -770,7 +770,7 @@ class Merger {
     field: FieldDefinition<any> | InputFieldDefinition
   ) {
     let hintId: HintID;
-    let typeDescription: String;
+    let typeDescription: string;
     switch (dest.kind) {
       case 'ObjectType':
         hintId = hintInconsistentObjectValueTypeField;
@@ -864,9 +864,9 @@ class Merger {
 
   private validateExternalFields(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>, allTypesEqual: boolean) {
     let hasInvalidTypes = false;
-    let invalidArgsPresence = new Set<string>();
-    let invalidArgsTypes = new Set<string>();
-    let invalidArgsDefaults = new Set<string>();
+    const invalidArgsPresence = new Set<string>();
+    const invalidArgsTypes = new Set<string>();
+    const invalidArgsDefaults = new Set<string>();
     for (const [i, source] of sources.entries()) {
       if (!source || !this.isExternal(i, source)) {
         continue;
@@ -1010,8 +1010,8 @@ class Merger {
     isContravariant: boolean = false
   ): boolean {
     let destType: TType | undefined;
-    let hasSubtypes: boolean = false;
-    let hasIncompatible: boolean = false;
+    let hasSubtypes = false;
+    let hasIncompatible = false;
     for (const source of sources) {
       if (!source) {
         continue;
@@ -1128,9 +1128,9 @@ class Merger {
 
   private mergeDefaultValue<T extends ArgumentDefinition<any> | InputFieldDefinition>(sources: (T | undefined)[], dest: T, kind: string) {
     let destDefault;
-    let hasSeenSource: boolean = false;
-    let isInconsistent: boolean = false;
-    let isIncompatible: boolean = false;
+    let hasSeenSource = false;
+    let isInconsistent = false;
+    let isIncompatible = false;
     for (const source of sources) {
       if (!source) {
         continue;
@@ -1581,7 +1581,7 @@ class Merger {
     // `prepareSubgraphsForFederation`.
     for (const rootKind of allSchemaRootKinds) {
       let rootType: string | undefined;
-      let isIncompatible: boolean = false;
+      let isIncompatible = false;
       for (const sourceType of sources.map(s => filteredRoot(s, rootKind))) {
         if (!sourceType) {
           continue;
