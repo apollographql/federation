@@ -30,10 +30,10 @@ module.exports = {
             'federation-2/backward-compatibility',
           ],
           Quickstart: [
-            'quickstart',
-            'quickstart-pt-2',
-            'quickstart-pt-3',
-            'quickstart-pt-4',
+            'quickstart/setup',
+            'quickstart/studio-composition',
+            'quickstart/local-composition',
+            'quickstart/local-subgraphs',
           ],
           Implementing: ['subgraphs', 'gateway'],
           'Federated Schemas': [
