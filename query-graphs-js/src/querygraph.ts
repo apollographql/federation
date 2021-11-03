@@ -927,7 +927,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // field can be fetched from may depend on the runtime implementation. However, if the subgraph we're currently including
       // "provides" a particular interface field locally *for all the supergraph interfaces implementations* (in other words, we
       // know we can always ask the field to that subgraph directly on the interface and will never miss anything), then we can
-      // add a direct edge to the field for the interface in that subgraph (which avoids unnecessary type exposing in practice).
+      // add a direct edge to the field for the interface in that subgraph (which avoids unnecessary type exploding in practice).
       if (this.isFederatedSubgraph && !this.forceTypeExplosion) {
         this.maybeAddInterfaceFieldsEdges(namedType, vertex);
       }
