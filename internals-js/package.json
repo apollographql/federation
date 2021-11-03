@@ -35,6 +35,6 @@
     "graphql": "^14.5.0 || ^15.0.0"
   },
   "devDependencies": {
-    "@types/js-levenshtein": "^1.1.0"
+    "@types/js-levenshtein": "1.1.0"
   }
 }
