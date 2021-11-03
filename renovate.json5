@@ -10,6 +10,13 @@
     "group:graphqlcodegeneratorMonorepo",
   ],
   schedule: null,
+  // "Past" major version branches, preserved as
+  // "version-" branches, should be added here to ensure they get
+  // important updatets.
+  "baseBranches": [
+    "main",
+    "version-0.x",
+  ],
   "dependencyDashboard": true,
   // The "circleci" manager is intentionally disabled right now (e.g., not
   // included in this list).  While we do benefit from its updating of "Orb"
@@ -89,10 +96,10 @@
         "apollo-docs"
       ],
       // "Past" major version branches, preserved as
-      // "version-[0-9]" branches, should be added here!
-      // See Apollo Server or Apollo Client repos for examples.
+      // "version-" branches, should be added here!
       "baseBranches": [
-        "main"
+        "main",
+        "version-0.x",
       ]
     },
     // The current Apollo Gatsby theme does not support a version of Gatsby
