@@ -140,7 +140,7 @@ extend type Product @key(fields: "id") {
 
 ### Core binary
 
-> ⚠️ If you already have Rover globally installed and you installed it with `npm`, first _uninstall_ that version with `npm uninstall`. This is required for the Federation 2 alpha.
+> ⚠️ If you already have Rover globally installed and you installed it with `npm`, first _uninstall_ that version with `npm uninstall @apollo/rover`. This is required for the Federation 2 alpha.
 
 Install the core Rover binary with the appropriate command for your system:
 
@@ -221,7 +221,7 @@ This code demonstrates the necessary steps for creating a gateway:
 If we run this code as-is with `node index.js`, we get an error:
 
 ```
-Error: Apollo Server requires either an existing schema, modules or typeDefs
+Error: When a manual configuration is not provided, gateway requires an Apollo configuration.
 ```
 
 That's because we aren't currently providing a supergraph schema to our gateway! We'll fix that soon.
