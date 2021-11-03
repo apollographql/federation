@@ -1,6 +1,6 @@
 {
   "name": "@apollo/federation-internals",
-  "version": "0.1.0",
+  "version": "2.0.0-alpha.0",
   "description": "Apollo Federation internal utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,8 +25,8 @@
   "dependencies": {
     "@apollo/core-schema": "^0.1.0",
     "@types/jest": "^26.0.23",
-    "js-levenshtein": "^1.1.6",
-    "chalk": "^4.1.0"
+    "chalk": "^4.1.0",
+    "js-levenshtein": "^1.1.6"
   },
   "publishConfig": {
     "access": "public"
