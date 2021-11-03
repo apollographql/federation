@@ -257,7 +257,7 @@
 
 - The default branch of the repository has been changed to `main`.  As this changed a number of references in the repository's `package.json` and `README.md` files (e.g., for badges, links, etc.), this necessitates a release to publish those changes to npm. [PR #4302](https://github.com/apollographql/apollo-server/pull/4302)
 - __FIX__: The cache implementation for the HTTP-fetcher which is used when communicating with the Apollo Registry when the gateway is configured to use [managed federation](https://www.apollographql.com/docs/graph-manager/managed-federation/overview/) will no longer write to its cache when it receives a 304 response.  This is necessary since such a response indicates that the cache used to conditionally make the request must already be present.  This does not affect GraphQL requests at runtime, only the polling and fetching mechanism for retrieving composed schemas under manged federation. [PR #4325](https://github.com/apollographql/apollo-server/pull/4325)
-- __FIX__: The `mergeFieldNodeSelectionSets` method no longer mutates original FieldNode objects. Before, it was updating the selection set of the original object, corrupting the data accross requests.
+- __FIX__: The `mergeFieldNodeSelectionSets` method no longer mutates original FieldNode objects. Before, it was updating the selection set of the original object, corrupting the data across requests.
 
 ## v0.16.9
 

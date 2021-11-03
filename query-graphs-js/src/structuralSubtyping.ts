@@ -38,7 +38,7 @@ function isAccessible(element: SchemaElement<any, any>): boolean {
   return element.hasAppliedDirective('inaccessible');
 }
 
-// The enum string values, with any values marked by @inacessible filtered out. 
+// The enum string values, with any values marked by @inaccessible filtered out.
 // TODO: should we move this and related to a different place? It's more of a composition specific
 //   type of subtyping.
 function accessibleEnumValues(enumType: EnumType): string[] {
@@ -75,10 +75,10 @@ function isObjectInputSubtype(objectInputType: InputObjectType, maybeSubType: In
 
 export function isStructuralInputSubType(inputType: InputType, maybeSubType: InputType): boolean {
   if (isNonNullType(inputType)) {
-    // A nullable type cannot be a sutype of a non-nullable on.
+    // A nullable type cannot be a subtype of a non-nullable on.
     return isNonNullType(maybeSubType) ? isStructuralInputSubType(inputType.ofType, maybeSubType.ofType) : false;
   }
-  /// A non-nullable type is a subtype of a nullable one if it is a stubtype of that other type.
+  /// A non-nullable type is a subtype of a nullable one if it is a subtype of that other type.
   if (isNonNullType(maybeSubType)) {
     return isStructuralInputSubType(inputType, maybeSubType.ofType);
   }

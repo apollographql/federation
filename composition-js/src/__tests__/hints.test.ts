@@ -74,7 +74,7 @@ expect.extend({
       }
     }
     return {
-      message: () => `Subgraphs merging did raise ${matchingHints.length} hint(s) with code ${id.code}, but none had the expected message:\n  ${message}\n` 
+      message: () => `Subgraphs merging did raise ${matchingHints.length} hint(s) with code ${id.code}, but none had the expected message:\n  ${message}\n`
          + `Instead, received messages:\n  ${matchingHints.map(h => h.message).join('\n  ')}`,
       pass: false
     }
@@ -406,7 +406,7 @@ test('hints on type system directives having inconsistent locations', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentTypeSystemDirectiveLocations,
-    'Type system directive "@tag" has inconsistent locations accross subgraphs '
+    'Type system directive "@tag" has inconsistent locations across subgraphs '
     + 'and will use locations "FIELD_DEFINITION, INTERFACE" (union of all subgraphs) in the supergraph, but has: '
     + 'location "FIELD_DEFINITION" in subgraph "Subgraph1" and location "INTERFACE" in subgraph "Subgraph2".'
   );
@@ -491,7 +491,7 @@ test('hints on execution directives having inconsistent locations', () => {
   const result = mergeDocuments(subgraph1, subgraph2);
   expect(result).toRaiseHint(
     hintInconsistentExecutionDirectiveLocations,
-    'Execution directive "@t" has inconsistent locations accross subgraphs '
+    'Execution directive "@t" has inconsistent locations across subgraphs '
     + 'and will use location "FIELD" (intersection of all subgraphs) in the supergraph, but has: '
     + 'location "FIELD" in subgraph "Subgraph2" and locations "FIELD, QUERY" in subgraph "Subgraph1".'
   );

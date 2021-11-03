@@ -81,7 +81,7 @@ const coreSpec = CORE_VERSIONS.latest()!;
 const joinSpec = JOIN_VERSIONS.latest()!;
 const tagSpec = TAG_VERSIONS.latest()!;
 
-// When displaying a list of something in a human readable form, after what size (in 
+// When displaying a list of something in a human readable form, after what size (in
 // number of characters) we start displaying only a subset of the list.
 const MAX_HUMAN_READABLE_LIST_LENGTH = 100;
 
@@ -96,7 +96,7 @@ export type CompositionOptions = {
 
 // TODO:" we currently cannot allow "list upgrades", meaning a subgraph returning `String`
 // and another returning `[String]`. To support it, we would need the execution code to
-// recognize situation and "coerce" results from the first subraph (the one returning
+// recognize situation and "coerce" results from the first subgraph (the one returning
 // `String`) into singleton lists.
 const defaultCompositionOptions: CompositionOptions = {
   allowedFieldTypeMergingSubtypingRules: DEFAULT_SUBTYPING_RULES
@@ -154,8 +154,8 @@ function printHumanReadableList(names: string[], prefixSingle?: string, prefixPl
     totalLength = toDisplay.reduce((count, name) => count + name.length, 0);
   }
   const prefix = prefixPlural
-    ? prefixPlural + ' ' 
-    : (prefixSingle ? prefixSingle + ' ' : ''); 
+    ? prefixPlural + ' '
+    : (prefixSingle ? prefixSingle + ' ' : '');
   if (toDisplay.length === names.length) {
     return prefix + join(toDisplay);
   } else {
@@ -207,7 +207,7 @@ function isMergedDirective(definition: DirectiveDefinition | Directive): boolean
 // that only exists due to federation operations. In other words, if a subgraph don't have a query type,
 // but one was automatically added for _entities and _services, this method returns 'undefined'.
 // This mainly avoid us trying to set the supergraph root in the rare case where the supergraph has
-// no actual queries (knowning that subgraphs will _always_ have a queries since they have at least
+// no actual queries (knowing that subgraphs will _always_ have a queries since they have at least
 // the federation ones).
 function filteredRoot(def: SchemaDefinition, rootKind: SchemaRootKind): ObjectType | undefined {
   const type = def.root(rootKind)?.type;
@@ -236,7 +236,7 @@ function indexOfMax(arr: number[]): number {
   return indexOfMax;
 }
 
-function desciptionString(toIndent: string, indentation: string): string {
+function descriptionString(toIndent: string, indentation: string): string {
   return indentation + '"""\n' + indentation + toIndent.replace('\n', '\n' + indentation) + '\n' + indentation + '"""';
 }
 
@@ -274,7 +274,7 @@ class Merger {
 
   private prepareSupergraph(): Map<string, string> {
     // TODO: we will soon need to look for name conflicts for @core and @join with potentially user-defined directives and
-    // pass a `as` to the methods below if necessary. However, as we currently don't propagate any subgraph directives to 
+    // pass a `as` to the methods below if necessary. However, as we currently don't propagate any subgraph directives to
     // the supergraph outside of a few well-known ones, we don't bother yet.
     coreSpec.addToSchema(this.merged);
     coreSpec.applyFeatureToSchema(this.merged, joinSpec, undefined, 'EXECUTION');
@@ -344,7 +344,7 @@ class Merger {
     }
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
-    // are only an artifact of that incompletness as it's confusing.
+    // are only an artifact of that incompleteness as it's confusing.
     if (this.errors.length === 0) {
       this.postMergeValidations();
 
@@ -386,7 +386,7 @@ class Merger {
   private addTypesShallow() {
     const mismatchedTypes = new Set<string>();
     for (const subgraph of this.subgraphsSchema) {
-      // We include the built-ins in general (even if we skip some federation specific ones): if a subgraph built-in 
+      // We include the built-ins in general (even if we skip some federation specific ones): if a subgraph built-in
       // is not a supergraph built-in, we should add it as a normal type.
       for (const type of subgraph.allTypes()) {
         if (!isMergedType(type)) {
@@ -436,12 +436,12 @@ class Merger {
     message: string,
     mismatchedElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
-    mismatchAcessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined
+    mismatchAccessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined
   ) {
     this.reportMismatch(
       mismatchedElement,
       subgraphElements,
-      mismatchAcessor,
+      mismatchAccessor,
       (elt, names) => `${elt} in ${names}`,
       (elt, names) => `${elt} in ${names}`,
       (distribution, astNodes) => {
@@ -456,7 +456,7 @@ class Merger {
     message: string,
     mismatchedElement: TMismatched,
     subgraphElements: (TMismatched | undefined)[],
-    mismatchAcessor: (elt: TMismatched | undefined, isSupergraph: boolean) => string | undefined,
+    mismatchAccessor: (elt: TMismatched | undefined, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
@@ -464,7 +464,7 @@ class Merger {
     this.reportMismatch(
       mismatchedElement,
       subgraphElements,
-      mismatchAcessor,
+      mismatchAccessor,
       supergraphElementPrinter,
       otherElementsPrinter,
       (distribution, astNodes) => {
@@ -479,7 +479,7 @@ class Merger {
     message: string,
     supergraphElement: TMismatched,
     subgraphElements: (TMismatched | undefined)[],
-    mismatchAcessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
+    mismatchAccessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
@@ -489,7 +489,7 @@ class Merger {
     this.reportMismatch(
       supergraphElement,
       subgraphElements,
-      mismatchAcessor,
+      mismatchAccessor,
       supergraphElementPrinter,
       otherElementsPrinter,
       (distribution, astNodes) => {
@@ -508,7 +508,7 @@ class Merger {
   private reportMismatch<TMismatched extends SchemaElement<any, any>>(
     supergraphElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
-    mismatchAcessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
+    mismatchAccessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     reporter: (distribution: string[], astNode: SubgraphASTNode[]) => void,
@@ -527,13 +527,13 @@ class Merger {
       if (ignorePredicate && ignorePredicate(subgraphElt)) {
         continue;
       }
-      const elt = mismatchAcessor(subgraphElt, false);
+      const elt = mismatchAccessor(subgraphElt, false);
       distributionMap.add(elt ?? '', this.names[i]);
       if (subgraphElt.sourceAST) {
         astNodes.push(addSubgraphToASTNode(subgraphElt.sourceAST, this.names[i]));
       }
     }
-    const supergraphMismatch = mismatchAcessor(supergraphElement, true) ?? '';
+    const supergraphMismatch = mismatchAccessor(supergraphElement, true) ?? '';
     assert(distributionMap.size > 1, () => `Should not have been called for ${supergraphElement}`);
     const distribution = [];
     // We always add the "supergraph" first (proper formatting of hints rely on this in particular).
@@ -589,7 +589,7 @@ class Merger {
         descriptions.push(source.description);
         // Very much a hack but simple enough: while we do merge 'empty-string' description if that's all we have (debatable behavior in the first place,
         // but graphQL-js does print such description and fed 1 has historically merged them so ...), we really don't want to favor those if we
-        // have any non-empty description, even if we have more empty ones acrosse subgraphs. So we use a super-negative base count if the description
+        // have any non-empty description, even if we have more empty ones across subgraphs. So we use a super-negative base count if the description
         // is empty so that our `indexOfMax` below never pick them if there is a choice.
         counts.push(source.description === '' ? Number.MIN_SAFE_INTEGER : 1);
       } else {
@@ -617,8 +617,8 @@ class Merger {
           dest,
           sources,
           elt => elt.description,
-          (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${desciptionString(desc, '  ')}`,
-          (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${desciptionString(desc!, '  ')}`,
+          (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${descriptionString(desc, '  ')}`,
+          (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${descriptionString(desc!, '  ')}`,
           elt => elt?.description === undefined,
           false,  // Don't including sources with no description
           true    // Skip the end-of-message '.' since it would look ugly in that specific case
@@ -844,7 +844,7 @@ class Merger {
     }
 
     const withoutExternal = this.withoutExternal(sources);
-    // Note that we don't truly merge externals: we don't want, for instance, a field that is non-nullable everywhere to appear nullabe in the
+    // Note that we don't truly merge externals: we don't want, for instance, a field that is non-nullable everywhere to appear nullable in the
     // supergraph just because someone fat-fingered the type in an external definition. But after merging the non-external definitions, we
     // validate the external ones are consistent.
     this.mergeDescription(withoutExternal, dest);
@@ -986,8 +986,8 @@ class Merger {
 
       const external = this.isExternal(idx, source);
       const name = this.joinSpecName(idx);
-      dest.applyDirective(joinFieldDirective, { 
-        graph: name, 
+      dest.applyDirective(joinFieldDirective, {
+        graph: name,
         requires: this.getFieldSet(source, federationBuiltIns.requiresDirective(this.subgraphsSchema[idx])),
         provides: this.getFieldSet(source, federationBuiltIns.providesDirective(this.subgraphsSchema[idx])),
         type: allTypesEqual ? undefined : source.type?.toString(),
@@ -1016,7 +1016,7 @@ class Merger {
       if (!source) {
         continue;
       }
-      // Note that subtyping checks below relies on 
+      // Note that subtyping checks below relies on
       const sourceType = source.type!;
       if (!destType || sameType(destType, sourceType)) {
         destType = sourceType;
@@ -1046,7 +1046,7 @@ class Merger {
     if (hasIncompatible) {
       this.reportMismatchError(
         `${elementKind.toUpperCase()}_TYPE_MISMATCH`,
-        `${elementKind} "${dest.coordinate}" has incompatible types accross subgraphs: it has `,
+        `${elementKind} "${dest.coordinate}" has incompatible types across subgraphs: it has `,
         dest,
         sources,
         field => `type "${field.type}"`
@@ -1073,7 +1073,7 @@ class Merger {
 
   private isStrictSubtype(type: Type, maybeSubType: Type): boolean {
     // To be as generic as possible, when we check if a type is a direct subtype of another (which happens if either
-    // the subtype is one of the member of an union type, or the subtype explictly implements an interface), we want
+    // the subtype is one of the member of an union type, or the subtype explicitly implements an interface), we want
     // to use the union/interface definitions from the merged schema. This is why we have merged interface implementation
     // relationships and unions first.
     return isStrictSubtype(
@@ -1114,7 +1114,7 @@ class Merger {
             undefined,
             true // Do include undefined sources, that's the point
           );
-          // Note that we remove the element after the hint because we acess the parent in the hint message.
+          // Note that we remove the element after the hint because we access the parent in the hint message.
           dest.remove();
           return;
         }
@@ -1149,7 +1149,7 @@ class Merger {
         // if we any 2 incompatible defaults.
         destDefault = sourceDefault;
         // destDefault may be undefined either because we haven't seen any source (having the argument)
-        // or because we've seen one but that source had no default. In the later case (`hasSeenSource`), 
+        // or because we've seen one but that source had no default. In the later case (`hasSeenSource`),
         // if the new source _has_ a default, then we're inconsistent.
         if (hasSeenSource && sourceDefault !== undefined) {
           isInconsistent = true;
@@ -1170,7 +1170,7 @@ class Merger {
     if (isIncompatible) {
       this.reportMismatchError(
         `${kind.toUpperCase().replace(' ', '_')}_DEFAULT_MISMATCH`,
-        `${kind} "${dest.coordinate}" has incompatible default values accross subgraphs: it has default value `,
+        `${kind} "${dest.coordinate}" has incompatible default values across subgraphs: it has default value `,
         dest,
         sources,
         arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined
@@ -1239,7 +1239,7 @@ class Merger {
 
   private mergeEnum(sources: (EnumType | undefined)[], dest: EnumType) {
     // TODO: option + hint for when all definitions are not equal.
-    // TODO: hint for inacessible values not everywhere (see generalised composition doc)?
+    // TODO: hint for inaccessible values not everywhere (see generalized composition doc)?
     for (const source of sources) {
       if (!source) {
         continue;
@@ -1374,7 +1374,7 @@ class Merger {
     if (inconsistentLocations) {
       this.reportMismatchHint(
         hintInconsistentTypeSystemDirectiveLocations,
-        `Type system directive "${dest}" has inconsistent locations accross subgraphs `,
+        `Type system directive "${dest}" has inconsistent locations across subgraphs `,
         dest,
         sources,
         directive => locationString(this.extractLocations(directive)),
@@ -1465,7 +1465,7 @@ class Merger {
     if (inconsistentLocations) {
       this.reportMismatchHint(
         hintInconsistentExecutionDirectiveLocations,
-        `Execution directive "${dest}" has inconsistent locations accross subgraphs `,
+        `Execution directive "${dest}" has inconsistent locations across subgraphs `,
         dest,
         sources,
         directive => locationString(this.extractLocations(directive)),
@@ -1522,7 +1522,7 @@ class Merger {
     //  1) default values: if a directive has an argument with a default value, and one subgraph pass a value
     //     but the other don't (relying on the default value), should we "merge" those together, at least
     //     when the value passed and the default value are the same? Or even when they aren't (say a
-    //     a subgraph mark a field `@deprecated` and the other mark it `@deprecated(reason: "Something someting")`;
+    //     a subgraph mark a field `@deprecated` and the other mark it `@deprecated(reason: "Something something")`;
     //     Do we really want composition to fail (because `@deprecated` is non-repeatable and the arguments
     //     are deemed incompatible?).
     //  2) when an argument is an input type, should we allow some value merging between subgraphs?
@@ -1538,7 +1538,7 @@ class Merger {
     // TODO: even if we stick to pure equality checks, we should have special handling for non-repeatable
     // directive and fail right away if we get incompatible applications. This will give better error
     // messages than if we wait for post-merging validation.
- 
+
     let perSource: Directive[][] = [];
     for (const source of sources) {
       if (!source) {
@@ -1576,7 +1576,7 @@ class Merger {
     // Before merging, we actually rename all the root types to their default name
     // in subgraphs (see federation.ts, `prepareSubgraphsForFederation`), so this
     // method should never report an error in practice as there should never be
-    // a name disrepancy. That said, it's easy enough to double-check this, which
+    // a name discrepancy. That said, it's easy enough to double-check this, which
     // might at least help debugging case where we forgot to call
     // `prepareSubgraphsForFederation`.
     for (const rootKind of allSchemaRootKinds) {
@@ -1598,7 +1598,7 @@ class Merger {
       dest.setRoot(rootKind, rootType);
 
       // Because we rename all root type in subgraphs to their default names, we shouldn't ever have incompatibilities here.
-      assert(!isIncompatible, () => `Should not have incompatile root type for ${rootKind}`);
+      assert(!isIncompatible, () => `Should not have incompatible root type for ${rootKind}`);
     }
   }
 
