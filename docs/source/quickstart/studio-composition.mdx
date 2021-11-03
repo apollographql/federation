@@ -4,6 +4,8 @@ sidebar_title: "2️⃣ Composition in Apollo Studio"
 description: "Part 2 - Composition in Apollo Studio"
 ---
 
+import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
+
 Now that our project and tools are set up, we can start composing our supergraph schema with Apollo Studio.
 
 ## Managed federation concepts
@@ -53,15 +55,29 @@ We strongly recommended managed federation for reducing downtime in your product
 
 Let's return to our gateway project. We can now use Rover's `subgraph publish` command to register our subgraph schemas with Apollo.
 
-Run the following from your project directory, **substituting your Studio graph's name where indicated**:
+Run the following from your project directory, substituting your Studio graph's **graph ref** where indicated:
 
-```shell
-rover subgraph publish <GRAPH_NAME> \
+```shell{1}
+rover subgraph publish ➡️YOUR_GRAPH_REF⬅️ \
   --routing-url https://rover.apollo.dev/quickstart/products/graphql \
   --schema ./products.graphql \
   --name products \
   --convert
 ```
+
+<ExpansionPanel title="What's a graph ref?">
+
+A **graph ref** uniquely identifies a particular variant of a particular registered graph in Apollo Studio. Every graph ref is a string with the following format:
+
+`graph-id@variant`
+
+If you open your graph's README page in Apollo Studio, its graph ref is displayed as the top-level header of the page:
+
+<img class="screenshot" alt="Graph ref in Studio" src="../images/studio-graph-ref.jpg" width="300"/>
+
+Every Studio graph is initially created with a single variant named `current`.
+
+</ExpansionPanel>
 
 > The `--convert` option converts your Studio graph into a federated graph. You only need to provide this option once for a given Studio graph.
 
@@ -76,10 +92,10 @@ Nice! If you open your graph's details in Studio now, you'll see types and field
 
 <img class="screenshot" alt="Products subgraph schema in Studio" src="../images/qs-studio-schema.jpg" width="200"/>
 
-Now, let's do the same thing for our `reviews` subgraph, **again substituting your graph's name where indicated**:
+Now, let's do the same thing for our `reviews` subgraph, **again substituting your graph ref where indicated**:
 
-```shell
-rover subgraph publish <GRAPH_NAME> \
+```shell{1}
+rover subgraph publish ➡️YOUR_GRAPH_REF⬅️ \
   --routing-url https://rover.apollo.dev/quickstart/reviews/graphql \
   --schema ./reviews.graphql \
   --name reviews
@@ -119,11 +135,15 @@ It's time to enable our gateway to fetch its supergraph schema from Apollo! To d
 
     * **Do not add the `.env` file to version control.** If you're working in a Git repository, add `.env` to your `.gitignore` file.
 
-3. Paste the following into `.env` and replace `YOUR_API_KEY` with your graph API key:
+3. Paste the following into `.env`:
 
     ```shell
-    APOLLO_KEY=YOUR_API_KEY
+    APOLLO_KEY=your-api-key
+    APOLLO_GRAPH_REF=your-graph-id@your-variant
     ```
+
+    * Replace `your-api-key` with your graph API key.
+    * Replace `your-graph-id@your-variant` with your graph's **graph ref**. (For details on graph refs, see [Step 1](#1-register-your-subgraph-schemas).)
 
 4. Add the `dotenv` Node.js library to your project:
 
@@ -157,7 +177,7 @@ While we're here, you can even execute some test queries against the supergraph.
 
 ## Moving forward
 
-Nice work! We have two **subgraphs** registering their schemas with Apollo, and we have a **federated gateway** that then fetches the composed **supergraph schema**.
+Nice work! We've registered two **subgraph schemas** with Apollo, and we have a **federated gateway** that then fetches the composed **supergraph schema**.
 
 If we were now to register changes to one of our subgraph schemas, our running gateway would automatically fetch the corresponding changes to the supergraph schema.
 
