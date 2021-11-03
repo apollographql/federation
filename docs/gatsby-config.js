@@ -13,7 +13,7 @@ module.exports = {
           'docset:federation',
           ['docset:server', 'docset:rover', 'docset:studio'],
         ],
-        subtitle: 'Federation 2 alpha',
+        subtitle: 'Federation',
         description: 'A guide to using Apollo Federation',
         githubRepo: 'apollographql/federation',
         defaultVersion: '1',
