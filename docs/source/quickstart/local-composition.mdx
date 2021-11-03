@@ -58,38 +58,65 @@ Rover outputs the following schema:
 
 ```graphql
 schema
-  @core(feature: "https://specs.apollo.dev/core/v0.2"),
-  @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
+  @core(feature: "https://specs.apollo.dev/core/v0.2")
+  @core(feature: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
 {
   query: Query
 }
 
-directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
+directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
-directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
+directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
 directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
-directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-enum CURRENCY_CODE {
-  EUR
-  USD
+enum core__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
 }
 
-type Department {
+enum CURRENCY_CODE
+  @join__type(graph: PRODUCTS)
+{
+  USD
+  EUR
+}
+
+type Department
+  @join__type(graph: PRODUCTS)
+{
   category: ProductCategory
   url: String
 }
 
-type Money {
+scalar join__FieldSet
+
+enum join__Graph {
+  PRODUCTS @join__graph(name: "products", url: "https://rover.apollo.dev/quickstart/products/graphql")
+  REVIEWS @join__graph(name: "reviews", url: "https://rover.apollo.dev/quickstart/reviews/graphql")
+}
+
+type Money
+  @join__type(graph: PRODUCTS)
+{
   amount: Float
   currencyCode: CURRENCY_CODE
 }
 
-type Price {
+type Price
+  @join__type(graph: PRODUCTS)
+{
   cost: Money
 
   """A number between 0 and 1 signifying the % discount"""
@@ -98,72 +125,58 @@ type Price {
 }
 
 type Product
-  @join__owner(graph: PRODUCTS)
   @join__type(graph: PRODUCTS, key: "id")
-  @join__type(graph: REVIEWS, key: "id")
+  @join__type(graph: REVIEWS, key: "id", extension: true)
 {
-  category: ProductCategory @join__field(graph: PRODUCTS)
-  description: String @join__field(graph: PRODUCTS)
-  id: ID! @join__field(graph: PRODUCTS)
-  images(size: Int = 1000): [String] @join__field(graph: PRODUCTS)
-  price: Price @join__field(graph: PRODUCTS)
-  primaryImage(size: Int = 1000): String @join__field(graph: PRODUCTS)
-  reviewSummary: ReviewSummary @join__field(graph: REVIEWS)
-  reviews: [Review] @join__field(graph: REVIEWS)
-  salesRank(category: ProductCategory = ALL): Int @join__field(graph: PRODUCTS)
-  salesRankInCategory: Int @join__field(graph: PRODUCTS)
-  salesRankOverall: Int @join__field(graph: PRODUCTS)
+  id: ID!
   title: String @join__field(graph: PRODUCTS)
   url: String @join__field(graph: PRODUCTS)
+  description: String @join__field(graph: PRODUCTS)
+  price: Price @join__field(graph: PRODUCTS)
+  salesRank(category: ProductCategory = ALL): Int @join__field(graph: PRODUCTS)
+  salesRankOverall: Int @join__field(graph: PRODUCTS)
+  salesRankInCategory: Int @join__field(graph: PRODUCTS)
+  category: ProductCategory @join__field(graph: PRODUCTS)
+  images(size: Int = 1000): [String] @join__field(graph: PRODUCTS)
+  primaryImage(size: Int = 1000): String @join__field(graph: PRODUCTS)
+  reviews: [Review] @join__field(graph: REVIEWS)
+  reviewSummary: ReviewSummary @join__field(graph: REVIEWS)
 }
 
-enum ProductCategory {
+enum ProductCategory
+  @join__type(graph: PRODUCTS)
+{
   ALL
-  BOOKS
-  CAMERA_N_PHOTO
-  CLOTHING
-  ELECTRONICS
   GIFT_CARDS
+  ELECTRONICS
+  CAMERA_N_PHOTO
   VIDEO_GAMES
+  BOOKS
+  CLOTHING
 }
 
-type Query {
+type Query
+  @join__type(graph: PRODUCTS)
+  @join__type(graph: REVIEWS)
+{
   bestSellers(category: ProductCategory = ALL): [Product] @join__field(graph: PRODUCTS)
   categories: [Department] @join__field(graph: PRODUCTS)
   product(id: ID!): Product @join__field(graph: PRODUCTS)
 }
 
 type Review
-  @join__owner(graph: REVIEWS)
   @join__type(graph: REVIEWS, key: "id")
 {
-  content: String @join__field(graph: REVIEWS)
-  id: ID! @join__field(graph: REVIEWS)
-  rating: Float @join__field(graph: REVIEWS)
+  id: ID!
+  rating: Float
+  content: String
 }
 
-type ReviewSummary {
-  averageRating: Float
+type ReviewSummary
+  @join__type(graph: REVIEWS)
+{
   totalReviews: Int
-}
-
-enum core__Purpose {
-  """
-  `EXECUTION` features provide metadata necessary to for operation execution.
-  """
-  EXECUTION
-
-  """
-  `SECURITY` features provide metadata necessary to securely resolve fields.
-  """
-  SECURITY
-}
-
-scalar join__FieldSet
-
-enum join__Graph {
-  PRODUCTS @join__graph(name: "products" url: "https://rover.apollo.dev/quickstart/products/graphql")
-  REVIEWS @join__graph(name: "reviews" url: "https://rover.apollo.dev/quickstart/reviews/graphql")
+  averageRating: Float
 }
 ```
 
@@ -209,4 +222,4 @@ If you run this code with `node index.js`, the gateway reads your static supergr
 
 ---
 
-Great job! We've seen how to compose our supergraph schema with both managed federation and the Rover CLI. Next, let's look at how to apply what we've learned to our own subgraphs. [Go to part 4.](./quickstart/local-subgraphs/)
+Great job! We've seen how to compose our supergraph schema with both managed federation and the Rover CLI. Next, let's look at how to apply what we've learned to our own subgraphs. [Go to part 4.](./local-subgraphs/)
