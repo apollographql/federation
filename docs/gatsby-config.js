@@ -29,7 +29,12 @@ module.exports = {
             'federation-2/moving-to-federation-2',
             'federation-2/backward-compatibility',
           ],
-          Quickstart: ['quickstart', 'quickstart-pt-2', 'quickstart-pt-3'],
+          Quickstart: [
+            'quickstart',
+            'quickstart-pt-2',
+            'quickstart-pt-3',
+            'quickstart-pt-4',
+          ],
           Implementing: ['subgraphs', 'gateway'],
           'Federated Schemas': [
             'federated-types/overview',

@@ -1,22 +1,14 @@
 ---
-title: "Federation quickstart"
+title: "Federation 2 quickstart"
 sidebar_title: "2️⃣ Composition in Apollo Studio"
 description: "Part 2 - Composition in Apollo Studio"
 ---
 
-import {Button} from '@apollo/space-kit/Button';
-import {Link} from 'gatsby';
-import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
+Now that our project and tools are set up, we can start composing our supergraph schema with Apollo Studio.
 
-[Back in Part 1](./quickstart/), we created a federated gateway and used the Rover CLI to compose a supergraph schema for it based on two subgraphs. Next, we'll move that composition process into the cloud.
+## Managed federation concepts
 
-Our gateway currently loads its composed supergraph schema from a file on startup. This means that whenever the schema _changes_, the gateway needs to restart to load the new version.
-
-We can avoid this downtime by instead composing our supergraph schema with **managed federation**, a free cloud-based service that's part of Apollo Studio.
-
-## Managed federation basics
-
-With managed federation, each of our subgraphs registers its schema with Apollo. Whenever a subgraph schema changes, Apollo composes a new supergraph schema.
+By composing our supergraph schema with Studio, we use a feature called  **managed federation**. With managed federation, each of our subgraphs registers its schema with Apollo. Whenever a subgraph schema changes, Apollo composes a new supergraph schema.
 
 ```mermaid
 flowchart BT;
@@ -57,25 +49,9 @@ Whenever an update is available, the gateway downloads it and automatically begi
 
 We strongly recommended managed federation for reducing downtime in your production supergraph. Let's set it up!
 
-## 1. Sign up for Apollo Studio
+## 1. Register your subgraph schemas
 
-If you don't have an Apollo Studio account yet, let's create one.
-
-Complete the first two steps of <a href="https://www.apollographql.com/docs/studio/getting-started/" target="_blank">Get started with Apollo Studio</a> (**Create your account** and **Create your first graph**), then return here.
-
-> For future steps, you'll need the name of the graph you just created in Apollo Studio. Make sure to have it available.
-
-## 2. Authenticate Rover with Apollo Studio
-
-The Rover CLI includes commands for registering and fetching subgraph schemas from Apollo. To use these commands, you need to authenticate Rover with Apollo Studio.
-
-Complete the first two steps of <a href="https://www.apollographql.com/docs/rover/configuring/" target="_blank">Configuring Rover</a> (**Obtain an API key** and **Provide the API key to Rover**), then return here.
-
-
-
-## 3. Register subgraph schemas
-
-Let's return to our Node.js project. We can now use Rover's `subgraph publish` command to register our subgraph schemas with Apollo.
+Let's return to our gateway project. We can now use Rover's `subgraph publish` command to register our subgraph schemas with Apollo.
 
 Run the following from your project directory, **substituting your Studio graph's name where indicated**:
 
@@ -83,10 +59,11 @@ Run the following from your project directory, **substituting your Studio graph'
 rover subgraph publish <GRAPH_NAME> \
   --routing-url https://rover.apollo.dev/quickstart/products/graphql \
   --schema ./products.graphql \
-  --name products
+  --name products \
+  --convert
 ```
 
-> Technically, you don't provide the graph's _name_, but rather its **graph ref**. [Learn more.](https://www.apollographql.com/docs/rover/conventions/#graph-refs)
+> The `--convert` option converts your Studio graph into a federated graph. You only need to provide this option once for a given Studio graph.
 
 If the command is successful, you'll see output like the following:
 
@@ -95,9 +72,11 @@ A new subgraph called 'products' for the 'docs-example-graph' graph was created
 The gateway for the 'docs-example-graph' graph was updated with a new schema, composed from the updated 'products' subgraph
 ```
 
-Nice! If you open your graph's details in Studio now, you'll see types and fields from our `products` subgraph listed in the Schema tab.
+Nice! If you open your graph's details in Studio now, you'll see types and fields from our `products` subgraph listed in the Schema tab:
 
-Now, let's do the same thing for our `reviews` service, **again substituting your graph's name where indicated**:
+<img class="screenshot" alt="Products subgraph schema in Studio" src="./images/qs-studio-schema.jpg" width="200"/>
+
+Now, let's do the same thing for our `reviews` subgraph, **again substituting your graph's name where indicated**:
 
 ```shell
 rover subgraph publish <GRAPH_NAME> \
@@ -108,9 +87,9 @@ rover subgraph publish <GRAPH_NAME> \
 
 If you refresh the Schema tab in Studio, you'll now see types and fields from our `reviews` service as well.
 
-Our supergraph schema has now been generated automatically by Apollo, but our _gateway_ doesn't know how to poll for it yet. Let's tackle that next.
+Now that we've published our subgraph schemas, Apollo Studio automatically composes them into a supergraph schema! However, our gateway doesn't know how to _fetch_ that schema from Apollo. We'll tackle that soon.
 
-## 4. Enable Federation 2 support
+## 2. Enable Federation 2 support
 
 To try out managed federation with the Federation 2 alpha, you set your graph's federation version in Apollo Studio.
 
@@ -126,28 +105,9 @@ In the Federation Version dropdown, select **Federation 2** and click **Save**.
 
 Studio automatically begins composing your supergraph schema using Federation 2 composition logic. You can switch this back at any time.
 
-## 5. Authenticate the gateway with Apollo Studio
+## 3. Authenticate the gateway with Apollo Studio
 
-Right now in `index.js`, we're providing our supergraph schema to our `ApolloGateway` via the `supergraphSdl` option. We don't need to do this anymore!
-
-Replace the contents of `index.js` with the following:
-
-```js:title=index.js
-const { ApolloServer } = require('apollo-server');
-const { ApolloGateway } = require('@apollo/gateway');
-
-const gateway = new ApolloGateway();
-
-const server = new ApolloServer({
-  gateway,
-});
-
-server.listen().then(({ url }) => {
-  console.log(`🚀 Gateway ready at ${url}`);
-}).catch(err => {console.error(err)});
-```
-
-So now, how do we connect and authenticate our gateway with Apollo Studio? With a **graph API key** that we set as the value of an **environment variable**.
+It's time to enable our gateway to fetch its supergraph schema from Apollo! To do that, we'll need a **graph API key** that we set as the value of an **environment variable**.
 
 > **API keys are secret credentials.** Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
 
@@ -179,7 +139,7 @@ So now, how do we connect and authenticate our gateway with Apollo Studio? With 
   require('dotenv').config()
   ```
 
-6. Start up your gateway with `node index.js`. You'll see some extra output now:
+6. Start up your gateway with `node index.js`. This time there's no error, and you'll output similar to the following:
 
     ```
     No graph variant provided. Defaulting to `current`.
@@ -189,7 +149,11 @@ So now, how do we connect and authenticate our gateway with Apollo Studio? With 
 
 > By providing an API key to your gateway, you also automatically enable **federated trace reporting** to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](./metrics/)
 
-Now, [open up Apollo Sandbox in your browser again](https://studio.apollographql.com/sandbox). Sure enough, your supergraph schema's types and fields are all available, and you can execute test queries as before. But now, all of this information is coming from Apollo Studio.
+We can quickly open our browser to [studio.apollographql.com/sandbox](https://studio.apollographql.com/sandbox) to explore our composed schema in Apollo Sandbox:
+
+<img src="./images/gateway_sandbox.jpg" class="screenshot" alt="Schema view in Apollo Sandbox" width="600" />
+
+While we're here, you can even execute some test queries against the supergraph.
 
 ## Moving forward
 
@@ -197,4 +161,4 @@ Nice work! We have two **subgraphs** registering their schemas with Apollo, and 
 
 If we were now to register changes to one of our subgraph schemas, our running gateway would automatically fetch the corresponding changes to the supergraph schema.
 
-Next, let's look at how to apply what we've learned to our own services. [Go to part 3.](./quickstart-pt-3/)
+Next, let's look at how to use the Rover CLI to compose a supergraph schema locally or in a CI environment. [Go to part 3.](./quickstart-pt-3/)
