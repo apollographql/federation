@@ -46,7 +46,7 @@
     "@graphql-codegen/typescript-operations": "2.2.0",
     "@iarna/toml": "2.2.5",
     "@opentelemetry/node": "0.24.0",
-    "@rollup/plugin-commonjs": "20.0.0",
+    "@rollup/plugin-commonjs": "21.0.1",
     "@rollup/plugin-json": "4.1.0",
     "@rollup/plugin-node-resolve": "13.0.6",
     "@types/bunyan": "1.8.7",
