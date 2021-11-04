@@ -90,8 +90,8 @@ export type Query = {
 
 export type QueryRouterConfigArgs = {
   apiKey: Scalars['String'];
+  ifAfterId?: Maybe<Scalars['ID']>;
   ref: Scalars['String'];
-  unlessIdIn?: Maybe<Array<Scalars['ID']>>;
 };
 
 export type Request = {
