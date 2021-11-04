@@ -27,7 +27,7 @@
     "ts-graphviz": "^0.15.1"
   },
   "devDependencies": {
-    "@types/jest": "^26.0.23"
+    "@types/jest": "26.0.24"
   },
   "publishConfig": {
     "access": "public"
