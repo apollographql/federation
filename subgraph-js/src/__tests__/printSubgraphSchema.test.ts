@@ -1,4 +1,4 @@
-import { fixtures, gql } from 'apollo-federation-integration-testsuite';
+import { fixtures } from 'apollo-federation-integration-testsuite';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { printSubgraphSchema } from '../printSubgraphSchema';
 
@@ -177,34 +177,57 @@ describe('printSubgraphSchema', () => {
     `);
   });
 
-  it('prints schema type when it has directives', () => {
-    const typeDefs = gql`
-      directive @contact(
-        name: String!
-        url: String!
-        description: String!
-      ) on SCHEMA
-
-      extend type Query {
-        hello: String
-      }
-
-      schema @contact(name: "hi", url: "https://hi.com", description: "hi") {
-        query: Query
-      }
-    `;
-
-    const schema = buildSubgraphSchema({ typeDefs });
+  it('prints directives on schema definition nodes', () => {
+    const schema = buildSubgraphSchema(fixtures[1].typeDefs);
     expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
-      "schema @contact(name: \\"hi\\", url: \\"https://hi.com\\", description: \\"hi\\") {
+      "schema @contact(name: \\"books-team\\", url: \\"mailto:books@apollographql.com\\", description: \\"books\\") {
         query: Query
       }
 
-      directive @contact(name: String!, url: String!, description: String!) on SCHEMA
+      directive @stream on FIELD
+
+      directive @transform(from: String!) on FIELD
+
+      directive @contact(name: String!, url: String, description: String) on SCHEMA
+
+      directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+      enum CacheControlScope {
+        PUBLIC
+        PRIVATE
+      }
+
+      type Library @key(fields: \\"id\\") {
+        id: ID!
+        name: String
+      }
+
+      type Book @key(fields: \\"isbn\\") {
+        isbn: String!
+        title: String
+        year: Int
+        similarBooks: [Book]!
+        metadata: [MetadataOrError]
+      }
+
+      type KeyValue {
+        key: String!
+        value: String!
+      }
+
+      type Error {
+        code: Int
+        message: String
+      }
+
+      union MetadataOrError = KeyValue | Error
 
       extend type Query {
+        _entities(representations: [_Any!]!): [_Entity]!
         _service: _Service!
-        hello: String
+        book(isbn: String!): Book
+        books: [Book]
+        library(id: ID!): Library
       }
       "
     `);
