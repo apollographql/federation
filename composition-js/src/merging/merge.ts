@@ -1629,8 +1629,8 @@ class Merger {
               return typeInSubgraph !== undefined && (typeInSubgraph as ObjectType | InterfaceType).implementsInterface(itf.name);
             });
             this.errors.push(new GraphQLError(
-              `Interface field ${itfField.coordinate} is declared in ${printSubgraphNames(subgraphsWithTheField)} but type ${type}, `
-              + `which implements ${itf} only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field ${itfField.name}.`,
+              `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
+              + `which implements "${itf}" only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field "${itfField.name}".`,
               sourceASTs(
                 ...subgraphsWithTheField.map(s => this.subgraphByName(s).typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name)),
                 ...subgraphsWithTypeImplementingItf.map(s => this.subgraphByName(s).type(type.name))
