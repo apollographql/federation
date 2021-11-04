@@ -84,7 +84,7 @@ jobs:
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
     docker:
-      - image: cimg/node:14.16.1
+      - image: cimg/node:14.18.1
     steps:
       - oss/install_specific_npm_version:
           version: '7'
