@@ -1,4 +1,4 @@
-import { FieldDefinition, CompositeType } from "@apollo/federation-internals";
+import { FieldDefinition, CompositeType, SchemaRootKind } from "@apollo/federation-internals";
 
 /**
  * The type of query graphs edge "transitions".
@@ -23,7 +23,7 @@ import { FieldDefinition, CompositeType } from "@apollo/federation-internals";
   *   the subgraph services as needed.
   *
  */
-export type Transition = FieldCollection | DownCast | KeyResolution | QueryResolution | SubgraphEnteringTransition;
+export type Transition = FieldCollection | DownCast | KeyResolution | RootTypeResolution | SubgraphEnteringTransition;
 
 export class KeyResolution {
   readonly kind = 'KeyResolution' as const;
@@ -37,15 +37,15 @@ export class KeyResolution {
   }
 }
 
-export class QueryResolution {
-  readonly kind = 'QueryResolution' as const;
+export class RootTypeResolution {
+  readonly kind = 'RootTypeResolution' as const;
   readonly collectOperationElements = false as const;
 
-  constructor() {
+  constructor(readonly rootKind: SchemaRootKind) {
   }
 
   toString() {
-    return 'query()';
+    return this.rootKind + '()';
   }
 }
 

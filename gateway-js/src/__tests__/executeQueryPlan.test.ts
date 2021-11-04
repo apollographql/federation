@@ -1116,102 +1116,409 @@ describe('executeQueryPlan', () => {
     });
   });
 
-  it('can query other subgraphs when the Query type is the type of a field', async () => {
-    const s1 = gql`
-      type Query {
-        getA: A
-      }
-
-      type A {
-        q: Query
-      }
-    `;
-
-    const s2 = gql`
-      type Query {
-        one: Int
-      }
-    `;
-
-    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
-      { name: 'S1', typeDefs: s1 },
-      { name: 'S2', typeDefs: s2 }
-    ]);
-
-    addResolversToSchema(serviceMap['S1'].schema, {
-      Query: {
-        getA() {
-          return {
-            getA: {
-              q: null
-            }
-          };
-        },
-      },
-      A: {
-        q() {
-          return Object.create(null);
+  describe('reusing root types', () => {
+    it('can query other subgraphs when the Query type is the type of a field', async () => {
+      const s1 = gql`
+        type Query {
+          getA: A
         }
-      }
-    });
 
-    addResolversToSchema(serviceMap['S2'].schema, {
-      Query: {
-        one() {
-          return 1;
+        type A {
+          q: Query
+        }
+      `;
+
+      const s2 = gql`
+        type Query {
+          one: Int
+        }
+      `;
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+        { name: 'S1', typeDefs: s1 },
+        { name: 'S2', typeDefs: s2 }
+      ]);
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        Query: {
+          getA() {
+            return {
+              getA: {}
+            };
+          },
         },
-      },
-    });
-
-    const operation = parseOp(`
-      query {
-        getA {
-          q {
-            one
+        A: {
+          q() {
+            return Object.create(null);
           }
         }
-      }
-      `, schema);
+      });
 
-    const queryPlan = buildPlan(operation, queryPlanner);
-
-    expect(queryPlan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "S1") {
-            {
-              getA {
-                q {
-                  __typename
-                }
-              }
-            }
+      addResolversToSchema(serviceMap['S2'].schema, {
+        Query: {
+          one() {
+            return 1;
           },
-          Flatten(path: "getA.q") {
-            Fetch(service: "S2") {
+        },
+      });
+
+      const operation = parseOp(`
+        query {
+          getA {
+            q {
+              one
+            }
+          }
+        }
+        `, schema);
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
               {
-                ... on Query {
-                  one
+                getA {
+                  q {
+                    __typename
+                  }
                 }
               }
             },
+            Flatten(path: "getA.q") {
+              Fetch(service: "S2") {
+                {
+                  ... on Query {
+                    one
+                  }
+                }
+              },
+            },
           },
-        },
-      }
-    `);
+        }
+        `);
 
-    const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
 
-    expect(response.data).toMatchInlineSnapshot(`
-      Object {
-        "getA": Object {
-          "q": Object {
-            "one": 1,
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "getA": Object {
+            "q": Object {
+              "one": 1,
+            },
           },
-        },
-      }
+        }
       `);
-  })
+    })
+
+    it('can query other subgraphs when the Query type is the type of a field after a mutation', async () => {
+        const s1 = gql`
+          type Query {
+            one: Int
+          }
+
+          type Mutation {
+            mutateSomething: Query
+          }
+        `;
+
+        const s2 = gql`
+          type Query {
+            two: Int
+          }
+        `;
+
+        const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+          { name: 'S1', typeDefs: s1 },
+          { name: 'S2', typeDefs: s2 }
+        ]);
+
+        let hasMutated = false;
+
+        addResolversToSchema(serviceMap['S1'].schema, {
+          Query: {
+            one() {
+              return 1;
+            },
+          },
+          Mutation: {
+            mutateSomething() {
+              hasMutated = true;
+              return {};
+            },
+          }
+        });
+
+        addResolversToSchema(serviceMap['S2'].schema, {
+          Query: {
+            two() {
+              return 2;
+            },
+          },
+        });
+
+        const operation = parseOp(`
+          mutation {
+            mutateSomething {
+              one
+              two
+            }
+          }
+          `, schema);
+
+        const queryPlan = buildPlan(operation, queryPlanner);
+
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Sequence {
+              Fetch(service: "S1") {
+                {
+                  mutateSomething {
+                    __typename
+                    one
+                  }
+                }
+              },
+              Flatten(path: "mutateSomething") {
+                Fetch(service: "S2") {
+                  {
+                    ... on Query {
+                      two
+                    }
+                  }
+                },
+              },
+            },
+          }
+        `);
+
+        const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+
+        expect(hasMutated).toBeTruthy();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "mutateSomething": Object {
+              "one": 1,
+              "two": 2,
+            },
+          }
+        `);
+    })
+
+    it('can mutate other subgraphs when the Mutation type is the type of a field', async () => {
+      const s1 = gql`
+        type Query {
+          getA: A
+        }
+
+        type Mutation {
+          mutateOne: Int
+        }
+
+        type A {
+          m: Mutation
+        }
+      `;
+
+      const s2 = gql`
+        type Mutation {
+          mutateTwo: Int
+        }
+      `;
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+        { name: 'S1', typeDefs: s1 },
+        { name: 'S2', typeDefs: s2 }
+      ]);
+
+      let mutateOneCalled = false;
+      let mutateTwoCalled = false;
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        Query: {
+          getA() {
+            return {
+              getA: {}
+            };
+          },
+        },
+        A: {
+          m() {
+            return Object.create(null);
+          }
+        },
+        Mutation: {
+          mutateOne() {
+            mutateOneCalled = true;
+            return 1;
+          }
+        }
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        Mutation: {
+          mutateTwo() {
+            mutateTwoCalled = true;
+            return 2;
+          },
+        },
+      });
+
+      const operation = parseOp(`
+        query {
+          getA {
+            m {
+              mutateOne
+              mutateTwo
+            }
+          }
+        }
+        `, schema);
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                getA {
+                  m {
+                    __typename
+                    mutateOne
+                  }
+                }
+              }
+            },
+            Flatten(path: "getA.m") {
+              Fetch(service: "S2") {
+                {
+                  ... on Mutation {
+                    mutateTwo
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(mutateOneCalled).toBeTruthy();
+      expect(mutateTwoCalled).toBeTruthy();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "getA": Object {
+            "m": Object {
+              "mutateOne": 1,
+              "mutateTwo": 2,
+            },
+          },
+        }
+      `);
+    })
+
+    it('can mutate other subgraphs when the Mutation type is the type of a field after a mutation', async () => {
+        const s1 = gql`
+          type Query {
+            one: Int
+          }
+
+          type Mutation {
+            mutateSomething: Mutation
+          }
+        `;
+
+        const s2 = gql`
+          type Mutation {
+            mutateTwo: Int
+          }
+        `;
+
+        const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+          { name: 'S1', typeDefs: s1 },
+          { name: 'S2', typeDefs: s2 }
+        ]);
+
+        let somethingMutationCount = 0;
+        let hasMutatedTwo = false;
+
+        addResolversToSchema(serviceMap['S1'].schema, {
+          Query: {
+            one() {
+              return 1;
+            },
+          },
+          Mutation: {
+            mutateSomething() {
+              ++somethingMutationCount;
+              return {};
+            },
+          }
+        });
+
+        addResolversToSchema(serviceMap['S2'].schema, {
+          Mutation: {
+            mutateTwo() {
+              hasMutatedTwo = true;
+              return 2;
+            },
+          },
+        });
+
+        const operation = parseOp(`
+          mutation {
+            mutateSomething {
+              mutateSomething {
+                mutateTwo
+              }
+            }
+          }
+          `, schema);
+
+        const queryPlan = buildPlan(operation, queryPlanner);
+
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Sequence {
+              Fetch(service: "S1") {
+                {
+                  mutateSomething {
+                    mutateSomething {
+                      __typename
+                    }
+                  }
+                }
+              },
+              Flatten(path: "mutateSomething.mutateSomething") {
+                Fetch(service: "S2") {
+                  {
+                    ... on Mutation {
+                      mutateTwo
+                    }
+                  }
+                },
+              },
+            },
+          }
+        `);
+
+        const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+
+        expect(somethingMutationCount).toBe(2);
+        expect(hasMutatedTwo).toBeTruthy();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "mutateSomething": Object {
+              "mutateSomething": Object {
+                "mutateTwo": 2,
+              },
+            },
+          }
+        `);
+    })
+  });
 
   describe('interfaces on interfaces', () => {
     it('can execute queries on an interface only implemented by other interfaces', async () => {

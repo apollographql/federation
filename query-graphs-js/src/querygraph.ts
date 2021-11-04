@@ -33,7 +33,7 @@ import {
   requiresDirectiveName,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
-import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, QueryResolution } from './transition';
+import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution } from './transition';
 import { isStructuralFieldSubtype } from './structuralSubtyping';
 
 // We use our federation reserved subgraph name to avoid risk of conflict with other subgraph names (wouldn't be a huge
@@ -558,23 +558,22 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   }
 
   // We then add the edges from supergraph roots to the subgraph ones.
-  // For the query root, we also add edges from each the query root of each subgraph to the query root of each other.
-  // This essentially encode the fact that if a field return the "query" type, we can always query any subgraph from
-  // that point.
+  // Also, for each root kind, we also add edges from the corresponding root type of each subgraph to the root type of other subgraphs.
+  // This essentially encode the fact that if a field return a root type, we can always query any subgraph from that point.
   for (let [i, subgraph] of subgraphs.entries()) {
     const copyPointer = copyPointers[i];
-    subgraph.rootKinds().forEach(k => builder.addEdge(builder.root(k)!, copyPointer.copiedVertex(subgraph.root(k)!), subgraphEnteringTransition));
+    for (const rootKind of subgraph.rootKinds()) {
+      const rootVertex = copyPointer.copiedVertex(subgraph.root(rootKind)!);
+      builder.addEdge(builder.root(rootKind)!, rootVertex, subgraphEnteringTransition)
 
-    const queryRoot = subgraph.root("query");
-    if (queryRoot) {
       for (let [j, otherSubgraph] of subgraphs.entries()) {
         if (i === j) {
           continue;
         }
-        const otherQueryRoot = otherSubgraph.root("query");
-        if (otherQueryRoot) {
+        const otherRootVertex = otherSubgraph.root(rootKind);
+        if (otherRootVertex) {
           const otherCopyPointer = copyPointers[j];
-          builder.addEdge(copyPointer.copiedVertex(queryRoot), otherCopyPointer.copiedVertex(otherQueryRoot), new QueryResolution());
+          builder.addEdge(rootVertex, otherCopyPointer.copiedVertex(otherRootVertex), new RootTypeResolution(rootKind));
         }
       }
     }

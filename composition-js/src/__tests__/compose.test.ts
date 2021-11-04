@@ -1351,6 +1351,5 @@ describe('composition', () => {
         b(x: Int): Int
       }
     `);
-
   });
 });

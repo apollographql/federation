@@ -153,7 +153,7 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
       break
     case 'SubgraphEnteringTransition':
     case 'KeyResolution':
-    case 'QueryResolution':
+    case 'RootTypeResolution':
       return subSelection;
   }
   // If we get here, the edge is either a downcast or a field, so the edge head must be selectable.

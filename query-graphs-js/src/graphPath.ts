@@ -63,7 +63,7 @@ function updateRuntimeTypes(currentRuntimeTypes: readonly ObjectType[], edge: Ed
       const currentType = edge.tail.type as CompositeType;
       // We've taken a key into a new subgraph, so any of the possible runtime types of the new subgraph could be returned.
       return possibleRuntimeTypes(currentType);
-    case 'QueryResolution':
+    case 'RootTypeResolution':
     case 'SubgraphEnteringTransition':
       assert(isObjectType(edge.tail.type), () => `Query edge should be between object type but got ${edge}`);
       return [ edge.tail.type ];
@@ -191,7 +191,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       if (!edge) {
         continue;
       }
-      if (edge.transition.kind === 'KeyResolution' || edge.transition.kind === 'QueryResolution') {
+      if (edge.transition.kind === 'KeyResolution' || edge.transition.kind === 'RootTypeResolution') {
         ++jumps;
       }
       v = edge.tail;
@@ -875,8 +875,8 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
 
       // We have edges between Query objects so that if a field returns a query object, we can jump to any subgraph
       // at that point. However, there is no point of using those edges at the beginning of a path.
-      if (isTopLevelPath && edge.transition.kind === 'QueryResolution') {
-        debug.groupEnd(`Ignored: edge is a top-level "QueryResolution"`);
+      if (isTopLevelPath && edge.transition.kind === 'RootTypeResolution') {
+        debug.groupEnd(`Ignored: edge is a top-level "RootTypeResolution"`);
         continue;
       }
 
