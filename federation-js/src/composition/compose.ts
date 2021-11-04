@@ -10,16 +10,13 @@ import {
   FieldDefinitionNode,
   InputValueDefinitionNode,
   DocumentNode,
-  GraphQLObjectType,
   specifiedDirectives,
   TypeDefinitionNode,
   DirectiveDefinitionNode,
   TypeExtensionNode,
   ObjectTypeDefinitionNode,
   NamedTypeNode,
-  lexicographicSortSchema,
 } from 'graphql';
-import { transformSchema } from 'apollo-graphql';
 import {
   otherKnownDirectives,
   federationDirectives,
@@ -35,7 +32,6 @@ import {
   stripTypeSystemDirectivesFromTypeDefs,
   defaultRootOperationNameLookup,
   getFederationMetadata,
-  CompositionResult,
   isDirectiveDefinitionNode,
   parseFieldSet,
 } from './utils';
@@ -51,8 +47,6 @@ import type {
 } from '../composition/types';
 import { validateSDL } from 'graphql/validation/validate';
 import { compositionRules } from './rules';
-import { printSupergraphSdl } from '../service/printSupergraphSdl';
-import { mapValues } from '../utilities';
 import { DirectiveMetadata } from './DirectiveMetadata';
 import { getJoinDefinitions } from '../joinSpec';
 import { CoreDirective } from '../coreSpec';
@@ -642,77 +636,4 @@ export function addFederationMetadataToSchemaNodes({
   // currently this is only used to capture @tag metadata but could be used
   // for others directives in the future
   directiveMetadata.applyMetadataToSupergraphSchema(schema);
-}
-
-export function composeServices(services: ServiceDefinition[]): CompositionResult {
-  const {
-    typeToServiceMap,
-    typeDefinitionsMap,
-    typeExtensionsMap,
-    directiveDefinitionsMap,
-    externalFields,
-    keyDirectivesMap,
-    valueTypes,
-    directiveMetadata,
-  } = buildMapsFromServiceList(services);
-
-  let { schema, errors } = buildSchemaFromDefinitionsAndExtensions({
-    typeDefinitionsMap,
-    typeExtensionsMap,
-    directiveDefinitionsMap,
-    directiveMetadata,
-    serviceList: services,
-  });
-
-  // TODO: We should fix this to take non-default operation root types in
-  // implementing services into account.
-  schema = new GraphQLSchema({
-    ...schema.toConfig(),
-    ...mapValues(defaultRootOperationNameLookup, typeName =>
-      typeName
-        ? (schema.getType(typeName) as GraphQLObjectType<any, any>)
-        : undefined,
-    ),
-    extensions: {
-      serviceList: services
-    }
-  });
-
-  // If multiple type definitions and extensions for the same type implement the
-  // same interface, it will get added to the constructed object multiple times,
-  // resulting in a schema validation error. We therefore need to remove
-  // duplicate interfaces from object types manually.
-  schema = transformSchema(schema, type => {
-    if (isObjectType(type)) {
-      const config = type.toConfig();
-      return new GraphQLObjectType({
-        ...config,
-        interfaces: Array.from(new Set(config.interfaces)),
-      });
-    }
-    return undefined;
-  });
-
-  schema = lexicographicSortSchema(schema);
-
-  addFederationMetadataToSchemaNodes({
-    schema,
-    typeToServiceMap,
-    externalFields,
-    keyDirectivesMap,
-    valueTypes,
-    directiveDefinitionsMap,
-    directiveMetadata,
-  });
-
-  const { graphNameToEnumValueName } = getJoinDefinitions(services);
-
-  if (errors.length > 0) {
-    return { schema, errors };
-  } else {
-    return {
-      schema,
-      supergraphSdl: printSupergraphSdl(schema, graphNameToEnumValueName),
-    };
-  }
 }
