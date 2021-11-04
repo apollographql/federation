@@ -70,7 +70,47 @@ pub struct PlanningError {
     /// A human-readable description of the error that prevented planning.
     pub message: Option<String>,
     /// [`PlanningErrorExtensions`]
+    #[serde(deserialize_with = "none_only_if_value_is_null_or_empty_object")]
     pub extensions: Option<PlanningErrorExtensions>,
+}
+
+/// `none_only_if_value_is_null_or_empty_object`
+///
+/// This function returns Ok(Some(T)) if a T can be deserialized,
+///
+/// Ok(None) if data contains Null or an empty object,
+/// And fails otherwise, including if the key is missing.
+fn none_only_if_value_is_null_or_empty_object<'de, D, T>(data: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum OptionOrValue<T> {
+        Opt(Option<T>),
+        Val(serde_json::value::Value),
+    }
+
+    let as_option_or_value: Result<OptionOrValue<T>, D::Error> =
+        serde::Deserialize::deserialize(data);
+
+    match as_option_or_value {
+        Ok(OptionOrValue::Opt(t)) => Ok(t),
+        Ok(OptionOrValue::Val(obj)) => {
+            if let serde_json::value::Value::Object(o) = &obj {
+                if o.is_empty() {
+                    return Ok(None);
+                }
+            }
+
+            Err(serde::de::Error::custom(format!(
+                "invalid neither null nor empty object: found {:?}",
+                obj,
+            )))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 impl Display for PlanningError {
@@ -230,5 +270,73 @@ mod tests {
                 QueryPlanOptions::default(),
             )
         );
+    }
+}
+
+#[cfg(test)]
+mod planning_error {
+    use super::{PlanningError, PlanningErrorExtensions};
+
+    #[test]
+    #[should_panic(
+        expected = "Result::unwrap()` on an `Err` value: Error(\"missing field `extensions`\", line: 1, column: 2)"
+    )]
+    fn deserialize_empty_planning_error() {
+        let raw = "{}";
+        serde_json::from_str::<PlanningError>(raw).unwrap();
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Result::unwrap()` on an `Err` value: Error(\"missing field `extensions`\", line: 1, column: 44)"
+    )]
+    fn deserialize_planning_error_missing_extension() {
+        let raw = r#"{ "message": "something terrible happened" }"#;
+        serde_json::from_str::<PlanningError>(raw).unwrap();
+    }
+
+    #[test]
+    fn deserialize_planning_error_with_extension() {
+        let raw = r#"{
+            "message": "something terrible happened",
+            "extensions": {
+                "code": "E_TEST_CASE"
+            }
+        }"#;
+
+        let expected = PlanningError {
+            message: Some("something terrible happened".to_string()),
+            extensions: Some(PlanningErrorExtensions {
+                code: "E_TEST_CASE".to_string(),
+            }),
+        };
+
+        assert_eq!(expected, serde_json::from_str(raw).unwrap());
+    }
+
+    #[test]
+    fn deserialize_planning_error_with_empty_object_extension() {
+        let raw = r#"{
+            "extensions": {}
+        }"#;
+        let expected = PlanningError {
+            message: None,
+            extensions: None,
+        };
+
+        assert_eq!(expected, serde_json::from_str(raw).unwrap());
+    }
+
+    #[test]
+    fn deserialize_planning_error_with_null_extension() {
+        let raw = r#"{
+            "extensions": null
+        }"#;
+        let expected = PlanningError {
+            message: None,
+            extensions: None,
+        };
+
+        assert_eq!(expected, serde_json::from_str(raw).unwrap());
     }
 }
