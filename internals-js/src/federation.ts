@@ -29,7 +29,7 @@ import {
 import { assert, OrderedMap } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
-import { ASTNode, DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule, Source } from "graphql";
+import { ASTNode, DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule, print as printAST, Source } from "graphql";
 import { defaultPrintOptions, printDirectiveDefinition } from "./print";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
@@ -214,7 +214,7 @@ function validateFieldSet(
 
     const codeDef = errorCodeDef(e) ?? ERR_DIRECTIVE_INVALID_FIELDS.get(directive.name);
     return codeDef.err(
-      `On ${targetDescription}, for ${directive}: ${msg}`,
+      `On ${targetDescription}, for ${directiveStrUsingASTIfPossible(directive)}: ${msg}`,
       nodes,
       undefined,
       undefined,
@@ -222,6 +222,13 @@ function validateFieldSet(
       e,
     );
   }
+}
+
+// This method is called to display @key, @provides or @requires directives in error message in place where the directive `fields`
+// argument might be invalid because it was not a string in the underlying AST. If that's the case, we want to use the AST to
+// print the directive or the message might be a bit confusing for the user.
+function directiveStrUsingASTIfPossible(directive: Directive<any>): string {
+  return directive.sourceAST ? printAST(directive.sourceAST) : directive.toString();
 }
 
 function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
@@ -605,12 +612,30 @@ export function parseFieldSetArgument(
 
 function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>): string {
   const fields = directive.arguments().fields;
+  const ast = directive.sourceAST;
   if (typeof fields !== 'string') {
     throw ERR_DIRECTIVE_INVALID_FIELDS_TYPE.get(directive.name).err(
       `Invalid value for argument ${directive.definition!.argument('fields')!.coordinate} on ${directive.parent.coordinate}: must be a string.`,
-      directive.sourceAST
+      ast
     );
   }
+  // While validating if the field is a string will work in most cases, this will not catch the case where the field argument was
+  // unquoted but parsed as an enum value (see federation/issues/850 in particular). So if we have the AST (which we will usually
+  // have in practice), use that to check that the argument was truly a string.
+  if (ast && ast.kind === 'Directive') {
+    for (const argNode of ast.arguments ?? []) {
+      if (argNode.name.value === 'fields') {
+        if (argNode.value.kind !== 'StringValue') {
+          throw ERR_DIRECTIVE_INVALID_FIELDS_TYPE.get(directive.name).err(
+            `Invalid value for argument ${directive.definition!.argument('fields')!.coordinate} on ${directive.parent.coordinate}: must be a string.`,
+            ast
+          );
+        }
+        break;
+      }
+    }
+  }
+
   return fields;
 }
 
