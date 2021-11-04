@@ -1260,7 +1260,7 @@ describe('composition', () => {
 
       expect(result.errors).toBeDefined();
       expect(errorMessages(result)).toStrictEqual([
-        'Interface field I.a is declared in subgraph \"subgraphA\" but type B, which implements I only in subgraph \"subgraphB\" does not have field a.',
+        'Interface field "I.a" is declared in subgraph \"subgraphA\" but type "B", which implements "I" only in subgraph \"subgraphB\" does not have field "a".',
       ]);
     })
 
@@ -1305,7 +1305,7 @@ describe('composition', () => {
 
       expect(result.errors).toBeDefined();
       expect(errorMessages(result)).toStrictEqual([
-        'Interface field J.a is declared in subgraph \"subgraphA\" but type B, which implements J only in subgraph \"subgraphB\" does not have field a.',
+        'Interface field "J.a" is declared in subgraph \"subgraphA\" but type "B", which implements "J" only in subgraph \"subgraphB\" does not have field "a".',
       ]);
     })
   });
