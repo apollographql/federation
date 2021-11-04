@@ -18,8 +18,8 @@ module.exports = {
         githubRepo: 'apollographql/federation',
         defaultVersion: '1',
         versions: {
-            '1': 'version-0.x',
-            '2': 'main',
+          '1': 'version-0.x',
+          '2': 'main',
         },
         sidebarCategories: {
           null: [ 'index', ],
@@ -28,6 +28,7 @@ module.exports = {
             'federation-2/coming-to-federation-2',
             'federation-2/moving-to-federation-2',
             'federation-2/backward-compatibility',
+            '[🚀 Demo app](https://github.com/apollographql/supergraph-demo-fed2)',
           ],
           Quickstart: [
             'quickstart/setup',
