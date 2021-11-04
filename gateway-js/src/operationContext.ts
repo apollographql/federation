@@ -20,7 +20,7 @@ interface BuildOperationContextOptions {
   schema: GraphQLSchema;
   operationDocument: DocumentNode;
   operationName?: string;
-};
+}
 
 export function buildOperationContext({
   schema,
@@ -28,7 +28,7 @@ export function buildOperationContext({
   operationName,
 }: BuildOperationContextOptions): OperationContext {
   let operation: OperationDefinitionNode | undefined;
-  let operationCount: number = 0;
+  let operationCount = 0;
   const fragments: {
     [fragmentName: string]: FragmentDefinitionNode;
   } = Object.create(null);

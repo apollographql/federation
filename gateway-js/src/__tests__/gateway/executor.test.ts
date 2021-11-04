@@ -38,6 +38,7 @@ describe('ApolloGateway executor', () => {
       }
     `;
 
+     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
      // @ts-ignore
     const { errors } = await executor({
       source,
@@ -73,6 +74,7 @@ describe('ApolloGateway executor', () => {
       }
     `;
 
+     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
      // @ts-ignore
     const { errors, data } = await executor({
       source,

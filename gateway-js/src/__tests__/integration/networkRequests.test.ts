@@ -25,6 +25,7 @@ import {
 } from 'apollo-federation-integration-testsuite';
 import { getTestingSupergraphSdl } from '../execution-utils';
 
+type GenericFunction = (...args: unknown[]) => unknown;
 export interface MockService {
   name: string;
   url: string;
@@ -134,11 +135,11 @@ it('Updates Supergraph SDL from remote storage', async () => {
 
   // This test is only interested in the second time the gateway notifies of an
   // update, since the first happens on load.
-  let secondUpdateResolve: Function;
+  let secondUpdateResolve: GenericFunction;
   const secondUpdate = new Promise((res) => (secondUpdateResolve = res));
   const schemaChangeCallback = jest
     .fn()
-    .mockImplementationOnce(() => {})
+    .mockImplementationOnce(() => undefined)
     .mockImplementationOnce(() => {
       secondUpdateResolve();
     });
@@ -147,6 +148,7 @@ it('Updates Supergraph SDL from remote storage', async () => {
     logger,
     schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
   });
+  // eslint-disable-next-line
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
   gateway.experimental_pollInterval = 100;
   gateway.onSchemaChange(schemaChangeCallback);
@@ -186,7 +188,7 @@ describe('Supergraph SDL update failures', () => {
     mockSupergraphSdlRequest().reply(500);
 
     // Spy on logger.error so we can just await once it's been called
-    let errorLogged: Function;
+    let errorLogged: GenericFunction;
     const errorLoggedPromise = new Promise((r) => (errorLogged = r));
     logger.error = jest.fn(() => errorLogged());
 
@@ -195,6 +197,7 @@ describe('Supergraph SDL update failures', () => {
       schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
     });
 
+    // eslint-disable-next-line
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 
@@ -219,7 +222,7 @@ describe('Supergraph SDL update failures', () => {
     });
 
     // Spy on logger.error so we can just await once it's been called
-    let errorLogged: Function;
+    let errorLogged: GenericFunction;
     const errorLoggedPromise = new Promise((r) => (errorLogged = r));
     logger.error = jest.fn(() => errorLogged());
 
@@ -227,6 +230,7 @@ describe('Supergraph SDL update failures', () => {
       logger,
       schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
     });
+    // eslint-disable-next-line
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 
@@ -256,7 +260,7 @@ describe('Supergraph SDL update failures', () => {
     );
 
     // Spy on logger.error so we can just await once it's been called
-    let errorLogged: Function;
+    let errorLogged: GenericFunction;
     const errorLoggedPromise = new Promise((r) => (errorLogged = r));
     logger.error = jest.fn(() => errorLogged());
 
@@ -264,6 +268,7 @@ describe('Supergraph SDL update failures', () => {
       logger,
       schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
     });
+    // eslint-disable-next-line
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 
@@ -294,6 +299,7 @@ describe('Supergraph SDL update failures', () => {
       logger,
       schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
     });
+    // eslint-disable-next-line
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 
@@ -317,9 +323,9 @@ it('Rollsback to a previous schema when triggered', async () => {
   mockSupergraphSdlRequestSuccess(getTestingSupergraphSdl(fixturesWithUpdate), 'updatedId-5678');
   mockSupergraphSdlRequestSuccess();
 
-  let firstResolve: Function;
-  let secondResolve: Function;
-  let thirdResolve: Function;
+  let firstResolve: GenericFunction;
+  let secondResolve: GenericFunction;
+  let thirdResolve: GenericFunction;
   const firstSchemaChangeBlocker = new Promise((res) => (firstResolve = res));
   const secondSchemaChangeBlocker = new Promise((res) => (secondResolve = res));
   const thirdSchemaChangeBlocker = new Promise((res) => (thirdResolve = res));
@@ -334,6 +340,7 @@ it('Rollsback to a previous schema when triggered', async () => {
     logger,
     schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
   });
+  // eslint-disable-next-line
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
   gateway.experimental_pollInterval = 100;
 
@@ -386,10 +393,11 @@ describe('Downstream service health checks', () => {
       //         [accounts] Account -> A @key selects id, but Account.id could not be found"
       //     `);
       // Instead we'll just use the regular snapshot matcher...
+      let err;
       try {
         await gateway.load(mockApolloConfig);
       } catch (e) {
-        var err = e;
+        err = e;
       }
 
       // TODO: smell that we should be awaiting something else
@@ -418,6 +426,7 @@ describe('Downstream service health checks', () => {
         logger,
         schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
       });
+      // eslint-disable-next-line
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
 
@@ -450,10 +459,11 @@ describe('Downstream service health checks', () => {
       //         [accounts] Account -> A @key selects id, but Account.id could not be found"
       //     `);
       // Instead we'll just use the regular snapshot matcher...
+      let err;
       try {
         await gateway.load(mockApolloConfig);
       } catch (e) {
-        var err = e;
+        err = e;
       }
 
       // TODO: smell that we should be awaiting something else
@@ -486,8 +496,8 @@ describe('Downstream service health checks', () => {
       );
       mockAllServicesHealthCheckSuccess();
 
-      let resolve1: Function;
-      let resolve2: Function;
+      let resolve1: GenericFunction;
+      let resolve2: GenericFunction;
       const schemaChangeBlocker1 = new Promise((res) => (resolve1 = res));
       const schemaChangeBlocker2 = new Promise((res) => (resolve2 = res));
       const onChange = jest
@@ -500,6 +510,7 @@ describe('Downstream service health checks', () => {
         logger,
         schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
       });
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
 
@@ -534,7 +545,7 @@ describe('Downstream service health checks', () => {
       mockServiceHealthCheckSuccess(reviews);
       mockServiceHealthCheckSuccess(documents);
 
-      let resolve: Function;
+      let resolve: GenericFunction;
       const schemaChangeBlocker = new Promise((res) => (resolve = res));
 
       gateway = new ApolloGateway({
@@ -542,9 +553,11 @@ describe('Downstream service health checks', () => {
         logger,
         schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
       });
+      // eslint-disable-next-line
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
 
+      // eslint-disable-next-line
       // @ts-ignore for testing purposes, we'll call the original `updateSchema`
       // function from our mock. The first call should mimic original behavior,
       // but the second call needs to handle the PromiseRejection. Typically for tests
@@ -568,10 +581,11 @@ describe('Downstream service health checks', () => {
           //         [accounts]: 500: Internal Server Error"
           //     `);
           // Instead we'll just use the regular snapshot matcher...
+          let err;
           try {
             await original.apply(gateway);
           } catch (e) {
-            var err = e;
+            err = e;
           }
 
           expect(err.message).toMatchInlineSnapshot(`
@@ -582,6 +596,7 @@ describe('Downstream service health checks', () => {
           resolve();
         });
 
+      // eslint-disable-next-line
       // @ts-ignore for testing purposes, replace the `updateSchema`
       // function on the gateway with our mock
       gateway.updateSchema = mockUpdateSchema;

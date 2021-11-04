@@ -6,11 +6,11 @@ import type { OperationResult } from './types';
  * and these are the types for those that we expect to use within this script.
  * They'll be stripped in the emitting of this file as JS, of course.
  */
-declare var bridge: { batchIntrospect: typeof batchIntrospect };
+declare let bridge: { batchIntrospect: typeof batchIntrospect };
 
-declare var done: (operationResult: OperationResult) => void;
-declare var sdl: string;
-declare var queries: string[];
+declare let done: (operationResult: OperationResult) => void;
+declare let sdl: string;
+declare let queries: string[];
 
 if (!sdl) {
   done({

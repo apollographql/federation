@@ -450,7 +450,7 @@ function printKnownDirectiveUsagesOnFields(field: GraphQLField<any, any>) {
     .sort((a, b) => a.name.value.localeCompare(b.name.value))
     .map(print)
     .join(' ')}`;
-};
+}
 
 // Apollo addition: `onNewLine` is a formatting nice-to-have for printing
 // types that have a list of directives attached, i.e. an entity.
@@ -526,6 +526,7 @@ function printDeprecated(reason: Maybe<string>): string {
 function printSpecifiedByURL(scalar: GraphQLScalarType): string {
   if (
     scalar.specifiedByUrl == null &&
+    // eslint-disable-next-line
     // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
     scalar.specifiedByURL == null
   ) {
@@ -535,6 +536,7 @@ function printSpecifiedByURL(scalar: GraphQLScalarType): string {
     kind: 'StringValue',
     value:
       scalar.specifiedByUrl ??
+      // eslint-disable-next-line
       // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
       scalar.specifiedByURL,
   });

@@ -34,6 +34,6 @@ export default {
 } as Plugin;
 
 function isReadableSpan(arg: any): arg is ReadableSpan {
-    let isSpan = arg && 'kind' in arg && 'startTime' in arg && 'parentSpanId' in arg;
+    const isSpan = arg && 'kind' in arg && 'startTime' in arg && 'parentSpanId' in arg;
     return isSpan;
 }

@@ -56,7 +56,7 @@ describe('cleanErrorOfInaccessibleNames', () => {
       },
     });
 
-    const cleaned = cleanErrorOfInaccessibleNames(schema, result.errors?.[0]!);
+    const cleaned = cleanErrorOfInaccessibleNames(schema, result.errors![0]!);
     expect(cleaned.message).toMatchInlineSnapshot(
       `"Abstract type \\"Foo\\" was resolve to a type [inaccessible type] that does not exist inside schema."`,
     );

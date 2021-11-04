@@ -222,9 +222,11 @@ describe('Managed mode', () => {
       logger,
       schemaConfigDeliveryEndpoint: null,
     });
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore for testing purposes, we'll call the original `updateSchema`
     // function from our mock. The first call should mimic original behavior,
     // but the second call needs to handle the PromiseRejection. Typically for tests
@@ -240,10 +242,11 @@ describe('Managed mode', () => {
       .mockImplementationOnce(async () => {
         // mock the first poll and handle the error which would otherwise be caught
         // and logged from within the `pollServices` class method
+        let err;
         try {
           await original.apply(gateway);
         } catch (e) {
-          var err = e;
+          err = e;
         }
 
         expect(err.message).toMatchInlineSnapshot(`
@@ -254,6 +257,7 @@ describe('Managed mode', () => {
         resolve();
       });
 
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore for testing purposes, replace the `updateSchema`
     // function on the gateway with our mock
     gateway.updateSchema = mockUpdateSchema;

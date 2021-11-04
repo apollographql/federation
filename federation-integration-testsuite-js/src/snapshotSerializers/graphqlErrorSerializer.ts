@@ -9,6 +9,7 @@ export default {
   print(value: GraphQLError, print) {
     // Support printing GraphQLError.causes (from core-schema-js)
     if ('causes' in value) {
+      // eslint-disable-next-line
       // @ts-ignore
       return print(value.causes.map((cause) => cause.message));
     }

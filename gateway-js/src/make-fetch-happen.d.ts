@@ -36,7 +36,7 @@ declare module 'make-fetch-happen' {
   }
 
   export interface CacheManager {
-    delete(req: Request): Promise<Boolean>;
+    delete(req: Request): Promise<boolean>;
     put(req: Request, res: Response): Promise<Response>;
     match(req: Request): Promise<Response | undefined>;
   }

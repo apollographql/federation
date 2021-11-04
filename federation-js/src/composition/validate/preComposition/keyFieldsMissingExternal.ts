@@ -28,7 +28,7 @@ export const keyFieldsMissingExternal = ({
   const errors: GraphQLError[] = [];
 
   // Build an array that accounts for all key directives on type extensions.
-  let keyDirectiveInfoOnTypeExtensions: {
+  const keyDirectiveInfoOnTypeExtensions: {
     typeName: string;
     keyArgument: string;
   }[] = [];

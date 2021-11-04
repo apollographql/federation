@@ -27,7 +27,7 @@ export function findAndExtract<T>(
   const index = array.findIndex(predicate);
   if (index === -1) return [undefined, array];
 
-  let remaining = array.slice(0, index);
+  const remaining = array.slice(0, index);
   if (index < array.length - 1) {
     remaining.push(...array.slice(index + 1));
   }

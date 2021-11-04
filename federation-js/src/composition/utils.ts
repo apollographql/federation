@@ -237,7 +237,7 @@ export function hasMatchingFieldInDirectives({
   namedType,
 }: {
   directives: DirectiveNode[];
-  fieldNameToMatch: String;
+  fieldNameToMatch: string;
   namedType: GraphQLNamedType;
 }) {
   return Boolean(
