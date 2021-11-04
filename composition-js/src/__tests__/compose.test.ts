@@ -1309,4 +1309,48 @@ describe('composition', () => {
       ]);
     })
   });
+
+  it('is not broken by similar field argument signatures (#1100)', () => {
+    // This test is about validating the case from https://github.com/apollographql/federation/issues/1100 is fixed.
+
+    const subgraphA = {
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T {
+          a(x: String): Int
+          b(x: Int): Int
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type T {
+          a(x: String): Int
+          b(x: Int): Int
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
+
+    const [_, api] = schemas(result);
+    expect(printSchema(api)).toMatchString(`
+      type Query {
+        t: T
+      }
+
+      type T {
+        a(x: String): Int
+        b(x: Int): Int
+      }
+    `);
+
+  });
 });
