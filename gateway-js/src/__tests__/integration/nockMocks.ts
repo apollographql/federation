@@ -70,22 +70,33 @@ export const mockCloudConfigUrl =
 export const mockOutOfBandReporterUrl =
   'https://example.outofbandreporter.com/monitoring/';
 
-export function mockSupergraphSdlRequest() {
+export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null) {
   return gatewayNock(mockCloudConfigUrl).post('/', {
     query: SUPERGRAPH_SDL_QUERY,
     variables: {
       ref: graphRef,
       apiKey: apiKey,
-      ifAfterId: null,
+      ifAfterId: ifAfter,
     },
   });
 }
 
-export function mockSupergraphSdlRequestSuccess(
-  supergraphSdl = getTestingSupergraphSdl(),
-  id = 'originalId-1234',
+export function mockSupergraphSdlRequest(ifAfter: string | null = null) {
+  return mockSupergraphSdlRequestIfAfter(ifAfter);
+}
+
+export function mockSupergraphSdlRequestSuccessIfAfter(
+  supergraphSdl: string | null = getTestingSupergraphSdl(),
+  id: string | null = 'originalId-1234',
+  ifAfter: string | null = null,
 ) {
-  return mockSupergraphSdlRequest().reply(
+  if (supergraphSdl == null) {
+    supergraphSdl = getTestingSupergraphSdl();
+  }
+  if (id == null) {
+    id = 'originalId-1234';
+  }
+  return mockSupergraphSdlRequestIfAfter(ifAfter).reply(
     200,
     JSON.stringify({
       data: {
@@ -97,6 +108,10 @@ export function mockSupergraphSdlRequestSuccess(
       },
     }),
   );
+}
+
+export function mockSupergraphSdlRequestSuccess() {
+  return mockSupergraphSdlRequestSuccessIfAfter(null, null, null);
 }
 
 export function mockOutOfBandReportRequest() {
