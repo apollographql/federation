@@ -28,6 +28,7 @@ module.exports = {
             'managed-federation/setup',
             'managed-federation/federated-schema-checks',
             'managed-federation/deployment',
+            'managed-federation/error-reporting',
             '[Studio features](https://www.apollographql.com/docs/studio/federated-graphs/)',
           ],
           'Enterprise Guide': [
@@ -45,7 +46,7 @@ module.exports = {
             'performance/monitoring',
           ],
           'Debugging & Metrics': [
-            'errors', 
+            'errors',
             'metrics',
             'opentelemetry',
           ],
