@@ -106,7 +106,7 @@ function printSchemaDefinition(schema: GraphQLSchema): string | undefined {
 
   return (
     printDescription(schema) +
-    `schema${printKnownDirectiveUsagesOnTypeOrField(schema)} {\n${operationTypes.join(
+    `schema${printKnownDirectiveUsages(schema)} {\n${operationTypes.join(
       '\n',
     )}\n}`
   );
@@ -209,7 +209,7 @@ function printObject(type: GraphQLObjectType): string {
     // Apollo addition: print @key usages
     printFederationDirectives(type) +
     // Apollo addition: print @tag usages (or other known directives)
-    printKnownDirectiveUsagesOnTypeOrField(type) +
+    printKnownDirectiveUsages(type) +
     printFields(type)
   );
 }
@@ -229,7 +229,7 @@ function printInterface(type: GraphQLInterfaceType): string {
     `interface ${type.name}` +
     printImplementedInterfaces(type) +
     printFederationDirectives(type) +
-    printKnownDirectiveUsagesOnTypeOrField(type) +
+    printKnownDirectiveUsages(type) +
     printFields(type)
   );
 }
@@ -242,7 +242,7 @@ function printUnion(type: GraphQLUnionType): string {
     'union ' +
     type.name +
     // Apollo addition: print @tag usages
-    printKnownDirectiveUsagesOnTypeOrField(type) +
+    printKnownDirectiveUsages(type) +
     possibleTypes
   );
 }
@@ -280,7 +280,7 @@ function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
       printDeprecated(f.deprecationReason) +
       // Apollo addition: print Apollo directives on fields
       printFederationDirectives(f) +
-      printKnownDirectiveUsagesOnTypeOrField(f),
+      printKnownDirectiveUsages(f),
   );
   return printBlock(fields);
 }
@@ -302,22 +302,25 @@ function printFederationDirectives(
   return dedupedDirectives.length > 0 ? ' ' + dedupedDirectives.join(' ') : '';
 }
 
-// Apollo addition: print `@tag` directive usages (and possibly other future known
-// directive usages) found in subgraph SDL.
-function printKnownDirectiveUsagesOnTypeOrField(
-  typeOrField: GraphQLNamedType | GraphQLField<any, any> | GraphQLSchema,
+// Apollo addition: print `@tag` and `@contact` directive usages (and possibly
+// other future known directive usages) found in subgraph SDL.
+function printKnownDirectiveUsages(
+  objectWithDirectives:
+    | GraphQLNamedType
+    | GraphQLField<any, any>
+    | GraphQLSchema,
 ): string {
-  if (!typeOrField.astNode) return '';
-  if (isInputObjectType(typeOrField)) return '';
+  if (!objectWithDirectives.astNode) return '';
+  if (isInputObjectType(objectWithDirectives)) return '';
 
-  const knownSubgraphDirectivesOnTypeOrField = gatherDirectives(typeOrField)
+  const knownSubgraphDirectiveUsages = gatherDirectives(objectWithDirectives)
     .filter((n) =>
       otherKnownDirectives.some((directive) => directive.name === n.name.value),
     )
     .map(print);
 
-  return knownSubgraphDirectivesOnTypeOrField.length > 0
-    ? ' ' + knownSubgraphDirectivesOnTypeOrField.join(' ')
+  return knownSubgraphDirectiveUsages.length > 0
+    ? ' ' + knownSubgraphDirectiveUsages.join(' ')
     : '';
 }
 
