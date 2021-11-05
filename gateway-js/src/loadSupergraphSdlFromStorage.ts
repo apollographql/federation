@@ -53,6 +53,10 @@ export async function loadSupergraphSdlFromStorage({
   ifAfterId: string | null;
   currentSupergraphSdl: string | null;
 }) {
+  // if we don't have a schema, we don't want to do conditional get
+  if (currentSupergraphSdl == null) {
+    ifAfterId = null;
+  }
   let result: Response;
   const requestDetails = {
     method: 'POST',
