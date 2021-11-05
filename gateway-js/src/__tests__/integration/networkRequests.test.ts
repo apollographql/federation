@@ -158,10 +158,10 @@ it('Updates Supergraph SDL from remote storage', async () => {
   gateway.onSchemaChange(schemaChangeCallback);
 
   await gateway.load(mockApolloConfig);
-  expect(gateway['compositionId']).toMatchInlineSnapshot('originalId-1234');
+  expect(gateway['compositionId']).toMatchInlineSnapshot(`"originalId-1234"`);
 
   await secondUpdate;
-  expect(gateway['compositionId']).toMatchInlineSnapshot('updatedId-5678');
+  expect(gateway['compositionId']).toMatchInlineSnapshot(`"updatedId-5678"`);
 });
 
 describe('Supergraph SDL update failures', () => {
