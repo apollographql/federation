@@ -1949,4 +1949,192 @@ describe('executeQueryPlan', () => {
         `);
     });
   });
+
+  test('do not send subgraphs an interface they do not know', async () => {
+    // This test validates that the issue described on https://github.com/apollographql/federation/issues/817 is fixed.
+    const s1 = {
+      name: 'S1',
+      typeDefs: gql`
+        type Query {
+          myField: MyInterface
+        }
+
+        interface MyInterface {
+          name: String
+        }
+
+        type MyTypeA implements MyInterface {
+          name: String
+        }
+
+        type MyTypeB implements MyInterface {
+          name: String
+        }
+      `
+    }
+
+    const s2 = {
+      name: 'S2',
+      typeDefs: gql`
+        interface MyInterface {
+          name: String
+        }
+
+        type MyTypeC implements MyInterface {
+          name: String
+        }
+      `
+    }
+
+    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+    addResolversToSchema(serviceMap['S1'].schema, {
+      Query: {
+        myField() {
+          return { __typename: 'MyTypeA', name: "foo" };
+        },
+      },
+    });
+
+    // First, we just query the field without conditions.
+    // Note that there is no reason to type-explode this: clearly, `myField` will never return a `MyTypeC` since
+    // it's resolved by S1 which doesn't know that type, but that doesn't impact the plan.
+    let operation = parseOp(`
+      query {
+        myField {
+          name
+        }
+      }
+      `, schema);
+    let queryPlan = buildPlan(operation, queryPlanner);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            myField {
+              __typename
+              name
+            }
+          }
+        },
+      }
+    `);
+    let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "myField": Object {
+          "name": "foo",
+        },
+      }
+      `);
+
+    // Now forcing the query planning to notice that `MyTypeC` can never happen and making
+    // sure it doesn't ask it from S1, which doesn't know it.
+    operation = parseOp(`
+      query {
+        myField {
+          ... on MyTypeA {
+            name
+          }
+          ... on MyTypeC {
+            name
+          }
+        }
+      }
+      `, schema);
+    queryPlan = buildPlan(operation, queryPlanner);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            myField {
+              __typename
+              ... on MyTypeA {
+                name
+              }
+            }
+          }
+        },
+      }
+    `);
+
+    response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "myField": Object {
+          "name": "foo",
+        },
+      }
+      `);
+
+
+    // Testing only getting name for `MyTypeB`, which is known by S1, but not returned
+    // by `myField` in practice (so the result is "empty").
+    operation = parseOp(`
+      query {
+        myField {
+          ... on MyTypeB {
+            name
+          }
+        }
+      }
+      `, schema);
+
+    queryPlan = buildPlan(operation, queryPlanner);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            myField {
+              __typename
+              ... on MyTypeB {
+                name
+              }
+            }
+          }
+        },
+      }
+    `);
+    response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "myField": Object {},
+      }
+      `);
+
+    operation = parseOp(`
+      query {
+        myField {
+          ... on MyTypeC {
+            name
+          }
+        }
+      }
+      `, schema);
+
+    // Lastly, same with only getting name for `MyTypeC`. It isn't known by S1 so the condition should not
+    // be included in the query, but we should still query `myField` to know if it resolve to "something"
+    // (and all we know it can't be a `MyTypeC`) or to `null`. In particular, the end response should be
+    // the same than in the previous example with `MyTypeB` since from the end-use POV, this is the same
+    // example.
+    queryPlan = buildPlan(operation, queryPlanner);
+    expect(queryPlan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "S1") {
+          {
+            myField {
+              __typename
+            }
+          }
+        },
+      }
+    `);
+
+    response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+    expect(response.data).toMatchInlineSnapshot(`
+      Object {
+        "myField": Object {},
+      }
+      `);
+  });
 });
