@@ -44,12 +44,14 @@ export async function loadSupergraphSdlFromStorage({
   endpoint,
   fetcher,
   ifAfterId,
+  currentSupergraphSdl,
 }: {
   graphRef: string;
   apiKey: string;
   endpoint: string;
   fetcher: typeof fetch;
   ifAfterId: string | null;
+  currentSupergraphSdl: string | null;
 }) {
   let result: Response;
   const requestDetails = {
@@ -127,13 +129,16 @@ export async function loadSupergraphSdlFromStorage({
       supergraphSdl,
       // messages,
     } = routerConfig;
-
-    // `supergraphSdl` should not be nullable in the schema, but it currently is
     return { id, supergraphSdl: supergraphSdl! };
   } else if (routerConfig.__typename === 'FetchError') {
     // FetchError case
     const { code, message } = routerConfig;
     throw new Error(`${code}: ${message}`);
+  } else if (routerConfig.__typename === 'Unchanged') {
+    if (ifAfterId && currentSupergraphSdl) {
+      return { id: ifAfterId, supergraphSdl: currentSupergraphSdl }
+    }
+    throw new Error('Programming error: if ifAfterId is specified, currentSupergraphSdl also required');
   } else {
     throw new Error('Programming error: unhandled response failure');
   }
