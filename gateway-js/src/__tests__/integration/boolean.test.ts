@@ -13,7 +13,9 @@ describe('@skip', () => {
         topReviews {
           body
           author @skip(if: true) {
-            name
+            name {
+              first
+            }
           }
         }
       }

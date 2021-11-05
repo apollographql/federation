@@ -1,7 +1,7 @@
 {
   "name": "@apollo/router-bridge",
   "private": true,
-  "version": "0.1.1",
+  "version": "2.0.0-alpha.1",
   "description": "Apollo Router JS Bridge Entrypoint",
   "scripts": {
     "rollup": "rollup -c ./rollup.config.js"
@@ -12,7 +12,7 @@
     "directory": "router-bridge/"
   },
   "author": "Apollo <packages@apollographql.com>",
-  "license": "MIT",
+  "license": "SEE LICENSE IN ./LICENSE",
   "dependencies": {
     "@apollo/query-planner": "file:../query-planner-js",
     "fast-text-encoding": "1.0.3",

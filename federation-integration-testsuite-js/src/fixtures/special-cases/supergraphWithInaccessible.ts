@@ -1,5 +1,4 @@
-import { composeAndValidate } from '@apollo/federation';
-import { assertCompositionSuccess } from '@apollo/federation/dist/composition/utils';
+import { composeServices } from '@apollo/composition';
 import {
   DirectiveDefinitionNode,
   SchemaDefinitionNode,
@@ -9,9 +8,11 @@ import {
   visit,
 } from 'graphql';
 import { fixtures } from '..';
+import { assert } from '@apollo/federation-internals';
 
-const compositionResult = composeAndValidate(fixtures);
-assertCompositionSuccess(compositionResult);
+const compositionResult = composeServices(fixtures);
+assert(!compositionResult.errors, () => `Unexpected errors composing test fixtures:\n${compositionResult.errors!.join('\n\n')}`);
+
 const parsed = parse(compositionResult.supergraphSdl);
 
 // We need to collect the AST for the inaccessible definition as well

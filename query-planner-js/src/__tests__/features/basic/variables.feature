@@ -40,7 +40,7 @@ Scenario: passes variables to root fields
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
           }
         },
         {
@@ -55,9 +55,9 @@ Scenario: passes variables to root fields
                 "typeCondition": "Book",
                 "selections": [
                   { "kind": "Field", "name": "__typename" },
-                  { "kind": "Field", "name": "isbn" },
                   { "kind": "Field", "name": "title" },
-                  { "kind": "Field", "name": "year" }
+                  { "kind": "Field", "name": "year" },
+                  { "kind": "Field", "name": "isbn" }
                 ]
               }
             ],
@@ -110,7 +110,7 @@ Scenario: supports default variables in a variable definition
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{__typename isbn title year}}}"
+            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
           }
         },
         {
@@ -125,9 +125,9 @@ Scenario: supports default variables in a variable definition
                 "typeCondition": "Book",
                 "selections": [
                   { "kind": "Field", "name": "__typename" },
-                  { "kind": "Field", "name": "isbn" },
                   { "kind": "Field", "name": "title" },
-                  { "kind": "Field", "name": "year" }
+                  { "kind": "Field", "name": "year" },
+                  { "kind": "Field", "name": "isbn" }
                 ]
               }
             ],
@@ -198,7 +198,9 @@ Scenario: works with default variables in the schema
     library(id: $libraryId) {
       userAccount(id: $userId) {
         id
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -234,7 +236,7 @@ Scenario: works with default variables in the schema
               }
             ],
             "variableUsages": ["userId"],
-            "operation": "query($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name}}}}"
+            "operation": "query($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name{first}}}}}"
           }
         }
       ]
@@ -246,7 +248,9 @@ Scenario: String arguments with quotes that need to be escaped.
   Given query
   """
   query {
-   vehicle(id: "{\"make\":\"Toyota\",\"model\":\"Rav4\",\"trim\":\"Limited\"}")
+    vehicle(id: "{\"make\":\"Toyota\",\"model\":\"Rav4\",\"trim\":\"Limited\"}") {
+      description
+    }
   }
   """
   Then query plan
@@ -257,7 +261,7 @@ Scenario: String arguments with quotes that need to be escaped.
       "kind": "Fetch",
       "serviceName": "product",
       "variableUsages": [],
-      "operation": "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\"){__typename}}"
+      "operation": "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\"){__typename ...on Car{description}...on Van{description}}}"
     }
   }
   """

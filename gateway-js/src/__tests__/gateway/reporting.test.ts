@@ -447,13 +447,6 @@ describe('reporting', () => {
                                                   Object {
                                                     "endTime": "45678",
                                                     "parentType": "Book",
-                                                    "responseName": "isbn",
-                                                    "startTime": "34567",
-                                                    "type": "String!",
-                                                  },
-                                                  Object {
-                                                    "endTime": "45678",
-                                                    "parentType": "Book",
                                                     "responseName": "title",
                                                     "startTime": "34567",
                                                     "type": "String",
@@ -470,13 +463,6 @@ describe('reporting', () => {
                                               },
                                               Object {
                                                 "child": Array [
-                                                  Object {
-                                                    "endTime": "45678",
-                                                    "parentType": "Book",
-                                                    "responseName": "isbn",
-                                                    "startTime": "34567",
-                                                    "type": "String!",
-                                                  },
                                                   Object {
                                                     "endTime": "45678",
                                                     "parentType": "Book",

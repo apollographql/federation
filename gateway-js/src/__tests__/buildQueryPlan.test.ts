@@ -1,16 +1,19 @@
-import { GraphQLSchema } from 'graphql';
-import gql from 'graphql-tag';
-import { buildOperationContext } from '../operationContext';
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
 import { getFederatedTestingSchema } from './execution-utils';
-import { QueryPlanner } from '@apollo/query-planner';
+import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
+import { Schema, parseOperation } from '@apollo/federation-internals';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
+
 describe('buildQueryPlan', () => {
-  let schema: GraphQLSchema;
+  let schema: Schema;
   let queryPlanner: QueryPlanner;
+
+  let buildPlan = (operation: string): QueryPlan => {
+    return queryPlanner.buildQueryPlan(parseOperation(schema, operation));
+  }
 
   beforeEach(() => {
     expect(
@@ -36,15 +39,7 @@ describe('buildQueryPlan', () => {
           }
         }
     `;
-
-    const operationDocument = gql(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      }),
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -74,26 +69,22 @@ describe('buildQueryPlan', () => {
     const operationString = `#graphql
       query {
         me {
-          name
+          name {
+            first
+          }
         }
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
-
+    const queryPlan = buildPlan(operationString);
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "accounts") {
           {
             me {
-              name
+              name {
+                first
+              }
             }
           }
         },
@@ -105,7 +96,9 @@ describe('buildQueryPlan', () => {
     const operationString = `#graphql
       query {
         me {
-          name
+          name {
+            first
+          }
         }
         topProducts {
           name
@@ -113,14 +106,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -128,7 +114,9 @@ describe('buildQueryPlan', () => {
           Fetch(service: "accounts") {
             {
               me {
-                name
+                name {
+                  first
+                }
               }
             }
           },
@@ -157,8 +145,6 @@ describe('buildQueryPlan', () => {
                 } =>
                 {
                   ... on Book {
-                    __typename
-                    isbn
                     title
                     year
                   }
@@ -170,9 +156,9 @@ describe('buildQueryPlan', () => {
                 {
                   ... on Book {
                     __typename
-                    isbn
                     title
                     year
+                    isbn
                   }
                 } =>
                 {
@@ -200,14 +186,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -248,8 +227,6 @@ describe('buildQueryPlan', () => {
                   } =>
                   {
                     ... on Book {
-                      __typename
-                      isbn
                       title
                       year
                     }
@@ -261,9 +238,9 @@ describe('buildQueryPlan', () => {
                   {
                     ... on Book {
                       __typename
-                      isbn
                       title
                       year
+                      isbn
                     }
                   } =>
                   {
@@ -285,8 +262,6 @@ describe('buildQueryPlan', () => {
                   } =>
                   {
                     ... on Book {
-                      __typename
-                      isbn
                       title
                       year
                     }
@@ -298,9 +273,9 @@ describe('buildQueryPlan', () => {
                   {
                     ... on Book {
                       __typename
-                      isbn
                       title
                       year
+                      isbn
                     }
                   } =>
                   {
@@ -331,14 +306,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -373,14 +341,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -406,7 +367,9 @@ describe('buildQueryPlan', () => {
       const operationString = `#graphql
         query {
           me {
-            name
+            name {
+              first
+            }
             reviews {
               body
             }
@@ -414,14 +377,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -429,9 +385,11 @@ describe('buildQueryPlan', () => {
             Fetch(service: "accounts") {
               {
                 me {
-                  name
                   __typename
                   id
+                  name {
+                    first
+                  }
                 }
               }
             },
@@ -469,14 +427,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const operationDocument = gql(operationString);
-
-        const queryPlan = queryPlanner.buildQueryPlan(
-          buildOperationContext({
-            schema,
-            operationDocument,
-          })
-        );
+        const queryPlan = buildPlan(operationString);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -525,14 +476,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -576,20 +520,15 @@ describe('buildQueryPlan', () => {
           topReviews {
             body
             author {
-              name
+              name {
+                first
+              }
             }
           }
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -615,7 +554,9 @@ describe('buildQueryPlan', () => {
                 } =>
                 {
                   ... on User {
-                    name
+                    name {
+                      first
+                    }
                   }
                 }
               },
@@ -635,14 +576,7 @@ describe('buildQueryPlan', () => {
           }
         `;
 
-        const operationDocument = gql(operationString);
-
-        const queryPlan = queryPlanner.buildQueryPlan(
-          buildOperationContext({
-            schema,
-            operationDocument,
-          })
-        );
+        const queryPlan = buildPlan(operationString);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -684,20 +618,15 @@ describe('buildQueryPlan', () => {
           query {
             topReviews {
               author {
-                name
+                name {
+                  first
+                }
               }
             }
           }
         `;
 
-        const operationDocument = gql(operationString);
-
-        const queryPlan = queryPlanner.buildQueryPlan(
-          buildOperationContext({
-            schema,
-            operationDocument,
-          })
-        );
+        const queryPlan = buildPlan(operationString);
 
         expect(queryPlan).toMatchInlineSnapshot(`
           QueryPlan {
@@ -722,7 +651,9 @@ describe('buildQueryPlan', () => {
                   } =>
                   {
                     ... on User {
-                      name
+                      name {
+                        first
+                      }
                     }
                   }
                 },
@@ -745,14 +676,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -801,14 +725,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -816,12 +733,7 @@ describe('buildQueryPlan', () => {
             {
               topProducts {
                 __typename
-                ... on Book {
-                  price
-                }
-                ... on Furniture {
-                  price
-                }
+                price
               }
             }
           },
@@ -848,14 +760,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -895,14 +800,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -923,7 +821,7 @@ describe('buildQueryPlan', () => {
             `);
     });
 
-    it(`should preserve type conditions for value types`, () => {
+    it(`eliminate unecessary type conditions`, () => {
       const operationString = `#graphql
         query {
           body {
@@ -936,14 +834,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -952,9 +843,7 @@ describe('buildQueryPlan', () => {
                       body {
                         __typename
                         ... on Image {
-                          ... on NamedObject {
-                            name
-                          }
+                          name
                         }
                       }
                     }
@@ -965,7 +854,7 @@ describe('buildQueryPlan', () => {
 
     it(`should preserve directives on inline fragments even if the fragment is otherwise useless`, () => {
       const operationString = `#graphql
-        query myQuery($b: Boolean) {
+        query myQuery($b: Boolean!) {
           body {
             ... on Image {
               ... on NamedObject @include(if: $b) {
@@ -976,14 +865,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
                 QueryPlan {
@@ -1019,14 +901,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1035,13 +910,12 @@ describe('buildQueryPlan', () => {
             {
               topProducts {
                 __typename
+                price
                 ... on Book {
-                  price
                   __typename
                   isbn
                 }
                 ... on Furniture {
-                  price
                   __typename
                   upc
                 }
@@ -1093,14 +967,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1137,7 +1004,7 @@ describe('buildQueryPlan', () => {
     `);
   });
 
-  it(`interface inside interface should expand into possible types only`, () => {
+  it(`interface inside interface should not type explode if possible`, () => {
     const operationString = `#graphql
       query {
         product(upc: "") {
@@ -1148,14 +1015,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1163,357 +1023,15 @@ describe('buildQueryPlan', () => {
           {
             product(upc: "") {
               __typename
-              ... on Book {
-                details {
-                  country
-                }
-              }
-              ... on Furniture {
-                details {
-                  country
-                }
+              details {
+                __typename
+                country
               }
             }
           }
         },
       }
     `);
-  });
-
-  describe(`experimental compression to downstream services`, () => {
-    it(`should generate fragments internally to downstream requests`, () => {
-      const operationString = `#graphql
-        query {
-          topReviews {
-            body
-            author
-            product {
-              name
-              price
-              details {
-                country
-              }
-            }
-          }
-        }
-      `;
-
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        }),
-        { autoFragmentization: true },
-      );
-
-      expect(queryPlan).toMatchInlineSnapshot(`
-        QueryPlan {
-          Sequence {
-            Fetch(service: "reviews") {
-              {
-                topReviews {
-                  ...__QueryPlanFragment_1__
-                }
-              }
-              
-              fragment __QueryPlanFragment_1__ on Review {
-                body
-                author
-                product {
-                  ...__QueryPlanFragment_0__
-                }
-              }
-              
-              fragment __QueryPlanFragment_0__ on Product {
-                __typename
-                ... on Book {
-                  __typename
-                  isbn
-                }
-                ... on Furniture {
-                  __typename
-                  upc
-                }
-              }
-            },
-            Parallel {
-              Sequence {
-                Flatten(path: "topReviews.@.product") {
-                  Fetch(service: "books") {
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                      }
-                    } =>
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                        title
-                        year
-                      }
-                    }
-                  },
-                },
-                Flatten(path: "topReviews.@.product") {
-                  Fetch(service: "product") {
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                        title
-                        year
-                      }
-                    } =>
-                    {
-                      ... on Book {
-                        name
-                      }
-                    }
-                  },
-                },
-              },
-              Flatten(path: "topReviews.@.product") {
-                Fetch(service: "product") {
-                  {
-                    ... on Furniture {
-                      __typename
-                      upc
-                    }
-                    ... on Book {
-                      __typename
-                      isbn
-                    }
-                  } =>
-                  {
-                    ... on Furniture {
-                      name
-                      price
-                      details {
-                        country
-                      }
-                    }
-                    ... on Book {
-                      price
-                      details {
-                        country
-                      }
-                    }
-                  }
-                },
-              },
-            },
-          },
-        }
-      `);
-    });
-
-    it(`shouldn't generate fragments for selection sets of length 2 or less`, () => {
-      const operationString = `#graphql
-        query {
-          topReviews {
-            body
-            author
-          }
-        }
-      `;
-
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        }),
-        { autoFragmentization: true },
-      );
-
-      expect(queryPlan).toMatchInlineSnapshot(`
-        QueryPlan {
-          Fetch(service: "reviews") {
-            {
-              topReviews {
-                body
-                author
-              }
-            }
-          },
-        }
-      `);
-    });
-
-    it(`should generate fragments for selection sets of length 3 or greater`, () => {
-      const operationString = `#graphql
-        query {
-          topReviews {
-            id
-            body
-            author
-          }
-        }
-      `;
-
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        }),
-        { autoFragmentization: true },
-      );
-
-      expect(queryPlan).toMatchInlineSnapshot(`
-        QueryPlan {
-          Fetch(service: "reviews") {
-            {
-              topReviews {
-                ...__QueryPlanFragment_0__
-              }
-            }
-            
-            fragment __QueryPlanFragment_0__ on Review {
-              id
-              body
-              author
-            }
-          },
-        }
-      `);
-    });
-
-    it(`should generate fragments correctly when aliases are used`, () => {
-      const operationString = `#graphql
-        query {
-          reviews: topReviews {
-            content: body
-            author
-            product {
-              name
-              cost: price
-              details {
-                origin: country
-              }
-            }
-          }
-        }
-      `;
-
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        }),
-        { autoFragmentization: true },
-      );
-
-      expect(queryPlan).toMatchInlineSnapshot(`
-        QueryPlan {
-          Sequence {
-            Fetch(service: "reviews") {
-              {
-                reviews: topReviews {
-                  ...__QueryPlanFragment_1__
-                }
-              }
-              
-              fragment __QueryPlanFragment_1__ on Review {
-                content: body
-                author
-                product {
-                  ...__QueryPlanFragment_0__
-                }
-              }
-              
-              fragment __QueryPlanFragment_0__ on Product {
-                __typename
-                ... on Book {
-                  __typename
-                  isbn
-                }
-                ... on Furniture {
-                  __typename
-                  upc
-                }
-              }
-            },
-            Parallel {
-              Sequence {
-                Flatten(path: "reviews.@.product") {
-                  Fetch(service: "books") {
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                      }
-                    } =>
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                        title
-                        year
-                      }
-                    }
-                  },
-                },
-                Flatten(path: "reviews.@.product") {
-                  Fetch(service: "product") {
-                    {
-                      ... on Book {
-                        __typename
-                        isbn
-                        title
-                        year
-                      }
-                    } =>
-                    {
-                      ... on Book {
-                        name
-                      }
-                    }
-                  },
-                },
-              },
-              Flatten(path: "reviews.@.product") {
-                Fetch(service: "product") {
-                  {
-                    ... on Furniture {
-                      __typename
-                      upc
-                    }
-                    ... on Book {
-                      __typename
-                      isbn
-                    }
-                  } =>
-                  {
-                    ... on Furniture {
-                      name
-                      cost: price
-                      details {
-                        origin: country
-                      }
-                    }
-                    ... on Book {
-                      cost: price
-                      details {
-                        origin: country
-                      }
-                    }
-                  }
-                },
-              },
-            },
-          },
-        }
-      `);
-    });
   });
 
   it(`should properly expand nested unions with inline fragments`, () => {
@@ -1544,14 +1062,7 @@ describe('buildQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const queryPlan = queryPlanner.buildQueryPlan(
-      buildOperationContext({
-        schema,
-        operationDocument,
-      })
-    );
+    const queryPlan = buildPlan(operationString);
 
     expect(queryPlan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -1581,13 +1092,6 @@ describe('buildQueryPlan', () => {
       const operationString = `#graphql
         query {
           body {
-            ... on Image {
-              ... on Text {
-                attributes {
-                  bold
-                }
-              }
-            }
             ... on Body {
               ... on Text {
                 attributes {
@@ -1606,14 +1110,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -1645,9 +1142,6 @@ describe('buildQueryPlan', () => {
 
         query {
           body {
-            ... on Image {
-              ...TextFragment
-            }
             ... on Body {
               ...TextFragment
             }
@@ -1656,14 +1150,7 @@ describe('buildQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const queryPlan = queryPlanner.buildQueryPlan(
-        buildOperationContext({
-          schema,
-          operationDocument,
-        })
-      );
+      const queryPlan = buildPlan(operationString);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {

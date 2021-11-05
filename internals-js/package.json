@@ -1,0 +1,40 @@
+{
+  "name": "@apollo/federation-internals",
+  "version": "2.0.0-alpha.1",
+  "description": "Apollo Federation internal utilities",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollographql/federation.git",
+    "directory": "internals-js/"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [
+    "graphql",
+    "federation",
+    "apollo"
+  ],
+  "author": "Apollo <packages@apollographql.com>",
+  "license": "SEE LICENSE IN ./LICENSE",
+  "engines": {
+    "node": ">=12.13.0 <17.0"
+  },
+  "dependencies": {
+    "@apollo/core-schema": "^0.1.0",
+    "@types/jest": "^27.0.0",
+    "chalk": "^4.1.0",
+    "js-levenshtein": "^1.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "graphql": "^14.5.0 || ^15.0.0"
+  },
+  "devDependencies": {
+    "@types/js-levenshtein": "1.1.0"
+  }
+}

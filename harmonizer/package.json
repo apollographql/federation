@@ -1,7 +1,7 @@
 {
   "name": "@apollo/harmonizer",
   "private": true,
-  "version": "0.33.4",
+  "version": "2.0.0-alpha.1",
   "description": "Apollo Federation Harmonizer JS Entrypoint",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,12 +15,12 @@
     "directory": "harmonizer-js/"
   },
   "author": "Apollo <packages@apollographql.com>",
-  "license": "MIT",
+  "license": "SEE LICENSE IN ./LICENSE",
   "engines": {
     "node": ">=12.13.0 <17.0"
   },
   "dependencies": {
-    "@apollo/federation": "file:../federation-js",
+    "@apollo/composition": "file:../composition-js",
     "fast-text-encoding": "^1.0.3",
     "whatwg-url": "^11.0.0"
   },

@@ -1,0 +1,214 @@
+---
+title: Federated ownership directives
+sidebar_title: 🔜 Ownership directives
+---
+
+import { CodeColumns } from 'gatsby-theme-apollo-docs';
+
+> ⚠️ **Important:** This article describes directives that are _not yet supported_ in this alpha release of Apollo Federation 2. They are documented here to provide clarity into planned capabilities of the eventual full release.
+
+In a federated graph, types and fields can [cross subgraph boundaries](./types-fields/), appearing in more than one subgraph schema:
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+type Position {
+  x: Int!
+  y: Int!
+}
+```
+
+```graphql
+# Subgraph B
+type Position {
+  x: Int
+  y: Int
+  z: Int
+}
+```
+
+</CodeColumns>
+
+Sometimes this is undesirable, and you want one particular subgraph to "own" a particular type or field. Federation 2 will support directives to enforce different forms of ownership:
+
+| Directive | Applied to | Description |
+|-----------|------------|-------------|
+| [`@final`](#final) | Fields | The field must be defined _and_ resolved by exactly one subgraph. |
+| [`@override`](#override) | Fields | The field must be _resolved_ by exactly one subgraph (it can be _defined_ by many). |
+| [`@shared`](#shared) | Fields | Removes the default `@final` behavior of certain fields. |
+| [`@inaccessible`](#inaccessible) | Both | The field or type is omitted from the API schema entirely. |
+| [`@entity`](#entity) | Types | The type is designated an [entity](../entities/) and all of its fields are considered `@final` by default. |
+| [`@canonical`](#canonical) | Types | The type must be defined identically in every subgraph that defines it. |
+
+## `@final`
+
+If a field should only be defined _and_ resolved by a single subgraph, you can apply the `@final` directive to that field:
+
+<p style="margin-bottom: 0">❌</p>
+
+<CodeColumns>
+
+```graphql{3}
+# Subgraph A
+type Dog {
+  breed: String! @final
+}
+```
+
+```graphql{3}
+# Subgraph B
+type Dog {
+  breed: String! # Can't define!
+}
+```
+
+</CodeColumns>
+
+In this example, only Subgraph A can define the `Dog.breed` field. If another subgraph attempts to define it, composition fails. This is true even if another subgraph applies the the [`@override` directive](#override) to the field.
+
+To migrate a `@final` field to another subgraph, you must first remove its `@final` directive.
+
+## `@override`
+
+If a field is defined in multiple subgraphs, you can use the `@override` directive to require that the field is always _resolved_ by a _particular_ subgraph:
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+type Dog {
+  breed: String!
+}
+```
+
+```graphql{3}
+# Subgraph B
+type Dog {
+  breed: String! @override
+}
+```
+
+</CodeColumns>
+
+In this example, only Subgraph B's definition of `Dog.breed` is used by your gateway's query planner, and the field is never resolved by Subgraph A.
+
+**This can break composition!** If Subgraph A supports a query that returns a `Dog` and Subgraph B _doesn't_ support that query, there is now no way for that query to return `Dog.breed`.
+
+Only one subgraph can `@override` a particular field. Otherwise, composition fails.
+
+> The `@override` directive is especially helpful when you're migrating a field from one subgraph to another.
+
+
+
+## `@shared`
+
+Certain fields in a subgraph schema are considered [`@final`](#final) _by default_. These include:
+
+* Fields of the root `Query` and `Mutation` types
+* Fields of [entities](../entities/)
+
+Because these fields are considered `@final`, other subgraphs can't define or resolve them. You can override this default behavior by adding the `@shared` directive to every subgraph that defines a field:
+
+<CodeColumns>
+
+```graphql{3}
+# Subgraph A
+type Query {
+  books: [Book!]! @shared
+}
+```
+
+```graphql{3}
+# Subgraph B
+type Query {
+  books: [Book] @shared
+  movies: [Movie!]!
+}
+```
+
+</CodeColumns>
+
+In this example, both Subgraph A and Subgraph B can resolve `Query.books`. They can even define different return types if those return types are [compatible](types-fields/#inconsistent-field-return-types).
+
+> The `@shared` directive does _not_ override an explicit use of the `@final` directive. It only overrides the behavior of fields that are considered `@final` by default.
+
+## `@inaccessible`
+
+If a field in your subgraph schema shouldn't appear in your gateway's API schema _at all_, you can apply the `@inaccessible` directive to that field:
+
+<CodeColumns>
+
+```graphql{4}
+# Subgraph A
+type Dog {
+  breed: String!
+  name: String! @inaccessible
+}
+```
+
+<></>
+
+</CodeColumns>
+
+**This can break composition if another subgraph defines the same field.** If Subgraph A supports a query that returns a `Dog` and Subgraph B defines `Dog.name`, `Dog.name` can't be resolved unless Subgraph B _also_ supports that query.
+
+> An `@inaccessible` field still appears in your _supergraph_ schema, so your gateway can still use it for internal routing purposes. _Clients_ cannot include the field in operations.
+
+## `@entity`
+
+You use the `@entity` directive to indicate that an object type is an entity ([learn about entities](../entities/)).
+
+All of an entity's fields are considered [`@final`](#final) by default. You can override this behavior with the [`@shared`](#shared) directive.
+
+## `@canonical`
+
+If an object type is defined in multiple subgraphs, you can use the `@canonical` directive to require that it is defined **identically** in each of those subgraphs:
+
+<p style="margin-bottom: 0">❌</p>
+
+<CodeColumns>
+
+```graphql{4}
+# Subgraph A
+type Dog @canonical {
+  breed: String!
+  name: String!
+}
+```
+
+```graphql{4}
+# Subgraph B
+type Dog {
+  breed: String!
+  # Missing name!
+}
+```
+
+</CodeColumns>
+
+In this example, Subgraph A's definition of `Dog` is `@canonical`, and Subgraph B's definition is missing the `name` field. This breaks composition.
+
+Subgraph B _can_ omit the `name` field if Subgraph A defines a [`@default` value](./composition/#set-a-default-value-for-the-field-coming-soon) for it:
+
+<p style="margin-bottom: 0">✅</p>
+
+<CodeColumns>
+
+```graphql{4}
+# Subgraph A
+type Dog @canonical {
+  breed: String!
+  name: String! @default(value: "Rover")
+}
+```
+
+```graphql{4}
+# Subgraph B
+type Dog {
+  breed: String!
+  # Missing name OK
+}
+```
+
+</CodeColumns>

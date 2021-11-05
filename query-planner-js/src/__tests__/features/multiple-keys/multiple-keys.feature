@@ -43,7 +43,7 @@ Feature: Query Planning > Multiple keys
                   }
                 ],
                 "variableUsages": [],
-                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name __typename ssn}}}"
+                "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{ssn name}}}"
               }
             },
             {

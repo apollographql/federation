@@ -55,7 +55,7 @@ Scenario: supports inline fragments (multi level)
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
-          "operation": "{me{username __typename id}}"
+          "operation": "{me{__typename id username}}"
         },
         {
           "kind": "Flatten",
@@ -158,7 +158,9 @@ Scenario: supports multiple named fragments (one level, mixed ordering)
   Given query
   """
   fragment userInfo on User {
-    name
+    name {
+      first
+    }
   }
   query GetUser {
     me {
@@ -179,7 +181,7 @@ Scenario: supports multiple named fragments (one level, mixed ordering)
       "kind": "Fetch",
       "serviceName": "accounts",
       "variableUsages": [],
-      "operation": "{me{username name}}"
+      "operation": "{me{username name{first}}}"
     }
   }
   """
@@ -214,7 +216,7 @@ Scenario: supports multiple named fragments (multi level, mixed ordering)
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
-          "operation": "{me{username __typename id}}"
+          "operation": "{me{__typename id username}}"
         },
         {
           "kind": "Flatten",
@@ -269,7 +271,7 @@ Scenario: supports variables within fragments
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
-          "operation": "{me{username __typename id}}"
+          "operation": "{me{__typename id username}}"
         },
         {
           "kind": "Flatten",
@@ -334,12 +336,12 @@ Scenario: supports directives on inline fragments (https://github.com/apollograp
         }
       }
       ... on Van {
-        price @fieldDirective
+        price @stream
       }
     }
   }
   """
   Then query plan
   """
-  {"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"product","variableUsages":[],"operation":"{vehicle(id:\"rav4\"){__typename ...on Car@fragmentDirective{price thing{__typename ...on Ikea{asile}}}...on Van{price@fieldDirective}}}"}}
+  {"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"product","variableUsages":[],"operation":"{vehicle(id:\"rav4\"){__typename ...on Car@fragmentDirective{price thing{__typename ...on Ikea{asile}}}...on Van{price@stream}}}"}}
   """

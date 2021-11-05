@@ -73,13 +73,12 @@ pub fn harmonize(
     runtime.register_op(
         "op_composition_result",
         op_sync(move |_state, value, _zero_copy| {
-            let js_composition_result: Result<String, Vec<CompositionError>> =
+            let js_composition_result: Result<CompositionOutput, Vec<CompositionError>> =
                 serde_json::from_value(value)
                     .expect("could not deserialize composition result from JS.");
 
             tx.send(
                 js_composition_result
-                    .map(|supergraph_sdl| CompositionOutput { supergraph_sdl })
                     .map_err(|errs| errs.iter().map(|err| err.clone().into()).collect()),
             )
             .expect("channel must be open");
@@ -121,7 +120,7 @@ node_fetch_1 = {};
 // particular, to determine whether or not we are running in a debug
 // mode.  For the purposes of harmonizer, we don't gain anything from
 // running in such a mode.
-process = { env: { "NODE_ENV": "production" }};
+process = { env: { "NODE_ENV": "production" }, argv: [] };
 // Some JS runtime implementation specific bits that we rely on that
 // need to be initialized as empty objects.
 global = {};
@@ -194,7 +193,8 @@ mod tests {
               name: String
             }
 
-            extend type User {
+            type User @key(fields: \"id\") {
+              id: ID
               favorites: [Movie!]
             }
 

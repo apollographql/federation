@@ -39,17 +39,15 @@ it('handles an abstract type from the base service', async () => {
           {
             product(upc: $upc) {
               __typename
+              upc
               ... on Book {
-                upc
                 __typename
                 isbn
-                price
               }
               ... on Furniture {
-                upc
                 name
-                price
               }
+              price
             }
           }
         },
@@ -63,8 +61,6 @@ it('handles an abstract type from the base service', async () => {
             } =>
             {
               ... on Book {
-                __typename
-                isbn
                 title
                 year
               }
@@ -76,9 +72,9 @@ it('handles an abstract type from the base service', async () => {
             {
               ... on Book {
                 __typename
-                isbn
                 title
                 year
+                isbn
               }
             } =>
             {
@@ -368,6 +364,21 @@ it('fetches interfaces returned from other services', async () => {
         },
         Parallel {
           Flatten(path: "me.reviews.@.product") {
+            Fetch(service: "books") {
+              {
+                ... on Book {
+                  __typename
+                  isbn
+                }
+              } =>
+              {
+                ... on Book {
+                  title
+                }
+              }
+            },
+          },
+          Flatten(path: "me.reviews.@.product") {
             Fetch(service: "product") {
               {
                 ... on Book {
@@ -385,21 +396,6 @@ it('fetches interfaces returned from other services', async () => {
                 }
                 ... on Furniture {
                   price
-                }
-              }
-            },
-          },
-          Flatten(path: "me.reviews.@.product") {
-            Fetch(service: "books") {
-              {
-                ... on Book {
-                  __typename
-                  isbn
-                }
-              } =>
-              {
-                ... on Book {
-                  title
                 }
               }
             },
@@ -515,8 +511,6 @@ it('fetches composite fields from a foreign type casted to an interface [@provid
                 } =>
                 {
                   ... on Book {
-                    __typename
-                    isbn
                     title
                     year
                   }
@@ -528,9 +522,9 @@ it('fetches composite fields from a foreign type casted to an interface [@provid
                 {
                   ... on Book {
                     __typename
-                    isbn
                     title
                     year
+                    isbn
                   }
                 } =>
                 {
@@ -943,29 +937,23 @@ describe("doesn't result in duplicate fetches", () => {
             {
               topProducts {
                 __typename
+                name
+                price
                 ... on Book {
-                  name
-                  price
                   __typename
                   isbn
                 }
+                ... on TV {
+                  __typename
+                  id
+                }
                 ... on Computer {
-                  name
-                  price
                   __typename
                   id
                 }
                 ... on Furniture {
-                  name
-                  price
                   __typename
                   sku
-                }
-                ... on TV {
-                  name
-                  price
-                  __typename
-                  id
                 }
               }
             }
@@ -977,6 +965,10 @@ describe("doesn't result in duplicate fetches", () => {
                   __typename
                   isbn
                 }
+                ... on TV {
+                  __typename
+                  id
+                }
                 ... on Computer {
                   __typename
                   id
@@ -984,10 +976,6 @@ describe("doesn't result in duplicate fetches", () => {
                 ... on Furniture {
                   __typename
                   sku
-                }
-                ... on TV {
-                  __typename
-                  id
                 }
               } =>
               {
@@ -1002,6 +990,17 @@ describe("doesn't result in duplicate fetches", () => {
                     id
                   }
                 }
+                ... on TV {
+                  reviews {
+                    author {
+                      __typename
+                      id
+                      username
+                    }
+                    body
+                    id
+                  }
+                }
                 ... on Computer {
                   reviews {
                     author {
@@ -1014,17 +1013,6 @@ describe("doesn't result in duplicate fetches", () => {
                   }
                 }
                 ... on Furniture {
-                  reviews {
-                    author {
-                      __typename
-                      id
-                      username
-                    }
-                    body
-                    id
-                  }
-                }
-                ... on TV {
                   reviews {
                     author {
                       __typename
@@ -1186,16 +1174,16 @@ it("when including the same nested fields under different type conditions", asyn
               topProducts {
                 __typename
                 ... on Book {
-                  name
-                  price
                   __typename
                   isbn
-                }
-                ... on TV {
                   name
                   price
+                }
+                ... on TV {
                   __typename
                   id
+                  name
+                  price
                 }
               }
             }
@@ -1395,16 +1383,16 @@ it('when including multiple nested fields to the same service under different ty
               topProducts {
                 __typename
                 ... on Book {
-                  name
-                  price
                   __typename
                   isbn
-                }
-                ... on TV {
                   name
                   price
+                }
+                ... on TV {
                   __typename
                   id
+                  name
+                  price
                 }
               }
             }
@@ -1788,16 +1776,16 @@ it("when including the same nested fields under different type conditions that a
               topProducts {
                 __typename
                 ... on Book {
-                  name
-                  price
                   __typename
                   isbn
-                }
-                ... on TV {
                   name
                   price
+                }
+                ... on TV {
                   __typename
                   id
+                  name
+                  price
                 }
               }
             }

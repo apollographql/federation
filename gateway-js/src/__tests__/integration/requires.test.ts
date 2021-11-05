@@ -140,8 +140,8 @@ it('collapses nested requires', async () => {
               id
               preferences {
                 favorites {
-                  color
                   animal
+                  color
                 }
               }
             }
@@ -155,8 +155,8 @@ it('collapses nested requires', async () => {
                 id
                 preferences {
                   favorites {
-                    color
                     animal
+                    color
                   }
                 }
               }

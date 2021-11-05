@@ -5,23 +5,22 @@ import {
 } from 'apollo-graphql';
 import { GraphQLRequest, GraphQLExecutionResult, Logger } from 'apollo-server-types';
 import {
-  composeAndValidate,
   ServiceDefinition,
-  compositionHasErrors,
 } from '@apollo/federation';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import {
   executeQueryPlan,
   buildOperationContext,
 } from '@apollo/gateway';
-import { buildComposedSchema, QueryPlanner, QueryPlan } from '@apollo/query-planner';
+import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from 'apollo-utilities';
 
 import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { parse } from 'graphql';
+import { composeServices } from '@apollo/composition';
+import { buildSchema, operationFromDocument } from '@apollo/federation-internals';
 
 const prettyFormat = require('pretty-format');
 
@@ -56,12 +55,14 @@ export async function execute(
 
   const { schema, queryPlanner } = getFederatedTestingSchema(services);
 
-  const operationContext = buildOperationContext({
-    schema,
-    operationDocument: gql`${request.query}`,
-  });
+  const operationDocument = gql`${request.query}`;
+  const operation = operationFromDocument(schema, operationDocument);
+  const queryPlan = queryPlanner.buildQueryPlan(operation);
 
-  const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+  const operationContext = buildOperationContext({
+    schema: schema.toAPISchema().toGraphQLJSSchema(),
+    operationDocument,
+  });
 
   const result = await executeQueryPlan(
     queryPlan,
@@ -85,32 +86,29 @@ export function buildLocalService(modules: GraphQLSchemaModule[]) {
 }
 
 export function getFederatedTestingSchema(services: ServiceDefinitionModule[] = fixtures) {
+  const compositionResult = composeServices(services);
+  if (compositionResult.errors) {
+    throw new GraphQLSchemaValidationError(compositionResult.errors);
+  }
+
+  const queryPlanner = new QueryPlanner(compositionResult.schema);
+  const schema = buildSchema(compositionResult.supergraphSdl);
+
   const serviceMap = Object.fromEntries(
     services.map((service) => [
       service.name,
       buildLocalService([service]),
     ]),
   );
-
-  const compositionResult = composeAndValidate(services);
-
-  if (compositionHasErrors(compositionResult)) {
-    throw new GraphQLSchemaValidationError(compositionResult.errors);
-  }
-
-  const schema = buildComposedSchema(parse(compositionResult.supergraphSdl))
-
-  const queryPlanner = new QueryPlanner(schema);
-
   return { serviceMap, schema, queryPlanner };
 }
 
 export function getTestingSupergraphSdl(services: typeof fixtures = fixtures) {
-  const compositionResult = composeAndValidate(services);
-  if (!compositionHasErrors(compositionResult)) {
+  const compositionResult = composeServices(services);
+  if (!compositionResult.errors) {
     return compositionResult.supergraphSdl;
   }
-  throw new Error("Testing fixtures don't compose properly!");
+  throw new Error(`Testing fixtures don't compose properly!\nCauses:\n${compositionResult.errors.join('\n\n')}`);
 }
 
 export function wait(ms: number) {

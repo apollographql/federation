@@ -1,13 +1,13 @@
 [package]
 name = "router-bridge"
 version = "0.1.0"
-authors = ["Apollo Graph, Inc. <packages@apollographql.com>"]
+authors = ["Apollo <packages@apollographql.com>"]
 edition = "2018"
 description = "JavaScript bridge for the Apollo Router"
 homepage = "https://www.apollographql.com/apollo-federation/"
 documentation = "https://apollographql.com/docs/federation/"
 repository = "https://github.com/apollographql/federation/"
-license = "MIT"
+license-file = "./LICENSE"
 readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

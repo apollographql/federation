@@ -6,6 +6,10 @@
 
 - _Nothing yet. Stay tuned._
 
+## v2.0.0-alpha.1
+
+- :tada: Initial alpha release of Federation 2.0.  For more information, see our [documentation](https://www.apollographql.com/docs/federation/v2/).  We look forward to your feedback!
+
 ## v0.33.4
 
 - Updates to transitive dependencies.  No other substantial changes.

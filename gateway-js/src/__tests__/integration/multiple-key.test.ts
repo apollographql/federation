@@ -192,9 +192,8 @@ it('fetches data correctly with multiple @key fields', async () => {
             } =>
             {
               ... on User {
-                name
-                __typename
                 ssn
+                name
               }
             }
           },
@@ -283,27 +282,12 @@ it('fetches keys as needed to reduce round trip queries', async () => {
               {
                 users {
                   __typename
-                  ssn
                   id
+                  ssn
                 }
               }
             },
             Parallel {
-              Flatten(path: "users.@") {
-                Fetch(service: "actuary") {
-                  {
-                    ... on User {
-                      __typename
-                      ssn
-                    }
-                  } =>
-                  {
-                    ... on User {
-                      risk
-                    }
-                  }
-                },
-              },
               Flatten(path: "users.@") {
                 Fetch(service: "reviews") {
                   {
@@ -317,6 +301,21 @@ it('fetches keys as needed to reduce round trip queries', async () => {
                       reviews {
                         body
                       }
+                    }
+                  }
+                },
+              },
+              Flatten(path: "users.@") {
+                Fetch(service: "actuary") {
+                  {
+                    ... on User {
+                      __typename
+                      ssn
+                    }
+                  } =>
+                  {
+                    ... on User {
+                      risk
                     }
                   }
                 },

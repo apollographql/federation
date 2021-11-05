@@ -1,7 +1,7 @@
 /**
  * This updates the Cargo.toml and Cargo.lock files for
  * the `harmonizer` package.
-*/
+ */
 // @ts-check
 const { writeFileSync, readFileSync } = require('fs');
 const { resolve } = require('path');
@@ -16,7 +16,7 @@ const TOML = require('@iarna/toml');
 // Parse and update Cargo.toml with the new version #.
 const cargoFilePath = resolve(cwd, 'Cargo.toml');
 const cargoFileContents = TOML.parse(readFileSync(cargoFilePath, 'utf8'));
-cargoFileContents.package["version"] = version;
+cargoFileContents.package['version'] = version;
 writeFileSync(cargoFilePath, TOML.stringify(cargoFileContents));
 
 // Calling `cargo build` auto-updates the root Cargo.lock file.

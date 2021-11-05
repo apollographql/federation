@@ -57,12 +57,13 @@ describe('value types', () => {
             {
               topProducts(first: 10) {
                 __typename
+                upc
                 ... on Book {
-                  upc
                   __typename
                   isbn
                 }
                 ... on Furniture {
+                  __typename
                   upc
                   metadata {
                     __typename
@@ -75,37 +76,11 @@ describe('value types', () => {
                       message
                     }
                   }
-                  __typename
                 }
               }
             }
           },
           Parallel {
-            Flatten(path: "topProducts.@") {
-              Fetch(service: "books") {
-                {
-                  ... on Book {
-                    __typename
-                    isbn
-                  }
-                } =>
-                {
-                  ... on Book {
-                    metadata {
-                      __typename
-                      ... on KeyValue {
-                        key
-                        value
-                      }
-                      ... on Error {
-                        code
-                        message
-                      }
-                    }
-                  }
-                }
-              },
-            },
             Flatten(path: "topProducts.@") {
               Fetch(service: "reviews") {
                 {
@@ -146,6 +121,31 @@ describe('value types', () => {
                           code
                           message
                         }
+                      }
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "topProducts.@") {
+              Fetch(service: "books") {
+                {
+                  ... on Book {
+                    __typename
+                    isbn
+                  }
+                } =>
+                {
+                  ... on Book {
+                    metadata {
+                      __typename
+                      ... on KeyValue {
+                        key
+                        value
+                      }
+                      ... on Error {
+                        code
+                        message
                       }
                     }
                   }
@@ -202,7 +202,7 @@ describe('value types', () => {
 
         type ValueType {
           id: ID!
-          user: User! @provides(fields: "id name")
+          user: User! @provides(fields: "name")
         }
 
         extend type User @key(fields: "id") {
@@ -228,7 +228,7 @@ describe('value types', () => {
 
         type ValueType {
           id: ID!
-          user: User! @provides(fields: "id name")
+          user: User! @provides(fields: "name")
         }
 
         extend type User @key(fields: "id") {
@@ -326,9 +326,9 @@ describe('value types', () => {
                 valueType {
                   id
                   user {
+                    __typename
                     id
                     name
-                    __typename
                   }
                 }
               }
@@ -355,9 +355,9 @@ describe('value types', () => {
                 otherValueType {
                   id
                   user {
+                    __typename
                     id
                     name
-                    __typename
                   }
                 }
               }

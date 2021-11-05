@@ -18,6 +18,8 @@ directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
 directive @stream on FIELD
 
+directive @fragmentDirective on INLINE_FRAGMENT
+
 directive @transform(from: String!) on FIELD
 
 type Account {

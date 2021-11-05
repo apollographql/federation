@@ -28,7 +28,7 @@ If you haven't yet, complete the first two steps from the Apollo Studio getting 
 
 > This section assumes you are using Apollo Server with the `@apollo/gateway` library as your gateway.
 
-If you've already set up Apollo Federation _without_ Apollo Studio, the constructor of your `ApolloGateway` instance probably includes a `supergraphSdl` or `serviceList` option, like this:
+If you've already set up Apollo Federation _without_ Apollo Studio, the constructor of your `ApolloGateway` instance probably includes a `supergraphSdl`, like this:
 
 ```js{2}
 const gateway = new ApolloGateway({
@@ -36,11 +36,11 @@ const gateway = new ApolloGateway({
 });
 ```
 
-These two options are specific to _non_-managed federation, in which supergraph schema composition is performed via the Rover CLI (`supergraphSdl`), or in the gateway itself (`serviceList`).
+This option is specific to _non_-managed federation, in which supergraph schema composition is performed via the Rover CLI.
 
 With managed federation, composition is instead performed by _Apollo_, and the gateway regularly polls Apollo for an updated schema. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your gateway.
 
-Remove the `supergraphSdl` or `serviceList` argument from your `ApolloGateway` constructor entirely:
+Remove the `supergraphSdl` argument from your `ApolloGateway` constructor entirely:
 
 ```js
 const gateway = new ApolloGateway();
@@ -58,7 +58,7 @@ APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://uplink.api.apollographql.com/
 
 ## 4. Connect the gateway to Studio
 
-Like your subgraphs, your gateway uses an API key to identify itself to Studio.
+Like your subgraphs, your gateway uses a graph API key to identify itself to Studio.
 
 <ObtainGraphApiKey />
 
@@ -71,7 +71,7 @@ APOLLO_GRAPH_REF=<YOUR_GRAPH_ID>@<VARIANT>
 
 You can also set this value directly in the command you use to start your gateway.
 
-The third environment variable, `APOLLO_GRAPH_REF`, tells the gateway which graph to use and with which variant. You would supply your graph id and the variant you want to use (for example, `current`). You can always find a a graph's ref at the top of its Schema Reference page in Studio.
+The `APOLLO_GRAPH_REF` environment variable tells the gateway which variant of which graph to use (for example, `my-graph-id@production`). You can find your variant's graph ref at the very top of its README page in Studio.
 
 > When running your gateway in an environment where outbound traffic to the internet is restricted, consult the [directions for configuring a proxy](https://www.apollographql.com/docs/apollo-server/proxy-configuration/) within Apollo Server.
 

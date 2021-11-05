@@ -25,7 +25,6 @@ import {
   QueryPlanSelectionNode,
   QueryPlanFieldNode,
   getResponseName,
-  toAPISchema
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
@@ -93,7 +92,7 @@ export async function executeQueryPlan<TContext>(
         // the original query.
         // It is also used to allow execution of introspection queries though.
         try {
-          const schema = toAPISchema(operationContext.schema);
+          const schema = operationContext.schema;
           ({ data } = await execute({
             schema,
             document: {

@@ -1,6 +1,6 @@
 {
   "name": "@apollo/federation",
-  "version": "0.33.4",
+  "version": "2.0.0-alpha.1",
   "description": "Apollo Federation Utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,7 +15,7 @@
     "apollo"
   ],
   "author": "Apollo <packages@apollographql.com>",
-  "license": "MIT",
+  "license": "SEE LICENSE IN ./LICENSE",
   "engines": {
     "node": ">=12.13.0 <17.0"
   },

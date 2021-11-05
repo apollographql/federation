@@ -32,7 +32,9 @@ Scenario: does not load fields provided even when going to other service
     topReviews {
       author {
         username
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -48,7 +50,7 @@ Scenario: does not load fields provided even when going to other service
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": [],
-          "operation": "{topReviews{author{username __typename id}}}"
+          "operation": "{topReviews{author{__typename id username}}}"
         },
         {
           "kind": "Flatten",
@@ -67,7 +69,7 @@ Scenario: does not load fields provided even when going to other service
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}"
           }
         }
       ]

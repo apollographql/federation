@@ -186,7 +186,8 @@ mod tests {
 
     #[test]
     fn query_missing_subfields() {
-        let expected_error_message = r#"Field "reviews" of type "[Review]" must have a selection of subfields. Did you mean "reviews { ... }"?"#;
+        let expected_error_message =
+            r#"Invalid empty selection set for field "User.reviews" of non-leaf type [Review]"#;
         let result = Err::<String, _>(PlanningErrors {
             errors: vec![PlanningError {
                 message: Some(expected_error_message.to_string()),

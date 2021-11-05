@@ -1,0 +1,329 @@
+---
+title: Coming soon to Apollo Federation 2
+sidebar_title: ⏰ Coming soon
+---
+
+import { CodeColumns } from 'gatsby-theme-apollo-docs';
+
+This article describes upcoming features of Federation 2. **These updates aren't available yet in the Federation 2 alpha, and their details might change prior to release.**
+
+## Ownership directives
+
+Federation 2 uses relaxed composition rules compared to Federation 1, but sometimes you _want_ to enforce stricter rules for a particular type or field:
+
+<p style="margin-bottom: 0">❌</p>
+
+<CodeColumns>
+
+```graphql{3}
+# Subgraph A
+type Dog {
+  breed: String! @final
+}
+```
+
+```graphql{3}
+# Subgraph B
+type Dog {
+  breed: String! # Can't define!
+}
+```
+
+</CodeColumns>
+
+Federation 2 will support a collection of directives (such as `@final` shown above) that help you fine-tune exactly which subgraphs can define and/or resolve which fields.
+
+For details, see [Federated ownership directives](../federated-types/restricting-types-fields/).
+
+## Changes to `Query` and `Mutation` types
+
+_By default_ in Federation 2, each subgraph's root `Query` and `Mutation` types must define _unique fields_. This means that exactly one subgraph is responsible for resolving a particular field of one of these types:
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
+<CodeColumns>
+
+```graphql
+# Subgraph A
+type Query {
+  books: [Book!]!
+}
+```
+
+```graphql
+# Subgraph B
+type Query {
+  movies: [Movie!]!
+}
+```
+
+</CodeColumns>
+
+You'll be able to override this default restriction with the [`@shared` directive](../federated-types/restricting-types-fields/#shared):
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
+
+<CodeColumns>
+
+```graphql{3}
+# Subgraph A
+type Query {
+  books: [Book!]! @shared
+}
+```
+
+```graphql{3}
+# Subgraph B
+type Query {
+  books: [Book] @shared
+  movies: [Movie!]!
+}
+```
+
+</CodeColumns>
+
+Now, either subgraph can resolve `Query.books`. The return types of these shared fields can even vary in the same ways as [other shared types](./new-in-federation-2/#valid-field-differences-between-subgraphs) (nullability and lists).
+
+The `@shared` directive is required here as a protective measure: it's often an _unintended error_ for multiple subgraphs to resolve the same root field.
+
+
+## Entity changes
+
+> Federation 1 entity definitions continue to behave correctly in Federation 2.
+
+In Federation 1, an [entity](https://www.apollographql.com/docs/federation/entities/) is an object type that _originates_ in a single subgraph. Other subgraphs can then _extend_ that entity with additional fields:
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+# (Originating)
+type Book @key(fields: "id") {
+  id: ID!
+  title: String!
+}
+```
+
+```graphql
+# Subgraph B
+# (Extending)
+extend type Book @key(fields: "id") {
+  id: ID! @external
+  reviews: [Review!]!
+}
+```
+
+</CodeColumns>
+
+The originating subgraph is responsible for [resolving references](https://www.apollographql.com/docs/federation/entities/#resolving) to the entity that are provided by extending subgraphs.
+
+In Federation 2, entities no longer "originate" in a particular subgraph. Let's look at how this changes things.
+
+### New syntax
+
+Here are the `Book` entity definitions above, updated for Federation 2:
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+type Book @entity @key(fields: "id") {
+  id: ID!
+  title: String!
+}
+```
+
+```graphql
+# Subgraph B
+type Book @entity @key(fields: "id") {
+  id: ID!
+  reviews: [Review!]!
+}
+```
+
+</CodeColumns>
+
+Note the following changes:
+
+* A new `@entity` directive is applied to the `Book` type in each subgraph.
+* Subgraph B no longer `extend`s the `Book` type.
+* Subgraph B no longer applies the `@external` directive to the `Book.id` field.
+
+Each of these changes is described in further detail below.
+
+### The `@entity` directive
+
+In Federation 2, entity definitions require the `@entity` directive _in addition to_ the `@key` directive:
+
+```graphql{1}
+type Book @entity @key(fields: "id") {
+  id: ID!
+  title: String!
+}
+```
+
+This directive is required in every subgraph that defines the entity.
+
+##### But Federation 1 entity definitions don't use `@entity`! Are they still valid in Federation 2?
+**Yes.** In Federation 2, _any_ object type can have a `@key`, regardless of whether it's an entity. This enables the subgraph to [resolve references](../entities/#resolving) to that type.
+
+Your Federation 1 entities aren't _technically_ entities in Federation 2 _unless_ you add the `@entity` directive, but they _mostly_ behave as you'd expect.
+
+
+##### So what does the `@entity` directive actually do?
+
+Initially, it will do one thing: designate every field of the object type as **final**. This means that if any subgraph defines a particular entity field (_besides_ a `@key` field), no _other_ subgraph can define or resolve that _same_ field:
+
+<p style="margin-bottom: 0">❌</p>
+
+<CodeColumns>
+
+```graphql{4}
+# Subgraph A
+type Book @entity @key(fields: "id") {
+  id: ID! # Valid duplicate (key field)
+  title: String! # ⚠️ Invalid duplicate!
+}
+```
+
+```graphql{4}
+# Subgraph B
+type Book @entity @key(fields: "id") {
+  id: ID! # Valid duplicate (key field)
+  title: String! # ⚠️ Invalid duplicate!
+}
+```
+
+</CodeColumns>
+
+> You can relax this restriction with the [`@shared` directive](../federated-types/restricting-types-fields/#shared).
+
+If an object type has a `@key` but _isn't_ marked with `@entity`, then multiple subgraphs can define and resolve the same fields for that type. If the `Book` type above were _not_ marked with `@entity`, the two subgraph schemas above would be valid.
+
+
+### Changes to `@key`
+
+In Federation 1, an entity requires a [`@key` directive](https://www.apollographql.com/docs/federation/entities/#defining) in every subgraph that defines it:
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
+
+<CodeColumns>
+
+```graphql
+# Originating subgraph
+type Book @key(fields: "id") {
+  id: ID!
+  title: String!
+}
+```
+
+```graphql
+# Extending subgraph
+extend type Book @key(fields: "id") {
+  id: ID! @external
+  reviews: [Review!]!
+}
+```
+
+</CodeColumns>
+
+* In the originating subgraph, `@key` lists all of the entity's supported primary keys.
+* In each extending subgraph, `@key` indicates _which_ supported primary key the subgraph uses to resolve its references.
+
+In Federation 2, the `@key` directive does _not_ indicate whether a type is an entity. Instead, it indicates whether the current subgraph is capable of [resolving references](../entities/#resolving) to the type:
+
+* If a subgraph _can_ resolve references to an entity, it uses `@key` to define the entity's supported primary keys.
+* If a subgraph _can't_ resolve references to an entity, it _doesn't use `@key` at all._
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+# (Can resolve references)
+type Book @entity @key(fields: "id") {
+  id: ID!
+  title: String!
+}
+```
+
+```graphql
+# Subgraph B
+# (Can't resolve references)
+type Book @entity {
+  id: ID!
+  reviews: [Review!]!
+}
+```
+
+</CodeColumns>
+
+### Replacing `@provides` with `@shared`
+
+In Federation 1, an extending subgraph can declare its ability to resolve entity fields that are defined in the _originating_ subgraph. This can improve performance for certain queries by reducing the number of subgraph operations required to resolve them.
+
+To declare this ability, a subgraph uses the [`@provides` directive](https://www.apollographql.com/docs/federation/entities/#resolving-another-subgraphs-field-advanced):
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+# (Originating)
+type Book @key(fields: "id") {
+  id: ID!
+  title: String!
+}
+```
+
+```graphql{10}
+# Subgraph B
+# (Extending)
+extend type Book @key(fields: "id") {
+  id: ID! @external
+  title: String! @external
+  author: Author!
+}
+
+type Query {
+  books: [Book!]! @provides(fields: "title")
+}
+```
+
+</CodeColumns>
+
+In Federation 2, there is no "originating" subgraph. Subgraphs use the `@shared` directive to indicate that they're all able to resolve the same entity field:
+
+<p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
+
+<CodeColumns>
+
+```graphql{4}
+# Subgraph A
+type Book @entity @key(fields: "id") {
+  id: ID!
+  title: String! @shared
+}
+```
+
+```graphql{4}
+# Subgraph B
+type Book @entity {
+  id: ID!
+  title: String! @shared
+  author: Author!
+}
+
+type Query {
+  books: [Book!]!
+}
+```
+
+</CodeColumns>
+
+And as before, if a subgraph _can't_ resolve a particular entity field, it can just omit it.

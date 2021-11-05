@@ -17,7 +17,7 @@ fn main() {
 
     let mut federation_js_last_update = None;
 
-    if sub_last_modified_date(&mut federation_js_last_update, "../federation-js/src").is_err()
+    if sub_last_modified_date(&mut federation_js_last_update, "../composition-js/src").is_err()
         || federation_js_last_update.is_none()
     {
         // Os doesn't allow querying the metadata, this is weird. let's update the bridge.

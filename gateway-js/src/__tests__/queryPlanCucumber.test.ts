@@ -2,9 +2,9 @@ import gql from 'graphql-tag';
 import { defineFeature, loadFeature } from 'jest-cucumber';
 import { DocumentNode } from 'graphql';
 
-import { QueryPlan, BuildQueryPlanOptions } from '@apollo/query-planner';
-import { buildOperationContext } from '../operationContext';
+import { QueryPlan } from '@apollo/query-planner';
 import { getFederatedTestingSchema } from './execution-utils';
+import { operationFromDocument } from '@apollo/federation-internals';
 
 const buildQueryPlanFeature = loadFeature(
   './gateway-js/src/__tests__/build-query-plan.feature'
@@ -18,10 +18,9 @@ const features = [
 features.forEach((feature) => {
   defineFeature(feature, (test) => {
     feature.scenarios.forEach((scenario) => {
-      test(scenario.title, async ({ given, when, then }) => {
+      test(scenario.title, async ({ given, then }) => {
         let operationDocument: DocumentNode;
         let queryPlan: QueryPlan;
-        let options: BuildQueryPlanOptions = { autoFragmentization: false };
 
         // throws on composition errors
         const { schema, queryPlanner } = getFederatedTestingSchema();
@@ -32,21 +31,9 @@ features.forEach((feature) => {
           })
         }
 
-        const whenUsingAutoFragmentization = () => {
-          when(/using autofragmentization/i, () => {
-            options = { autoFragmentization: true };
-          })
-        }
-
         const thenQueryPlanShouldBe = () => {
           then(/^query plan$/i, (expectedQueryPlan: string) => {
-            queryPlan = queryPlanner.buildQueryPlan(
-              buildOperationContext({
-                schema,
-                operationDocument,
-              }),
-              options
-            );
+            queryPlan = queryPlanner.buildQueryPlan(operationFromDocument(schema, operationDocument));
 
             const parsedExpectedPlan = JSON.parse(expectedQueryPlan);
 
@@ -59,7 +46,6 @@ features.forEach((feature) => {
         scenario.steps.forEach(({ stepText }) => {
           const title = stepText.toLocaleLowerCase();
           if (title === "query") givenQuery();
-          else if (title === "using autofragmentization") whenUsingAutoFragmentization();
           else if (title === "query plan") thenQueryPlanShouldBe();
           else throw new Error(`Unrecognized steps used in "build-query-plan.feature"`);
         });

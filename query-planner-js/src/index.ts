@@ -4,15 +4,9 @@ export { prettyFormatQueryPlan } from './prettyFormatQueryPlan';
 export * from './QueryPlan';
 import { QueryPlan } from './QueryPlan';
 
-export * from './composedSchema';
-import {
-  buildQueryPlan,
-  BuildQueryPlanOptions,
-  buildOperationContext,
-  OperationContext,
-} from './buildQueryPlan';
-import { GraphQLSchema } from 'graphql';
-export { BuildQueryPlanOptions, buildOperationContext };
+import { Schema, Operation } from '@apollo/federation-internals';
+import { buildFederatedQueryGraph, QueryGraph } from "@apollo/query-graphs";
+import { computeQueryPlan } from './buildPlan';
 
 // There isn't much in this class yet, and I didn't want to make too many
 // changes at once, but since we were already storing a pointer to a
@@ -22,18 +16,17 @@ export { BuildQueryPlanOptions, buildOperationContext };
 // planning but isn't operation specific. The next step is likely to be to
 // convert `buildQueryPlan` into a method.
 export class QueryPlanner {
-  constructor(public readonly schema: GraphQLSchema) {}
+  private readonly federatedQueryGraph: QueryGraph;
 
-  // TODO(#632): We should change the API to avoid confusion, because
-  // taking an operationContext with a schema on it isn't consistent
-  // with a QueryPlanner instance being bound to a single schema.
-  buildQueryPlan(
-    operationContext: OperationContext,
-    options?: BuildQueryPlanOptions,
-  ): QueryPlan {
-    return buildQueryPlan(
-      { ...operationContext, schema: this.schema },
-      options,
-    );
+  constructor(public readonly supergraphSchema: Schema) {
+    this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
+  }
+
+  buildQueryPlan(operation: Operation): QueryPlan {
+    if (operation.selectionSet.isEmpty()) {
+      return { kind: 'QueryPlan' };
+    }
+
+    return computeQueryPlan(this.supergraphSchema, this.federatedQueryGraph, operation);
   }
 }

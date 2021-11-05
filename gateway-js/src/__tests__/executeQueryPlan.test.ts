@@ -2,12 +2,11 @@ import {
   buildClientSchema,
   getIntrospectionQuery,
   GraphQLObjectType,
-  GraphQLSchema,
   print,
 } from 'graphql';
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
-import { GraphQLRequestContext } from 'apollo-server-types';
+import { GraphQLExecutionResult, GraphQLRequestContext } from 'apollo-server-types';
 import { AuthenticationError } from 'apollo-server-core';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
@@ -17,10 +16,11 @@ import {
   queryPlanSerializer,
   superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
-import { buildComposedSchema, QueryPlanner } from '@apollo/query-planner';
+import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { getFederatedTestingSchema } from './execution-utils';
+import { Schema, Operation, parseOperation, buildSchemaFromAST } from '@apollo/federation-internals';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -29,6 +29,40 @@ describe('executeQueryPlan', () => {
   let serviceMap: {
     [serviceName: string]: LocalGraphQLDataSource;
   };
+
+  let parseOp = (operation: string, operationSchema?: Schema): Operation => {
+    return parseOperation((operationSchema ?? schema), operation);
+  }
+
+  let buildPlan = (operation: string | Operation, operationQueryPlanner?: QueryPlanner, operationSchema?: Schema): QueryPlan => {
+    const op = typeof operation === 'string' ? parseOp(operation, operationSchema): operation;
+    return (operationQueryPlanner ?? queryPlanner).buildQueryPlan(op);
+  }
+
+  async function executePlan(
+    queryPlan: QueryPlan,
+    operation: Operation,
+    executeRequestContext?: GraphQLRequestContext,
+    executeSchema?: Schema,
+    executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
+  ): Promise<GraphQLExecutionResult> {
+    const operationContext = buildOperationContext({
+      schema: (executeSchema ?? schema).toAPISchema().toGraphQLJSSchema(),
+      operationDocument: gql`${operation.toString()}`,
+    });
+    return executeQueryPlan(
+      queryPlan,
+      executeServiceMap ?? serviceMap,
+      executeRequestContext ?? buildRequestContext(),
+      operationContext,
+    );
+  }
+
+  async function executeOperation(operationString: string, requestContext?: GraphQLRequestContext): Promise<GraphQLExecutionResult> {
+      const operation = parseOp(operationString);
+      const queryPlan = buildPlan(operation);
+      return executePlan(queryPlan, operation, requestContext);
+  }
 
   function overrideResolversInService(
     serviceName: string,
@@ -44,7 +78,7 @@ describe('executeQueryPlan', () => {
     return jest.spyOn(entitiesField, 'resolve');
   }
 
-  let schema: GraphQLSchema;
+  let schema: Schema;
   let queryPlanner: QueryPlanner;
   beforeEach(() => {
     expect(
@@ -77,21 +111,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(response).not.toHaveProperty('errors');
     });
@@ -116,21 +136,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(response).toHaveProperty('data.me', null);
       expect(response).toHaveProperty(
@@ -175,21 +181,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(accountsEntitiesResolverSpy).not.toHaveBeenCalled();
 
@@ -252,21 +244,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(accountsEntitiesResolverSpy).toHaveBeenCalledTimes(1);
       expect(accountsEntitiesResolverSpy.mock.calls[0][1]).toEqual({
@@ -353,21 +331,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(reviewsEntitiesResolverSpy).not.toHaveBeenCalled();
 
@@ -401,21 +365,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(reviewsEntitiesResolverSpy).toHaveBeenCalledTimes(1);
       expect(reviewsEntitiesResolverSpy.mock.calls[0][1]).toEqual({
@@ -475,21 +425,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(response).toHaveProperty('data.me', null);
       expect(response).toHaveProperty('data.topReviews', expect.any(Array));
@@ -512,21 +448,7 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
-
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executeOperation(operationString);
 
       expect(response).toHaveProperty('data.me', null);
       expect(response).toHaveProperty('data.topReviews', expect.any(Array));
@@ -548,21 +470,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -641,24 +549,9 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
     const requestContext = buildRequestContext();
     requestContext.request.variables = { first: 3 };
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      requestContext,
-      operationContext,
-    );
+    const response = await executeOperation(operationString, requestContext);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -740,24 +633,9 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
     const requestContext = buildRequestContext();
     requestContext.request.variables = { locale: 'en-US' };
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      requestContext,
-      operationContext,
-    );
+    const response = await executeOperation(operationString, requestContext);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -818,20 +696,7 @@ describe('executeQueryPlan', () => {
   });
 
   it('can execute an introspection query', async () => {
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument: gql`
-        ${getIntrospectionQuery()}
-      `,
-    });
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(`${getIntrospectionQuery()}`);
 
     expect(response.data).toHaveProperty('__schema');
     expect(response.errors).toBeUndefined();
@@ -848,21 +713,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -892,21 +743,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -947,21 +784,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -989,21 +812,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -1044,21 +853,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.errors).toMatchInlineSnapshot(`undefined`);
 
@@ -1093,21 +888,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.errors).toBeUndefined();
 
@@ -1136,21 +917,7 @@ describe('executeQueryPlan', () => {
       }
     `;
 
-    const operationDocument = gql(operationString);
-
-    const operationContext = buildOperationContext({
-      schema,
-      operationDocument,
-    });
-
-    const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-    const response = await executeQueryPlan(
-      queryPlan,
-      serviceMap,
-      buildRequestContext(),
-      operationContext,
-    );
+    const response = await executeOperation(operationString);
 
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -1182,23 +949,12 @@ describe('executeQueryPlan', () => {
 
   describe('@inaccessible', () => {
     it(`should not include @inaccessible fields in introspection`, async () => {
-      schema = buildComposedSchema(superGraphWithInaccessible);
+      schema = buildSchemaFromAST(superGraphWithInaccessible);
+
+      const operation = parseOp(`${getIntrospectionQuery()}`, schema);
       queryPlanner = new QueryPlanner(schema);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument: gql`
-          ${getIntrospectionQuery()}
-        `,
-      });
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
-
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const queryPlan = queryPlanner.buildQueryPlan(operation);
+      const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data).toHaveProperty('__schema');
       expect(response.errors).toBeUndefined();
@@ -1224,24 +980,14 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operation = parseOp(operationString);
 
-      schema = buildComposedSchema(superGraphWithInaccessible);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
+      schema = buildSchemaFromAST(superGraphWithInaccessible);
 
       queryPlanner = new QueryPlanner(schema);
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operation);
 
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -1348,26 +1094,16 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const operationDocument = gql(operationString);
+      const operation = parseOp(operationString);
 
       // Vehicle ID #1 is a "Car" type.
       // This supergraph marks the "Car" type as inaccessible.
-      schema = buildComposedSchema(superGraphWithInaccessible);
-
-      const operationContext = buildOperationContext({
-        schema,
-        operationDocument,
-      });
+      schema = buildSchemaFromAST(superGraphWithInaccessible);
 
       queryPlanner = new QueryPlanner(schema);
-      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      const queryPlan = queryPlanner.buildQueryPlan(operation);
 
-      const response = await executeQueryPlan(
-        queryPlan,
-        serviceMap,
-        buildRequestContext(),
-        operationContext,
-      );
+      const response = await executePlan(queryPlan, operation, undefined, schema);
 
       expect(response.data?.vehicle).toEqual(null);
       expect(response.errors).toBeUndefined();
@@ -1377,6 +1113,840 @@ describe('executeQueryPlan', () => {
       //     [GraphQLError: Abstract type "Vehicle" was resolve to a type [inaccessible type] that does not exist inside schema.],
       //   ]
       // `);
+    });
+  });
+
+  describe('reusing root types', () => {
+    it('can query other subgraphs when the Query type is the type of a field', async () => {
+      const s1 = gql`
+        type Query {
+          getA: A
+        }
+
+        type A {
+          q: Query
+        }
+      `;
+
+      const s2 = gql`
+        type Query {
+          one: Int
+        }
+      `;
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+        { name: 'S1', typeDefs: s1 },
+        { name: 'S2', typeDefs: s2 }
+      ]);
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        Query: {
+          getA() {
+            return {
+              getA: {}
+            };
+          },
+        },
+        A: {
+          q() {
+            return Object.create(null);
+          }
+        }
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        Query: {
+          one() {
+            return 1;
+          },
+        },
+      });
+
+      const operation = parseOp(`
+        query {
+          getA {
+            q {
+              one
+            }
+          }
+        }
+        `, schema);
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                getA {
+                  q {
+                    __typename
+                  }
+                }
+              }
+            },
+            Flatten(path: "getA.q") {
+              Fetch(service: "S2") {
+                {
+                  ... on Query {
+                    one
+                  }
+                }
+              },
+            },
+          },
+        }
+        `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "getA": Object {
+            "q": Object {
+              "one": 1,
+            },
+          },
+        }
+      `);
+    })
+
+    it('can query other subgraphs when the Query type is the type of a field after a mutation', async () => {
+        const s1 = gql`
+          type Query {
+            one: Int
+          }
+
+          type Mutation {
+            mutateSomething: Query
+          }
+        `;
+
+        const s2 = gql`
+          type Query {
+            two: Int
+          }
+        `;
+
+        const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+          { name: 'S1', typeDefs: s1 },
+          { name: 'S2', typeDefs: s2 }
+        ]);
+
+        let hasMutated = false;
+
+        addResolversToSchema(serviceMap['S1'].schema, {
+          Query: {
+            one() {
+              return 1;
+            },
+          },
+          Mutation: {
+            mutateSomething() {
+              hasMutated = true;
+              return {};
+            },
+          }
+        });
+
+        addResolversToSchema(serviceMap['S2'].schema, {
+          Query: {
+            two() {
+              return 2;
+            },
+          },
+        });
+
+        const operation = parseOp(`
+          mutation {
+            mutateSomething {
+              one
+              two
+            }
+          }
+          `, schema);
+
+        const queryPlan = buildPlan(operation, queryPlanner);
+
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Sequence {
+              Fetch(service: "S1") {
+                {
+                  mutateSomething {
+                    __typename
+                    one
+                  }
+                }
+              },
+              Flatten(path: "mutateSomething") {
+                Fetch(service: "S2") {
+                  {
+                    ... on Query {
+                      two
+                    }
+                  }
+                },
+              },
+            },
+          }
+        `);
+
+        const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+
+        expect(hasMutated).toBeTruthy();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "mutateSomething": Object {
+              "one": 1,
+              "two": 2,
+            },
+          }
+        `);
+    })
+
+    it('can mutate other subgraphs when the Mutation type is the type of a field', async () => {
+      const s1 = gql`
+        type Query {
+          getA: A
+        }
+
+        type Mutation {
+          mutateOne: Int
+        }
+
+        type A {
+          m: Mutation
+        }
+      `;
+
+      const s2 = gql`
+        type Mutation {
+          mutateTwo: Int
+        }
+      `;
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+        { name: 'S1', typeDefs: s1 },
+        { name: 'S2', typeDefs: s2 }
+      ]);
+
+      let mutateOneCalled = false;
+      let mutateTwoCalled = false;
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        Query: {
+          getA() {
+            return {
+              getA: {}
+            };
+          },
+        },
+        A: {
+          m() {
+            return Object.create(null);
+          }
+        },
+        Mutation: {
+          mutateOne() {
+            mutateOneCalled = true;
+            return 1;
+          }
+        }
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        Mutation: {
+          mutateTwo() {
+            mutateTwoCalled = true;
+            return 2;
+          },
+        },
+      });
+
+      const operation = parseOp(`
+        query {
+          getA {
+            m {
+              mutateOne
+              mutateTwo
+            }
+          }
+        }
+        `, schema);
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                getA {
+                  m {
+                    __typename
+                    mutateOne
+                  }
+                }
+              }
+            },
+            Flatten(path: "getA.m") {
+              Fetch(service: "S2") {
+                {
+                  ... on Mutation {
+                    mutateTwo
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(mutateOneCalled).toBeTruthy();
+      expect(mutateTwoCalled).toBeTruthy();
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "getA": Object {
+            "m": Object {
+              "mutateOne": 1,
+              "mutateTwo": 2,
+            },
+          },
+        }
+      `);
+    })
+
+    it('can mutate other subgraphs when the Mutation type is the type of a field after a mutation', async () => {
+        const s1 = gql`
+          type Query {
+            one: Int
+          }
+
+          type Mutation {
+            mutateSomething: Mutation
+          }
+        `;
+
+        const s2 = gql`
+          type Mutation {
+            mutateTwo: Int
+          }
+        `;
+
+        const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+          { name: 'S1', typeDefs: s1 },
+          { name: 'S2', typeDefs: s2 }
+        ]);
+
+        let somethingMutationCount = 0;
+        let hasMutatedTwo = false;
+
+        addResolversToSchema(serviceMap['S1'].schema, {
+          Query: {
+            one() {
+              return 1;
+            },
+          },
+          Mutation: {
+            mutateSomething() {
+              ++somethingMutationCount;
+              return {};
+            },
+          }
+        });
+
+        addResolversToSchema(serviceMap['S2'].schema, {
+          Mutation: {
+            mutateTwo() {
+              hasMutatedTwo = true;
+              return 2;
+            },
+          },
+        });
+
+        const operation = parseOp(`
+          mutation {
+            mutateSomething {
+              mutateSomething {
+                mutateTwo
+              }
+            }
+          }
+          `, schema);
+
+        const queryPlan = buildPlan(operation, queryPlanner);
+
+        expect(queryPlan).toMatchInlineSnapshot(`
+          QueryPlan {
+            Sequence {
+              Fetch(service: "S1") {
+                {
+                  mutateSomething {
+                    mutateSomething {
+                      __typename
+                    }
+                  }
+                }
+              },
+              Flatten(path: "mutateSomething.mutateSomething") {
+                Fetch(service: "S2") {
+                  {
+                    ... on Mutation {
+                      mutateTwo
+                    }
+                  }
+                },
+              },
+            },
+          }
+        `);
+
+        const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+
+        expect(somethingMutationCount).toBe(2);
+        expect(hasMutatedTwo).toBeTruthy();
+        expect(response.data).toMatchInlineSnapshot(`
+          Object {
+            "mutateSomething": Object {
+              "mutateSomething": Object {
+                "mutateTwo": 2,
+              },
+            },
+          }
+        `);
+    })
+  });
+
+  describe('interfaces on interfaces', () => {
+    it('can execute queries on an interface only implemented by other interfaces', async () => {
+      const s1 = gql`
+        type Query {
+          allValues: [TopInterface!]!
+        }
+
+        interface TopInterface {
+          a: Int
+        }
+
+        interface SubInterface1 implements TopInterface {
+          a: Int
+          b: String
+        }
+
+        interface SubInterface2 implements TopInterface {
+          a: Int
+          c: String
+        }
+
+        type T1 implements SubInterface1 & TopInterface {
+          a: Int
+          b: String
+        }
+
+        type T2 implements SubInterface1 & TopInterface @key(fields: "b") {
+          a: Int @external
+          b: String
+        }
+
+        type T3 implements SubInterface2 & TopInterface {
+          a: Int
+          c: String
+        }
+
+        type T4 implements SubInterface1 & SubInterface2 & TopInterface @key(fields: "a") {
+          a: Int
+          b: String @external
+          c: String @external
+        }
+      `;
+
+      const s2 = gql`
+        type T2 @key(fields: "b") {
+          a: Int
+          b: String
+        }
+
+        type T4 @key(fields: "a") {
+          a: Int
+          b: String
+          c: String
+        }
+      `;
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+        { name: 'S1', typeDefs: s1 },
+        { name: 'S2', typeDefs: s2 }
+      ]);
+
+      const t1s_s1: any[] = [{ __typename: 'T1', a: 1, b: 'T1_v1'}, {__typename: 'T1', a: 2, b: 'T1_v2'}];
+      const t2s_s1: any[] = [{__typename: 'T2', b: 'k1'}, {__typename: 'T2', b: 'k2'}];
+      const t3s_s1: any[] = [{__typename: 'T3', a: 42, c: 'T3_v1'}];
+      const t4s_s1: any[] = [{__typename: 'T4', a: 0}, {__typename: 'T4', a: 10}, {__typename: 'T4', a: 20}];
+
+      const t2s_s2 = new Map<string, {a: number, b: string}>();
+      t2s_s2.set('k1', {a: 12 , b: 'k1'});
+      t2s_s2.set('k2', {a: 24 , b: 'k2'});
+
+      const t4s_s2 = new Map<number, {a: number, b: string, c: string}>();
+      t4s_s2.set(0, {a: 0, b: 'b_0', c: 'c_0'});
+      t4s_s2.set(10, {a: 10, b: 'b_10', c: 'c_10'});
+      t4s_s2.set(20, {a: 20, b: 'b_20', c: 'c_20'});
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        Query: {
+          allValues() {
+            return t1s_s1.concat(t2s_s1).concat(t3s_s1).concat(t4s_s1);
+          },
+        },
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        T2: {
+          __resolveReference(ref) {
+            return t2s_s2.get(ref.b);
+          }
+        },
+        T4: {
+          __resolveReference(ref) {
+            return t4s_s2.get(ref.a);
+          }
+        },
+      });
+
+      let operation = parseOp(`
+        query {
+          allValues {
+            a
+            ... on SubInterface1 {
+              b
+            }
+            ... on SubInterface2 {
+              c
+            }
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                allValues {
+                  __typename
+                  ... on T1 {
+                    a
+                    b
+                  }
+                  ... on T2 {
+                    __typename
+                    b
+                  }
+                  ... on T3 {
+                    a
+                    c
+                  }
+                  ... on T4 {
+                    __typename
+                    a
+                  }
+                }
+              }
+            },
+            Flatten(path: "allValues.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on T2 {
+                    __typename
+                    b
+                  }
+                  ... on T4 {
+                    __typename
+                    a
+                  }
+                } =>
+                {
+                  ... on T2 {
+                    a
+                  }
+                  ... on T4 {
+                    b
+                    c
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allValues": Array [
+            Object {
+              "a": 1,
+              "b": "T1_v1",
+            },
+            Object {
+              "a": 2,
+              "b": "T1_v2",
+            },
+            Object {
+              "a": 12,
+              "b": "k1",
+            },
+            Object {
+              "a": 24,
+              "b": "k2",
+            },
+            Object {
+              "a": 42,
+              "c": "T3_v1",
+            },
+            Object {
+              "a": 0,
+              "b": "b_0",
+              "c": "c_0",
+            },
+            Object {
+              "a": 10,
+              "b": "b_10",
+              "c": "c_10",
+            },
+            Object {
+              "a": 20,
+              "b": "b_20",
+              "c": "c_20",
+            },
+          ],
+        }
+        `);
+    });
+
+    it('does not type explode when it does not need to', async () => {
+      // Fairly similar example than the previous one, but ensure field `a` don't need
+      // type explosion and unsure it isn't type-exploded.
+      const s1 = gql`
+        type Query {
+          allValues: [TopInterface!]!
+        }
+
+        interface TopInterface {
+          a: Int
+        }
+
+        interface SubInterface1 implements TopInterface {
+          a: Int
+          b: String
+        }
+
+        interface SubInterface2 implements TopInterface {
+          a: Int
+          c: String
+        }
+
+        type T1 implements SubInterface1 & TopInterface {
+          a: Int
+          b: String
+        }
+
+        type T2 implements SubInterface1 & TopInterface @key(fields: "a") {
+          a: Int
+          b: String @external
+        }
+
+        type T3 implements SubInterface2 & TopInterface {
+          a: Int
+          c: String
+        }
+
+        type T4 implements SubInterface1 & SubInterface2 & TopInterface @key(fields: "a") {
+          a: Int
+          b: String @external
+          c: String @external
+        }
+      `;
+
+      const s2 = gql`
+        type T2 @key(fields: "a") {
+          a: Int
+          b: String
+        }
+
+        type T4 @key(fields: "a") {
+          a: Int
+          b: String
+          c: String
+        }
+      `;
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+        { name: 'S1', typeDefs: s1 },
+        { name: 'S2', typeDefs: s2 }
+      ]);
+
+      const t1s_s1: any[] = [{ __typename: 'T1', a: 1, b: 'T1_v1'}, {__typename: 'T1', a: 2, b: 'T1_v2'}];
+      const t2s_s1: any[] = [{__typename: 'T2', a: 12}, {__typename: 'T2', a: 24}];
+      const t3s_s1: any[] = [{__typename: 'T3', a: 42, c: 'T3_v1'}];
+      const t4s_s1: any[] = [{__typename: 'T4', a: 0}, {__typename: 'T4', a: 10}, {__typename: 'T4', a: 20}];
+
+      const t2s_s2 = new Map<number, {a: number, b: string}>();
+      t2s_s2.set(12, {a: 12 , b: 'k1'});
+      t2s_s2.set(24, {a: 24 , b: 'k2'});
+
+      const t4s_s2 = new Map<number, {a: number, b: string, c: string}>();
+      t4s_s2.set(0, {a: 0, b: 'b_0', c: 'c_0'});
+      t4s_s2.set(10, {a: 10, b: 'b_10', c: 'c_10'});
+      t4s_s2.set(20, {a: 20, b: 'b_20', c: 'c_20'});
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        Query: {
+          allValues() {
+            return t1s_s1.concat(t2s_s1).concat(t3s_s1).concat(t4s_s1);
+          },
+        },
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        T2: {
+          __resolveReference(ref) {
+            return t2s_s2.get(ref.b);
+          }
+        },
+        T4: {
+          __resolveReference(ref) {
+            return t4s_s2.get(ref.a);
+          }
+        },
+      });
+
+      let operation = parseOp(`
+        query {
+          allValues {
+            a
+          }
+        }
+        `, schema);
+
+      let queryPlan = buildPlan(operation, queryPlanner);
+
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Fetch(service: "S1") {
+            {
+              allValues {
+                __typename
+                a
+              }
+            }
+          },
+        }
+      `);
+
+      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allValues": Array [
+            Object {
+              "a": 1,
+            },
+            Object {
+              "a": 2,
+            },
+            Object {
+              "a": 12,
+            },
+            Object {
+              "a": 24,
+            },
+            Object {
+              "a": 42,
+            },
+            Object {
+              "a": 0,
+            },
+            Object {
+              "a": 10,
+            },
+            Object {
+              "a": 20,
+            },
+          ],
+        }
+        `);
+
+      operation = parseOp(`
+        query {
+          allValues {
+            ... on SubInterface1 {
+              a
+            }
+          }
+        }
+        `, schema);
+
+      queryPlan = buildPlan(operation, queryPlanner);
+
+      // TODO: we're actually type-exploding in this case because currently, as soon as we need to type-explode, we do
+      // so into all the runtime types, while here it could make sense to only type-explode into the direct sub-types=
+      // (the sub-interfaces). We should fix this (but it's only sub-optimal, not incorrect).
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Fetch(service: "S1") {
+            {
+              allValues {
+                __typename
+                ... on T1 {
+                  a
+                }
+                ... on T2 {
+                  a
+                }
+                ... on T4 {
+                  a
+                }
+              }
+            }
+          },
+        }
+      `);
+
+      response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "allValues": Array [
+            Object {
+              "a": 1,
+            },
+            Object {
+              "a": 2,
+            },
+            Object {
+              "a": 12,
+            },
+            Object {
+              "a": 24,
+            },
+            Object {},
+            Object {
+              "a": 0,
+            },
+            Object {
+              "a": 10,
+            },
+            Object {
+              "a": 20,
+            },
+          ],
+        }
+        `);
     });
   });
 });

@@ -7,7 +7,9 @@ Scenario: supports @skip when a boolean condition is met
     topReviews {
       body
       author @skip(if: true) {
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -42,7 +44,7 @@ Scenario: supports @skip when a boolean condition is met
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User@skip(if:true){name{first}}}}"
           }
         }
       ]
@@ -82,7 +84,9 @@ Scenario: supports @skip when a boolean condition is not met
     topReviews {
       body
       author @skip(if: false) {
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -117,7 +121,7 @@ Scenario: supports @skip when a boolean condition is not met
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User@skip(if:false){name{first}}}}"
           }
         }
       ]
@@ -132,7 +136,9 @@ Scenario: supports @skip when a boolean condition is not met (variable driven)
     topReviews {
       body
       author @skip(if: $skip) {
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -166,8 +172,8 @@ Scenario: supports @skip when a boolean condition is not met (variable driven)
                 ]
               }
             ],
-            "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "variableUsages": ["skip"],
+            "operation": "query($representations:[_Any!]!$skip:Boolean!){_entities(representations:$representations){...on User@skip(if:$skip){name{first}}}}"
           }
         }
       ]
@@ -232,7 +238,9 @@ Scenario: supports @include when a boolean condition is met
     topReviews {
       body
       author @include(if: true) {
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -267,7 +275,7 @@ Scenario: supports @include when a boolean condition is met
               }
             ],
             "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User@include(if:true){name{first}}}}"
           }
         }
       ]
@@ -284,7 +292,9 @@ Scenario: supports @include when a boolean condition is met (variable driven)
     topReviews {
       body
       author @include(if: $include) {
-        name
+        name {
+          first
+        }
       }
     }
   }
@@ -318,8 +328,8 @@ Scenario: supports @include when a boolean condition is met (variable driven)
                 ]
               }
             ],
-            "variableUsages": [],
-            "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name}}}"
+            "variableUsages": ["include"],
+            "operation": "query($representations:[_Any!]!$include:Boolean!){_entities(representations:$representations){...on User@include(if:$include){name{first}}}}"
           }
         }
       ]

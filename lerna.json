@@ -1,12 +1,15 @@
 {
   "packages": [
+    "internals-js",
+    "query-graphs-js",
     "federation-js",
     "federation-integration-testsuite-js",
     "gateway-js",
     "harmonizer",
     "query-planner-js",
     "router-bridge",
-    "subgraph-js"
+    "subgraph-js",
+    "composition-js"
   ],
   "version": "independent",
   "command": {

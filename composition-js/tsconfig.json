@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.base",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["**/__tests__"],
+  "references": [
+    { "path": "../internals-js" },
+    { "path": "../query-graphs-js" }
+  ]
+}

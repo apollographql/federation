@@ -182,11 +182,11 @@ describe('gateway startup errors', () => {
       err = e;
     }
 
-    expect(err.message).toMatchInlineSnapshot(`
-      "A valid schema couldn't be composed. The following composition errors were found:
-      	[accounts] Account -> A @key selects id, but Account.id could not be found
-      	[accounts] User -> A @key selects id, but User.id could not be found"
-    `);
+    const expected =
+      "A valid schema couldn't be composed. The following composition errors were found:\n"
+    + '	[accounts] On type "User", for @key(fields: "id"): Cannot query field "id" on type "User" (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).\n'
+    + '	[accounts] On type "Account", for @key(fields: "id"): Cannot query field "id" on type "Account" (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).'
+    expect(err.message).toBe(expected);
   });
 });
 

@@ -123,6 +123,46 @@ it('works fetches data correctly with complex / nested @key fields', async () =>
     [userService, reviewService],
   );
 
+  expect(queryPlan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "review") {
+          {
+            reviews {
+              author {
+                __typename
+                id
+                organization {
+                  id
+                }
+              }
+            }
+          }
+        },
+        Flatten(path: "reviews.@.author") {
+          Fetch(service: "user") {
+            {
+              ... on User {
+                __typename
+                id
+                organization {
+                  id
+                }
+              }
+            } =>
+            {
+              ... on User {
+                name
+                organization {
+                  name
+                }
+              }
+            }
+          },
+        },
+      },
+    }
+  `);
   expect(data).toEqual({
     reviews: [
       {
@@ -159,59 +199,4 @@ it('works fetches data correctly with complex / nested @key fields', async () =>
       },
     ],
   });
-  expect(queryPlan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "review") {
-          {
-            reviews {
-              author {
-                __typename
-                id
-                organization {
-                  id
-                  __typename
-                }
-              }
-            }
-          }
-        },
-        Parallel {
-          Flatten(path: "reviews.@.author") {
-            Fetch(service: "user") {
-              {
-                ... on User {
-                  __typename
-                  id
-                  organization {
-                    id
-                  }
-                }
-              } =>
-              {
-                ... on User {
-                  name
-                }
-              }
-            },
-          },
-          Flatten(path: "reviews.@.author.organization") {
-            Fetch(service: "user") {
-              {
-                ... on Organization {
-                  __typename
-                  id
-                }
-              } =>
-              {
-                ... on Organization {
-                  name
-                }
-              }
-            },
-          },
-        },
-      },
-    }
-  `);
 });
