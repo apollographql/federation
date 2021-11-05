@@ -179,5 +179,5 @@ features that federation provides. These features include:
 
 * Greater flexibility with [federation core concepts](./subgraphs/)
 * [Metrics and analysis of query plans](./performance/monitoring/#metrics-and-observability)
-* [Gateway support for live schema updates from subgraphs](./managed-federation/deployment/#the-servicepush-lifecycle)
+* [Gateway support for live schema updates from subgraphs](./managed-federation/deployment/#the-subgraph-publish-lifecycle)
 * [Validation of composition logic and usage traffic](./managed-federation/federated-schema-checks/) (with a paid plan)
