@@ -101,8 +101,6 @@ To communicate with all of your subgraphs, the gateway needs a special schema th
 
 To create a supergraph schema, Apollo Federation uses a special process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your gateway:
 
-<CodeColumns>
-
 ```graphql
 # Supergraph schema (simplified)
 type User {
@@ -115,10 +113,6 @@ type Product {
   inStock: Boolean!
 }
 ```
-
-<></>
-
-</CodeColumns>
 
 > A real supergraph schema includes additional information that tells your gateway _which_ subgraph is responsible for _which_ types and fields. [Learn more about composition.](./federated-types/composition/)
 

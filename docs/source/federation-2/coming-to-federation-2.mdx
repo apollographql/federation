@@ -138,7 +138,7 @@ type Book @entity @key(fields: "id") {
 
 ```graphql
 # Subgraph B
-type Book @entity @key(fields: "id") {
+type Book @entity {
   id: ID!
   reviews: [Review!]!
 }
@@ -149,14 +149,14 @@ type Book @entity @key(fields: "id") {
 Note the following changes:
 
 * A new `@entity` directive is applied to the `Book` type in each subgraph.
-* Subgraph B no longer `extend`s the `Book` type.
+* Subgraph B no longer `extend`s the `Book` type or declares a `@key`.
 * Subgraph B no longer applies the `@external` directive to the `Book.id` field.
 
 Each of these changes is described in further detail below.
 
 ### The `@entity` directive
 
-In Federation 2, entity definitions require the `@entity` directive _in addition to_ the `@key` directive:
+In Federation 2, entity definitions will require the `@entity` directive:
 
 ```graphql{1}
 type Book @entity @key(fields: "id") {
