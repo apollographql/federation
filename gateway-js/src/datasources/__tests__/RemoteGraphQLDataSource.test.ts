@@ -285,14 +285,13 @@ describe('fetcher', () => {
   });
 });
 
-describe('makeRequest', () => {
+describe('setupRequest', () => {
   it('allows for modifying url', async () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
-      makeRequest: ({ request }) => {
+      setupRequest: ({ request }) => {
         const headers = (request.http && request.http.headers) || new Headers();
         headers.set('Content-Type', 'application/json');
-
         return {
           method: 'POST',
           url: 'https://api.example.com/bar',
@@ -324,11 +323,9 @@ describe('makeRequest', () => {
   it('allows for modifying method', async () => {
     const DataSource = new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
-      makeRequest: ({ request }) => {
-
+      setupRequest: ({ request }) => {
         const headers = (request.http && request.http.headers) || new Headers();
         headers.set('Content-Type', 'application/json');
-
         return {
           method: 'GET',
           url: 'https://api.example.com/foo',

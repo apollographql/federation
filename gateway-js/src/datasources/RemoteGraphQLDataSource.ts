@@ -74,7 +74,7 @@ export class RemoteGraphQLDataSource<
     // questionable in the first place.
     const context = originalContext as TContext;
 
-    request.http = this.makeRequest({ request, context });
+    request.http = this.setupRequest({ request, context });
 
     if (this.willSendRequest) {
       await this.willSendRequest(options);
@@ -205,7 +205,7 @@ export class RemoteGraphQLDataSource<
     }
   }
 
-  public makeRequest(
+  public setupRequest(
     { request }: Pick<
       GraphQLRequestContext<TContext>,
       'request' | 'context'>)
