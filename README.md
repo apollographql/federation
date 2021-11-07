@@ -2,11 +2,15 @@
 
 [![CircleCI](https://circleci.com/gh/apollographql/federation/tree/main.svg?style=shield)](https://circleci.com/gh/apollographql/federation/tree/main) [![Security audit](https://github.com/apollographql/federation/workflows/Security%20audit/badge.svg)](https://github.com/apollographql/federation/actions?query=workflow%3A%22Security+audit%22) [![Netlify Status](https://api.netlify.com/api/v1/badges/3a012f93-2d02-41f7-bb2b-848cf005b831/deploy-status)](https://app.netlify.com/sites/apollo-federation-docs/deploys)
 
-
-
 # Apollo Federation
 
-We'll be improving this `README` as soon as possible, but to learn about Apollo Federation today, check out the [Apollo Federation documentation](https://www.apollographql.com/docs/apollo-server/federation/introduction/).
+Apollo Federation is an architecture for declaratively composing APIs into a unified graph. Each team can own their slice of the graph independently, empowering them to deliver autonomously and incrementally.
+
+Federation 2 is an evolution of the original Apollo Federation with an improved shared ownership model, enhanced type merging, and cleaner syntax for a smoother developer experience. It’s backwards compatible, requiring no major changes to your subgraphs.
+
+Federation 2 [was recently announced and is in alpha today](https://www.apollographql.com/blog/announcement/backend/announcing-federation-2/). Checkout the [v2 docs](https://www.apollographql.com/docs/federation/v2) and [demo repo](https://github.com/apollographql/supergraph-demo-fed2) to take it for a spin and [let us know what you think](https://community.apollographql.com/t/announcing-apollo-federation-2/1821)!
+
+For Federation 1, see the [v1 docs](https://www.apollographql.com/docs/federation) and [the branch we'll be using to maintain Federation 1](https://github.com/apollographql/federation/tree/version-0.x).
 
 ## Contributing
 
