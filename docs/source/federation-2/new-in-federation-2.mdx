@@ -20,11 +20,11 @@ Before covering what's new, here's what _isn't_ changing in Federation 2:
 
 * Subgraph servers have _no_ additional requirements. Any [subgraph-compatible library](../other-servers/) is automatically compatible with Federation 2.
 
-## Relaxed composition rules
+## More flexible composition
 
-**Federation 2 improves the flexibility and independence of your subgraph schemas.** New composition logic _relaxes_ requirements from Federation 1, meaning teams can more confidently build out their subgraphs or migrate functionality between subgraphs.
+**Federation 2 improves the flexibility and independence of your subgraph schemas.** New composition logic is more flexible compared to Federation 1, meaning teams can more confidently build out their subgraphs or migrate functionality between subgraphs.
 
-> In some cases, you still might want to enforce the stricter schema requirements defined in Federation 1. The full release of Federation 2 will include support for directives that enable this. For details, see [Federated ownership directives](../federated-types/restricting-types-fields/).
+> In some cases, you still might want to enforce the schema requirements defined in Federation 1. The full release of Federation 2 will include support for directives that enable this. For details, see [Federated ownership directives](../federated-types/restricting-types-fields/).
 
 Let's look at some examples!
 
@@ -79,7 +79,7 @@ type Book {
 
 </CodeColumns>
 
-This relaxation is especially helpful when an organization has multiple standalone GraphQL APIs that they want to unify with federation. Such APIs often share some types, and this added flexibility reduces the work required to compose their schemas successfully.
+This flexibility is especially helpful when an organization has multiple standalone GraphQL APIs that they want to unify with federation. Such APIs often share some types, and this added flexibility reduces the work required to compose their schemas successfully.
 
 ### Valid field differences between subgraphs
 
@@ -121,7 +121,7 @@ enum Color {
 
 </CodeColumns>
 
-In Federation 2, shared enums and unions can have _completely different_ definitions between subgraphs. For details, see [Enums and unions](../federated-types/types-fields/#enums-and-unions).
+In Federation 2, shared enums and union definitions can differ between subgraphs. For details, see [Enums and unions](../federated-types/types-fields/#enums-and-unions).
 
 ---
 

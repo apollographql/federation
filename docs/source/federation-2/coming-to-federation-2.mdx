@@ -11,7 +11,7 @@ This article describes potential additions to Federation 2 that are under consid
 
 ## Ownership directives
 
-Federation 2 uses relaxed composition rules compared to Federation 1, but sometimes you _want_ to enforce stricter rules for a particular type or field:
+Federation 2 provides more flexible schema composition compared to Federation 1, but sometimes you _want_ to enforce a single source of truth for a particular type or field:
 
 <p style="margin-bottom: 0">❌</p>
 
@@ -33,7 +33,7 @@ type Dog {
 
 </CodeColumns>
 
-Federation 2 will support a collection of directives (such as `@final` shown above) that help you fine-tune exactly which subgraphs can define and/or resolve which fields.
+Federation 2 will support a collection of directives (such as `@final` shown above) that enable you to enforce this single source of truth.
 
 For details, see [Federated ownership directives](../federated-types/restricting-types-fields/).
 
@@ -60,7 +60,7 @@ type Query {
 
 </CodeColumns>
 
-You'll be able to override this default restriction with the [`@shared` directive](../federated-types/restricting-types-fields/#shared):
+You'll be able to override this enforcement with the [`@shared` directive](../federated-types/restricting-types-fields/#shared):
 
 <p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
 
@@ -201,7 +201,7 @@ type Book @entity @key(fields: "id") {
 
 </CodeColumns>
 
-> You can relax this restriction with the [`@shared` directive](../federated-types/restricting-types-fields/#shared).
+> You can disable this "single source of truth" behavior with the [`@shared` directive](../federated-types/restricting-types-fields/#shared).
 
 If an object type has a `@key` but _isn't_ marked with `@entity`, then multiple subgraphs can define and resolve the same fields for that type. If the `Book` type above were _not_ marked with `@entity`, the two subgraph schemas above would be valid.
 
