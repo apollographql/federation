@@ -7,7 +7,7 @@ import { CodeColumns } from 'gatsby-theme-apollo-docs';
 
 > ⚠️ **Important:** This article describes directives that are _under consideration_ for Apollo Federation 2. They are _not_ included in the Federation 2 alpha.
 
-In a federated graph, types and fields can [cross subgraph boundaries](./types-fields/), appearing in more than one subgraph schema:
+In a federated graph, types and fields can cross subgraph boundaries, appearing in more than one subgraph schema:
 
 <CodeColumns>
 
@@ -129,7 +129,7 @@ type Query {
 
 </CodeColumns>
 
-In this example, both Subgraph A and Subgraph B can resolve `Query.books`. They can even define different return types if those return types are [compatible](types-fields/#inconsistent-field-return-types).
+In this example, both Subgraph A and Subgraph B can resolve `Query.books`. They can even define different return types if those return types are [compatible](./value-types/#varying-field-return-types).
 
 > The `@shared` directive does _not_ override an explicit use of the `@final` directive. It only overrides the behavior of fields that are considered `@final` by default.
 
