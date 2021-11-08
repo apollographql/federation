@@ -1,20 +1,12 @@
 ---
-title: Sharing types and fields across subgraphs
-sidebar_title: Sharing types and fields
+title: Value types
+sidebar_title: Reusing types (value types)
+description: Define the same type in multiple subgraphs
 ---
 
 import { CodeColumns } from 'gatsby-theme-apollo-docs';
 
-This article describes:
-
-* How to use types and fields across multiple subgraph schemas in a federated graph
-* Scenarios where cross-subgraph types and fields can [break composition](./composition/#breaking-composition)
-
-## Introduction
-
-In a federated graph, each subgraph has its own schema, which defines types and fields for the data that the subgraph can provide.
-
-Each subgraph's schema is distinct, but types and fields in those schemas might overlap. For example, multiple subgraph schemas might define the _same_ type, possibly with _different fields:_
+In Apollo Federation, a **value type** is any type that's defined in multiple subgraphs but _isn't_ an [entity](../entities/). In the following example, both `Position` and `Color` are value types:
 
 <CodeColumns>
 
@@ -24,6 +16,12 @@ type Position {
   x: Int!
   y: Int!
 }
+
+enum Color {
+  RED
+  GREEN
+  BLUE
+}
 ```
 
 ```graphql
@@ -31,17 +29,34 @@ type Position {
 type Position {
   x: Int
   y: Int
-  z: Int
+}
+
+enum Color {
+  CYAN
+  MAGENTA
+  YELLOW
 }
 ```
 
 </CodeColumns>
 
-In cases like these, **types and fields cross subgraph boundaries**. Apollo Federation supports this, _as long as your supergraph schema can compose successfully_. Some of these cases require you to add special syntax to your subgraph schemas.
+> As this example shows, a value type's definition can differ between subgraphs in Federation 2. This is _not_ true in Federation 1.
+>
+> Whenever a value type definition varies in a valid way, composition generates _warnings_, but not _errors_.
 
-Let's take a look at common cases when using a type or field definition across subgraphs with Apollo Federation.
+This article describes how to define value types in a federated graph, along with scenarios where value type definitions can [break composition](./composition/#breaking-composition).
 
-## Inconsistent field return types
+## Objects
+
+The fields of an object value type can differ between subgraphs in _certain ways:_
+
+* A field's return type can vary in nullability and count (list vs. single value).
+* A field's return type _can't_ vary in its core type (e.g., `String` versus `Int`).
+* A field can be _omitted_ from a subgraph entirely if that field is always **resolvable**.
+
+See the following subsections for details.
+
+### Varying field return types
 
 Let's say two subgraphs both define an `Event` object type with a `timestamp` field:
 
@@ -67,7 +82,7 @@ type Event {
 
 Subgraph A's `timestamp` returns an `Int`, and Subgraph B's returns a `String`. **This is invalid.** When composition attempts to generate an `Event` type for the supergraph schema, it fails due to an unresolvable conflict between the two `timestamp` definitions.
 
-Next, look at these inconsistent definitions for the `Position` object type:
+Next, look at these varying definitions for the `Position` object type:
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -113,7 +128,7 @@ This definition works for querying Subgraph A, because Subgraph A's definition i
 
 ### Supported field coercions
 
-Composition can use coercion to handle differences in field **nullability** and/or **lists**. Look at these inconsistent definitions of a `Document` object type:
+Composition can use coercion to handle differences in field **nullability** and/or **count** (list vs. single value). Look at these varying definitions of a `Document` object type:
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -155,7 +170,7 @@ type Document {
 * This `lastModified` definition works for Subgraph A, which returns a single nullable `String`. The gateway can transform the single `String` into a one-item list.
 * This definition _also_ works for Subgraph B, because the nullability of list items is _less restrictive_ than Subgraph B's.
 
-## Missing object fields
+### Omitting fields
 
 Look at these two definitions of a `Position` object type:
 
@@ -226,7 +241,7 @@ query GetCurrentPosition {
   currentPosition {
     x
     y
-    z # ⚠️ Can't be resolved! ⚠️
+    z # ⚠️ Unresolvable! ⚠️
   }
 }
 ```
@@ -238,3 +253,51 @@ query GetCurrentPosition {
 And here's the problem: if Subgraph B _doesn't_ define `Query.currentPosition`, this query _must_ be executed on Subgraph A. But Subgraph A is missing the `Position.z` field, so that field is **unresolvable**!
 
 **Composition recognizes this potential problem, and it fails with an error.** So how do we fix it? Check out [Solutions for unresolvable fields](./composition/#solutions-for-unresolvable-fields).
+
+## Enums and unions
+
+In Federation 2, enum and union value types can have _completely different_ definitions between subgraphs:
+
+<CodeColumns>
+
+```graphql
+# Subgraph A
+union Media = Book | Movie
+
+enum Color {
+  RED
+  GREEN
+  BLUE
+}
+```
+
+```graphql
+# Subgraph B
+union Media = Book | Podcast
+
+enum Color {
+  CYAN
+  MAGENTA
+  YELLOW
+}
+```
+
+</CodeColumns>
+
+Composition logic _merges_ these definitions in your supergraph schema:
+
+```graphql
+# Supergraph schema
+union Media = Book | Movie | Podcast
+
+enum Color {
+  RED
+  GREEN
+  BLUE
+  CYAN
+  MAGENTA
+  YELLOW
+}
+```
+
+This can be useful when different subgraphs are responsible for different subsets of a particular set of related types or values.

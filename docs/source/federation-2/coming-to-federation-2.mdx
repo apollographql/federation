@@ -1,11 +1,13 @@
 ---
-title: Coming soon to Apollo Federation 2
-sidebar_title: ⏰ Coming soon
+title: Under consideration for Apollo Federation 2
+sidebar_title: 🚧 Under consideration
 ---
 
 import { CodeColumns } from 'gatsby-theme-apollo-docs';
 
-This article describes upcoming features of Federation 2. **These updates aren't available yet in the Federation 2 alpha, and their details might change prior to release.**
+This article describes potential additions to Federation 2 that are under consideration.
+
+> ⚠️ **These additions aren't included in the Federation 2 alpha!** All of the features described in this article are subject to change or removal from the full release of Federation 2.
 
 ## Ownership directives
 
@@ -88,7 +90,7 @@ The `@shared` directive is required here as a protective measure: it's often an 
 
 ## Entity changes
 
-> Federation 1 entity definitions continue to behave correctly in Federation 2.
+> ⚠️ **These changes to entities are under consideration.** Currently, Federation 1 entity definitions behave as expected in Federation 2.
 
 In Federation 1, an [entity](https://www.apollographql.com/docs/federation/entities/) is an object type that _originates_ in a single subgraph. Other subgraphs can then _extend_ that entity with additional fields:
 
@@ -118,7 +120,7 @@ extend type Book @key(fields: "id") {
 
 The originating subgraph is responsible for [resolving references](https://www.apollographql.com/docs/federation/entities/#resolving) to the entity that are provided by extending subgraphs.
 
-In Federation 2, entities no longer "originate" in a particular subgraph. Let's look at how this changes things.
+In Federation 2, entities will no longer "originate" in a particular subgraph. Let's look at how this changes things.
 
 ### New syntax
 
@@ -261,69 +263,3 @@ type Book @entity {
 ```
 
 </CodeColumns>
-
-### Replacing `@provides` with `@shared`
-
-In Federation 1, an extending subgraph can declare its ability to resolve entity fields that are defined in the _originating_ subgraph. This can improve performance for certain queries by reducing the number of subgraph operations required to resolve them.
-
-To declare this ability, a subgraph uses the [`@provides` directive](https://www.apollographql.com/docs/federation/entities/#resolving-another-subgraphs-field-advanced):
-
-<p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
-
-<CodeColumns>
-
-```graphql
-# Subgraph A
-# (Originating)
-type Book @key(fields: "id") {
-  id: ID!
-  title: String!
-}
-```
-
-```graphql{10}
-# Subgraph B
-# (Extending)
-extend type Book @key(fields: "id") {
-  id: ID! @external
-  title: String! @external
-  author: Author!
-}
-
-type Query {
-  books: [Book!]! @provides(fields: "title")
-}
-```
-
-</CodeColumns>
-
-In Federation 2, there is no "originating" subgraph. Subgraphs use the `@shared` directive to indicate that they're all able to resolve the same entity field:
-
-<p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
-
-<CodeColumns>
-
-```graphql{4}
-# Subgraph A
-type Book @entity @key(fields: "id") {
-  id: ID!
-  title: String! @shared
-}
-```
-
-```graphql{4}
-# Subgraph B
-type Book @entity {
-  id: ID!
-  title: String! @shared
-  author: Author!
-}
-
-type Query {
-  books: [Book!]!
-}
-```
-
-</CodeColumns>
-
-And as before, if a subgraph _can't_ resolve a particular entity field, it can just omit it.
