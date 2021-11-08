@@ -3,7 +3,7 @@ title: Entities
 description: Reference and extend types across subgraphs
 ---
 
-> ⚠️ This article describes entities as they behave in Federation 1 and are _currently_ supported in Federation 2. Updates to entities are [under consideration](./federation-2/coming-to-federation-2) for future releases of Federation 2.
+> ⚠️ This article describes entities as they behave in Federation 1 and are _currently_ supported in Federation 2. Updates to entities are [under consideration](./federation-2/under-consideration/) for future releases of Federation 2.
 
 In Apollo Federation, an **entity** is an object type that you define canonically in _one_ subgraph and can then reference and extend in _other_ subgraphs. Entities are the core building block of a federated graph.
 

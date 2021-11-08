@@ -25,10 +25,10 @@ module.exports = {
           null: [ 'index', ],
           'Federation 2 Updates': [
             'federation-2/new-in-federation-2',
-            'federation-2/coming-to-federation-2',
             'federation-2/moving-to-federation-2',
             'federation-2/backward-compatibility',
             '[🚀 Demo app](https://github.com/apollographql/supergraph-demo-fed2)',
+            'federation-2/under-consideration',
           ],
           Quickstart: [
             'quickstart/setup',
@@ -41,9 +41,9 @@ module.exports = {
             'federated-types/overview',
             'federated-types/composition',
             'entities',
-            'federated-types/types-fields',
+            'federated-types/value-types',
             'federated-types/migrating-types-fields',
-            'federated-types/restricting-types-fields',
+            'federated-types/ownership-directives',
           ],
           'Managed Federation': [
             'managed-federation/overview',

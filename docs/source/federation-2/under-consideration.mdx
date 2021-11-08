@@ -35,7 +35,7 @@ type Dog {
 
 Federation 2 will support a collection of directives (such as `@final` shown above) that enable you to enforce this single source of truth.
 
-For details, see [Federated ownership directives](../federated-types/restricting-types-fields/).
+For details, see [Federated ownership directives](../federated-types/ownership-directives/).
 
 ## Changes to `Query` and `Mutation` types
 
@@ -60,7 +60,7 @@ type Query {
 
 </CodeColumns>
 
-You'll be able to override this enforcement with the [`@shared` directive](../federated-types/restricting-types-fields/#shared):
+You'll be able to override this enforcement with the [`@shared` directive](../federated-types/ownership-directives/#shared):
 
 <p style="margin-bottom: 0; font-weight: bold;">Fed. 2</p>
 
@@ -201,7 +201,7 @@ type Book @entity @key(fields: "id") {
 
 </CodeColumns>
 
-> You can disable this "single source of truth" behavior with the [`@shared` directive](../federated-types/restricting-types-fields/#shared).
+> You can disable this "single source of truth" behavior with the [`@shared` directive](../federated-types/ownership-directives/#shared).
 
 If an object type has a `@key` but _isn't_ marked with `@entity`, then multiple subgraphs can define and resolve the same fields for that type. If the `Book` type above were _not_ marked with `@entity`, the two subgraph schemas above would be valid.
 
