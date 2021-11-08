@@ -144,7 +144,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     private readonly edgeToTail: Edge | TNullEdge | undefined,
     /** Names of the all the possible runtime types the tail of the path can be. */
     private readonly runtimeTypesOfTail: readonly ObjectType[],
-    /** If the last edge, the one getting to tail, was a DownCast, the runtime types before that edge. */
+    /** If the last edge (the one getting to tail) was a DownCast, the runtime types before that edge. */
     private readonly runtimeTypesBeforeTailIfLastIsCast?: readonly ObjectType[],
   ) {
   }
@@ -487,6 +487,47 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return true;
   }
 
+  truncateTrailingDowncasts(): GraphPath<TTrigger, RV, TNullEdge> {
+    let lastNonDowncastIdx = -1;
+    let v: Vertex = this.root;
+    let lastNonDowncastVertex = v;
+    let lastNonDowncastEdge: Edge | undefined;
+    let runtimeTypes = isFederatedGraphRootType(this.root.type) ? [] : possibleRuntimeTypes(this.root.type as CompositeType);
+    let runtimeTypesAtLastNonDowncastEdge = runtimeTypes;
+    for (let i = 0; i < this.size; i++) {
+      const edge = this.edgeAt(i, v);
+      runtimeTypes = updateRuntimeTypes(runtimeTypes, edge);
+      if (edge) {
+        v = edge.tail;
+        if (edge.transition.kind !== 'DownCast') {
+          lastNonDowncastIdx = i;
+          lastNonDowncastVertex = v;
+          lastNonDowncastEdge = edge;
+          runtimeTypesAtLastNonDowncastEdge = runtimeTypes;
+        }
+      }
+    }
+    if (lastNonDowncastIdx < 0 || lastNonDowncastIdx === this.size -1) {
+      return this;
+    }
+
+    const newSize = lastNonDowncastIdx + 1;
+    return new GraphPath(
+      this.graph,
+      this.root,
+      lastNonDowncastVertex,
+      this.edgeTriggers.slice(0, newSize),
+      this.edgeIndexes.slice(0, newSize),
+      this.edgeConditions.slice(0, newSize),
+      // Note as we _only_ truncate downCast edges, the "subgraph entering edge" cannot have changed.
+      this.subgraphEnteringEdgeIndex,
+      this.subgraphEnteringEdge,
+      this.subgraphEnteringEdgeCost,
+      lastNonDowncastEdge,
+      runtimeTypesAtLastNonDowncastEdge
+    );
+  }
+
   toString(): string {
     const isRoot = isRootVertex(this.root);
     if (isRoot && this.size === 0) {
@@ -530,6 +571,38 @@ export type OpRootPath = OpGraphPath<RootVertex>;
 
 export function isRootPath(path: OpGraphPath<any>): path is OpRootPath {
   return isRootVertex(path.root);
+}
+
+export function terminateWithNonRequestedTypenameField<V extends Vertex>(path: OpGraphPath<V>): OpGraphPath<V> {
+
+  // If the last step of the path was a fragment/type-condition, we want to remove it before we get __typename.
+  // The reason is that this avoid cases where this method would make us build plans like:
+  // {
+  //   foo {
+  //     __typename
+  //     ... on A {
+  //       __typename
+  //     }
+  //     ... on B {
+  //       __typename
+  //     }
+  // }
+  // Instead, we just generate:
+  // {
+  //   foo {
+  //     __typename
+  //   }
+  // }
+  // Note it's ok to do this because the __typename we add is _not_ requested, it is just added in cases where we
+  // need to ensure a selection is not empty, and so this transformation is fine to do.
+  path = path.truncateTrailingDowncasts();
+  if (!isCompositeType(path.tail.type)) {
+    return path;
+  }
+  const typenameField = new Field(path.tail.type.typenameField()!);
+  const edge = edgeForField(path.graph, path.tail, typenameField);
+  assert(edge, () => `We should have an edge from ${path.tail} for ${typenameField}`);
+  return path.add(typenameField, edge, noConditionsResolution);
 }
 
 export function traversePath(
@@ -1460,9 +1533,9 @@ function advanceOneWithOperation<V extends Vertex>(
           return undefined;
         }
         const fieldOptions = addFieldEdge(path, operation, edge, conditionResolver, context);
-        debug.groupEnd(() => fieldOptions.length === 0
-          ? `Cannot satisfy @requires on field ${field} for object type ${currentType}`
-          : `Collected field ${field} on object type ${currentType}`
+        debug.groupEnd(() => fieldOptions
+          ? `Collected field ${field} on object type ${currentType}`
+          : `Cannot satisfy @requires on field ${field} for object type ${currentType}`
         );
         return fieldOptions;
       case 'InterfaceType':
@@ -1477,6 +1550,9 @@ function advanceOneWithOperation<V extends Vertex>(
         let itfOptions: SimultaneousPaths<V>[] | undefined = undefined;
         if (itfEdge) {
           itfOptions = addFieldEdge(path, operation, itfEdge, conditionResolver, context);
+          // TODO: We should re-assess this when we support @requires on interface fields (typically, should we even try to type-explode
+          // if the direct edge cannot be satisfied? Probably depedends on the exact semantic of @requires on interface fields).
+          assert(itfOptions, () => `Interface edge ${itfEdge} shouldn't have conditions`);
           // Further, if we've getting the __typename, we must _not_ type-explode.
           if (field.name === typenameFieldName || !anImplementationHasAProvides(field.name, currentType)) {
             debug.groupEnd(() => `Collecting field ${field} on interface ${currentType} without type-exploding`);
@@ -1647,9 +1723,9 @@ function addFieldEdge<V extends Vertex>(
   edge: Edge,
   conditionResolver: ConditionResolver,
   context: PathContext
-): OpGraphPath<V>[][] {
+): SimultaneousPaths<V>[] | undefined {
   const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], []);
-  return conditionResolution.satisfied ? [[ path.add(fieldOperation, edge, conditionResolution) ]] : [];
+  return conditionResolution.satisfied ? [[ path.add(fieldOperation, edge, conditionResolution) ]] : undefined;
 }
 
 function nextEdgeForField<V extends Vertex>(

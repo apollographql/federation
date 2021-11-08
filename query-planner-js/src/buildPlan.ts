@@ -66,6 +66,7 @@ import {
   SimultaneousPathsWithLazyIndirectPaths,
   simultaneousPathsToString,
   SimultaneousPaths,
+  terminateWithNonRequestedTypenameField,
 } from "@apollo/query-graphs";
 import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -150,8 +151,31 @@ class QueryPlanningTaversal<RV extends Vertex> {
         // This `operation` is valid from that option but is guarantee to yield no result (it's a type condition that, along
         // with prior condition, has no intersection). Given that (assuming the user do properly resolve all versions of a
         // given field the same way from all subgraphs) all options should return the same results, we know that operation
-        // should return no result from all options (even if we can't provide it technically) and it's valid to just
-        // ignore the operation.
+        // should return no result from all options (even if we can't provide it technically).
+        // More concretely, this usually means the current operation is a type condition that has no intersection with the possible
+        // current runtime types at this point, and this means whatever fields the type condition sub-selection selects, they
+        // will never be part of the results. That said, we cannot completely ignore the type-condition/fragment or we'd end
+        // up with the wrong results. Consider the example a sub-part of the query is :
+        //   {
+        //     foo {
+        //       ... on Bar {
+        //         field
+        //       }
+        //     }
+        //   }
+        // and suppose that `... on Bar` can never match a concrete runtime type at this point. Because that's the only sub-selection
+        // of `foo`, if we completely ignore it, we'll end up not querying this at all. Which means that, during execution,
+        // we'd either return (for that sub-part of the query) `{ foo: null }` if `foo` happens to be nullable, or just `null` for
+        // the whole sub-part otherwise. But what we *should* return (assuming foo doesn't actually return `null`) is `{ foo: {} }`.
+        // Meaning, we have queried `foo` and it returned something, but it's simply not a `Bar` and so nothing was included.
+        // Long story short, to avoid that situation, we replace the whole `... on Bar` section that can never match the runtime
+        // type by simply getting the `__typename` of `foo`. This ensure we do query `foo` but don't end up including condiditions
+        // that may not even make sense to the subgraph we're querying.
+        // Do note that we'll only need that `__typename` if there is no other selections inside `foo`, and so we might include
+        // it unecessarally in practice: it's a very minor inefficiency though.
+        if (operation.kind === 'FragmentElement') {
+          this.closedBranches.push([option.paths.map(p => terminateWithNonRequestedTypenameField(p))]);
+        }
         return;
       }
       newOptions = newOptions.concat(followupForOption);
@@ -166,7 +190,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
         debug.log(`No valid options to advance ${selection} from ${advanceOptionsToString(options)}`);
         throw new Error(`Was not able to find any options for ${selection}: This shouldn't have happened.`);
       } else {
-        // We clear both open branches and closed ones as a mean to terminal the plan computation with
+        // We clear both open branches and closed ones as a mean to terminate the plan computation with
         // no plan
         this.stack.splice(0, this.stack.length);
         this.closedBranches.splice(0, this.closedBranches.length);
@@ -515,11 +539,21 @@ function computeRootParallelBestPlan(
     defaultCostFunction,
     emptyContext
   );
-  const bestPlan = planningTraversal.findBestPlan();
-  if (!bestPlan) {
-    throw new Error("Wasn't able to compute a valid plan. This shouldn't have happened.");
-  }
-  return bestPlan;
+  const plan = planningTraversal.findBestPlan();
+  // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
+  // so we just return an empty plan.
+  return plan ?? createEmptyPlan(federatedQueryGraph, root);
+}
+
+function createEmptyPlan(
+  federatedQueryGraph: QueryGraph,
+  root: RootVertex
+): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
+  return [
+    FetchDependencyGraph.create(federatedQueryGraph),
+    PathTree.createOp(federatedQueryGraph, root),
+    0
+  ];
 }
 
 function onlyRootSubgraph(graph: FetchDependencyGraph): string {
