@@ -129,7 +129,7 @@ This `@requires` directive should _break_ composition because it depends on subf
 
 ## Can Federation 1 compose my Federation 2 graph?
 
-**Probably not.** Federation 2 [relaxes composition rules](./new-in-federation-2/#relaxed-composition-rules) from Federation 1. If you modify your subgraph schemas to take advantage of these relaxed rules, your graph will no longer compose with Federation 1. You need to revert these changes to move _back_ to Federation 1.
+**Probably not.** Federation 2 provides [more flexible composition rules](./new-in-federation-2/#more-flexible-composition) compared to Federation 1. If you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move _back_ to Federation 1.
 
 ## Does `@apollo/gateway` v2 support Federation 1?
 

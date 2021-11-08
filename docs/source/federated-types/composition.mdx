@@ -85,7 +85,7 @@ type Event {
 
 One subgraph defines `Event.timestamp` as a `String`, and the other defines it as an `Int`. Composition doesn't know which type to use, so it fails.
 
-> For examples of _valid_ inconsistencies in field return types, see [Supported field coercions](./types-fields/#supported-field-coercions).
+> For examples of _valid_ inconsistencies in field return types, see [Varying field return types](./types-fields/#varying-field-return-types).
 
 Breaking composition is a helpful feature of federation! Whenever a team modifies their subgraph schema, those changes might conflict with _another_ subgraph. But that conflict won't affect your gateway, because composition fails to generate a new supergraph schema. It's like a compiler error that prevents you from running invalid code.
 
@@ -248,7 +248,7 @@ extend type User @key(fields: "id") {
 
 If you make a shared type an [entity](../entities/), different subgraphs can define any number of different fields for that type, as long as they all define **key fields** for it.
 
-> This key field restriction will be lifted in a future update to Federation 2. [See details.](../federation-2/coming-to-federation-2/#entity-changes)
+> This key field restriction might change in a future update to Federation 2. [See details.](../federation-2/under-consideration/#entity-changes)
 
 This is a useful solution when a type corresponds closely to an entry in a data store that one or more of your subgraphs has access to (e.g., a `Users` database).
 
