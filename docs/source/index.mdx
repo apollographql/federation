@@ -18,12 +18,12 @@ import { CodeColumns } from 'gatsby-theme-apollo-docs';
 >
 > Unchanged portions of the federation docs are omitted for clarity. These portions are available in the [Federation 1 docs](https://www.apollographql.com/docs/federation/).
 
-**Apollo Federation** is a powerful open-source architecture that helps you combine multiple GraphQL APIs into a **unified graph**:
+**Apollo Federation** is a powerful open-source architecture that helps you create a **unified graph** that combines multiple GraphQL APIs:
 
 ```mermaid
 graph BT;
   subgraph " ";
-  gateway([Gateway]);
+  gateway([Supergraph<br/>gateway]);
   serviceA[Users<br/>subgraph];
   serviceB[Products<br/>subgraph];
   serviceC[Reviews<br/>subgraph];
@@ -59,7 +59,7 @@ In a federated architecture, your individual GraphQL APIs are called **subgraphs
 graph BT;
   clients(Clients);
   subgraph " ";
-  gateway([Gateway]);
+  gateway([Supergraph<br/>gateway]);
   serviceA[Users<br/>subgraph];
   serviceB[Products<br/>subgraph];
   serviceC[Reviews<br/>subgraph];
@@ -97,7 +97,7 @@ type Product {
 
 </CodeColumns>
 
-To communicate with all of your subgraphs, the gateway needs a special schema that _combines_ these subgraph schemas: it needs a **supergraph schema**.
+To communicate with all of your subgraphs, the gateway uses a special **supergraph schema** that _combines_ these subgraph schemas.
 
 To create a supergraph schema, Apollo Federation uses a special process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your gateway:
 

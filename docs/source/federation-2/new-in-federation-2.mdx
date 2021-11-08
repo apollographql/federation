@@ -60,7 +60,7 @@ In Federation 2, value types can _differ_ in certain ways:
 
 <CodeColumns>
 
-```graphql{3-4}
+```graphql
 # Subgraph A
 type Book {
   title: String!
@@ -68,12 +68,12 @@ type Book {
 }
 ```
 
-```graphql{3-5}
+```graphql{4-5}
 # Subgraph B
 type Book {
-  title: String     # Nullable
-  author: [String!] # List
-  isbn: String!     # Not in A
+  title: String!
+  author: String  # Nullable
+  isbn: String!   # Not in A
 }
 ```
 
@@ -83,8 +83,7 @@ This flexibility is especially helpful when an organization has multiple standal
 
 ### Valid field differences between subgraphs
 
-* Fields of a value type can vary in nullability (`String` / `String!`), and in whether they return a list (`String` / `[String]`).
-    * However, a field's _core_ return type _cannot_ differ (`String` / `Int`).
+* The return type of a value type's field can vary in nullability (`String` / `String!`).
 * Value types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
 
 > For details on how these field differences are handled, see [Value types](../federated-types/types-fields/).

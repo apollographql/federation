@@ -50,8 +50,8 @@ This article describes how to define value types in a federated graph, along wit
 
 The fields of an object value type can differ between subgraphs in _certain ways:_
 
-* A field's return type can vary in nullability and count (list vs. single value).
-* A field's return type _can't_ vary in its core type (e.g., `String` versus `Int`).
+* A field's return type can vary in nullability (`Int` vs. `Int!`).
+    * A field's return type _can't_ vary in its core type (`Int` vs. `String`) or in whether it returns a list (`Int` vs. `[Int]`).
 * A field can be _omitted_ from a subgraph entirely if that field is always **resolvable**.
 
 See the following subsections for details.
@@ -122,53 +122,9 @@ type Position {
 
 </CodeColumns>
 
-This definition works for querying Subgraph A, because Subgraph A's definition is _more restrictive_ than this (a non-nullable value is always valid for a nullable field). In this case, composition [**coerces**](#supported-field-coercions) Subgraph A's `Position` fields to satisfy the reduced restrictiveness of Subgraph B.
+This definition works for querying Subgraph A, because Subgraph A's definition is _more restrictive_ than this (a non-nullable value is always valid for a nullable field). In this case, composition **coerces** Subgraph A's `Position` fields to satisfy the reduced restrictiveness of Subgraph B.
 
 > Note that Subgraph A's actual subgraph schema is _not_ modified. Within Subgraph A, `x` and `y` remain non-nullable.
-
-### Supported field coercions
-
-Composition can use coercion to handle differences in field **nullability** and/or **count** (list vs. single value). Look at these varying definitions of a `Document` object type:
-
-<p style="margin-bottom: 0">✅</p>
-
-<CodeColumns>
-
-```graphql
-# Subgraph A
-type Document {
-  # Most recent timestamp
-  lastModified: String
-}
-```
-
-```graphql
-# Subgraph B
-type Document {
-  # List of timestamps
-  lastModified: [String!]!
-}
-```
-
-</CodeColumns>
-
-In this case, composition generates the following supergraph schema definition of `Document`:
-
-<CodeColumns>
-
-```graphql
-# Supergraph schema
-type Document {
-  lastModified: [String]!
-}
-```
-
-<></>
-
-</CodeColumns>
-
-* This `lastModified` definition works for Subgraph A, which returns a single nullable `String`. The gateway can transform the single `String` into a one-item list.
-* This definition _also_ works for Subgraph B, because the nullability of list items is _less restrictive_ than Subgraph B's.
 
 ### Omitting fields
 

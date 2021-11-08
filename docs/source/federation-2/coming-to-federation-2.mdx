@@ -83,7 +83,7 @@ type Query {
 
 </CodeColumns>
 
-Now, either subgraph can resolve `Query.books`. The return types of these shared fields can even vary in the same ways as [other shared types](./new-in-federation-2/#valid-field-differences-between-subgraphs) (nullability and lists).
+Now, either subgraph can resolve `Query.books`. The return types of these shared fields can even vary in the same ways as [other shared types](./new-in-federation-2/#valid-field-differences-between-subgraphs).
 
 The `@shared` directive is required here as a protective measure: it's often an _unintended error_ for multiple subgraphs to resolve the same root field.
 
