@@ -33,6 +33,11 @@ While we will try to be as helpful as we can on any issue reported, please inclu
 
 Creating a good reproduction really helps contributors investigate and resolve your issue quickly. In many cases, the act of creating a minimal reproduction illuminates that the source of the bug was somewhere outside the library in question, saving time and effort for everyone.
 
+### Current branches
+
+1. **Federation 2 (alpha)** is the current `main` branch.
+2. **Prior releases** are located under the `version-0.x` branch.  This comprises all 0.x packages previously released.  Installing `latest` from npm will pull from here.
+
 ### Improving the documentation
 
 Improving the documentation, examples, and other open source content can be the easiest, and one of the most important, way to contribute to the library. If you see a piece of content that can be better, open a PR with an improvement, no matter how small! If you would like to suggest a big change or major rewrite, we’d love to hear your ideas! Please open a feature request for discussion before writing the PR.
@@ -53,7 +58,7 @@ Most of the features in Apollo Client came from suggestions by you, the communit
 
 For significant changes to a repository, it’s important to settle on a design before starting on the implementation. This way, we can make sure that major improvements get the care and attention they deserve. Since big changes can be risky and might not always get merged, it’s good to reduce the amount of possible wasted effort by agreeing on an implementation design/plan first.
 
-1. **Open an issue.** Open an issue about your bug or feature request in this repo.
+1. **Open an issue.** Open an issue about your bug or feature request in this repo.  Check to make sure you're targeting the federation version you want.
 2. **Reach consensus.** Some contributors and community members should reach an agreement that this feature or bug is important, and that someone should work on implementing or fixing it.
 3. **Agree on intended behavior.** On the issue, reach an agreement about the desired behavior. In the case of a bug fix, it should be clear what it means for the bug to be fixed, and in the case of a feature, it should be clear what it will be like for developers to use the new feature.
 4. **Agree on implementation plan.** Write a plan for how this feature or bug fix should be implemented. What modules need to be added or rewritten? Should this be one pull request or multiple incremental improvements? Who is going to do each part?

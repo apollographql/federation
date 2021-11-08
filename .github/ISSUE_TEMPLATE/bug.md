@@ -21,6 +21,7 @@ https://github.com/apollographql/federation/blob/HEAD/CONTRIBUTING.md#reporting-
 - [ ] The expected behavior.
 - [ ] The actual behavior.
 - [ ] A **simple**, runnable reproduction!
+- [ ] The federation version you are targeting.
       Please make a GitHub repository that anyone can clone and run and see the
       problem.
 
