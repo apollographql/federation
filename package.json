@@ -64,7 +64,7 @@
     "@types/whatwg-url": "8.2.1",
     "apollo-link": "1.2.14",
     "apollo-link-http": "1.5.17",
-    "apollo-server": "3.4.0",
+    "apollo-server": "3.4.1",
     "apollo-server-env": "4.1.0",
     "bunyan": "1.8.15",
     "deep-freeze": "0.0.1",
