@@ -20,6 +20,9 @@ Here are some important details to follow:
         please _try_ to add a test which verifies the fix.  If you cannot, you should
         still submit the PR but we may still ask you (and help you!) to create a test.
 
+* Federation versions
+        Please make sure you're targeting the federation version you're opening the PR for.  Federation 2 (alpha) is currently located on the `main` branch and prior versions of Federation live on the `version-0.x` branch.
+
 * 📖 Contribution guidelines
         Follow https://github.com/apollographql/federation/blob/HEAD/CONTRIBUTING.md
         when submitting a pull request.  Make sure existing tests still pass, and add
