@@ -325,7 +325,7 @@ it('Rollsback to a previous schema when triggered', async () => {
     'updatedId-5678',
     'originalId-1234',
   );
-  mockSupergraphSdlRequestSuccessIfAfter(null, null, 'updatedId-5678');
+  mockSupergraphSdlRequestSuccessIfAfter('updatedId-5678');
 
   let firstResolve: Function;
   let secondResolve: Function;

@@ -86,9 +86,9 @@ export function mockSupergraphSdlRequest(ifAfter: string | null = null) {
 }
 
 export function mockSupergraphSdlRequestSuccessIfAfter(
-  ifAfter?: string = null,
-  id?: string = 'originalId-1234',
-  supergraphSdl?: string = getTestingSupergraphSdl(),
+  ifAfter: string | null = null,
+  id: string = 'originalId-1234',
+  supergraphSdl: string = getTestingSupergraphSdl(),
 ) {
   if (supergraphSdl == null) {
     supergraphSdl = getTestingSupergraphSdl();
@@ -111,7 +111,7 @@ export function mockSupergraphSdlRequestSuccessIfAfter(
 }
 
 export function mockSupergraphSdlRequestSuccess() {
-  return mockSupergraphSdlRequestSuccessIfAfter(null, null, null);
+  return mockSupergraphSdlRequestSuccessIfAfter(null);
 }
 
 export function mockOutOfBandReportRequest() {
