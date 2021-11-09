@@ -86,9 +86,9 @@ export function mockSupergraphSdlRequest(ifAfter: string | null = null) {
 }
 
 export function mockSupergraphSdlRequestSuccessIfAfter(
-  supergraphSdl: string | null = getTestingSupergraphSdl(),
-  id: string | null = 'originalId-1234',
-  ifAfter: string | null = null,
+  ifAfter?: string = null,
+  id?: string = 'originalId-1234',
+  supergraphSdl?: string = getTestingSupergraphSdl(),
 ) {
   if (supergraphSdl == null) {
     supergraphSdl = getTestingSupergraphSdl();
