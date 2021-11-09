@@ -28,6 +28,7 @@ module.exports = {
             'federation-2/moving-to-federation-2',
             'federation-2/backward-compatibility',
             '[🚀 Demo app](https://github.com/apollographql/supergraph-demo-fed2)',
+            '[🗺 Roadmap](https://github.com/apollographql/federation/blob/main/ROADMAP.md)',
           ],
           Quickstart: [
             'quickstart/setup',
