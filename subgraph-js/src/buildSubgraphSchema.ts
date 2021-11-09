@@ -24,7 +24,7 @@ import { printSubgraphSchema } from './printSubgraphSchema';
 
 type LegacySchemaModule = {
   typeDefs: DocumentNode | DocumentNode[];
-  resolvers?: GraphQLResolverMap<any>;
+  resolvers?: GraphQLResolverMap<unknown>;
 };
 
 export { GraphQLSchemaModule };
