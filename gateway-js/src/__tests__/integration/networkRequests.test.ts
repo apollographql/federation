@@ -133,9 +133,9 @@ it('Fetches Supergraph SDL from remote storage using a configured env variable',
 it('Updates Supergraph SDL from remote storage', async () => {
   mockSupergraphSdlRequestSuccess();
   mockSupergraphSdlRequestSuccessIfAfter(
-    getTestingSupergraphSdl(fixturesWithUpdate),
+      'originalId-1234',
     'updatedId-5678',
-    'originalId-1234',
+      getTestingSupergraphSdl(fixturesWithUpdate),
   );
 
   // This test is only interested in the second time the gateway notifies of an
@@ -321,9 +321,9 @@ it('Rollsback to a previous schema when triggered', async () => {
   // Init
   mockSupergraphSdlRequestSuccess();
   mockSupergraphSdlRequestSuccessIfAfter(
-    getTestingSupergraphSdl(fixturesWithUpdate),
+      'originalId-1234',
     'updatedId-5678',
-    'originalId-1234',
+      getTestingSupergraphSdl(fixturesWithUpdate),
   );
   mockSupergraphSdlRequestSuccessIfAfter('updatedId-5678');
 
@@ -491,9 +491,9 @@ describe('Downstream service health checks', () => {
 
       // Update
       mockSupergraphSdlRequestSuccessIfAfter(
-        getTestingSupergraphSdl(fixturesWithUpdate),
-        'updatedId-5678',
-        'originalId-1234',
+          'originalId-1234',
+          'updatedId-5678',
+          getTestingSupergraphSdl(fixturesWithUpdate),
       );
       mockAllServicesHealthCheckSuccess();
 
@@ -535,9 +535,9 @@ describe('Downstream service health checks', () => {
 
       // Update (with one health check failure)
       mockSupergraphSdlRequestSuccessIfAfter(
+          'originalId-1234',
+          'updatedId-5678',
         getTestingSupergraphSdl(fixturesWithUpdate),
-        'updatedId-5678',
-        'originalId-1234',
       );
       mockServiceHealthCheck(accounts).reply(500);
       mockServiceHealthCheckSuccess(books);

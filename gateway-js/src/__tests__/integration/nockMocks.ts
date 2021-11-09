@@ -93,9 +93,6 @@ export function mockSupergraphSdlRequestSuccessIfAfter(
   if (supergraphSdl == null) {
     supergraphSdl = getTestingSupergraphSdl();
   }
-  if (id == null) {
-    id = 'originalId-1234';
-  }
   return mockSupergraphSdlRequestIfAfter(ifAfter).reply(
     200,
     JSON.stringify({
