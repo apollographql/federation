@@ -32,9 +32,8 @@ import {
 import { isFederationType, Maybe } from './types';
 import {
   gatherDirectives,
-  federationDirectives,
-  otherKnownDirectives,
   isFederationDirective,
+  knownSubgraphDirectives,
 } from './directives';
 
 export function printSubgraphSchema(schema: GraphQLSchema): string {
@@ -206,9 +205,7 @@ function printObject(type: GraphQLObjectType): string {
     (isExtension ? 'extend ' : '') +
     `type ${type.name}` +
     printImplementedInterfaces(type) +
-    // Apollo addition: print @key usages
-    printFederationDirectives(type) +
-    // Apollo addition: print @tag usages (or other known directives)
+    // Apollo addition: print federation and other known directive usages
     printKnownDirectiveUsages(type) +
     printFields(type)
   );
@@ -228,7 +225,6 @@ function printInterface(type: GraphQLInterfaceType): string {
     (isExtension ? 'extend ' : '') +
     `interface ${type.name}` +
     printImplementedInterfaces(type) +
-    printFederationDirectives(type) +
     printKnownDirectiveUsages(type) +
     printFields(type)
   );
@@ -279,31 +275,13 @@ function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
       String(f.type) +
       printDeprecated(f.deprecationReason) +
       // Apollo addition: print Apollo directives on fields
-      printFederationDirectives(f) +
       printKnownDirectiveUsages(f),
   );
   return printBlock(fields);
 }
 
-// Apollo change: *do* print the usages of federation directives.
-function printFederationDirectives(
-  typeOrField: GraphQLNamedType | GraphQLField<any, any>,
-): string {
-  if (!typeOrField.astNode) return '';
-  if (isInputObjectType(typeOrField)) return '';
-
-  const federationDirectivesOnTypeOrField = gatherDirectives(typeOrField)
-    .filter((n) =>
-      federationDirectives.some((fedDir) => fedDir.name === n.name.value),
-    )
-    .map(print);
-  const dedupedDirectives = [...new Set(federationDirectivesOnTypeOrField)];
-
-  return dedupedDirectives.length > 0 ? ' ' + dedupedDirectives.join(' ') : '';
-}
-
-// Apollo addition: print `@tag` and `@contact` directive usages (and possibly
-// other future known directive usages) found in subgraph SDL.
+// Apollo addition: print federation and other known directive usages
+// found in subgraph SDL.
 function printKnownDirectiveUsages(
   objectWithDirectives:
     | GraphQLNamedType
@@ -315,7 +293,9 @@ function printKnownDirectiveUsages(
 
   const knownSubgraphDirectiveUsages = gatherDirectives(objectWithDirectives)
     .filter((n) =>
-      otherKnownDirectives.some((directive) => directive.name === n.name.value),
+      knownSubgraphDirectives.some(
+        (directive) => directive.name === n.name.value,
+      ),
     )
     .map(print);
 

@@ -107,11 +107,12 @@ export function isFederationDirective(directive: GraphQLDirective): boolean {
   return federationDirectives.some(({ name }) => name === directive.name);
 }
 
-export const otherKnownDirectives = [TagDirective, ContactDirective];
+export const otherKnownDirectives = [TagDirective];
 
 export const knownSubgraphDirectives = [
   ...federationDirectives,
   ...otherKnownDirectives,
+  ContactDirective,
 ];
 
 export function isKnownSubgraphDirective(directive: GraphQLDirective): boolean {
