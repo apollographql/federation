@@ -12,6 +12,8 @@ Federation 2 [was recently announced and is in alpha today](https://www.apollogr
 
 For Federation 1, see the [v1 docs](https://www.apollographql.com/docs/federation) and [the branch we'll be using to maintain Federation 1](https://github.com/apollographql/federation/tree/version-0.x).
 
+Checkout the [project roadmap](ROADMAP.md) to see what's coming next!
+
 ## Contributing
 
 If this project seems like something you want to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://github.com/apollographql/.github/blob/HEAD/CODE_OF_CONDUCT.md) and then head on over to the [contributing guide](./CONTRIBUTING.md) to learn how to work on this project.
