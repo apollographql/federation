@@ -20,6 +20,11 @@ If you ever have any problems, questions, or ideas, the maintainers of this proj
 
 <img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/telescope.svg" width="100%" height="144">
 
+### Current branches
+
+1. **Federation 2 (alpha)** is the current `main` branch.
+2. **Prior releases** are located under the `version-0.x` branch.  This comprises all 0.x packages previously released.  Installing `latest` from npm will pull from here.
+
 ## Who is Apollo?
 
 [Apollo](https://apollographql.com/) builds open-source software and a graph platform to unify GraphQL across your apps and services. We help you ship faster with:
