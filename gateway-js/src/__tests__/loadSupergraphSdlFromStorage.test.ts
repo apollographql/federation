@@ -30,8 +30,8 @@ describe('loadSupergraphSdlFromStorage', () => {
       apiKey,
       endpoint: mockCloudConfigUrl,
       fetcher,
-      ifAfterId: null,
-      currentSupergraphSdl: null,
+      compositionId: null,
+
     });
 
     expect(result).toMatchInlineSnapshot(`
@@ -435,8 +435,8 @@ describe('loadSupergraphSdlFromStorage', () => {
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
-          ifAfterId: null,
-          currentSupergraphSdl: null,
+          compositionId: null,
+
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"An error occurred while fetching your schema from Apollo: 200 invalid json response body at https://example.cloud-config-url.com/cloudconfig/ reason: Unexpected token I in JSON at position 0"`,
@@ -459,8 +459,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
-          ifAfterId: null,
-          currentSupergraphSdl: null,
+          compositionId: null,
         }),
       ).rejects.toThrowError(message);
     });
@@ -475,8 +474,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
-          ifAfterId: null,
-          currentSupergraphSdl: null,
+          compositionId: null,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"An error occurred while fetching your schema from Apollo: 500 Internal Server Error"`,
@@ -495,8 +493,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
-          ifAfterId: null,
-          currentSupergraphSdl: null,
+          compositionId: null,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input"`,
@@ -518,8 +515,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
-          ifAfterId: null,
-          currentSupergraphSdl: null,
+          compositionId: null,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input"`,
@@ -541,8 +537,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
-          ifAfterId: null,
-          currentSupergraphSdl: null,
+          compositionId: null,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"An error occurred while fetching your schema from Apollo: 413 Payload Too Large"`,
@@ -564,8 +559,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
-          ifAfterId: null,
-          currentSupergraphSdl: null,
+          compositionId: null,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"An error occurred while fetching your schema from Apollo: 422 Unprocessable Entity"`,
@@ -587,8 +581,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           apiKey,
           endpoint: mockCloudConfigUrl,
           fetcher,
-          ifAfterId: null,
-          currentSupergraphSdl: null,
+          compositionId: null,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"An error occurred while fetching your schema from Apollo: 408 Request Timeout"`,
@@ -611,8 +604,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         apiKey,
         endpoint: mockCloudConfigUrl,
         fetcher,
-        ifAfterId: null,
-        currentSupergraphSdl: null,
+        compositionId: null,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(
       `"An error occurred while fetching your schema from Apollo: 504 Gateway Timeout"`,
@@ -634,8 +626,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         apiKey,
         endpoint: mockCloudConfigUrl,
         fetcher,
-        ifAfterId: null,
-        currentSupergraphSdl: null,
+        compositionId: null,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(
       `"An error occurred while fetching your schema from Apollo: request to https://example.cloud-config-url.com/cloudconfig/ failed, reason: no response"`,
@@ -657,8 +648,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         apiKey,
         endpoint: mockCloudConfigUrl,
         fetcher,
-        ifAfterId: null,
-        currentSupergraphSdl: null,
+        compositionId: null,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(
       `"An error occurred while fetching your schema from Apollo: 502 Bad Gateway"`,
@@ -680,8 +670,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         apiKey,
         endpoint: mockCloudConfigUrl,
         fetcher,
-        ifAfterId: null,
-        currentSupergraphSdl: null,
+        compositionId: null,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(
       `"An error occurred while fetching your schema from Apollo: 503 Service Unavailable"`,

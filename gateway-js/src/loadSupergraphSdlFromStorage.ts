@@ -43,20 +43,14 @@ export async function loadSupergraphSdlFromStorage({
   apiKey,
   endpoint,
   fetcher,
-  ifAfterId,
-  currentSupergraphSdl,
+  compositionId,
 }: {
   graphRef: string;
   apiKey: string;
   endpoint: string;
   fetcher: typeof fetch;
-  ifAfterId: string | null;
-  currentSupergraphSdl: string | null;
+  compositionId: string | null;
 }) {
-  // if we don't have a schema, we don't want to do conditional get
-  if (currentSupergraphSdl == null) {
-    ifAfterId = null;
-  }
   let result: Response;
   const requestDetails = {
     method: 'POST',
@@ -65,7 +59,7 @@ export async function loadSupergraphSdlFromStorage({
       variables: {
         ref: graphRef,
         apiKey,
-        ifAfterId,
+        ifAfterId: compositionId,
       },
     }),
     headers: {
@@ -139,10 +133,7 @@ export async function loadSupergraphSdlFromStorage({
     const { code, message } = routerConfig;
     throw new Error(`${code}: ${message}`);
   } else if (routerConfig.__typename === 'Unchanged') {
-    if (ifAfterId && currentSupergraphSdl) {
-      return { id: ifAfterId, supergraphSdl: currentSupergraphSdl }
-    }
-    throw new Error('Programming error: if ifAfterId is specified, currentSupergraphSdl also required');
+    return null;
   } else {
     throw new Error('Programming error: unhandled response failure');
   }
