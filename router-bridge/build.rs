@@ -26,19 +26,3 @@ fn update_bridge() {
         .unwrap()
         .success());
 }
-
-fn recurse_rerun_if_changed(dir: impl AsRef<Path>) -> std::io::Result<()> {
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        let metadata = fs::metadata(&path)?;
-        if metadata.is_dir() {
-            recurse_rerun_if_changed(path)?;
-        } else {
-            println!("cargo:rerun-if-changed={:?}", path);
-        }
-    }
-
-    Ok(())
-}
