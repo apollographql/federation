@@ -144,19 +144,12 @@ export class DirectiveMetadata {
         if (!namedType) continue;
 
         const existingMetadata = getFederationMetadata(namedType);
-        let directiveUsages = existingMetadata?.directiveUsages;
-
-        if (directiveUsages && directiveUsages.size > 0) {
-          for (const [directiveName, usages] of directiveUsages.entries()) {
-            usages.push(...(directives.get(directiveName) ?? []));
-          }
-        } else {
-          directiveUsages = directives;
-        }
-
         const typeFederationMetadata: FederationType = {
           ...existingMetadata,
-          directiveUsages,
+          directiveUsages: mergeDirectiveUsages(
+            existingMetadata?.directiveUsages,
+            directives,
+          ),
         };
         namedType.extensions = {
           ...namedType.extensions,
@@ -168,19 +161,13 @@ export class DirectiveMetadata {
           const field = namedType.getFields()[fieldName];
           if (!field) continue;
 
-          const originalMetadata = getFederationMetadata(field);
-          let directiveUsages = originalMetadata?.directiveUsages;
-          if (directiveUsages && directiveUsages.size > 0) {
-            for (const [directiveName, usages] of directiveUsages.entries()) {
-              usages.push(...(usagesPerDirective.get(directiveName) ?? []));
-            }
-          } else {
-            directiveUsages = usagesPerDirective;
-          }
-
+          const existingMetadata = getFederationMetadata(field);
           const fieldFederationMetadata: FederationField = {
-            ...originalMetadata,
-            directiveUsages,
+            ...existingMetadata,
+            directiveUsages: mergeDirectiveUsages(
+              existingMetadata?.directiveUsages,
+              usagesPerDirective,
+            ),
           };
 
           field.extensions = {
@@ -191,4 +178,24 @@ export class DirectiveMetadata {
       }
     }
   }
+}
+
+function mergeDirectiveUsages(
+  destination: DirectiveUsages | undefined,
+  source: DirectiveUsages,
+): DirectiveUsages {
+  let directiveUsages = destination;
+  if (!directiveUsages || directiveUsages.size === 0) {
+    directiveUsages = source;
+  } else {
+    for (const [directiveName, usages] of source.entries()) {
+      const existingUsages = directiveUsages.get(directiveName);
+      if (existingUsages && existingUsages.length > 0) {
+        existingUsages.push(...usages);
+      } else {
+        directiveUsages.set(directiveName, usages);
+      }
+    }
+  }
+  return directiveUsages;
 }
