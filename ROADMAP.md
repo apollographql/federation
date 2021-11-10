@@ -33,7 +33,7 @@ new Federation 2 (on the [main branch](https://github.com/apollographql/federati
 
 * Expanded use of [core schemas](https://github.com/apollographql/core-schema-js) to compose your own directives in subgraphs.
 * Type merging that can be relaxed even further with:
-  * `@default`
+  * `@default` - [#1187](https://github.com/apollographql/federation/issues/1187)
   * `@inaccessible` - [#1178](https://github.com/apollographql/federation/issues/1178) and [core feature spec](https://specs.apollo.dev/)
 * New directives that support a stronger source of truth with:
   * `@final` and `@shared` - [#1176](https://github.com/apollographql/federation/issues/1176)
