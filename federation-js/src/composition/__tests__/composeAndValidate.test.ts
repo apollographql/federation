@@ -175,7 +175,9 @@ describe('unknown types', () => {
     const inventory = {
       name: 'inventory',
       typeDefs: gql`
-        directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+        directive @tag(
+          name: String!
+        ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
         extend type Product @key(fields: "id") {
           id: ID! @external @tag(name: "from-inventory")
         }
@@ -190,7 +192,7 @@ describe('unknown types', () => {
         "locations": Array [
           Object {
             "column": 1,
-            "line": 3,
+            "line": 5,
           },
         ],
         "message": "[inventory] Product -> \`Product\` is an extension type, but \`Product\` is not defined in any service",
@@ -920,6 +922,94 @@ describe('composition of schemas with directives', () => {
         specUrl,
       );
     }
+  });
+
+  it('should merge @tag on Object Type fields', () => {
+    const users = {
+      name: 'users',
+      url: 'https://users.api.com',
+      typeDefs: gql`
+        directive @tag(
+          name: String!
+        ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+
+        extend type Product @key(fields: "upc") {
+          upc: String @external
+        }
+      `,
+    };
+
+    const products = {
+      name: 'products',
+      url: 'https://products.api.com',
+      typeDefs: gql`
+        directive @tag(
+          name: String!
+        ) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+        extend type Query {
+          topProducts: [Product]
+        }
+        type Product @key(fields: "upc") {
+          upc: String @tag(name: "internal")
+        }
+      `,
+    };
+    const compositionResult = composeAndValidate([users, products]);
+    expect(compositionHasErrors(compositionResult)).toBe(false);
+
+    expect(compositionResult.supergraphSdl).toMatchInlineSnapshot(`
+      "schema
+        @core(feature: \\"https://specs.apollo.dev/core/v0.2\\"),
+        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\", for: EXECUTION),
+        @core(feature: \\"https://specs.apollo.dev/tag/v0.1\\")
+      {
+        query: Query
+      }
+
+      directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
+
+      directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
+
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+      directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
+
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
+
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+
+      type Product
+        @join__owner(graph: PRODUCTS)
+        @join__type(graph: PRODUCTS, key: \\"upc\\")
+        @join__type(graph: USERS, key: \\"upc\\")
+      {
+        upc: String @join__field(graph: PRODUCTS) @tag(name: \\"internal\\")
+      }
+
+      type Query {
+        topProducts: [Product] @join__field(graph: PRODUCTS)
+      }
+
+      enum core__Purpose {
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary to for operation execution.
+        \\"\\"\\"
+        EXECUTION
+
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        PRODUCTS @join__graph(name: \\"products\\" url: \\"https://products.api.com\\")
+        USERS @join__graph(name: \\"users\\" url: \\"https://users.api.com\\")
+      }
+      "
+    `);
   });
 });
 
