@@ -156,7 +156,7 @@ npm init
 Next, install the following required libraries:
 
 ```shell
-npm install apollo-server @apollo/gateway graphql
+npm install apollo-server @apollo/gateway graphql@15.5.3
 ```
 
 Finally, create a file named `index.js` and paste the following into it as a minimal (not-yet-functional) gateway implementation:
@@ -385,7 +385,7 @@ const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFileSync } = require('fs');
 
-const supergraphSdl = readFileSync('./supergraph.graphql').toString();
+const supergraphSdl = readFileSync('./supergraph.graphql', { encoding: "utf16le"}).toString();
 
 const gateway = new ApolloGateway({
   supergraphSdl
