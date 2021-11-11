@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/rocket1.svg" width="100%" height="144">
 
-[![CircleCI](https://circleci.com/gh/apollographql/federation/tree/main.svg?style=shield)](https://circleci.com/gh/apollographql/federation/tree/main) [![Security audit](https://github.com/apollographql/federation/workflows/Security%20audit/badge.svg)](https://github.com/apollographql/federation/actions?query=workflow%3A%22Security+audit%22) [![Netlify Status](https://api.netlify.com/api/v1/badges/3a012f93-2d02-41f7-bb2b-848cf005b831/deploy-status)](https://app.netlify.com/sites/apollo-federation-docs/deploys)
+[![CircleCI](https://circleci.com/gh/apollographql/federation/tree/main.svg?style=shield)](https://circleci.com/gh/apollographql/federation/tree/main) [![Netlify Status](https://api.netlify.com/api/v1/badges/3a012f93-2d02-41f7-bb2b-848cf005b831/deploy-status)](https://app.netlify.com/sites/apollo-federation-docs/deploys)
 
 # Apollo Federation
 
