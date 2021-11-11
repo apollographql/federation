@@ -107,6 +107,21 @@ export function mockSupergraphSdlRequestSuccessIfAfter(
   );
 }
 
+export function mockSupergraphSdlRequestIfAfterUnchanged(
+    ifAfter: string | null = null,
+) {
+  return mockSupergraphSdlRequestIfAfter(ifAfter).reply(
+      200,
+      JSON.stringify({
+        data: {
+          routerConfig: {
+            __typename: 'Unchanged',
+          },
+        },
+      }),
+  );
+}
+
 export function mockSupergraphSdlRequestSuccess() {
   return mockSupergraphSdlRequestSuccessIfAfter(null);
 }

@@ -1,13 +1,14 @@
 import { loadSupergraphSdlFromStorage } from '../loadSupergraphSdlFromStorage';
 import { getDefaultFetcher } from '../..';
 import {
-  graphRef,
-  apiKey,
-  mockCloudConfigUrl,
-  mockSupergraphSdlRequest,
-  mockOutOfBandReporterUrl,
-  mockOutOfBandReportRequestSuccess,
-  mockSupergraphSdlRequestSuccess,
+    graphRef,
+    apiKey,
+    mockCloudConfigUrl,
+    mockSupergraphSdlRequest,
+    mockOutOfBandReporterUrl,
+    mockOutOfBandReportRequestSuccess,
+    mockSupergraphSdlRequestSuccess,
+    mockSupergraphSdlRequestIfAfterUnchanged,
 } from './integration/nockMocks';
 import mockedEnv from 'mocked-env';
 
@@ -675,5 +676,19 @@ describe('loadSupergraphSdlFromStorage', () => {
     ).rejects.toThrowErrorMatchingInlineSnapshot(
       `"An error occurred while fetching your schema from Apollo: 503 Service Unavailable"`,
     );
+  });
+
+  it('successfully responds to SDL unchanged by returning null', async () => {
+    mockSupergraphSdlRequestIfAfterUnchanged("id-1234");
+
+    const fetcher = getDefaultFetcher();
+    const result = await loadSupergraphSdlFromStorage({
+        graphRef,
+        apiKey,
+        endpoint: mockCloudConfigUrl,
+        fetcher,
+        compositionId: "id-1234",
+    });
+    expect(result).toBeNull();
   });
 });
