@@ -181,21 +181,21 @@ export class DirectiveMetadata {
 }
 
 function mergeDirectiveUsages(
-  destination: DirectiveUsages | undefined,
-  source: DirectiveUsages,
+  first: DirectiveUsages | undefined,
+  second: DirectiveUsages,
 ): DirectiveUsages {
-  let directiveUsages = destination;
-  if (!directiveUsages || directiveUsages.size === 0) {
-    directiveUsages = source;
-  } else {
-    for (const [directiveName, usages] of source.entries()) {
-      const existingUsages = directiveUsages.get(directiveName);
-      if (existingUsages && existingUsages.length > 0) {
-        existingUsages.push(...usages);
-      } else {
-        directiveUsages.set(directiveName, usages);
-      }
+  const merged: DirectiveUsages = new Map();
+
+  if (first) {
+    for (const [directiveName, usages] of first.entries()) {
+      merged.set(directiveName, [...usages]);
     }
   }
-  return directiveUsages;
+
+  for (const [directiveName, newUsages] of second.entries()) {
+    const usages = mapGetOrSet(merged, directiveName, []);
+    usages.push(...newUsages);
+  }
+
+  return merged;
 }
