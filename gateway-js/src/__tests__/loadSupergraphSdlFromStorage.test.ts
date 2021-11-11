@@ -1,14 +1,14 @@
 import { loadSupergraphSdlFromStorage } from '../loadSupergraphSdlFromStorage';
 import { getDefaultFetcher } from '../..';
 import {
-    graphRef,
-    apiKey,
-    mockCloudConfigUrl,
-    mockSupergraphSdlRequest,
-    mockOutOfBandReporterUrl,
-    mockOutOfBandReportRequestSuccess,
-    mockSupergraphSdlRequestSuccess,
-    mockSupergraphSdlRequestIfAfterUnchanged,
+  graphRef,
+  apiKey,
+  mockCloudConfigUrl,
+  mockSupergraphSdlRequest,
+  mockOutOfBandReporterUrl,
+  mockOutOfBandReportRequestSuccess,
+  mockSupergraphSdlRequestSuccess,
+  mockSupergraphSdlRequestIfAfterUnchanged,
 } from './integration/nockMocks';
 import mockedEnv from 'mocked-env';
 
