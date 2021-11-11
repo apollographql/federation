@@ -298,8 +298,8 @@ function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefiniti
 }
 
 function printField(field: FieldDefinition<any> | InputFieldDefinition, options: Options): string {
-  let args = field.kind == 'FieldDefinition' ? printArgs(field.arguments(), options, options.indentString) : '';
-  let defaultValue = field.kind === 'InputFieldDefinition' && field.defaultValue !== undefined
+  const args = field.kind == 'FieldDefinition' ? printArgs(field.arguments(), options, options.indentString) : '';
+  const defaultValue = field.kind === 'InputFieldDefinition' && field.defaultValue !== undefined
     ? ' = ' + valueToString(field.defaultValue, field.type)
     : '';
   return `${field.name}${args}: ${field.type}${defaultValue}`;

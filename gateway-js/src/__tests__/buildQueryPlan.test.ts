@@ -11,7 +11,7 @@ describe('buildQueryPlan', () => {
   let schema: Schema;
   let queryPlanner: QueryPlanner;
 
-  let buildPlan = (operation: string): QueryPlan => {
+  const buildPlan = (operation: string): QueryPlan => {
     return queryPlanner.buildQueryPlan(parseOperation(schema, operation));
   }
 

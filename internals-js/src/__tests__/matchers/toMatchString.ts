@@ -59,8 +59,8 @@ expect.extend({
       return {received, expected, message, name: 'toMatchStringArray', pass: false};
     }
 
-    let pass: boolean = true;
-    let messages: string[] = [];
+    let pass = true;
+    const messages: string[] = [];
     for (let i = 0; i < expected.length; i++) {
       const exp = expected[i];
       const rec = deIndent(received[i]);

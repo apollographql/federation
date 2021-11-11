@@ -53,7 +53,7 @@ export const entitiesFieldName = '_entities';
 
 const tagSpec = TAG_VERSIONS.latest()!;
 
-// We don't let user use this as a subgraph name. That allows us to use it in `query graphs` to name the source of roots 
+// We don't let user use this as a subgraph name. That allows us to use it in `query graphs` to name the source of roots
 // in the "federated query graph" without worrying about conflict (see `FEDERATED_GRAPH_ROOT_SOURCE` in `querygraph.ts`).
 // (note that we could deal with this in other ways, but having a graph named '_' feels like a terrible idea anyway, so
 // disallowing it feels like more a good thing than a real restriction).
@@ -312,7 +312,7 @@ export class FederationBuiltIns extends BuiltIns {
     // Adds the _entities and _service fields to the root query type.
     const queryRoot = schema.schemaDefinition.root("query");
     const queryType = queryRoot ? queryRoot.type : schema.addType(new ObjectType("Query"));
-    let entityField = queryType.field(entitiesFieldName);
+    const entityField = queryType.field(entitiesFieldName);
     if (hasEntities) {
       const anyType = schema.type(anyTypeName);
       assert(anyType, `The schema should have the _Any type`);
@@ -437,11 +437,11 @@ export class FederationBuiltIns extends BuiltIns {
     return this.getTypedDirective(schema, keyDirectiveName);
   }
 
-  extendsDirective(schema: Schema): DirectiveDefinition<{}> {
+  extendsDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {
     return this.getTypedDirective(schema, extendsDirectiveName);
   }
 
-  externalDirective(schema: Schema): DirectiveDefinition<{}> {
+  externalDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {
     return this.getTypedDirective(schema, externalDirectiveName);
   }
 
@@ -460,7 +460,7 @@ export class FederationBuiltIns extends BuiltIns {
   maybeUpdateSubgraphDocument(schema: Schema, document: DocumentNode): DocumentNode {
     document = super.maybeUpdateSubgraphDocument(schema, document);
 
-    let definitions = document.definitions.concat();
+    const definitions = document.definitions.concat();
     for (const directiveName of FEDERATION_DIRECTIVES) {
       const directive = schema.directive(directiveName);
       assert(directive, 'This method should only have been called on a schema with federation built-ins')
@@ -620,7 +620,7 @@ export class Subgraphs {
     return this.subgraphs;
   }
 
-  [Symbol.iterator]() { 
+  [Symbol.iterator]() {
     return this.subgraphs.values();
   }
 
@@ -631,7 +631,7 @@ export class Subgraphs {
 
 export class Subgraph {
   constructor(
-    readonly name: string, 
+    readonly name: string,
     readonly url: string,
     readonly schema: Schema,
     validateSchema: boolean = true

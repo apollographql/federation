@@ -71,7 +71,7 @@ jobs:
 
   NodeJS 14:
     docker:
-      - image: cimg/node:14.16.1
+      - image: cimg/node:14.18.1
     steps:
       - common_test_steps
 
@@ -84,7 +84,7 @@ jobs:
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
     docker:
-      - image: cimg/node:14.16.1
+      - image: cimg/node:14.18.1
     steps:
       - oss/install_specific_npm_version:
           version: '7'
@@ -101,7 +101,7 @@ jobs:
       # Note: This is a no-op at the second, but bear with me on this.  If this
       # comment is not removed by 2021-06-30 remove it along with the next line.
       # renovate: datasource=github-tags depName=nodejs/node versioning=node
-      NODE_VERSION: 14.17.5
+      NODE_VERSION: 14.18.1
       NPM_VERSION: 7.10.0
     steps:
       - checkout

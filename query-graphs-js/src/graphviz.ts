@@ -109,13 +109,13 @@ function addToVizGraph(graph: QueryGraph, vizGraph: ICluster, noTerminal: boolea
     }
     const headNode = getNode(head);
     const tailNode = getNode(tail);
-    const attributes = { 
+    const attributes = {
       [attribute.label]: edge.label(),
     };
     state.setEdgeState(edge, pickGraphForEdge(head, tail).createEdge([headNode, tailNode], attributes));
     return true;
   }
-  simpleTraversal(graph, _ => { }, onEdge);
+  simpleTraversal(graph, _ => undefined, onEdge);
   return state;
 }
 

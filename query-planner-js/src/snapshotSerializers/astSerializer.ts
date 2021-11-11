@@ -51,7 +51,7 @@ export default {
 function getIndentationLength(line: string): number {
   const result = /^( {2})+/.exec(line);
   return result === null ? 0 : result[0].length;
-};
+}
 
 /**
  * This function converts potential InlineFragmentNodes that WE created

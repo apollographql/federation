@@ -18,7 +18,7 @@ async function triggerKnownDebugMessage(logger: Logger) {
   // message outside of the constructor, but it seemed worth testing
   // the compatibility with `ApolloGateway` itself rather than generically.
   // The error does not matter, so it is caught and ignored.
-  await new ApolloGateway({ logger }).load().catch(_e => {});
+  await new ApolloGateway({ logger }).load().catch(_e => undefined);
 }
 
 describe("logger", () => {

@@ -144,6 +144,7 @@ it('supports aliases when using ApolloServer', async () => {
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
     buildService: service => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
     },

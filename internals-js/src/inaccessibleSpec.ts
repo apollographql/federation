@@ -20,7 +20,7 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
     this.addDirective(schema, 'inacessible').addLocations('FIELD_DEFINITION', 'OBJECT', 'INTERFACE', 'UNION');
   }
 
-  inaccessibleDirective(schema: Schema): DirectiveDefinition<{}> {
+  inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {
     return this.directive(schema, 'inaccessible')!;
   }
 }

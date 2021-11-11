@@ -2533,7 +2533,7 @@ export class Directive<
     if (entries.length !== Object.keys(expectedArgs).length) {
       return false;
     }
-    for (var [key, val] of entries) {
+    for (const [key, val] of entries) {
       if (!(key in expectedArgs)) {
         return false;
       }

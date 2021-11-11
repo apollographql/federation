@@ -617,7 +617,7 @@ export class ApolloGateway implements GraphQLService {
     legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
     if (this.queryPlanStore) this.queryPlanStore.flush();
-    this.apiSchema = coreSchema.toAPISchema(); 
+    this.apiSchema = coreSchema.toAPISchema();
     this.schema = wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema());
     this.queryPlanner = new QueryPlanner(coreSchema);
 

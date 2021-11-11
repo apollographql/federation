@@ -263,14 +263,14 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         //       }
         //     }
         //   }
-        // If the intersection of A and C is non empty and included (or equal) to the intersection of A and B, 
+        // If the intersection of A and C is non empty and included (or equal) to the intersection of A and B,
         // then there is no reason to have `... on B` at all because:
         //  1. you can do `... on C` on `f` directly since the intersection of A and C is non-empty.
         //  2. `... on C` restricts strictly more than `... on B` and so the latter can't impact the result.
         // So if we detect that we're in that situation, we remove the `... on B` (but note that this is an
         // optimization, keeping `... on B` wouldn't be incorrect, just useless).
         const runtimeTypesWithoutPreviousCast = updateRuntimeTypes(this.runtimeTypesBeforeTailIfLastIsCast!, edge);
-        if (runtimeTypesWithoutPreviousCast.length > 0 
+        if (runtimeTypesWithoutPreviousCast.length > 0
           && runtimeTypesWithoutPreviousCast.every(t => this.runtimeTypesOfTail.includes(t))
         ) {
           // Note that edge is from the vertex we've eliminating from the path. So we need to get the edge goes
@@ -358,7 +358,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   }
 
   checkDirectPathFomPreviousSubgraphTo(
-    typeName: string, 
+    typeName: string,
     triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger) => Edge | null | undefined
   ): Vertex | undefined {
     if (this.subgraphEnteringEdgeIndex < 0) {
@@ -903,7 +903,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   const originalSource = path.tail.source;
   // For each source, we store the best path we find for that source with the score, or `null` if we can
   // decide that we should try going to that source (typically because we can prove that this create an
-  // inefficient detour for which a more direct path exists and will be found). 
+  // inefficient detour for which a more direct path exists and will be found).
   const bestPathBySource = new Map<string, [GraphPath<TTrigger, V, TNullEdge>, number] | null>();
   const deadEnds: Unadvanceable[] = [];
   const toTry = [ path ];
@@ -1023,14 +1023,14 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
           const maxCost = toAdvance.subgraphEnteringEdgeCost + (backToPreviousSubgraph ? 0 : conditionResolution.cost);
           if (prevSubgraphVertex
             && (
-              backToPreviousSubgraph 
+              backToPreviousSubgraph
               || hasValidDirectKeyEdge(toAdvance.graph, prevSubgraphVertex, edge.tail.source, conditionResolver, maxCost) != undefined
-            ) 
+            )
           ) {
             debug.groupEnd(
               () => `Ignored: edge correspond to a detour by subgraph ${edge.head.source} from subgraph ${subgraphEnteringEdge.head.source}: `
               + `we have a direct path from ${subgraphEnteringEdge.head.type} to ${edge.tail.type} in ${subgraphEnteringEdge.head.source}`
-              + (backToPreviousSubgraph ? '.' : ` and can move to ${edge.tail.source} from there`) 
+              + (backToPreviousSubgraph ? '.' : ` and can move to ${edge.tail.source} from there`)
             );
             // Note that we just found that going to the previous subgraph is useless because ther is a more direct path.
             // But we record that this previous subgraph should be avoid altogether because other some longer path
@@ -1155,7 +1155,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
       if (fieldInSubgraph) {
         // the subgraph has the field but no correspond edge. This should only happen if the field is external.
         assert(
-          fieldInSubgraph.hasAppliedDirective('external'), 
+          fieldInSubgraph.hasAppliedDirective('external'),
           () => `${fieldInSubgraph.coordinate} in ${subgraph} is not external but there is no corresponding edge (edges from ${path} = [${path.nextEdges().join(', ')}])`
         );
         details = `field "${transition.definition.coordinate}" is not resolvable because marked @external`;
@@ -1303,7 +1303,7 @@ export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
   toString(): string {
     return simultaneousPathsToString(this.paths);
   }
-};
+}
 
 export function simultaneousPathsToString(simultaneousPaths: SimultaneousPaths<any> | SimultaneousPathsWithLazyIndirectPaths<any>, indentOnNewLine: string=""): string {
   const paths = Array.isArray(simultaneousPaths) ? simultaneousPaths : simultaneousPaths.paths;
@@ -1467,12 +1467,12 @@ function flatCartesianProduct<V>(arr:V[][][]): V[][] {
   const product = new Array<V[]>(totalCombinations);
   for (let i = 0; i < totalCombinations; ++i){
     let itemSize = 0;
-    for (var j = 0; j < size; ++j) {
+    for (let j = 0; j < size; ++j) {
       itemSize += arr[j][eltIndexes[j]].length;
     }
     const item = new Array<V>(itemSize);
     let k = 0;
-    for (var j = 0; j < size; ++j) {
+    for (let j = 0; j < size; ++j) {
       for (const v of arr[j][eltIndexes[j]]) {
         item[k++] = v;
       }

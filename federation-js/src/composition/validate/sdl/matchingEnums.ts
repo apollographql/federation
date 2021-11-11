@@ -23,7 +23,7 @@ export function MatchingEnums(context: SDLValidationContext): ASTVisitor {
 
   // group all definitions by name
   // { MyTypeName: [{ serviceName: "A", name: {...}}]}
-  let definitionsByName: {
+  const definitionsByName: {
     [typeName: string]: TypeDefinitionNode[];
   } = (definitions as TypeDefinitionNode[]).reduce(
     (typeToDefinitionsMap: TypeToDefinitionsMap, node) => {
@@ -45,7 +45,7 @@ export function MatchingEnums(context: SDLValidationContext): ASTVisitor {
     if (definitions.every(isEnumDefinition)) {
       // a simple list of services to enum values for a given enum
       // [{ serviceName: "serviceA", values: ["FURNITURE", "BOOK"] }]
-      let simpleEnumDefs: Array<{ serviceName: string; values: string[] }> = [];
+      const simpleEnumDefs: Array<{ serviceName: string; values: string[] }> = [];
 
       // build the simpleEnumDefs list
       for (const {
@@ -68,7 +68,7 @@ export function MatchingEnums(context: SDLValidationContext): ASTVisitor {
 
       // groups of services with matching values, keyed by enum values
       // like {"FURNITURE,BOOK": ["ServiceA", "ServiceB"], "FURNITURE,DIGITAL": ["serviceC"]}
-      let matchingEnumGroups: { [values: string]: string[] } = {};
+      const matchingEnumGroups: { [values: string]: string[] } = {};
 
       // build matchingEnumDefs
       for (const definition of simpleEnumDefs) {

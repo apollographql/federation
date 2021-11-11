@@ -5,8 +5,8 @@ import { FieldDefinition, CompositeType, SchemaRootKind } from "@apollo/federati
  *
  * An edge transition encodes what the edges correspond to, in the underlying graphQL
  * schema. Edges may correspond to:
- *  - a field (`FieldCollection`): the edge goes from (a vertex for) the field parent type, to the 
- *    field (base) type. 
+ *  - a field (`FieldCollection`): the edge goes from (a vertex for) the field parent type, to the
+ *    field (base) type.
  *  - a "downcast" (`DownCast`): the edges goes from an abstract type (interface or union) to a type
  *    that implements that abstract type (for interfaces) or is a member of that abstract type (for
  *    unions).
@@ -28,9 +28,6 @@ export type Transition = FieldCollection | DownCast | KeyResolution | RootTypeRe
 export class KeyResolution {
   readonly kind = 'KeyResolution' as const;
   readonly collectOperationElements = false as const;
-
-  constructor() {
-  }
 
   toString() {
     return 'key()';

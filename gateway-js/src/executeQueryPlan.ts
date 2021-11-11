@@ -85,7 +85,7 @@ export async function executeQueryPlan<TContext>(
         }
       }
 
-      let result = await tracer.startActiveSpan(OpenTelemetrySpanNames.POST_PROCESSING, async (span) => {
+      const result = await tracer.startActiveSpan(OpenTelemetrySpanNames.POST_PROCESSING, async (span) => {
 
         // FIXME: Re-executing the query is a pretty heavy handed way of making sure
         // only explicitly requested fields are included and field ordering follows
@@ -278,7 +278,7 @@ async function executeFetch<TContext>(
 
       if (entities.length < 1) return;
 
-      let variables = Object.create(null);
+      const variables = Object.create(null);
       if (fetch.variableUsages) {
         for (const variableName of fetch.variableUsages) {
           const providedVariables = context.requestContext.request.variables;

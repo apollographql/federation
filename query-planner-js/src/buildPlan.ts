@@ -108,7 +108,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
   ) {
     this.isTopLevel = isRootVertex(startVertex);
     this.conditionResolver = cachingConditionResolver(
-      subgraphs, 
+      subgraphs,
       (edge, context, excludedEdges, excludedConditions) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions),
     );
 
@@ -208,7 +208,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     }
   }
 
-  // This method should be applied to "final" paths, that is when the tail of the paths is a leaf field. 
+  // This method should be applied to "final" paths, that is when the tail of the paths is a leaf field.
   // TODO: this method was added for cases where we had the following options:
   //   1) _ -[f1]-> T1(A) -[f2]-> T2(A) -[f3]-> T3(A) -[f4]-> Int(A)
   //   2) _ -[f1]-> T1(A) -[f2]-> T2(A) -[key]-> T2(B) -[f3]-> T3(B) -[f4] -> Int(B)
@@ -346,7 +346,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     for (let i = 0; i < totalCombinations; ++i){
       const dependencyGraph = initialDependencyGraph.clone();
       let tree = initialTree;
-      for (var j = 0; j < others.length; ++j) {
+      for (let j = 0; j < others.length; ++j) {
         const t = others[j][eltIndexes[j]];
         this.updatedDependencyGraph(dependencyGraph, t);
         tree = tree.merge(t);
@@ -837,7 +837,7 @@ class FetchDependencyGraph {
   private isReduced: boolean = false;
 
   private constructor(
-    readonly subgraphSchemas: ReadonlyMap<String, Schema>,
+    readonly subgraphSchemas: ReadonlyMap<string, Schema>,
     readonly federatedQueryGraph: QueryGraph,
     private readonly rootGroups: MapWithCachedArrays<string, FetchGroup>,
     private readonly groups: FetchGroup[],
@@ -965,7 +965,7 @@ class FetchDependencyGraph {
     return this.newFetchGroup(subgraphName, parentType, false, rootKind, mergeAt, directParent, pathInParent);
   }
 
-  // Returns true if `toCheck` is either part of `conditions`, or is a dependency (potentially recursively) 
+  // Returns true if `toCheck` is either part of `conditions`, or is a dependency (potentially recursively)
   // of one of the gorup of conditions.
   private isDependedOn(toCheck: FetchGroup, conditions: FetchGroup[]): boolean  {
     const stack = conditions.concat();
@@ -1075,12 +1075,12 @@ class FetchDependencyGraph {
         --g.index;
       }
     });
-    this.adjacencies.forEach(adj => { adj.forEach((v, i) => { 
+    this.adjacencies.forEach(adj => { adj.forEach((v, i) => {
       if (v > mergedIndex) {
         adj[i] = v - 1;
       }
     })});
-    this.inEdges.forEach(ins => { ins.forEach((v, i) => { 
+    this.inEdges.forEach(ins => { ins.forEach((v, i) => {
       if (v > mergedIndex) {
         ins[i] = v - 1;
       }
@@ -1318,8 +1318,8 @@ class FetchDependencyGraph {
     const groupDependents = this.adjacencies[group.index];
     return [indent + group.subgraphName + ' <- ' + groupDependents.map(i => this.groups[i].subgraphName).join(', ')]
       .concat(groupDependents
-        .flatMap(g => this.adjacencies[g].length == 0 
-          ? [] 
+        .flatMap(g => this.adjacencies[g].length == 0
+          ? []
           : this.toStringInternal(this.groups[g], indent + "  ")))
       .join('\n');
   }
@@ -1367,7 +1367,7 @@ function createNewFetchSelectionContext(type: CompositeType, selections: Selecti
   typeCast.applyDirective(schema.directive(name0)!, { 'if': ifs0 });
 
   for (let i = 1; i < context.directives.length; i++) {
-    let [name, ifs] = context.directives[i];
+    const [name, ifs] = context.directives[i];
     const fragment = new FragmentElement(type, type.name);
     fragment.applyDirective(schema.directive(name)!, { 'if': ifs });
     inputSelection = selectionOfElement(fragment, selectionSetOf(type, inputSelection));
@@ -1391,7 +1391,7 @@ function computeGroupsForTree(
     if (tree.isLeaf()) {
       group.addSelection(path);
     } else {
-      // We want to preserve the order of the elements in the child, but the stack will reverse everything, so we iterate 
+      // We want to preserve the order of the elements in the child, but the stack will reverse everything, so we iterate
       // in reverse order to counter-balance it.
       for (const [edge, operation, conditions, child] of tree.childElements(true)) {
         if (isPathContext(operation)) {
@@ -1508,7 +1508,7 @@ function handleRequires(
 
   // In general, we should do like for an edge, and create a new group _for the current subgraph_
   // that depends on the createdGroups and have the created groups depend on the current one.
-  // However, we can be more efficient in general (and this is expected by the user) because 
+  // However, we can be more efficient in general (and this is expected by the user) because
   // required fields will usually come just after a key edge (at the top of a fetch group).
   // In that case (when the path is exactly 1 typeCast), we can put the created groups directly
   // as dependency of the current group, avoiding to create a new one. Additionally, if the
@@ -1522,9 +1522,9 @@ function handleRequires(
     const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, group.mergeAt!);
     newGroup.addInputs(originalInputs.forRead());
 
-    let createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, mergeAt, path);
+    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, mergeAt, path);
     if (createdGroups.length == 0) {
-      // All conditions were local. Just merge the newly created group back in the current group (we didn't need it) 
+      // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
       // and continue.
       group.mergeIn(newGroup, path);
       return [group, mergeAt, path];
@@ -1535,7 +1535,7 @@ function handleRequires(
     // the current `group`, but can be dependencies of the parent (or even merged into this parent).
     // To know this, we check if `newGroup` inputs contains its inputs (meaning the fetch is
     // useless: we jump to it but didn't get anything new). Not that this isn't perfect because
-    // in the case of multiple keys between `newGroup` and its parent, we could theoretically take a 
+    // in the case of multiple keys between `newGroup` and its parent, we could theoretically take a
     // different key on the way in that on the way back. In other words, `newGroup` selection may only
     // be fetching a key that happens to not be the one in its inputs, and in that case the code below
     // will not remove `newGroup` even though it would be more efficient to do so. Handling this properly
@@ -1549,7 +1549,7 @@ function handleRequires(
     if (newGroupIsUseless) {
       // We can remove `newGroup` and attach `createdGroups` as dependencies of `group`'s parents. That said,
       // as we do so, we check if one/some of the created groups can be "merged" into the parent
-      // directly (assuming we have only 1 parent, it's the same subgraph/mergeAt and we known the path in this parent). 
+      // directly (assuming we have only 1 parent, it's the same subgraph/mergeAt and we known the path in this parent).
       // If it can, that essentially means that the requires could have been fetched directly from the parent,
       // and that will likely be common.
       for (const created of createdGroups) {
@@ -1609,7 +1609,7 @@ function handleRequires(
     // depends on all the created groups and return that.
     const postRequireGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, group.mergeAt!);
     postRequireGroup.addDependencyOn(unmergedGroups);
-    let [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
+    const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
     // The post-require group needs both the inputs from `group` (the key to `group` subgraph essentially, and the additional requires conditions)
     postRequireGroup.addInputs(inputs);
     return [postRequireGroup, mergeAt, newPath];
@@ -1625,7 +1625,7 @@ function handleRequires(
     // Note that we know the conditions will include a key for our group so we can resume properly.
     const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, mergeAt);
     newGroup.addDependencyOn(createdGroups);
-    let [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
+    const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
     newGroup.addInputs(inputs);
     return [newGroup, mergeAt, newPath];
   }

@@ -43,7 +43,7 @@ let currentIndentLevel = 0;
 let currentIdentation = '';
 let maxLoggerNameLength = 0;
 
-let createdLoggers: DebugLogger[] = [];
+const createdLoggers: DebugLogger[] = [];
 
 export function newDebugLogger(name: string): DebugLogger {
   const enabled = isEnabled(name);

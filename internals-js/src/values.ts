@@ -66,7 +66,7 @@ export function valueToString(v: any, expectedType?: InputType): string {
       throw buildError(`Invalid object value for non-input-object type ${expectedType} (isCustomScalar? ${isCustomScalarType(expectedType)})`);
     }
     return '{' + Object.keys(v).map(k => {
-      let valueType = expectedType ? (expectedType as InputObjectType).field(k)?.type : undefined;
+      const valueType = expectedType ? (expectedType as InputObjectType).field(k)?.type : undefined;
       return `${k}: ${valueToString(v[k], valueType)}`;
     }).join(', ') + '}';
   }

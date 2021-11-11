@@ -91,7 +91,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       if (edge) {
         newVertices[idx] = edge.tail;
       }
-      let forIndex = forEdgeIndex[idx];
+      const forIndex = forEdgeIndex[idx];
       if (forIndex) {
         const triggerIdx = findTriggerIdx(triggerEquality, forIndex, trigger);
         if (triggerIdx < 0) {
@@ -121,7 +121,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       const index = (edgeIndex === maxEdges ? null : edgeIndex) as number | TNullEdge;
       const newVertex = index === null ? currentVertex : newVertices[edgeIndex];
       const values = forEdgeIndex[edgeIndex];
-      for (let [trigger, conditions, subPaths] of values) {
+      for (const [trigger, conditions, subPaths] of values) {
         childs[idx++] = {
           index,
           trigger,
@@ -158,7 +158,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
         if (!newVertices[idx]) {
           newVertices[idx] = child.tree.vertex;
         }
-        let forIndex = forEdgeIndex[idx];
+        const forIndex = forEdgeIndex[idx];
         if (forIndex) {
           const triggerIdx = findTriggerIdx(triggerEquality, forIndex, child.trigger);
           if (triggerIdx < 0) {
@@ -189,7 +189,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       const index = (edgeIndex === maxEdges ? null : edgeIndex) as number | TNullEdge;
       const newVertex = index === null ? currentVertex : newVertices[edgeIndex];
       const values = forEdgeIndex[edgeIndex];
-      for (let [trigger, conditions, subTrees] of values) {
+      for (const [trigger, conditions, subTrees] of values) {
         childs[idx++] = {
           index,
           trigger,
