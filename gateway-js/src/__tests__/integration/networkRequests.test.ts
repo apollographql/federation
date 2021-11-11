@@ -133,9 +133,9 @@ it('Fetches Supergraph SDL from remote storage using a configured env variable',
 it('Updates Supergraph SDL from remote storage', async () => {
   mockSupergraphSdlRequestSuccess();
   mockSupergraphSdlRequestSuccessIfAfter(
-      'originalId-1234',
+    'originalId-1234',
     'updatedId-5678',
-      getTestingSupergraphSdl(fixturesWithUpdate),
+    getTestingSupergraphSdl(fixturesWithUpdate),
   );
 
   // This test is only interested in the second time the gateway notifies of an
