@@ -78,7 +78,7 @@ export function isStructuralInputSubType(inputType: InputType, maybeSubType: Inp
     // A nullable type cannot be a subtype of a non-nullable on.
     return isNonNullType(maybeSubType) ? isStructuralInputSubType(inputType.ofType, maybeSubType.ofType) : false;
   }
-  /// A non-nullable type is a subtype of a nullable one if it is a subtype of that other type.
+  // A non-nullable type is a subtype of a nullable one if it is a subtype of that other type.
   if (isNonNullType(maybeSubType)) {
     return isStructuralInputSubType(inputType, maybeSubType.ofType);
   }

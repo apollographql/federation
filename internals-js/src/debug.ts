@@ -40,7 +40,7 @@ function isEnabled(name: string): boolean {
 }
 
 let currentIndentLevel = 0;
-let currentIdentation = '';
+let currentIndentation = '';
 let maxLoggerNameLength = 0;
 
 const createdLoggers: DebugLogger[] = [];
@@ -49,7 +49,7 @@ export function newDebugLogger(name: string): DebugLogger {
   const enabled = isEnabled(name);
   const created = new DebugLogger(name, enabled);
   if (enabled) {
-    // This next line is to avoid having JEST capture console logging if any logger is 
+    // This next line is to avoid having JEST capture console logging if any logger is
     // enabled, as this make things unreadable
     global.console = require('console');
     createdLoggers.push(created);
@@ -63,13 +63,13 @@ export function newDebugLogger(name: string): DebugLogger {
 
 function increaseIndentation() {
   currentIndentLevel++;
-  currentIdentation = indentString(currentIndentLevel);
+  currentIndentation = indentString(currentIndentLevel);
 }
 
 function decreaseIndentation() {
   if (currentIndentLevel > 0) {
     currentIndentLevel--;
-    currentIdentation = indentString(currentIndentLevel);
+    currentIndentation = indentString(currentIndentLevel);
   }
 }
 
@@ -105,7 +105,7 @@ export class DebugLogger {
   }
 
   private doLog(str: string) {
-    const indent = this.header + currentIdentation;
+    const indent = this.header + currentIndentation;
     const withIndentedNewlines = str.replace(/\n/g, '\n' + indent + '  ');
     console.log(indent + withIndentedNewlines);
   }

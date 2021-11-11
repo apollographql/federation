@@ -381,7 +381,7 @@ abstract class Element<TParent extends SchemaElement<any, any> | Schema | Direct
     if (!this._parent) {
       return undefined;
     } else if (this._parent instanceof Schema) {
-      // Note: at the time of this writing, it seems like typescript type-checking breaks a bit around generics. 
+      // Note: at the time of this writing, it seems like typescript type-checking breaks a bit around generics.
       // At this point of the code, `this._parent` is typed as 'TParent & Schema', but for some reason this is
       // "not assignable to type 'Schema | undefined'" (which sounds wrong: if my type theory is not too broken,
       // 'A & B' should always be assignable to both 'A' and 'B').
@@ -449,8 +449,8 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
 
   hasAppliedDirective(nameOrDefinition: string | DirectiveDefinition<any>): boolean {
     // From the type-system point of view, there is no `appliedDirectivesOf(_: string | DirectiveDefinition)` function, but rather 2 overloads, neither of
-    // which can take 'string | DirectiveDefinition', hence the need for this suprisingly looking code. And we don't really want to remove the overloading
-    // on `applieddDirectivesOf` because that would lose us the type-checking of arguments in the case where we pass a defintion (or rather, we could
+    // which can take 'string | DirectiveDefinition', hence the need for this surprisingly looking code. And we don't really want to remove the overloading
+    // on `appliedDirectivesOf` because that would lose us the type-checking of arguments in the case where we pass a definition (or rather, we could
     // preserve it, but it would make is a bit too easy to mess up calls with the 'string' argument).
     return (typeof nameOrDefinition === 'string'
       ? this.appliedDirectivesOf(nameOrDefinition)
@@ -475,7 +475,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
         this.checkUpdate();
         const def = this.schema()!.directive(nameOrDefOrDirective);
         if (!def) {
-          throw new GraphQLError(`Cannot apply unkown directive "@${nameOrDefOrDirective}"`);
+          throw new GraphQLError(`Cannot apply unknown directive "@${nameOrDefOrDirective}"`);
         }
         name = nameOrDefOrDirective;
       } else {
@@ -511,7 +511,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
 
   protected removeTypeReferenceInternal(type: BaseNamedType<any, any>) {
     // This method is a bit of a hack: we don't want to expose it and we call it from an other class, so we call it though
-    // `SchemaElement.prototype`, but we also want this to abstract as it can only be impemented by each concrete subclass.
+    // `SchemaElement.prototype`, but we also want this to abstract as it can only be implemented by each concrete subclass.
     // As we can't have both at the same time, this method just delegate to `remoteTypeReference` which is genuinely
     // abstract. This also allow to work around the typing issue that the type checker cannot tell that every BaseNamedType
     // is a NamedType (because in theory, someone could extend BaseNamedType without listing it in NamedType; but as
@@ -593,7 +593,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   *allChildElements(): Generator<NamedSchemaElement<any, TOwnType, any>, void, undefined> {
-    // Overriden by those types that do have chidrens
+    // Overriden by those types that do have children
   }
 
   extensions(): ReadonlySet<Extension<TOwnType>> {
@@ -659,7 +659,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
    * reference.
    *
    * @returns an array of all the elements in the schema of this type (before the removal) that were
-   * referening this type (and have thus now an undefined reference).
+   * referencing this type (and have thus now an undefined reference).
    */
   remove(): TReferencer[] {
     if (!this._parent) {
@@ -800,7 +800,7 @@ export class BuiltIns {
 
   onValidation(schema: Schema, unvalidatedDirectives?: string[]): GraphQLError[] {
     const errors: GraphQLError[] = [];
-    // We make sure that if any of the built-ins has been redefined, then the redifinition is
+    // We make sure that if any of the built-ins has been redefined, then the redefinition is
     // the same as the built-in one.
     for (const type of schema.builtInTypes(undefined, true)) {
       const maybeRedefined = schema.type(type.name)!;
@@ -1579,7 +1579,7 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
         this.checkUpdate();
         const maybeItf = this.schema()!.type(nameOrItfOrItfImpl);
         if (!maybeItf) {
-          throw new GraphQLError(`Cannot implement unkown type ${nameOrItfOrItfImpl}`);
+          throw new GraphQLError(`Cannot implement unknown type ${nameOrItfOrItfImpl}`);
         } else if (maybeItf.kind != 'InterfaceType') {
           throw new GraphQLError(`Cannot implement non-interface type ${nameOrItfOrItfImpl} (of type ${maybeItf.kind})`);
         }
@@ -1807,7 +1807,7 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
         this.checkUpdate();
         const maybeObj = this.schema()!.type(nameOrTypeOrMember);
         if (!maybeObj) {
-          throw new GraphQLError(`Cannot add unkown type ${nameOrTypeOrMember} as member of union type ${this.name}`);
+          throw new GraphQLError(`Cannot add unknown type ${nameOrTypeOrMember} as member of union type ${this.name}`);
         } else if (maybeObj.kind != 'ObjectType') {
           throw new GraphQLError(`Cannot add non-object type ${nameOrTypeOrMember} (of type ${maybeObj.kind}) as member of union type ${this.name}`);
         }
@@ -1839,7 +1839,7 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
 
   /**
    * Access a field of the union by name.
-   * As the only field that can be acessed on an union is the __typename one, this method will always return undefined unless called
+   * As the only field that can be accessed on an union is the __typename one, this method will always return undefined unless called
    * on "__typename". However, this exists to allow code working on CompositeType to be more generic.
    */
   field(name: string): FieldDefinition<UnionType> | undefined {
@@ -1960,7 +1960,7 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
       throw error(`Field ${toAdd.name} already exists on ${this}`);
     }
     if (type && !isInputType(type)) {
-      throw error(`Invalid ouptut type ${type} for field ${toAdd.name}: input field types should be input types.`);
+      throw error(`Invalid output type ${type} for field ${toAdd.name}: input field types should be input types.`);
     }
     this._fields.set(toAdd.name, toAdd);
     this._cachedFieldsArray = undefined;
@@ -2099,7 +2099,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
       return existing;
     }
     if (type && !isInputType(type)) {
-      throw error(`Invalid ouptut type ${type} for argument ${toAdd.name} of ${this}: arguments should be input types.`);
+      throw error(`Invalid output type ${type} for argument ${toAdd.name} of ${this}: arguments should be input types.`);
     }
     this._args.set(toAdd.name, toAdd);
     Element.prototype['setParent'].call(toAdd, this);
@@ -2116,7 +2116,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
 
   setOfExtension(extension: Extension<TParent> | undefined) {
     this.checkUpdate();
-    // It seems typscript "expand" `TParent` below into `ObjectType | Interface`, so it essentially lose the context that
+    // It seems typescript "expand" `TParent` below into `ObjectType | Interface`, so it essentially lose the context that
     // the `TParent` in `Extension<TParent>` will always match. Hence the `as any`.
     if (extension && !this.parent?.extensions().has(extension as any)) {
       throw error(`Cannot mark field ${this.name} as part of the provided extension: it is not an extension of field parent type ${this.parent}`);
@@ -2171,7 +2171,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
 
   toString(): string {
     const args = this._args.size == 0
-      ? "" 
+      ? ""
       : '(' + this.arguments().map(arg => arg.toString()).join(', ') + ')';
     return `${this.name}${args}: ${this.type}`;
   }
@@ -2197,7 +2197,7 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
 
   setOfExtension(extension: Extension<InputObjectType> | undefined) {
     this.checkUpdate();
-    // It seems typscript "expand" `TParent` below into `ObjectType | Interface`, so it essentially lose the context that
+    // It seems typescript "expand" `TParent` below into `ObjectType | Interface`, so it essentially lose the context that
     // the `TParent` in `Extension<TParent>` will always match. Hence the `as any`.
     if (extension && !this.parent?.extensions().has(extension as any)) {
       throw error(`Cannot mark field ${this.name} as part of the provided extension: it is not an extension of field parent type ${this.parent}`);

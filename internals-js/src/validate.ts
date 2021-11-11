@@ -21,7 +21,7 @@ import { isValidValue } from "./values";
 import { isIntrospectionName } from "./introspection";
 import { isSubtype, sameType } from "./types";
 
-// Note really meant to be called manually as it is part of `Schema.validate`, but separated for core-organisation reasons.
+// Note really meant to be called manually as it is part of `Schema.validate`, but separated for core-organization reasons.
 // This mostly apply the validations that graphQL-js does in `validateSchema` which we don't reuse because it applies to
 // a `GraphQLSchema` (but note that the bulk of the validation is done by `validateSDL` which we _do_ reuse in `Schema.validate`).
 export function validateSchema(schema: Schema): GraphQLError[] {
@@ -175,7 +175,7 @@ class Validator {
         const field = type.field(itfField.name);
         if (!field) {
           this.errors.push(new GraphQLError(
-            `Interface field ${itfField.coordinate} expected but ${type} does not provide it.`, 
+            `Interface field ${itfField.coordinate} expected but ${type} does not provide it.`,
             sourceASTs(itfField, type)
           ));
           continue;
@@ -202,7 +202,7 @@ class Validator {
           }
           // Same as above for the field
           this.validateHasType(itfArg);
-          // Note that we could use contra-variance but as graphQL-js currently doesn't allow it, we mimick that.
+          // Note that we could use contra-variance but as graphQL-js currently doesn't allow it, we mimic that.
           if (!sameType(itfArg.type!, arg.type!)) {
             this.errors.push(new GraphQLError(
               `Interface field argument ${itfArg.coordinate} expects type ${itfArg.type} but ${arg.coordinate} is type ${arg.type}.`,

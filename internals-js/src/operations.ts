@@ -122,7 +122,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     }
 
     // This code largely mirrors validate, so we could generalize that and return false on exception, but this
-    // method is called fairly often and that has been shown to impact peformance quite a lot. So a little
+    // method is called fairly often and that has been shown to impact performance quite a lot. So a little
     // bit of code duplication is ok.
     if (this.name !== definition.name) {
       return false;
@@ -219,8 +219,8 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   toString(): string {
     const alias = this.alias ? this.alias + ': ' : '';
     const entries = Object.entries(this.args);
-    const args = entries.length == 0 
-      ? '' 
+    const args = entries.length == 0
+      ? ''
       : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, this.definition.argument(n)?.type)}`).join(', ') + ')';
     return alias + this.name + args + this.appliedDirectivesToString();
   }
@@ -569,7 +569,7 @@ export class SelectionSet {
     }
 
     // If any of the existing fragments of the selection set is also a name in the provided one,
-    // we bail out of optimizing anyting. Not ideal, but dealing with it properly complicate things
+    // we bail out of optimizing anything. Not ideal, but dealing with it properly complicate things
     // and we probably don't care for now as we'll call `optimize` mainly on result sets that have
     // no named fragments in the first place.
     if (this.fragments && this.fragments.definitions().some(def => fragments.get(def.name))) {
@@ -760,7 +760,7 @@ export class SelectionSet {
     // have an undefined selection set, not an empty one). We do "abuse" this a bit however when create query "witness"
     // during composition validation where, to make it easier for users to locate the issue, we want the created witness
     // query to stop where the validation problem lies, even if we're not on a leaf type. To make this look nice and
-    // explicit, we handle that case by create a fake selection set that just contains an elipsis, indicate there is
+    // explicit, we handle that case by create a fake selection set that just contains an ellipsis, indicate there is
     // supposed to be more but we elided it for clarity. And yes, the whole thing is a bit of a hack, albeit a convenient
     // one.
     if (this.isEmpty()) {
@@ -784,7 +784,7 @@ export class SelectionSet {
   private selectionsInPrintOrder(): readonly Selection[] {
     // By default, we will print the selection the order in which things were added to it.
     // If __typename is selected however, we put it first. It's a detail but as __typename is a bit special it looks better,
-    // and it happens to mimick prior behavior on the query plan side so it saves us from changing tests for no good reasons.
+    // and it happens to mimic prior behavior on the query plan side so it saves us from changing tests for no good reasons.
     const typenameSelection = this._selections.get(typenameFieldName);
     if (typenameSelection) {
       return typenameSelection.concat(this.selections().filter(s => s.kind != 'FieldSelection' || s.field.name !== typenameFieldName));
@@ -835,12 +835,12 @@ export class SelectionSet {
   }
 
   /**
-   * The string respresentation of this selection set.
+   * The string representation of this selection set.
    *
    * By default, this expand all fragments so that the returned string is self-contained. You can
    * use the `expandFragments` boolean to force fragments to not be expanded but the fragments
    * definitions will _not_ be included in the returned string. If you want a representation of
-   * this selection set with fragements definitions included, use `toOperationString` instead.
+   * this selection set with fragments definitions included, use `toOperationString` instead.
    */
   toString(
     expandFragments: boolean = true,
@@ -894,7 +894,7 @@ export class FieldSelection {
     initialSelectionSet? : SelectionSet
   ) {
     const type = baseType(field.definition.type!);
-    // Field types are output type, and a named typethat is an output one and isn't a leat is guaranteed to be selectable.
+    // Field types are output type, and a named typethat is an output one and isn't a leaf is guaranteed to be selectable.
     this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet : new SelectionSet(type as CompositeType));
   }
 
@@ -946,7 +946,7 @@ export class FieldSelection {
   }
 
   validate() {
-    // Note that validation is kind of redudant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
+    // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
       !(this.selectionSet && this.selectionSet.isEmpty()),
@@ -1087,7 +1087,7 @@ class InlineFragmentSelection extends FragmentSelection {
   }
 
   validate() {
-    // Note that validation is kind of redudant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
+    // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
       !this.selectionSet.isEmpty(),
@@ -1162,7 +1162,7 @@ class InlineFragmentSelection extends FragmentSelection {
 
 class FragmentSpreadSelection extends FragmentSelection {
   private readonly namedFragment: NamedFragmentDefinition;
-  // Note that the named fragement directives are copied on this element and appear first (the spreadDirectives
+  // Note that the named fragment directives are copied on this element and appear first (the spreadDirectives
   // method rely on this to be able to extract the directives that are specific to the spread itself).
   private readonly _element : FragmentElement;
 
@@ -1290,7 +1290,7 @@ export function operationFromDocument(
 
   validate(operation, () => operationName ? `Unknown operation named "${operationName}"` : 'No operation found in provided document.');
   // Note that we need the variables to handle the fragments, as they can be used there.
-  const variableDefinitions = operation.variableDefinitions 
+  const variableDefinitions = operation.variableDefinitions
     ? variableDefinitionsFromAST(schema, operation.variableDefinitions)
     : new VariableDefinitions();
 
@@ -1334,7 +1334,7 @@ export function parseSelectionSet(
   fragments?: NamedFragments,
   fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
 ): SelectionSet {
-  // TODO: we sould maybe allow the selection, when a string, to contain fragment definitions?
+  // TODO: we should maybe allow the selection, when a string, to contain fragment definitions?
   const node = typeof source === 'string'
     ? parseOperationAST(source.trim().startsWith('{') ? source : `{${source}}`).selectionSet
     : source;

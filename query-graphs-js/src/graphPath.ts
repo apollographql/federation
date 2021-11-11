@@ -1551,7 +1551,7 @@ function advanceOneWithOperation<V extends Vertex>(
         if (itfEdge) {
           itfOptions = addFieldEdge(path, operation, itfEdge, conditionResolver, context);
           // TODO: We should re-assess this when we support @requires on interface fields (typically, should we even try to type-explode
-          // if the direct edge cannot be satisfied? Probably depedends on the exact semantic of @requires on interface fields).
+          // if the direct edge cannot be satisfied? Probably depends on the exact semantic of @requires on interface fields).
           assert(itfOptions, () => `Interface edge ${itfEdge} shouldn't have conditions`);
           // Further, if we've getting the __typename, we must _not_ type-explode.
           if (field.name === typenameFieldName || !anImplementationHasAProvides(field.name, currentType)) {

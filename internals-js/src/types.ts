@@ -111,7 +111,7 @@ export function isSubtype(
  * Tests whether `maybeSubType` is a strict subtype of `type`.
  *
  * Strict subtyping is the subtyping relation defined on `isSubtype`, but where
- * equality (as definied by `sameType`) is excluded.
+ * equality (as defined by `sameType`) is excluded.
  */
 export function isStrictSubtype(
   type: Type,

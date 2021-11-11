@@ -75,7 +75,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
   const implementsDirective = joinSpec.implementsDirective(supergraph);
 
   // Next, we iterate on all types and add it to the proper subgraphs (along with any @key).
-  // Note that we first add all types empty and populate the types next. This avoids having to care about the iteration 
+  // Note that we first add all types empty and populate the types next. This avoids having to care about the iteration
   // order if we have fields than depends on other types.
   for (const type of filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition)) {
     const typeApplications = type.appliedDirectivesOf(typeDirective);
@@ -128,8 +128,8 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           if (!addedInterfaces.includes(name)) {
             for (const subgraph of subgraphs) {
               const subgraphType = subgraph.schema.type(type.name);
-              const subraphItf = subgraph.schema.type(name);
-              if (subgraphType && subraphItf) {
+              const subgraphItf = subgraph.schema.type(name);
+              if (subgraphType && subgraphItf) {
                 (subgraphType as (ObjectType | InterfaceType)).addImplementedInterface(name);
               }
             }
@@ -294,7 +294,7 @@ function addSubgraphField(supergraphField: AnyField, subgraph: Subgraph, encoded
 }
 
 function addSubgraphObjectOrInterfaceField(
-  supergraphField: FieldDefinition<ObjectType | InterfaceType>, 
+  supergraphField: FieldDefinition<ObjectType | InterfaceType>,
   subgraph: Subgraph,
   encodedType?: string
 ): FieldDefinition<ObjectType | InterfaceType> | undefined {
@@ -370,7 +370,7 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema, isFed1: boole
       // what part of an extension or not and we prefer not presuming). So, now, if we look at the fields in a key and
       // that key was on an extension, we know that we should not mark it @external, because it _is_ resolved by the subgraph.
       // If the key is on a type definition however, then we don't have that historical legacy, and so if the field is
-      // not part of the subgprah, then it means that it is truly external (and composition validation will ensure that this
+      // not part of the subgraph, then it means that it is truly external (and composition validation will ensure that this
       // is fine).
       // Note that this is called `forceNonExternal` because an extension key field might well be part of a @provides somewhere
       // else (it's not useful to do so, kind of imply an incomprehension and we'll remove those in `removeNeedlessProvides`,
@@ -399,7 +399,7 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema, isFed1: boole
 }
 
 function addExternalFieldsFromDirectiveFieldSet(
-  subgraph: Subgraph, 
+  subgraph: Subgraph,
   parentType: ObjectType | InterfaceType,
   directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
   supergraph: Schema,
@@ -439,7 +439,7 @@ function addExternalFieldsFromInterface(type: ObjectType | InterfaceType) {
         copyFieldAsExternal(field, type);
       } else if (typeField.hasAppliedDirective(externalDirectiveName)) {
         // A subtlety here is that a type may implements multiple interfaces providing a given field, and the field may
-        // not have the exact same defintion in all interface. So if we may have added the field in a previous loop
+        // not have the exact same definition in all interface. So if we may have added the field in a previous loop
         // iteration, we need to check if we shouldn't update the field type.
         maybeUpdateFieldForInterface(typeField, field);
       }
@@ -456,7 +456,7 @@ function copyFieldAsExternal(field: FieldDefinition<InterfaceType>, type: Object
 }
 
 function maybeUpdateFieldForInterface(toModify: FieldDefinition<ObjectType | InterfaceType>, itfField: FieldDefinition<InterfaceType>) {
-  // Note that we only care about the field type because while graphql does not allow contravariance of args for field implmenations.
+  // Note that we only care about the field type because while graphql does not allow contravariance of args for field implementations.
   // And while fed2 allow it when merging, this code doesn't run for fed2 generated supergraph, so this isn't a concern.
   if (!isSubtype(itfField.type!, toModify.type!)) {
     assert(isSubtype(toModify.type!, itfField.type!), () => `For ${toModify.coordinate}, expected ${itfField.type} and ${toModify.type} to be in a subtyping relationship`);
@@ -474,7 +474,7 @@ function maybeUpdateFieldForInterface(toModify: FieldDefinition<ObjectType | Int
  *
  * This method checks for those cases and removes such fields (and often the whole @provides). The reason we do
  * it is that such provides have a negative impact on later query planning, because it sometimes make us to
- * try type-exploding some interfaces unecessarily.
+ * try type-exploding some interfaces unnecessarily.
  */
 function removeNeedlessProvides(subgraph: Subgraph) {
   for (const type of subgraph.schema.types()) {
