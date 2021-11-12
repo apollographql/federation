@@ -33,7 +33,7 @@ const MAX_SUGGESTIONS = 5;
  * Given [ A, B, C ] return ' Did you mean A, B, or C?'.
  */
 export function didYouMean(suggestions: readonly string[]): string {
-  let message = ' Did you mean ';
+  const message = ' Did you mean ';
 
   const quotedSuggestions = suggestions.map((x) => `"${x}"`);
   switch (suggestions.length) {

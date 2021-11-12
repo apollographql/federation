@@ -378,6 +378,7 @@ function printDeprecated(reason: Maybe<string>): string {
 function printSpecifiedByURL(scalar: GraphQLScalarType): string {
   if (
     scalar.specifiedByUrl == null &&
+    // eslint-disable-next-line
     // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
     scalar.specifiedByURL == null
   ) {
@@ -387,6 +388,7 @@ function printSpecifiedByURL(scalar: GraphQLScalarType): string {
     kind: 'StringValue',
     value:
       scalar.specifiedByUrl ??
+      // eslint-disable-next-line
       // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
       scalar.specifiedByURL,
   });

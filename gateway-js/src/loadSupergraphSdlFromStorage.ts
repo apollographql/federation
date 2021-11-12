@@ -5,8 +5,8 @@ import { SupergraphSdlQuery } from './__generated__/graphqlTypes';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
 export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql
-  query SupergraphSdl($apiKey: String!, $ref: String!) {
-    routerConfig(ref: $ref, apiKey: $apiKey) {
+  query SupergraphSdl($apiKey: String!, $ref: String!, $ifAfterId: ID) {
+    routerConfig(ref: $ref, apiKey: $apiKey, ifAfterId: $ifAfterId) {
       __typename
       ... on RouterConfigResult {
         id
@@ -43,11 +43,13 @@ export async function loadSupergraphSdlFromStorage({
   apiKey,
   endpoint,
   fetcher,
+  compositionId,
 }: {
   graphRef: string;
   apiKey: string;
   endpoint: string;
   fetcher: typeof fetch;
+  compositionId: string | null;
 }) {
   let result: Response;
   const requestDetails = {
@@ -57,6 +59,7 @@ export async function loadSupergraphSdlFromStorage({
       variables: {
         ref: graphRef,
         apiKey,
+        ifAfterId: compositionId,
       },
     }),
     headers: {
@@ -124,13 +127,13 @@ export async function loadSupergraphSdlFromStorage({
       supergraphSdl,
       // messages,
     } = routerConfig;
-
-    // `supergraphSdl` should not be nullable in the schema, but it currently is
     return { id, supergraphSdl: supergraphSdl! };
   } else if (routerConfig.__typename === 'FetchError') {
     // FetchError case
     const { code, message } = routerConfig;
     throw new Error(`${code}: ${message}`);
+  } else if (routerConfig.__typename === 'Unchanged') {
+    return null;
   } else {
     throw new Error('Programming error: unhandled response failure');
   }

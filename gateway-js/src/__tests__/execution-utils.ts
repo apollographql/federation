@@ -67,6 +67,7 @@ export async function execute(
   const result = await executeQueryPlan(
     queryPlan,
     serviceMap,
+     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
      // @ts-ignore
     {
       cache: undefined as any,

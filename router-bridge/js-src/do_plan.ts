@@ -6,12 +6,12 @@ import type { OperationResult } from './types';
  * and these are the types for those that we expect to use within this script.
  * They'll be stripped in the emitting of this file as JS, of course.
  */
-declare var bridge: { plan: typeof plan };
+declare let bridge: { plan: typeof plan };
 
-declare var done: (operationResult: OperationResult) => void;
-declare var schemaString: string;
-declare var queryString: string;
-declare var operationName: string | undefined;
+declare let done: (operationResult: OperationResult) => void;
+declare let schemaString: string;
+declare let queryString: string;
+declare let operationName: string | undefined;
 
 const planResult = bridge.plan(
   schemaString,

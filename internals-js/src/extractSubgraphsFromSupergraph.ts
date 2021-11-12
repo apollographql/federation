@@ -407,7 +407,7 @@ function addExternalFieldsFromDirectiveFieldSet(
 ) {
   const external = federationBuiltIns.externalDirective(subgraph.schema);
 
-  let accessor = function (type: CompositeType, fieldName: string): FieldDefinition<any> {
+  const accessor = function (type: CompositeType, fieldName: string): FieldDefinition<any> {
     const field = type.field(fieldName);
     if (field) {
       if (forceNonExternal && field.hasAppliedDirective(external)) {

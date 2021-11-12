@@ -616,7 +616,7 @@ export class SelectionSet {
   add(selection: Selection): Selection {
     const toAdd = selection.updateForAddingTo(this);
     const key = toAdd.key();
-    let existing: Selection[] | undefined = this._selections.get(key);
+    const existing: Selection[] | undefined = this._selections.get(key);
     if (existing) {
       for (const existingSelection of existing) {
         if (existingSelection.kind === toAdd.kind && haveSameDirectives(existingSelection.element(), toAdd.element())) {

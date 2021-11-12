@@ -9,7 +9,7 @@ function assertCompositionSuccess(r: CompositionResult): asserts r is Compositio
   }
 }
 
-function errorMessages(r: CompositionResult): String[] {
+function errorMessages(r: CompositionResult): string[] {
   return r.errors?.map(e => e.message) ?? [];
 }
 

@@ -30,11 +30,11 @@ describe('executeQueryPlan', () => {
     [serviceName: string]: LocalGraphQLDataSource;
   };
 
-  let parseOp = (operation: string, operationSchema?: Schema): Operation => {
+  const parseOp = (operation: string, operationSchema?: Schema): Operation => {
     return parseOperation((operationSchema ?? schema), operation);
   }
 
-  let buildPlan = (operation: string | Operation, operationQueryPlanner?: QueryPlanner, operationSchema?: Schema): QueryPlan => {
+  const buildPlan = (operation: string | Operation, operationQueryPlanner?: QueryPlanner, operationSchema?: Schema): QueryPlan => {
     const op = typeof operation === 'string' ? parseOp(operation, operationSchema): operation;
     return (operationQueryPlanner ?? queryPlanner).buildQueryPlan(op);
   }
@@ -88,6 +88,7 @@ describe('executeQueryPlan', () => {
   });
 
   function buildRequestContext(): GraphQLRequestContext {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     return {
       cache: undefined as any,
@@ -1616,7 +1617,7 @@ describe('executeQueryPlan', () => {
         },
       });
 
-      let operation = parseOp(`
+      const operation = parseOp(`
         query {
           allValues {
             a
@@ -1630,7 +1631,7 @@ describe('executeQueryPlan', () => {
         }
         `, schema);
 
-      let queryPlan = buildPlan(operation, queryPlanner);
+      const queryPlan = buildPlan(operation, queryPlanner);
 
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
@@ -1685,7 +1686,7 @@ describe('executeQueryPlan', () => {
         }
       `);
 
-      let response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
+      const response = await executePlan(queryPlan, operation, undefined, schema, serviceMap);
 
       expect(response.data).toMatchInlineSnapshot(`
         Object {

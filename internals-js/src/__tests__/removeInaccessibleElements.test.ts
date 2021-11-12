@@ -4,7 +4,7 @@ import { removeInaccessibleElements } from '../inaccessibleSpec';
 
 describe('removeInaccessibleElements', () => {
   it(`removes @inaccessible fields`, () => {
-    let schema = buildSchema(`
+    const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
@@ -36,7 +36,7 @@ describe('removeInaccessibleElements', () => {
   });
 
   it(`removes @inaccessible object types`, () => {
-    let schema = buildSchema(`
+    const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
@@ -70,7 +70,7 @@ describe('removeInaccessibleElements', () => {
   });
 
   it(`removes @inaccessible interface types`, () => {
-    let schema = buildSchema(`
+    const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
@@ -110,7 +110,7 @@ describe('removeInaccessibleElements', () => {
   });
 
   it(`removes @inaccessible union types`, () => {
-    let schema = buildSchema(`
+    const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
@@ -150,7 +150,7 @@ describe('removeInaccessibleElements', () => {
   });
 
   it(`throws when a field returning an @inaccessible type isn't marked @inaccessible itself`, () => {
-    let schema = buildSchema(`
+    const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
@@ -186,7 +186,7 @@ describe('removeInaccessibleElements', () => {
   });
 
   it(`removes @inaccessible query root type`, () => {
-    let schema = buildSchema(`
+    const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
@@ -221,7 +221,7 @@ describe('removeInaccessibleElements', () => {
   });
 
   it(`removes @inaccessible mutation root type`, () => {
-    let schema = buildSchema(`
+    const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
@@ -259,7 +259,7 @@ describe('removeInaccessibleElements', () => {
   });
 
   it(`removes @inaccessible subscription root type`, () => {
-    let schema = buildSchema(`
+    const schema = buildSchema(`
       directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
       directive @inaccessible on FIELD_DEFINITION | OBJECT | INTERFACE | UNION

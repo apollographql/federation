@@ -617,7 +617,7 @@ export class ApolloGateway implements GraphQLService {
     legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
     if (this.queryPlanStore) this.queryPlanStore.flush();
-    this.apiSchema = coreSchema.toAPISchema(); 
+    this.apiSchema = coreSchema.toAPISchema();
     this.schema = wrapSchemaWithAliasResolver(this.apiSchema.toGraphQLJSSchema());
     this.queryPlanner = new QueryPlanner(coreSchema);
 
@@ -942,12 +942,18 @@ export class ApolloGateway implements GraphQLService {
 
     // TODO(trevor:cloudconfig): This condition goes away completely
     if (isPrecomposedManagedConfig(config)) {
-      return loadSupergraphSdlFromStorage({
+      const result = await loadSupergraphSdlFromStorage({
         graphRef: this.apolloConfig!.graphRef!,
         apiKey: this.apolloConfig!.key!,
         endpoint: this.schemaConfigDeliveryEndpoint!,
         fetcher: this.fetcher,
+        compositionId: this.compositionId ?? null,
       });
+
+      return result ?? {
+        id: this.compositionId!,
+        supergraphSdl: this.supergraphSdl!,
+      }
     } else if (isLegacyManagedConfig(config)) {
       return getServiceDefinitionsFromStorage({
         graphRef: this.apolloConfig!.graphRef!,

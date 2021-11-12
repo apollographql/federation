@@ -12,6 +12,7 @@ it('caches the query plan for a request', async () => {
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
     buildService: service => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
     },
@@ -68,6 +69,7 @@ it('supports multiple operations and operationName', async () => {
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
     buildService: service => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
     },
@@ -173,6 +175,7 @@ it('does not corrupt cached queryplan data across requests', async () => {
   const gateway = new ApolloGateway({
     localServiceList: [serviceA, serviceB],
     buildService: service => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
     },

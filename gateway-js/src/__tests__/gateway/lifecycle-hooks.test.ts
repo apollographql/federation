@@ -14,6 +14,8 @@ import {
 } from 'apollo-federation-integration-testsuite';
 import { Logger } from 'apollo-server-types';
 
+type GenericFunction = (...args: unknown[]) => unknown;
+
 // The order of this was specified to preserve existing test coverage. Typically
 // we would just import and use the `fixtures` array.
 const serviceDefinitions = [
@@ -167,11 +169,12 @@ describe('lifecycle hooks', () => {
       experimental_didUpdateComposition: mockDidUpdate,
       logger,
     });
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 
-    let resolve1: Function;
-    let resolve2: Function;
+    let resolve1: GenericFunction;
+    let resolve2: GenericFunction;
     const schemaChangeBlocker1 = new Promise(res => (resolve1 = res));
     const schemaChangeBlocker2 = new Promise(res => (resolve2 = res));
 
@@ -251,7 +254,7 @@ describe('lifecycle hooks', () => {
       logger,
     });
 
-    let resolve: Function;
+    let resolve: GenericFunction;
     const schemaChangeBlocker = new Promise(res => (resolve = res));
     const schemaChangeCallback = jest.fn(() => resolve());
 
@@ -280,6 +283,7 @@ describe('lifecycle hooks', () => {
       { book(isbn: "0262510871") { year } }
     `;
 
+     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
      // @ts-ignore
     await executor({
       source,

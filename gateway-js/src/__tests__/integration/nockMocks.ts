@@ -70,21 +70,30 @@ export const mockCloudConfigUrl =
 export const mockOutOfBandReporterUrl =
   'https://example.outofbandreporter.com/monitoring/';
 
-export function mockSupergraphSdlRequest() {
+export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null) {
   return gatewayNock(mockCloudConfigUrl).post('/', {
     query: SUPERGRAPH_SDL_QUERY,
     variables: {
       ref: graphRef,
       apiKey: apiKey,
+      ifAfterId: ifAfter,
     },
   });
 }
 
-export function mockSupergraphSdlRequestSuccess(
-  supergraphSdl = getTestingSupergraphSdl(),
-  id = 'originalId-1234',
+export function mockSupergraphSdlRequest(ifAfter: string | null = null) {
+  return mockSupergraphSdlRequestIfAfter(ifAfter);
+}
+
+export function mockSupergraphSdlRequestSuccessIfAfter(
+  ifAfter: string | null = null,
+  id: string = 'originalId-1234',
+  supergraphSdl: string = getTestingSupergraphSdl(),
 ) {
-  return mockSupergraphSdlRequest().reply(
+  if (supergraphSdl == null) {
+    supergraphSdl = getTestingSupergraphSdl();
+  }
+  return mockSupergraphSdlRequestIfAfter(ifAfter).reply(
     200,
     JSON.stringify({
       data: {
@@ -96,6 +105,25 @@ export function mockSupergraphSdlRequestSuccess(
       },
     }),
   );
+}
+
+export function mockSupergraphSdlRequestIfAfterUnchanged(
+    ifAfter: string | null = null,
+) {
+  return mockSupergraphSdlRequestIfAfter(ifAfter).reply(
+      200,
+      JSON.stringify({
+        data: {
+          routerConfig: {
+            __typename: 'Unchanged',
+          },
+        },
+      }),
+  );
+}
+
+export function mockSupergraphSdlRequestSuccess() {
+  return mockSupergraphSdlRequestSuccessIfAfter(null);
 }
 
 export function mockOutOfBandReportRequest() {

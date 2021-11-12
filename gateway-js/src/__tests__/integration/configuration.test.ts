@@ -70,9 +70,10 @@ describe('gateway configuration warnings', () => {
 
   it('warns when both manual update configurations are provided', async () => {
     gateway = new ApolloGateway({
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      async experimental_updateSupergraphSdl() {},
-      async experimental_updateServiceDefinitions() {},
+      experimental_updateSupergraphSdl: async () => undefined,
+      experimental_updateServiceDefinitions: async () => undefined,
       logger,
     });
 

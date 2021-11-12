@@ -47,6 +47,6 @@ export type GraphQLDataSourceProcessOptions<
       /**
        * Mostly provided for historical reasons.
        */
-      context: {};
+      context: Record<string, any>;
     }
 );
