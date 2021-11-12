@@ -193,6 +193,7 @@ export class ApolloGateway implements GraphQLService {
   private serviceSdlCache = new Map<string, string>();
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
+  private supergraphSdl?: string;
   private parsedSupergraphSdl?: DocumentNode;
   private fetcher: typeof fetch;
   private compositionId?: string;
@@ -447,6 +448,7 @@ export class ApolloGateway implements GraphQLService {
         : this.createSchemaFromSupergraphSdl(config.supergraphSdl));
       // TODO(trevor): #580 redundant parse
       this.parsedSupergraphSdl = parse(supergraphSdl);
+      this.supergraphSdl = supergraphSdl;
       this.updateWithSchemaAndNotify(schema, supergraphSdl, true);
     } catch (e) {
       this.state = { phase: 'failed to load' };
@@ -576,6 +578,7 @@ export class ApolloGateway implements GraphQLService {
     await this.maybePerformServiceHealthCheck(result);
 
     this.compositionId = result.id;
+    this.supergraphSdl = result.supergraphSdl;
     this.parsedSupergraphSdl = parsedSupergraphSdl;
 
     const { schema, supergraphSdl } = this.createSchemaFromSupergraphSdl(
@@ -979,12 +982,18 @@ export class ApolloGateway implements GraphQLService {
 
     // TODO(trevor:cloudconfig): This condition goes away completely
     if (isPrecomposedManagedConfig(config)) {
-      return loadSupergraphSdlFromStorage({
+      const result = await loadSupergraphSdlFromStorage({
         graphRef: this.apolloConfig!.graphRef!,
         apiKey: this.apolloConfig!.key!,
         endpoint: this.schemaConfigDeliveryEndpoint!,
         fetcher: this.fetcher,
+        compositionId: this.compositionId ?? null,
       });
+
+      return result ?? {
+        id: this.compositionId!,
+        supergraphSdl: this.supergraphSdl!,
+      }
     } else if (isLegacyManagedConfig(config)) {
       return getServiceDefinitionsFromStorage({
         graphRef: this.apolloConfig!.graphRef!,

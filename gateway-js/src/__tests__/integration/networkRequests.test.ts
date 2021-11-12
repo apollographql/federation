@@ -13,6 +13,8 @@ import {
   mockSupergraphSdlRequest,
   mockApolloConfig,
   mockCloudConfigUrl,
+  mockSupergraphSdlRequestIfAfter,
+  mockSupergraphSdlRequestSuccessIfAfter,
 } from './nockMocks';
 import {
   accounts,
@@ -130,7 +132,11 @@ it('Fetches Supergraph SDL from remote storage using a configured env variable',
 
 it('Updates Supergraph SDL from remote storage', async () => {
   mockSupergraphSdlRequestSuccess();
-  mockSupergraphSdlRequestSuccess(getTestingSupergraphSdl(fixturesWithUpdate), 'updatedId-5678');
+  mockSupergraphSdlRequestSuccessIfAfter(
+    'originalId-1234',
+    'updatedId-5678',
+    getTestingSupergraphSdl(fixturesWithUpdate),
+  );
 
   // This test is only interested in the second time the gateway notifies of an
   // update, since the first happens on load.
@@ -183,7 +189,7 @@ describe('Supergraph SDL update failures', () => {
 
   it('Handles arbitrary fetch failures (non 200 response)', async () => {
     mockSupergraphSdlRequestSuccess();
-    mockSupergraphSdlRequest().reply(500);
+    mockSupergraphSdlRequestIfAfter('originalId-1234').reply(500);
 
     // Spy on logger.error so we can just await once it's been called
     let errorLogged: Function;
@@ -208,7 +214,7 @@ describe('Supergraph SDL update failures', () => {
 
   it('Handles GraphQL errors', async () => {
     mockSupergraphSdlRequestSuccess();
-    mockSupergraphSdlRequest().reply(200, {
+    mockSupergraphSdlRequest('originalId-1234').reply(200, {
       errors: [
         {
           message: 'Cannot query field "fail" on type "Query".',
@@ -242,7 +248,7 @@ describe('Supergraph SDL update failures', () => {
 
   it("Doesn't update and logs on receiving unparseable Supergraph SDL", async () => {
     mockSupergraphSdlRequestSuccess();
-    mockSupergraphSdlRequest().reply(
+    mockSupergraphSdlRequestIfAfter('originalId-1234').reply(
       200,
       JSON.stringify({
         data: {
@@ -314,8 +320,12 @@ describe('Supergraph SDL update failures', () => {
 it('Rollsback to a previous schema when triggered', async () => {
   // Init
   mockSupergraphSdlRequestSuccess();
-  mockSupergraphSdlRequestSuccess(getTestingSupergraphSdl(fixturesWithUpdate), 'updatedId-5678');
-  mockSupergraphSdlRequestSuccess();
+  mockSupergraphSdlRequestSuccessIfAfter(
+    'originalId-1234',
+    'updatedId-5678',
+    getTestingSupergraphSdl(fixturesWithUpdate),
+  );
+  mockSupergraphSdlRequestSuccessIfAfter('updatedId-5678');
 
   let firstResolve: Function;
   let secondResolve: Function;
@@ -480,9 +490,10 @@ describe('Downstream service health checks', () => {
       mockAllServicesHealthCheckSuccess();
 
       // Update
-      mockSupergraphSdlRequestSuccess(
-        getTestingSupergraphSdl(fixturesWithUpdate),
+      mockSupergraphSdlRequestSuccessIfAfter(
+        'originalId-1234',
         'updatedId-5678',
+        getTestingSupergraphSdl(fixturesWithUpdate),
       );
       mockAllServicesHealthCheckSuccess();
 
@@ -523,9 +534,10 @@ describe('Downstream service health checks', () => {
       mockAllServicesHealthCheckSuccess();
 
       // Update (with one health check failure)
-      mockSupergraphSdlRequestSuccess(
-        getTestingSupergraphSdl(fixturesWithUpdate),
+      mockSupergraphSdlRequestSuccessIfAfter(
+        'originalId-1234',
         'updatedId-5678',
+        getTestingSupergraphSdl(fixturesWithUpdate),
       );
       mockServiceHealthCheck(accounts).reply(500);
       mockServiceHealthCheckSuccess(books);
