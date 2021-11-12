@@ -16,8 +16,10 @@ The [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) package e
 
 First, let's install the necessary packages:
 
-```shell
-npm install @apollo/gateway apollo-server graphql
+```bash
+# Gatway support for graphql v16 is coming soon.
+# Until then, please install v15 as shown.
+npm install @apollo/gateway apollo-server graphql@15
 ```
 
 The `@apollo/gateway` package includes the [`ApolloGateway` class](/api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
