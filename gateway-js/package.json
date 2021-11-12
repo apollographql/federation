@@ -26,12 +26,12 @@
   },
   "dependencies": {
     "@apollo/composition": "file:../composition-js",
-    "@apollo/core-schema": "^0.1.0",
+    "@apollo/core-schema": "^0.2.0",
     "@apollo/federation": "file:../federation-js",
     "@apollo/query-planner": "file:../query-planner-js",
     "@opentelemetry/api": "^1.0.1",
     "@types/node-fetch": "2.5.12",
-    "apollo-graphql": "^0.9.3",
+    "apollo-graphql": "^0.9.5",
     "apollo-reporting-protobuf": "^0.8.0 || ^3.0.0",
     "apollo-server-caching": "^0.7.0 || ^3.0.0",
     "apollo-server-core": "^2.23.0 || ^3.0.0",
@@ -44,6 +44,6 @@
     "pretty-format": "^27.0.0"
   },
   "peerDependencies": {
-    "graphql": "^15.5.3"
+    "graphql": "^15.7.0"
   }
 }
