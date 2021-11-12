@@ -125,6 +125,7 @@ export type Unchanged = {
 export type SupergraphSdlQueryVariables = Exact<{
   apiKey: Scalars['String'];
   ref: Scalars['String'];
+  ifAfterId?: Maybe<Scalars['ID']>;
 }>;
 
 
