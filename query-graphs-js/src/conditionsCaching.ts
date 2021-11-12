@@ -5,7 +5,7 @@ import { Edge, QueryGraph, QueryGraphState } from "./querygraph";
 
 export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionResolver): ConditionResolver {
   // For every edge having a condition, we cache the resolution its conditions when possible.
-  // We save resolution with the set of exclded edges that were used to compute it: the reason we do this is
+  // We save resolution with the set of excluded edges that were used to compute it: the reason we do this is
   // that excluded edges impact the resolution, so we should only used a cached value if we know the excluded
   // edges are the same as when caching, and while we could decide to cache only when we have no excluded edges
   // at all, this would sub-optimal for types that have multiple keys, as the algorithm will always at least

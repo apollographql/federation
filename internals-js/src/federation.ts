@@ -44,7 +44,7 @@ export const extendsDirectiveName = 'extends';
 export const externalDirectiveName = 'external';
 export const requiresDirectiveName = 'requires';
 export const providesDirectiveName = 'provides';
-// TODO: so far, it seems we allow tag to appear without a corresponding definitio, so we add it as a built-in.
+// TODO: so far, it seems we allow tag to appear without a corresponding definition, so we add it as a built-in.
 // If we change our mind, we should change this.
 export const tagDirectiveName = 'tag';
 
@@ -109,7 +109,7 @@ function validateFieldSetSelections(
       if (field.hasArguments()) {
         throw new GraphQLError(`field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`, field.sourceAST);
       }
-      // The field must be external if we don't allow non-external leaf fields, it's a leaft, and we haven't traversed an external field in parent chain leading here.
+      // The field must be external if we don't allow non-external leaf fields, it's a leaf, and we haven't traversed an external field in parent chain leading here.
       const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && !hasExternalInParents;
       const isExternal = externalTester.isExternal(field);
       if (isExternal) {
@@ -255,12 +255,12 @@ export class FederationBuiltIns extends BuiltIns {
     const fieldSetType = new NonNullType(schema.type(fieldSetTypeName)!);
 
     // Note that we allow @key on interfaces in the definition to not break backward compatibility, because it has historically unfortunately be declared this way, but
-    // @key is actually not suppported on interfaces at the moment, so if if is "used" then it is rejected.
+    // @key is actually not supported on interfaces at the moment, so if if is "used" then it is rejected.
     const keyDirective = this.addBuiltInDirective(schema, keyDirectiveName)
       .addLocations('OBJECT', 'INTERFACE');
     // TODO: I believe fed 1 does not mark key repeatable and relax validation to accept repeating non-repeatable directive.
     // Do we want to perpetuate this? (Obviously, this is for historical reason and some graphQL implementations still do
-    // not support 'repeatable'. But since this code does not kick in within users' code, not sure we have to accomodate
+    // not support 'repeatable'. But since this code does not kick in within users' code, not sure we have to accommodate
     // for those implementations. Besides, we _do_ accept if people re-defined @key as non-repeatable).
     keyDirective.repeatable = true;
     keyDirective.addArgument('fields', fieldSetType);
@@ -377,7 +377,7 @@ export class FederationBuiltIns extends BuiltIns {
     );
     // Note that we currently reject @requires where a leaf field of the selection is not external,
     // because if it's provided by the current subgraph, why "requires" it? That said, it's not 100%
-    // non-sensical if you wanted a local field to be part of the subgraph fetch even if it's not
+    // nonsensical if you wanted a local field to be part of the subgraph fetch even if it's not
     // truly queried _for some reason_. But it's unclear such reasons exists, so for now we prefer
     // rejecting it as it also make it less likely user misunderstand what @requires actually do.
     // But we could consider lifting that limitation if users comes with a good rational for allowing
@@ -394,8 +394,8 @@ export class FederationBuiltIns extends BuiltIns {
     );
     // Note that like for @requires above, we error out if a leaf field of the selection is not
     // external in a @provides (we pass `false` for the `allowOnNonExternalLeafFields` parameter),
-    // but contrarily to @requires, there is probaly no reason to ever change this, as a @provides
-    // of a field already provides is 100% non-sensical.
+    // but contrarily to @requires, there is probably no reason to ever change this, as a @provides
+    // of a field already provides is 100% nonsensical.
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.providesDirective(schema),
       field => {
@@ -568,7 +568,7 @@ export function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subg
   return errors.length === 0 ? subgraphs : errors;
 }
 
-// Simple wrapper around a Subraph[] that ensures that 1) we never mistakenly get 2 subgraph with the same name,
+// Simple wrapper around a Subgraph[] that ensures that 1) we never mistakenly get 2 subgraph with the same name,
 // 2) keep the subgraphs sorted by name (makes iteration more predictable). It also allow convenient access to
 // a subgraph by name so behave like a map<string, Subgraph> in most ways (but with the previously mentioned benefits).
 export class Subgraphs {

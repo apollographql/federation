@@ -574,7 +574,7 @@ describe('composition', () => {
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errorMessages(result)).toStrictEqual([
-          'Field "T.f" has incompatible types accross subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"'
+          'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"'
         ]);
       });
 
@@ -606,7 +606,7 @@ describe('composition', () => {
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errorMessages(result)).toStrictEqual([
-          'Field "T.f" has incompatible types accross subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"'
+          'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"'
         ]);
       });
 
@@ -1099,7 +1099,7 @@ describe('composition', () => {
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errorMessages(result)).toStrictEqual([
-          'Argument "T.f(x:)" has incompatible types accross subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"'
+          'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"'
         ]);
       });
 
@@ -1131,7 +1131,7 @@ describe('composition', () => {
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errorMessages(result)).toStrictEqual([
-          'Argument "T.f(x:)" has incompatible types accross subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"'
+          'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"'
         ]);
       });
 

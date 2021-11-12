@@ -64,7 +64,7 @@ export class Vertex {
     readonly type: NamedType,
     /**
      * An identifier of the underlying schema containing the `type` this vertex points to.
-     * This is mainly used in "federated" query graphs, where the `souce` is a subgraph name.
+     * This is mainly used in "federated" query graphs, where the `source` is a subgraph name.
      */
     readonly source : string
   ) {}
@@ -467,7 +467,7 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
  * `buildFederatedQueryGraph` which are more explicit.
  *
  * @param name - the name to use for the created graph and as "source" name for the schema.
- * @param shema - the schema for which to build the query graph.
+ * @param schema - the schema for which to build the query graph.
  * @returns the query graph corresponding to `schema` "API" (in the sense that no federation
  *   directives are taken into account by this method in the building of the query graph).
  */
@@ -592,7 +592,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
         for (const keyApplication of type.appliedDirectivesOf(keyDirective)) {
           // The @key directive creates an edge from every other subgraphs (having that type)
           // to the current subgraph. In other words, the fact this subgraph has a @key means
-          // that the service of the current sugraph can be queried for the entity (through
+          // that the service of the current subgraph can be queried for the entity (through
           // _entities) as long as "the other side" can provide the proper field values.
           // Note that we only require that "the other side" can gather the key fields (through
           // the path conditions; note that it's possible those conditions are never satisfiable),
@@ -927,7 +927,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
       // field can be fetched from may depend on the runtime implementation. However, if the subgraph we're currently including
       // "provides" a particular interface field locally *for all the supergraph interfaces implementations* (in other words, we
       // know we can always ask the field to that subgraph directly on the interface and will never miss anything), then we can
-      // add a direct edge to the field for the interface in that subgraph (which avoids unecessary type explosing in practice).
+      // add a direct edge to the field for the interface in that subgraph (which avoids unnecessary type exploding in practice).
       if (this.isFederatedSubgraph && !this.forceTypeExplosion) {
         this.maybeAddInterfaceFieldsEdges(namedType, vertex);
       }
@@ -1070,7 +1070,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
    * an intersection of runtime types > 1, we add an edge.
    *
    * Do not that in practice we only add those edges when we build a query graph for query planning
-   * purposes, because not type-exploding is only an optimization but type-expoding will always "work"
+   * purposes, because not type-exploding is only an optimization but type-exploding will always "work"
    * and for composition validation, we don't care about being optimal, while limiting edges make
    * validation faster by limiting the choices to explore. Also, query planning is careful, as
    * it walk those edges, to compute the actual possible runtime types we could have to avoid

@@ -17,7 +17,7 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
   }
 
   addElementsToSchema(schema: Schema) {
-    this.addDirective(schema, 'inacessible').addLocations('FIELD_DEFINITION', 'OBJECT', 'INTERFACE', 'UNION');
+    this.addDirective(schema, 'inaccessible').addLocations('FIELD_DEFINITION', 'OBJECT', 'INTERFACE', 'UNION');
   }
 
   inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {
@@ -34,14 +34,14 @@ export function removeInaccessibleElements(schema: Schema) {
     return;
   }
 
-  const inacessibleFeature = coreFeatures.getByIdentity(inaccessibleIdentity);
-  if (!inacessibleFeature) {
+  const inaccessibleFeature = coreFeatures.getByIdentity(inaccessibleIdentity);
+  if (!inaccessibleFeature) {
     return;
   }
-  const inaccessibleSpec = INACCESSIBLE_VERSIONS.find(inacessibleFeature.url.version);
+  const inaccessibleSpec = INACCESSIBLE_VERSIONS.find(inaccessibleFeature.url.version);
   if (!inaccessibleSpec) {
     throw new GraphQLError(
-      `Cannot remove inacessible elements: the schema uses unsupported inacessible spec version ${inacessibleFeature.url.version} (supported versions: ${INACCESSIBLE_VERSIONS.versions().join(', ')})`);
+      `Cannot remove inaccessible elements: the schema uses unsupported inaccessible spec version ${inaccessibleFeature.url.version} (supported versions: ${INACCESSIBLE_VERSIONS.versions().join(', ')})`);
   }
 
   const inaccessibleDirective = inaccessibleSpec.inaccessibleDirective(schema);
@@ -52,7 +52,7 @@ export function removeInaccessibleElements(schema: Schema) {
   }
 
   for (const type of schema.types()) {
-    // @inacessible can only be on composite types.
+    // @inaccessible can only be on composite types.
     if (!isCompositeType(type)) {
       continue;
     }

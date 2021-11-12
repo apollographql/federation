@@ -298,7 +298,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       return true;
     }
 
-    // Note that we use '===' for trigger instead of `triggerEquality`: this method is all about avoid unecessary merging
+    // Note that we use '===' for trigger instead of `triggerEquality`: this method is all about avoid unnecessary merging
     // when we suspect conditions trees have been build from the exact same inputs and `===` is faster and good enough for this.
     return arrayEquals(this.childs, that.childs, (c1, c2) => {
       return c1.index === c2.index
@@ -308,11 +308,11 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     });
   }
 
-  // Like merge(), this create a new tree that contains the content of both `this` and `other` to this pathTree, but contrarily 
+  // Like merge(), this create a new tree that contains the content of both `this` and `other` to this pathTree, but contrarily
   // to merge() this never merge childs together, even if they are equal. This is only for the special case of mutations.
   concat(other: PathTree<TTrigger, RV, TNullEdge>): PathTree<TTrigger, RV, TNullEdge> {
     assert(other.graph === this.graph, 'Cannot concat path tree build on another graph');
-    assert(other.vertex.index === this.vertex.index, () => `Cannot contat path tree rooted at vertex ${other.vertex} into tree rooted at other vertex ${this.vertex}`);
+    assert(other.vertex.index === this.vertex.index, () => `Cannot concat path tree rooted at vertex ${other.vertex} into tree rooted at other vertex ${this.vertex}`);
     if (!other.childs.length) {
       return this;
     }

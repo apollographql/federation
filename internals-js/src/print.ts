@@ -32,7 +32,7 @@ export type Options = {
   mergeTypesAndExtensions: boolean;
   showAllBuiltIns: boolean;
   showNonGraphQLBuiltIns: boolean;
-  noDesciptions: boolean;
+  noDescriptions: boolean;
 }
 
 export const defaultPrintOptions: Options = {
@@ -42,7 +42,7 @@ export const defaultPrintOptions: Options = {
   mergeTypesAndExtensions: false,
   showAllBuiltIns: false,
   showNonGraphQLBuiltIns: false,
-  noDesciptions: false,
+  noDescriptions: false,
 }
 
 export function orderPrintedDefinitions(options: Options): Options {
@@ -200,7 +200,7 @@ function printDescription(
   indentation: string = '',
   firstInBlock: boolean = true
 ): string {
-  if (element.description === undefined || options.noDesciptions) {
+  if (element.description === undefined || options.noDescriptions) {
     return '';
   }
 
@@ -262,7 +262,7 @@ function printEnumDefinitionOrExtension(type: EnumType, options: Options, extens
   if (!directives.length && !values.length) {
     return undefined;
   }
-  const vals = values.map((v, i) => 
+  const vals = values.map((v, i) =>
     printDescription(v, options, options.indentString, !i)
     + options.indentString
     + v
@@ -292,8 +292,8 @@ function printInputDefinitionOrExtension(type: InputObjectType, options: Options
 function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefinition)[], options: Options): string {
   return printBlock(fields.map((f, i) =>
     printDescription(f, options, options.indentString, !i)
-    + options.indentString 
-    + printField(f, options) 
+    + options.indentString
+    + printField(f, options)
     + printAppliedDirectives(f.appliedDirectives, options)));
 }
 

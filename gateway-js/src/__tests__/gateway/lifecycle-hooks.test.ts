@@ -117,7 +117,7 @@ describe('lifecycle hooks', () => {
     const callbackArgs = experimental_didFailComposition.mock.calls[0][0];
     expect(callbackArgs.serviceList).toHaveLength(2);
     expect(callbackArgs.errors[0]).toMatchInlineSnapshot(
-      `[GraphQLError: Field "T.a" has incompatible types accross subgraphs: it has type "Int" in subgraph "S1" but type "String" in subgraph "S2"]`,
+      `[GraphQLError: Field "T.a" has incompatible types across subgraphs: it has type "Int" in subgraph "S1" but type "String" in subgraph "S2"]`,
     );
     expect(callbackArgs.compositionMetadata.id).toEqual('abc');
     expect(experimental_didFailComposition).toBeCalled();

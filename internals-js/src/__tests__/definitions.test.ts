@@ -220,7 +220,7 @@ test('removal of all directives of a schema', () => {
     union U = A | B`);
 });
 
-test('removal of all inacessible elements of a schema', () => {
+test('removal of all inaccessible elements of a schema', () => {
   const schema = parseSchema(`
     schema @foo {
       query: Query
@@ -407,7 +407,7 @@ test('handling of descriptions', () => {
     type ASetOfQueries {
       """Returns a set of products"""
       bestProducts: [Product!]!
-    
+
       """Finds a product by ID"""
       product(
         """The ID identifying the product"""
@@ -419,7 +419,7 @@ test('handling of descriptions', () => {
     type Book implements Product {
       id: ID!
       description: String!
-    
+
       """
       Number of pages in the book. Good so the customer knows its buying a 1000 page book for instance
       """

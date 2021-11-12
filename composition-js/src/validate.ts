@@ -73,7 +73,7 @@ function validationError(
 
   // TODO: we should build a more detailed error message, not just the unsatisfiable query. Doing that well is likely a tad
   // involved though as there may be a lot of different reason why it doesn't validate. But by looking at the last edge on the
-  // supergraph and the subgraphsPath, we should be able to roughly infer what's going on. 
+  // supergraph and the subgraphsPath, we should be able to roughly infer what's going on.
   const operation = print(operationToDocument(witness));
   const message = `The follow supergraph API query:\n${operation}`
     + 'cannot be satisfied by the subgraphs because:\n'
@@ -86,13 +86,13 @@ function isValidationError(e: any): e is ValidationError {
 }
 
 function displayReasons(reasons: Unadvanceables[]): string {
-  const bySubraph = new MultiMap<string, Unadvanceable>();
+  const bySubgraph = new MultiMap<string, Unadvanceable>();
   for (const reason of reasons) {
     for (const unadvanceable of reason.reasons) {
-      bySubraph.add(unadvanceable.sourceSubgraph, unadvanceable);
+      bySubgraph.add(unadvanceable.sourceSubgraph, unadvanceable);
     }
   }
-  return [...bySubraph.entries()].map(([subgraph, reasons]) => {
+  return [...bySubgraph.entries()].map(([subgraph, reasons]) => {
     let msg = `- from subgraph "${subgraph}":`;
     if (reasons.length === 1) {
       msg += ' ' + reasons[0].details + '.';
@@ -123,14 +123,14 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
     // may be invalid.
     // In that case, we instead return an empty SelectionSet. This is, strictly speaking, equally invalid, but we use
     // this as a convention to means "there is supposed to be a selection but we don't have it" and the code
-    // in `SelectionSet.toSelectionNode` handles this an prints an elipsis (a '...').
+    // in `SelectionSet.toSelectionNode` handles this an prints an ellipsis (a '...').
     //
     // Note that, as an alternative, we _could_ generate a random valid witness: while the current type is not terminal
     // we would randomly pick a valid choice (if it's an abstract type, we'd "cast" to any implementation; if it's an
     // object, we'd pick the first field and recurse on its type). However, while this would make sure our "witness"
     // is always a fully valid query, this is probably less user friendly in practice because you'd have to follow
     // the query manually to figure out at which point the query stop being satisfied by subgraphs. Putting the
-    // elipsis instead make it immediately clear after which part of the query there is an issue.
+    // ellipsis instead make it immediately clear after which part of the query there is an issue.
     const lastType = edges[edges.length -1].tail.type;
     // Note that vertex types are named type and output ones, so if it's not a leaf it is guaranteed to be selectable.
     return isLeafType(lastType) ? undefined : new SelectionSet(lastType as CompositeType);
@@ -215,7 +215,7 @@ function generateWitnessValue(type: InputType): any {
 }
 
 export function validateGraphComposition(supergraph: QueryGraph, subgraphs: QueryGraph): {errors? : ValidationError[]} {
-  const errors = new ValidationTaversal(supergraph, subgraphs).validate();
+  const errors = new ValidationTraversal(supergraph, subgraphs).validate();
   return errors.length > 0 ? {errors} : {};
 }
 
@@ -332,14 +332,14 @@ function isSupersetOrEqual(maybeSuperset: string[], other: string[]): boolean {
   return other.every(v => maybeSuperset.includes(v));
 }
 
-class ValidationTaversal {
+class ValidationTraversal {
   private readonly supergraphSchema: Schema;
   private readonly conditionResolver: ConditionValidationResolver;
   // The stack contains all states that aren't terminal.
   private readonly stack: ValidationState[] = [];
 
   // For each vertex in the supergraph, records if we've already visited that vertex and in which subgraphs we were.
-  // For a vertex, we may have multipe "sets of subgraphs", hence the double-array.
+  // For a vertex, we may have multiple "sets of subgraphs", hence the double-array.
   private readonly previousVisits: QueryGraphState<string[][]>;
 
   private readonly validationErrors: ValidationError[] = [];
@@ -385,7 +385,7 @@ class ValidationTaversal {
     // it means we've successfully "validate" a path to its end.
     for (const edge of state.supergraphPath.nextEdges()) {
       if (edge.isEdgeForField(typenameFieldName)) {
-        // There is no point in validing __typename edges: we know we can always get those.
+        // There is no point in validating __typename edges: we know we can always get those.
         continue;
       }
 
@@ -458,7 +458,7 @@ class ConditionValidationResolver {
     for (const selection of conditions.selections()) {
       stack.push(new ConditionValidationState(selection, initialOptions));
     }
-  
+
     while (stack.length > 0) {
       const state = stack.pop()!;
       const newStates = this.advanceState(state);
@@ -486,7 +486,7 @@ class ConditionValidationResolver {
       newOptions = newOptions.concat(pathsOptions);
     }
 
-    // If we got no optoins, it means that particular selection of the conditions cannot be satisfied, so the
+    // If we got no options, it means that particular selection of the conditions cannot be satisfied, so the
     // overall condition cannot.
     if (newOptions.length === 0) {
       return null;
