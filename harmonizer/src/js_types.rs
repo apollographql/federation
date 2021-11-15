@@ -63,10 +63,11 @@ impl Error for CompositionError {}
 /// the `extensions` property of a JavaScript [`GraphQLError`] from the
 /// [`graphql-js`] library. Such errors are created when errors have prevented
 /// successful composition, which is accomplished using [`errorWithCode`]. An
-/// [example] of this can be seen within the `federation-js` JavaScript library.
+/// [example] of this can be seen within the `composition-js` JavaScript library.
 ///
 /// [`graphql-js']: https://npm.im/graphql
 /// [`GraphQLError`]: https://github.com/graphql/graphql-js/blob/3869211/src/error/GraphQLError.js#L18-L75
+/// TODO: replace with `composition-js` equivalents?
 /// [`errorWithCode`]: https://github.com/apollographql/federation/blob/d7ca0bc2/federation-js/src/composition/utils.ts#L200-L216
 /// [example]: https://github.com/apollographql/federation/blob/d7ca0bc2/federation-js/src/composition/validate/postComposition/executableDirectivesInAllServices.ts#L47-L53
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

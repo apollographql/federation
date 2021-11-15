@@ -33,7 +33,6 @@
   },
   "dependencies": {
     "@apollo/composition": "file:composition-js",
-    "@apollo/federation": "file:federation-js",
     "@apollo/federation-internals": "file:internals-js",
     "@apollo/gateway": "file:gateway-js",
     "@apollo/harmonizer": "file:harmonizer",
@@ -94,7 +93,6 @@
   "jest": {
     "projects": [
       "<rootDir>/internals-js",
-      "<rootDir>/federation-js",
       "<rootDir>/federation-integration-testsuite-js",
       "<rootDir>/gateway-js",
       "<rootDir>/query-planner-js",

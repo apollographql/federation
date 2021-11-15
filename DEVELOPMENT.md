@@ -11,7 +11,7 @@ Depending on the size of the release, it may be ideal to have a staging PR which
 > Note: The instructions here cater to a world where the packages in a repository are published in lock-step, as is the case with all of the `apollo-server-*` packages in the Apollo Server repository.  Release branches are still a good idea, but in this repository it quite possible that there are multiple versions involved (e.g., a version of `@apollo/federation` and a version of `@apollo/gateway`).  In that regard, it's expected that the branch names and the PR title will deviate from the suggestion below.  The branch should still be prefixed with `release-` (for _Branch protection rules_ to match easily), but the rest of the branch name might be different, e.g., `release-federation-X.Y.Z`.
 
 1. Create a branch off `main` named `release-X.Y.Z`, where `X.Y.Z` is the intended release.
-2. Edit the appropriate `CHANGELOG.md` (in the appropriate package directory; e.g., `./federation-js/CHANGELOG.md`, `./gateway-js/CHANGELOG.md`), removing the `vNEXT` section entirely.  This section will remain on `main` and be resolved during the merge.
+2. Edit the appropriate `CHANGELOG.md` (in the appropriate package directory; e.g. `./gateway-js/CHANGELOG.md`), removing the `vNEXT` section entirely.  This section will remain on `main` and be resolved during the merge.
 3. Add a new section for `### vX.Y.Z` with a bullet indicating that something is coming soon:
 
    ```
@@ -31,7 +31,6 @@ Depending on the size of the release, it may be ideal to have a staging PR which
 
 There is not a root `CHANGELOG.md` on this monorepo.  Instead, there are `CHANGELOG.md` files for specific packages:
  
-- `./federation-js/CHANGELOG.md` for `@apollo/federation`
 - `./query-planner-js/CHANGELOG.md` for `@apollo/query-planner`
 - `./subgraph-js/CHANGELOG.md` for `@apollo/subgraph`
 
