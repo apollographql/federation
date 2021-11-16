@@ -23,6 +23,4 @@ thiserror = "1.0.29"
 
 [dev-dependencies]
 insta = "1.8.0"
-
-[build-dependencies]
 which = "4.2.2"
