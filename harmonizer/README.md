@@ -18,7 +18,7 @@ While we intend for a future version of composition to be done natively within
 Rust, this allows us to provide a more stable transition using an already stable
 composition implementation while we work toward something else.
 
-[`@apollo/federation`]: https://npm.im/@apollo/federation
+[`@apollo/composition`]: https://npm.im/@apollo/composition
 [IIFE]: https://developer.mozilla.org/en-US/docs/Glossary/IIFE
 [Rollup.js]: http://rollupjs.org/
 [`deno_core`]: https://crates.io/crates/deno_core

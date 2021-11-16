@@ -62,14 +62,13 @@ impl Error for CompositionError {}
 /// Mimicking the JavaScript-world from which this error comes, this represents
 /// the `extensions` property of a JavaScript [`GraphQLError`] from the
 /// [`graphql-js`] library. Such errors are created when errors have prevented
-/// successful composition, which is accomplished using [`errorWithCode`]. An
-/// [example] of this can be seen within the `composition-js` JavaScript library.
+/// successful composition, which is accomplished using [`error`] from the `internals-js` module.
+/// An [example] of this can be seen within the `composition-js` JavaScript library.
 ///
 /// [`graphql-js']: https://npm.im/graphql
 /// [`GraphQLError`]: https://github.com/graphql/graphql-js/blob/3869211/src/error/GraphQLError.js#L18-L75
-/// TODO: replace with `composition-js` equivalents?
-/// [`errorWithCode`]: https://github.com/apollographql/federation/blob/d7ca0bc2/federation-js/src/composition/utils.ts#L200-L216
-/// [example]: https://github.com/apollographql/federation/blob/d7ca0bc2/federation-js/src/composition/validate/postComposition/executableDirectivesInAllServices.ts#L47-L53
+/// [`errorWithCode`]: https://github.com/apollographql/federation/blob/714826efdcc3462c4f91dfe91c7ff8c3c76bad9b/internals-js/src/error.ts#L3-L25
+/// [example]: https://github.com/apollographql/federation/blob/714826efdcc3462c4f91dfe91c7ff8c3c76bad9b/composition-js/src/merging/merge.ts#L448
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct JsCompositionErrorExtensions {
     /// An Apollo Federation composition error code.
@@ -83,7 +82,7 @@ pub(crate) struct JsCompositionErrorExtensions {
     ///   - KEY_NOT_SPECIFIED
     ///   - PROVIDES_FIELDS_MISSING_EXTERNAL
     ///
-    /// ...and many more!  See the `federation-js` composition library for
-    /// more details (and search for `errorWithCode`).
+    /// ...and many more!  See the `composition-js` composition library for
+    /// more details (and search for the `error` method).
     code: String,
 }

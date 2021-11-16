@@ -85,6 +85,8 @@ type WarnedStates = {
   remoteWithLocalConfig?: boolean;
 };
 
+export { ServiceDefinition } from '@apollo/federation-internals';
+
 export function getDefaultFetcher() {
   const { name, version } = require('../package.json');
   return fetcher.defaults({

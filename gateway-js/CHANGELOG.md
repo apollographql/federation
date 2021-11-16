@@ -6,6 +6,7 @@
 
 - Conditional schema update based on ifAfterId [PR #1152](https://github.com/apollographql/federation/pull/1152)
 -__BREAKING__: Bump graphql peer dependency to `^15.7.0` [PR #1200](https://github.com/apollographql/federation/pull/1200)
+- The `@apollo/federation` module is not longer used, and the `ServiceDefinition` interface that may be used when passing using a local "service list" gateway configuration is now exported by this module (`@apollo/gateway`).
 
 ## v2.0.0-alpha.1
 
