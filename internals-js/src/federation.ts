@@ -23,7 +23,7 @@ import {
   InterfaceType,
   InputFieldDefinition
 } from "./definitions";
-import { assert } from "./utils";
+import { assert, OrderedMap } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import { ASTNode, DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule, Source } from "graphql";
@@ -51,7 +51,7 @@ export const tagDirectiveName = 'tag';
 export const serviceFieldName = '_service';
 export const entitiesFieldName = '_entities';
 
-const tagSpec = TAG_VERSIONS.latest()!;
+const tagSpec = TAG_VERSIONS.latest();
 
 // We don't let user use this as a subgraph name. That allows us to use it in `query graphs` to name the source of roots
 // in the "federated query graph" without worrying about conflict (see `FEDERATED_GRAPH_ROOT_SOURCE` in `querygraph.ts`).
@@ -572,12 +572,7 @@ export function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subg
 // 2) keep the subgraphs sorted by name (makes iteration more predictable). It also allow convenient access to
 // a subgraph by name so behave like a map<string, Subgraph> in most ways (but with the previously mentioned benefits).
 export class Subgraphs {
-  private readonly subgraphs: Subgraph[] = [];
-
-  private idx(name: string): number {
-    // Note: we could do a binary search if we ever worry that a linear scan is too costly.
-    return this.subgraphs.findIndex(s => s.name === name);
-  }
+  private readonly subgraphs = new OrderedMap<string, Subgraph>();
 
   add(subgraph: Subgraph): Subgraph;
   add(name: string, url: string, schema: Schema | DocumentNode | string): Subgraph;
@@ -590,42 +585,37 @@ export class Subgraphs {
       throw new GraphQLError(`Invalid name ${FEDERATION_RESERVED_SUBGRAPH_NAME} for a subgraph: this name is reserved`);
     }
 
-    const idx = this.idx(toAdd.name);
-    if (idx >= 0) {
+    if (this.subgraphs.has(toAdd.name)) {
       throw new Error(`A subgraph named ${toAdd.name} already exists` + (toAdd.url ? ` (with url '${toAdd.url}')` : ''));
     }
-    this.subgraphs.push(toAdd);
-    this.subgraphs.sort();
+    this.subgraphs.add(toAdd.name, toAdd);
     return toAdd;
   }
 
   get(name: string): Subgraph | undefined {
-    const idx = this.idx(name);
-    return idx >= 0 ? this.subgraphs[idx] : undefined;
-  }
-
-  getByIdx(idx: number): Subgraph {
-    return this.subgraphs[idx];
+    return this.subgraphs.get(name);
   }
 
   size(): number {
-    return this.subgraphs.length;
+    return this.subgraphs.size();
   }
 
   names(): readonly string[] {
-    return this.subgraphs.map(s => s.name);
+    return this.subgraphs.keys();
   }
 
   values(): readonly Subgraph[] {
-    return this.subgraphs;
-  }
-
-  [Symbol.iterator]() {
     return this.subgraphs.values();
   }
 
+  *[Symbol.iterator]() {
+    for (const subgraph of this.subgraphs) {
+      yield subgraph;
+    }
+  }
+
   toString(): string {
-    return '[' + this.subgraphs.map(s => s.name).join(', ') + ']'
+    return '[' + this.subgraphs.keys().join(', ') + ']'
   }
 }
 
