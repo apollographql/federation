@@ -30,6 +30,88 @@ export class MultiMap<K, V> extends Map<K, V[]> {
 }
 
 /**
+ * Generic OrderedMap class that can sort keys based on an arbitrary sorting function
+ * Insert time is O(log(N))
+ * Remove is not implemented, but the trivial implementation would be O(N)
+ * Uses '<' '>' sorting by default
+ * Collisions are fine, it will just overwrite the old value
+ */
+export class OrderedMap<K,V> {
+  private _keys: K[] = [];
+  private _values: Map<K,V> = new Map<K,V>();
+  private _compareFn: (a: K, b: K) => number;
+
+  private static defaultCompareFn<K>(a: K, b: K) {
+    if (a < b) {
+      return -1;
+    } else if (b < a) {
+      return 1;
+    }
+    return 0;
+  }
+
+  constructor(compareFn: (a: K, b: K) => number = OrderedMap.defaultCompareFn) {
+    this._compareFn = compareFn;
+  }
+
+  add(key: K, value: V) {
+    if (!this._values.has(key)) {
+      this.insertKeyInOrder(key);
+    }
+    this._values.set(key, value);
+  }
+
+  get(key: K): V | undefined {
+    return this._values.get(key);
+  }
+
+  has(key: K): boolean {
+    return this._values.has(key);
+  }
+
+  get size() {
+    return this._keys.length;
+  }
+
+  keys(): K[] {
+    return this._keys;
+  }
+
+  values(): V[] {
+    return this._keys.map(key => {
+      const v = this._values.get(key);
+      assert(v, 'value for known key not found in OrderedMap');
+      return v;
+    });
+  }
+
+  // O(log(N)) - find location via middle finding
+  private insertKeyInOrder(key: K) {
+    let lower = 0;
+    let upper = this._keys.length - 1;
+    while (lower <= upper) {
+      const middle = Math.floor((upper + lower) / 2);
+      if (this._compareFn(this._keys[middle], key) < 0) {
+        lower = middle + 1;
+      } else {
+        upper = middle - 1;
+      }
+    }
+    this._keys = this._keys.slice(0, lower).concat(key).concat(this._keys.slice(lower));
+  }
+
+  // remove(key: K): void - not implemented
+
+  *[Symbol.iterator]() {
+    for (let i = 0; i < this._keys.length; i += 1) {
+      const v = this._values.get(this._keys[i]);
+      assert(v, 'value for known key not found in OrderedMap');
+      yield v;
+    }
+  }
+}
+
+/**
  * Tests if the provided arrays have the same elements (using '===' equality or the provided
  * equality function).
  * This is _not_ a deep equality by default, though you can build one somewhat when passing

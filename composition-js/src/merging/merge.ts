@@ -77,9 +77,9 @@ import {
   hintInconsistentDescription,
 } from "../hints";
 
-const coreSpec = CORE_VERSIONS.latest()!;
-const joinSpec = JOIN_VERSIONS.latest()!;
-const tagSpec = TAG_VERSIONS.latest()!;
+const coreSpec = CORE_VERSIONS.latest();
+const joinSpec = JOIN_VERSIONS.latest();
+const tagSpec = TAG_VERSIONS.latest();
 
 // When displaying a list of something in a human readable form, after what size (in
 // number of characters) we start displaying only a subset of the list.
@@ -267,9 +267,9 @@ class Merger {
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
-    this.subgraphsSchema = this.names.map(name => subgraphs.get(name)!.schema);
+    this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
-    this.externalTesters = subgraphs.values().map(s => new ExternalTester(s.schema));
+    this.externalTesters = this.subgraphsSchema.map(schema => new ExternalTester(schema));
   }
 
   private prepareSupergraph(): Map<string, string> {
