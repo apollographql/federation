@@ -35,7 +35,7 @@ describe('Using supergraphSdl configuration', () => {
     `);
 
     const [url, request] = fetch.mock.calls[0];
-    expect(url).toEqual('https://accounts.api.com');
+    expect(url).toEqual('https://accounts.api.com.invalid');
     expect(request?.body).toEqual(
       JSON.stringify({ query: '{me{username}}', variables: {} }),
     );
