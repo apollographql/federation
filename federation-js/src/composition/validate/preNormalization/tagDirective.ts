@@ -1,5 +1,5 @@
 import {
-  federationDirectives,
+  directivesWithNoDefinitionNeeded,
   directiveDefinitionsAreCompatible,
 } from '@apollo/subgraph/dist/directives';
 import {
@@ -18,7 +18,7 @@ import { errorWithCode, logDirective } from '../../utils';
 // Likely brittle but also will be very obvious if this breaks. Based on the
 // content of the error message itself to remove expected errors related to
 // omitted federation directives.
-const errorsMessagesToFilter = federationDirectives.map(
+const errorsMessagesToFilter = directivesWithNoDefinitionNeeded.map(
   (directive) => `Unknown directive "@${directive.name}".`,
 );
 /**

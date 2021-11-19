@@ -21,9 +21,9 @@ import {
 } from 'graphql';
 import { transformSchema } from 'apollo-graphql';
 import {
-  otherKnownDirectives,
-  federationDirectives,
-  isFederationDirective,
+  directivesWithNoDefinitionNeeded,
+  isDirectiveWithNoDefinitionNeeded,
+  directivesWithAutoIncludedDefinitions,
 } from '@apollo/subgraph/dist/directives';
 import {
   findDirectivesOnNode,
@@ -364,7 +364,7 @@ export function buildSchemaFromDefinitionsAndExtensions({
   // We only want to include the definitions of other known Apollo directives
   // (currently just @tag) if there are usages.
   const otherKnownDirectivesToInclude =
-    otherKnownDirectives.filter((directive) =>
+    directivesWithAutoIncludedDefinitions.filter((directive) =>
       directiveMetadata.hasUsages(directive.name),
     );
 
@@ -386,7 +386,7 @@ export function buildSchemaFromDefinitionsAndExtensions({
       JoinOwnerDirective,
       JoinGraphDirective,
       ...specifiedDirectives,
-      ...federationDirectives,
+      ...directivesWithNoDefinitionNeeded,
       ...otherKnownDirectivesToInclude,
     ],
     types: [FieldSetScalar, JoinGraphEnum],
@@ -468,7 +468,9 @@ export function buildSchemaFromDefinitionsAndExtensions({
   schema = new GraphQLSchema({
     ...schema.toConfig(),
     directives: [
-      ...schema.getDirectives().filter((x) => !isFederationDirective(x)),
+      ...schema
+        .getDirectives()
+        .filter((x) => !isDirectiveWithNoDefinitionNeeded(x)),
     ],
   });
 

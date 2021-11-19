@@ -16,7 +16,7 @@ import {
   addResolversToSchema,
   GraphQLResolverMap,
 } from 'apollo-graphql';
-import { federationDirectives, typeIncludesDirective } from './directives';
+import { directivesWithNoDefinitionNeeded, typeIncludesDirective } from './directives';
 
 import { serviceField, entitiesField, EntityType } from './types';
 
@@ -66,7 +66,7 @@ export function buildSubgraphSchema(
     modules,
     new GraphQLSchema({
       query: undefined,
-      directives: [...specifiedDirectives, ...federationDirectives],
+      directives: [...specifiedDirectives, ...directivesWithNoDefinitionNeeded],
     }),
   );
 
