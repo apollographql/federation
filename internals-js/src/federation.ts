@@ -311,7 +311,7 @@ export class FederationBuiltIns extends BuiltIns {
 
     // Adds the _entities and _service fields to the root query type.
     const queryRoot = schema.schemaDefinition.root("query");
-    const queryType = queryRoot ? queryRoot.type : schema.addType(new ObjectType("Query"));
+    const queryType = queryRoot ? queryRoot.type : schema.addType(new ObjectType(schema, "Query"));
     const entityField = queryType.field(entitiesFieldName);
     if (hasEntities) {
       const anyType = schema.type(anyTypeName);

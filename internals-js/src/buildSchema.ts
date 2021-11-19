@@ -57,7 +57,7 @@ function buildValue(value?: ValueNode): any {
   //   - for ID, which accepts strings and int, we don't get int converted to string.
   //   - for floats, we get either int or float, we don't get int converted to float.
   //   - we don't get any custom coercion (but neither is buildSchema in graphQL-js anyway).
-  // 2) type validation. 
+  // 2) type validation.
   return value ? valueFromASTUntyped(value) : undefined;
 }
 
@@ -91,7 +91,7 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
       case 'SchemaExtension':
         buildSchemaDefinitionInner(
           definitionNode,
-          schema.schemaDefinition, 
+          schema.schemaDefinition,
           schema.schemaDefinition.newExtension());
         break;
       case 'ScalarTypeDefinition':
@@ -144,7 +144,7 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
         // But at the same time, we want to allow redefining built-in types, because some users do it.
         const existing = schema.type(definitionNode.name.value);
         if (!existing || existing.isBuiltIn) {
-          schema.addType(newNamedType(withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
+          schema.addType(newNamedType(schema, withoutTrailingDefinition(definitionNode.kind), definitionNode.name.value));
         }
         break;
       case 'DirectiveDefinition':

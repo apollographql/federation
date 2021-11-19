@@ -95,11 +95,11 @@ export abstract class FeatureDefinition {
   }
 
   protected addScalarType(schema: Schema, name: string): ScalarType {
-    return schema.addType(new ScalarType(this.elementNameInSchema(schema, name)!));
+    return schema.addType(new ScalarType(schema, this.elementNameInSchema(schema, name)!));
   }
 
   protected addEnumType(schema: Schema, name: string): EnumType {
-    return schema.addType(new EnumType(this.elementNameInSchema(schema, name)!));
+    return schema.addType(new EnumType(schema, this.elementNameInSchema(schema, name)!));
   }
 
   protected featureInSchema(schema: Schema): CoreFeature | undefined {
@@ -173,7 +173,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
     core.addArgument('feature', new NonNullType(schema.stringType()));
     core.addArgument('as', schema.stringType());
     if (this.supportPurposes()) {
-      const purposeEnum = schema.addType(new EnumType(`${nameInSchema}__Purpose`));
+      const purposeEnum = schema.addType(new EnumType(schema, `${nameInSchema}__Purpose`));
       for (const purpose of corePurposes) {
         purposeEnum.addValue(purpose).description = purposesDescription(purpose);
       }
@@ -281,7 +281,7 @@ export class FeatureVersion {
    * ```
    * expect(FeatureVersion.parse('v1.0')).toEqual(new FeatureVersion(1, 0))
    * expect(FeatureVersion.parse('v0.1')).toEqual(new FeatureVersion(0, 1))
-   * expect(FeatureVersion.parse("v987.65432")).toEqual(new FeatureVersion(987, 65432)) 
+   * expect(FeatureVersion.parse("v987.65432")).toEqual(new FeatureVersion(987, 65432))
    * ```
    */
   public static parse(input: string): FeatureVersion {
@@ -327,7 +327,7 @@ export class FeatureVersion {
    * Compares this version to the provide one, returning 1 if it strictly greater, 0 if they are equals, and -1 if this
     * version is strictly smaller. The underlying ordering is that of major version and then minor versions.
    *
-   * Be aware that this ordering does *not* imply compatibility. For example, `FeatureVersion(2, 0) > FeatureVersion(1, 9)`, 
+   * Be aware that this ordering does *not* imply compatibility. For example, `FeatureVersion(2, 0) > FeatureVersion(1, 9)`,
     * but an implementation of `FeatureVersion(2, 0)` *cannot* satisfy a request for `FeatureVersion(1, 9)`. To check for
     * version compatibility, use [the `satisfies` method](#satisfies).
    */
@@ -362,7 +362,7 @@ export class FeatureVersion {
 
   /**
    * return the string version tag, like "v2.9"
-   * 
+   *
    * @returns a version tag
    */
   public toString() {
@@ -371,7 +371,7 @@ export class FeatureVersion {
 
   /**
    * return true iff this version is exactly equal to the provided version
-   * 
+   *
    * @param other the version to compare
    * @returns true if versions are strictly equal
    */
@@ -424,7 +424,7 @@ export class FeatureUrl {
   /**
    * Return true if and only if this spec satisfies the `requested`
    * spec.
-   * 
+   *
    * @param request
    */
   public satisfies(requested: FeatureUrl): boolean {

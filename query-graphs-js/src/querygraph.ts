@@ -546,7 +546,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   const builder = new GraphBuilder(verticesCount);
   rootKinds.forEach(k => builder.createRootVertex(
     k,
-    new ObjectType(federatedGraphRootTypeName(k)),
+    new ObjectType(FEDERATED_GRAPH_ROOT_SCHEMA, federatedGraphRootTypeName(k)), // TODO: I think this one is right?
     FEDERATED_GRAPH_ROOT_SOURCE,
     FEDERATED_GRAPH_ROOT_SCHEMA
   ));

@@ -394,7 +394,7 @@ class Merger {
         }
         const previous = this.merged.type(type.name);
         if (!previous) {
-          this.merged.addType(newNamedType(type.kind, type.name));
+          this.merged.addType(newNamedType(this.merged, type.kind, type.name));
         } else if (previous.kind !== type.kind) {
           mismatchedTypes.add(type.name);
         }
@@ -414,7 +414,7 @@ class Merger {
           continue;
         }
         if (!this.merged.directive(directive.name)) {
-          this.merged.addDirectiveDefinition(new DirectiveDefinition(directive.name));
+          this.merged.addDirectiveDefinition(new DirectiveDefinition(this.merged, directive.name));
         }
       }
     }

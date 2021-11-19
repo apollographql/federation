@@ -114,8 +114,8 @@ expect.extend({
 
 test('building a simple schema programatically', () => {
   const schema = new Schema(federationBuiltIns);
-  const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query'))).type;
-  const typeA = schema.addType(new ObjectType('A'));
+  const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType(schema, 'Query'))).type;
+  const typeA = schema.addType(new ObjectType(schema, 'A'));
   const key = federationBuiltIns.keyDirective(schema);
 
   queryType.addField('a', typeA);

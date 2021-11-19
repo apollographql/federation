@@ -82,7 +82,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     if (!typeApplications.length) {
       // Imply the type is in all subgraphs (technically, some subgraphs may not have had this type, but adding it
       // in that case is harmless because it will be unreachable anyway).
-      subgraphs.values().map(sg => sg.schema).forEach(schema => schema.addType(newNamedType(type.kind, type.name)));
+      subgraphs.values().map(sg => sg.schema).forEach(schema => schema.addType(newNamedType(schema, type.kind, type.name)));
     } else {
       for (const application of typeApplications) {
         const args = application.arguments();
@@ -91,7 +91,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
         // We can have more than one type directive for a given subgraph
         let subgraphType = schema.type(type.name);
         if (!subgraphType) {
-          subgraphType = schema.addType(newNamedType(type.kind, type.name));
+          subgraphType = schema.addType(newNamedType(schema, type.kind, type.name));
         }
         if (args.key) {
           const directive = subgraphType.applyDirective('key', {'fields': args.key});
