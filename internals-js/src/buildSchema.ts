@@ -57,7 +57,7 @@ function buildValue(value?: ValueNode): any {
   //   - for ID, which accepts strings and int, we don't get int converted to string.
   //   - for floats, we get either int or float, we don't get int converted to float.
   //   - we don't get any custom coercion (but neither is buildSchema in graphQL-js anyway).
-  // 2) type validation. 
+  // 2) type validation.
   return value ? valueFromASTUntyped(value) : undefined;
 }
 
@@ -91,7 +91,7 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
       case 'SchemaExtension':
         buildSchemaDefinitionInner(
           definitionNode,
-          schema.schemaDefinition, 
+          schema.schemaDefinition,
           schema.schemaDefinition.newExtension());
         break;
       case 'ScalarTypeDefinition':
@@ -300,7 +300,7 @@ function buildNamedTypeInner(
 }
 
 function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldDefinition<any>) {
-  const type = buildTypeReferenceFromAST(fieldNode.type, field.schema()!);
+  const type = buildTypeReferenceFromAST(fieldNode.type, field.schema());
   field.type = ensureOutputType(type, field.coordinate, fieldNode);
   for (const inputValueDef of fieldNode.arguments ?? []) {
     buildArgumentDefinitionInner(inputValueDef, field.addArgument(inputValueDef.name.value));
@@ -346,7 +346,7 @@ function buildTypeReferenceFromAST(typeNode: TypeNode, schema: Schema): Type {
 }
 
 function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: ArgumentDefinition<any>) {
-  const type = buildTypeReferenceFromAST(inputNode.type, arg.schema()!);
+  const type = buildTypeReferenceFromAST(inputNode.type, arg.schema());
   arg.type = ensureInputType(type, arg.coordinate, inputNode);
   arg.defaultValue = buildValue(inputNode.defaultValue);
   buildAppliedDirectives(inputNode, arg);
@@ -355,7 +355,7 @@ function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: 
 }
 
 function buildInputFieldDefinitionInner(fieldNode: InputValueDefinitionNode, field: InputFieldDefinition) {
-  const type = buildTypeReferenceFromAST(fieldNode.type, field.schema()!);
+  const type = buildTypeReferenceFromAST(fieldNode.type, field.schema());
   field.type = ensureInputType(type, field.coordinate, fieldNode);
   field.defaultValue = buildValue(fieldNode.defaultValue);
   buildAppliedDirectives(fieldNode, field);

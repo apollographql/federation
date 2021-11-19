@@ -1358,7 +1358,7 @@ function createNewFetchSelectionContext(type: CompositeType, selections: Selecti
     return [inputSelection, path];
   }
 
-  const schema = type.schema()!;
+  const schema = type.schema();
   // We add the first include/skip to the current typeCast and then wrap in additional type-casts for the next ones
   // if necessary. Note that we use type-casts (... on <type>), but, outside of the first one, we could well also
   // use fragments with no type-condition. We do the former mostly to preverve older behavior, but doing the latter
@@ -1429,7 +1429,7 @@ function computeGroupsForTree(
 
             assert(isObjectType(edge.head.type) && isObjectType(edge.tail.type), () => `Expected an objects for the vertices of ${edge}`);
             const type = edge.tail.type;
-            assert(type === type.schema()!.schemaDefinition.rootType(rootKind), () => `Expected ${type} to be the root ${rootKind} type, but that is ${type.schema()!.schemaDefinition.rootType(rootKind)}`);
+            assert(type === type.schema().schemaDefinition.rootType(rootKind), () => `Expected ${type} to be the root ${rootKind} type, but that is ${type.schema().schemaDefinition.rootType(rootKind)}`);
 
             // We're querying a field `q` of a subgraph, get one of the root type, and follow with a query on another
             // subgraph. But that mean that on the original subgraph, we may not have added _any_ selection for

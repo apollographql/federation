@@ -29,7 +29,7 @@ export class TagSpecDefinition extends FeatureDefinition {
     assert(definition.name === 'tag', () => `This method should not have been called on directive named ${definition.name}`);
     const hasUnknownArguments = Object.keys(definition.arguments()).length > 1;
     const nameArg = definition.argument('name');
-    const hasValidNameArg = nameArg && sameType(nameArg.type!, new NonNullType(definition.schema()!.stringType()));
+    const hasValidNameArg = nameArg && sameType(nameArg.type!, new NonNullType(definition.schema().stringType()));
     const hasValidLocations = definition.locations.every(loc => tagLocations.includes(loc));
     if (hasUnknownArguments || !hasValidNameArg || !hasValidLocations) {
       return error(
