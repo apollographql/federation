@@ -135,23 +135,23 @@ export function isCustomScalarType(type: Type): boolean {
 }
 
 export function isIntType(type: Type): boolean {
-  return type === type.schema()?.intType();
+  return type === type.schema().intType();
 }
 
 export function isStringType(type: Type): boolean {
-  return type === type.schema()?.stringType();
+  return type === type.schema().stringType();
 }
 
 export function isFloatType(type: Type): boolean {
-  return type === type.schema()?.floatType();
+  return type === type.schema().floatType();
 }
 
 export function isBooleanType(type: Type): boolean {
-  return type === type.schema()?.booleanType();
+  return type === type.schema().booleanType();
 }
 
 export function isIDType(type: Type): boolean {
-  return type === type.schema()?.idType();
+  return type === type.schema().idType();
 }
 
 export function isObjectType(type: Type): type is ObjectType {
@@ -375,27 +375,26 @@ export function sourceASTs(...elts: ({ sourceAST?: ASTNode } | undefined)[]): AS
 // have applied directives or a description
 abstract class Element<TParent extends SchemaElement<any, any> | Schema | DirectiveTargetElement<any>> {
   protected _parent: TParent;
+  _attachedToParent: boolean; // TODO: Make protected
   sourceAST?: ASTNode;
 
   constructor (parent: TParent) {
     this._parent = parent;
+    this._attachedToParent = true;
   }
 
-  schema(): Schema | undefined {
-    if (!this._parent) {
-      return undefined;
-    } else if (this._parent instanceof Schema) {
+  schema(): Schema {
+    if (this._parent instanceof Schema) {
       // Note: at the time of this writing, it seems like typescript type-checking breaks a bit around generics.
       // At this point of the code, `this._parent` is typed as 'TParent & Schema', but for some reason this is
       // "not assignable to type 'Schema | undefined'" (which sounds wrong: if my type theory is not too broken,
       // 'A & B' should always be assignable to both 'A' and 'B').
-      return this._parent as any;
-    } else {
-      return (this._parent as SchemaElement<any, any> | DirectiveTargetElement<any>).schema();
+      return this._parent;
     }
+    return (this._parent as SchemaElement<any, any> | DirectiveTargetElement<any>).schema();
   }
 
-  get parent(): TParent | undefined {
+  get parent(): TParent {
     return this._parent;
   }
 
@@ -477,7 +476,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       let name: string;
       if (typeof nameOrDefOrDirective === 'string') {
         this.checkUpdate();
-        const def = this.schema()!.directive(nameOrDefOrDirective);
+        const def = this.schema().directive(nameOrDefOrDirective);
         if (!def) {
           throw new GraphQLError(`Cannot apply unknown directive "@${nameOrDefOrDirective}"`);
         }
@@ -526,7 +525,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
   protected abstract removeTypeReference(type: NamedType): void;
 
   protected checkRemoval() {
-    if (this.isElementBuiltIn() && !Schema.prototype['canModifyBuiltIn'].call(this.schema()!)) {
+    if (this.isElementBuiltIn() && !Schema.prototype['canModifyBuiltIn'].call(this.schema())) {
       throw error(`Cannot modify built-in ${this}`);
     }
     // We allow removals even on detached element because that doesn't particularly create issues (and we happen to do such
@@ -535,7 +534,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
 
   protected checkUpdate(addedElement?: { schema(): Schema | undefined }) {
     super.checkUpdate();
-    if (!Schema.prototype['canModifyBuiltIn'].call(this.schema()!)) {
+    if (!Schema.prototype['canModifyBuiltIn'].call(this.schema())) {
       // Ensure this element (the modified one), is not a built-in, or part of one.
       let thisElement: SchemaElement<TOwnType, any> | Schema | undefined = this;
       while (thisElement && thisElement instanceof SchemaElement) {
@@ -666,7 +665,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
    * referencing this type (and have thus now an undefined reference).
    */
   remove(): TReferencer[] {
-    if (!this._parent) {
+    if (!this._attachedToParent) {
       return [];
     }
     this.checkRemoval();
@@ -680,7 +679,7 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
       return r;
     });
     this._referencers.clear();
-    // this._parent = undefined;
+    this._attachedToParent = false;
     return toReturn;
   }
 
@@ -753,7 +752,7 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
     this.removeInner();
     Schema.prototype['onModification'].call(this.schema());
     this._extension = undefined;
-    // this._parent = undefined;
+    this._attachedToParent = false;
   }
 
   protected abstract removeInner(): void;
@@ -1221,7 +1220,7 @@ export class Schema {
     if (existing && !existing.isBuiltIn) {
       throw error(`Type ${type} already exists in this schema`);
     }
-    if (type.parent) {
+    if (type._attachedToParent) {
       // For convenience, let's not error out on adding an already added type.
       if (type.parent == this) {
         return type;
@@ -1306,13 +1305,13 @@ export class Schema {
     if (existing && !existing.isBuiltIn) {
       throw error(`Directive ${definition} already exists in this schema`);
     }
-    if (definition.parent) {
-      // For convenience, let's not error out on adding an already added directive.
-      if (definition.parent == this) {
-        return definition;
-      }
-      throw error(`Cannot add directive ${definition} to this schema; it is already attached to another schema`);
-    }
+    // if (definition.parent) {
+    //   // For convenience, let's not error out on adding an already added directive.
+    //   if (definition.parent == this) {
+    //     return definition;
+    //   }
+    //   throw error(`Cannot add directive ${definition} to this schema; it is already attached to another schema`);
+    // }
     if (definition.isBuiltIn) {
       if (!this.isConstructed) {
         this._builtInDirectives.set(definition.name, definition);
@@ -1406,7 +1405,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
     args?: TApplicationArgs
   ): Directive<SchemaDefinition, TApplicationArgs> {
     const applied = super.applyDirective(nameOrDefOrDirective, args) as Directive<SchemaDefinition, TApplicationArgs>;
-    const schema = this.schema()!;
+    const schema = this.schema();
     const coreFeatures = schema.coreFeatures;
     if (isCoreSpecDirectiveApplication(applied)) {
       if (coreFeatures) {
@@ -1436,7 +1435,7 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
     let toSet: RootType;
     if (typeof nameOrType === 'string') {
       this.checkUpdate();
-      const obj = this.schema()!.type(nameOrType);
+      const obj = this.schema().type(nameOrType);
       if (!obj) {
         throw new GraphQLError(`Cannot set schema ${rootKind} root to unknown type ${nameOrType}`);
       } else if (obj.kind != 'ObjectType') {
@@ -1550,8 +1549,8 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
     // Note that we can only add the __typename built-in field when we're attached, because we need access to the
     // schema string type. Also, we're effectively modifying a built-in (to add the type), so we
     // need to let the schema accept it.
-    Schema.prototype['runWithBuiltInModificationAllowed'].call(this.schema()!, () => {
-      this.addField(new FieldDefinition((this as unknown) as T, typenameFieldName, true), new NonNullType(this.schema()!.stringType()));
+    Schema.prototype['runWithBuiltInModificationAllowed'].call(this.schema(), () => {
+      this.addField(new FieldDefinition((this as unknown) as T, typenameFieldName, true), new NonNullType(this.schema().stringType()));
     });
   }
 
@@ -1585,7 +1584,7 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
       let itf: InterfaceType;
       if (typeof nameOrItfOrItfImpl === 'string') {
         this.checkUpdate();
-        const maybeItf = this.schema()!.type(nameOrItfOrItfImpl);
+        const maybeItf = this.schema().type(nameOrItfOrItfImpl);
         if (!maybeItf) {
           throw new GraphQLError(`Cannot implement unknown type ${nameOrItfOrItfImpl}`);
         } else if (maybeItf.kind != 'InterfaceType') {
@@ -1781,10 +1780,10 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
     // Note that we can only create the __typename built-in field when we're attached, because we need access to the
     // schema string type. Also, we're effectively modifying a built-in (to add the type), so we
     // need to let the schema accept it.
-    Schema.prototype['runWithBuiltInModificationAllowed'].call(this.schema()!, () => {
+    Schema.prototype['runWithBuiltInModificationAllowed'].call(this.schema(), () => {
       this._typenameField = new FieldDefinition(this, typenameFieldName, true);
       Element.prototype['setParent'].call(this._typenameField, this);
-      this._typenameField.type = new NonNullType(this.schema()!.stringType());
+      this._typenameField.type = new NonNullType(this.schema().stringType());
     });
   }
 
@@ -1813,7 +1812,7 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
       let obj: ObjectType;
       if (typeof nameOrTypeOrMember === 'string') {
         this.checkUpdate();
-        const maybeObj = this.schema()!.type(nameOrTypeOrMember);
+        const maybeObj = this.schema().type(nameOrTypeOrMember);
         if (!maybeObj) {
           throw new GraphQLError(`Cannot add unknown type ${nameOrTypeOrMember} as member of union type ${this.name}`);
         } else if (maybeObj.kind != 'ObjectType') {
@@ -2015,7 +2014,7 @@ class BaseWrapperType<T extends Type> {
     assert(this._type, 'Cannot wrap an undefined/null type');
   }
 
-  schema(): Schema | undefined {
+  schema(): Schema {
     return this.baseType().schema();
   }
 
@@ -2067,7 +2066,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
 
   get coordinate(): string {
     const parent = this.parent;
-    return `${parent == undefined ? '<detached>' : parent.coordinate}.${this.name}`;
+    return `${!this._attachedToParent ? '<detached>' : parent.coordinate}.${this.name}`;
   }
 
   hasArguments(): boolean {
@@ -2147,7 +2146,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
 
   // Only called through the prototype from FieldBasedType.removeInnerElements because we don't want to expose it.
   private removeParent() {
-    // this._parent = undefined;
+    this._attachedToParent = false;
   }
 
   isDeprecated(): boolean {
@@ -2172,7 +2171,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
       arg.remove();
     }
     FieldBasedType.prototype['removeFieldInternal'].call(this._parent, this);
-    // this._parent = undefined;
+    this._attachedToParent = false;
     // Fields have nothing that can reference them outside of their parents
     return [];
   }
@@ -2225,12 +2224,12 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
    * arguments or directives.
    */
   remove(): never[] {
-    if (!this._parent) {
+    if (!this._attachedToParent) {
       return [];
     }
     this.onModification();
     InputObjectType.prototype['removeFieldInternal'].call(this._parent, this);
-    // this._parent = undefined;
+    this._attachedToParent = false;
     this.type = undefined;
     // Fields have nothing that can reference them outside of their parents
     return [];
@@ -2270,7 +2269,7 @@ export class ArgumentDefinition<TParent extends FieldDefinition<any> | Directive
    * default value or directives.
    */
   remove(): never[] {
-    if (!this._parent) {
+    if (!this._attachedToParent) {
       return [];
     }
     this.onModification();
@@ -2279,7 +2278,7 @@ export class ArgumentDefinition<TParent extends FieldDefinition<any> | Directive
     } else {
       DirectiveDefinition.prototype['removeArgumentInternal'].call(this._parent, this.name);
     }
-    // this._parent = undefined;
+    this._attachedToParent = false;
     this.type = undefined;
     this.defaultValue = undefined;
     return [];
@@ -2324,12 +2323,12 @@ export class EnumValue extends NamedSchemaElement<EnumValue, EnumType, never> {
    * arguments or directives.
    */
   remove(): never[] {
-    if (!this._parent) {
+    if (!this._attachedToParent) {
       return [];
     }
     this.onModification();
     EnumType.prototype['removeValueInternal'].call(this._parent, this);
-    // this._parent = undefined;
+    this._attachedToParent = false;
     // Enum values have nothing that can reference them outside of their parents
     // TODO: that's actually only semi-true if you include arguments, because default values in args and concrete directive applications can
     //   indirectly refer to enum value. It's indirect though as we currently keep enum value as string in values. That said, it would
@@ -2458,12 +2457,12 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
   }
 
   remove(): Directive[] {
-    if (!this._parent) {
+    if (!this._attachedToParent) {
       return [];
     }
     this.onModification();
     Schema.prototype['removeDirectiveInternal'].call(this._parent, this);
-    // this._parent = undefined;
+    this._attachedToParent = false;
     assert(this._appliedDirectives.length === 0, "Directive definition should not have directive applied to it");
     for (const arg of this.arguments()) {
       arg.remove();
@@ -2493,8 +2492,8 @@ export class Directive<
     super(parent);
   }
 
-  schema(): Schema | undefined {
-    return this._parent?.schema();
+  schema(): Schema {
+    return this._parent.schema();
   }
 
   get definition(): DirectiveDefinition | undefined {
@@ -2524,7 +2523,7 @@ export class Directive<
   }
 
   private isAttachedToSchemaElement(): boolean {
-    return this.parent !== undefined && this.parent instanceof SchemaElement;
+    return this._attachedToParent && this.parent instanceof SchemaElement;
   }
 
   setArguments(args: TArgs) {
@@ -2560,7 +2559,7 @@ export class Directive<
   setOfExtension(extension: Extension<any> | undefined) {
     this.checkUpdate();
     if (extension) {
-      const parent = this.parent!;
+      const parent = this.parent;
       if (parent instanceof SchemaDefinition || parent instanceof BaseNamedType) {
         if (!parent.extensions().has(extension)) {
           throw error(`Cannot mark directive ${this.name} as part of the provided extension: it is not an extension of parent ${parent}`);
@@ -2596,19 +2595,19 @@ export class Directive<
    * @returns whether the directive was actually removed, that is whether it had a parent.
    */
   remove(): boolean {
-    if (!this._parent) {
+    if (!this._attachedToParent) {
       return false;
     }
     this.onModification();
-    const coreFeatures = this.schema()?.coreFeatures;
+    const coreFeatures = this.schema().coreFeatures;
     if (coreFeatures && this.name === coreFeatures.coreItself.nameInSchema) {
       // We're removing a @core directive application, so we remove it from the list of core features. And
       // if it is @core itself, we clean all features (to avoid having things too inconsistent).
       const url = FeatureUrl.parse(this._args['feature']!);
       if (url.identity === coreFeatures.coreItself.url.identity) {
         // Note that we unmark first because the loop after that will nuke our parent.
-        Schema.prototype['unmarkAsCoreSchema'].call(this.schema()!);
-        for (const d of this.schema()!.schemaDefinition.appliedDirectivesOf(coreFeatures.coreItself.nameInSchema)) {
+        Schema.prototype['unmarkAsCoreSchema'].call(this.schema());
+        for (const d of this.schema().schemaDefinition.appliedDirectivesOf(coreFeatures.coreItself.nameInSchema)) {
           d.removeInternal();
         }
         // The loop above will already have call removeInternal on this instance, so we can return
@@ -2621,7 +2620,7 @@ export class Directive<
   }
 
   private removeInternal(): boolean {
-    if (!this._parent) {
+    if (!this._attachedToParent) {
       return false;
     }
     const definition = this.definition;
@@ -2632,7 +2631,7 @@ export class Directive<
     const index = parentDirectives.indexOf(this);
     assert(index >= 0, () => `Directive ${this} lists ${this._parent} as parent, but that parent doesn't list it as applied directive`);
     parentDirectives.splice(index, 1);
-    // this._parent = undefined;
+    this._attachedToParent = false;
     this._extension = undefined;
     return true;
   }
@@ -2982,10 +2981,10 @@ function copyAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElem
 }
 
 function copyFieldDefinitionInner<P extends ObjectType | InterfaceType>(source: FieldDefinition<P>, dest: FieldDefinition<P>) {
-  const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()!) as OutputType;
+  const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as OutputType;
   dest.type = type;
   for (const arg of source.arguments()) {
-    const argType = copyWrapperTypeOrTypeRef(arg.type, dest.schema()!);
+    const argType = copyWrapperTypeOrTypeRef(arg.type, dest.schema());
     copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, argType as InputType));
   }
   copyAppliedDirectives(source, dest);
@@ -2994,7 +2993,7 @@ function copyFieldDefinitionInner<P extends ObjectType | InterfaceType>(source: 
 }
 
 function copyInputFieldDefinitionInner(source: InputFieldDefinition, dest: InputFieldDefinition) {
-  const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()!) as InputType;
+  const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as InputType;
   dest.type = type;
   dest.defaultValue = source.defaultValue;
   copyAppliedDirectives(source, dest);
@@ -3017,7 +3016,7 @@ function copyWrapperTypeOrTypeRef(source: Type | undefined, destParent: Schema):
 }
 
 function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveDefinition>(source: ArgumentDefinition<P>, dest: ArgumentDefinition<P>) {
-  const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()!) as InputType;
+  const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as InputType;
   dest.type = type;
   dest.defaultValue = source.defaultValue;
   copyAppliedDirectives(source, dest);
@@ -3027,7 +3026,7 @@ function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveD
 
 function copyDirectiveDefinitionInner(source: DirectiveDefinition, dest: DirectiveDefinition) {
   for (const arg of source.arguments()) {
-    const type = copyWrapperTypeOrTypeRef(arg.type, dest.schema()!);
+    const type = copyWrapperTypeOrTypeRef(arg.type, dest.schema());
     copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, type as InputType));
   }
   dest.repeatable = source.repeatable;

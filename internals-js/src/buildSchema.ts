@@ -300,7 +300,7 @@ function buildNamedTypeInner(
 }
 
 function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldDefinition<any>) {
-  const type = buildTypeReferenceFromAST(fieldNode.type, field.schema()!);
+  const type = buildTypeReferenceFromAST(fieldNode.type, field.schema());
   field.type = ensureOutputType(type, field.coordinate, fieldNode);
   for (const inputValueDef of fieldNode.arguments ?? []) {
     buildArgumentDefinitionInner(inputValueDef, field.addArgument(inputValueDef.name.value));
@@ -346,7 +346,7 @@ function buildTypeReferenceFromAST(typeNode: TypeNode, schema: Schema): Type {
 }
 
 function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: ArgumentDefinition<any>) {
-  const type = buildTypeReferenceFromAST(inputNode.type, arg.schema()!);
+  const type = buildTypeReferenceFromAST(inputNode.type, arg.schema());
   arg.type = ensureInputType(type, arg.coordinate, inputNode);
   arg.defaultValue = buildValue(inputNode.defaultValue);
   buildAppliedDirectives(inputNode, arg);
@@ -355,7 +355,7 @@ function buildArgumentDefinitionInner(inputNode: InputValueDefinitionNode, arg: 
 }
 
 function buildInputFieldDefinitionInner(fieldNode: InputValueDefinitionNode, field: InputFieldDefinition) {
-  const type = buildTypeReferenceFromAST(fieldNode.type, field.schema()!);
+  const type = buildTypeReferenceFromAST(fieldNode.type, field.schema());
   field.type = ensureInputType(type, field.coordinate, fieldNode);
   field.defaultValue = buildValue(fieldNode.defaultValue);
   buildAppliedDirectives(fieldNode, field);

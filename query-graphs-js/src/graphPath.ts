@@ -804,7 +804,7 @@ export function advancePathWithTransition<V extends Vertex>(
 
   const allDeadEnds = deadEnds.concat(pathsWithNonCollecting.deadEnds.reasons);
   if (transition.kind === 'FieldCollection') {
-    const typeName = transition.definition.parent!.name;
+    const typeName = transition.definition.parent.name;
     const fieldName = transition.definition.name;
     const subgraphsWithDeadEnd = new Set(allDeadEnds.map(e => e.destSubgraph));
     for (const [subgraph, schema] of subgraphPath.graph.sources.entries()) {
@@ -1129,7 +1129,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
       // is a @require).
       assert(transition.kind === 'FieldCollection', () => `Shouldn't have conditions on direct transition ${transition}`);
       const field = transition.definition;
-      const parentTypeInSubgraph = path.graph.sources.get(edge.head.source)!.type(field.parent!.name)! as CompositeType;
+      const parentTypeInSubgraph = path.graph.sources.get(edge.head.source)!.type(field.parent.name)! as CompositeType;
       deadEnds.push({
         sourceSubgraph: edge.head.source,
         destSubgraph: edge.head.source,
@@ -1181,7 +1181,7 @@ function warnOnKeyFieldsMarkedExternal(type: CompositeType): string {
   // on their key field. The problem is that doing that make the key field truly external, and that could easily make @require
   // condition no satisfiable (because the key you'd need to get the require is now external). To help user locate that mistake
   // we add a specific pointer to this potential problem is the type is indeed an entity.
-  const keyDirective = federationBuiltIns.keyDirective(type.schema()!);
+  const keyDirective = federationBuiltIns.keyDirective(type.schema());
   const keys = type.appliedDirectivesOf(keyDirective);
   if (keys.length === 0) {
     return "";

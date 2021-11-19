@@ -975,7 +975,7 @@ class Merger {
     dest: T,
     allTypesEqual: boolean
   ) {
-    if (!this.needsJoinField(sources, dest.parent!.name, allTypesEqual)) {
+    if (!this.needsJoinField(sources, dest.parent.name, allTypesEqual)) {
       return;
     }
     const joinFieldDirective = joinSpec.fieldDirective(this.merged);

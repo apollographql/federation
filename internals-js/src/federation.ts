@@ -186,7 +186,7 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   allowOnNonExternalLeafFields: boolean,
 ): void {
   for (const application of definition.applications()) {
-    const elt = application.parent! as TParent;
+    const elt = application.parent as TParent;
     const type = targetTypeExtractor(elt);
     const targetDescription = targetDescriptionExtractor(elt);
     const parentType = isOnParentType ? type : (elt.parent as NamedType);
@@ -236,7 +236,7 @@ function validateAllExternalFieldsUsed(
 }
 
 function isFieldSatisfyingInterface(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
-  return field.parent!.interfaces().some(itf => itf.field(field.name));
+  return field.parent.interfaces().some(itf => itf.field(field.name));
 }
 
 export class FederationBuiltIns extends BuiltIns {
@@ -384,7 +384,7 @@ export class FederationBuiltIns extends BuiltIns {
     // it.
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.requiresDirective(schema),
-      field => field.parent!,
+      field => field.parent,
       field => `field "${field.coordinate}"`,
       errors,
       externalTester,
@@ -495,7 +495,7 @@ export function isFederationTypeName(typeName: string): boolean {
 }
 
 export function isFederationField(field: FieldDefinition<CompositeType>): boolean {
-  if (field.parent === field.schema()!.schemaDefinition.root("query")?.type) {
+  if (field.parent === field.schema().schemaDefinition.root("query")?.type) {
     return FEDERATION_ROOT_FIELDS.includes(field.name);
   }
   return false;
@@ -535,7 +535,7 @@ function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<
   const fields = directive.arguments().fields;
   if (typeof fields !== 'string') {
     throw new GraphQLError(
-      `Invalid value for argument ${directive.definition!.argument('fields')!.coordinate} on ${directive.parent!.coordinate}: must be a string.`,
+      `Invalid value for argument ${directive.definition!.argument('fields')!.coordinate} on ${directive.parent.coordinate}: must be a string.`,
       directive.sourceAST
     );
   }
@@ -682,7 +682,7 @@ export class ExternalTester {
       return;
     }
     for (const key of keyDirective.applications()) {
-      const parent = key.parent! as CompositeType;
+      const parent = key.parent as CompositeType;
       if (!(key.ofExtension() || parent.hasAppliedDirective(extendsDirectiveName))) {
         continue;
       }

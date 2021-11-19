@@ -298,7 +298,7 @@ function addSubgraphObjectOrInterfaceField(
   subgraph: Subgraph,
   encodedType?: string
 ): FieldDefinition<ObjectType | InterfaceType> | undefined {
-  const subgraphType = subgraph.schema.type(supergraphField.parent!.name);
+  const subgraphType = subgraph.schema.type(supergraphField.parent.name);
   if (subgraphType) {
     const copiedType = encodedType
       ? decodeType(encodedType, subgraph.schema, subgraph.name)
@@ -318,7 +318,7 @@ function addSubgraphInputField(
   subgraph: Subgraph,
   encodedType?: string
 ): InputFieldDefinition | undefined {
-  const subgraphType = subgraph.schema.type(supergraphField.parent!.name);
+  const subgraphType = subgraph.schema.type(supergraphField.parent.name);
   if (subgraphType) {
     const copiedType = encodedType
       ? decodeType(encodedType, subgraph.schema, subgraph.name)
