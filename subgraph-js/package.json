@@ -24,9 +24,9 @@
     "access": "public"
   },
   "dependencies": {
-    "apollo-graphql": "^0.9.4"
+    "apollo-graphql": "^0.9.5"
   },
   "peerDependencies": {
-    "graphql": "^15.5.3"
+    "graphql": "^15.7.0"
   }
 }

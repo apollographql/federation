@@ -23,7 +23,7 @@
     "node": ">=12.13.0 <17.0"
   },
   "dependencies": {
-    "@apollo/core-schema": "^0.1.0",
+    "@apollo/core-schema": "^0.2.0",
     "@types/jest": "^27.0.0",
     "chalk": "^4.1.0",
     "js-levenshtein": "^1.1.6"
@@ -32,7 +32,7 @@
     "access": "public"
   },
   "peerDependencies": {
-    "graphql": "^14.5.0 || ^15.0.0"
+    "graphql": "^15.7.0"
   },
   "devDependencies": {
     "@types/js-levenshtein": "1.1.0"
