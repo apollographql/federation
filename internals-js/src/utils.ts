@@ -69,7 +69,7 @@ export class OrderedMap<K,V> {
     return this._values.has(key);
   }
 
-  size(): number {
+  get size() {
     return this._keys.length;
   }
 

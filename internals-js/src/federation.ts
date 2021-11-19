@@ -597,7 +597,7 @@ export class Subgraphs {
   }
 
   size(): number {
-    return this.subgraphs.size();
+    return this.subgraphs.size;
   }
 
   names(): readonly string[] {

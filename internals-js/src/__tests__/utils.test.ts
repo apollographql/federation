@@ -5,11 +5,11 @@ describe('OrderedMap', () => {
     const orderedMap = new OrderedMap<string, number>();
     orderedMap.add('one', 0);
     expect(orderedMap.get('one')).toBe(0);
-    expect(orderedMap.size()).toBe(1);
+    expect(orderedMap.size).toBe(1);
 
     orderedMap.add('one', 1);
     expect(orderedMap.get('one')).toBe(1);
-    expect(orderedMap.size()).toBe(1);
+    expect(orderedMap.size).toBe(1);
     expect(orderedMap.keys()).toEqual(['one']);
     expect(orderedMap.values()).toEqual([1]);
   });
@@ -39,9 +39,9 @@ describe('OrderedMap', () => {
     expect(orderedMap.get('ten')).toBeUndefined();
 
     // testing size function
-    expect(orderedMap.size()).toBe(9);
+    expect(orderedMap.size).toBe(9);
     orderedMap.add('one', 1);
-    expect(orderedMap.size()).toBe(9);
+    expect(orderedMap.size).toBe(9);
     expect(orderedMap.values()).toEqual(sortedArr);
 
     // has function
