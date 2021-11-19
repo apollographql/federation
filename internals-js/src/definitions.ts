@@ -1220,13 +1220,13 @@ export class Schema {
     if (existing && !existing.isBuiltIn) {
       throw error(`Type ${type} already exists in this schema`);
     }
-    if (type._attachedToParent) {
-      // For convenience, let's not error out on adding an already added type.
-      if (type.parent == this) {
-        return type;
-      }
-      throw error(`Cannot add type ${type} to this schema; it is already attached to another schema`);
-    }
+    // if (type._attachedToParent) {
+    //   // For convenience, let's not error out on adding an already added type.
+    //   if (type.parent == this) {
+    //     return type;
+    //   }
+    //   throw error(`Cannot add type ${type} to this schema; it is already attached to another schema`);
+    // }
     if (type.isBuiltIn) {
       if (!this.isConstructed) {
         this._builtInTypes.set(type.name, type);
