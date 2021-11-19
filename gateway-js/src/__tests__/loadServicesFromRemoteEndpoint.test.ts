@@ -19,7 +19,7 @@ describe('getServiceDefinitionsFromRemoteEndpoint', () => {
 
   it('throws when the downstream service returns errors', async () => {
     const serviceSdlCache = new Map<string, string>();
-    const host = 'http://host-which-better-not-resolve';
+    const host = 'http://host-which-better-not-resolve.invalid';
     const url = host + '/graphql';
 
     const dataSource = new RemoteGraphQLDataSource({ url });
@@ -34,7 +34,7 @@ describe('getServiceDefinitionsFromRemoteEndpoint', () => {
         getServiceIntrospectionHeaders: async () => ({}),
       }),
     ).rejects.toThrowError(
-      /^Couldn't load service definitions for "test" at http:\/\/host-which-better-not-resolve\/graphql: request to http:\/\/host-which-better-not-resolve\/graphql failed, reason: getaddrinfo (ENOTFOUND|EAI_AGAIN)/,
+      /^Couldn't load service definitions for "test" at http:\/\/host-which-better-not-resolve.invalid\/graphql: request to http:\/\/host-which-better-not-resolve.invalid\/graphql failed, reason: getaddrinfo (ENOTFOUND|EAI_AGAIN)/,
     );
   });
 });

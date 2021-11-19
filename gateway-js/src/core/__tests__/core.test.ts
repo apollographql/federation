@@ -41,7 +41,7 @@ describe('core v0.1', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        WORLD @join__graph(name: "world", url: "https://world.api.com")
+        WORLD @join__graph(name: "world", url: "https://world.api.com.invalid")
       }
 
       type Query {
@@ -97,7 +97,7 @@ describe('core v0.1', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        WORLD @join__graph(name: "world", url: "https://world.api.com")
+        WORLD @join__graph(name: "world", url: "https://world.api.com.invalid")
       }
 
       type Query {
@@ -173,7 +173,7 @@ describe('core v0.2', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        WORLD @join__graph(name: "world", url: "https://world.api.com")
+        WORLD @join__graph(name: "world", url: "https://world.api.com.invalid")
       }
 
       type Query {
@@ -243,7 +243,7 @@ describe('core v0.2', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        WORLD @join__graph(name: "world", url: "https://world.api.com")
+        WORLD @join__graph(name: "world", url: "https://world.api.com.invalid")
       }
 
       type Query {
@@ -315,7 +315,7 @@ describe('core v0.2', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        WORLD @join__graph(name: "world", url: "https://world.api.com")
+        WORLD @join__graph(name: "world", url: "https://world.api.com.invalid")
       }
 
       type Query {
@@ -391,7 +391,7 @@ describe('core v0.2', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        WORLD @join__graph(name: "world", url: "https://world.api.com")
+        WORLD @join__graph(name: "world", url: "https://world.api.com.invalid")
       }
 
       type Query {

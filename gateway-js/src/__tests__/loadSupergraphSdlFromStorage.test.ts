@@ -193,12 +193,12 @@ describe('loadSupergraphSdlFromStorage', () => {
       scalar join__FieldSet
 
       enum join__Graph {
-        ACCOUNTS @join__graph(name: \\"accounts\\", url: \\"https://accounts.api.com\\")
-        BOOKS @join__graph(name: \\"books\\", url: \\"https://books.api.com\\")
-        DOCUMENTS @join__graph(name: \\"documents\\", url: \\"https://documents.api.com\\")
-        INVENTORY @join__graph(name: \\"inventory\\", url: \\"https://inventory.api.com\\")
-        PRODUCT @join__graph(name: \\"product\\", url: \\"https://product.api.com\\")
-        REVIEWS @join__graph(name: \\"reviews\\", url: \\"https://reviews.api.com\\")
+        ACCOUNTS @join__graph(name: \\"accounts\\", url: \\"https://accounts.api.com.invalid\\")
+        BOOKS @join__graph(name: \\"books\\", url: \\"https://books.api.com.invalid\\")
+        DOCUMENTS @join__graph(name: \\"documents\\", url: \\"https://documents.api.com.invalid\\")
+        INVENTORY @join__graph(name: \\"inventory\\", url: \\"https://inventory.api.com.invalid\\")
+        PRODUCT @join__graph(name: \\"product\\", url: \\"https://product.api.com.invalid\\")
+        REVIEWS @join__graph(name: \\"reviews\\", url: \\"https://reviews.api.com.invalid\\")
       }
 
       scalar JSON
