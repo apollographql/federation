@@ -1,16 +1,79 @@
 {
   "parser": "@typescript-eslint/parser",
   "plugins": ["@typescript-eslint"],
-  "extends": ["plugin:@typescript-eslint/recommended"],
+  "extends": ["plugin:@typescript-eslint/recommended", "airbnb-base", "airbnb-typescript/base"],
+  "parserOptions": {
+    "sourceType": "module",
+    "tsconfigRootDir": "./",
+    "project": ["./tsconfig.base.json"]
+  },
+  "ignorePatterns": ["**/__generated__/*"],
   "rules": {
     "@typescript-eslint/no-namespace": ["error", { "allowDeclarations": true }],
     "@typescript-eslint/no-inferrable-types": ["error", { "ignoreParameters": true, "ignoreProperties": true }],
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "object-curly-newline": ["error", {
+      "ObjectExpression": "always",
+      "ObjectPattern": { "multiline": true },
+      "ImportDeclaration": { "multiline": true, "minProperties": 3 },
+      "ExportDeclaration": { "multiline": true, "minProperties": 3 }
+  }],
+
+    // stuff from airbnb that we want to disable (for now)
+    "no-restricted-syntax": "off",
+    "max-len": "off",
+    "no-underscore-dangle": "off",
+    "import/no-extraneous-dependencies": "off",
+    "class-methods-use-this": "off",
+    "max-classes-per-file": "off",
+    "no-plusplus": "off",
+    "no-useless-escape": "off",
+    "no-case-declarations": "off",
+    "no-fallthrough": "off",
+    "consistent-return": "off",
+    "@typescript-eslint/naming-convention": "off",
+    "@typescript-eslint/no-shadow": "off",
+    "@typescript-eslint/dot-notation": "off",
+
+    // airbnb errors that we want to warn on (for now)
+    "eqeqeq": "warn",
+    "no-param-reassign": "warn",
+    "import/prefer-default-export": "warn",
+    "no-nested-ternary": "warn",
+    "default-param-last": "warn",
+    "no-continue": "warn",
+    "default-case": "warn",
+    "prefer-destructuring": "warn",
+    "import/no-cycle": "warn",
+    "no-sequences": "warn",
+    "@typescript-eslint/no-loop-func": "warn",
+    "@typescript-eslint/no-unused-expressions": "warn",
+    "global-require": "warn",
+    "no-lonely-if": "warn",
+    "import/no-mutable-exports": "warn",
+    "import/no-named-default": "warn",
+    "array-callback-return": "warn",
+    "no-return-assign": "warn",
+    "guard-for-in": "warn",
+    "no-tabs": "warn",
+    "no-inner-declarations": "warn",
+    "no-promise-executor-return": "warn",
+    "no-await-in-loop": "warn",
+    "no-new": "warn",
+    "implicit-arrow-linebreak": "warn",
+    "no-empty": "warn",
+    "no-prototype-builtins": "warn",
+    "no-restricted-globals": "warn",
+    "@typescript-eslint/no-useless-constructor": "warn",
+    "operator-linebreak": "warn",
+    "no-constructor-return": "warn",
+    // "@typescript-eslint/no-unnecessary-condition": "error",
 
     // Temporary overrides - ideally we would get rid of these
     "@typescript-eslint/no-this-alias": "warn",
     "@typescript-eslint/no-var-requires": "warn",
-    "@typescript-eslint/triple-slash-reference": "warn"
+    "@typescript-eslint/triple-slash-reference": "warn",
+    "@typescript-eslint/no-use-before-define": "off"
   }
 }
 

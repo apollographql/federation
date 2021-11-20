@@ -4,6 +4,7 @@
   },
   "files": [],
   "include": [],
+  "exclude": ["dist"],
   "references": [
     { "path": "./tsconfig.build-stage-01.json" },
     // Note that stage-02 exists, but it's not TypeScript.
