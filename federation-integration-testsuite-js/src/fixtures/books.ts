@@ -6,6 +6,20 @@ export const url = `https://${name}.api.com`;
 export const typeDefs = gql`
   directive @stream on FIELD
   directive @transform(from: String!) on FIELD
+  directive @contact(
+    name: String!
+    url: String
+    description: String
+  ) on SCHEMA
+
+  schema
+    @contact(
+      name: "books-team"
+      url: "mailto:books@apollographql.com"
+      description: "books"
+    ) {
+    query: Query
+  }
 
   enum CacheControlScope {
     PUBLIC
@@ -17,7 +31,6 @@ export const typeDefs = gql`
     scope: CacheControlScope
     inheritMaxAge: Boolean
   ) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
-
 
   extend type Query {
     book(isbn: String!): Book

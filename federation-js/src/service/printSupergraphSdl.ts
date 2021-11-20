@@ -38,7 +38,7 @@ import type {
 import { Maybe } from '../composition';
 import { assert } from '../utilities';
 import { printFieldSet } from '../composition/utils';
-import { otherKnownDirectives } from '@apollo/subgraph/dist/directives';
+
 interface PrintingContext {
   // Apollo addition: we need access to a map from serviceName to its corresponding
   // sanitized / uniquified enum value `Name` from the `join__Graph` enum
@@ -128,24 +128,34 @@ function printSchemaDefinition(schema: GraphQLSchema): string {
   );
 }
 
+type CoreDirectiveMap = Record<
+  string,
+  { feature: string; purpose?: 'EXECUTION' }
+>;
+
+const alwaysIncludedCoreDirectives: CoreDirectiveMap = {
+  core: { feature: 'https://specs.apollo.dev/core/v0.2' },
+  join: { feature: 'https://specs.apollo.dev/join/v0.1', purpose: 'EXECUTION' },
+};
+
+const supportedCoreDirectives: CoreDirectiveMap = {
+  tag: { feature: 'https://specs.apollo.dev/tag/v0.1' },
+};
+
 function printCoreDirectives(schema: GraphQLSchema) {
-  const otherKnownDirectiveNames = otherKnownDirectives.map(
-    ({ name }) => name,
-  );
+  const supportedCoreDirectiveNames = Object.keys(supportedCoreDirectives);
   const schemaDirectiveNames = schema.getDirectives().map(({ name }) => name);
-  const otherKnownDirectivesToInclude = schemaDirectiveNames.filter((name) =>
-    otherKnownDirectiveNames.includes(name),
+  const supportedCoreDirectiveNamesToInclude = schemaDirectiveNames.filter((name) =>
+    supportedCoreDirectiveNames.includes(name),
   );
-  const otherKnownDirectiveSpecUrls = otherKnownDirectivesToInclude.map(
-    (name) => ({
-      feature: `https://specs.apollo.dev/${name}/v0.1`,
-    }),
-  );
+  const supportedCoreDirectivesToInclude =
+    supportedCoreDirectiveNamesToInclude.map(
+      (name) => supportedCoreDirectives[name],
+    );
 
   return [
-    { feature: 'https://specs.apollo.dev/core/v0.2' },
-    { feature: 'https://specs.apollo.dev/join/v0.1', purpose: 'EXECUTION' },
-    ...otherKnownDirectiveSpecUrls,
+    ...Object.values(alwaysIncludedCoreDirectives),
+    ...supportedCoreDirectivesToInclude,
   ].map(
     ({ feature, purpose }) =>
       `\n  @core(feature: ${printStringLiteral(feature)}${

@@ -18,6 +18,7 @@ import {
   print,
   ASTNode,
   visit,
+  GraphQLSchema,
 } from 'graphql';
 
 export const KeyDirective = new GraphQLDirective({
@@ -76,7 +77,31 @@ export const TagDirective = new GraphQLDirective({
   },
 });
 
-export const federationDirectives = [
+const ContactDirective = new GraphQLDirective({
+  name: 'contact',
+  locations: [
+    DirectiveLocation.SCHEMA
+  ],
+  args: {
+    name: {
+      type: new GraphQLNonNull(GraphQLString),
+    },
+    url: {
+      type: new GraphQLNonNull(GraphQLString),
+    },
+    description: {
+      type: GraphQLString,
+    }
+  }
+})
+
+// These directives are always included in schema construction and the definitions
+// are not reported in an SDL query. Similar to specified directives like
+// @deprecated, they require no definition anywhere to use them.
+// Do not add to this list, this is a pattern we want to move away from. New
+// directives should be added to the list below which require user provided
+// definitions.
+export const directivesWithNoDefinitionNeeded = [
   KeyDirective,
   ExtendsDirective,
   ExternalDirective,
@@ -84,15 +109,30 @@ export const federationDirectives = [
   ProvidesDirective,
 ];
 
-export function isFederationDirective(directive: GraphQLDirective): boolean {
-  return federationDirectives.some(({ name }) => name === directive.name);
+
+export function isDirectiveWithNoDefinitionNeeded(
+  directive: GraphQLDirective,
+): boolean {
+  return directivesWithNoDefinitionNeeded.some(
+    ({ name }) => name === directive.name,
+  );
 }
 
-export const otherKnownDirectives = [TagDirective];
+// These directive definitions will be auto-included if usages are found.
+// Do not add to this list, this is a pattern we want to move away from. New
+// directives should be added to the list below which require user provided
+// definitions.
+export const directivesWithAutoIncludedDefinitions = [TagDirective];
+
+// These directive definitions will not be auto-included. Users must define
+// them in order to use them. New subgraph directives should be added to this
+// list.
+export const directivesWhichRequireUserProvidedDefinitions = [ContactDirective];
 
 export const knownSubgraphDirectives = [
-  ...federationDirectives,
-  ...otherKnownDirectives,
+  ...directivesWithNoDefinitionNeeded,
+  ...directivesWithAutoIncludedDefinitions,
+  ...directivesWhichRequireUserProvidedDefinitions,
 ];
 
 export function isKnownSubgraphDirective(directive: GraphQLDirective): boolean {
@@ -122,7 +162,7 @@ function hasDirectives(
 }
 
 export function gatherDirectives(
-  type: GraphQLNamedTypeWithDirectives | GraphQLField<any, any>,
+  type: GraphQLNamedTypeWithDirectives | GraphQLField<any, any> | GraphQLSchema,
 ): DirectiveNode[] {
   let directives: DirectiveNode[] = [];
   if ('extensionASTNodes' in type && type.extensionASTNodes) {

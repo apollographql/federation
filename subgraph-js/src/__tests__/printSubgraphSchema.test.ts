@@ -176,4 +176,60 @@ describe('printSubgraphSchema', () => {
       "
     `);
   });
+
+  it('prints directives on schema definition nodes', () => {
+    const schema = buildSubgraphSchema(fixtures[1].typeDefs);
+    expect(printSubgraphSchema(schema)).toMatchInlineSnapshot(`
+      "schema @contact(name: \\"books-team\\", url: \\"mailto:books@apollographql.com\\", description: \\"books\\") {
+        query: Query
+      }
+
+      directive @stream on FIELD
+
+      directive @transform(from: String!) on FIELD
+
+      directive @contact(name: String!, url: String, description: String) on SCHEMA
+
+      directive @cacheControl(maxAge: Int, scope: CacheControlScope, inheritMaxAge: Boolean) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+      enum CacheControlScope {
+        PUBLIC
+        PRIVATE
+      }
+
+      type Library @key(fields: \\"id\\") {
+        id: ID!
+        name: String
+      }
+
+      type Book @key(fields: \\"isbn\\") {
+        isbn: String!
+        title: String
+        year: Int
+        similarBooks: [Book]!
+        metadata: [MetadataOrError]
+      }
+
+      type KeyValue {
+        key: String!
+        value: String!
+      }
+
+      type Error {
+        code: Int
+        message: String
+      }
+
+      union MetadataOrError = KeyValue | Error
+
+      extend type Query {
+        _entities(representations: [_Any!]!): [_Entity]!
+        _service: _Service!
+        book(isbn: String!): Book
+        books: [Book]
+        library(id: ID!): Library
+      }
+      "
+    `);
+  });
 });
