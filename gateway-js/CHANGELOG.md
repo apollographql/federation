@@ -6,7 +6,7 @@
 
 - Conditional schema update based on ifAfterId [PR #1152](https://github.com/apollographql/federation/pull/1152)
 - __BREAKING__: Bump graphql peer dependency to `^15.7.0` [PR #1200](https://github.com/apollographql/federation/pull/1200)
-- __BREAKING__: Remove legacy GCS fetcher for schema updates. If you're currently opted-in to the backwards compatibility provided by setting `schemaConfigDeliveryEndpoint: null`, you may be affected by this update. Please see the PR for additional details. [PR #1225](https://github.com/apollographql/federation/pull/1225)
+- __BREAKING__: Remove legacy GCS fetcher for schema updates. If you're currently opted-in to the backwards compatibility provided by setting `schemaConfigDeliveryEndpoint: null`, you may be affected by this update. Please see the PR for additional details. [PR #1226](https://github.com/apollographql/federation/pull/1226)
 
 ## v2.0.0-alpha.1
 
