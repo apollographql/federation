@@ -361,9 +361,9 @@ export function buildSchemaFromDefinitionsAndExtensions({
 }) {
   let errors: GraphQLError[] | undefined = undefined;
 
-  // We only want to include the definitions of other known Apollo directives
-  // (currently just @tag) if there are usages.
-  const otherKnownDirectivesToInclude =
+  // We only want to include the definitions of auto-included Apollo directives
+  // (just @tag) if there are usages.
+  const autoIncludedDirectiveDefinitions =
     directivesWithAutoIncludedDefinitions.filter((directive) =>
       directiveMetadata.hasUsages(directive.name),
     );
@@ -387,7 +387,7 @@ export function buildSchemaFromDefinitionsAndExtensions({
       JoinGraphDirective,
       ...specifiedDirectives,
       ...directivesWithNoDefinitionNeeded,
-      ...otherKnownDirectivesToInclude,
+      ...autoIncludedDirectiveDefinitions,
     ],
     types: [FieldSetScalar, JoinGraphEnum],
   });

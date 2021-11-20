@@ -205,7 +205,7 @@ function printObject(type: GraphQLObjectType): string {
     (isExtension ? 'extend ' : '') +
     `type ${type.name}` +
     printImplementedInterfaces(type) +
-    // Apollo addition: print federation and other known directive usages
+    // Apollo addition: print known subgraph directive usages
     printKnownDirectiveUsages(type) +
     printFields(type)
   );
@@ -280,8 +280,7 @@ function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
   return printBlock(fields);
 }
 
-// Apollo addition: print federation and other known directive usages
-// found in subgraph SDL.
+// Apollo addition: print known subgraph directive usages found in subgraph SDL.
 function printKnownDirectiveUsages(
   objectWithDirectives:
     | GraphQLNamedType
