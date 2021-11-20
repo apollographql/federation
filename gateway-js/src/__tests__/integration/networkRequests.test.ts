@@ -100,7 +100,6 @@ it('Queries remote endpoints for their SDLs', async () => {
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 });
 
-// TODO(trevor:cloudconfig): Remove all usages of the experimental config option
 it('Fetches Supergraph SDL from remote storage', async () => {
   mockSupergraphSdlRequestSuccess();
 
@@ -114,7 +113,6 @@ it('Fetches Supergraph SDL from remote storage', async () => {
   expect(gateway.schema?.getType('User')).toBeTruthy();
 });
 
-// TODO(trevor:cloudconfig): This test should evolve to demonstrate overriding the default in the future
 it('Fetches Supergraph SDL from remote storage using a configured env variable', async () => {
   cleanUp = mockedEnv({
     APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: mockCloudConfigUrl,
@@ -155,7 +153,7 @@ it('Updates Supergraph SDL from remote storage', async () => {
   });
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
   gateway.experimental_pollInterval = 100;
-  gateway.onSchemaChange(schemaChangeCallback);
+  gateway.onSchemaLoadOrUpdate(schemaChangeCallback);
 
   await gateway.load(mockApolloConfig);
   expect(gateway['compositionId']).toMatchInlineSnapshot(`"originalId-1234"`);

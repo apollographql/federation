@@ -110,7 +110,6 @@ describe('gateway configuration warnings', () => {
 
     gateway = new ApolloGateway({
       logger,
-      // TODO(trevor:cloudconfig): remove
       schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
     });
 
@@ -300,7 +299,6 @@ describe('gateway config / env behavior', () => {
     });
   });
 
-  // TODO(trevor:cloudconfig): this behavior will be updated
   describe('schema config delivery endpoint configuration', () => {
     it('A code config overrides the env variable', async () => {
       cleanUp = mockedEnv({
@@ -314,23 +312,6 @@ describe('gateway config / env behavior', () => {
 
       expect(gateway['schemaConfigDeliveryEndpoint']).toEqual(
         'code-config',
-      );
-
-      gateway = null;
-    });
-
-    it('A code config set to `null` takes precedence over an existing env variable', async () => {
-      cleanUp = mockedEnv({
-        APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
-      });
-
-      gateway = new ApolloGateway({
-        logger,
-        schemaConfigDeliveryEndpoint: null,
-      });
-
-      expect(gateway['schemaConfigDeliveryEndpoint']).toEqual(
-        null,
       );
 
       gateway = null;

@@ -66,11 +66,8 @@ import {
   ServiceDefinitionUpdate,
   SupergraphSdlUpdate,
   CompositionUpdate,
-  isPrecomposedManagedConfig,
-  isLegacyManagedConfig,
 } from './config';
 import { loadSupergraphSdlFromStorage } from './loadSupergraphSdlFromStorage';
-import { getServiceDefinitionsFromStorage } from './legacyLoadServicesFromStorage';
 import { buildComposedSchema } from '@apollo/query-planner';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
@@ -113,20 +110,6 @@ export function getDefaultFetcher() {
     },
   });
 }
-
-/**
- * TODO(trevor:cloudconfig): Stop exporting this
- * @deprecated This will be removed in a future version of @apollo/gateway
- */
-export const getDefaultGcsFetcher = deprecate(
-  getDefaultFetcher,
-  `'getDefaultGcsFetcher' is deprecated. Use 'getDefaultFetcher' instead.`,
-);
-/**
- * TODO(trevor:cloudconfig): Stop exporting this
- * @deprecated This will be removed in a future version of @apollo/gateway
- */
-export const GCS_RETRY_COUNT = 5;
 
 export const HEALTH_CHECK_QUERY =
   'query __ApolloServiceHealthCheck__ { __typename }';
@@ -217,10 +200,8 @@ export class ApolloGateway implements GraphQLService {
   private experimental_pollInterval?: number;
   // Configure the endpoint by which gateway will access its precomposed schema.
   // * `string` means use that endpoint
-  // * `null` will revert the gateway to legacy mode (polling GCS and composing the schema itself).
   // * `undefined` means the gateway is not using managed federation
-  // TODO(trevor:cloudconfig): `null` should be disallowed in the future.
-  private schemaConfigDeliveryEndpoint?: string | null;
+  private schemaConfigDeliveryEndpoint?: string;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -248,19 +229,14 @@ export class ApolloGateway implements GraphQLService {
     this.experimental_pollInterval = config?.experimental_pollInterval;
 
     // 1. If config is set to a `string`, use it
-    // 2. If config is explicitly set to `null`, fallback to GCS
-    // 3. If the env var is set, use that
-    // 4. If config is `undefined`, use the default uplink URL
-
-    // This if case unobviously handles 1, 2, and 4.
-    if (isPrecomposedManagedConfig(this.config)) {
+    // 2. If the env var is set, use that
+    // 3. If config is `undefined`, use the default uplink URL
+    if (isManagedConfig(this.config)) {
       const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
       this.schemaConfigDeliveryEndpoint =
         this.config.schemaConfigDeliveryEndpoint ??
         envEndpoint ??
         'https://uplink.api.apollographql.com/';
-    } else if (isLegacyManagedConfig(this.config)) {
-      this.schemaConfigDeliveryEndpoint = null;
     }
 
     if (isManuallyManagedConfig(this.config)) {
@@ -980,30 +956,20 @@ export class ApolloGateway implements GraphQLService {
       );
     }
 
-    // TODO(trevor:cloudconfig): This condition goes away completely
-    if (isPrecomposedManagedConfig(config)) {
-      const result = await loadSupergraphSdlFromStorage({
-        graphRef: this.apolloConfig!.graphRef!,
-        apiKey: this.apolloConfig!.key!,
-        endpoint: this.schemaConfigDeliveryEndpoint!,
-        fetcher: this.fetcher,
-        compositionId: this.compositionId ?? null,
-      });
+    const result = await loadSupergraphSdlFromStorage({
+      graphRef: this.apolloConfig!.graphRef!,
+      apiKey: this.apolloConfig!.key!,
+      endpoint: this.schemaConfigDeliveryEndpoint!,
+      fetcher: this.fetcher,
+      compositionId: this.compositionId ?? null,
+    });
 
-      return result ?? {
+    return (
+      result ?? {
         id: this.compositionId!,
         supergraphSdl: this.supergraphSdl!,
       }
-    } else if (isLegacyManagedConfig(config)) {
-      return getServiceDefinitionsFromStorage({
-        graphRef: this.apolloConfig!.graphRef!,
-        apiKeyHash: this.apolloConfig!.keyHash!,
-        federationVersion: config.federationVersion || 1,
-        fetcher: this.fetcher,
-      });
-    } else {
-      throw new Error('Programming error: unhandled configuration');
-    }
+    );
   }
 
   private maybeWarnOnConflictingConfig() {
