@@ -91,7 +91,7 @@ export type Query = {
 export type QueryRouterConfigArgs = {
   ref: Scalars['String'];
   apiKey: Scalars['String'];
-  supportedSpecURLs?: Array<Scalars['String']>;
+  ifAfterId?: Maybe<Scalars['ID']>;
 };
 
 export type Request = {
@@ -106,7 +106,7 @@ export type Response = {
   body?: Maybe<Scalars['String']>;
 };
 
-export type RouterConfigResponse = RouterConfigResult | FetchError;
+export type RouterConfigResponse = RouterConfigResult | Unchanged | FetchError;
 
 export type RouterConfigResult = {
   __typename?: 'RouterConfigResult';
@@ -118,13 +118,18 @@ export type RouterConfigResult = {
 };
 
 
+export type Unchanged = {
+  __typename?: 'Unchanged';
+  id: Scalars['ID'];
+};
+
 export type SupergraphSdlQueryVariables = Exact<{
   apiKey: Scalars['String'];
   ref: Scalars['String'];
 }>;
 
 
-export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'RouterConfigResult', id: string, supergraphSdl: string } | { __typename: 'FetchError', code: FetchErrorCode, message: string } };
+export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'RouterConfigResult', id: string, supergraphSdl: string } | { __typename: 'Unchanged' } | { __typename: 'FetchError', code: FetchErrorCode, message: string } };
 
 export type OobReportMutationVariables = Exact<{
   input?: Maybe<ApiMonitoringReport>;
