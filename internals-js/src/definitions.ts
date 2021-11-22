@@ -716,7 +716,8 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
 export abstract class NamedSchemaElementWithType<TType extends Type, TOwnType extends NamedSchemaElementWithType<TType, TOwnType, P, Referencer>, P extends NamedSchemaElement<any, any, any> | Schema, Referencer> extends NamedSchemaElement<TOwnType, P, Referencer> {
   private _type?: TType;
 
-  get type(): TType | undefined {
+  get type(): TType {
+    assert(this._type, '_type within NamedSchemaElementWithType is undefined');
     return this._type;
   }
 
@@ -872,8 +873,8 @@ export class BuiltIns {
     }
     for (const expectedArgument of expectedArguments) {
       const foundArgument = manuallyDefined.argument(expectedArgument.name)!;
-      const expectedType = expectedArgument.type!;
-      let actualType = foundArgument.type!;
+      const expectedType = expectedArgument.type;
+      let actualType = foundArgument.type;
       if (isNonNullType(actualType) && !isNonNullType(expectedType)) {
         // It's ok to redefine an optional argument as mandatory. For instance, if you want to force people on your team to provide a "deprecation reason", you can
         // redefine @deprecated as `directive @deprecated(reason: String!)...` to get validation. In other words, you are allowed to always pass an argument that
@@ -881,7 +882,7 @@ export class BuiltIns {
         actualType = actualType.ofType;
       }
       if (!sameType(expectedType, actualType)) {
-        errors.push(error(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have type ${expectedArgument.type!} but found type ${foundArgument.type!}`));
+        errors.push(error(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have type ${expectedArgument.type} but found type ${foundArgument.type}`));
       } else if (!isNonNullType(actualType) && !valueEquals(expectedArgument.defaultValue, foundArgument.defaultValue)) {
         errors.push(error(`Invalid redefinition of built-in ${what}: ${expectedArgument.coordinate} should have default value ${valueToString(expectedArgument.defaultValue)} but found default value ${valueToString(foundArgument.defaultValue)}`));
       }
@@ -908,11 +909,11 @@ export class BuiltIns {
           }
           // We allow adding non-nullability because we've seen redefinition of the federation _Service type with type String! for the `sdl` field
           // and we don't want to break backward compatibility as this doesn't feel too harmful.
-          let rType = redefinedField.type!;
-          if (!isNonNullType(builtInField.type!) && isNonNullType(rType)) {
+          let rType = redefinedField.type;
+          if (!isNonNullType(builtInField.type) && isNonNullType(rType)) {
             rType = rType.ofType;
           }
-          if (!sameType(builtInField.type!, rType)) {
+          if (!sameType(builtInField.type, rType)) {
             errors.push(error(`Invalid redefinition of field ${builtInField} of built-in type ${builtIn}: should have type ${builtInField.type} but redefined with type ${redefinedField.type}`));
             return;
           }
@@ -2211,7 +2212,7 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
   }
 
   isRequired(): boolean {
-    return isNonNullType(this.type!) && this.defaultValue === undefined;
+    return isNonNullType(this.type) && this.defaultValue === undefined;
   }
 
   ofExtension(): Extension<InputObjectType> | undefined {
@@ -2271,7 +2272,7 @@ export class ArgumentDefinition<TParent extends FieldDefinition<any> | Directive
   }
 
   isRequired(): boolean {
-    return isNonNullType(this.type!) && this.defaultValue === undefined;
+    return isNonNullType(this.type) && this.defaultValue === undefined;
   }
 
   isDeprecated(): boolean {
@@ -2600,7 +2601,7 @@ export class Directive<
       return {
         kind: 'Argument',
         name: { kind: Kind.NAME, value: n },
-        value: valueToAST(v, definition.argument(n)!.type!)!,
+        value: valueToAST(v, definition.argument(n)!.type)!,
       };
     });
   }
@@ -3024,7 +3025,7 @@ function copyWrapperTypeOrTypeRef(source: Type | undefined, destParent: Schema):
     case 'NonNullType':
       return new NonNullType(copyWrapperTypeOrTypeRef(source.ofType, destParent)! as NullableType);
     default:
-      return destParent.type(source.name)!;
+      return destParent.type(source.name);
   }
 }
 

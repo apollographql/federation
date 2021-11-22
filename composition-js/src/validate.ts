@@ -165,7 +165,7 @@ function buildWitnessNextStep(edges: Edge[], index: number): SelectionSet | unde
 function buildWitnessField(definition: FieldDefinition<any>): Field {
   const args = Object.create(null);
   for (const argDef of definition.arguments()) {
-    args[argDef.name] = generateWitnessValue(argDef.type!);
+    args[argDef.name] = generateWitnessValue(argDef.type);
   }
   return new Field(definition, args, new VariableDefinitions());
 }
@@ -198,10 +198,10 @@ function generateWitnessValue(type: InputType): any {
       const obj = Object.create(null);
       for (const field of type.fields()) {
         // We don't bother with non-mandatory fields.
-        if (field.defaultValue || isNullableType(field.type!)) {
+        if (field.defaultValue || isNullableType(field.type)) {
           continue;
         }
-        obj[field.name] = generateWitnessValue(field.type!);
+        obj[field.name] = generateWitnessValue(field.type);
       }
       return obj;
     case 'ListType':

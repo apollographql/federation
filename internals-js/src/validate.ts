@@ -48,7 +48,7 @@ class InputObjectCircularRefsValidator {
     this.fieldPathIndexByTypeName.set(type.name, this.fieldPath.length);
 
     for (const field of type.fields()) {
-      if (isNonNullType(field.type!) && isInputObjectType(field.type.ofType)) {
+      if (isNonNullType(field.type) && isInputObjectType(field.type.ofType)) {
         const fieldType = field.type.ofType;
         const cycleIndex = this.fieldPathIndexByTypeName.get(fieldType.name);
 
@@ -184,7 +184,7 @@ class Validator {
         // if the type is not set, even if that means a bit of cpu wasted since we'll re-check later (and
         // as many type as the interface is implemented); it's a cheap check anyway.
         this.validateHasType(itfField);
-        if (!isSubtype(itfField.type!, field.type!)) {
+        if (!isSubtype(itfField.type, field.type)) {
           this.errors.push(new GraphQLError(
             `Interface field ${itfField.coordinate} expects type ${itfField.type} but ${field.coordinate} of type ${field.type} is not a proper subtype.`,
             sourceASTs(itfField, field)
@@ -203,7 +203,7 @@ class Validator {
           // Same as above for the field
           this.validateHasType(itfArg);
           // Note that we could use contra-variance but as graphQL-js currently doesn't allow it, we mimic that.
-          if (!sameType(itfArg.type!, arg.type!)) {
+          if (!sameType(itfArg.type, arg.type)) {
             this.errors.push(new GraphQLError(
               `Interface field argument ${itfArg.coordinate} expects type ${itfArg.type} but ${arg.coordinate} is type ${arg.type}.`,
               sourceASTs(itfArg, arg)

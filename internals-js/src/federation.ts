@@ -399,7 +399,7 @@ export class FederationBuiltIns extends BuiltIns {
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.providesDirective(schema),
       field => {
-        const type = baseType(field.type!);
+        const type = baseType(field.type);
         if (!isObjectType(type)) {
           throw new GraphQLError(
             `Invalid @provides directive on field "${field.coordinate}": field has type "${field.type}" which is not an Object Type`,

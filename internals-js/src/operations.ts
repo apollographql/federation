@@ -132,7 +132,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     for (const argDef of definition.arguments()) {
       const appliedValue = this.args[argDef.name];
       if (appliedValue === undefined) {
-        if (argDef.defaultValue === undefined && !isNullableType(argDef.type!)) {
+        if (argDef.defaultValue === undefined && !isNullableType(argDef.type)) {
           return false;
         }
       } else {
@@ -161,7 +161,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       const appliedValue = this.args[argDef.name];
       if (appliedValue === undefined) {
         validate(
-          argDef.defaultValue !== undefined || isNullableType(argDef.type!),
+          argDef.defaultValue !== undefined || isNullableType(argDef.type),
           () => `Missing mandatory value "${argDef.name}" in field selection "${this}"`);
       } else {
         validate(
@@ -675,7 +675,7 @@ export class SelectionSet {
       case 'Field':
         const definition: FieldDefinition<any> | undefined  = fieldAccessor(this.parentType, node.name.value);
         validate(definition, () => `Cannot query field "${node.name.value}" on type "${this.parentType}".`, this.parentType.sourceAST);
-        const type = baseType(definition.type!);
+        const type = baseType(definition.type);
         selection = new FieldSelection(
           new Field(definition, argumentsFromAST(definition.coordinate, node.arguments, definition), variableDefinitions, node.alias?.value),
           isLeafType(type) ? undefined : new SelectionSet(type as CompositeType, this.fragments)
@@ -893,7 +893,7 @@ export class FieldSelection {
     readonly field: Field<any>,
     initialSelectionSet? : SelectionSet
   ) {
-    const type = baseType(field.definition.type!);
+    const type = baseType(field.definition.type);
     // Field types are output type, and a named typethat is an output one and isn't a leaf is guaranteed to be selectable.
     this.selectionSet = isLeafType(type) ? undefined : (initialSelectionSet ? initialSelectionSet : new SelectionSet(type as CompositeType));
   }
@@ -940,7 +940,7 @@ export class FieldSelection {
       return {
         kind: 'Argument',
         name: { kind: Kind.NAME, value: n },
-        value: valueToAST(v, this.field.definition.argument(n)!.type!)!,
+        value: valueToAST(v, this.field.definition.argument(n)!.type)!,
       };
     });
   }

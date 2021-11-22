@@ -657,7 +657,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
-            const fieldType = baseType(field.type!);
+            const fieldType = baseType(field.type);
             assert(isInterfaceType(fieldType) || isObjectType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not an object or interface`)
             const provided = parseFieldSetArgument(fieldType, providesApplication);
             const head = copyPointers[i].copiedVertex(e.head);
@@ -696,7 +696,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // resolve a field locally and would have to make a choice while lacking context).
           continue;
         }
-        const fieldType = baseType(fieldDef.type!);
+        const fieldType = baseType(fieldDef.type);
         if (selection.selectionSet) {
           // We should create a brand new vertex, not reuse the existing one because we're still in
           // the middle of the provide and only a subset of `fieldType` (and in fact, even if all
@@ -957,7 +957,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
   }
 
   private addEdgeForField(field: FieldDefinition<any>, head: Vertex) {
-    const tail = this.addTypeRecursively(field.type!);
+    const tail = this.addTypeRecursively(field.type);
     this.addEdge(head, tail, new FieldCollection(field));
   }
 

@@ -146,7 +146,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
             // is a named type, know that field type.
             const ownerApplications = ownerDirective ? type.appliedDirectivesOf(ownerDirective) : [];
             if (!ownerApplications.length) {
-              const fieldBaseType = baseType(field.type!);
+              const fieldBaseType = baseType(field.type);
               for (const subgraph of subgraphs) {
                 if (subgraph.schema.type(fieldBaseType.name)) {
                   addSubgraphField(field, subgraph);
@@ -302,10 +302,10 @@ function addSubgraphObjectOrInterfaceField(
   if (subgraphType) {
     const copiedType = encodedType
       ? decodeType(encodedType, subgraph.schema, subgraph.name)
-      : copyType(supergraphField.type!, subgraph.schema, subgraph.name);
+      : copyType(supergraphField.type, subgraph.schema, subgraph.name);
     const field = (subgraphType as ObjectType | InterfaceType).addField(supergraphField.name, copiedType);
     for (const arg of supergraphField.arguments()) {
-      field.addArgument(arg.name, copyType(arg.type!, subgraph.schema, subgraph.name), arg.defaultValue);
+      field.addArgument(arg.name, copyType(arg.type, subgraph.schema, subgraph.name), arg.defaultValue);
     }
     return field;
   } else {
@@ -322,7 +322,7 @@ function addSubgraphInputField(
   if (subgraphType) {
     const copiedType = encodedType
       ? decodeType(encodedType, subgraph.schema, subgraph.name)
-      : copyType(supergraphField.type!, subgraph.schema, subgraph.name);
+      : copyType(supergraphField.type, subgraph.schema, subgraph.name);
     return (subgraphType as InputObjectType).addField(supergraphField.name, copiedType);
   } else {
     return undefined;
@@ -346,7 +346,7 @@ function copyType(type: Type, subgraph: Schema, subgraphName: string): Type {
     default:
       const subgraphType = subgraph.type(type.name);
       assert(subgraphType, () => `Cannot find type ${type.name} in subgraph ${subgraphName}`);
-      return subgraphType!;
+      return subgraphType;
   }
 }
 
@@ -386,9 +386,9 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema, isFed1: boole
       for (const requiresApplication of field.appliedDirectivesOf(federationBuiltIns.requiresDirective(subgraph.schema))) {
         addExternalFieldsFromDirectiveFieldSet(subgraph, type, requiresApplication, supergraph);
       }
-      const fieldBaseType = baseType(field.type!);
+      const fieldBaseType = baseType(field.type);
       for (const providesApplication of field.appliedDirectivesOf(federationBuiltIns.providesDirective(subgraph.schema))) {
-        assert(isObjectType(fieldBaseType) || isInterfaceType(fieldBaseType), () => `Found @provides on field ${field.coordinate} whose type ${field.type!} (${fieldBaseType.kind}) is not an object or interface `);
+        assert(isObjectType(fieldBaseType) || isInterfaceType(fieldBaseType), () => `Found @provides on field ${field.coordinate} whose type ${field.type} (${fieldBaseType.kind}) is not an object or interface `);
         addExternalFieldsFromDirectiveFieldSet(subgraph, fieldBaseType, providesApplication, supergraph);
       }
     }
@@ -458,9 +458,9 @@ function copyFieldAsExternal(field: FieldDefinition<InterfaceType>, type: Object
 function maybeUpdateFieldForInterface(toModify: FieldDefinition<ObjectType | InterfaceType>, itfField: FieldDefinition<InterfaceType>) {
   // Note that we only care about the field type because while graphql does not allow contravariance of args for field implementations.
   // And while fed2 allow it when merging, this code doesn't run for fed2 generated supergraph, so this isn't a concern.
-  if (!isSubtype(itfField.type!, toModify.type!)) {
-    assert(isSubtype(toModify.type!, itfField.type!), () => `For ${toModify.coordinate}, expected ${itfField.type} and ${toModify.type} to be in a subtyping relationship`);
-    toModify.type = itfField.type!;
+  if (!isSubtype(itfField.type, toModify.type)) {
+    assert(isSubtype(toModify.type, itfField.type), () => `For ${toModify.coordinate}, expected ${itfField.type} and ${toModify.type} to be in a subtyping relationship`);
+    toModify.type = itfField.type;
   }
 }
 
@@ -484,7 +484,7 @@ function removeNeedlessProvides(subgraph: Subgraph) {
 
     const providesDirective = federationBuiltIns.providesDirective(subgraph.schema);
     for (const field of type.fields()) {
-      const fieldBaseType = baseType(field.type!);
+      const fieldBaseType = baseType(field.type);
       for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
         const selection = parseFieldSetArgument(fieldBaseType as ObjectType | InterfaceType, providesApplication);
         if (selectsNonExternalLeafField(selection)) {
