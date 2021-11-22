@@ -300,7 +300,7 @@ class Validator {
         continue;
       }
       if (!isValidValue(value, argument, this.emptyVariables)) {
-        const parent = application.parent!;
+        const parent = application.parent;
         // The only non-named SchemaElement is the `schema` definition.
         const parentDesc = parent instanceof NamedSchemaElement
           ? parent.coordinate

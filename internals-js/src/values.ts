@@ -76,7 +76,7 @@ export function valueToString(v: any, expectedType?: InputType): string {
       if (isEnumType(expectedType)) {
         return v;
       }
-      if (expectedType === expectedType.schema()!.idType() && integerStringRegExp.test(v)) {
+      if (expectedType === expectedType.schema().idType() && integerStringRegExp.test(v)) {
         return v;
       }
     }
@@ -308,7 +308,7 @@ export function valueToAST(value: any, type: InputType): ValueNode | undefined {
     }
 
     // ID types can use Int literals.
-    if (type === type.schema()?.idType() && integerStringRegExp.test(value)) {
+    if (type === type.schema().idType() && integerStringRegExp.test(value)) {
       return { kind: Kind.INT, value: value };
     }
 
@@ -459,7 +459,7 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
 
   // TODO: we may have to handle some coercions (not sure it matters in our use case
   // though).
-  const schema = locationType.schema()!;
+  const schema = locationType.schema();
 
   if (typeof value === 'boolean') {
     return locationType === schema.booleanType();

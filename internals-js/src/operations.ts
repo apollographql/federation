@@ -86,7 +86,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     readonly variableDefinitions: VariableDefinitions = new VariableDefinitions(),
     readonly alias?: string
   ) {
-    super(definition.schema()!, variablesInArguments(args));
+    super(definition.schema(), variablesInArguments(args));
     this.validate();
   }
 
@@ -99,7 +99,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   }
 
   get parentType(): CompositeType {
-    return this.definition.parent!;
+    return this.definition.parent;
   }
 
   withUpdatedDefinition(newDefinition: FieldDefinition<any>): Field<TArgs> {
@@ -180,7 +180,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
   updateForAddingTo(selectionSet: SelectionSet): Field<TArgs> {
     const selectionParent = selectionSet.parentType;
-    const fieldParent = this.definition.parent!;
+    const fieldParent = this.definition.parent;
     if (selectionParent.name !== fieldParent.name) {
       if (this.name === typenameFieldName) {
         return this.withUpdatedDefinition(selectionParent.typenameField()!);
@@ -236,7 +236,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
   ) {
     // TODO: we should do some validation here (remove the ! with proper error, and ensure we have some intersection between
     // the source type and the type condition)
-    super(sourceType.schema()!, []);
+    super(sourceType.schema(), []);
     this.typeCondition = typeCondition !== undefined && typeof typeCondition === 'string'
       ? this.schema().type(typeCondition)! as CompositeType
       : typeCondition;
@@ -368,7 +368,7 @@ function addDirectiveNodesToElement(directiveNodes: readonly DirectiveNode[] | u
   if (!directiveNodes) {
     return;
   }
-  const schema = element.schema()!;
+  const schema = element.schema();
   for (const node of directiveNodes) {
     const directiveDef = schema.directive(node.name.value);
     validate(directiveDef, () => `Unknown directive "@${node.name.value}" in selection`)
