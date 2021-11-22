@@ -959,24 +959,31 @@ describe('composition of schemas with directives', () => {
 
     expect(compositionResult.supergraphSdl).toMatchInlineSnapshot(`
       "schema
-        @core(feature: \\"https://specs.apollo.dev/core/v0.2\\"),
-        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\", for: EXECUTION),
+        @core(feature: \\"https://specs.apollo.dev/core/v0.1\\"),
+        @core(feature: \\"https://specs.apollo.dev/join/v0.1\\"),
         @core(feature: \\"https://specs.apollo.dev/tag/v0.1\\")
       {
         query: Query
       }
 
-      directive @core(as: String, feature: String!, for: core__Purpose) repeatable on SCHEMA
+      directive @core(feature: String!) repeatable on SCHEMA
 
-      directive @join__field(graph: join__Graph, provides: join__FieldSet, requires: join__FieldSet) on FIELD_DEFINITION
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet) on FIELD_DEFINITION
+
+      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on OBJECT | INTERFACE
+
+      directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
-      directive @join__owner(graph: join__Graph!) on INTERFACE | OBJECT
-
-      directive @join__type(graph: join__Graph!, key: join__FieldSet) repeatable on INTERFACE | OBJECT
-
       directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        PRODUCTS @join__graph(name: \\"products\\" url: \\"https://products.api.com\\")
+        USERS @join__graph(name: \\"users\\" url: \\"https://users.api.com\\")
+      }
 
       type Product
         @join__owner(graph: PRODUCTS)
@@ -988,25 +995,6 @@ describe('composition of schemas with directives', () => {
 
       type Query {
         topProducts: [Product] @join__field(graph: PRODUCTS)
-      }
-
-      enum core__Purpose {
-        \\"\\"\\"
-        \`EXECUTION\` features provide metadata necessary to for operation execution.
-        \\"\\"\\"
-        EXECUTION
-
-        \\"\\"\\"
-        \`SECURITY\` features provide metadata necessary to securely resolve fields.
-        \\"\\"\\"
-        SECURITY
-      }
-
-      scalar join__FieldSet
-
-      enum join__Graph {
-        PRODUCTS @join__graph(name: \\"products\\" url: \\"https://products.api.com\\")
-        USERS @join__graph(name: \\"users\\" url: \\"https://users.api.com\\")
       }
       "
     `);
