@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "@apollo/core-schema": "^0.2.0",
-    "@types/jest": "^27.0.0",
     "chalk": "^4.1.0",
     "js-levenshtein": "^1.1.6"
   },
