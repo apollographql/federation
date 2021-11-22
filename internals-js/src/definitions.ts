@@ -408,7 +408,7 @@ abstract class Element<TParent extends SchemaElement<any, any> | Schema | Direct
     return this._parent;
   }
 
-  hasParent(): boolean {
+  isAttached(): boolean {
     return !!this._parent;
   }
 
@@ -430,7 +430,7 @@ abstract class Element<TParent extends SchemaElement<any, any> | Schema | Direct
     // to a schema could bring a whole hierarchy of types and directives for instance). If they are attached, it only work if
     // it's to the same schema, but you have to check.
     // Overall, it's simpler to force attaching elements before you add other elements to them.
-    if (!this.hasParent()) {
+    if (!this.isAttached()) {
       throw error(`Cannot modify detached element ${this}`);
     }
   }
@@ -546,7 +546,7 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
     // removals on detached internally; though of course we could refactor the code if we wanted).
   }
 
-  protected checkUpdate(addedElement?: { schema(): Schema | undefined }) {
+  protected checkUpdate(addedElement?: { schema(): Schema, isAttached(): boolean }) {
     super.checkUpdate();
     if (!Schema.prototype['canModifyBuiltIn'].call(this.schema())) {
       // Ensure this element (the modified one), is not a built-in, or part of one.
@@ -558,13 +558,10 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
         thisElement = thisElement.parent;
       }
     }
-    if (addedElement) {
-      // only check the parent schema if it exists
-      if (!(addedElement instanceof Element) || addedElement.hasParent()) {
-        const thatSchema = addedElement.schema();
-        if (thatSchema && thatSchema != this.schema()) {
-          throw error(`Cannot add element ${addedElement} to ${this} as it is attached to another schema`);
-        }
+    if (addedElement && addedElement.isAttached()) {
+      const thatSchema = addedElement.schema();
+      if (thatSchema && thatSchema != this.schema()) {
+        throw error(`Cannot add element ${addedElement} to ${this} as it is attached to another schema`);
       }
     }
   }
@@ -1237,7 +1234,7 @@ export class Schema {
     if (existing && !existing.isBuiltIn) {
       throw error(`Type ${type} already exists in this schema`);
     }
-    if (type.hasParent()) {
+    if (type.isAttached()) {
       // For convenience, let's not error out on adding an already added type.
       if (type.parent == this) {
         return type;
@@ -1322,7 +1319,7 @@ export class Schema {
     if (existing && !existing.isBuiltIn) {
       throw error(`Directive ${definition} already exists in this schema`);
     }
-    if (definition.hasParent()) {
+    if (definition.isAttached()) {
       // For convenience, let's not error out on adding an already added directive.
       if (definition.parent == this) {
         return definition;
@@ -2025,6 +2022,10 @@ class BaseWrapperType<T extends Type> {
     return this.baseType().schema();
   }
 
+  isAttached(): boolean {
+    return this.baseType().isAttached();
+  }
+
   get ofType(): T {
     return this._type;
   }
@@ -2072,7 +2073,7 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
   }
 
   get coordinate(): string {
-    const parent = this._parent; // TODO: @pcmanus does this change look right to you?
+    const parent = this._parent;
     return `${parent == undefined ? '<detached>' : parent.coordinate}.${this.name}`;
   }
 
