@@ -2531,7 +2531,7 @@ export class Directive<
   }
 
   private isAttachedToSchemaElement(): boolean {
-    return this._parent !== undefined && this._parent instanceof SchemaElement;
+    return this.isAttached();
   }
 
   setArguments(args: TArgs) {
