@@ -4,6 +4,10 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- _Nothing to see here. Stay tuned._
+
+## v0.33.8
+
 - Print `@contact` directive in `printSubgraphSchema` [PR #1096](https://github.com/apollographql/federation/pull/1096)
 
 ## v0.33.7
