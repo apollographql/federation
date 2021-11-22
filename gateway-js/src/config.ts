@@ -135,30 +135,13 @@ export interface RemoteGatewayConfig extends GatewayConfigBase {
     | ((service: ServiceEndpointDefinition) => Promise<HeadersInit> | HeadersInit);
 }
 
-// TODO(trevor:cloudconfig): This type goes away
-export interface LegacyManagedGatewayConfig extends GatewayConfigBase {
-  federationVersion?: number;
-  /**
-   * Setting this to null will cause the gateway to use the old mechanism for
-   * managed federation via GCS + composition.
-   */
-  schemaConfigDeliveryEndpoint: null;
-}
-
-// TODO(trevor:cloudconfig): This type becomes the only managed config
-export interface PrecomposedManagedGatewayConfig extends GatewayConfigBase {
+export interface ManagedGatewayConfig extends GatewayConfigBase {
   /**
    * This configuration option shouldn't be used unless by recommendation from
-   * Apollo staff. This can also be set to `null` (see above) in order to revert
-   * to the previous mechanism for managed federation.
+   * Apollo staff.
    */
   schemaConfigDeliveryEndpoint?: string;
 }
-
-// TODO(trevor:cloudconfig): This union is no longer needed
-export type ManagedGatewayConfig =
-  | LegacyManagedGatewayConfig
-  | PrecomposedManagedGatewayConfig;
 
 interface ManuallyManagedServiceDefsGatewayConfig extends GatewayConfigBase {
   experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
@@ -216,30 +199,12 @@ export function isManuallyManagedConfig(
 export function isManagedConfig(
   config: GatewayConfig,
 ): config is ManagedGatewayConfig {
-  return isPrecomposedManagedConfig(config) || isLegacyManagedConfig(config);
-}
-
-// TODO(trevor:cloudconfig): This merges with `isManagedConfig`
-export function isPrecomposedManagedConfig(
-  config: GatewayConfig,
-): config is PrecomposedManagedGatewayConfig {
   return (
-    !isLegacyManagedConfig(config) &&
-    (('schemaConfigDeliveryEndpoint' in config &&
-      typeof config.schemaConfigDeliveryEndpoint === 'string') ||
-      (!isRemoteConfig(config) &&
-        !isLocalConfig(config) &&
-        !isSupergraphSdlConfig(config) &&
-        !isManuallyManagedConfig(config)))
-  );
-}
-
-export function isLegacyManagedConfig(
-  config: GatewayConfig,
-): config is LegacyManagedGatewayConfig {
-  return (
-    'schemaConfigDeliveryEndpoint' in config &&
-    config.schemaConfigDeliveryEndpoint === null
+    'schemaConfigDeliveryEndpoint' in config ||
+    (!isRemoteConfig(config) &&
+      !isLocalConfig(config) &&
+      !isSupergraphSdlConfig(config) &&
+      !isManuallyManagedConfig(config))
   );
 }
 
