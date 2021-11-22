@@ -26,9 +26,6 @@
     "@apollo/federation-internals": "file:../internals-js",
     "ts-graphviz": "^0.15.1"
   },
-  "devDependencies": {
-    "@types/jest": "27.0.2"
-  },
   "publishConfig": {
     "access": "public"
   },

@@ -2,11 +2,11 @@ import { GraphQLError, GraphQLSchema } from "graphql";
 import { HeadersInit } from "node-fetch";
 import { fetch } from 'apollo-server-env';
 import { GraphQLRequestContextExecutionDidStart, Logger } from "apollo-server-types";
-import { ServiceDefinition } from "@apollo/federation";
 import { GraphQLDataSource } from './datasources/types';
 import { QueryPlan } from '@apollo/query-planner';
 import { OperationContext } from './operationContext';
 import { ServiceMap } from './executeQueryPlan';
+import { ServiceDefinition } from "@apollo/federation-internals";
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 

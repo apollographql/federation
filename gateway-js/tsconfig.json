@@ -7,7 +7,6 @@
   "include": ["src/**/*"],
   "exclude": ["**/__tests__", "**/__mocks__"],
   "references": [
-    { "path": "../federation-js" },
     { "path": "../query-planner-js" },
     { "path": "../composition-js" },
   ]

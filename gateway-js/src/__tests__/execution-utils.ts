@@ -4,9 +4,6 @@ import {
   GraphQLResolverMap,
 } from 'apollo-graphql';
 import { GraphQLRequest, GraphQLExecutionResult, Logger } from 'apollo-server-types';
-import {
-  ServiceDefinition,
-} from '@apollo/federation';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import {
   executeQueryPlan,
@@ -20,7 +17,7 @@ import { queryPlanSerializer, astSerializer } from 'apollo-federation-integratio
 import gql from 'graphql-tag';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { composeServices } from '@apollo/composition';
-import { buildSchema, operationFromDocument } from '@apollo/federation-internals';
+import { buildSchema, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
 
 const prettyFormat = require('pretty-format');
 

@@ -542,8 +542,6 @@ function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<
   return fields;
 }
 
-// 'ServiceDefinition' is originally defined in federation-js and we don't want to create a dependency
-// of internals-js to that just for that interface.
 export interface ServiceDefinition {
   typeDefs: DocumentNode;
   name: string;
