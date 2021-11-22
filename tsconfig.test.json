@@ -3,7 +3,6 @@
   "include": [],
   "references": [
     { "path": "./internals-js/tsconfig.test.json" },
-    { "path": "./federation-js/tsconfig.test.json" },
     { "path": "./composition-js/tsconfig.test.json" },
     { "path": "./gateway-js/tsconfig.test.json" },
     { "path": "./query-graphs-js/tsconfig.test.json" },

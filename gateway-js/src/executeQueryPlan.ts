@@ -14,7 +14,6 @@ import {
   GraphQLSchema,
 } from 'graphql';
 import { Trace, google } from 'apollo-reporting-protobuf';
-import { defaultRootOperationNameLookup } from '@apollo/federation';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
 import { OperationContext } from './operationContext';
 import {
@@ -30,6 +29,7 @@ import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
+import { defaultRootName } from '@apollo/federation-internals';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -450,10 +450,7 @@ async function executeFetch<TContext>(
           // to have the default names (Query, Mutation, Subscription) even
           // if the implementing services choose different names, so we override
           // whatever the implementing service reported here.
-          const rootTypeName =
-            defaultRootOperationNameLookup[
-              context.operationContext.operation.operation
-            ];
+          const rootTypeName = defaultRootName(context.operationContext.operation.operation);
           traceNode.trace.root?.child?.forEach((child) => {
             child.parentType = rootTypeName;
           });

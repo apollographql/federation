@@ -12,9 +12,6 @@ import {
   GraphQLSchema,
   VariableDefinitionNode,
 } from 'graphql';
-import {
-  ServiceDefinition,
-} from '@apollo/federation';
 import loglevel from 'loglevel';
 
 import { buildOperationContext, OperationContext } from './operationContext';
@@ -68,6 +65,7 @@ import {
   buildSupergraphSchema,
   operationFromDocument,
   Schema,
+  ServiceDefinition,
 } from '@apollo/federation-internals';
 import { composeServices } from '@apollo/composition'
 
@@ -83,6 +81,8 @@ type DataSourceMap = {
 type WarnedStates = {
   remoteWithLocalConfig?: boolean;
 };
+
+export { ServiceDefinition } from '@apollo/federation-internals';
 
 export function getDefaultFetcher() {
   const { name, version } = require('../package.json');

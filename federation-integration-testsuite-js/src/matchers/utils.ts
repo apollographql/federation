@@ -1,4 +1,4 @@
-import diff, { DiffOptions } from 'jest-diff';
+import { diff, DiffOptions } from 'jest-diff';
 import { EXPECTED_COLOR, RECEIVED_COLOR } from 'jest-matcher-utils';
 import { default as prettyFormat, OptionsReceived } from 'pretty-format';
 import {

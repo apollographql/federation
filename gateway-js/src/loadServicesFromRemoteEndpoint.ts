@@ -4,7 +4,7 @@ import { Headers, HeadersInit } from 'node-fetch';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
 import { SERVICE_DEFINITION_QUERY } from './';
 import { CompositionUpdate, ServiceEndpointDefinition } from './config';
-import { ServiceDefinition } from '@apollo/federation';
+import { ServiceDefinition } from '@apollo/federation-internals';
 
 type Service = ServiceEndpointDefinition & {
   dataSource: GraphQLDataSource;

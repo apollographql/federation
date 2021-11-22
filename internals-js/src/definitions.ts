@@ -1136,9 +1136,17 @@ export class Schema {
     return this.apiSchema;
   }
 
-  toGraphQLJSSchema(): GraphQLSchema {
+  toGraphQLJSSchema(isSubgraph: boolean = false): GraphQLSchema {
     // Obviously not super fast, but as long as we don't use this often on a hot path, that's probably ok.
-    return buildGraphqlSchemaFromAST(this.toAST());
+    if (!isSubgraph) {
+      return buildGraphqlSchemaFromAST(this.toAST());
+    }
+
+    // Some subgraphs, especially federation 1 ones, cannot be properly converted to a GraphQLSchema because they are invalid graphQL.
+    // And the main culprit is type extensions that don't have a corresponding definition. So to avoid that problem, we print
+    // up the AST without extensions. Another issue is the non graph built-ins which needs to be explicitely defined.
+    const ast = parse(printSchema(this, { ...toASTPrintOptions, mergeTypesAndExtensions: true }), { noLocation: true });
+    return buildGraphqlSchemaFromAST(ast);
   }
 
   get schemaDefinition(): SchemaDefinition {

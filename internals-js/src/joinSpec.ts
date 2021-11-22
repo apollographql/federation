@@ -11,9 +11,6 @@ import { MultiMap } from "./utils";
 
 export const joinIdentity = 'https://specs.apollo.dev/join';
 
-// Copied from federation-js/joinSpec.ts. Not reusing that existing version for now to
-// avoid creating a dependency on federation-js. But there is likely some re-org of
-// modules to do.
 function sanitizeGraphQLName(name: string) {
   // replace all non-word characters (\W). Word chars are _a-zA-Z0-9
   const alphaNumericUnderscoreOnly = name.replace(/[\W]/g, '_');
