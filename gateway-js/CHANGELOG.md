@@ -9,7 +9,7 @@
 ## v0.44.0
 
 - __BREAKING__: Update `@apollo/core-schema` usage and `graphql` peerDependencies. The core schema package suffered from incompatible changes in the latest graphql versions (^15.7.0). The core schema has since been updated. This updates our usage to the latest version, but in doing so requires us to update our peerDependency requirement of graphql-js to the latest v15 release (15.7.2) [PR #1140](https://github.com/apollographql/federation/pull/1140)
-- Conditional schema update based on ifAfterId [PR #1198](https://github.com/apollographql/federation/pull/1198)
+- Conditional schema update based on `ifAfterId` [PR #1198](https://github.com/apollographql/federation/pull/1198)
 
 ## v0.43.0
 
