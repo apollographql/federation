@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@apollo/federation-internals": "file:../internals-js",
-    "ts-graphviz": "^0.15.1"
+    "ts-graphviz": "^0.16.0"
   },
   "publishConfig": {
     "access": "public"
