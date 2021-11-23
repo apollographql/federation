@@ -1,4 +1,5 @@
 export type Maybe<T> = T | null;
+export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
@@ -17,15 +18,15 @@ export type ApiMonitoringReport = {
   endedAt: Scalars['Timestamp'];
   error: Error;
   request: Request;
-  response?: Maybe<Response>;
+  response?: InputMaybe<Response>;
   startedAt: Scalars['Timestamp'];
   /** Tags can include things like version and package name */
-  tags?: Maybe<Array<Scalars['String']>>;
+  tags?: InputMaybe<Array<Scalars['String']>>;
 };
 
 export type Error = {
   code: ErrorCode;
-  message?: Maybe<Scalars['String']>;
+  message?: InputMaybe<Scalars['String']>;
 };
 
 export enum ErrorCode {
@@ -55,7 +56,7 @@ export enum FetchErrorCode {
 
 export type HttpHeader = {
   name: Scalars['String'];
-  value?: Maybe<Scalars['String']>;
+  value?: InputMaybe<Scalars['String']>;
 };
 
 export type Message = {
@@ -77,7 +78,7 @@ export type Mutation = {
 
 
 export type MutationReportErrorArgs = {
-  report?: Maybe<ApiMonitoringReport>;
+  report?: InputMaybe<ApiMonitoringReport>;
 };
 
 export type Query = {
@@ -90,19 +91,19 @@ export type Query = {
 
 export type QueryRouterConfigArgs = {
   apiKey: Scalars['String'];
-  ifAfterId?: Maybe<Scalars['ID']>;
+  ifAfterId?: InputMaybe<Scalars['ID']>;
   ref: Scalars['String'];
 };
 
 export type Request = {
-  body?: Maybe<Scalars['String']>;
-  headers?: Maybe<Array<HttpHeader>>;
+  body?: InputMaybe<Scalars['String']>;
+  headers?: InputMaybe<Array<HttpHeader>>;
   url: Scalars['String'];
 };
 
 export type Response = {
-  body?: Maybe<Scalars['String']>;
-  headers?: Maybe<Array<HttpHeader>>;
+  body?: InputMaybe<Scalars['String']>;
+  headers?: InputMaybe<Array<HttpHeader>>;
   httpStatusCode: Scalars['Int'];
 };
 
@@ -125,14 +126,14 @@ export type Unchanged = {
 export type SupergraphSdlQueryVariables = Exact<{
   apiKey: Scalars['String'];
   ref: Scalars['String'];
-  ifAfterId?: Maybe<Scalars['ID']>;
+  ifAfterId?: InputMaybe<Scalars['ID']>;
 }>;
 
 
 export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'FetchError', code: FetchErrorCode, message: string } | { __typename: 'RouterConfigResult', id: string, supergraphSdl: string } | { __typename: 'Unchanged' } };
 
 export type OobReportMutationVariables = Exact<{
-  input?: Maybe<ApiMonitoringReport>;
+  input?: InputMaybe<ApiMonitoringReport>;
 }>;
 
 
