@@ -121,7 +121,7 @@ type GatewayState =
   | { phase: 'stopped' }
   | {
       phase: 'waiting to poll';
-      pollWaitTimer: NodeJS.Timer;
+      pollWaitTimer: NodeJS.Timeout;
       doneWaiting: () => void;
     }
   | { phase: 'polling'; pollingDonePromise: Promise<void> };
@@ -800,7 +800,7 @@ export class ApolloGateway implements GraphQLService {
       this.state = {
         phase: 'waiting to poll',
         doneWaiting,
-        pollWaitTimer: setTimeout(() => {
+        pollWaitTimer: global.setTimeout(() => {
           // Note that we might be in 'stopped', in which case we just do
           // nothing.
           if (this.state.phase == 'waiting to poll') {
