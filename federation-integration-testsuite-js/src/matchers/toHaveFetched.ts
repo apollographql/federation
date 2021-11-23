@@ -18,7 +18,7 @@ function prepareHttpOptions(requestUrl: string, requestOpts: RequestInitWithJSON
   headers.set('Content-Type', 'application/json');
 
   const requestHttp = {
-    method: 'POST',
+    method: requestOpts.method ?? 'POST',
     headers,
     url: requestUrl
   };

@@ -17,10 +17,9 @@ import { isObject } from '../utilities/predicates';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
 import createSHA from 'apollo-server-core/dist/utils/createSHA';
 import { parseCacheControlHeader } from './parseCacheControlHeader';
-
 export class RemoteGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
-> implements GraphQLDataSource<TContext>
+  > implements GraphQLDataSource<TContext>
 {
   fetcher: typeof fetch = fetch;
 
@@ -75,15 +74,7 @@ export class RemoteGraphQLDataSource<
     // questionable in the first place.
     const context = originalContext as TContext;
 
-    // Respect incoming http headers (eg, apollo-federation-include-trace).
-    const headers = (request.http && request.http.headers) || new Headers();
-    headers.set('Content-Type', 'application/json');
-
-    request.http = {
-      method: 'POST',
-      url: this.url,
-      headers,
-    };
+    request.http = this.setupRequest({ request, context });
 
     if (this.willSendRequest) {
       await this.willSendRequest(options);
@@ -100,8 +91,8 @@ export class RemoteGraphQLDataSource<
     // there.
     const overallCachePolicy =
       this.honorSubgraphCacheControlHeader &&
-      options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION &&
-      options.incomingRequestContext.overallCachePolicy?.restrict
+        options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION &&
+        options.incomingRequestContext.overallCachePolicy?.restrict
         ? options.incomingRequestContext.overallCachePolicy
         : null;
 
@@ -171,10 +162,18 @@ export class RemoteGraphQLDataSource<
     // we're accessing (e.g. url) and what we access it with (e.g. headers).
     const { http, ...requestWithoutHttp } = request;
     const stringifiedRequestWithoutHttp = JSON.stringify(requestWithoutHttp);
-    const fetchRequest = new Request(http.url, {
-      ...http,
-      body: stringifiedRequestWithoutHttp,
-    });
+
+    let fetchRequest: Request;
+    if (http.method === 'GET' || http.method === 'HEAD') {
+      fetchRequest = new Request(http.url, {
+        ...http,
+      });
+    } else {
+      fetchRequest = new Request(http.url, {
+        ...http,
+        body: stringifiedRequestWithoutHttp,
+      });
+    }
 
     let fetchResponse: Response | undefined;
 
@@ -204,6 +203,23 @@ export class RemoteGraphQLDataSource<
       this.didEncounterError(error, fetchRequest, fetchResponse, context);
       throw error;
     }
+  }
+
+  public setupRequest(
+    { request }: Pick<
+      GraphQLRequestContext<TContext>,
+      'request' | 'context'>)
+    : GraphQLRequest['http'] {
+
+    // Respect incoming http headers (eg, apollo-federation-include-trace).
+    const headers = (request.http && request.http.headers) || new Headers();
+    headers.set('Content-Type', 'application/json');
+
+    return {
+      method: 'POST',
+      url: this.url,
+      headers,
+    };
   }
 
   public willSendRequest?(
