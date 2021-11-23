@@ -697,6 +697,26 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
     return toReturn;
   }
 
+  /**
+   * Removes this this definition _and_, recursively, any other elements that references this type and would be invalid
+   * after the removal.
+   *
+   * Note that contrarily to `remove()` (which this method essentially call recursively), this method leaves the schema
+   * valid (assuming it was valid beforehand) _unless_ all the schema ends up being removed through recursion (in which
+   * case this leaves an empty schema, and that is not technically valid).
+   *
+   * Also note that this method does _not_ necessarily remove all the elements that reference this type: for instance,
+   * if this type is an interface, objects implementing it will _not_ be removed, they will simply stop implementing
+   * the interface. In practice, this method mainly remove fields that were using the removed type (in either argument or
+   * return type), but it can also remove object/input object/interface if through such field removal some type ends up
+   * empty, and it can remove unions if through that removal process and union becomes empty.
+   */
+  removeRecursive(): void {
+    this.remove().forEach(ref => this.removeReferenceRecursive(ref));
+  }
+
+  protected abstract removeReferenceRecursive(ref: TReferencer): void;
+
   referencers(): readonly TReferencer[] {
     return setValues(this._referencers);
   }
@@ -1530,6 +1550,10 @@ export class ScalarType extends BaseNamedType<OutputTypeReferencer | InputTypeRe
   protected removeInnerElements(): void {
     // No inner elements
   }
+
+  protected removeReferenceRecursive(ref: OutputTypeReferencer | InputTypeReferencer): void {
+    ref.remove();
+  }
 }
 
 export class InterfaceImplementation<T extends ObjectType | InterfaceType> extends BaseExtensionMember<T> {
@@ -1753,6 +1777,20 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
     const schema = this.schema();
     return schema.schemaDefinition.root('query')?.type === this;
   }
+
+  protected removeReferenceRecursive(ref: ObjectTypeReferencer): void {
+    // Note that the ref can also be a`SchemaDefinition`, but don't have anything to do then.
+    switch (ref.kind) {
+      case 'FieldDefinition':
+        ref.removeRecursive();
+        break;
+      case 'UnionType':
+        if (ref.membersCount() === 0) {
+          ref.removeRecursive();
+        }
+        break;
+    }
+  }
 }
 
 export class InterfaceType extends FieldBasedType<InterfaceType, InterfaceTypeReferencer> {
@@ -1770,6 +1808,14 @@ export class InterfaceType extends FieldBasedType<InterfaceType, InterfaceTypeRe
   isPossibleRuntimeType(type: string | NamedType): boolean {
     const typeName = typeof type === 'string' ? type : type.name;
     return this.possibleRuntimeTypes().some(t => t.name == typeName);
+  }
+
+  protected removeReferenceRecursive(ref: InterfaceTypeReferencer): void {
+    // Note that an interface can be referenced by an object/interface that implements it, but after remove(), said object/interface
+    // will simply not implement "this" anymore and we have nothing more to do.
+    if (ref.kind === 'FieldDefinition') {
+      ref.removeRecursive();
+    }
   }
 }
 
@@ -1895,6 +1941,10 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
   protected hasNonExtensionInnerElements(): boolean {
     return this.members().some(m => m.ofExtension() === undefined);
   }
+
+  protected removeReferenceRecursive(ref: OutputTypeReferencer): void {
+    ref.removeRecursive();
+  }
 }
 
 export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
@@ -1948,6 +1998,10 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
 
   protected hasNonExtensionInnerElements(): boolean {
     return this._values.some(v => v.ofExtension() === undefined);
+  }
+
+  protected removeReferenceRecursive(ref: OutputTypeReferencer): void {
+    ref.removeRecursive();
   }
 }
 
@@ -2018,6 +2072,19 @@ export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObj
 
   protected hasNonExtensionInnerElements(): boolean {
     return this.fields().some(f => f.ofExtension() === undefined);
+  }
+
+  protected removeReferenceRecursive(ref: InputTypeReferencer): void {
+    if (ref.kind === 'ArgumentDefinition') {
+      // Not only do we want to remove the argument, but we want to remove its parent. Technically, only removing the argument would
+      // leave the schema in a valid state so it would be an option, but this feel a bit too weird of a behaviour in practice for a
+      // method calling `removeRecursive`. And in particular, it would mean that if the argument is a directive definition one,
+      // we'd also have to update each of the directive application to remove the correspond argument. Removing the full directive
+      // definition (and all its applications) feels a bit more predictable.
+      ref.parent().removeRecursive();
+    } else {
+      ref.removeRecursive();
+    }
   }
 }
 
@@ -2192,6 +2259,19 @@ export class FieldDefinition<TParent extends CompositeType> extends NamedSchemaE
     return [];
   }
 
+  /**
+   * Like `remove()`, but if this field was the last field of its parent type, the parent type is removed through its `removeRecursive` method.
+   */
+  removeRecursive(): void {
+    const parent = this._parent;
+    this.remove();
+    // Note that we exclude the union type here because it doesn't have the `fields()` method, but the only field unions can have is the __typename
+    // one and it cannot be removed, so remove() above will actually throw in practice before reaching this.
+    if (parent && !isUnionType(parent) && parent.fields().length === 0) {
+      parent.removeRecursive();
+    }
+  }
+
   toString(): string {
     const args = this._args.size == 0
       ? ""
@@ -2249,6 +2329,17 @@ export class InputFieldDefinition extends NamedSchemaElementWithType<InputType, 
     this.type = undefined;
     // Fields have nothing that can reference them outside of their parents
     return [];
+  }
+
+  /**
+   * Like `remove()`, but if this field was the last field of its parent type, the parent type is removed through its `removeRecursive` method.
+   */
+  removeRecursive(): void {
+    const parent = this._parent;
+    this.remove();
+    if (parent && parent.fields().length === 0) {
+      parent.removeRecursive();
+    }
   }
 
   toString(): string {
@@ -2489,6 +2580,13 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     const toReturn = setValues(this._referencers);
     this._referencers.clear();
     return toReturn;
+  }
+
+  /**
+   * Removes this this directive definition _and_ all its applications.
+   */
+  removeRecursive(): void {
+    this.remove().forEach(ref => ref.remove());
   }
 
   toString(): string {
