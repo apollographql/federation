@@ -1,7 +1,7 @@
 import { QueryPlan, PlanNode } from '@apollo/query-planner';
 import { shouldSkipFetchNode } from '@apollo/gateway/src/executeQueryPlan';
 import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
-const prettyFormat = require('pretty-format');
+import prettyFormat from 'pretty-format';
 
 declare global {
   namespace jest {

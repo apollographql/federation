@@ -1,13 +1,13 @@
 import diff, { DiffOptions } from 'jest-diff';
 import { EXPECTED_COLOR, RECEIVED_COLOR } from 'jest-matcher-utils';
-import prettyFormat from 'pretty-format';
+import prettyFormat, { OptionsReceived } from 'pretty-format';
 import {
   queryPlanSerializer,
   astSerializer,
   typeSerializer,
 } from '../snapshotSerializers';
 
-const defaultFormatOptions: prettyFormat.OptionsReceived = {
+const defaultFormatOptions: OptionsReceived = {
   plugins: [queryPlanSerializer, astSerializer, typeSerializer],
 };
 
@@ -15,7 +15,7 @@ export function diffFormatted(
   expected: unknown,
   received: unknown,
   diffOptions?: DiffOptions,
-  formatOptions: prettyFormat.OptionsReceived = defaultFormatOptions,
+  formatOptions: OptionsReceived = defaultFormatOptions,
 ) {
   const expectedString = prettyFormat(expected, formatOptions);
   const receivedString = prettyFormat(received, formatOptions);
@@ -40,14 +40,14 @@ export function indentLines(
 
 export function printReceivedFormatted(
   value: unknown,
-  formatOptions: prettyFormat.OptionsReceived = defaultFormatOptions,
+  formatOptions: OptionsReceived = defaultFormatOptions,
 ): string {
   return RECEIVED_COLOR(prettyFormat(value, formatOptions));
 }
 
 export function printExpectedFormatted(
   value: unknown,
-  formatOptions: prettyFormat.OptionsReceived = defaultFormatOptions,
+  formatOptions: OptionsReceived = defaultFormatOptions,
 ): string {
   return EXPECTED_COLOR(prettyFormat(value, formatOptions));
 }

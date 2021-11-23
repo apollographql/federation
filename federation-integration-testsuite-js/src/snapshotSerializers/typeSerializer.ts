@@ -1,11 +1,11 @@
 import { isNamedType, GraphQLNamedType, printType } from 'graphql';
-import { Plugin } from 'pretty-format';
+import { NewPlugin } from 'pretty-format';
 
 export default {
   test(value: any) {
     return value && isNamedType(value);
   },
-  print(value: GraphQLNamedType) {
+  serialize(value: GraphQLNamedType) {
     return printType(value);
-  },
-} as Plugin;
+  }
+} as NewPlugin;
