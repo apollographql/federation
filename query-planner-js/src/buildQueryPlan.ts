@@ -685,7 +685,7 @@ function splitSubfields(
 
         if (!keyFields) {
           throw new GraphQLError(
-            `Couldn't find keys for type "${parentType.name}}" in service "${baseService}"`,
+            `Couldn't find keys for type "${parentType.name}" in service "${baseService}"`,
             fieldNode,
           );
         }
