@@ -111,5 +111,13 @@
       "matchPackageNames": ["react", "react-dom"],
       "allowedVersions": "16.x",
     },
+    // The current Apollo Gatsby theme does not support gatsby v3
+    {
+      "matchPaths": [
+        "docs/package.json"
+      ],
+      "matchPackageNames": ["gatsby"],
+      "allowedVersions": "2.x",
+    },
   ]
 }
