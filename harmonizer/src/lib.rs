@@ -92,7 +92,7 @@ pub fn harmonize(
     // The runtime automatically contains a Deno.core object with several
     // functions for interacting with it.
     runtime
-        .execute(
+        .execute_script(
             "<init>",
             r#"
 // First we initialize the ops cache.
@@ -131,16 +131,16 @@ exports = {};
 
     // Load URL polyfill
     runtime
-        .execute("url_shim.js", include_str!("../dist/url_shim.js"))
+        .execute_script("url_shim.js", include_str!("../dist/url_shim.js"))
         .expect("unable to evaluate url_shim module");
 
     runtime
-        .execute("<url_shim_assignment>", "whatwg_url_1 = url_shim;")
+        .execute_script("<url_shim_assignment>", "whatwg_url_1 = url_shim;")
         .expect("unable to assign url_shim");
 
     // Load the composition library.
     runtime
-        .execute("composition.js", include_str!("../dist/composition.js"))
+        .execute_script("composition.js", include_str!("../dist/composition.js"))
         .expect("unable to evaluate composition module");
 
     // We literally just turn it into a JSON object that we'll execute within
@@ -152,11 +152,11 @@ exports = {};
     );
 
     runtime
-        .execute("<set_service_list>", &service_list_javascript)
+        .execute_script("<set_service_list>", &service_list_javascript)
         .expect("unable to evaluate service list in JavaScript runtime");
 
     runtime
-        .execute("do_compose.js", include_str!("../js/do_compose.js"))
+        .execute_script("do_compose.js", include_str!("../js/do_compose.js"))
         .expect("unable to invoke composition in JavaScript runtime");
 
     rx.recv().expect("channel remains open")
