@@ -50,29 +50,9 @@ pub fn harmonize(
     // We'll use this channel to get the results
     let (tx, rx) = channel();
 
-    // The first thing we do is define an op so we can print data to STDOUT,
-    // because by default the JavaScript console functions are just stubs (they
-    // don't do anything).
-
-    // Register the op for outputting bytes to stdout. It can be invoked with
-    // Deno.core.dispatch and the id this method returns or
-    // Deno.core.dispatchByName and the name provided.
-    runtime.register_op(
-        "op_print",
-        // The op_fn callback takes a state object OpState,
-        // a structured arg of type `T` and an optional ZeroCopyBuf,
-        // a mutable reference to a JavaScript ArrayBuffer
-        op_sync(|_state, maybe_msg: Option<String>, _zero_copy| {
-            if let Some(msg) = maybe_msg {
-                println!("{}", msg);
-            }
-            Ok(()) // No meaningful result
-        }),
-    );
-
     runtime.register_op(
         "op_composition_result",
-        op_sync(move |_state, value, _zero_copy| {
+        op_sync(move |_state, value, _buffer: ()| {
             let js_composition_result: Result<CompositionOutput, Vec<CompositionError>> =
                 serde_json::from_value(value)
                     .expect("could not deserialize composition result from JS.");
@@ -88,6 +68,7 @@ pub fn harmonize(
             // Don't return anything to JS
         }),
     );
+    runtime.sync_ops_cache();
 
     // The runtime automatically contains a Deno.core object with several
     // functions for interacting with it.
