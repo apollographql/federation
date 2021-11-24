@@ -107,10 +107,5 @@
       "matchPackageNames": ["gatsby"],
       "allowedVersions": "2.x",
     },
-    {
-      "matchBaseBranches": ["version-0.x"],
-      "excludePackageNames": ["deno_core"],
-      "enabled": false
-    }
   ]
 }
