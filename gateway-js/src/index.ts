@@ -31,7 +31,10 @@ import {
 } from './executeQueryPlan';
 
 import { getServiceDefinitionsFromRemoteEndpoint } from './loadServicesFromRemoteEndpoint';
-import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
+import {
+  GraphQLDataSource,
+  GraphQLDataSourceRequestKind,
+} from './datasources/types';
 import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
 import { getVariableValues } from 'graphql/execution/values';
 import fetcher from 'make-fetch-happen';
@@ -268,6 +271,7 @@ export class ApolloGateway implements GraphQLService {
       this.updateServiceDefinitions = this.loadServiceDefinitions;
     }
 
+    this.issueDeprecationWarningsIfApplicable();
     if (isDynamicConfig(this.config)) {
       this.issueDynamicWarningsIfApplicable();
     }
@@ -324,6 +328,7 @@ export class ApolloGateway implements GraphQLService {
     }
 
     // Warn against using the pollInterval and a serviceList simultaneously
+    // TODO(trevor:removeServiceList)
     if (this.config.experimental_pollInterval && isRemoteConfig(this.config)) {
       this.logger.warn(
         'Polling running services is dangerous and not recommended in production. ' +
@@ -342,6 +347,36 @@ export class ApolloGateway implements GraphQLService {
           'provided. Gateway will default to using the provided `experimental_updateSupergraphSdl` ' +
           'function when both `experimental_updateSupergraphSdl` and experimental_updateServiceDefinitions` ' +
           'are provided.',
+      );
+    }
+  }
+
+  private issueDeprecationWarningsIfApplicable() {
+    // TODO(trevor:removeServiceList)
+    if ('experimental_updateSupergraphSdl' in this.config) {
+      this.logger.warn(
+        'The `experimental_updateSupergraphSdl` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+      );
+    }
+
+    // TODO(trevor:removeServiceList)
+    if ('experimental_updateServiceDefinitions' in this.config) {
+      this.logger.warn(
+        'The `experimental_updateServiceDefinitions` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+      );
+    }
+
+    // TODO(trevor:removeServiceList)
+    if ('serviceList' in this.config) {
+      this.logger.warn(
+        'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+      );
+    }
+
+    // TODO(trevor:removeServiceList)
+    if ('localServiceList' in this.config) {
+      this.logger.warn(
+        'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
       );
     }
   }
@@ -819,6 +854,8 @@ export class ApolloGateway implements GraphQLService {
     };
   }
 
+  // TODO(trevor:removeServiceList): gateway shouldn't be responsible for polling
+  // in the future.
   // This function waits an appropriate amount, updates composition, and calls itself
   // again. Note that it is an async function whose Promise is not actually awaited;
   // it should never throw itself other than due to a bug in its state machine.
@@ -940,6 +977,7 @@ export class ApolloGateway implements GraphQLService {
   protected async loadServiceDefinitions(
     config: RemoteGatewayConfig | ManagedGatewayConfig,
   ): Promise<CompositionUpdate> {
+    // TODO(trevor:removeServiceList)
     if (isRemoteConfig(config)) {
       const serviceList = config.serviceList.map((serviceDefinition) => ({
         ...serviceDefinition,

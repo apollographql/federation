@@ -1,8 +1,11 @@
-import { GraphQLError, GraphQLSchema } from "graphql";
-import { HeadersInit } from "node-fetch";
+import { GraphQLError, GraphQLSchema } from 'graphql';
+import { HeadersInit } from 'node-fetch';
 import { fetch } from 'apollo-server-env';
-import { GraphQLRequestContextExecutionDidStart, Logger } from "apollo-server-types";
-import { ServiceDefinition } from "@apollo/federation";
+import {
+  GraphQLRequestContextExecutionDidStart,
+  Logger,
+} from 'apollo-server-types';
+import { ServiceDefinition } from '@apollo/federation';
 import { GraphQLDataSource } from './datasources/types';
 import { QueryPlan } from '@apollo/query-planner';
 import { OperationContext } from './operationContext';
@@ -80,7 +83,9 @@ export interface SupergraphSdlUpdate {
   supergraphSdl: string;
 }
 
-export function isSupergraphSdlUpdate(update: CompositionUpdate): update is SupergraphSdlUpdate {
+export function isSupergraphSdlUpdate(
+  update: CompositionUpdate,
+): update is SupergraphSdlUpdate {
   return 'supergraphSdl' in update;
 }
 
@@ -128,11 +133,16 @@ interface GatewayConfigBase {
   serviceHealthCheck?: boolean;
 }
 
+// TODO(trevor:removeServiceList)
 export interface RemoteGatewayConfig extends GatewayConfigBase {
+  // @deprecated: use `supergraphSdl` in its function form instead
   serviceList: ServiceEndpointDefinition[];
+  // @deprecated: use `supergraphSdl` in its function form instead
   introspectionHeaders?:
     | HeadersInit
-    | ((service: ServiceEndpointDefinition) => Promise<HeadersInit> | HeadersInit);
+    | ((
+        service: ServiceEndpointDefinition,
+      ) => Promise<HeadersInit> | HeadersInit);
 }
 
 export interface ManagedGatewayConfig extends GatewayConfigBase {
@@ -145,45 +155,69 @@ export interface ManagedGatewayConfig extends GatewayConfigBase {
   uplinkMaxRetries?: number;
 }
 
+// TODO(trevor:removeServiceList): migrate users to `supergraphSdl` function option
 interface ManuallyManagedServiceDefsGatewayConfig extends GatewayConfigBase {
+  // @deprecated: use `supergraphSdl` in its function form instead
   experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
 }
 
+// TODO(trevor:removeServiceList): migrate users to `supergraphSdl` function option
+interface ExperimentalManuallyManagedSupergraphSdlGatewayConfig
+  extends GatewayConfigBase {
+  // @deprecated: use `supergraphSdl` in its function form instead
+  experimental_updateSupergraphSdl: Experimental_UpdateSupergraphSdl;
+}
+
 interface ManuallyManagedSupergraphSdlGatewayConfig extends GatewayConfigBase {
-  experimental_updateSupergraphSdl: Experimental_UpdateSupergraphSdl
+  supergraphSdl: (
+    update: (updatedSupergraphSdl: string) => void,
+  ) => Promise<string | { supergraphSdl: string; cleanup: () => void }>;
 }
 
 type ManuallyManagedGatewayConfig =
   | ManuallyManagedServiceDefsGatewayConfig
+  | ExperimentalManuallyManagedSupergraphSdlGatewayConfig
   | ManuallyManagedSupergraphSdlGatewayConfig;
 
+// TODO(trevor:removeServiceList)
 interface LocalGatewayConfig extends GatewayConfigBase {
+  // @deprecated: use `supergraphSdl` in its function form instead
   localServiceList: ServiceDefinition[];
 }
 
-interface SupergraphSdlGatewayConfig extends GatewayConfigBase {
+interface StaticSupergraphSdlGatewayConfig extends GatewayConfigBase {
   supergraphSdl: string;
 }
 
-export type StaticGatewayConfig = LocalGatewayConfig | SupergraphSdlGatewayConfig;
+export type StaticGatewayConfig =
+  | LocalGatewayConfig
+  | StaticSupergraphSdlGatewayConfig;
 
 type DynamicGatewayConfig =
-| ManagedGatewayConfig
-| RemoteGatewayConfig
-| ManuallyManagedGatewayConfig;
+  | ManagedGatewayConfig
+  | RemoteGatewayConfig
+  | ManuallyManagedGatewayConfig;
 
 export type GatewayConfig = StaticGatewayConfig | DynamicGatewayConfig;
 
-export function isLocalConfig(config: GatewayConfig): config is LocalGatewayConfig {
+// TODO(trevor:removeServiceList)
+export function isLocalConfig(
+  config: GatewayConfig,
+): config is LocalGatewayConfig {
   return 'localServiceList' in config;
 }
 
-export function isRemoteConfig(config: GatewayConfig): config is RemoteGatewayConfig {
+// TODO(trevor:removeServiceList)
+export function isRemoteConfig(
+  config: GatewayConfig,
+): config is RemoteGatewayConfig {
   return 'serviceList' in config;
 }
 
-export function isSupergraphSdlConfig(config: GatewayConfig): config is SupergraphSdlGatewayConfig {
-  return 'supergraphSdl' in config;
+export function isStaticSupergraphSdlConfig(
+  config: GatewayConfig,
+): config is StaticSupergraphSdlGatewayConfig {
+  return 'supergraphSdl' in config && typeof config.supergraphSdl === 'string';
 }
 
 // A manually managed config means the user has provided a function which
@@ -192,6 +226,7 @@ export function isManuallyManagedConfig(
   config: GatewayConfig,
 ): config is ManuallyManagedGatewayConfig {
   return (
+    ('supergraphSdl' in config && typeof config.supergraphSdl === 'function') ||
     'experimental_updateServiceDefinitions' in config ||
     'experimental_updateSupergraphSdl' in config
   );
@@ -205,14 +240,16 @@ export function isManagedConfig(
     'schemaConfigDeliveryEndpoint' in config ||
     (!isRemoteConfig(config) &&
       !isLocalConfig(config) &&
-      !isSupergraphSdlConfig(config) &&
+      !isStaticSupergraphSdlConfig(config) &&
       !isManuallyManagedConfig(config))
   );
 }
 
 // A static config is one which loads synchronously on start and never updates
-export function isStaticConfig(config: GatewayConfig): config is StaticGatewayConfig {
-  return isLocalConfig(config) || isSupergraphSdlConfig(config);
+export function isStaticConfig(
+  config: GatewayConfig,
+): config is StaticGatewayConfig {
+  return isLocalConfig(config) || isStaticSupergraphSdlConfig(config);
 }
 
 // A dynamic config is one which loads asynchronously and (can) update via polling
