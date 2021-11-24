@@ -49,7 +49,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   try {
     supergraphSdl = printSchema(supergraphSchema, orderPrintedDefinitions(defaultPrintOptions));
   } catch (err) {
-    return { errors: [err]};
+    return { errors: [err] };
   }
 
   return {
