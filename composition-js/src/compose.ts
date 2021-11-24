@@ -47,7 +47,10 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   // printSchema calls validateOptions, which can throw
   let supergraphSdl;
   try {
-    supergraphSdl = printSchema(supergraphSchema, orderPrintedDefinitions(defaultPrintOptions));
+    supergraphSdl = printSchema(
+      supergraphSchema,
+      orderPrintedDefinitions(defaultPrintOptions)
+    );
   } catch (err) {
     return { errors: [err] };
   }
