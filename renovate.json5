@@ -35,18 +35,6 @@
   "enabledManagers": ["npm", "cargo"],
   postUpdateOptions: ["npmDedupe"],
   "packageRules": [
-    // We use jest-cucumber which does not yet support Jest v27. Trying to
-    // upgrade to Jest v27 leaves us with multiple copies of Jest installed
-    // which gives TS build errors. See
-    // https://github.com/bencompton/jest-cucumber/issues/131 (Also, @types/jest
-    // v27 doesn't exist yet, though it seems like we maybe should be able to
-    // just drop that dependency and the `types` declaration in
-    // tsconfig.test.base.json. But jest-cucumber still pulls it in anyway for
-    // now. https://github.com/DefinitelyTyped/DefinitelyTyped/issues/53655)
-    {
-      matchPackageNames: ["jest", "ts-jest", "pretty-format"],
-      allowedVersions: "26.x",
-    },
     // We set this to the lowest supported Node.js version to ensure we don't
     // use newer Node.js APIs unknowingly during development which are going to
     // fail in CI anyway when they're run against the full range of Node.js
@@ -119,5 +107,10 @@
       "matchPackageNames": ["gatsby"],
       "allowedVersions": "2.x",
     },
+    {
+      "matchBaseBranches": ["version-0.x"],
+      "excludePackageNames": ["deno_core"],
+      "enabled": false
+    }
   ]
 }
