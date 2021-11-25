@@ -209,7 +209,6 @@ describe('lifecycle hooks', () => {
       experimental_pollInterval: 10,
       logger,
     });
-    expect(logger.warn).toHaveBeenCalledTimes(1);
     expect(logger.warn).toHaveBeenCalledWith(
       'Polling running services is dangerous and not recommended in production. Polling should only be used against a registry. If you are polling running services, use with caution.',
     );

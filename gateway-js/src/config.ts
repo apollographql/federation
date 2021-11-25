@@ -168,10 +168,17 @@ interface ExperimentalManuallyManagedSupergraphSdlGatewayConfig
   experimental_updateSupergraphSdl: Experimental_UpdateSupergraphSdl;
 }
 
+export function isManuallyManagedSupergraphSdlGatewayConfig(
+  config: GatewayConfig,
+): config is ManuallyManagedSupergraphSdlGatewayConfig {
+  return (
+    'supergraphSdl' in config && typeof config.supergraphSdl === 'function'
+  );
+}
 interface ManuallyManagedSupergraphSdlGatewayConfig extends GatewayConfigBase {
   supergraphSdl: (
-    update: (updatedSupergraphSdl: string) => void,
-  ) => Promise<string | { supergraphSdl: string; cleanup: () => void }>;
+    update: (updatedSupergraphSdl: string) => Promise<void>,
+  ) => Promise<{ supergraphSdl: string; cleanup?: () => Promise<void> }>;
 }
 
 type ManuallyManagedGatewayConfig =

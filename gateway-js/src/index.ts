@@ -69,6 +69,7 @@ import {
   ServiceDefinitionUpdate,
   SupergraphSdlUpdate,
   CompositionUpdate,
+  isManuallyManagedSupergraphSdlGatewayConfig,
 } from './config';
 import { buildComposedSchema } from '@apollo/query-planner';
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
@@ -76,6 +77,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { CoreSchema } from '@apollo/core-schema';
 import { featureSupport } from './core';
+import { createHash } from 'crypto';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -200,7 +202,7 @@ export class ApolloGateway implements GraphQLService {
   private experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
   // Used for overriding the default service list fetcher. This should return
   // an array of ServiceDefinition. *This function must be awaited.*
-  private updateServiceDefinitions: Experimental_UpdateComposition;
+  private updateServiceDefinitions?: Experimental_UpdateComposition;
   // how often service defs should be loaded/updated (in ms)
   private experimental_pollInterval?: number;
   // Configure the endpoints by which gateway will access its precomposed schema.
@@ -208,6 +210,13 @@ export class ApolloGateway implements GraphQLService {
   // * `undefined` means the gateway is not using managed federation
   private uplinkEndpoints?: string[];
   private uplinkMaxRetries?: number;
+  // The Promise<void> case is strictly for handling the case where the user-provided
+  // function throws an error.
+  private manualConfigPromise?: Promise<{
+    supergraphSdl: string;
+    cleanup?: () => Promise<void>;
+  } | void>;
+  private toDispose: (() => Promise<void>)[] = [];
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -262,6 +271,16 @@ export class ApolloGateway implements GraphQLService {
       } else if ('experimental_updateServiceDefinitions' in this.config) {
         this.updateServiceDefinitions =
           this.config.experimental_updateServiceDefinitions;
+      } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
+        this.manualConfigPromise = this.config
+          .supergraphSdl(this.updateWithSupergraphSdl.bind(this))
+          .catch((e) => {
+            // Not swallowing the error here results in an uncaught rejection.
+            // An error will be thrown when this promise resolves to nothing.
+            this.logger.error(
+              'User-defined `supergraphSdl` function threw error: ' + e.message,
+            );
+          });
       } else {
         throw Error(
           'Programming error: unexpected manual configuration provided',
@@ -441,9 +460,13 @@ export class ApolloGateway implements GraphQLService {
     this.maybeWarnOnConflictingConfig();
 
     // Handles initial assignment of `this.schema`, `this.queryPlanner`
-    isStaticConfig(this.config)
-      ? this.loadStatic(this.config)
-      : await this.loadDynamic(unrefTimer);
+    if (isStaticConfig(this.config)) {
+      this.loadStatic(this.config);
+    } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
+      await this.loadManuallyManaged();
+    } else {
+      await this.loadDynamic(unrefTimer);
+    }
 
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
     this.logger.info(
@@ -496,6 +519,25 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
+  private async loadManuallyManaged() {
+    try {
+      const result = await this.manualConfigPromise;
+      if (!result?.supergraphSdl)
+        throw new Error(
+          'User provided `supergraphSdl` function did not return an object containing a `supergraphSdl` property',
+        );
+      if (result?.cleanup) {
+        this.toDispose.push(result.cleanup);
+      }
+      await this.updateWithSupergraphSdl(result.supergraphSdl);
+    } catch (e) {
+      this.state = { phase: 'failed to load' };
+      throw e;
+    }
+
+    this.state = { phase: 'loaded' };
+  }
+
   private shouldBeginPolling() {
     return isManagedConfig(this.config) || this.experimental_pollInterval;
   }
@@ -503,6 +545,11 @@ export class ApolloGateway implements GraphQLService {
   private async updateSchema(): Promise<void> {
     this.logger.debug('Checking for composition updates...');
 
+    if (!this.updateServiceDefinitions) {
+      throw new Error(
+        'Programming error: `updateSchema` was called unexpectedly.',
+      );
+    }
     // This may throw, but an error here is caught and logged upstream
     const result = await this.updateServiceDefinitions(this.config);
 
@@ -576,19 +623,28 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private async updateWithSupergraphSdl(
-    result: SupergraphSdlUpdate,
+    result: SupergraphSdlUpdate | string,
   ): Promise<void> {
-    if (result.id === this.compositionId) {
+    if (typeof result === 'string') {
+    } else if (result.id === this.compositionId) {
       this.logger.debug('No change in composition since last check.');
       return;
     }
+
+    const supergraphSdl =
+      typeof result === 'string' ? result : result.supergraphSdl;
+
+    const id =
+      typeof result === 'string'
+        ? createHash('sha256').update(result).digest('hex')
+        : result.id;
 
     // TODO(trevor): #580 redundant parse
     // This may throw, so we'll calculate early (specifically before making any updates)
     // In the case that it throws, the gateway will:
     //   * on initial load, throw the error
     //   * on update, log the error and don't update
-    const parsedSupergraphSdl = parse(result.supergraphSdl);
+    const parsedSupergraphSdl = parse(supergraphSdl);
 
     const previousSchema = this.schema;
     const previousSupergraphSdl = this.parsedSupergraphSdl;
@@ -598,28 +654,27 @@ export class ApolloGateway implements GraphQLService {
       this.logger.info('Updated Supergraph SDL was found.');
     }
 
-    await this.maybePerformServiceHealthCheck(result);
+    await this.maybePerformServiceHealthCheck({ supergraphSdl, id });
 
-    this.compositionId = result.id;
-    this.supergraphSdl = result.supergraphSdl;
+    this.compositionId = id;
+    this.supergraphSdl = supergraphSdl;
     this.parsedSupergraphSdl = parsedSupergraphSdl;
 
-    const { schema, supergraphSdl } = this.createSchemaFromSupergraphSdl(
-      result.supergraphSdl,
-    );
+    const { schema, supergraphSdl: generatedSupergraphSdl } =
+      this.createSchemaFromSupergraphSdl(supergraphSdl);
 
-    if (!supergraphSdl) {
+    if (!generatedSupergraphSdl) {
       this.logger.error(
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
-      this.updateWithSchemaAndNotify(schema, supergraphSdl);
+      this.updateWithSchemaAndNotify(schema, generatedSupergraphSdl);
 
       if (this.experimental_didUpdateComposition) {
         this.experimental_didUpdateComposition(
           {
-            compositionId: result.id,
-            supergraphSdl: result.supergraphSdl,
+            compositionId: id,
+            supergraphSdl: supergraphSdl,
             schema,
           },
           previousCompositionId && previousSupergraphSdl && previousSchema
@@ -1244,6 +1299,17 @@ export class ApolloGateway implements GraphQLService {
   // schema polling). Can be called multiple times safely. Once it (async)
   // returns, all gateway background activity will be finished.
   public async stop() {
+    Promise.all(
+      this.toDispose.map((p) =>
+        p().catch((e) => {
+          this.logger.error(
+            'Error occured while calling user provided `cleanup` function: ' +
+              (e.message ?? e),
+          );
+        }),
+      ),
+    );
+    this.toDispose = [];
     switch (this.state.phase) {
       case 'initialized':
       case 'failed to load':
@@ -1297,6 +1363,14 @@ export class ApolloGateway implements GraphQLService {
       }
       default:
         throw new UnreachableCaseError(this.state);
+    }
+  }
+
+  public __testing() {
+    return {
+      state: this.state,
+      compositionId: this.compositionId,
+      supergraphSdl: this.supergraphSdl,
     }
   }
 }
