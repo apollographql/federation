@@ -175,9 +175,16 @@ export function isManuallyManagedSupergraphSdlGatewayConfig(
     'supergraphSdl' in config && typeof config.supergraphSdl === 'function'
   );
 }
+
+export interface SupergraphSdlUpdateFunction {
+  (updatedSupergraphSdl: string): Promise<void>
+}
+export interface SupergraphSdlUpdateOptions {
+  update: SupergraphSdlUpdateFunction;
+}
 interface ManuallyManagedSupergraphSdlGatewayConfig extends GatewayConfigBase {
   supergraphSdl: (
-    update: (updatedSupergraphSdl: string) => Promise<void>,
+    opts: SupergraphSdlUpdateOptions,
   ) => Promise<{ supergraphSdl: string; cleanup?: () => Promise<void> }>;
 }
 
@@ -233,7 +240,7 @@ export function isManuallyManagedConfig(
   config: GatewayConfig,
 ): config is ManuallyManagedGatewayConfig {
   return (
-    ('supergraphSdl' in config && typeof config.supergraphSdl === 'function') ||
+    isManuallyManagedSupergraphSdlGatewayConfig(config) ||
     'experimental_updateServiceDefinitions' in config ||
     'experimental_updateSupergraphSdl' in config
   );

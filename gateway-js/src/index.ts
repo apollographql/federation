@@ -273,7 +273,7 @@ export class ApolloGateway implements GraphQLService {
           this.config.experimental_updateServiceDefinitions;
       } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
         this.manualConfigPromise = this.config
-          .supergraphSdl(this.updateWithSupergraphSdl.bind(this))
+          .supergraphSdl({ update: this.updateWithSupergraphSdl.bind(this) })
           .catch((e) => {
             // Not swallowing the error here results in an uncaught rejection.
             // An error will be thrown when this promise resolves to nothing.
@@ -625,12 +625,6 @@ export class ApolloGateway implements GraphQLService {
   private async updateWithSupergraphSdl(
     result: SupergraphSdlUpdate | string,
   ): Promise<void> {
-    if (typeof result === 'string') {
-    } else if (result.id === this.compositionId) {
-      this.logger.debug('No change in composition since last check.');
-      return;
-    }
-
     const supergraphSdl =
       typeof result === 'string' ? result : result.supergraphSdl;
 
@@ -638,6 +632,11 @@ export class ApolloGateway implements GraphQLService {
       typeof result === 'string'
         ? createHash('sha256').update(result).digest('hex')
         : result.id;
+
+    if (id === this.compositionId) {
+      this.logger.debug('No change in composition since last check.');
+      return;
+    }
 
     // TODO(trevor): #580 redundant parse
     // This may throw, so we'll calculate early (specifically before making any updates)
@@ -1427,3 +1426,8 @@ export {
 };
 
 export * from './datasources';
+
+export {
+  SupergraphSdlUpdateOptions,
+  SupergraphSdlUpdateFunction,
+} from './config';

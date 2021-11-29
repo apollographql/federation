@@ -1,4 +1,4 @@
-import { ApolloGateway } from '@apollo/gateway';
+import { ApolloGateway, SupergraphSdlUpdateFunction } from '@apollo/gateway';
 import { fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
 import { createHash } from 'crypto';
 import { ApolloServer } from 'apollo-server';
@@ -112,9 +112,9 @@ describe('Using supergraphSdl dynamic configuration', () => {
     const [userPromise, resolveSupergraph] =
       waitUntil<{ supergraphSdl: string }>();
 
-    let userUpdateFn: (updatedSupergraphSdl: string) => Promise<void>;
+    let userUpdateFn: SupergraphSdlUpdateFunction;
     const gateway = new ApolloGateway({
-      async supergraphSdl(update) {
+      async supergraphSdl({ update }) {
         userUpdateFn = update;
         return userPromise;
       },
@@ -179,9 +179,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
 
     it('gracefully handles Promise rejections from user `cleanup` function', async () => {
       const rejectionMessage = 'thrown from cleanup function';
-      const cleanup = jest.fn(() =>
-        Promise.reject(rejectionMessage),
-      );
+      const cleanup = jest.fn(() => Promise.reject(rejectionMessage));
       const gateway = new ApolloGateway({
         async supergraphSdl() {
           return {
