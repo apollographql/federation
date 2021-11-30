@@ -727,13 +727,13 @@ describe('composition', () => {
         `);
 
         // Making sure we properly extract the type of `f` for both subgraphs
-        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        const fInA = (subgraphs.get('subgraphA')!.schema.type('T') as ObjectType).field('f');
         expect(fInA).toBeDefined();
-        expect(fInA?.type?.toString()).toBe('I');
+        expect(fInA?.type.toString()).toBe('I');
 
-        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        const fInB = (subgraphs.get('subgraphB')!.schema.type('T') as ObjectType).field('f');
         expect(fInB).toBeDefined();
-        expect(fInB?.type?.toString()).toBe('A');
+        expect(fInB?.type.toString()).toBe('A');
       });
 
       it('merges union subtypes', () => {
@@ -802,13 +802,13 @@ describe('composition', () => {
         `);
 
         // Making sur we properly extract the type of `f` for both subgraphs
-        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        const fInA = (subgraphs.get('subgraphA')!.schema.type('T') as ObjectType).field('f');
         expect(fInA).toBeDefined();
-        expect(fInA?.type?.toString()).toBe('U');
+        expect(fInA?.type.toString()).toBe('U');
 
-        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        const fInB = (subgraphs.get('subgraphB')!.schema.type('T') as ObjectType).field('f');
         expect(fInB).toBeDefined();
-        expect(fInB?.type?.toString()).toBe('A');
+        expect(fInB?.type.toString()).toBe('A');
       });
 
       it('merges complex subtypes', () => {
@@ -888,13 +888,13 @@ describe('composition', () => {
         `);
 
         // Making sur we properly extract the type of `f` for both subgraphs
-        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        const fInA = (subgraphs.get('subgraphA')!.schema.type('T') as ObjectType).field('f');
         expect(fInA).toBeDefined();
-        expect(fInA?.type?.toString()).toBe('I');
+        expect(fInA?.type.toString()).toBe('I');
 
-        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        const fInB = (subgraphs.get('subgraphB')!.schema.type('T') as ObjectType).field('f');
         expect(fInB).toBeDefined();
-        expect(fInB?.type?.toString()).toBe('A!');
+        expect(fInB?.type.toString()).toBe('A!');
       });
 
       it('merges subtypes within lists', () => {
@@ -974,13 +974,13 @@ describe('composition', () => {
         `);
 
         // Making sur we properly extract the type of `f` for both subgraphs
-        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        const fInA = (subgraphs.get('subgraphA')!.schema.type('T') as ObjectType).field('f');
         expect(fInA).toBeDefined();
-        expect(fInA?.type?.toString()).toBe('[I]');
+        expect(fInA?.type.toString()).toBe('[I]');
 
-        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        const fInB = (subgraphs.get('subgraphB')!.schema.type('T') as ObjectType).field('f');
         expect(fInB).toBeDefined();
-        expect(fInB?.type?.toString()).toBe('[A!]');
+        expect(fInB?.type.toString()).toBe('[A!]');
       });
 
       it('merges subtypes within non-nullable', () => {
@@ -1060,13 +1060,13 @@ describe('composition', () => {
         `);
 
         // Making sur we properly extract the type of `f` for both subgraphs
-        const fInA = (subgraphs.get('subgraphA')!.schema.type('T')! as ObjectType).field('f');
+        const fInA = (subgraphs.get('subgraphA')!.schema.type('T') as ObjectType).field('f');
         expect(fInA).toBeDefined();
-        expect(fInA?.type?.toString()).toBe('I!');
+        expect(fInA?.type.toString()).toBe('I!');
 
-        const fInB = (subgraphs.get('subgraphB')!.schema.type('T')! as ObjectType).field('f');
+        const fInB = (subgraphs.get('subgraphB')!.schema.type('T') as ObjectType).field('f');
         expect(fInB).toBeDefined();
-        expect(fInB?.type?.toString()).toBe('A!');
+        expect(fInB?.type.toString()).toBe('A!');
       });
     });
 

@@ -417,7 +417,7 @@ function areTypesCompatible(variableType: InputType, locationType: InputType): b
 }
 
 export function isValidValue(value: any, argument: ArgumentDefinition<any>, variableDefinitions: VariableDefinitions): boolean {
-  return isValidValueApplication(value, argument.type!, argument.defaultValue, variableDefinitions);
+  return isValidValueApplication(value, argument.type, argument.defaultValue, variableDefinitions);
 }
 
 function isValidValueApplication(value: any, locationType: InputType, locationDefault: any, variableDefinitions: VariableDefinitions): boolean {
@@ -453,7 +453,7 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
     if (typeof value !== 'object') {
       return false;
     }
-    const isValid = locationType.fields().every(field => isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions));
+    const isValid = locationType.fields().every(field => isValidValueApplication(value[field.name], field.type, undefined, variableDefinitions));
     return isValid;
   }
 
@@ -574,7 +574,7 @@ export function valueFromAST(node: ValueNode, expectedType: InputType): any {
       // TODO: as we recurse in sub-objects, we may get an error on a field value deep in the object
       // and the error will not be precise to where it happens. We could try to build the path to
       // the error and include it in the error somehow.
-      obj[name] = valueFromAST(f.value, field.type!);
+      obj[name] = valueFromAST(f.value, field.type);
     }
     return obj;
   }

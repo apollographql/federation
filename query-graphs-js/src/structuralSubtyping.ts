@@ -69,7 +69,7 @@ function isObjectInputSubtype(objectInputType: InputObjectType, maybeSubType: In
     .filter(isAccessible)
     .every(subtypeField => {
       const field = objectInputType.field(subtypeField.name);
-      return field && isAccessible(field) ? isStructuralInputSubType(field.type!, subtypeField.type!) : false;
+      return field && isAccessible(field) ? isStructuralInputSubType(field.type, subtypeField.type) : false;
     });
 }
 
@@ -113,12 +113,12 @@ export function isStructuralFieldSubtype(
   if (fieldDef.name !== maybeSubType.name) {
     return false;
   }
-  if (!isSubtype(maybeSubType.type!, fieldDef.type!, allowedRules, unionMembershipTester, implementsInterfaceTester)) {
+  if (!isSubtype(maybeSubType.type, fieldDef.type, allowedRules, unionMembershipTester, implementsInterfaceTester)) {
     return false;
   }
   for (const argDef of maybeSubType.arguments().filter(isAccessible)) {
     const providedArgDef = getArg(fieldDef, argDef.name);
-    if (!providedArgDef || !isStructuralInputSubType(providedArgDef.type!, argDef.type!)) {
+    if (!providedArgDef || !isStructuralInputSubType(providedArgDef.type, argDef.type)) {
       return false;
     }
   }

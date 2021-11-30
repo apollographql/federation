@@ -128,11 +128,11 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
     return false;
   }
   const featureArg = definition.argument('feature');
-  if (!featureArg || !sameType(featureArg.type!, new NonNullType(directive.schema().stringType()))) {
+  if (!featureArg || !sameType(featureArg.type, new NonNullType(directive.schema().stringType()))) {
     return false;
   }
   const asArg = definition.argument('as');
-  if (asArg && !sameType(asArg.type!, directive.schema().stringType())) {
+  if (asArg && !sameType(asArg.type, directive.schema().stringType())) {
     return false;
   }
   if (!definition.repeatable || definition.locations.length !== 1 || definition.locations[0] !== DirectiveLocation.SCHEMA) {

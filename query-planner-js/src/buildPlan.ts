@@ -1469,7 +1469,7 @@ function computeGroupsForTree(
           }
 
           const newMergeAt = operation.kind === 'Field'
-            ? addToResponsePath(updatedMergeAt, operation.responseName(), (edge.transition as FieldCollection).definition.type!)
+            ? addToResponsePath(updatedMergeAt, operation.responseName(), (edge.transition as FieldCollection).definition.type)
             : updatedMergeAt;
           stack.push([child, updatedGroup, newMergeAt, updatedPath.concat(operation)]);
         }
@@ -1482,7 +1482,7 @@ function computeGroupsForTree(
 function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet) {
   for (const selection of selectionSet.selections()) {
     if (selection.kind == 'FieldSelection') {
-      const fieldBaseType = baseType(selection.field.definition.type!);
+      const fieldBaseType = baseType(selection.field.definition.type);
       if (isAbstractType(fieldBaseType)) {
         selection.selectionSet!.add(new FieldSelection(new Field(fieldBaseType.typenameField()!)));
       }

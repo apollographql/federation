@@ -872,7 +872,7 @@ class Merger {
         continue;
       }
       // To be valid, an external field must use the same type as the merged field (or "at least" a subtype).
-      if (!(sameType(dest.type!, source.type!) || (!allTypesEqual && this.isStrictSubtype(dest.type!, source.type!)))) {
+      if (!(sameType(dest.type, source.type) || (!allTypesEqual && this.isStrictSubtype(dest.type, source.type)))) {
         hasInvalidTypes = true;
       }
 
@@ -886,7 +886,7 @@ class Merger {
           invalidArgsPresence.add(name);
           continue;
         }
-        if (!sameType(destArg.type!, arg.type!) && !this.isStrictSubtype(arg.type!, destArg.type!)) {
+        if (!sameType(destArg.type, arg.type) && !this.isStrictSubtype(arg.type, destArg.type)) {
           invalidArgsTypes.add(name);
         }
         if (destArg.defaultValue !== arg.defaultValue) {
@@ -990,7 +990,7 @@ class Merger {
         graph: name,
         requires: this.getFieldSet(source, federationBuiltIns.requiresDirective(this.subgraphsSchema[idx])),
         provides: this.getFieldSet(source, federationBuiltIns.providesDirective(this.subgraphsSchema[idx])),
-        type: allTypesEqual ? undefined : source.type?.toString(),
+        type: allTypesEqual ? undefined : source.type.toString(),
         external: external ? true : undefined,
       });
     }
@@ -1017,7 +1017,7 @@ class Merger {
         continue;
       }
       // Note that subtyping checks below relies on
-      const sourceType = source.type!;
+      const sourceType = source.type;
       if (!destType || sameType(destType, sourceType)) {
         destType = sourceType;
       } else if (this.isStrictSubtype(destType, sourceType)) {
@@ -1062,7 +1062,7 @@ class Merger {
         `${elementKind} "${dest.coordinate}" has mismatched, but compatible, types across subgraphs: `,
         dest,
         sources,
-        field => field.type!.toString(),
+        field => field.type.toString(),
         (elt, subgraphs) => `will use type "${elt}" (from ${subgraphs}) in supergraph but "${dest.coordinate}" has `,
         (elt, subgraphs) => `${isContravariant ? 'supertype' : 'subtype'} "${elt}" in ${subgraphs}`
       );
@@ -1080,8 +1080,8 @@ class Merger {
       type,
       maybeSubType,
       this.options.allowedFieldTypeMergingSubtypingRules,
-      (union, maybeMember) => (this.merged.type(union.name)! as UnionType).hasTypeMember(maybeMember.name),
-      (maybeImplementer, itf) => (this.merged.type(maybeImplementer.name)! as (ObjectType | InterfaceType)).implementsInterface(itf)
+      (union, maybeMember) => (this.merged.type(union.name) as UnionType).hasTypeMember(maybeMember.name),
+      (maybeImplementer, itf) => (this.merged.type(maybeImplementer.name) as (ObjectType | InterfaceType)).implementsInterface(itf)
     );
   }
 

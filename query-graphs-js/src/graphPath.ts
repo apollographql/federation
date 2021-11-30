@@ -40,7 +40,7 @@ function updateRuntimeTypes(currentRuntimeTypes: readonly ObjectType[], edge: Ed
   switch (edge.transition.kind) {
     case 'FieldCollection':
       const field = edge.transition.definition;
-      if (!isCompositeType(baseType(field.type!))) {
+      if (!isCompositeType(baseType(field.type))) {
         return [];
       }
       const newRuntimeTypes: ObjectType[] = [];
@@ -1252,7 +1252,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
 }
 
 function isTerminalOperation(operation: OperationElement): boolean {
-  return operation.kind === 'Field' && isLeafType(baseType(operation.definition.type!));
+  return operation.kind === 'Field' && isLeafType(baseType(operation.definition.type));
 }
 
 export type SimultaneousPaths<V extends Vertex = Vertex> = OpGraphPath<V>[];
