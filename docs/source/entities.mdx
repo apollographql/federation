@@ -3,6 +3,8 @@ title: Entities
 description: Reference and extend types across subgraphs
 ---
 
+import {CodeColumns, ExpansionPanel} from 'gatsby-theme-apollo-docs';
+
 In Apollo Federation, an **entity** is an object type that you define canonically in _one_ subgraph and can then reference and extend in _other_ subgraphs. Entities are the core building block of a federated graph.
 
 > Types _besides_ object types (unions, interfaces, etc.) _cannot_ be entities.
@@ -205,53 +207,352 @@ type Query {
 
 ## Migrating entities and fields (advanced)
 
-As your federated graph grows, you might decide that you want an entity (or a particular field of an entity) to originate in a different subgraph. Apollo Gateway helps you perform these migrations safely.
+As your federated graph grows, you might decide that you want an entity (or a particular field of an entity) to originate in a different subgraph. This section describes how to perform these migrations.
 
 ### Entity migration
 
-Let's say our `payments` subgraph defines a `Bill` entity. Then, we add a dedicated `billing` subgraph to our federated graph. It now makes sense for the `Bill` entity to originate in the `billing` subgraph instead.
+Let's say our Payments subgraph defines a `Bill` entity:
 
-We can perform this migration safely with the following steps:
+<CodeColumns>
 
-1. In the `billing` subgraph's schema, define the `Bill` entity just as it's defined in the `payments` subgraph (do _not_ extend it). If you're using managed federation, register this schema change with Studio.
+```graphql
+# Payments subgraph
+type Bill @key(fields: "id") {
+  id: ID!
+  amount: Int!
+}
 
-    _Note that this is technically a composition error, because the `Bill` entity can't originate in more than one subgraph. However, this error is handled gracefully, as described below._
+type Payment {
+  # ...
+}
+```
 
-2. In the `billing` subgraph, define resolvers for every field of `Bill` that currently originates in the `payments` subgraph. This subgraph should resolve those fields with the exact same outcome as the resolvers in the `payments` subgraph.
+</CodeColumns>
 
-3. Deploy the updated `billing` subgraph to your environment.
+Then, we add a dedicated Billing subgraph to our federated graph. It now makes sense for the `Bill` entity to originate in the Billing subgraph instead. When we're done migrating, we want our deployed subgraph schemas to look like this:
 
-    _Again, this technically deploys a composition error. **However**, this error is handled gracefully in one of two ways, depending on whether you are using [managed federation](./managed-federation/overview/):_
+<CodeColumns>
 
-    * _If you **are** using managed federation, Apollo Studio does **not** publish an updated configuration, and the gateway continues to resolve the `Bill` entity in the `payments` subgraph._
+```graphql
+# Payments subgraph
+type Payment {
+  # ...
+}
+```
 
-    * _If you are **not** using managed federation, your gateway starts resolving the `Bill` entity in whichever subgraph is listed **last** in your gateway's [`serviceList`](/api/apollo-gateway/#constructor)._
+```graphql
+# Billing subgraph
+type Bill @key(fields: "id") {
+  id: ID!
+  amount: Int!
+}
+```
 
-4. In the `payments` subgraph's schema, remove the `Bill` entity. If you're using managed federation, register this schema change with Studio.
+</CodeColumns>
 
-    _This takes care of the composition error, regardless of whether you are using managed federation. The gateway will begin resolving the `Bill` entity in the `billing` subgraph._
+The exact steps depend on how you perform schema composition:
 
-5. Remove the resolvers for `Bill` fields from the `payments` subgraph and deploy the updated subgraph to your environment.
+<ExpansionPanel title="With Rover CLI composition">
 
-    _By removing the `Bill` entity from the `payments` schema **before** removing its associated resolvers, you guarantee that the gateway never attempts to resolve the entity in a subgraph that lacks resolvers for it._
+1. In the Billing subgraph's schema, define the `Bill` entity just as it's defined in the Payments subgraph (do _not_ extend it):
+
+    <CodeColumns>
+
+    ```graphql
+    # Payments subgraph
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+
+    type Payment {
+      # ...
+    }
+    ```
+
+    ```graphql{2-5}
+    # Billing subgraph
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+    ```
+
+    </CodeColumns>
+
+    * Note that if you perform composition at this point, it produces an error because the `Bill` entity can't originate in more than one subgraph. That's okay! We aren't running composition yet, and we'll resolve this error in a couple of steps.
+
+2. In the Billing subgraph, define resolvers for each field of `Bill` that currently originates in the Payments subgraph. This subgraph should resolve those fields with the exact same logic as the resolvers in the Payments subgraph.
+
+3. Deploy the updated Billing subgraph to your environment.
+
+    * Again, this technically deploys a composition error. However, your gateway isn't aware of this! It's still using the original supergraph schema, which indicates that `Bill` originates only in the Payments subgraph.
+
+4. In the Payments subgraph, remove the `Bill` entity and its associated resolvers (**do not deploy this change yet**):
+
+    <CodeColumns>
+
+    ```graphql
+    # Payments subgraph
+    type Payment {
+      # ...
+    }
+    ```
+
+    ```graphql
+    # Billing subgraph
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+    ```
+
+    </CodeColumns>
+
+    * This takes care of the composition error in your local environment.
+
+5. Compose an updated supergraph schema with your usual configuration using `rover supergraph compose`.
+    * This updated supergraph schema indicates that `Bill` originates in the Billing subgraph.
+
+6. Assuming CI completes successfully, deploy an updated version of your _gateway_ with the new supergraph schema.
+    * When this deployment completes, the gateway begins resolving `Bill` fields in the Billing subgraph _instead of_ the Payments subgraph.
+
+7. Deploy an updated version of your Payments subgraph without the `Bill` entity.
+    * At this point it's safe to remove this definition, because the gateway is never resolving `Bill` with the Payments subgraph.
+
+We're done! `Bill` now originates in a new subgraph, and it was resolvable during each step of the migration process.
+
+</ExpansionPanel>
+
+<ExpansionPanel title="With managed federation">
+
+1. In the Billing subgraph's schema, define the `Bill` entity just as it's defined in the Payments subgraph (do _not_ extend it):
+
+    <CodeColumns>
+
+    ```graphql
+    # Payments subgraph
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+
+    type Payment {
+      # ...
+    }
+    ```
+
+    ```graphql{2-5}
+    # Billing subgraph
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+    ```
+
+    </CodeColumns>
+
+2. Publish the updated Billing subgraph schema to Apollo.
+
+    * Note that you're publishing a composition error, because the `Bill` entity now originates in more than one subgraph. This creates a failed [launch](https://www.apollographql.com/docs/studio/launches/) in Apollo Studio. That's okay! Apollo Uplink continues to serve the most recent _valid_ supergraph schema to your gateway.
+
+3. In the Billing subgraph, define resolvers for each field of `Bill` that currently originates in the Payments subgraph. This subgraph should resolve those fields with the exact same logic as the resolvers in the Payments subgraph.
+
+4. Deploy the updated Billing subgraph to your environment.
+
+    * This change is invisible to your gateway, which is not yet aware that the Billing subgraph defines the `Bill` entity.
+
+5. In the Payments subgraph, remove the `Bill` entity and its associated resolvers:
+
+    <CodeColumns>
+
+    ```graphql
+    # Payments subgraph
+    type Payment {
+      # ...
+    }
+    ```
+
+    ```graphql
+    # Billing subgraph
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+    ```
+
+    </CodeColumns>
+
+6. Deploy the updated Payments subgraph to your environment.
+
+    * This resolves the composition error, because `Bill` now originates in a single subgraph. Apollo composes an updated supergraph schema, which your gateway automatically obtains when it polls the Apollo Uplink.
+
+We're done! `Bill` now originates in a new subgraph, and it was resolvable during each step of the migration process.
+
+</ExpansionPanel>
+
+<ExpansionPanel title="With serviceList">
+
+> ⚠️ We strongly recommend _against_ using `serviceList`. For details, see [Limitations of `serviceList`](./gateway/#limitations-of-servicelist).
+
+When you provide a `serviceList` to `ApolloGateway`, it performs composition _itself_ on startup after fetching all of your subgraph schemas. If this runtime composition fails, the gateway fails to start up, resulting in downtime.
+
+To minimize downtime for your graph, you need to make sure all of your subgraph schemas successfully compose whenever your gateway starts up. When migrating an entity, this requires a **coordinated deployment** of your modified subgraphs and a restart of the gateway itself.
+
+1. In the Billing subgraph's schema, define the `Bill` entity just as it's defined in the Payments subgraph (do _not_ extend it):
+
+    <CodeColumns>
+
+    ```graphql
+    # Payments subgraph
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+
+    type Payment {
+      # ...
+    }
+    ```
+
+    ```graphql{2-5}
+    # Billing subgraph
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+    ```
+
+    </CodeColumns>
+
+2. In the Billing subgraph, define resolvers for each field of `Bill` that currently originates in the Payments subgraph. This subgraph should resolve those fields with the exact same logic as the resolvers in the Payments subgraph.
+
+3. In the Payments subgraph's schema, remove the `Bill` entity and its associated resolvers:
+
+    <CodeColumns>
+
+    ```graphql
+    # Payments subgraph
+    type Payment {
+      # ...
+    }
+    ```
+
+    ```graphql
+    # Billing subgraph
+    type Bill @key(fields: "id") {
+      id: ID!
+      amount: Int!
+    }
+    ```
+
+    </CodeColumns>
+
+4. Bring down all instances of your gateway in your deployed environment. This downtime prevents inconsistent behavior during a rolling deploy of your subgraphs.
+
+5. Deploy the updated Payments _and_ Billing subgraphs to your environment. When these deployments complete, bring your gateway instances back up and confirm that they start up successfully.
+
+</ExpansionPanel>
+
 
 ### Field migration
 
 The steps for migrating an individual field are nearly identical in form to the steps for [migrating an entire entity](#entity-migration).
 
-Let's say our `products` subgraph defines a `Product` entity, which includes the boolean field `inStock`. Then, we add an `inventory` subgraph to our federated graph. It now makes sense for the `inStock` field to originate in the `inventory` subgraph instead.
+Let's say our Products subgraph defines a `Product` entity, which includes the boolean field `inStock`:
 
-We can perform this migration safely with the following steps (_additional commentary on each step is provided in [Entity migration](#entity-migration)_):
+<CodeColumns>
 
-1. In the `inventory` subgraph's schema, [extend](#extending) the `Product` entity to add the `inStock` field. If you're using managed federation, register this schema change with Studio.
+```graphql
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+  inStock: Boolean!
+}
+```
 
-2. In the `inventory` subgraph, add a resolver for the `inStock` field. This subgraph should resolve the field with the exact same outcome as the resolver in the `products` subgraph.
+</CodeColumns>
 
-3. Deploy the updated `inventory` subgraph to your environment.
+Then, we add an Inventory subgraph to our federated graph. It now makes sense for the `inStock` field to originate in the Inventory subgraph instead, like this:
 
-4. In the `products` subgraph's schema, remove the `inStock` field. If you're using managed federation, register this schema change with Studio.
+<CodeColumns>
 
-5. Remove the resolver for `inStock` from the `products` subgraph and deploy the updated subgraph to your environment.
+```graphql
+# Products subgraph
+type Product @key(fields: "id") {
+  id: ID!
+}
+```
+
+```graphql
+# Inventory subgraph
+extend type Product @key(fields: "id") {
+  id: ID! @external
+  inStock: Boolean!
+}
+```
+
+</CodeColumns>
+
+
+We can perform this migration with the following steps (additional commentary on each step is provided in [Entity migration](#entity-migration)):
+
+1. In the Inventory subgraph's schema, [extend](#extending) the `Product` entity to add the `inStock` field:
+
+    <CodeColumns>
+
+    ```graphql
+    # Products subgraph
+    type Product @key(fields: "id") {
+      id: ID!
+      inStock: Boolean!
+    }
+    ```
+
+    ```graphql
+    # Inventory subgraph
+    extend type Product @key(fields: "id") {
+      id: ID! @external
+      inStock: Boolean!
+    }
+    ```
+
+    </CodeColumns>
+
+    * If you're using managed federation, register this schema change with Apollo.
+
+2. In the Inventory subgraph, add a resolver for the `inStock` field. This subgraph should resolve the field with the exact same logic as the resolver in the Products subgraph.
+
+3. Deploy the updated Inventory subgraph to your environment.
+
+4. In the Products subgraph's schema, remove the `inStock` field and its associated resolver:
+
+    <CodeColumns>
+
+    ```graphql
+    # Products subgraph
+    type Product @key(fields: "id") {
+      id: ID!
+    }
+    ```
+
+    ```graphql
+    # Inventory subgraph
+    extend type Product @key(fields: "id") {
+      id: ID! @external
+      inStock: Boolean!
+    }
+    ```
+
+    </CodeColumns>
+
+    * If you're using managed federation, register this schema change with Studio.
+
+5. **If you're using Rover composition,** compose a new supergraph schema. Deploy a new version of your gateway that uses the updated schema.
+
+    * Skip this step if you're using managed federation.
+
+5. Deploy the updated Products subgraph to your environment.
 
 ## Extending an entity with computed fields (advanced)
 
