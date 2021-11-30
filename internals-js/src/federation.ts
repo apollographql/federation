@@ -33,7 +33,20 @@ import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFed
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { parseSelectionSet, SelectionSet } from './operations';
 import { tagLocations, TAG_VERSIONS } from "./tagSpec";
-import { error } from "./error";
+import {
+  errorCodeDef,
+  ErrorCodeDefinition,
+  ERR_DIRECTIVE_FIELDS_MISSING_EXTERNAL_CATEGORY,
+  ERR_DIRECTIVE_INVALID_FIELDS,
+  ERR_DIRECTIVE_INVALID_FIELDS_TYPE,
+  ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY,
+  ERR_EXTERNAL_UNUSED,
+  ERR_FIELDS_HAS_ARGS_CATEGORY,
+  ERR_GRAPHQL,
+  ERR_INVALID_SUBGRAPH_NAME,
+  ERR_PROVIDES_ON_NON_OBJECT_FIELD,
+  ERR_ROOT_TYPE_USED,
+} from "./error";
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -108,7 +121,7 @@ function validateFieldSetSelections(
     if (selection.kind === 'FieldSelection') {
       const field = selection.element().definition;
       if (field.hasArguments()) {
-        throw new GraphQLError(`field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`, field.sourceAST);
+        throw ERR_FIELDS_HAS_ARGS_CATEGORY.get(directiveName).err(`field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`, field.sourceAST);
       }
       // The field must be external if we don't allow non-external leaf fields, it's a leaf, and we haven't traversed an external field in parent chain leading here.
       const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && !hasExternalInParents;
@@ -116,13 +129,15 @@ function validateFieldSetSelections(
       if (isExternal) {
         externalFieldCoordinatesCollector.push(field.coordinate);
       } else if (mustBeExternal) {
+        const errorCode = ERR_DIRECTIVE_FIELDS_MISSING_EXTERNAL_CATEGORY.get(directiveName);
         if (externalTester.isFakeExternal(field)) {
-          throw new GraphQLError(
+          throw errorCode.err(
             `field "${field.coordinate}" should not be part of a @${directiveName} since it is already "effectively" provided by this subgraph `
             + `(while it is marked @${externalDirectiveName}, it is a @${keyDirectiveName} field of an extension type, which are not internally considered external for historical/backward compatibility reasons)`,
-            field.sourceAST);
+            field.sourceAST
+          );
         } else {
-          throw new GraphQLError(`field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveName})`, field.sourceAST);
+          throw errorCode.err(`field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveName})`, field.sourceAST);
         }
       }
       if (selection.selectionSet) {
@@ -186,7 +201,16 @@ function validateFieldSet(
         msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
       }
     }
-    return new GraphQLError(`On ${targetDescription}, for ${directive}: ${msg}`, nodes);
+
+    const codeDef = errorCodeDef(e) ?? ERR_DIRECTIVE_INVALID_FIELDS.get(directive.name);
+    return codeDef.err(
+      `On ${targetDescription}, for ${directive}: ${msg}`,
+      nodes,
+      undefined,
+      undefined,
+      undefined,
+      e,
+    );
   }
 }
 
@@ -206,7 +230,8 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
     const targetDescription = targetDescriptionExtractor(elt);
     const parentType = isOnParentType ? type : (elt.parent as NamedType);
     if (isInterfaceType(parentType)) {
-      errorCollector.push(new GraphQLError(
+      const code = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.get(definition.name);
+      errorCollector.push(code.err(
         isOnParentType
           ? `Cannot use ${definition.coordinate} on interface ${parentType.coordinate}: ${definition.coordinate} is not yet supported on interfaces`
           : `Cannot use ${definition.coordinate} on ${targetDescription} of parent type ${parentType}: ${definition.coordinate} is not yet supported within interfaces`,
@@ -240,7 +265,7 @@ function validateAllExternalFieldsUsed(
       }
 
       if (!isFieldSatisfyingInterface(field)) {
-        errorCollector.push(new GraphQLError(
+        errorCollector.push(ERR_EXTERNAL_UNUSED.err(
           `Field ${field.coordinate} is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
           + ' the field declaration has no use and should be removed (or the field should not be @external).',
           field.sourceAST
@@ -363,8 +388,7 @@ export class FederationBuiltIns extends BuiltIns {
         // composition error.
         const existing = schema.type(defaultName);
         if (existing) {
-          errors.push(error(
-            `ROOT_${k.toUpperCase()}_USED`,
+          errors.push(ERR_ROOT_TYPE_USED.get(k).err(
             `The schema has a type named "${defaultName}" but it is not set as the ${k} root type ("${type.name}" is instead): `
             + 'this is not supported by federation. '
             + 'If a root type does not use its default name, there should be no other type with that default name.',
@@ -419,7 +443,7 @@ export class FederationBuiltIns extends BuiltIns {
         }
         const type = baseType(field.type!);
         if (!isCompositeType(type)) {
-          throw new GraphQLError(
+          throw ERR_PROVIDES_ON_NON_OBJECT_FIELD.err(
             `Invalid @provides directive on field "${field.coordinate}": field has type "${field.type}" which is not a Composite Type`,
             field.sourceAST);
         }
@@ -534,7 +558,10 @@ function buildSubgraph(name: string, source: DocumentNode | string): Schema {
       : buildSchemaFromAST(source, federationBuiltIns);
   } catch (e) {
     if (e instanceof GraphQLError) {
-      throw addSubgraphToError(e, name);
+      // Note that `addSubgraphToError` only adds the provided code if the original error
+      // didn't have one, and the only one that will not have a code are GraphQL errors
+      // (since we assign specific codes to the federation errors).
+      throw addSubgraphToError(e, name, ERR_GRAPHQL);
     } else {
       throw e;
     }
@@ -552,7 +579,7 @@ export function parseFieldSetArgument(
 function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>): string {
   const fields = directive.arguments().fields;
   if (typeof fields !== 'string') {
-    throw new GraphQLError(
+    throw ERR_DIRECTIVE_INVALID_FIELDS_TYPE.get(directive.name).err(
       `Invalid value for argument ${directive.definition!.argument('fields')!.coordinate} on ${directive.parent.coordinate}: must be a string.`,
       directive.sourceAST
     );
@@ -598,7 +625,7 @@ export class Subgraphs {
       : subgraphOrName;
 
     if (toAdd.name === FEDERATION_RESERVED_SUBGRAPH_NAME) {
-      throw new GraphQLError(`Invalid name ${FEDERATION_RESERVED_SUBGRAPH_NAME} for a subgraph: this name is reserved`);
+      throw ERR_INVALID_SUBGRAPH_NAME.err(`Invalid name ${FEDERATION_RESERVED_SUBGRAPH_NAME} for a subgraph: this name is reserved`);
     }
 
     if (this.subgraphs.has(toAdd.name)) {
@@ -661,16 +688,36 @@ export function addSubgraphToASTNode(node: ASTNode, subgraph: string): SubgraphA
   };
 }
 
-export function addSubgraphToError(e: GraphQLError, subgraphName: string): GraphQLError {
-  const updatedCauses = errorCauses(e)!.map(cause => new GraphQLError(
-    `[${subgraphName}] ${cause.message}`,
-    cause.nodes ? cause.nodes.map(node => addSubgraphToASTNode(node, subgraphName)) : undefined,
-    cause.source,
-    cause.positions,
-    cause.path,
-    cause.originalError,
-    cause.extensions
-  ));
+export function addSubgraphToError(e: GraphQLError, subgraphName: string, errorCode?: ErrorCodeDefinition): GraphQLError {
+  const updatedCauses = errorCauses(e)!.map(cause => {
+    const msg = `[${subgraphName}] ${cause.message}`;
+    const nodes = cause.nodes
+      ? cause.nodes.map(node => addSubgraphToASTNode(node, subgraphName))
+      : undefined;
+
+    const code = errorCodeDef(cause) ?? errorCode;
+    if (code) {
+      return code.err(
+        msg,
+        nodes,
+        cause.source,
+        cause.positions,
+        cause.path,
+        cause.originalError,
+        cause.extensions
+      );
+    } else {
+      return new GraphQLError(
+        msg,
+        nodes,
+        cause.source,
+        cause.positions,
+        cause.path,
+        cause.originalError,
+        cause.extensions
+      );
+    }
+  });
 
   return ErrGraphQLValidationFailed(updatedCauses);
 }

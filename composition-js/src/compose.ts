@@ -6,7 +6,7 @@ import {
   orderPrintedDefinitions,
   ServiceDefinition,
   subgraphsFromServiceList,
-  error
+  ERR_SATISFIABILITY_ERROR,
 } from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
@@ -41,7 +41,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, false);
   const validationResult = validateGraphComposition(supergraphQueryGraph, federatedQueryGraph);
   if (validationResult.errors) {
-    return { errors: validationResult.errors.map(e => error('COMPOSITION_SATISFIABILITY_ERROR', e.message)) };
+    return { errors: validationResult.errors.map(e => ERR_SATISFIABILITY_ERROR.err(e.message)) };
   }
 
   // printSchema calls validateOptions, which can throw

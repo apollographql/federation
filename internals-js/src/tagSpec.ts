@@ -1,7 +1,7 @@
 import { DirectiveLocationEnum, GraphQLError } from "graphql";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import { DirectiveDefinition, NonNullType, Schema } from "./definitions";
-import { error } from "./error";
+import { ERR_TAG_DEFINITION_INVALID } from "./error";
 import { sameType } from "./types";
 import { assert } from "./utils";
 
@@ -32,8 +32,7 @@ export class TagSpecDefinition extends FeatureDefinition {
     const hasValidNameArg = nameArg && sameType(nameArg.type!, new NonNullType(definition.schema().stringType()));
     const hasValidLocations = definition.locations.every(loc => tagLocations.includes(loc));
     if (hasUnknownArguments || !hasValidNameArg || !hasValidLocations) {
-      return error(
-        'TAG_DIRECTIVE_DEFINITION_INVALID',
+      return ERR_TAG_DEFINITION_INVALID.err(
         `Found invalid @tag directive definition. Please ensure the directive definition in your schema's definitions matches the following:\n\t${printedTagDefinition}`,
       );
     }
