@@ -280,7 +280,7 @@ The exact steps depend on how you perform schema composition:
 
     </CodeColumns>
 
-    * Note that if you perform composition at this point, it produces an error because the `Bill` entity can't originate in more than one subgraph. That's okay! We'll resolve this error in a couple of steps.
+    * Note that if you perform composition at this point, it produces an error because the `Bill` entity can't originate in more than one subgraph. That's okay! We aren't running composition yet, and we'll resolve this error in a couple of steps.
 
 2. In the Billing subgraph, define resolvers for each field of `Bill` that currently originates in the Payments subgraph. This subgraph should resolve those fields with the exact same logic as the resolvers in the Payments subgraph.
 
@@ -354,7 +354,7 @@ We're done! `Bill` now originates in a new subgraph, and it was resolvable durin
 
 2. Publish the updated Billing subgraph schema to Apollo.
 
-    * Note that you're publishing a composition error, because the `Bill` entity now originates in more than one subgraph. That's okay! Your gateway continues to use your most recent _valid_ supergraph schema.
+    * Note that you're publishing a composition error, because the `Bill` entity now originates in more than one subgraph. This creates a failed [launch](https://www.apollographql.com/docs/studio/launches/) in Apollo Studio. That's okay! Apollo Uplink continues to serve the most recent _valid_ supergraph schema to your gateway.
 
 3. In the Billing subgraph, define resolvers for each field of `Bill` that currently originates in the Payments subgraph. This subgraph should resolve those fields with the exact same logic as the resolvers in the Payments subgraph.
 
