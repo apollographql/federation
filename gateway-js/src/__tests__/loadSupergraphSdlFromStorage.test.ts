@@ -67,6 +67,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         @tag(name: \\"from-accounts\\")
       = PasswordAccount | SMSAccount
 
+      type Account_5678 {
+        type: String
+      }
+
       type Amazon {
         referrer: String
       }
@@ -112,6 +116,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         id: String! @join__field(graph: PRODUCT)
         price: String @join__field(graph: PRODUCT)
         retailPrice: String @join__field(graph: REVIEWS, requires: \\"price\\")
+      }
+
+      type Car_1234 implements Product_1234 {
+        name: String
       }
 
       type Error {
@@ -219,15 +227,21 @@ describe('loadSupergraphSdlFromStorage', () => {
         country: String
       }
 
+      interface Product_1234 {
+        name: String
+      }
+
       type Query {
         body: Body! @join__field(graph: DOCUMENTS)
         book(isbn: String!): Book @join__field(graph: BOOKS)
         books: [Book] @join__field(graph: BOOKS)
         library(id: ID!): Library @join__field(graph: BOOKS)
         me: User @join__field(graph: ACCOUNTS)
+        me_5678: User_5678 @join__field(graph: ACCOUNTS)
         product(upc: String!): Product @join__field(graph: PRODUCT)
         topCars(first: Int = 5): [Car] @join__field(graph: PRODUCT)
         topProducts(first: Int = 5): [Product] @join__field(graph: PRODUCT)
+        topProducts_1234: [Product_1234] @join__field(graph: PRODUCT)
         topReviews(first: Int = 5): [Review] @join__field(graph: REVIEWS)
         user(id: ID!): User @join__field(graph: ACCOUNTS)
         vehicle(id: String!): Vehicle @join__field(graph: PRODUCT)
@@ -255,6 +269,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         @join__type(graph: ACCOUNTS, key: \\"number\\")
       {
         number: String @join__field(graph: ACCOUNTS)
+      }
+
+      type Shoe_1234 implements Product_1234 {
+        name: String
       }
 
       type Text implements NamedObject {
@@ -303,6 +321,15 @@ describe('loadSupergraphSdlFromStorage', () => {
         address: String
         description: String
         name: String
+      }
+
+      type User_5678
+        @join__owner(graph: ACCOUNTS)
+        @join__type(graph: ACCOUNTS, key: \\"id\\")
+      {
+        account: Account_5678 @join__field(graph: ACCOUNTS)
+        id: Int! @join__field(graph: ACCOUNTS)
+        name: String @join__field(graph: ACCOUNTS)
       }
 
       type Van implements Vehicle
