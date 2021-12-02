@@ -1,6 +1,6 @@
 import { ApolloGateway, SupergraphSdlUpdateFunction } from '@apollo/gateway';
 import { fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
-import { createHash } from 'crypto';
+import { createHash } from 'apollo-graphql/lib/utilities/createHash';
 import { ApolloServer } from 'apollo-server';
 import { Logger } from 'apollo-server-types';
 import { fetch } from '../../__mocks__/apollo-server-env';

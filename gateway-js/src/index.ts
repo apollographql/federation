@@ -78,7 +78,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { CoreSchema } from '@apollo/core-schema';
 import { featureSupport } from './core';
-import { createHash } from 'crypto';
+import { createHash } from 'apollo-graphql/lib/utilities/createHash';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
