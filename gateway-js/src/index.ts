@@ -70,6 +70,7 @@ import {
   SupergraphSdlUpdate,
   CompositionUpdate,
   isManuallyManagedSupergraphSdlGatewayConfig,
+  ManuallyManagedSupergraphSdlGatewayConfig,
 } from './config';
 import { buildComposedSchema } from '@apollo/query-planner';
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
@@ -216,6 +217,7 @@ export class ApolloGateway implements GraphQLService {
     supergraphSdl: string;
     cleanup?: () => Promise<void>;
   } | void>;
+  // Functions to call during gateway cleanup (when stop() is called)
   private toDispose: (() => Promise<void>)[] = [];
 
   constructor(config?: GatewayConfig) {
@@ -272,15 +274,7 @@ export class ApolloGateway implements GraphQLService {
         this.updateServiceDefinitions =
           this.config.experimental_updateServiceDefinitions;
       } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
-        this.manualConfigPromise = this.config
-          .supergraphSdl({ update: this.updateWithSupergraphSdl.bind(this) })
-          .catch((e) => {
-            // Not swallowing the error here results in an uncaught rejection.
-            // An error will be thrown when this promise resolves to nothing.
-            this.logger.error(
-              'User-defined `supergraphSdl` function threw error: ' + e.message,
-            );
-          });
+        // TODO: do nothing maybe?
       } else {
         throw Error(
           'Programming error: unexpected manual configuration provided',
@@ -398,6 +392,13 @@ export class ApolloGateway implements GraphQLService {
         'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
       );
     }
+
+    // TODO(trevor:removeServiceList)
+    if ('buildService' in this.config) {
+      this.logger.warn(
+        'The `buildService` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+      );
+    }
   }
 
   public async load(options?: {
@@ -463,7 +464,7 @@ export class ApolloGateway implements GraphQLService {
     if (isStaticConfig(this.config)) {
       this.loadStatic(this.config);
     } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
-      await this.loadManuallyManaged();
+      await this.loadManuallyManaged(this.config);
     } else {
       await this.loadDynamic(unrefTimer);
     }
@@ -519,18 +520,22 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async loadManuallyManaged() {
+  private async loadManuallyManaged(config: ManuallyManagedSupergraphSdlGatewayConfig) {
     try {
-      const result = await this.manualConfigPromise;
-      if (!result?.supergraphSdl)
+      const result = await config.supergraphSdl({
+        update: this.updateWithSupergraphSdl.bind(this),
+      });
+      if (!result?.supergraphSdl) {
         throw new Error(
           'User provided `supergraphSdl` function did not return an object containing a `supergraphSdl` property',
         );
+      }
       if (result?.cleanup) {
         this.toDispose.push(result.cleanup);
       }
       await this.updateWithSupergraphSdl(result.supergraphSdl);
     } catch (e) {
+      this.logger.error(e.message ?? e);
       this.state = { phase: 'failed to load' };
       throw e;
     }
@@ -1427,7 +1432,4 @@ export {
 
 export * from './datasources';
 
-export {
-  SupergraphSdlUpdateOptions,
-  SupergraphSdlUpdateFunction,
-} from './config';
+export { SupergraphSdlUpdateFunction } from './config';

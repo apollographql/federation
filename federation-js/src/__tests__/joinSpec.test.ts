@@ -1,7 +1,7 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { getJoinDefinitions } from "../joinSpec";
 
-const questionableNamesRemap = {
+const questionableNamesRemap: Record<string, string> = {
   accounts: 'ServiceA',
   books: 'serviceA',
   documents: 'servicea_2',

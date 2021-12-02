@@ -57,18 +57,40 @@ describe('Using supergraphSdl static configuration', () => {
 });
 
 describe('Using supergraphSdl dynamic configuration', () => {
-  it('starts and remains in `initialized` state until user Promise resolves', async () => {
-    const [forGatewayToHaveCalledSupergraphSdl, resolve] = waitUntil();
+  it(`calls the user provided function after gateway.load() is called`, async () => {
+    const spy = jest.fn(async () => ({
+      supergraphSdl: getTestingSupergraphSdl(),
+    }));
 
     const gateway = new ApolloGateway({
+      supergraphSdl: spy,
+    });
+
+    expect(spy).not.toHaveBeenCalled();
+    await gateway.load();
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('starts and remains in `initialized` state until user Promise resolves', async () => {
+    const [promise, resolve] = waitUntil();
+    const gateway = new ApolloGateway({
       async supergraphSdl() {
-        resolve();
-        return new Promise(() => {});
+        await promise;
+        return {
+          supergraphSdl: getTestingSupergraphSdl(),
+        };
       },
     });
 
-    await forGatewayToHaveCalledSupergraphSdl;
     expect(gateway.__testing().state.phase).toEqual('initialized');
+
+    // If we await here, we'll get stuck.
+    const gatewayLoaded = gateway.load();
+    expect(gateway.__testing().state.phase).toEqual('initialized');
+
+    resolve();
+    await gatewayLoaded;
+    expect(gateway.__testing().state.phase).toEqual('loaded');
   });
 
   it('starts and waits in `initialized` state after calling load but before user Promise resolves', async () => {
@@ -158,23 +180,18 @@ describe('Using supergraphSdl dynamic configuration', () => {
 
   describe('errors', () => {
     it('fails to load if user-provided `supergraphSdl` function throws', async () => {
+      const failureMessage = 'Error from supergraphSdl function';
       const gateway = new ApolloGateway({
         async supergraphSdl() {
-          throw new Error('supergraphSdl failed');
+          throw new Error(failureMessage);
         },
         logger,
       });
 
-      await expect(() =>
-        gateway.load(),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"User provided \`supergraphSdl\` function did not return an object containing a \`supergraphSdl\` property"`,
-      );
+      await expect(() => gateway.load()).rejects.toThrowError(failureMessage);
 
       expect(gateway.__testing().state.phase).toEqual('failed to load');
-      expect(logger.error).toHaveBeenCalledWith(
-        'User-defined `supergraphSdl` function threw error: supergraphSdl failed',
-      );
+      expect(logger.error).toHaveBeenCalledWith(failureMessage);
     });
 
     it('gracefully handles Promise rejections from user `cleanup` function', async () => {

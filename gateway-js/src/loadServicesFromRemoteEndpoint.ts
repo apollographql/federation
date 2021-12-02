@@ -3,10 +3,10 @@ import { parse } from 'graphql';
 import { Headers, HeadersInit } from 'node-fetch';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
 import { SERVICE_DEFINITION_QUERY } from './';
-import { CompositionUpdate, ServiceEndpointDefinition } from './config';
+import { ServiceDefinitionUpdate, ServiceEndpointDefinition } from './config';
 import { ServiceDefinition } from '@apollo/federation';
 
-type Service = ServiceEndpointDefinition & {
+export type Service = ServiceEndpointDefinition & {
   dataSource: GraphQLDataSource;
 };
 
@@ -20,7 +20,7 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
     service: ServiceEndpointDefinition,
   ) => Promise<HeadersInit | undefined>;
   serviceSdlCache: Map<string, string>;
-}): Promise<CompositionUpdate> {
+}): Promise<ServiceDefinitionUpdate> {
   if (!serviceList || !serviceList.length) {
     throw new Error(
       'Tried to load services from remote endpoints but none provided',
