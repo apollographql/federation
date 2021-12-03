@@ -36,7 +36,7 @@ describe('end-to-end', () => {
     });
     return await response.json();
   }
-  let process: ChildProcessWithoutNullStreams;
+  let child_process: ChildProcessWithoutNullStreams;
 
   beforeAll(async () => {
     backendServers = [];
@@ -49,6 +49,8 @@ describe('end-to-end', () => {
       servicesForSchema.push({name: fixture.name, url, typeDefs: fixture.typeDefs });
     }
 
+    let router_path = process.env.ROUTER_TEST;
+
     let composeRes = composeServices(servicesForSchema);
     if (composeRes.supergraphSdl !== undefined) {
       generatedSchema = composeRes.supergraphSdl;
@@ -58,7 +60,7 @@ describe('end-to-end', () => {
     console.log("writing: "+filename);
     writeFileSync(filename, generatedSchema);
 
-    if (false) {
+    if (router_path == undefined) {
       const gateway = new ApolloGateway({ serviceList });
       gatewayServer = new ApolloServer({
         gateway,
@@ -66,12 +68,13 @@ describe('end-to-end', () => {
       ({ url: gatewayUrl } = await gatewayServer.listen({ port: 0 }));
     } else {
 
-      process = spawn("/path/to/router",
+      console.log("will spawn router at "+router_path);
+      child_process = spawn(router_path,
         [
           "-c",
-          "/path/to/configuration.yaml",
+          "configuration.yaml",
           "-s",
-          "/path/to/federation/"+filename,
+          filename,
           ]);
       gatewayUrl = "http://127.0.0.1:4100/graphql";
 
@@ -91,8 +94,8 @@ describe('end-to-end', () => {
     if (gatewayServer) {
       await gatewayServer.stop();
     }
-    if (process) {
-      process.kill('SIGINT');
+    if (child_process) {
+      child_process.kill('SIGINT');
     }
   });
 
