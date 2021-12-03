@@ -276,7 +276,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
       );
 
       await expect(healthCheckCallback!(supergraphSdl)).rejects.toThrowError(
-        /The gateway subgraphs health check failed. Updating to the provided `supergraphSdl` will likely result in future request failures to subgraphs. The following error occurred during the health check/,
+        /The gateway subgraphs health check failed\. Updating to the provided `supergraphSdl` will likely result in future request failures to subgraphs\. The following error occurred during the health check/,
       );
     });
   });
