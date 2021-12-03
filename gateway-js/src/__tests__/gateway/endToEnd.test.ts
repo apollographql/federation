@@ -5,8 +5,7 @@ import fetch from 'node-fetch';
 import { ApolloGateway } from '../..';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { ApolloServerPluginInlineTrace } from 'apollo-server-core';
-import { getTestingSupergraphSdl } from '../execution-utils';
-import { composeAndValidate } from '@apollo/federation';
+import { composeServices } from '@apollo/composition';
 import { randomBytes } from 'crypto';
 import { createWriteStream, writeFileSync } from 'fs';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
@@ -50,12 +49,13 @@ describe('end-to-end', () => {
       servicesForSchema.push({name: fixture.name, url, typeDefs: fixture.typeDefs });
     }
 
-    let composeRes = composeAndValidate(servicesForSchema);
+    let composeRes = composeServices(servicesForSchema);
     if (composeRes.supergraphSdl !== undefined) {
       generatedSchema = composeRes.supergraphSdl;
     }
 
     var filename = 'supergraph'+randomBytes(4).readUInt32LE(0)+'.graphql';
+    console.log("writing: "+filename);
     writeFileSync(filename, generatedSchema);
 
     if (false) {
@@ -70,7 +70,7 @@ describe('end-to-end', () => {
         [
           "-c",
           "/path/to/configuration.yaml",
-          "--schema",
+          "-s",
           "/path/to/federation/"+filename,
           ]);
       gatewayUrl = "http://127.0.0.1:4100/graphql";
@@ -80,7 +80,7 @@ describe('end-to-end', () => {
         log.write(data);
       });
 
-      await new Promise(f => setTimeout(f, 5000));
+      await new Promise(f => setTimeout(f, 1000));
     }
   });
 
