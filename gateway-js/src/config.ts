@@ -176,20 +176,17 @@ export function isManuallyManagedSupergraphSdlGatewayConfig(
   );
 }
 
-export interface SupergraphSdlUpdateFunction {
-  (updatedSupergraphSdl: string): Promise<void>
-}
-export interface SupergraphSdlHookOptions {
-  update: SupergraphSdlUpdateFunction;
-}
+export type SupergraphSdlUpdateFunction = (updatedSupergraphSdl: string) => void;
 
-export type SupergraphSdlHookReturn = Promise<{
-  supergraphSdl: string;
-  cleanup?: () => Promise<void>;
-}>;
-
+export type SubgraphHealthCheckFunction = (supergraphSdl: string) => Promise<void>;
 export interface SupergraphSdlHook {
-  (options: SupergraphSdlHookOptions): SupergraphSdlHookReturn;
+  (options: {
+    update: SupergraphSdlUpdateFunction;
+    healthCheck: SubgraphHealthCheckFunction;
+  }): Promise<{
+    supergraphSdl: string;
+    cleanup?: () => Promise<void>;
+  }>;
 }
 export interface ManuallyManagedSupergraphSdlGatewayConfig extends GatewayConfigBase {
   supergraphSdl: SupergraphSdlHook;

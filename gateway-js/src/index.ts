@@ -520,10 +520,17 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async loadManuallyManaged(config: ManuallyManagedSupergraphSdlGatewayConfig) {
+  private getIdForSupergraphSdl(supergraphSdl: string) {
+    return createHash('sha256').update(supergraphSdl).digest('hex');
+  }
+
+  private async loadManuallyManaged(
+    config: ManuallyManagedSupergraphSdlGatewayConfig,
+  ) {
     try {
       const result = await config.supergraphSdl({
-        update: this.updateWithSupergraphSdl.bind(this),
+        update: this.externalSupergraphUpdateCallback.bind(this),
+        healthCheck: this.externalSubgraphHealthCheckCallback.bind(this),
       });
       if (!result?.supergraphSdl) {
         throw new Error(
@@ -533,7 +540,8 @@ export class ApolloGateway implements GraphQLService {
       if (result?.cleanup) {
         this.toDispose.push(result.cleanup);
       }
-      await this.updateWithSupergraphSdl(result.supergraphSdl);
+
+      this.externalSupergraphUpdateCallback(result.supergraphSdl);
     } catch (e) {
       this.logger.error(e.message ?? e);
       this.state = { phase: 'failed to load' };
@@ -558,10 +566,11 @@ export class ApolloGateway implements GraphQLService {
     // This may throw, but an error here is caught and logged upstream
     const result = await this.updateServiceDefinitions(this.config);
 
+    await this.maybePerformServiceHealthCheck(result);
     if (isSupergraphSdlUpdate(result)) {
-      await this.updateWithSupergraphSdl(result);
+      this.updateWithSupergraphSdl(result);
     } else if (isServiceDefinitionUpdate(result)) {
-      await this.updateByComposition(result);
+      this.updateByComposition(result);
     } else {
       throw new Error(
         'Programming error: unexpected result type from `updateServiceDefinitions`',
@@ -569,9 +578,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async updateByComposition(
-    result: ServiceDefinitionUpdate,
-  ): Promise<void> {
+  private updateByComposition(result: ServiceDefinitionUpdate) {
     if (
       !result.serviceDefinitions ||
       JSON.stringify(this.serviceDefinitions) ===
@@ -588,9 +595,6 @@ export class ApolloGateway implements GraphQLService {
     if (previousSchema) {
       this.logger.info('New service definitions were found.');
     }
-
-    await this.maybePerformServiceHealthCheck(result);
-
     this.compositionMetadata = result.compositionMetadata;
     this.serviceDefinitions = result.serviceDefinitions;
 
@@ -627,22 +631,43 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private async updateWithSupergraphSdl(
-    result: SupergraphSdlUpdate | string,
-  ): Promise<void> {
-    const supergraphSdl =
-      typeof result === 'string' ? result : result.supergraphSdl;
+  private externalSupergraphUpdateCallback(supergraphSdl: string) {
+    this.updateWithSupergraphSdl({
+      supergraphSdl,
+      id: this.getIdForSupergraphSdl(supergraphSdl),
+    });
+  }
 
-    const id =
-      typeof result === 'string'
-        ? createHash('sha256').update(result).digest('hex')
-        : result.id;
+  private async externalSubgraphHealthCheckCallback(supergraphSdl: string) {
+    const parsedSupergraphSdl =
+      supergraphSdl === this.supergraphSdl
+        ? this.parsedSupergraphSdl
+        : parse(supergraphSdl);
 
-    if (id === this.compositionId) {
-      this.logger.debug('No change in composition since last check.');
-      return;
+    const serviceList = this.serviceListFromSupergraphSdl(parsedSupergraphSdl!);
+    // Here we need to construct new datasources based on the new schema info
+    // so we can check the health of the services we're _updating to_.
+    const serviceMap = serviceList.reduce((serviceMap, serviceDef) => {
+      serviceMap[serviceDef.name] = {
+        url: serviceDef.url,
+        dataSource: this.createDataSource(serviceDef),
+      };
+      return serviceMap;
+    }, Object.create(null) as DataSourceMap);
+
+    try {
+      await this.serviceHealthCheck(serviceMap);
+    } catch (e) {
+      throw new Error(
+        'The gateway subgraphs health check failed. Updating to the provided ' +
+          '`supergraphSdl` will likely result in future request failures to ' +
+          'subgraphs. The following error occurred during the health check:\n' +
+          e.message,
+      );
     }
+  }
 
+  private updateWithSupergraphSdl({ supergraphSdl, id }: SupergraphSdlUpdate) {
     // TODO(trevor): #580 redundant parse
     // This may throw, so we'll calculate early (specifically before making any updates)
     // In the case that it throws, the gateway will:
@@ -657,8 +682,6 @@ export class ApolloGateway implements GraphQLService {
     if (previousSchema) {
       this.logger.info('Updated Supergraph SDL was found.');
     }
-
-    await this.maybePerformServiceHealthCheck({ supergraphSdl, id });
 
     this.compositionId = id;
     this.supergraphSdl = supergraphSdl;
@@ -678,7 +701,7 @@ export class ApolloGateway implements GraphQLService {
         this.experimental_didUpdateComposition(
           {
             compositionId: id,
-            supergraphSdl: supergraphSdl,
+            supergraphSdl,
             schema,
           },
           previousCompositionId && previousSupergraphSdl && previousSchema
@@ -741,34 +764,34 @@ export class ApolloGateway implements GraphQLService {
   private async maybePerformServiceHealthCheck(update: CompositionUpdate) {
     // Run service health checks before we commit and update the new schema.
     // This is the last chance to bail out of a schema update.
-    if (this.config.serviceHealthCheck) {
-      const serviceList = isSupergraphSdlUpdate(update)
-        ? // TODO(trevor): #580 redundant parse
-          // Parsing could technically fail and throw here, but parseability has
-          // already been confirmed slightly earlier in the code path
-          this.serviceListFromSupergraphSdl(parse(update.supergraphSdl))
-        : // Existence of this is determined in advance with an early return otherwise
-          update.serviceDefinitions!;
-      // Here we need to construct new datasources based on the new schema info
-      // so we can check the health of the services we're _updating to_.
-      const serviceMap = serviceList.reduce((serviceMap, serviceDef) => {
-        serviceMap[serviceDef.name] = {
-          url: serviceDef.url,
-          dataSource: this.createDataSource(serviceDef),
-        };
-        return serviceMap;
-      }, Object.create(null) as DataSourceMap);
+    if (!this.config.serviceHealthCheck) return;
 
-      try {
-        await this.serviceHealthCheck(serviceMap);
-      } catch (e) {
-        throw new Error(
-          'The gateway did not update its schema due to failed service health checks. ' +
-            'The gateway will continue to operate with the previous schema and reattempt updates. ' +
-            'The following error occurred during the health check:\n' +
-            e.message,
-        );
-      }
+    const serviceList = isSupergraphSdlUpdate(update)
+      ? // TODO(trevor): #580 redundant parse
+        // Parsing could technically fail and throw here, but parseability has
+        // already been confirmed slightly earlier in the code path
+        this.serviceListFromSupergraphSdl(parse(update.supergraphSdl))
+      : // Existence of this is determined in advance with an early return otherwise
+        update.serviceDefinitions!;
+    // Here we need to construct new datasources based on the new schema info
+    // so we can check the health of the services we're _updating to_.
+    const serviceMap = serviceList.reduce((serviceMap, serviceDef) => {
+      serviceMap[serviceDef.name] = {
+        url: serviceDef.url,
+        dataSource: this.createDataSource(serviceDef),
+      };
+      return serviceMap;
+    }, Object.create(null) as DataSourceMap);
+
+    try {
+      await this.serviceHealthCheck(serviceMap);
+    } catch (e) {
+      throw new Error(
+        'The gateway did not update its schema due to failed service health checks. ' +
+          'The gateway will continue to operate with the previous schema and reattempt updates. ' +
+          'The following error occurred during the health check:\n' +
+          e.message,
+      );
     }
   }
 
@@ -1375,7 +1398,7 @@ export class ApolloGateway implements GraphQLService {
       state: this.state,
       compositionId: this.compositionId,
       supergraphSdl: this.supergraphSdl,
-    }
+    };
   }
 }
 
@@ -1432,4 +1455,8 @@ export {
 
 export * from './datasources';
 
-export { SupergraphSdlUpdateFunction } from './config';
+export {
+  SupergraphSdlUpdateFunction,
+  SubgraphHealthCheckFunction,
+  SupergraphSdlHook,
+} from './config';

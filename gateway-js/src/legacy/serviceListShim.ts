@@ -9,9 +9,9 @@ import {
   GraphQLDataSource,
   RemoteGraphQLDataSource,
   ServiceEndpointDefinition,
+  SupergraphSdlHook,
   SupergraphSdlUpdateFunction,
 } from '..';
-import { SupergraphSdlHookOptions, SupergraphSdlHookReturn } from '../config';
 import {
   getServiceDefinitionsFromRemoteEndpoint,
   Service,
@@ -29,8 +29,8 @@ export interface ServiceListShimOptions {
 }
 
 export class ServiceListShim extends CallableInstance<
-  [SupergraphSdlHookOptions],
-  SupergraphSdlHookReturn
+  Parameters<SupergraphSdlHook>,
+  ReturnType<SupergraphSdlHook>
 > {
   private update?: SupergraphSdlUpdateFunction;
   private serviceList: Service[];
@@ -60,7 +60,7 @@ export class ServiceListShim extends CallableInstance<
 
   // @ts-ignore noUsedLocals
   private async instanceCallableMethod(
-    ...[{ update }]: [SupergraphSdlHookOptions]
+    ...[{ update }]: Parameters<SupergraphSdlHook>
   ) {
     this.update = update;
 

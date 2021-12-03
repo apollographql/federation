@@ -1,10 +1,18 @@
-import { ApolloGateway, SupergraphSdlUpdateFunction } from '@apollo/gateway';
+import {
+  ApolloGateway,
+  SubgraphHealthCheckFunction,
+  SupergraphSdlUpdateFunction,
+} from '@apollo/gateway';
 import { fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
 import { createHash } from 'apollo-graphql/lib/utilities/createHash';
 import { ApolloServer } from 'apollo-server';
 import { Logger } from 'apollo-server-types';
 import { fetch } from '../../__mocks__/apollo-server-env';
 import { getTestingSupergraphSdl, waitUntil } from '../execution-utils';
+import {
+  mockAllServicesHealthCheckSuccess,
+  mockAllServicesSdlQuerySuccess,
+} from '../integration/nockMocks';
 
 async function getSupergraphSdlGatewayServer() {
   const server = new ApolloServer({
@@ -18,6 +26,7 @@ async function getSupergraphSdlGatewayServer() {
 }
 
 let logger: Logger;
+let gateway: ApolloGateway | null;
 beforeEach(() => {
   logger = {
     debug: jest.fn(),
@@ -25,6 +34,13 @@ beforeEach(() => {
     warn: jest.fn(),
     error: jest.fn(),
   };
+});
+
+afterEach(async () => {
+  if (gateway) {
+    await gateway.stop();
+    gateway = null;
+  }
 });
 
 describe('Using supergraphSdl static configuration', () => {
@@ -57,25 +73,33 @@ describe('Using supergraphSdl static configuration', () => {
 });
 
 describe('Using supergraphSdl dynamic configuration', () => {
-  it(`calls the user provided function after gateway.load() is called`, async () => {
-    const spy = jest.fn(async () => ({
+  it('calls the user provided function after `gateway.load()` is called', async () => {
+    const callbackSpy = jest.fn(async () => ({
       supergraphSdl: getTestingSupergraphSdl(),
     }));
 
     const gateway = new ApolloGateway({
-      supergraphSdl: spy,
+      supergraphSdl: callbackSpy,
     });
 
-    expect(spy).not.toHaveBeenCalled();
+    expect(callbackSpy).not.toHaveBeenCalled();
     await gateway.load();
-    expect(spy).toHaveBeenCalled();
+    expect(callbackSpy).toHaveBeenCalled();
   });
 
-  it('starts and remains in `initialized` state until user Promise resolves', async () => {
-    const [promise, resolve] = waitUntil();
+  it('starts and remains in `initialized` state until `supergraphSdl` Promise resolves', async () => {
+    const [
+      promiseGuaranteeingWeAreInTheCallback,
+      resolvePromiseGuaranteeingWeAreInTheCallback,
+    ] = waitUntil();
+    const [
+      promiseGuaranteeingWeStayInTheCallback,
+      resolvePromiseGuaranteeingWeStayInTheCallback,
+    ] = waitUntil();
     const gateway = new ApolloGateway({
       async supergraphSdl() {
-        await promise;
+        resolvePromiseGuaranteeingWeAreInTheCallback();
+        await promiseGuaranteeingWeStayInTheCallback;
         return {
           supergraphSdl: getTestingSupergraphSdl(),
         };
@@ -84,25 +108,13 @@ describe('Using supergraphSdl dynamic configuration', () => {
 
     expect(gateway.__testing().state.phase).toEqual('initialized');
 
-    // If we await here, we'll get stuck.
     const gatewayLoaded = gateway.load();
+    await promiseGuaranteeingWeAreInTheCallback;
     expect(gateway.__testing().state.phase).toEqual('initialized');
 
-    resolve();
+    resolvePromiseGuaranteeingWeStayInTheCallback();
     await gatewayLoaded;
     expect(gateway.__testing().state.phase).toEqual('loaded');
-  });
-
-  it('starts and waits in `initialized` state after calling load but before user Promise resolves', async () => {
-    const gateway = new ApolloGateway({
-      async supergraphSdl() {
-        return new Promise(() => {});
-      },
-    });
-
-    gateway.load();
-
-    expect(gateway.__testing().state.phase).toEqual('initialized');
   });
 
   it('moves from `initialized` to `loaded` state after calling `load()` and after user Promise resolves', async () => {
@@ -152,7 +164,8 @@ describe('Using supergraphSdl dynamic configuration', () => {
     const expectedUpdatedId = createHash('sha256')
       .update(updatedSupergraphSdl)
       .digest('hex');
-    await userUpdateFn!(updatedSupergraphSdl);
+
+    userUpdateFn!(updatedSupergraphSdl);
     expect(gateway.__testing().compositionId).toEqual(expectedUpdatedId);
   });
 
@@ -176,6 +189,31 @@ describe('Using supergraphSdl dynamic configuration', () => {
 
     await gateway.stop();
     expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('performs a successful health check on subgraphs', async () => {
+    mockAllServicesSdlQuerySuccess();
+    mockAllServicesHealthCheckSuccess();
+
+    let healthCheckCallback: SubgraphHealthCheckFunction;
+    const supergraphSdl = getTestingSupergraphSdl();
+    const gateway = new ApolloGateway({
+      async supergraphSdl({ healthCheck }) {
+        healthCheckCallback = healthCheck;
+        return {
+          supergraphSdl,
+        };
+      },
+    });
+
+    await gateway.load();
+    const { state, compositionId } = gateway.__testing();
+    expect(state.phase).toEqual('loaded');
+    expect(compositionId).toEqual(
+      '562c22b3382b56b1651944a96e89a361fe847b9b32660eae5ecbd12adc20bf8b',
+    );
+
+    await expect(healthCheckCallback!(supergraphSdl)).resolves.toBeUndefined();
   });
 
   describe('errors', () => {
@@ -213,6 +251,32 @@ describe('Using supergraphSdl dynamic configuration', () => {
       expect(logger.error).toHaveBeenCalledWith(
         'Error occured while calling user provided `cleanup` function: ' +
           rejectionMessage,
+      );
+    });
+
+    it('throws an error when `healthCheck` rejects', async () => {
+      mockAllServicesSdlQuerySuccess();
+
+      let healthCheckCallback: SubgraphHealthCheckFunction;
+      const supergraphSdl = getTestingSupergraphSdl();
+      const gateway = new ApolloGateway({
+        async supergraphSdl({ healthCheck }) {
+          healthCheckCallback = healthCheck;
+          return {
+            supergraphSdl,
+          };
+        },
+      });
+
+      await gateway.load();
+      const { state, compositionId } = gateway.__testing();
+      expect(state.phase).toEqual('loaded');
+      expect(compositionId).toEqual(
+        '562c22b3382b56b1651944a96e89a361fe847b9b32660eae5ecbd12adc20bf8b',
+      );
+
+      await expect(healthCheckCallback!(supergraphSdl)).rejects.toThrowError(
+        /The gateway subgraphs health check failed. Updating to the provided `supergraphSdl` will likely result in future request failures to subgraphs. The following error occurred during the health check/,
       );
     });
   });

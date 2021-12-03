@@ -27,7 +27,9 @@ describe('ServiceListShim', () => {
   it('is instance callable (simulating the gateway calling it)', async () => {
     mockAllServicesSdlQuerySuccess();
     const shim = new ServiceListShim({ serviceList: fixtures });
-    await expect(shim({ async update() {} })).resolves.toBeTruthy();
+    await expect(
+      shim({ async update() {}, async healthCheck() {} }),
+    ).resolves.toBeTruthy();
   });
 
   function getDataSourceSpy(definition: ServiceEndpointDefinition) {
@@ -53,7 +55,7 @@ describe('ServiceListShim', () => {
       },
     });
 
-    await shim({ async update() {} });
+    await shim({ async update() {}, async healthCheck() {} });
 
     expect(processSpies.length).toBe(fixtures.length);
     for (const processSpy of processSpies) {
@@ -91,6 +93,7 @@ describe('ServiceListShim', () => {
       async update(supergraphSdl) {
         updateSpy(supergraphSdl);
       },
+      async healthCheck() {},
     });
 
     await Promise.all([p1, p2, p3]);
@@ -123,6 +126,7 @@ describe('ServiceListShim', () => {
       async update(supergraphSdl) {
         updateSpy(supergraphSdl);
       },
+      async healthCheck() {},
     });
 
     // let the shim poll through all the active mocks
