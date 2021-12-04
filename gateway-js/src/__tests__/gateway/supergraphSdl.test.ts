@@ -7,12 +7,10 @@ import { fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
 import { createHash } from 'apollo-graphql/lib/utilities/createHash';
 import { ApolloServer } from 'apollo-server';
 import { Logger } from 'apollo-server-types';
+import nock from 'nock';
 import { fetch } from '../../__mocks__/apollo-server-env';
 import { getTestingSupergraphSdl, waitUntil } from '../execution-utils';
-import {
-  mockAllServicesHealthCheckSuccess,
-  mockAllServicesSdlQuerySuccess,
-} from '../integration/nockMocks';
+import { mockAllServicesHealthCheckSuccess } from '../integration/nockMocks';
 
 async function getSupergraphSdlGatewayServer() {
   const server = new ApolloServer({
@@ -28,6 +26,8 @@ async function getSupergraphSdlGatewayServer() {
 let logger: Logger;
 let gateway: ApolloGateway | null;
 beforeEach(() => {
+  if (!nock.isActive()) nock.activate();
+
   logger = {
     debug: jest.fn(),
     info: jest.fn(),
@@ -37,6 +37,9 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  expect(nock.isDone()).toBeTruthy();
+  nock.cleanAll();
+  nock.restore();
   if (gateway) {
     await gateway.stop();
     gateway = null;
@@ -78,7 +81,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
       supergraphSdl: getTestingSupergraphSdl(),
     }));
 
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       supergraphSdl: callbackSpy,
     });
 
@@ -96,7 +99,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
       promiseGuaranteeingWeStayInTheCallback,
       resolvePromiseGuaranteeingWeStayInTheCallback,
     ] = waitUntil();
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       async supergraphSdl() {
         resolvePromiseGuaranteeingWeAreInTheCallback();
         await promiseGuaranteeingWeStayInTheCallback;
@@ -121,7 +124,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
     const [userPromise, resolveSupergraph] =
       waitUntil<{ supergraphSdl: string }>();
 
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       async supergraphSdl() {
         return userPromise;
       },
@@ -147,7 +150,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
       waitUntil<{ supergraphSdl: string }>();
 
     let userUpdateFn: SupergraphSdlUpdateFunction;
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       async supergraphSdl({ update }) {
         userUpdateFn = update;
         return userPromise;
@@ -171,7 +174,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
 
   it('calls user-provided `cleanup` function when stopped', async () => {
     const cleanup = jest.fn(() => Promise.resolve());
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       async supergraphSdl() {
         return {
           supergraphSdl: getTestingSupergraphSdl(),
@@ -192,12 +195,11 @@ describe('Using supergraphSdl dynamic configuration', () => {
   });
 
   it('performs a successful health check on subgraphs', async () => {
-    mockAllServicesSdlQuerySuccess();
     mockAllServicesHealthCheckSuccess();
 
     let healthCheckCallback: SubgraphHealthCheckFunction;
     const supergraphSdl = getTestingSupergraphSdl();
-    const gateway = new ApolloGateway({
+    gateway = new ApolloGateway({
       async supergraphSdl({ healthCheck }) {
         healthCheckCallback = healthCheck;
         return {
@@ -219,23 +221,27 @@ describe('Using supergraphSdl dynamic configuration', () => {
   describe('errors', () => {
     it('fails to load if user-provided `supergraphSdl` function throws', async () => {
       const failureMessage = 'Error from supergraphSdl function';
-      const gateway = new ApolloGateway({
+      gateway = new ApolloGateway({
         async supergraphSdl() {
           throw new Error(failureMessage);
         },
         logger,
       });
 
-      await expect(() => gateway.load()).rejects.toThrowError(failureMessage);
+      await expect(gateway.load()).rejects.toThrowError(failureMessage);
 
       expect(gateway.__testing().state.phase).toEqual('failed to load');
       expect(logger.error).toHaveBeenCalledWith(failureMessage);
+
+      // we don't want the `afterEach` to call `gateway.stop()` in this case
+      // since it would throw an error due to the gateway's failed to load state
+      gateway = null;
     });
 
     it('gracefully handles Promise rejections from user `cleanup` function', async () => {
       const rejectionMessage = 'thrown from cleanup function';
       const cleanup = jest.fn(() => Promise.reject(rejectionMessage));
-      const gateway = new ApolloGateway({
+      gateway = new ApolloGateway({
         async supergraphSdl() {
           return {
             supergraphSdl: getTestingSupergraphSdl(),
@@ -255,11 +261,10 @@ describe('Using supergraphSdl dynamic configuration', () => {
     });
 
     it('throws an error when `healthCheck` rejects', async () => {
-      mockAllServicesSdlQuerySuccess();
-
+      // no mocks, so nock will reject
       let healthCheckCallback: SubgraphHealthCheckFunction;
       const supergraphSdl = getTestingSupergraphSdl();
-      const gateway = new ApolloGateway({
+      gateway = new ApolloGateway({
         async supergraphSdl({ healthCheck }) {
           healthCheckCallback = healthCheck;
           return {
