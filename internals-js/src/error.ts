@@ -204,6 +204,12 @@ export const ERR_KEY_INVALID_FIELDS = ERR_DIRECTIVE_INVALID_FIELDS.create('key')
 export const ERR_PROVIDES_INVALID_FIELDS = ERR_DIRECTIVE_INVALID_FIELDS.create('provides');
 export const ERR_REQUIRES_INVALID_FIELDS = ERR_DIRECTIVE_INVALID_FIELDS.create('requires');
 
+export const ERR_KEY_FIELDS_SELECT_INVALID_TYPE = reg.add(
+  'KEY_FIELDS_SELECT_INVALID_TYPE',
+  'The `fields` argument of `@key` directive includes a field whose type is a list, interface, or union type. Fields of these types cannot be part of a `@key`',
+  { addedIn: FED1_CODE },
+)
+
 export const ERR_ROOT_TYPE_USED = new ConcreteErrorCodeCategory<SchemaRootKind>(
   (kind) => `ROOT_${kind.toLocaleUpperCase()}_USED`,
   (kind) => `A subgraph's schema defines a type with the name \`${kind}\`, while also specifying a _different_ type name as the root query object. This is not allowed.`,
@@ -322,4 +328,5 @@ export const REMOVED_ERRORS = [
   ['ENUM_MISMATCH', 'Subgraph definitions for an enum are now merged by composition'],
   ['VALUE_TYPE_NO_ENTITY', 'There is no strong different between entity and value types in the model (they are just usage pattern) and a type can have keys in one subgraph but not another.'],
   ['VALUE_TYPE_UNION_TYPES_MISMATCH', 'Subgraph definitions for an union are now merged by composition'],
+  ['PROVIDES_FIELDS_SELECT_INVALID_TYPE', '@provides can now be used on field of interface, union and list types'],
 ];

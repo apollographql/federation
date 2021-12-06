@@ -18,6 +18,8 @@ import {
   baseType,
   isInterfaceType,
   isObjectType,
+  isListType,
+  isUnionType,
   sourceASTs,
   VariableDefinitions,
   InterfaceType,
@@ -47,6 +49,7 @@ import {
   ERR_PROVIDES_ON_NON_OBJECT_FIELD,
   ERR_ROOT_TYPE_USED,
 } from "./error";
+import { ERR_KEY_FIELDS_SELECT_INVALID_TYPE } from ".";
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -170,9 +173,16 @@ function validateFieldSet(
   externalTester: ExternalTester,
   externalFieldCoordinatesCollector: string[],
   allowOnNonExternalLeafFields: boolean,
+  onFields?: (field: FieldDefinition<any>) => void,
 ): GraphQLError | undefined {
   try {
-    const selectionSet = parseFieldSetArgument(type, directive);
+    const selectionSet = parseFieldSetArgument(type, directive, onFields ? (type, fieldName) => {
+      const field = type.field(fieldName);
+      if (field) {
+        onFields(field);
+      }
+      return field;
+    } : undefined);
     selectionSet.validate();
     validateFieldSetSelections(directive.name, selectionSet, false, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
     return undefined;
@@ -223,6 +233,7 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   externalFieldCoordinatesCollector: string[],
   isOnParentType: boolean,
   allowOnNonExternalLeafFields: boolean,
+  onFields?: (field: FieldDefinition<any>) => void,
 ): void {
   for (const application of definition.applications()) {
     const elt = application.parent as TParent;
@@ -238,7 +249,14 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
         sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type))
       ));
     }
-    const error = validateFieldSet(type, application, targetDescription, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
+    const error = validateFieldSet(
+      type,
+      application,
+      targetDescription,
+      externalTester,
+      externalFieldCoordinatesCollector,
+      allowOnNonExternalLeafFields,
+      onFields);
     if (error) {
       errorCollector.push(error);
     }
@@ -412,7 +430,16 @@ export class FederationBuiltIns extends BuiltIns {
       externalTester,
       externalFieldsInFedDirectivesCoordinates,
       true,
-      true
+      true,
+      field => {
+        if (isListType(field.type!) || isUnionType(field.type!) || isInterfaceType(field.type!)) {
+          let kind: string = field.type!.kind;
+          kind = kind.slice(0, kind.length - 'Type'.length);
+          throw ERR_KEY_FIELDS_SELECT_INVALID_TYPE.err(
+            `field ${field.coordinate} is a ${kind} type which is not allowed in \`@key\``
+          );
+        }
+      }
     );
     // Note that we currently reject @requires where a leaf field of the selection is not external,
     // because if it's provided by the current subgraph, why "requires" it? That said, it's not 100%

@@ -31,6 +31,7 @@ If Apollo Gateway encounters an error, composition fails. This document lists su
 | `INVALID_GRAPHQL` | A schema is invalid GraphQL: it violates one of the rule of the specification. | 2.0.0 |  |
 | `INVALID_SUBGRAPH_NAME` | A subgraph name is invalid (subgraph names cannot be a single underscore ("_")). | 2.0.0 |  |
 | `KEY_FIELDS_HAS_ARGS` | The `fields` argument of a `@key` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
+| `KEY_FIELDS_SELECT_INVALID_TYPE` | The `fields` argument of `@key` directive includes a field whose type is a list, interface, or union type. Fields of these types cannot be part of a `@key` | 0.x |  |
 | `KEY_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@key` directive is not a string. | 2.0.0 |  |
 | `KEY_INVALID_FIELDS` | The `fields` argument of a `@key` directive is invalid (it has invalid syntax, includes unknow fields, ...). | 2.0.0 |  |
 | `KEY_UNSUPPORTED_ON_INTERFACE` | A `@key` directive is used on an interface, which is not (yet) supported. | 2.0.0 |  |
@@ -60,19 +61,20 @@ The following section lists code that have been removed and are not longer gener
 
 | Removed Code | Comment |
 |---|---|
-| `KEY_FIELDS_MISSING_ON_BASE` | Keys can now use any field from any other subgraph. |
-| `KEY_FIELDS_MISSING_EXTERNAL` | Using `@external` for key fields is now decouraged, unless the field is truly meant to be external. |
-| `KEY_MISSING_ON_BASE` | Each subgraph is now free to declare a key only if it needs it. |
-| `MULTIPLE_KEYS_ON_EXTENSION` | Every subgraph can have multiple keys, as necessary. |
-| `KEY_NOT_SPECIFIED` | Each subgraph can declare key independently of any other subgraph. |
+| `DUPLICATE_ENUM_DEFINITION` | As duplicate enum definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
+| `DUPLICATE_ENUM_VALUE` | As duplicate enum values is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
+| `DUPLICATE_SCALAR_DEFINITION` | As duplicate scalar definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
+| `ENUM_MISMATCH` | Subgraph definitions for an enum are now merged by composition |
 | `EXTERNAL_USED_ON_BASE` | As there is not type ownership anymore, there is also no particular limitation as to where a field can be external. |
+| `KEY_FIELDS_MISSING_EXTERNAL` | Using `@external` for key fields is now decouraged, unless the field is truly meant to be external. |
+| `KEY_FIELDS_MISSING_ON_BASE` | Keys can now use any field from any other subgraph. |
+| `KEY_MISSING_ON_BASE` | Each subgraph is now free to declare a key only if it needs it. |
+| `KEY_NOT_SPECIFIED` | Each subgraph can declare key independently of any other subgraph. |
+| `MULTIPLE_KEYS_ON_EXTENSION` | Every subgraph can have multiple keys, as necessary. |
+| `PROVIDES_FIELDS_SELECT_INVALID_TYPE` | @provides can now be used on field of interface, union and list types |
 | `PROVIDES_NOT_ON_ENTITY` | @provides can now be used on any type. |
 | `REQUIRES_FIELDS_MISSING_ON_BASE` | Fields in @requires can now be from any subgraph. |
 | `REQUIRES_USED_ON_BASE` | As there is not type ownership anymore, there is also no particular limitation as to which subgraph can use a @requires. |
-| `DUPLICATE_SCALAR_DEFINITION` | As duplicate scalar definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
-| `DUPLICATE_ENUM_DEFINITION` | As duplicate enum definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
-| `DUPLICATE_ENUM_VALUE` | As duplicate enum values is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
-| `ENUM_MISMATCH` | Subgraph definitions for an enum are now merged by composition |
 | `VALUE_TYPE_NO_ENTITY` | There is no strong different between entity and value types in the model (they are just usage pattern) and a type can have keys in one subgraph but not another. |
 | `VALUE_TYPE_UNION_TYPES_MISMATCH` | Subgraph definitions for an union are now merged by composition |
 
