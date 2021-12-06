@@ -5,97 +5,74 @@ sidebar_title: Error codes
 
 When Apollo Gateway attempts to **compose** the schemas provided by your [subgraphs](./subgraphs/) into a **supergraph schema**, it confirms that:
 
+* The subgraphs are valid
 * The resulting supergraph schema is valid
 * The gateway has all of the information it needs to execute operations against the resulting schema
 
-If Apollo Gateway encounters an error, composition fails. This document lists composition error codes and their root causes.
+If Apollo Gateway encounters an error, composition fails. This document lists subgraphs and composition error codes and their root causes.
 
-## `extend`
 
-| Code | Description |
+## Errors
+
+| Code | Description | Since | Comment |
 |---|---|
-| `EXTENSION_OF_WRONG_KIND`  | A subgraph is attempting to `extend` another subgraph's type, but there is a declaration mismatch. For example, `extend interface MyType` is invalid if `MyType` is not defined as an `interface` in its originating subgraph. |
-| `EXTENSION_WITH_NO_BASE` | A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph. |
+| `EXTENSION_WITH_NO_BASE` | A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph. | 0.x |  |
+| `EXTERNAL_ARGUMENT_DEFAULT_MISMATCH` | An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs. | 2.0.0 |  |
+| `EXTERNAL_ARGUMENT_MISSING` | An `@external` field is missing some arguments present in the declaration(s) of that field in other subgraphs. | 2.0.0 |  |
+| `EXTERNAL_ARGUMENT_TYPE_MISMATCH` | An `@external` field declares an argument with a type that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs. | 2.0.0 |  |
+| `EXTERNAL_MISSING_ON_BASE` | A field is marked as `@external` in a subgraph but with not non-external declaration in any other subgraph. | 0.x |  |
+| `EXTERNAL_TYPE_MISMATCH` | An `@external` field has a type that is incompatible with the declaration(s) of that field in other subgraphs. | 0.x |  |
+| `EXTERNAL_UNUSED` | An `@external` field is not being used by any instance of `@key`, `@requires`, `@provides` or to satisfy an interface implememtation. | 0.x |  |
+| `FIELD_ARGUMENT_DEFAULT_MISMATCH` | An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs. | 2.0.0 |  |
+| `FIELD_ARGUMENT_TYPE_MISMATCH` | An argument (of a field/directive) has a type that is incompatible with that of other declarations of that same argument in other subgraphs. | 2.0.0 | Replaces: `VALUE_TYPE_INPUT_VALUE_MISMATCH` |
+| `FIELD_TYPE_MISMATCH` | A field has a type that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 | Replaces: `VALUE_TYPE_FIELD_TYPE_MISMATCH` |
+| `INPUT_FIELD_DEFAULT_MISMATCH` | An input field has a default value that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 |  |
+| `INTERFACE_FIELD_NO_IMPLEM` | After subgraph merging, an implemenation is missing a field of one of the interface it implements (which can happen for valid subgraphs). | 2.0.0 |  |
+| `INVALID_GRAPHQL` | A schema is invalid GraphQL: it violates one of the rule of the specification. | 2.0.0 |  |
+| `INVALID_SUBGRAPH_NAME` | A subgraph name is invalid (subgraph names cannot be a single underscore ("_")). | 2.0.0 |  |
+| `KEY_FIELDS_HAS_ARGS` | The `fields` argument of a `@key` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
+| `KEY_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@key` directive is not a string. | 2.0.0 |  |
+| `KEY_INVALID_FIELDS` | The `fields` argument of a `@key` directive is invalid (it has invalid syntax, includes unknow fields, ...). | 2.0.0 |  |
+| `KEY_UNSUPPORTED_ON_INTERFACE` | A `@key` directive is used on an interface, which is not (yet) supported. | 2.0.0 |  |
+| `NO_QUERIES` | None of the composed subgraphs expose any query. | 2.0.0 |  |
+| `PROVIDES_FIELDS_HAS_ARGS` | The `fields` argument of a `@provides` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
+| `PROVIDES_FIELDS_MISSING_EXTERNAL` | The `fields` argument of a `@provides` directive includes a field that is not marked as `@external`. | 0.x |  |
+| `PROVIDES_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@provides` directive is not a string. | 2.0.0 |  |
+| `PROVIDES_INVALID_FIELDS` | The `fields` argument of a `@provides` directive is invalid (it has invalid syntax, includes unknow fields, ...). | 2.0.0 |  |
+| `PROVIDES_ON_NON_OBJECT_FIELD` | A `@provides` directive is used to mark a field whose base type is not an object type. | 2.0.0 |  |
+| `PROVIDES_UNSUPPORTED_ON_INTERFACE` | A `@provides` directive is used on an interface, which is not (yet) supported. | 2.0.0 |  |
+| `REQUIRES_FIELDS_HAS_ARGS` | The `fields` argument of a `@requires` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
+| `REQUIRES_FIELDS_MISSING_EXTERNAL` | The `fields` argument of a `@requires` directive includes a field that is not marked as `@external`. | 0.x |  |
+| `REQUIRES_INVALID_FIELDS_TYPE` | The value passed to the `fields` argument of a `@requires` directive is not a string. | 2.0.0 |  |
+| `REQUIRES_INVALID_FIELDS` | The `fields` argument of a `@requires` directive is invalid (it has invalid syntax, includes unknow fields, ...). | 2.0.0 |  |
+| `REQUIRES_UNSUPPORTED_ON_INTERFACE` | A `@requires` directive is used on an interface, which is not (yet) supported. | 2.0.0 |  |
+| `ROOT_MUTATION_USED` | A subgraph's schema defines a type with the name `mutation`, while also specifying a _different_ type name as the root query object. This is not allowed. | 0.x |  |
+| `ROOT_QUERY_USED` | A subgraph's schema defines a type with the name `query`, while also specifying a _different_ type name as the root query object. This is not allowed. | 0.x |  |
+| `ROOT_SUBSCRIPTION_USED` | A subgraph's schema defines a type with the name `subscription`, while also specifying a _different_ type name as the root query object. This is not allowed. | 0.x |  |
+| `SATISFIABILITY_ERROR` | Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs. | 2.0.0 |  |
+| `TAG_DIRECTIVE_DEFINITION_INVALID` | The @tag directive has an invalid defintion in the schema. | 0.x |  |
+| `TYPE_KIND_MISMATCH` | A type has the same name in different subgraphs, but a different kind. For instance, one definition is an object type but another is an interface. | 2.0.0 | Replaces: `VALUE_TYPE_KIND_MISMATCH`, `EXTENSION_OF_WRONG_KIND`, `ENUM_MISMATCH_TYPE` |
 
-## `@key`
 
-| Code | Description |
+## Removed codes
+
+The following section lists code that have been removed and are not longer generated by the gateway version this is the documentation for.
+
+| Removed Code | Comment |
 |---|---|
-| `KEY_FIELDS_SELECT_INVALID_TYPE`  | The `fields` argument of an entity's `@key` includes at least one root field that results in a list, interface, or union type. Root fields of these types cannot be part of a `@key`. |
-| `KEY_FIELDS_MISSING_ON_BASE` | The `fields` argument of an entity's `@key` includes at least one field that's also defined in another subgraph. Each field of an entity should be defined in exactly one subgraph. |
-| `KEY_FIELDS_MISSING_EXTERNAL` | A subgraph is attempting to `extend` another subgraph's entity, but its `@key` includes at least one field that is not marked as `@external`. |
-| `KEY_MISSING_ON_BASE` | A subgraph is attempting to `extend` another subgraph's entity, but the originating subgraph hasn't defined a `@key` for the entity. |
-| `MULTIPLE_KEYS_ON_EXTENSION` | A subgraph is attempting to `extend` another subgraph's entity, but it's specified multiple `@key` directives. Extending subgraphs can only use one of the `@key`s specified by the originating subgraph. |
-| `KEY_NOT_SPECIFIED` | A subgraph is attempting to `extend` another subgraph's entity, but it is using a `@key` that is not specified in the originating subgraph. Valid `@key`s are specified by the owning subgraph. |
+| `KEY_FIELDS_MISSING_ON_BASE` | Keys can now use any field from any other subgraph. |
+| `KEY_FIELDS_MISSING_EXTERNAL` | Using `@external` for key fields is now decouraged, unless the field is truly meant to be external. |
+| `KEY_MISSING_ON_BASE` | Each subgraph is now free to declare a key only if it needs it. |
+| `MULTIPLE_KEYS_ON_EXTENSION` | Every subgraph can have multiple keys, as necessary. |
+| `KEY_NOT_SPECIFIED` | Each subgraph can declare key independently of any other subgraph. |
+| `EXTERNAL_USED_ON_BASE` | As there is not type ownership anymore, there is also no particular limitation as to where a field can be external. |
+| `PROVIDES_NOT_ON_ENTITY` | @provides can now be used on any type. |
+| `REQUIRES_FIELDS_MISSING_ON_BASE` | Fields in @requires can now be from any subgraph. |
+| `REQUIRES_USED_ON_BASE` | As there is not type ownership anymore, there is also no particular limitation as to which subgraph can use a @requires. |
+| `DUPLICATE_SCALAR_DEFINITION` | As duplicate scalar definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
+| `DUPLICATE_ENUM_DEFINITION` | As duplicate enum definitions is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
+| `DUPLICATE_ENUM_VALUE` | As duplicate enum values is invalid GraphQL, this will now be an error with code `INVALID_GRAPHQL` |
+| `ENUM_MISMATCH` | Subgraph definitions for an enum are now merged by composition |
+| `VALUE_TYPE_NO_ENTITY` | There is no strong different between entity and value types in the model (they are just usage pattern) and a type can have keys in one subgraph but not another. |
+| `VALUE_TYPE_UNION_TYPES_MISMATCH` | Subgraph definitions for an union are now merged by composition |
 
-## `@external`
-
-| Code | Description |
-|---|---|
-| `EXTERNAL_UNUSED` | An `@external` entity field is not being used by any instance of `@key`, `@requires`, or `@provides`. |
-| `EXTERNAL_TYPE_MISMATCH` | An `@external` entity field does not match the type of the declaration in the entity's originating subgraph. |
-| `EXTERNAL_MISSING_ON_BASE` | An entity field marked as `@external` is not defined in the entity's originating subgraph. |
-| `EXTERNAL_USED_ON_BASE` | An entity field is marked as `@external` in the entity's originating subgraph, which is invalid. |
-
-## `@provides`
-
-| Code | Description |
-|---|---|
-| `PROVIDES_FIELDS_MISSING_EXTERNAL` | The `fields` argument of an entity field's `@provides` directive includes a field that is not marked as `@external`. |
-| `PROVIDES_NOT_ON_ENTITY` | The `@provides` directive is being applied to a type that is not an entity. |
-| `PROVIDES_FIELDS_SELECT_INVALID_TYPE` | The `fields` argument of an entity field's `@provides` directive includes at least one root field that results in a list or interface. Root fields of these types cannot be included in `@provides`. |
-
-## `@requires`
-
-| Code | Description |
-|---|---|
-| `REQUIRES_FIELDS_MISSING_EXTERNAL` | The `fields` argument of an entity field's `@requires` directive includes a field that is not marked as `@external`. |
-| `REQUIRES_FIELDS_MISSING_ON_BASE` | The `fields` argument of an entity field's `@requires` directive includes a field that is not defined in the entity's originating subgraph.`|
-| `REQUIRES_USED_ON_BASE` | An entity field is marked with `@requires` in the entity's originating subgraph, which is invalid. |
-
-## `@tag`
-| Code | Description |
-|---|---|
-| `TAG_DIRECTIVE_DEFINITION_INVALID` | The `@tag` directive definition is included but defined incorrectly. Please include the correct `@tag` directive definition: `directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION`|
-
-## Custom directives
-
-| Code | Description |
-|---|---|
-| `EXECUTABLE_DIRECTIVES_IN_ALL_SERVICES` | A custom directive is not defined in a subgraph. All custom directives must be defined across all subgraphs, even if some of those definitions are a no-op. |
-| `EXECUTABLE_DIRECTIVES_IDENTICAL` | <p>A custom directive is defined inconsistently across subgraphs. A directive's arguments and argument types, along with its supported schema locations, must match across all subgraphs.</p> Only [`ExecutableDirectiveLocation`](https://graphql.github.io/graphql-spec/June2018/#ExecutableDirectiveLocation)s are compared. [`TypeSystemDirectiveLocation`](https://graphql.github.io/graphql-spec/June2018/#TypeSystemDirectiveLocation)s are ignored during composition. |
-
-## Enums and scalars
-
-| Code | Description |
-|---|---|
-| `DUPLICATE_SCALAR_DEFINITION` | A scalar type is defined multiple times in a single subgraph.|
-| `DUPLICATE_ENUM_DEFINITION` | An enum type is defined multiple times in a single subgraph.|
-| `DUPLICATE_ENUM_VALUE` | One of an enum type's values is defined multiple times. Duplicate values can be in either the enum's originating subgraph or another subgraph that extends the enum. |
-| `ENUM_MISMATCH` | <p>An enum's values do not match across all subgraphs. Even if a subgraph does not use all enum values, they still must be provided if another subgraph uses them.</p>This error lists which subgraphs have matching definitions. For example, `[serviceA, serviceB], [serviceC]` indicates that `serviceA` and `serviceB` have matching enum definitions, but `serviceC` does not match the other definitions. |
-| `ENUM_MISMATCH_TYPE` | An enum is defined with the same name as a non-enum type in another subgraph. |
-
-## Root fields
-
-| Code | Description |
-|---|---|
-| `RESERVED_FIELD_USED` | A subgraph defines a field name that is reserved by Apollo Federation, such as `Query._service` or `Query._entities`. |
-| `ROOT_QUERY_USED` | A subgraph's schema defines a type with the name `Query`, while also specifying a _different_ type name as the root query object. This is not allowed. |
-| `ROOT_MUTATION_USED` | A subgraph's schema defines a type with the name `Mutation`, while also specifying a _different_ type name as the root mutation object. This is not allowed. |
-| `ROOT_SUBSCRIPTION_USED` | A subgraph's schema defines a type with the name `Subscription`, while also specifying a _different_ type name as the root subscription object. This is not allowed. |
-
-## Value types
-
-| Code | Description |
-|---|---|
-| `VALUE_TYPE_FIELD_TYPE_MISMATCH` | Multiple subgraphs define the same value type, but with mismatched fields. Value types must match across all subgraphs that define them. |
-| `VALUE_TYPE_INPUT_VALUE_MISMATCH` | Multiple subgraphs define the same value type, but with mismatched input values for fields. Value types and input values for fields must match across all subgraphs that define them. |
-| `VALUE_TYPE_NO_ENTITY` | Multiple subgraphs define the same value type, but at least one subgraph assigns it a `@key`. Either remove the `@key` or convert the type to an entity and `extend` it.|
-| `VALUE_TYPE_UNION_TYPES_MISMATCH` | Multiple subgraphs define the same union type, but with mismatched sets of types. Union types must match across all subgraphs that define them. |
-| `VALUE_TYPE_KIND_MISMATCH` | A subgraph defines a type with the same name and fields as a type in another subgraph, but there is a declaration mismatch. For example, `type MyType` is invalid if another subgraph defines `interface MyType`. |
-
-## Modified SDL validations
-
-| Code | Description |
-|---|---|
-| Unique type names | Type definitions cannot be duplicated across subgraphs, with the exception of enums, scalars, and [value types](/value-types/). This is a modified version of the `graphql-js` validation with exclusions for enums and scalars, because those are required to be duplicated across subgraphs. |
