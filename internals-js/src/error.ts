@@ -197,7 +197,7 @@ export const ERR_REQUIRES_INVALID_FIELDS_TYPE = ERR_DIRECTIVE_INVALID_FIELDS_TYP
 
 export const ERR_DIRECTIVE_INVALID_FIELDS = new FederationDirectiveErrorCodeCategory(
   'INVALID_FIELDS',
-  (directive) => `The \`fields\` argument of a \`@${directive}\` directive is invalid (it has invalid syntax, includes unknow fields, ...).`,
+  (directive) => `The \`fields\` argument of a \`@${directive}\` directive is invalid (it has invalid syntax, includes unknown fields, ...).`,
 );
 
 export const ERR_KEY_INVALID_FIELDS = ERR_DIRECTIVE_INVALID_FIELDS.create('key');

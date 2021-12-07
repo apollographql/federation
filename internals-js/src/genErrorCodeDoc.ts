@@ -21,7 +21,7 @@ function makeMardownArray(
 ): string {
   const columns = headers.length;
   let out = '| ' + headers.join(' | ') + ' |\n';
-  out += '|---|---|\n';
+  out += '|' + headers.map(_ => '---').join('|') + '|\n';
   for (const row of rows) {
     assert(row.length <= columns, `Row [${row}] has too columns (expect ${columns} but got ${row.length})`);
     const frow = row.length === columns
@@ -43,7 +43,11 @@ const sortRowsByCode = (r1: string[], r2: string[]) => r1[0].localeCompare(r2[0]
 
 rows.sort(sortRowsByCode);
 
-const errorsSection = '## Errors\n\n' + makeMardownArray(
+const errorsSection = `## Errors
+
+The following errors may be raised by composition:
+
+` + makeMardownArray(
   [ 'Code', 'Description', 'Since', 'Comment' ],
   rows
 );
