@@ -75,6 +75,7 @@ The following section lists code that have been removed and are not longer gener
 | `PROVIDES_NOT_ON_ENTITY` | @provides can now be used on any type. |
 | `REQUIRES_FIELDS_MISSING_ON_BASE` | Fields in @requires can now be from any subgraph. |
 | `REQUIRES_USED_ON_BASE` | As there is not type ownership anymore, there is also no particular limitation as to which subgraph can use a @requires. |
+| `RESERVED_FIELD_USED` | This error was previously not correctly enforced: the _service and _entities, if present, were overriden; this is still the case |
 | `VALUE_TYPE_NO_ENTITY` | There is no strong different between entity and value types in the model (they are just usage pattern) and a type can have keys in one subgraph but not another. |
 | `VALUE_TYPE_UNION_TYPES_MISMATCH` | Subgraph definitions for an union are now merged by composition |
 

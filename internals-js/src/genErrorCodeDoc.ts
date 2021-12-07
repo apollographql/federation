@@ -1,6 +1,5 @@
 import { assert } from './utils';
-import { ERROR_CODE_REGISTRY } from './error';
-import { REMOVED_ERRORS } from '.';
+import { ERROR_CODE_REGISTRY, REMOVED_ERRORS } from './error';
 
 const header = `---
 title: Federation error codes
