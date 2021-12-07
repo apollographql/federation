@@ -33,11 +33,7 @@ export function mockSdlQuerySuccess(service: Fixture) {
 export function mockAllServicesSdlQuerySuccess(
   fixtures: Fixture[] = testingFixtures,
 ) {
-  return fixtures.map((fixture) =>
-    mockSdlQuery(fixture).reply(200, {
-      data: { _service: { sdl: print(fixture.typeDefs) } },
-    }),
-  );
+  return fixtures.map((fixture) => mockSdlQuerySuccess(fixture));
 }
 
 export function mockServiceHealthCheck({ url }: Fixture) {

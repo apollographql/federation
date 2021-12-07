@@ -28,6 +28,11 @@ export interface ServiceListShimOptions {
   pollIntervalInMs?: number;
 }
 
+type ShimState =
+  | { phase: 'initialized' }
+  | { phase: 'polling' }
+  | { phase: 'stopped' };
+
 export class ServiceListShim extends CallableInstance<
   Parameters<SupergraphSdlHook>,
   ReturnType<SupergraphSdlHook>
@@ -45,6 +50,7 @@ export class ServiceListShim extends CallableInstance<
   private serviceSdlCache: Map<string, string> = new Map();
   private pollIntervalInMs?: number;
   private timerRef: NodeJS.Timeout | null = null;
+  private state: ShimState;
 
   constructor(options: ServiceListShimOptions) {
     super('instanceCallableMethod');
@@ -56,6 +62,7 @@ export class ServiceListShim extends CallableInstance<
       dataSource: this.createDataSource(serviceDefinition),
     }));
     this.introspectionHeaders = options.introspectionHeaders;
+    this.state = { phase: 'initialized' };
   }
 
   // @ts-ignore noUsedLocals
@@ -73,6 +80,7 @@ export class ServiceListShim extends CallableInstance<
     return {
       supergraphSdl: initialSupergraphSdl,
       cleanup: async () => {
+        this.state = { phase: 'stopped' };
         if (this.timerRef) {
           this.timerRef.unref();
           clearInterval(this.timerRef);
@@ -127,16 +135,20 @@ export class ServiceListShim extends CallableInstance<
   }
 
   private beginPolling() {
+    this.state = { phase: 'polling' };
     this.poll();
   }
 
   private poll() {
     this.timerRef = global.setTimeout(async () => {
-      const maybeNewSupergraphSdl = await this.updateSupergraphSdl();
-      if (maybeNewSupergraphSdl) {
-        this.update?.(maybeNewSupergraphSdl);
+      if (this.state.phase === 'polling') {
+        const maybeNewSupergraphSdl = await this.updateSupergraphSdl();
+        if (maybeNewSupergraphSdl) {
+          this.update?.(maybeNewSupergraphSdl);
+        }
+
+        this.poll();
       }
-      this.poll();
     }, this.pollIntervalInMs!);
   }
 }

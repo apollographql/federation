@@ -1,14 +1,18 @@
 import nock from 'nock';
-import { fixtures, fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
+import {
+  fixtures,
+  fixturesWithUpdate,
+} from 'apollo-federation-integration-testsuite';
 import { RemoteGraphQLDataSource, ServiceEndpointDefinition } from '../..';
 import { ServiceListShim } from '../serviceListShim';
 import { mockAllServicesSdlQuerySuccess } from '../../__tests__/integration/nockMocks';
 import { wait, waitUntil } from '../../__tests__/execution-utils';
 
 describe('ServiceListShim', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     if (!nock.isActive()) nock.activate();
   });
+
   afterEach(async () => {
     expect(nock.isDone()).toBeTruthy();
     nock.cleanAll();
@@ -103,6 +107,8 @@ describe('ServiceListShim', () => {
     // stop polling
     await cleanup!();
 
+    expect(updateSpy).toHaveBeenCalledTimes(3);
+
     // ensure we cancelled the timer
     // @ts-ignore
     expect(shim.timerRef).toBe(null);
@@ -110,6 +116,11 @@ describe('ServiceListShim', () => {
 
   // TODO: useFakeTimers (though I'm struggling to get this to work as expected)
   it("doesn't call `update` when there's no change to the supergraph", async () => {
+    const fetcher =
+      jest.requireActual<typeof import('apollo-server-env')>(
+        'apollo-server-env',
+      ).fetch;
+
     // mock for initial load and a few polls against an unchanging schema
     mockAllServicesSdlQuerySuccess();
     mockAllServicesSdlQuerySuccess();
@@ -119,6 +130,12 @@ describe('ServiceListShim', () => {
     const shim = new ServiceListShim({
       serviceList: fixtures,
       pollIntervalInMs: 100,
+      buildService(service) {
+        return new RemoteGraphQLDataSource({
+          url: service.url,
+          fetcher,
+        });
+      },
     });
 
     const updateSpy = jest.fn();
@@ -131,12 +148,11 @@ describe('ServiceListShim', () => {
 
     // let the shim poll through all the active mocks
     while (nock.activeMocks().length > 0) {
-      await wait(10);
+      await wait(0);
     }
 
-    // stop polling
     await cleanup!();
 
-    expect(updateSpy).toHaveBeenCalledTimes(0);
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 });
