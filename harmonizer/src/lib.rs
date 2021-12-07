@@ -50,7 +50,6 @@ pub fn harmonize(
     // We'll use this channel to get the results
     let (tx, rx) = channel();
 
-
     runtime.register_op(
         "op_composition_result",
         op_sync(move |_state, value, _zero_copy: ()| {
