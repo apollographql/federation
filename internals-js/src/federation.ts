@@ -123,15 +123,18 @@ function validateFieldSetSelections(
   for (const selection of selectionSet.selections()) {
     if (selection.kind === 'FieldSelection') {
       const field = selection.element().definition;
+      const isExternal = externalTester.isExternal(field);
+      // We collect the field as external before any other validation to avoid getting a (confusing)
+      // "external unused" error on top of another error due to exiting that method too early.
+      if (isExternal) {
+        externalFieldCoordinatesCollector.push(field.coordinate);
+      }
       if (field.hasArguments()) {
         throw ERR_FIELDS_HAS_ARGS_CATEGORY.get(directiveName).err(`field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`, field.sourceAST);
       }
       // The field must be external if we don't allow non-external leaf fields, it's a leaf, and we haven't traversed an external field in parent chain leading here.
       const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && !hasExternalInParents;
-      const isExternal = externalTester.isExternal(field);
-      if (isExternal) {
-        externalFieldCoordinatesCollector.push(field.coordinate);
-      } else if (mustBeExternal) {
+      if (!isExternal && mustBeExternal) {
         const errorCode = ERR_DIRECTIVE_FIELDS_MISSING_EXTERNAL_CATEGORY.get(directiveName);
         if (externalTester.isFakeExternal(field)) {
           throw errorCode.err(
@@ -251,8 +254,8 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
       const code = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.get(definition.name);
       errorCollector.push(code.err(
         isOnParentType
-          ? `Cannot use ${definition.coordinate} on interface ${parentType.coordinate}: ${definition.coordinate} is not yet supported on interfaces`
-          : `Cannot use ${definition.coordinate} on ${targetDescription} of parent type ${parentType}: ${definition.coordinate} is not yet supported within interfaces`,
+          ? `Cannot use ${definition.coordinate} on interface "${parentType.coordinate}": ${definition.coordinate} is not yet supported on interfaces`
+          : `Cannot use ${definition.coordinate} on ${targetDescription} of parent type "${parentType}": ${definition.coordinate} is not yet supported within interfaces`,
         sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type))
       ));
     }
@@ -291,7 +294,7 @@ function validateAllExternalFieldsUsed(
 
       if (!isFieldSatisfyingInterface(field)) {
         errorCollector.push(ERR_EXTERNAL_UNUSED.err(
-          `Field ${field.coordinate} is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
+          `Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
           + ' the field declaration has no use and should be removed (or the field should not be @external).',
           field.sourceAST
         ));
@@ -443,7 +446,7 @@ export class FederationBuiltIns extends BuiltIns {
           let kind: string = field.type!.kind;
           kind = kind.slice(0, kind.length - 'Type'.length);
           throw ERR_KEY_FIELDS_SELECT_INVALID_TYPE.err(
-            `field ${field.coordinate} is a ${kind} type which is not allowed in \`@key\``
+            `field "${field.coordinate}" is a ${kind} type which is not allowed in @key`
           );
         }
       }
@@ -483,7 +486,7 @@ export class FederationBuiltIns extends BuiltIns {
         }
         return type;
       },
-      field => `field ${field.coordinate}`,
+      field => `field "${field.coordinate}"`,
       errors,
       externalTester,
       externalFieldsInFedDirectivesCoordinates,
@@ -585,7 +588,7 @@ export function isEntityType(type: NamedType): boolean {
   return type.kind == "ObjectType" && type.hasAppliedDirective(keyDirectiveName);
 }
 
-function buildSubgraph(name: string, source: DocumentNode | string): Schema {
+export function buildSubgraph(name: string, source: DocumentNode | string): Schema {
   try {
     return typeof source === 'string'
       ? buildSchema(new Source(source, name), federationBuiltIns)
@@ -615,7 +618,7 @@ function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<
   const ast = directive.sourceAST;
   if (typeof fields !== 'string') {
     throw ERR_DIRECTIVE_INVALID_FIELDS_TYPE.get(directive.name).err(
-      `Invalid value for argument ${directive.definition!.argument('fields')!.coordinate} on ${directive.parent.coordinate}: must be a string.`,
+      `Invalid value for argument "${directive.definition!.argument('fields')!.name}": must be a string.`,
       ast
     );
   }
@@ -627,7 +630,7 @@ function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<
       if (argNode.name.value === 'fields') {
         if (argNode.value.kind !== 'StringValue') {
           throw ERR_DIRECTIVE_INVALID_FIELDS_TYPE.get(directive.name).err(
-            `Invalid value for argument ${directive.definition!.argument('fields')!.coordinate} on ${directive.parent.coordinate}: must be a string.`,
+            `Invalid value for argument "${directive.definition!.argument('fields')!.name}": must be a string.`,
             ast
           );
         }

@@ -171,9 +171,9 @@ export const ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY = new FederationDir
   (directive) => `A \`@${directive}\` directive is used on an interface, which is not (yet) supported.`,
 );
 
-export const ERR_KEY_UNSUPPORTED_ON_EXTERNAL = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('key');
-export const ERR_PROVIDES_UNSUPPORTED_ON_EXTERNAL = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('provides');
-export const ERR_REQUIRES_UNSUPPORTED_ON_EXTERNAL = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('requires');
+export const ERR_KEY_UNSUPPORTED_ON_INTERFACE = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('key');
+export const ERR_PROVIDES_UNSUPPORTED_ON_INTERFACE = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('provides');
+export const ERR_REQUIRES_UNSUPPORTED_ON_INTERFACE = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('requires');
 
 export const ERR_EXTERNAL_UNUSED = reg.add(
   'EXTERNAL_UNUSED',
@@ -292,7 +292,7 @@ export const ERR_EXTENSION_WITH_NO_BASE = reg.add(
 
 export const ERR_EXTERNAL_MISSING_ON_BASE = reg.add(
   'EXTERNAL_MISSING_ON_BASE',
-  'A field is marked as `@external` in a subgraph but with not non-external declaration in any other subgraph.',
+  'A field is marked as `@external` in a subgraph but with no non-external declaration in any other subgraph.',
   { addedIn: FED1_CODE },
 );
 

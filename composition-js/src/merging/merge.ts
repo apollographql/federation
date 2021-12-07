@@ -473,6 +473,7 @@ class Merger {
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
+    includeMissingSources: boolean = false
   ) {
     this.reportMismatch(
       mismatchedElement,
@@ -483,7 +484,8 @@ class Merger {
       (distribution, astNodes) => {
         this.errors.push(code.err(message + distribution[0] + join(distribution.slice(1), ' and '), astNodes));
       },
-      ignorePredicate
+      ignorePredicate,
+      includeMissingSources
     );
   }
 
@@ -924,14 +926,16 @@ class Merger {
         sources.map(s => s?.argument(destArg.name)),
         arg => arg ? `argument "${arg.coordinate}"` : undefined,
         (elt, subgraphs) => `${elt} is declared in ${subgraphs}`,
-        (_, subgraphs) => ` but not in ${subgraphs} where ${dest.coordinate} is @external.`,
+        (_, subgraphs) => ` but not in ${subgraphs} (where "${dest.coordinate}" is @external).`,
+        undefined,
+        true
       );
     }
     for (const arg of invalidArgsTypes) {
       const destArg = dest.argument(arg)!;
       this.reportMismatchError(
         ERR_EXTERNAL_ARGUMENT_TYPE_MISMATCH,
-        `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where ${dest.coordinate} is marked @external): it has `,
+        `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where "${dest.coordinate}" is marked @external): it has `,
         destArg,
         sources.map(s => s?.argument(destArg.name)),
         arg => `type "${arg.type}"`
@@ -941,10 +945,10 @@ class Merger {
       const destArg = dest.argument(arg)!;
       this.reportMismatchError(
         ERR_EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
-        `Argument "${destArg.coordinate}" has incompatible defaults across subgraphs (where ${dest.coordinate} is marked @external): it has `,
+        `Argument "${destArg.coordinate}" has incompatible defaults across subgraphs (where "${dest.coordinate}" is marked @external): it has `,
         destArg,
         sources.map(s => s?.argument(destArg.name)),
-        arg => `type "${arg.type}"`
+        arg => arg.defaultValue !== undefined ? `default value ${valueToString(arg.defaultValue, arg.type)}` : 'no default value'
       );
     }
   }
@@ -1174,17 +1178,19 @@ class Merger {
       }
       hasSeenSource = true;
     }
-    if (!isInconsistent && !isIncompatible) {
+    // Note that we set the default if isIncompatible mostly to help the building of the error message. But
+    // as we'll error out, it doesn't really matter.
+    if (!isInconsistent || isIncompatible) {
       dest.defaultValue = destDefault;
     }
 
     if (isIncompatible) {
       this.reportMismatchError(
         kind === 'Argument' ? ERR_ARGUMENT_DEFAULT_MISMATCH : ERR_INPUT_FIELD_DEFAULT_MISMATCH,
-        `${kind} "${dest.coordinate}" has incompatible default values across subgraphs: it has default value `,
+        `${kind} "${dest.coordinate}" has incompatible default values across subgraphs: it has `,
         dest,
         sources,
-        arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined
+        arg => arg.defaultValue !== undefined ? `default value ${valueToString(arg.defaultValue, arg.type)}` : 'no default value'
       );
     } else if (isInconsistent) {
       this.reportMismatchHint(
