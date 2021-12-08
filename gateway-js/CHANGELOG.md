@@ -98,7 +98,7 @@
 
 ## v0.30.0
 
-- Send error reports to a configurable endpoint when providing the `APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT` env variable. Using the Apollo URL `https://uplink.api.apollographql.com/monitoring` is recommended unless you have a custom configuration. Reports will only be sent if the env variable is set. [PR #777](https://github.com/apollographql/federation/pull/777)
+- Send error reports to a configurable endpoint when providing the `APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT` env variable. Using the Apollo URL `https://outofbandreporter.api.apollographql.com` is recommended unless you have a custom configuration. Reports will only be sent if the env variable is set. [PR #777](https://github.com/apollographql/federation/pull/777)
 
 ## v0.29.1
 
