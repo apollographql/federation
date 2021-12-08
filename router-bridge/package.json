@@ -16,7 +16,7 @@
   "dependencies": {
     "@apollo/query-planner": "file:../query-planner-js",
     "fast-text-encoding": "1.0.3",
-    "graphql": "15.7.2",
+    "graphql": "15.8.0",
     "whatwg-url": "11.0.0"
   }
 }
