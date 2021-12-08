@@ -69,7 +69,7 @@
     "apollo-server-env": "4.2.0",
     "bunyan": "1.8.15",
     "deep-freeze": "0.0.1",
-    "graphql": "15.7.2",
+    "graphql": "15.8.0",
     "graphql-tag": "2.12.6",
     "jest": "27.4.3",
     "jest-config": "27.4.3",
@@ -85,7 +85,7 @@
     "rollup": "2.60.2",
     "rollup-plugin-node-polyfills": "0.2.1",
     "strip-indent": "3.0.0",
-    "ts-jest": "27.1.0",
+    "ts-jest": "27.1.1",
     "typescript": "4.5.2",
     "winston": "3.3.3",
     "winston-transport": "4.4.0"
