@@ -1,5 +1,5 @@
-import { fetch } from '../../__mocks__/apollo-server-env';
-import { makeFetchHappenFetcher } from '../../__mocks__/make-fetch-happen-fetcher';
+import { fetch as customFetcher } from '../../__mocks__/apollo-server-env';
+import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';
 
 import {
   ApolloError,
@@ -264,7 +264,7 @@ describe('fetcher', () => {
   });
 
   it('supports a custom fetcher, like `make-fetch-happen`', async () => {
-    const injectedFetch = makeFetchHappenFetcher.mockJSONResponseOnce({
+    const injectedFetch = customFetcher.mockJSONResponseOnce({
       data: { me: 'james' },
     });
     const DataSource = new RemoteGraphQLDataSource({
