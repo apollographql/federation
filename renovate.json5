@@ -66,6 +66,13 @@
       matchPackageNames: ["strip-indent"],
       allowedVersions: "3.x",
     },
+    // chalk v5 is pure ESM. The recommendation in the changelog suggests this should
+    // be usable in TS v4.6.
+    // ref: https://github.com/chalk/chalk/releases/v5.0.0
+    {
+      matchPackageNames: ["chalk"],
+      allowedVersions: "4.x",
+    },
     // Bunch up all non-major npm dependencies into a single PR.  In the common case
     // where the upgrades apply cleanly, this causes less noise and is resolved faster
     // than starting a bunch of upgrades in parallel for what may turn out to be
