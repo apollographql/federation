@@ -95,7 +95,7 @@ As more services are added to a federated graph and adoption spreads across clie
 
 ### Federated traces
 
-With federated tracing enabled ([which happens by default](/metrics/#turning-it-on) when an `APOLLO_KEY` variable is present in the gateway's environment), the gateway will include an HTTP header of `apollo-federation-include-trace: ftv1` with each request to a subgraph. Each subgraph will then [construct its trace](/metrics/#how-traces-are-constructed-and-aggregated) and add this data to the `extensions` of its response. Apollo Gateway then constructs the overall trace for the request based on the shape of the query plan. This process may be visualized as follows:
+With federated tracing enabled ([which happens by default](/metrics/#enabling-traces) when an `APOLLO_KEY` variable is present in the gateway's environment), the gateway will include an HTTP header of `apollo-federation-include-trace: ftv1` with each request to a subgraph. Each subgraph will then [construct its trace](/metrics/#how-traces-are-constructed-and-aggregated) and add this data to the `extensions` of its response. Apollo Gateway then constructs the overall trace for the request based on the shape of the query plan. This process may be visualized as follows:
 
 ![Federated tracing process](../images/enterprise-guide/federated-tracing.jpg)
 
