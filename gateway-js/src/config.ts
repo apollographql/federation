@@ -140,7 +140,7 @@ export interface ManagedGatewayConfig extends GatewayConfigBase {
    * This configuration option shouldn't be used unless by recommendation from
    * Apollo staff.
    */
-  schemaConfigDeliveryEndpoint?: string;
+  schemaConfigDeliveryEndpoints?: string[];
 }
 
 interface ManuallyManagedServiceDefsGatewayConfig extends GatewayConfigBase {

@@ -38,6 +38,71 @@ const { name, version } = require('../package.json');
 
 const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
 
+export class SupergraphSdlResult {
+  id: string;
+  supergraphSdl: string;
+  constructor(id: string, supergraphSdl: string) {
+    this.id = id;
+    this.supergraphSdl = supergraphSdl;
+  }
+}
+
+export async function loadSupergraphSdlFromUplinks({
+  graphRef,
+  apiKey,
+  endpoints,
+  fetcher,
+  compositionId,
+}: {
+  graphRef: string;
+  apiKey: string;
+  endpoints: string[];
+  fetcher: typeof fetch;
+  compositionId: string | null;
+}) : Promise<SupergraphSdlResult | null> {
+
+  // fetch from all configured Uplink URLs
+  const results: SupergraphSdlResult[] = [];
+  var exception = null; // to keep track of last exception thrown
+  for (let i = 0; i < endpoints.length; i++) {
+    const endpoint = endpoints[i];
+    var oneResult = null;
+    try {
+      oneResult = await loadSupergraphSdlFromStorage({
+        graphRef,
+        apiKey,
+        endpoint,
+        fetcher,
+        compositionId
+      });
+    } catch (e) {
+      exception = e;
+    }
+    if (oneResult) {
+      results.push(oneResult);
+    }
+  }
+
+  // pick the newest of the returned Supergraph SDLs based on ID
+  let newest: string | null = null;
+  let theResult: SupergraphSdlResult | null = null;
+  if (results.length == 1) {
+    theResult = results[0];
+  } else if (results.length > 1) {
+    results.forEach(res => {
+      if (newest == null || res.id.localeCompare(newest!, undefined, {numeric: true}) > 0) {
+        newest = res.id;
+        theResult = res;
+      }
+    });
+  } else if (endpoints) {
+    // no results and there was at least one exception: re-throw it
+    throw exception;
+  }
+
+  return theResult;
+}
+
 export async function loadSupergraphSdlFromStorage({
   graphRef,
   apiKey,
@@ -50,7 +115,7 @@ export async function loadSupergraphSdlFromStorage({
   endpoint: string;
   fetcher: typeof fetch;
   compositionId: string | null;
-}) {
+}) : Promise<SupergraphSdlResult | null> {
   let result: Response;
   const requestDetails = {
     method: 'POST',

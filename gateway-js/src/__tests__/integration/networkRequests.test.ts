@@ -106,7 +106,7 @@ it('Fetches Supergraph SDL from remote storage', async () => {
 
   gateway = new ApolloGateway({
     logger,
-    schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
   });
 
   await gateway.load(mockApolloConfig);
@@ -150,7 +150,7 @@ it('Updates Supergraph SDL from remote storage', async () => {
 
   gateway = new ApolloGateway({
     logger,
-    schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
   });
   // eslint-disable-next-line
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
@@ -170,7 +170,7 @@ describe('Supergraph SDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
     });
 
     await expect(
@@ -198,7 +198,7 @@ describe('Supergraph SDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
     });
 
     // eslint-disable-next-line
@@ -232,7 +232,7 @@ describe('Supergraph SDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
     });
     // eslint-disable-next-line
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
@@ -270,7 +270,7 @@ describe('Supergraph SDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
     });
     // eslint-disable-next-line
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
@@ -301,7 +301,7 @@ describe('Supergraph SDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
     });
     // eslint-disable-next-line
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
@@ -346,7 +346,7 @@ it('Rollsback to a previous schema when triggered', async () => {
 
   gateway = new ApolloGateway({
     logger,
-    schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
   });
   // eslint-disable-next-line
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
@@ -432,7 +432,7 @@ describe('Downstream service health checks', () => {
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
-        schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+        schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
       });
       // eslint-disable-next-line
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
@@ -456,7 +456,7 @@ describe('Downstream service health checks', () => {
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
-        schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+        schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
       });
 
       // This is the ideal, but our version of Jest has a bug with printing error snapshots.
@@ -517,7 +517,7 @@ describe('Downstream service health checks', () => {
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
-        schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+        schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
       });
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
@@ -561,7 +561,7 @@ describe('Downstream service health checks', () => {
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
-        schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+        schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
       });
       // eslint-disable-next-line
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here

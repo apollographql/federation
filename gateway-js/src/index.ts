@@ -57,7 +57,7 @@ import {
   SupergraphSdlUpdate,
   CompositionUpdate,
 } from './config';
-import { loadSupergraphSdlFromStorage } from './loadSupergraphSdlFromStorage';
+import {loadSupergraphSdlFromUplinks} from './loadSupergraphSdlFromStorage';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 
@@ -201,10 +201,10 @@ export class ApolloGateway implements GraphQLService {
   private updateServiceDefinitions: Experimental_UpdateComposition;
   // how often service defs should be loaded/updated (in ms)
   private experimental_pollInterval?: number;
-  // Configure the endpoint by which gateway will access its precomposed schema.
-  // * `string` means use that endpoint
+  // Configure the endpoints by which gateway will access its precomposed schema.
+  // * An array of URLs means use these endpoints to obtain schema, if one is unavailable then try the next.
   // * `undefined` means the gateway is not using managed federation
-  private schemaConfigDeliveryEndpoint?: string;
+  private schemaConfigDeliveryEndpoints?: string[];
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -236,10 +236,13 @@ export class ApolloGateway implements GraphQLService {
     // 3. If config is `undefined`, use the default uplink URL
     if (isManagedConfig(this.config)) {
       const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
-      this.schemaConfigDeliveryEndpoint =
-        this.config.schemaConfigDeliveryEndpoint ??
-        envEndpoint ??
-        'https://uplink.api.apollographql.com/';
+      var endPoints: string[] | null = envEndpoint ? envEndpoint.split(",") : null;
+      this.schemaConfigDeliveryEndpoints =
+        this.config.schemaConfigDeliveryEndpoints ??
+          endPoints ?? [
+            'https://uplink.api.apollographql.com/',
+            'https://aws-prod.uplink.api.apollographql.com/' // TODO: verify this URL is correct
+          ];
     }
 
     if (isManuallyManagedConfig(this.config)) {
@@ -916,10 +919,10 @@ export class ApolloGateway implements GraphQLService {
       );
     }
 
-    const result = await loadSupergraphSdlFromStorage({
+    const result = await loadSupergraphSdlFromUplinks({
       graphRef: this.apolloConfig!.graphRef!,
       apiKey: this.apolloConfig!.key!,
-      endpoint: this.schemaConfigDeliveryEndpoint!,
+      endpoints: this.schemaConfigDeliveryEndpoints!,
       fetcher: this.fetcher,
       compositionId: this.compositionId ?? null,
     });

@@ -111,7 +111,7 @@ describe('gateway configuration warnings', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
     });
 
     await gateway.load(mockApolloConfig);
@@ -308,11 +308,11 @@ describe('gateway config / env behavior', () => {
 
       gateway = new ApolloGateway({
         logger,
-        schemaConfigDeliveryEndpoint: 'code-config',
+        schemaConfigDeliveryEndpoints: ['code-config'],
       });
 
-      expect(gateway['schemaConfigDeliveryEndpoint']).toEqual(
-        'code-config',
+      expect(gateway['schemaConfigDeliveryEndpoints']).toEqual(
+        ['code-config'],
       );
 
       gateway = null;
