@@ -133,7 +133,8 @@ type GatewayState =
       pollWaitTimer: NodeJS.Timer;
       doneWaiting: () => void;
     }
-  | { phase: 'polling'; pollingDonePromise: Promise<void> };
+  | { phase: 'polling'; pollingDonePromise: Promise<void> }
+  | { phase: 'updating schema' };
 
 // We want to be compatible with `load()` as called by both AS2 and AS3, so we
 // define its argument types ourselves instead of relying on imports.
@@ -632,10 +633,19 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private externalSupergraphUpdateCallback(supergraphSdl: string) {
+    if (this.state.phase === "failed to load") {
+      throw new Error("Can't call `update` callback after gateway failed to load.");
+    } else if (this.state.phase === "updating schema") {
+      throw new Error("Can't call `update` callback while supergraph update is in progress.");
+    } else if (this.state.phase === "stopped") {
+      throw new Error("Can't call `update` callback after gateway has been stopped.");
+    }
+    this.state = { phase: "updating schema" };
     this.updateWithSupergraphSdl({
       supergraphSdl,
       id: this.getIdForSupergraphSdl(supergraphSdl),
     });
+    this.state = { phase: "loaded" };
   }
 
   private async externalSubgraphHealthCheckCallback(supergraphSdl: string) {
@@ -960,6 +970,11 @@ export class ApolloGateway implements GraphQLService {
       case 'loaded':
         // This is the normal case.
         break;
+      case 'updating schema':
+        // This should never happen
+        throw Error(
+          "ApolloGateway.pollServices called from an unexpected state 'updating schema'",
+        );
       default:
         throw new UnreachableCaseError(this.state);
     }
@@ -1326,7 +1341,7 @@ export class ApolloGateway implements GraphQLService {
   // schema polling). Can be called multiple times safely. Once it (async)
   // returns, all gateway background activity will be finished.
   public async stop() {
-    Promise.all(
+    await Promise.all(
       this.toDispose.map((p) =>
         p().catch((e) => {
           this.logger.error(
@@ -1387,6 +1402,10 @@ export class ApolloGateway implements GraphQLService {
         this.state = { phase: 'stopped' };
         stoppingDone!();
         return;
+      }
+      case "updating schema": {
+        // This should never happen
+        throw Error("`ApolloGateway.stop` called from an unexpected state `updating schema`");
       }
       default:
         throw new UnreachableCaseError(this.state);

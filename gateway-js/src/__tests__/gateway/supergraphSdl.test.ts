@@ -284,5 +284,76 @@ describe('Using supergraphSdl dynamic configuration', () => {
         /The gateway subgraphs health check failed\. Updating to the provided `supergraphSdl` will likely result in future request failures to subgraphs\. The following error occurred during the health check/,
       );
     });
+
+    it('throws an error when `update` is called after gateway fails to load', async () => {
+      let updateCallback: SupergraphSdlUpdateFunction;
+      const supergraphSdl = getTestingSupergraphSdl();
+      gateway = new ApolloGateway({
+        async supergraphSdl({ update }) {
+          updateCallback = update;
+          return {
+            supergraphSdl: 'invalid SDL',
+          };
+        },
+      });
+
+      try {
+        await gateway.load();
+      } catch {}
+
+      expect(() =>
+        updateCallback!(supergraphSdl),
+      ).toThrowErrorMatchingInlineSnapshot(
+        `"Can't call \`update\` callback after gateway failed to load."`,
+      );
+
+      // gateway failed to load, so we don't want the `afterEach` to call `gateway.stop()`
+      gateway = null;
+    });
+
+    it('throws an error when `update` is called while an update is in progress', async () => {
+      let updateCallback: SupergraphSdlUpdateFunction;
+      const supergraphSdl = getTestingSupergraphSdl();
+      gateway = new ApolloGateway({
+        async supergraphSdl({ update }) {
+          updateCallback = update;
+          return {
+            supergraphSdl,
+          };
+        },
+        experimental_didUpdateComposition() {
+          updateCallback(getTestingSupergraphSdl(fixturesWithUpdate));
+        },
+      });
+
+      await expect(gateway.load()).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"Can't call \`update\` callback while supergraph update is in progress."`,
+      );
+
+      // gateway failed to load, so we don't want the `afterEach` to call `gateway.stop()`
+      gateway = null;
+    });
+
+    it('throws an error when `update` is called after gateway is stopped', async () => {
+      let updateCallback: SupergraphSdlUpdateFunction;
+      const supergraphSdl = getTestingSupergraphSdl();
+      gateway = new ApolloGateway({
+        async supergraphSdl({ update }) {
+          updateCallback = update;
+          return {
+            supergraphSdl,
+          };
+        },
+      });
+
+      await gateway.load();
+      await gateway.stop();
+
+      expect(() =>
+        updateCallback!(getTestingSupergraphSdl(fixturesWithUpdate)),
+      ).toThrowErrorMatchingInlineSnapshot(
+        `"Can't call \`update\` callback after gateway has been stopped."`,
+      );
+    });
   });
 });
