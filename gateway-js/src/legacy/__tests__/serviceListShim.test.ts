@@ -6,7 +6,9 @@ import {
 import { RemoteGraphQLDataSource, ServiceEndpointDefinition } from '../..';
 import { ServiceListShim } from '../serviceListShim';
 import { mockAllServicesSdlQuerySuccess } from '../../__tests__/integration/nockMocks';
-import { wait, waitUntil } from '../../__tests__/execution-utils';
+import { wait } from '../../__tests__/execution-utils';
+import { waitUntil } from '../../utilities/waitUntil';
+import { Logger } from 'apollo-server-types';
 
 describe('ServiceListShim', () => {
   beforeEach(() => {
@@ -32,7 +34,7 @@ describe('ServiceListShim', () => {
     mockAllServicesSdlQuerySuccess();
     const shim = new ServiceListShim({ serviceList: fixtures });
     await expect(
-      shim({ async update() {}, async healthCheck() {} }),
+      shim({ update() {}, async healthCheck() {} }),
     ).resolves.toBeTruthy();
   });
 
@@ -59,7 +61,7 @@ describe('ServiceListShim', () => {
       },
     });
 
-    await shim({ async update() {}, async healthCheck() {} });
+    await shim({ update() {}, async healthCheck() {} });
 
     expect(processSpies.length).toBe(fixtures.length);
     for (const processSpy of processSpies) {
@@ -94,7 +96,7 @@ describe('ServiceListShim', () => {
     });
 
     const { cleanup } = await shim({
-      async update(supergraphSdl) {
+      update(supergraphSdl) {
         updateSpy(supergraphSdl);
       },
       async healthCheck() {},
@@ -140,13 +142,14 @@ describe('ServiceListShim', () => {
 
     const updateSpy = jest.fn();
     const { cleanup } = await shim({
-      async update(supergraphSdl) {
+      update(supergraphSdl) {
         updateSpy(supergraphSdl);
       },
       async healthCheck() {},
     });
 
     // let the shim poll through all the active mocks
+    // wouldn't need to do this if I could get fakeTimers working as expected
     while (nock.activeMocks().length > 0) {
       await wait(0);
     }
@@ -154,5 +157,54 @@ describe('ServiceListShim', () => {
     await cleanup!();
 
     expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  describe('errors', () => {
+    it('logs an error when `update` function throws', async () => {
+      const [errorLoggedPromise, resolveErrorLoggedPromise] = waitUntil();
+
+      const errorSpy = jest.fn(() => {
+        resolveErrorLoggedPromise();
+      });
+      const logger: Logger = {
+        error: errorSpy,
+        debug() {},
+        info() {},
+        warn() {},
+      };
+
+      // mock successful initial load
+      mockAllServicesSdlQuerySuccess();
+
+      // mock first update
+      mockAllServicesSdlQuerySuccess(fixturesWithUpdate);
+
+      const shim = new ServiceListShim({
+        serviceList: fixtures,
+        pollIntervalInMs: 1000,
+        logger,
+      });
+
+      const thrownErrorMessage = 'invalid supergraph';
+      // simulate gateway throwing an error when `update` is called
+      const updateSpy = jest.fn().mockImplementationOnce(() => {
+        throw new Error(thrownErrorMessage);
+      });
+
+      const { cleanup } = await shim({
+        update: updateSpy,
+        async healthCheck() {},
+      });
+
+      await errorLoggedPromise;
+      // stop polling
+      await cleanup!();
+
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+      expect(logger.error).toHaveBeenCalledTimes(1);
+      expect(logger.error).toHaveBeenCalledWith(
+        `IntrospectAndCompose failed to update supergraph with the following error: ${thrownErrorMessage}`,
+      );
+    });
   });
 });

@@ -9,8 +9,9 @@ import { ApolloServer } from 'apollo-server';
 import { Logger } from 'apollo-server-types';
 import nock from 'nock';
 import { fetch } from '../../__mocks__/apollo-server-env';
-import { getTestingSupergraphSdl, waitUntil } from '../execution-utils';
+import { getTestingSupergraphSdl } from '../execution-utils';
 import { mockAllServicesHealthCheckSuccess } from '../integration/nockMocks';
+import { waitUntil } from '../../utilities/waitUntil';
 
 async function getSupergraphSdlGatewayServer() {
   const server = new ApolloServer({

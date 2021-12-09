@@ -3,6 +3,7 @@ import {
   compositionHasErrors,
   ServiceDefinition,
 } from '@apollo/federation';
+import { Logger } from 'apollo-server-types';
 import CallableInstance from 'callable-instance';
 import { HeadersInit } from 'node-fetch';
 import {
@@ -16,6 +17,7 @@ import {
   getServiceDefinitionsFromRemoteEndpoint,
   Service,
 } from '../loadServicesFromRemoteEndpoint';
+import { waitUntil } from '../utilities/waitUntil';
 
 export interface ServiceListShimOptions {
   serviceList: ServiceEndpointDefinition[];
@@ -26,11 +28,12 @@ export interface ServiceListShimOptions {
       ) => Promise<HeadersInit> | HeadersInit);
   buildService?: (definition: ServiceEndpointDefinition) => GraphQLDataSource;
   pollIntervalInMs?: number;
+  logger?: Logger;
 }
 
 type ShimState =
   | { phase: 'initialized' }
-  | { phase: 'polling' }
+  | { phase: 'polling'; pollingPromise?: Promise<void> }
   | { phase: 'stopped' };
 
 export class ServiceListShim extends CallableInstance<
@@ -51,6 +54,7 @@ export class ServiceListShim extends CallableInstance<
   private pollIntervalInMs?: number;
   private timerRef: NodeJS.Timeout | null = null;
   private state: ShimState;
+  private logger?: Logger;
 
   constructor(options: ServiceListShimOptions) {
     super('instanceCallableMethod');
@@ -62,6 +66,7 @@ export class ServiceListShim extends CallableInstance<
       dataSource: this.createDataSource(serviceDefinition),
     }));
     this.introspectionHeaders = options.introspectionHeaders;
+    this.logger = options.logger;
     this.state = { phase: 'initialized' };
   }
 
@@ -69,6 +74,7 @@ export class ServiceListShim extends CallableInstance<
   private async instanceCallableMethod(
     ...[{ update }]: Parameters<SupergraphSdlHook>
   ) {
+    debugger;
     this.update = update;
 
     const initialSupergraphSdl = await this.updateSupergraphSdl();
@@ -80,6 +86,9 @@ export class ServiceListShim extends CallableInstance<
     return {
       supergraphSdl: initialSupergraphSdl,
       cleanup: async () => {
+        if (this.state.phase === 'polling') {
+          await this.state.pollingPromise;
+        }
         this.state = { phase: 'stopped' };
         if (this.timerRef) {
           this.timerRef.unref();
@@ -140,15 +149,25 @@ export class ServiceListShim extends CallableInstance<
   }
 
   private poll() {
-    this.timerRef = global.setTimeout(async () => {
+    this.timerRef = setTimeout(async () => {
       if (this.state.phase === 'polling') {
-        const maybeNewSupergraphSdl = await this.updateSupergraphSdl();
-        if (maybeNewSupergraphSdl) {
-          this.update?.(maybeNewSupergraphSdl);
+        const [pollingPromise, donePolling] = waitUntil();
+        this.state.pollingPromise = pollingPromise;
+        try {
+          const maybeNewSupergraphSdl = await this.updateSupergraphSdl();
+          if (maybeNewSupergraphSdl) {
+            this.update?.(maybeNewSupergraphSdl);
+          }
+        } catch (e) {
+          this.logger?.error(
+            'IntrospectAndCompose failed to update supergraph with the following error: ' +
+              (e.message ?? e),
+          );
         }
-
-        this.poll();
+        donePolling!();
       }
+
+      this.poll();
     }, this.pollIntervalInMs!);
   }
 }
