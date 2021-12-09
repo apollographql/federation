@@ -95,7 +95,7 @@ export async function loadSupergraphSdlFromUplinks({
         theResult = res;
       }
     });
-  } else if (endpoints) {
+  } else if (exception) {
     // no results and there was at least one exception: re-throw it
     throw exception;
   }
