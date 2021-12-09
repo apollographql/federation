@@ -30,6 +30,9 @@ export class RemoteGraphQLDataSource<
       ThisType<RemoteGraphQLDataSource<TContext>>,
   ) {
     this.fetcher = fetcher.defaults({
+      // although this is the default, we want to take extra care and be very
+      // explicity to ensure that mutations cannot be retried. please leave this
+      // intact.
       retry: false,
     });
     if (config) {

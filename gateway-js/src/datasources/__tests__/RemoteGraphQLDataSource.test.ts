@@ -263,7 +263,7 @@ describe('fetcher', () => {
     expect(data).toEqual({ injected: true });
   });
 
-  it('supports a custom fetcher, like `make-fetch-happen`', async () => {
+  it('supports a custom fetcher, like `node-fetch`', async () => {
     const injectedFetch = customFetcher.mockJSONResponseOnce({
       data: { me: 'james' },
     });
