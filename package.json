@@ -10,8 +10,8 @@
     "compile:stage-03": "tsc --build tsconfig.build-stage-03.json",
     "compile:for-harmonizer-build-rs": "npm run compile:stage-01 && lerna run --scope @apollo/harmonizer rollup",
     "compile:for-router-bridge-build-rs": "npm run compile:stage-01 && lerna run --scope @apollo/router-bridge rollup",
-    "compile": "npm run compile:stage-01 && npm run compile:stage-02 && npm run compile:stage-03 && npm run gen-error-code-doc",
-    "compile:clean": "npm run compile:stage-01 -- --clean && npm run compile:stage-02 && npm run compile:stage-03 -- --clean && npm run gen-error-code-doc",
+    "compile": "npm run compile:stage-01 && npm run compile:stage-02 && npm run compile:stage-03",
+    "compile:clean": "npm run compile:stage-01 -- --clean && npm run compile:stage-02 && npm run compile:stage-03 -- --clean",
     "watch": "npm run compile && tsc --build tsconfig.json --watch",
     "version": "npm i --package-lock-only && node ./prompt-update-changelogs.js",
     "release:version-bump": "lerna version",
@@ -26,7 +26,8 @@
     "codegen": "graphql-codegen --config codegen.yml",
     "codegen:check": "npm run codegen && git diff --exit-code",
     "lint": "eslint . --ext .ts",
-    "gen-error-code-doc": "node ./internals-js/dist/genErrorCodeDoc.js > ./docs/source/errors.md"
+    "error-code-doc": "node ./internals-js/dist/genErrorCodeDoc.js > ./docs/source/errors.md",
+    "error-code-doc:check": "npm run error-code-doc && git diff --exit-code"
   },
   "engines": {
     "node": ">=12.13.0 <17.0",

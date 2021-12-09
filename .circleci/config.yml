@@ -92,6 +92,19 @@ jobs:
       - oss/npm_clean_install_with_caching
       - run:
           command: npm run codegen:check
+
+  Error code Doc:
+    description: "Ensure the error code documentation is up to date"
+    docker:
+      - image: cimg/node:14.18.1
+    steps:
+      - oss/install_specific_npm_version:
+          version: '7'
+      - checkout
+      - oss/npm_clean_install_with_caching
+      - run:
+          command: npm run error-code-doc:check
+
   Rust:
     parameters:
       platform:
@@ -291,6 +304,9 @@ workflows:
       - GraphQL Types:
           name: "GraphQL Types (up to date)"
           <<: *common_non_publish_filters
+      - Error code Doc:
+          name: "Error code Doc (up to date)"
+          <<: *common_non_publish_filters
       - Rust:
           <<: *common_non_publish_filters
           matrix:
@@ -307,6 +323,7 @@ workflows:
             - "JS: Node 14"
             - "JS: Node 16"
             - "GraphQL Types (up to date)"
+            - "Error code Doc (up to date)"
       - oss/dry_run:
           name: "JS: Dry-run"
           <<: *common_publish_filters
@@ -316,6 +333,7 @@ workflows:
             - "JS: Node 16"
             - Rust
             - "GraphQL Types (up to date)"
+            - "Error code Doc (up to date)"
       - oss/confirmation:
           name: "JS: Confirmation"
           type: approval
