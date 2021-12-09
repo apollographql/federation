@@ -123,12 +123,12 @@ export function errorCodeDef(e: GraphQLError): ErrorCodeDefinition | undefined {
 export const ERROR_CODE_REGISTRY = new ErrorCodeRegistry();
 const reg = ERROR_CODE_REGISTRY;
 
-export const ERR_GRAPHQL = reg.add(
+const INVALID_GRAPHQL = reg.add(
   'INVALID_GRAPHQL',
   'A schema is invalid GraphQL: it violates one of the rule of the specification.'
 );
 
-export const ERR_TAG_DEFINITION_INVALID = reg.add(
+const TAG_DEFINITION_INVALID = reg.add(
   'TAG_DIRECTIVE_DEFINITION_INVALID',
   'The @tag directive has an invalid defintion in the schema.',
   { addedIn: FED1_CODE },
@@ -148,158 +148,204 @@ class FederationDirectiveErrorCodeCategory extends ConcreteErrorCodeCategory {
   }
 }
 
-export const ERR_FIELDS_HAS_ARGS_CATEGORY = new FederationDirectiveErrorCodeCategory(
+const FIELDS_HAS_ARGS_CATEGORY = new FederationDirectiveErrorCodeCategory(
   'FIELDS_HAS_ARGS',
   (directive) => `The \`fields\` argument of a \`@${directive}\` directive includes a field defined with arguments (which is not currently supported).`
 );
 
-export const ERR_KEY_FIELDS_HAS_ARGS = ERR_FIELDS_HAS_ARGS_CATEGORY.create('key');
-export const ERR_PROVIDES_FIELDS_HAS_ARGS = ERR_FIELDS_HAS_ARGS_CATEGORY.create('provides');
-export const ERR_REQUIRES_FIELDS_HAS_ARGS = ERR_FIELDS_HAS_ARGS_CATEGORY.create('requires');
+const KEY_FIELDS_HAS_ARGS = FIELDS_HAS_ARGS_CATEGORY.create('key');
+const PROVIDES_FIELDS_HAS_ARGS = FIELDS_HAS_ARGS_CATEGORY.create('provides');
+const REQUIRES_FIELDS_HAS_ARGS = FIELDS_HAS_ARGS_CATEGORY.create('requires');
 
-export const ERR_DIRECTIVE_FIELDS_MISSING_EXTERNAL_CATEGORY = new FederationDirectiveErrorCodeCategory(
+const DIRECTIVE_FIELDS_MISSING_EXTERNAL_CATEGORY = new FederationDirectiveErrorCodeCategory(
   'FIELDS_MISSING_EXTERNAL',
   (directive) => `The \`fields\` argument of a \`@${directive}\` directive includes a field that is not marked as \`@external\`.`,
   { addedIn: FED1_CODE },
 );
 
-export const ERR_PROVIDES_MISSING_EXTERNAL = ERR_DIRECTIVE_FIELDS_MISSING_EXTERNAL_CATEGORY.create('provides');
-export const ERR_REQUIRES_MISSING_EXTERNAL = ERR_DIRECTIVE_FIELDS_MISSING_EXTERNAL_CATEGORY.create('requires');
+const PROVIDES_MISSING_EXTERNAL = DIRECTIVE_FIELDS_MISSING_EXTERNAL_CATEGORY.create('provides');
+const REQUIRES_MISSING_EXTERNAL = DIRECTIVE_FIELDS_MISSING_EXTERNAL_CATEGORY.create('requires');
 
-export const ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY = new FederationDirectiveErrorCodeCategory(
+const DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY = new FederationDirectiveErrorCodeCategory(
   'UNSUPPORTED_ON_INTERFACE',
   (directive) => `A \`@${directive}\` directive is used on an interface, which is not (yet) supported.`,
 );
 
-export const ERR_KEY_UNSUPPORTED_ON_INTERFACE = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('key');
-export const ERR_PROVIDES_UNSUPPORTED_ON_INTERFACE = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('provides');
-export const ERR_REQUIRES_UNSUPPORTED_ON_INTERFACE = ERR_DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('requires');
+const KEY_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('key');
+const PROVIDES_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('provides');
+const REQUIRES_UNSUPPORTED_ON_INTERFACE = DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY.create('requires');
 
-export const ERR_EXTERNAL_UNUSED = reg.add(
+const EXTERNAL_UNUSED = reg.add(
   'EXTERNAL_UNUSED',
   'An `@external` field is not being used by any instance of `@key`, `@requires`, `@provides` or to satisfy an interface implememtation.',
   { addedIn: FED1_CODE },
 );
 
-export const ERR_PROVIDES_ON_NON_OBJECT_FIELD = reg.add(
+const PROVIDES_ON_NON_OBJECT_FIELD = reg.add(
   'PROVIDES_ON_NON_OBJECT_FIELD',
   'A `@provides` directive is used to mark a field whose base type is not an object type.'
 );
 
-export const ERR_DIRECTIVE_INVALID_FIELDS_TYPE = new FederationDirectiveErrorCodeCategory(
+const DIRECTIVE_INVALID_FIELDS_TYPE_CATEGORY = new FederationDirectiveErrorCodeCategory(
   'INVALID_FIELDS_TYPE',
   (directive) => `The value passed to the \`fields\` argument of a \`@${directive}\` directive is not a string.`,
 );
 
-export const ERR_KEY_INVALID_FIELDS_TYPE = ERR_DIRECTIVE_INVALID_FIELDS_TYPE.create('key');
-export const ERR_PROVIDES_INVALID_FIELDS_TYPE = ERR_DIRECTIVE_INVALID_FIELDS_TYPE.create('provides');
-export const ERR_REQUIRES_INVALID_FIELDS_TYPE = ERR_DIRECTIVE_INVALID_FIELDS_TYPE.create('requires');
+const KEY_INVALID_FIELDS_TYPE = DIRECTIVE_INVALID_FIELDS_TYPE_CATEGORY.create('key');
+const PROVIDES_INVALID_FIELDS_TYPE = DIRECTIVE_INVALID_FIELDS_TYPE_CATEGORY.create('provides');
+const REQUIRES_INVALID_FIELDS_TYPE = DIRECTIVE_INVALID_FIELDS_TYPE_CATEGORY.create('requires');
 
-export const ERR_DIRECTIVE_INVALID_FIELDS = new FederationDirectiveErrorCodeCategory(
+const DIRECTIVE_INVALID_FIELDS_CATEGORY = new FederationDirectiveErrorCodeCategory(
   'INVALID_FIELDS',
   (directive) => `The \`fields\` argument of a \`@${directive}\` directive is invalid (it has invalid syntax, includes unknown fields, ...).`,
 );
 
-export const ERR_KEY_INVALID_FIELDS = ERR_DIRECTIVE_INVALID_FIELDS.create('key');
-export const ERR_PROVIDES_INVALID_FIELDS = ERR_DIRECTIVE_INVALID_FIELDS.create('provides');
-export const ERR_REQUIRES_INVALID_FIELDS = ERR_DIRECTIVE_INVALID_FIELDS.create('requires');
+const KEY_INVALID_FIELDS = DIRECTIVE_INVALID_FIELDS_CATEGORY.create('key');
+const PROVIDES_INVALID_FIELDS = DIRECTIVE_INVALID_FIELDS_CATEGORY.create('provides');
+const REQUIRES_INVALID_FIELDS = DIRECTIVE_INVALID_FIELDS_CATEGORY.create('requires');
 
-export const ERR_KEY_FIELDS_SELECT_INVALID_TYPE = reg.add(
+const KEY_FIELDS_SELECT_INVALID_TYPE = reg.add(
   'KEY_FIELDS_SELECT_INVALID_TYPE',
   'The `fields` argument of `@key` directive includes a field whose type is a list, interface, or union type. Fields of these types cannot be part of a `@key`',
   { addedIn: FED1_CODE },
 )
 
-export const ERR_ROOT_TYPE_USED = new ConcreteErrorCodeCategory<SchemaRootKind>(
+const ROOT_TYPE_USED_CATEGORY = new ConcreteErrorCodeCategory<SchemaRootKind>(
   (kind) => `ROOT_${kind.toLocaleUpperCase()}_USED`,
   (kind) => `A subgraph's schema defines a type with the name \`${kind}\`, while also specifying a _different_ type name as the root query object. This is not allowed.`,
   { addedIn: FED1_CODE },
 );
 
-export const ERR_ROOT_QUERY_USED = ERR_ROOT_TYPE_USED.create('query');
-export const ERR_ROOT_MUTATION_USED = ERR_ROOT_TYPE_USED.create('mutation');
-export const ERR_ROOT_SUBSCRIPTION_USED = ERR_ROOT_TYPE_USED.create('subscription');
+const ROOT_QUERY_USED = ROOT_TYPE_USED_CATEGORY.create('query');
+const ROOT_MUTATION_USED = ROOT_TYPE_USED_CATEGORY.create('mutation');
+const ROOT_SUBSCRIPTION_USED = ROOT_TYPE_USED_CATEGORY.create('subscription');
 
-export const ERR_INVALID_SUBGRAPH_NAME = reg.add(
+const INVALID_SUBGRAPH_NAME = reg.add(
   'INVALID_SUBGRAPH_NAME',
   'A subgraph name is invalid (subgraph names cannot be a single underscore ("_")).'
 );
 
-export const ERR_NO_QUERIES = reg.add(
+const NO_QUERIES = reg.add(
   'NO_QUERIES',
   'None of the composed subgraphs expose any query.'
 );
 
-export const ERR_INTERFACE_FIELD_NO_IMPLEM = reg.add(
+const INTERFACE_FIELD_NO_IMPLEM = reg.add(
   'INTERFACE_FIELD_NO_IMPLEM',
   'After subgraph merging, an implemenation is missing a field of one of the interface it implements (which can happen for valid subgraphs).'
 );
 
-export const ERR_TYPE_KIND_MISMATCH = reg.add(
+const TYPE_KIND_MISMATCH = reg.add(
   'TYPE_KIND_MISMATCH',
   'A type has the same name in different subgraphs, but a different kind. For instance, one definition is an object type but another is an interface.',
   { ...DEFAULT_METADATA, replaces: ['VALUE_TYPE_KIND_MISMATCH', 'EXTENSION_OF_WRONG_KIND', 'ENUM_MISMATCH_TYPE'] },
 );
 
-export const ERR_EXTERNAL_TYPE_MISMATCH = reg.add(
+const EXTERNAL_TYPE_MISMATCH = reg.add(
   'EXTERNAL_TYPE_MISMATCH',
   'An `@external` field has a type that is incompatible with the declaration(s) of that field in other subgraphs.',
   { addedIn: FED1_CODE },
 );
 
-export const ERR_EXTERNAL_ARGUMENT_MISSING = reg.add(
+const EXTERNAL_ARGUMENT_MISSING = reg.add(
   'EXTERNAL_ARGUMENT_MISSING',
   'An `@external` field is missing some arguments present in the declaration(s) of that field in other subgraphs.',
 );
 
-export const ERR_EXTERNAL_ARGUMENT_TYPE_MISMATCH = reg.add(
+const EXTERNAL_ARGUMENT_TYPE_MISMATCH = reg.add(
   'EXTERNAL_ARGUMENT_TYPE_MISMATCH',
   'An `@external` field declares an argument with a type that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs.',
 );
 
-export const ERR_EXTERNAL_ARGUMENT_DEFAULT_MISMATCH = reg.add(
+const EXTERNAL_ARGUMENT_DEFAULT_MISMATCH = reg.add(
   'EXTERNAL_ARGUMENT_DEFAULT_MISMATCH',
   'An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs.',
 );
 
-export const ERR_FIELD_TYPE_MISMATCH = reg.add(
+const FIELD_TYPE_MISMATCH = reg.add(
   'FIELD_TYPE_MISMATCH',
   'A field has a type that is incompatible with other declarations of that field in other subgraphs.',
   { ...DEFAULT_METADATA, replaces: ['VALUE_TYPE_FIELD_TYPE_MISMATCH'] },
 );
 
-export const ERR_ARGUMENT_TYPE_MISMATCH = reg.add(
+const ARGUMENT_TYPE_MISMATCH = reg.add(
   'FIELD_ARGUMENT_TYPE_MISMATCH',
   'An argument (of a field/directive) has a type that is incompatible with that of other declarations of that same argument in other subgraphs.',
   { ...DEFAULT_METADATA, replaces: ['VALUE_TYPE_INPUT_VALUE_MISMATCH'] },
 );
 
-export const ERR_INPUT_FIELD_DEFAULT_MISMATCH = reg.add(
+const INPUT_FIELD_DEFAULT_MISMATCH = reg.add(
   'INPUT_FIELD_DEFAULT_MISMATCH',
   'An input field has a default value that is incompatible with other declarations of that field in other subgraphs.',
 );
 
-export const ERR_ARGUMENT_DEFAULT_MISMATCH = reg.add(
+const ARGUMENT_DEFAULT_MISMATCH = reg.add(
   'FIELD_ARGUMENT_DEFAULT_MISMATCH',
   'An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs.',
 );
 
-export const ERR_EXTENSION_WITH_NO_BASE = reg.add(
+const EXTENSION_WITH_NO_BASE = reg.add(
   'EXTENSION_WITH_NO_BASE',
   'A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph.',
   { addedIn: FED1_CODE },
 );
 
-export const ERR_EXTERNAL_MISSING_ON_BASE = reg.add(
+const EXTERNAL_MISSING_ON_BASE = reg.add(
   'EXTERNAL_MISSING_ON_BASE',
   'A field is marked as `@external` in a subgraph but with no non-external declaration in any other subgraph.',
   { addedIn: FED1_CODE },
 );
 
-export const ERR_SATISFIABILITY_ERROR = reg.add(
+const SATISFIABILITY_ERROR = reg.add(
   'SATISFIABILITY_ERROR',
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
 );
+
+export const ERRORS = {
+  INVALID_GRAPHQL,
+  TAG_DEFINITION_INVALID,
+  FIELDS_HAS_ARGS_CATEGORY,
+  KEY_FIELDS_HAS_ARGS,
+  PROVIDES_FIELDS_HAS_ARGS,
+  REQUIRES_FIELDS_HAS_ARGS,
+  DIRECTIVE_FIELDS_MISSING_EXTERNAL_CATEGORY,
+  PROVIDES_MISSING_EXTERNAL,
+  REQUIRES_MISSING_EXTERNAL,
+  DIRECTIVE_UNSUPPORTED_ON_INTERFACE_CATEGORY,
+  KEY_UNSUPPORTED_ON_INTERFACE,
+  PROVIDES_UNSUPPORTED_ON_INTERFACE,
+  REQUIRES_UNSUPPORTED_ON_INTERFACE,
+  EXTERNAL_UNUSED,
+  PROVIDES_ON_NON_OBJECT_FIELD,
+  DIRECTIVE_INVALID_FIELDS_TYPE_CATEGORY,
+  KEY_INVALID_FIELDS_TYPE,
+  PROVIDES_INVALID_FIELDS_TYPE,
+  REQUIRES_INVALID_FIELDS_TYPE,
+  DIRECTIVE_INVALID_FIELDS_CATEGORY,
+  KEY_INVALID_FIELDS,
+  PROVIDES_INVALID_FIELDS,
+  REQUIRES_INVALID_FIELDS,
+  KEY_FIELDS_SELECT_INVALID_TYPE,
+  ROOT_TYPE_USED_CATEGORY,
+  ROOT_QUERY_USED,
+  ROOT_MUTATION_USED,
+  ROOT_SUBSCRIPTION_USED,
+  INVALID_SUBGRAPH_NAME,
+  NO_QUERIES,
+  INTERFACE_FIELD_NO_IMPLEM,
+  TYPE_KIND_MISMATCH,
+  EXTERNAL_TYPE_MISMATCH,
+  EXTERNAL_ARGUMENT_MISSING,
+  EXTERNAL_ARGUMENT_TYPE_MISMATCH,
+  EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
+  FIELD_TYPE_MISMATCH,
+  ARGUMENT_TYPE_MISMATCH,
+  INPUT_FIELD_DEFAULT_MISMATCH,
+  ARGUMENT_DEFAULT_MISMATCH,
+  EXTENSION_WITH_NO_BASE,
+  EXTERNAL_MISSING_ON_BASE,
+  SATISFIABILITY_ERROR,
+};
 
 /*
  * A list of now-removed errors, each as a pair of the old code and a comment for the removal.

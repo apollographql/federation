@@ -52,20 +52,8 @@ import {
   ExternalTester,
   isInterfaceType,
   sourceASTs,
-  ERR_NO_QUERIES,
-  ERR_INTERFACE_FIELD_NO_IMPLEM,
   ErrorCodeDefinition,
-  ERR_TYPE_KIND_MISMATCH,
-  ERR_EXTERNAL_TYPE_MISMATCH,
-  ERR_EXTERNAL_ARGUMENT_MISSING,
-  ERR_EXTERNAL_ARGUMENT_TYPE_MISMATCH,
-  ERR_EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
-  ERR_FIELD_TYPE_MISMATCH,
-  ERR_ARGUMENT_TYPE_MISMATCH,
-  ERR_ARGUMENT_DEFAULT_MISMATCH,
-  ERR_INPUT_FIELD_DEFAULT_MISMATCH,
-  ERR_EXTENSION_WITH_NO_BASE,
-  ERR_EXTERNAL_MISSING_ON_BASE,
+  ERRORS,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
 import {
@@ -353,7 +341,7 @@ class Merger {
     }
 
     if (!this.merged.schemaDefinition.rootType('query')) {
-      this.errors.push(ERR_NO_QUERIES.err("No queries found in any subgraph: a supergraph must have a query root type."));
+      this.errors.push(ERRORS.NO_QUERIES.err("No queries found in any subgraph: a supergraph must have a query root type."));
     }
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
@@ -436,7 +424,7 @@ class Merger {
   private reportMismatchedTypeDefinitions(mismatchedType: string) {
     const supergraphType = this.merged.type(mismatchedType)!;
     this.reportMismatchError(
-      ERR_TYPE_KIND_MISMATCH,
+      ERRORS.TYPE_KIND_MISMATCH,
       `Type "${mismatchedType}" has mismatched kind: it is defined as `,
       supergraphType,
       this.subgraphsSchema.map(s => s.type(mismatchedType)),
@@ -696,7 +684,7 @@ class Merger {
     }
     if (extensionSubgraphs.length > 0 && defSubgraphs.length === 0) {
       for (const [i, subgraph] of extensionSubgraphs.entries()) {
-        this.errors.push(ERR_EXTENSION_WITH_NO_BASE.err(
+        this.errors.push(ERRORS.EXTENSION_WITH_NO_BASE.err(
           `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
           extensionASTs[i]
         ));
@@ -849,7 +837,7 @@ class Merger {
     if (sources.every((s, i) => s === undefined || this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => source ? this.names[i] : undefined).filter(s => s !== undefined) as string[];
       const asts = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
-      this.errors.push(ERR_EXTERNAL_MISSING_ON_BASE.err(
+      this.errors.push(ERRORS.EXTERNAL_MISSING_ON_BASE.err(
         `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
         asts
       ));
@@ -910,7 +898,7 @@ class Merger {
 
     if (hasInvalidTypes) {
       this.reportMismatchError(
-        ERR_EXTERNAL_TYPE_MISMATCH,
+        ERRORS.EXTERNAL_TYPE_MISMATCH,
         `Field "${dest.coordinate}" has incompatible types across subgraphs (where marked @external): it has `,
         dest,
         sources,
@@ -920,7 +908,7 @@ class Merger {
     for (const arg of invalidArgsPresence) {
       const destArg = dest.argument(arg)!;
       this.reportMismatchErrorWithSpecifics(
-        ERR_EXTERNAL_ARGUMENT_MISSING,
+        ERRORS.EXTERNAL_ARGUMENT_MISSING,
         `Field "${dest.coordinate}" is missing argument "${destArg.coordinate}" in some subgraphs where it is marked @external: `,
         destArg,
         sources.map(s => s?.argument(destArg.name)),
@@ -934,7 +922,7 @@ class Merger {
     for (const arg of invalidArgsTypes) {
       const destArg = dest.argument(arg)!;
       this.reportMismatchError(
-        ERR_EXTERNAL_ARGUMENT_TYPE_MISMATCH,
+        ERRORS.EXTERNAL_ARGUMENT_TYPE_MISMATCH,
         `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where "${dest.coordinate}" is marked @external): it has `,
         destArg,
         sources.map(s => s?.argument(destArg.name)),
@@ -944,7 +932,7 @@ class Merger {
     for (const arg of invalidArgsDefaults) {
       const destArg = dest.argument(arg)!;
       this.reportMismatchError(
-        ERR_EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
+        ERRORS.EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
         `Argument "${destArg.coordinate}" has incompatible defaults across subgraphs (where "${dest.coordinate}" is marked @external): it has `,
         destArg,
         sources.map(s => s?.argument(destArg.name)),
@@ -1060,7 +1048,7 @@ class Merger {
 
     if (hasIncompatible) {
       this.reportMismatchError(
-        isArgument ? ERR_ARGUMENT_TYPE_MISMATCH : ERR_FIELD_TYPE_MISMATCH,
+        isArgument ? ERRORS.ARGUMENT_TYPE_MISMATCH : ERRORS.FIELD_TYPE_MISMATCH,
         `${elementKind} "${dest.coordinate}" has incompatible types across subgraphs: it has `,
         dest,
         sources,
@@ -1186,7 +1174,7 @@ class Merger {
 
     if (isIncompatible) {
       this.reportMismatchError(
-        kind === 'Argument' ? ERR_ARGUMENT_DEFAULT_MISMATCH : ERR_INPUT_FIELD_DEFAULT_MISMATCH,
+        kind === 'Argument' ? ERRORS.ARGUMENT_DEFAULT_MISMATCH : ERRORS.INPUT_FIELD_DEFAULT_MISMATCH,
         `${kind} "${dest.coordinate}" has incompatible default values across subgraphs: it has `,
         dest,
         sources,
@@ -1645,7 +1633,7 @@ class Merger {
               const typeInSubgraph = s.type(type.name);
               return typeInSubgraph !== undefined && (typeInSubgraph as ObjectType | InterfaceType).implementsInterface(itf.name);
             });
-            this.errors.push(ERR_INTERFACE_FIELD_NO_IMPLEM.err(
+            this.errors.push(ERRORS.INTERFACE_FIELD_NO_IMPLEM.err(
               `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
               + `which implements "${itf}" only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field "${itfField.name}".`,
               sourceASTs(
