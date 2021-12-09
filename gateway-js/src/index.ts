@@ -633,25 +633,47 @@ export class ApolloGateway implements GraphQLService {
   }
 
   /**
-   * @throws Error when called from a state other than `loaded`
+   * @throws Error
+   * when called from a state other than `loaded`
+   *
+   * @throws Error
+   * when the provided supergraphSdl is invalid
    */
   private externalSupergraphUpdateCallback(supergraphSdl: string) {
-    if (this.state.phase === "failed to load") {
-      throw new Error("Can't call `update` callback after gateway failed to load.");
-    } else if (this.state.phase === "updating schema") {
-      throw new Error("Can't call `update` callback while supergraph update is in progress.");
-    } else if (this.state.phase === "stopped") {
-      throw new Error("Can't call `update` callback after gateway has been stopped.");
-    } else if (this.state.phase !== "loaded") {
-      throw new Error(`Called \`update\` callback from unexpected state: "${this.state.phase}". This is a bug.`);
+    switch (this.state.phase) {
+      case 'failed to load':
+        throw new Error(
+          "Can't call `update` callback after gateway failed to load.",
+        );
+      case 'updating schema':
+        throw new Error(
+          "Can't call `update` callback while supergraph update is in progress.",
+        );
+      case 'stopped':
+        throw new Error(
+          "Can't call `update` callback after gateway has been stopped.",
+        );
+      case 'loaded':
+      case 'initialized':
+        // typical case
+        break;
+      default:
+        // this should never happen
+        throw new Error(
+          `Called \`update\` callback from unexpected state: "${this.state.phase}". This is a bug.`,
+        );
     }
 
-    this.state = { phase: "updating schema" };
-    this.updateWithSupergraphSdl({
-      supergraphSdl,
-      id: this.getIdForSupergraphSdl(supergraphSdl),
-    });
-    this.state = { phase: "loaded" };
+    this.state = { phase: 'updating schema' };
+    try {
+      this.updateWithSupergraphSdl({
+        supergraphSdl,
+        id: this.getIdForSupergraphSdl(supergraphSdl),
+      });
+    } finally {
+      // if update fails, we still want to go back to `loaded` state
+      this.state = { phase: 'loaded' };
+    }
   }
 
   private async externalSubgraphHealthCheckCallback(supergraphSdl: string) {

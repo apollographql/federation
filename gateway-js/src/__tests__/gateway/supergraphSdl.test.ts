@@ -355,5 +355,26 @@ describe('Using supergraphSdl dynamic configuration', () => {
         `"Can't call \`update\` callback after gateway has been stopped."`,
       );
     });
+
+    it('throws an error when `update` is called with an invalid supergraph', async () => {
+      let updateCallback: SupergraphSdlUpdateFunction;
+      const supergraphSdl = getTestingSupergraphSdl();
+      gateway = new ApolloGateway({
+        async supergraphSdl({ update }) {
+          updateCallback = update;
+          return {
+            supergraphSdl,
+          };
+        },
+      });
+
+      await gateway.load();
+
+      expect(() =>
+        updateCallback!('invalid SDL'),
+      ).toThrowErrorMatchingInlineSnapshot(
+        `"Syntax Error: Unexpected Name \\"invalid\\"."`,
+      );
+    });
   });
 });
