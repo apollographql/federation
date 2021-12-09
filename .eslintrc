@@ -7,7 +7,7 @@
     "tsconfigRootDir": "./",
     "project": ["./tsconfig.base.json"]
   },
-  "ignorePatterns": ["**/__generated__/*"],
+  "ignorePatterns": ["**/__generated__/*", "**/dist/*"],
   "rules": {
     "@typescript-eslint/no-namespace": ["error", { "allowDeclarations": true }],
     "@typescript-eslint/no-inferrable-types": ["error", { "ignoreParameters": true, "ignoreProperties": true }],
