@@ -632,6 +632,9 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
+  /**
+   * @throws Error when called from a state other than `loaded`
+   */
   private externalSupergraphUpdateCallback(supergraphSdl: string) {
     if (this.state.phase === "failed to load") {
       throw new Error("Can't call `update` callback after gateway failed to load.");
@@ -639,7 +642,10 @@ export class ApolloGateway implements GraphQLService {
       throw new Error("Can't call `update` callback while supergraph update is in progress.");
     } else if (this.state.phase === "stopped") {
       throw new Error("Can't call `update` callback after gateway has been stopped.");
+    } else if (this.state.phase !== "loaded") {
+      throw new Error(`Called \`update\` callback from unexpected state: "${this.state.phase}". This is a bug.`);
     }
+
     this.state = { phase: "updating schema" };
     this.updateWithSupergraphSdl({
       supergraphSdl,
