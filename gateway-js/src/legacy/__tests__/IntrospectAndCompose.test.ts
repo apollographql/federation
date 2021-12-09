@@ -4,13 +4,13 @@ import {
   fixturesWithUpdate,
 } from 'apollo-federation-integration-testsuite';
 import { RemoteGraphQLDataSource, ServiceEndpointDefinition } from '../..';
-import { ServiceListShim } from '../serviceListShim';
+import { IntrospectAndCompose } from '../IntrospectAndCompose';
 import { mockAllServicesSdlQuerySuccess } from '../../__tests__/integration/nockMocks';
 import { wait } from '../../__tests__/execution-utils';
 import { waitUntil } from '../../utilities/waitUntil';
 import { Logger } from 'apollo-server-types';
 
-describe('ServiceListShim', () => {
+describe('IntrospectAndCompose', () => {
   beforeEach(() => {
     if (!nock.isActive()) nock.activate();
   });
@@ -24,7 +24,7 @@ describe('ServiceListShim', () => {
   it('constructs', () => {
     expect(
       () =>
-        new ServiceListShim({
+        new IntrospectAndCompose({
           serviceList: fixtures,
         }),
     ).not.toThrow();
@@ -32,9 +32,9 @@ describe('ServiceListShim', () => {
 
   it('is instance callable (simulating the gateway calling it)', async () => {
     mockAllServicesSdlQuerySuccess();
-    const shim = new ServiceListShim({ serviceList: fixtures });
+    const instance = new IntrospectAndCompose({ serviceList: fixtures });
     await expect(
-      shim({ update() {}, async healthCheck() {} }),
+      instance({ update() {}, async healthCheck() {} }),
     ).resolves.toBeTruthy();
   });
 
@@ -52,7 +52,7 @@ describe('ServiceListShim', () => {
 
     const processSpies: jest.Mock[] = [];
 
-    const shim = new ServiceListShim({
+    const instance = new IntrospectAndCompose({
       serviceList: fixtures,
       buildService(def) {
         const { datasource, processSpy } = getDataSourceSpy(def);
@@ -61,7 +61,7 @@ describe('ServiceListShim', () => {
       },
     });
 
-    await shim({ update() {}, async healthCheck() {} });
+    await instance({ update() {}, async healthCheck() {} });
 
     expect(processSpies.length).toBe(fixtures.length);
     for (const processSpy of processSpies) {
@@ -90,12 +90,12 @@ describe('ServiceListShim', () => {
       .mockImplementationOnce(() => r2())
       .mockImplementationOnce(() => r3());
 
-    const shim = new ServiceListShim({
+    const instance = new IntrospectAndCompose({
       serviceList: fixtures,
       pollIntervalInMs: 10,
     });
 
-    const { cleanup } = await shim({
+    const { cleanup } = await instance({
       update(supergraphSdl) {
         updateSpy(supergraphSdl);
       },
@@ -113,7 +113,7 @@ describe('ServiceListShim', () => {
 
     // ensure we cancelled the timer
     // @ts-ignore
-    expect(shim.timerRef).toBe(null);
+    expect(instance.timerRef).toBe(null);
   });
 
   // TODO: useFakeTimers (though I'm struggling to get this to work as expected)
@@ -129,7 +129,7 @@ describe('ServiceListShim', () => {
     mockAllServicesSdlQuerySuccess();
     mockAllServicesSdlQuerySuccess();
 
-    const shim = new ServiceListShim({
+    const instance = new IntrospectAndCompose({
       serviceList: fixtures,
       pollIntervalInMs: 100,
       buildService(service) {
@@ -141,14 +141,14 @@ describe('ServiceListShim', () => {
     });
 
     const updateSpy = jest.fn();
-    const { cleanup } = await shim({
+    const { cleanup } = await instance({
       update(supergraphSdl) {
         updateSpy(supergraphSdl);
       },
       async healthCheck() {},
     });
 
-    // let the shim poll through all the active mocks
+    // let the instance poll through all the active mocks
     // wouldn't need to do this if I could get fakeTimers working as expected
     while (nock.activeMocks().length > 0) {
       await wait(0);
@@ -179,7 +179,7 @@ describe('ServiceListShim', () => {
       // mock first update
       mockAllServicesSdlQuerySuccess(fixturesWithUpdate);
 
-      const shim = new ServiceListShim({
+      const instance = new IntrospectAndCompose({
         serviceList: fixtures,
         pollIntervalInMs: 1000,
         logger,
@@ -191,7 +191,7 @@ describe('ServiceListShim', () => {
         throw new Error(thrownErrorMessage);
       });
 
-      const { cleanup } = await shim({
+      const { cleanup } = await instance({
         update: updateSpy,
         async healthCheck() {},
       });

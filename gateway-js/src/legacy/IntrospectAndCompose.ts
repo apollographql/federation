@@ -19,7 +19,7 @@ import {
 } from '../loadServicesFromRemoteEndpoint';
 import { waitUntil } from '../utilities/waitUntil';
 
-export interface ServiceListShimOptions {
+export interface IntrospectAndComposeOptions {
   serviceList: ServiceEndpointDefinition[];
   introspectionHeaders?:
     | HeadersInit
@@ -31,12 +31,12 @@ export interface ServiceListShimOptions {
   logger?: Logger;
 }
 
-type ShimState =
+type State =
   | { phase: 'initialized' }
   | { phase: 'polling'; pollingPromise?: Promise<void> }
   | { phase: 'stopped' };
 
-export class ServiceListShim extends CallableInstance<
+export class IntrospectAndCompose extends CallableInstance<
   Parameters<SupergraphSdlHook>,
   ReturnType<SupergraphSdlHook>
 > {
@@ -53,10 +53,10 @@ export class ServiceListShim extends CallableInstance<
   private serviceSdlCache: Map<string, string> = new Map();
   private pollIntervalInMs?: number;
   private timerRef: NodeJS.Timeout | null = null;
-  private state: ShimState;
+  private state: State;
   private logger?: Logger;
 
-  constructor(options: ServiceListShimOptions) {
+  constructor(options: IntrospectAndComposeOptions) {
     super('instanceCallableMethod');
     // this.buildService needs to be assigned before this.serviceList is built
     this.buildService = options.buildService;
@@ -74,7 +74,6 @@ export class ServiceListShim extends CallableInstance<
   private async instanceCallableMethod(
     ...[{ update }]: Parameters<SupergraphSdlHook>
   ) {
-    debugger;
     this.update = update;
 
     const initialSupergraphSdl = await this.updateSupergraphSdl();
