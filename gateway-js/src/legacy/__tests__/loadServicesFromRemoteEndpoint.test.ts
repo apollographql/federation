@@ -1,5 +1,5 @@
 import { getServiceDefinitionsFromRemoteEndpoint } from '../loadServicesFromRemoteEndpoint';
-import { RemoteGraphQLDataSource } from '../datasources';
+import { RemoteGraphQLDataSource } from '../../datasources';
 
 describe('getServiceDefinitionsFromRemoteEndpoint', () => {
   it('errors when no URL was specified', async () => {

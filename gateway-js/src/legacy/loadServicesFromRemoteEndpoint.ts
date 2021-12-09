@@ -1,9 +1,9 @@
 import { GraphQLRequest } from 'apollo-server-types';
 import { parse } from 'graphql';
 import { Headers, HeadersInit } from 'node-fetch';
-import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
-import { SERVICE_DEFINITION_QUERY } from './';
-import { ServiceDefinitionUpdate, ServiceEndpointDefinition } from './config';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind } from '../datasources/types';
+import { SERVICE_DEFINITION_QUERY } from '../';
+import { ServiceDefinitionUpdate, ServiceEndpointDefinition } from '../config';
 import { ServiceDefinition } from '@apollo/federation';
 
 export type Service = ServiceEndpointDefinition & {

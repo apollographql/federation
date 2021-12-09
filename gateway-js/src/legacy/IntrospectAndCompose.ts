@@ -16,7 +16,7 @@ import {
 import {
   getServiceDefinitionsFromRemoteEndpoint,
   Service,
-} from '../loadServicesFromRemoteEndpoint';
+} from './loadServicesFromRemoteEndpoint';
 import { waitUntil } from '../utilities/waitUntil';
 
 export interface IntrospectAndComposeOptions {
