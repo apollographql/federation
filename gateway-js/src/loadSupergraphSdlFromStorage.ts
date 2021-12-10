@@ -38,6 +38,8 @@ const { name, version } = require('../package.json');
 
 const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
 
+var fetchCounter: number = 0;
+
 export class SupergraphSdlResult {
   id: string;
   supergraphSdl: string;
@@ -60,47 +62,26 @@ export async function loadSupergraphSdlFromUplinks({
   fetcher: typeof fetch;
   compositionId: string | null;
 }) : Promise<SupergraphSdlResult | null> {
-
-  // fetch from all configured Uplink URLs
-  const results: SupergraphSdlResult[] = [];
-  var exception = null; // to keep track of last exception thrown
-  for (let i = 0; i < endpoints.length; i++) {
-    const endpoint = endpoints[i];
-    var oneResult = null;
+  var retries = 0;
+  var lastException = null;
+  var result: SupergraphSdlResult | null = null;
+  while (retries++ < endpoints.length && result == null) {
     try {
-      oneResult = await loadSupergraphSdlFromStorage({
+      result = await loadSupergraphSdlFromStorage({
         graphRef,
         apiKey,
-        endpoint,
+        endpoint: endpoints[fetchCounter++ % endpoints.length],
         fetcher,
         compositionId
       });
     } catch (e) {
-      exception = e;
-    }
-    if (oneResult) {
-      results.push(oneResult);
+      lastException = e;
     }
   }
-
-  // pick the newest of the returned Supergraph SDLs based on ID
-  let newest: string | null = null;
-  let theResult: SupergraphSdlResult | null = null;
-  if (results.length == 1) {
-    theResult = results[0];
-  } else if (results.length > 1) {
-    results.forEach(res => {
-      if (newest == null || res.id.localeCompare(newest!, undefined, {numeric: true}) > 0) {
-        newest = res.id;
-        theResult = res;
-      }
-    });
-  } else if (exception) {
-    // no results and there was at least one exception: re-throw it
-    throw exception;
+  if (result == null && lastException != null) {
+    throw lastException;
   }
-
-  return theResult;
+  return result;
 }
 
 export async function loadSupergraphSdlFromStorage({
