@@ -1,8 +1,11 @@
 /// Wraps creating the Deno Js runtime collecting parameters and executing a script.
-use deno_core::{op_sync, JsRuntime};
+use deno_core::{op_sync, JsRuntime, RuntimeOptions, Snapshot};
+use once_cell::sync::OnceCell;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::mpsc::channel;
+
+static SNAPSHOT: OnceCell<Box<[u8]>> = OnceCell::new();
 
 pub(crate) struct Js {
     parameters: Vec<(&'static str, String)>,
@@ -31,7 +34,63 @@ impl Js {
         name: &'static str,
         source: &'static str,
     ) -> Result<Ok, Error> {
-        let mut runtime = JsRuntime::new(Default::default());
+        // Try to load a snapshot if one exists
+        let mut runtime = match SNAPSHOT.get() {
+            Some(buffer) => {
+                let options = RuntimeOptions {
+                    startup_snapshot: Some(Snapshot::Boxed((*buffer).clone())),
+                    ..Default::default()
+                };
+                JsRuntime::new(options)
+            }
+            None => {
+                let options = RuntimeOptions {
+                    will_snapshot: true,
+                    ..Default::default()
+                };
+                let mut runtime = JsRuntime::new(options);
+                // The runtime automatically contains a Deno.core object with several
+                // functions for interacting with it.
+                runtime
+                    .execute_script("<init>", include_str!("../js-dist/runtime.js"))
+                    .expect("unable to initialize router bridge runtime environment");
+
+                runtime
+                    .execute_script(
+                        "url_polyfill.js",
+                        include_str!("../bundled/url_polyfill.js"),
+                    )
+                    .expect("unable to evaluate url_polyfill module");
+
+                runtime
+                    .execute_script("<url_polyfill_assignment>", "whatwg_url_1 = url_polyfill;")
+                    .expect("unable to assign url_polyfill");
+
+                // Load the composition library.
+                runtime
+                    .execute_script("bridge.js", include_str!("../bundled/bridge.js"))
+                    .expect("unable to evaluate bridge module");
+
+                let snapshot = runtime.snapshot();
+                SNAPSHOT
+                    .set(snapshot.to_vec().into_boxed_slice())
+                    .expect("set SNAPSHOT");
+
+                // Once a JsRuntime has been snapshot, we cannot continue to use it, so
+                // we drop our current runtime and then start a new runtime from our
+                // freshly created snapshot.
+
+                // XXX Required for some reason... (if we don't drop before creating, SIGSEGV)
+                drop(runtime);
+
+                let options = RuntimeOptions {
+                    startup_snapshot: Some(Snapshot::JustCreated(snapshot)),
+                    ..Default::default()
+                };
+
+                JsRuntime::new(options)
+            }
+        };
 
         // We'll use this channel to get the results
         let (tx, rx) = channel();
@@ -47,29 +106,6 @@ impl Js {
             }),
         );
         runtime.sync_ops_cache();
-
-        // The runtime automatically contains a Deno.core object with several
-        // functions for interacting with it.
-        runtime
-            .execute_script("<init>", include_str!("../js-dist/runtime.js"))
-            .expect("unable to initialize router bridge runtime environment");
-
-        runtime
-            .execute_script(
-                "url_polyfill.js",
-                include_str!("../bundled/url_polyfill.js"),
-            )
-            .expect("unable to evaluate url_polyfill module");
-
-        runtime
-            .execute_script("<url_polyfill_assignment>", "whatwg_url_1 = url_polyfill;")
-            .expect("unable to assign url_polyfill");
-
-        // Load the composition library.
-        runtime
-            .execute_script("bridge.js", include_str!("../bundled/bridge.js"))
-            .expect("unable to evaluate bridge module");
-
         for parameter in self.parameters.iter() {
             runtime
                 .execute_script(format!("<{}>", parameter.0).as_str(), &parameter.1)
