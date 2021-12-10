@@ -67,7 +67,7 @@ export async function loadSupergraphSdlFromUplinks({
   var retries = 0;
   var lastException = null;
   var result: SupergraphSdlResult | null = null;
-  while (retries++ < maxRetries && result == null) {
+  while (retries++ <= maxRetries && result == null) {
     try {
       result = await loadSupergraphSdlFromStorage({
         graphRef,

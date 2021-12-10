@@ -171,6 +171,7 @@ describe('Supergraph SDL update failures', () => {
     gateway = new ApolloGateway({
       logger,
       schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
+      schemaDeliveryMaxRetries: 0
     });
 
     await expect(
@@ -199,6 +200,7 @@ describe('Supergraph SDL update failures', () => {
     gateway = new ApolloGateway({
       logger,
       schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
+      schemaDeliveryMaxRetries: 0
     });
 
     // eslint-disable-next-line
@@ -233,6 +235,7 @@ describe('Supergraph SDL update failures', () => {
     gateway = new ApolloGateway({
       logger,
       schemaConfigDeliveryEndpoints: [mockCloudConfigUrl],
+      schemaDeliveryMaxRetries: 0
     });
     // eslint-disable-next-line
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here

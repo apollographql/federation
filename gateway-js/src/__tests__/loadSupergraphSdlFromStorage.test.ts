@@ -1,6 +1,6 @@
 import {
   loadSupergraphSdlFromStorage,
-  //loadSupergraphSdlFromUplinks
+  loadSupergraphSdlFromUplinks
 } from '../loadSupergraphSdlFromStorage';
 import { getDefaultFetcher } from '../..';
 import {
@@ -12,11 +12,12 @@ import {
   mockOutOfBandReportRequestSuccess,
   mockSupergraphSdlRequestSuccess,
   mockSupergraphSdlRequestIfAfterUnchanged,
-  //mockSupergraphSdlRequestAlternate,
-  //mockAlternateCloudConfigUrl,
+  mockSupergraphSdlRequestAlternate,
+  mockAlternateCloudConfigUrl,
 } from './integration/nockMocks';
 import mockedEnv from 'mocked-env';
-//import {getTestingSupergraphSdl} from "./execution-utils";
+import {getTestingSupergraphSdl} from "./execution-utils";
+import nock from 'nock';
 
 describe('loadSupergraphSdlFromStorage', () => {
   let cleanUp: (() => void) | null = null;
@@ -43,33 +44,34 @@ describe('loadSupergraphSdlFromStorage', () => {
     expect(result).toMatchInlineSnapshot(snapshot);
   });
 
-  // it('Queries alternate Uplink URL if first one fails', async () => {
-  //   mockSupergraphSdlRequest().reply(500);
-  //   mockSupergraphSdlRequestAlternate('originalId-1234').reply(
-  //     200,
-  //     JSON.stringify({
-  //       data: {
-  //         routerConfig: {
-  //           __typename: 'RouterConfigResult',
-  //           id: 'originalId-1234',
-  //           supergraphSdl: getTestingSupergraphSdl()
-  //         },
-  //       },
-  //     }),
-  //   );
-  //
-  //   const fetcher = getDefaultFetcher();
-  //   const result = await loadSupergraphSdlFromUplinks({
-  //     graphRef,
-  //     apiKey,
-  //     endpoints: [mockCloudConfigUrl, mockAlternateCloudConfigUrl],
-  //     fetcher,
-  //     compositionId: "originalId-1234",
-  //     maxRetries: 6
-  //   });
-  //
-  //   expect(result).toMatchInlineSnapshot(snapshot);
-  // });
+  it('Queries alternate Uplink URL if first one fails', async () => {
+    mockSupergraphSdlRequest().reply(500);
+    mockSupergraphSdlRequestAlternate('originalId-1234').reply(
+      200,
+      JSON.stringify({
+        data: {
+          routerConfig: {
+            __typename: 'RouterConfigResult',
+            id: 'originalId-1234',
+            supergraphSdl: getTestingSupergraphSdl()
+          },
+        },
+      }),
+    );
+
+    const fetcher = getDefaultFetcher();
+    const result = await loadSupergraphSdlFromUplinks({
+      graphRef,
+      apiKey,
+      endpoints: [mockCloudConfigUrl, mockAlternateCloudConfigUrl],
+      fetcher,
+      compositionId: "originalId-1234",
+      maxRetries: 1
+    });
+
+    expect(result).toMatchInlineSnapshot(snapshot);
+    nock.cleanAll();
+  });
 
   describe('errors', () => {
     it('throws on a malformed response', async () => {

@@ -249,7 +249,7 @@ export class ApolloGateway implements GraphQLService {
             'https://aws-prod.uplink.api.apollographql.com/' // TODO: verify this URL is correct
           ];
 
-      if (this.config.schemaDeliveryMaxRetries) {
+      if (this.config.schemaDeliveryMaxRetries != null) {
         this.schemaDeliveryMaxRetries = this.config.schemaDeliveryMaxRetries;
       } else {
         this.schemaDeliveryMaxRetries = this.schemaConfigDeliveryEndpoints.length * 3;
