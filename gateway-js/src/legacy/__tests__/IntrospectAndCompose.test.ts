@@ -25,14 +25,14 @@ describe('IntrospectAndCompose', () => {
     expect(
       () =>
         new IntrospectAndCompose({
-          serviceList: fixtures,
+          subgraphs: fixtures,
         }),
     ).not.toThrow();
   });
 
   it('is instance callable (simulating the gateway calling it)', async () => {
     mockAllServicesSdlQuerySuccess();
-    const instance = new IntrospectAndCompose({ serviceList: fixtures });
+    const instance = new IntrospectAndCompose({ subgraphs: fixtures });
     await expect(
       instance({ update() {}, async healthCheck() {} }),
     ).resolves.toBeTruthy();
@@ -53,7 +53,7 @@ describe('IntrospectAndCompose', () => {
     const processSpies: jest.Mock[] = [];
 
     const instance = new IntrospectAndCompose({
-      serviceList: fixtures,
+      subgraphs: fixtures,
       buildService(def) {
         const { datasource, processSpy } = getDataSourceSpy(def);
         processSpies.push(processSpy);
@@ -91,7 +91,7 @@ describe('IntrospectAndCompose', () => {
       .mockImplementationOnce(() => r3());
 
     const instance = new IntrospectAndCompose({
-      serviceList: fixtures,
+      subgraphs: fixtures,
       pollIntervalInMs: 10,
     });
 
@@ -130,7 +130,7 @@ describe('IntrospectAndCompose', () => {
     mockAllServicesSdlQuerySuccess();
 
     const instance = new IntrospectAndCompose({
-      serviceList: fixtures,
+      subgraphs: fixtures,
       pollIntervalInMs: 100,
       buildService(service) {
         return new RemoteGraphQLDataSource({
@@ -180,7 +180,7 @@ describe('IntrospectAndCompose', () => {
       mockAllServicesSdlQuerySuccess(fixturesWithUpdate);
 
       const instance = new IntrospectAndCompose({
-        serviceList: fixtures,
+        subgraphs: fixtures,
         pollIntervalInMs: 1000,
         logger,
       });

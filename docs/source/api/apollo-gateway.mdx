@@ -124,7 +124,7 @@ A [supergraph schema](../#federated-schemas) ([generated with the Rover CLI](htt
 </td>
 <td>
 
-**This option is discouraged in favor of [`supergraphSdl`](#supergraphsdl).**
+**This option is deprecated in favor of the drop-in replacement, [`IntrospectAndCompose`](#class-introspectandcompose).**
 
 An array of objects that each specify the `name` and `url` of one subgraph in your federated graph. On startup, the gateway uses this array to obtain your subgraph schemas via introspection and compose a supergraph schema.
 
@@ -142,6 +142,8 @@ You can specify any string value for the `name` field, which is used for identif
 <td>
 
 ###### `introspectionHeaders`
+
+**This option is deprecated in favor of the drop-in replacement, [`IntrospectAndCompose`](#class-introspectandcompose).**
 
 `Object | (service: ServiceEndpointDefinition) => Promise<Object> | Object`
 </td>
@@ -231,7 +233,9 @@ The default value is `false`.
 <tr>
 <td>
 
-###### `buildService`
+###### `buildService` (deprecated)
+
+**This option is deprecated in favor of the drop-in replacement, [`IntrospectAndCompose`](#class-introspectandcompose).**
 
 `Function`
 </td>
@@ -245,7 +249,9 @@ Define this function to customize your gateway's data transport to some or all o
 </tbody>
 </table>
 
-##### The `buildService` function
+##### The `buildService` function (deprecated)
+
+**This option is deprecated in favor of the drop-in replacement, [`IntrospectAndCompose`](#class-introspectandcompose).**
 
 If you provide this function, the gateway calls it once for each subgraph. The function must return an object that implements the [`GraphQLDataSource` interface](https://github.com/apollographql/apollo-server/blob/570f548b88/packages/apollo-gateway/src/datasources/types.ts), such as an instance of [RemoteGraphQLDataSource](#class-remotegraphqldatasource) or a subclass of it.
 
@@ -519,5 +525,123 @@ The details of the `fetch` response sent by the subgraph.
 [The `context` argument](https://www.apollographql.com/docs/apollo-server/data/resolvers/#the-context-argument) passed between the GraphQL operation's resolvers.
 </td>
 </tr>
+</tbody>
+</table>
+
+## `class IntrospectAndCompose`
+
+The drop-in replacement for `serviceList`. This class is meant to be passed directly to `ApolloGateway`'s `supergraphSdl` constructor option.
+
+### Methods
+
+#### `constructor`
+
+Returns an initialized `IntrospectAndCompose` instance, which you can then pass to the `supergraphSdl` configuration option to the `ApolloGateway` constructor, like so:
+
+```javascript{3-7}
+const server = new ApolloServer({
+  gateway: new ApolloGateway({
+    supergraphSdl: new IntrospectAndCompose({
+      subgraphs: [
+        // ...
+      ],
+    }),
+  }),
+});
+```
+
+Takes an `options` object as a parameter. Supported properties of this object are described below.
+
+##### Examples
+
+###### Providing a `subgraphs` list and headers to authorize introspection
+
+```js
+const gateway = new ApolloGateway({
+  supergraphSdl: new IntrospectAndCompose({
+    subgraphs: [
+      { name: 'products', url: 'https://products-service.dev/graphql',
+      { name: 'reviews', url: 'https://reviews-service.dev/graphql' },
+    ],
+    introspectionHeaders: {
+      Authorization: 'Bearer abc123'
+    },
+  }),
+});
+```
+
+###### Configuring the subgraph fetcher
+
+If you provide a [`buildService` function](#the-buildservice-function) to the constructor of `IntrospectAndCompose`, the function is called once for each of your graph's subgraphs. This function can return a `RemoteGraphQLDataSource` with a custom `fetcher`, which is then used for all communication with subgraphs:
+
+```js
+const gateway = new ApolloGateway({
+  supergraphSdl: new IntrospectAndCompose({
+    // ...,
+    buildService({ url, name }) {
+      return new (class extends RemoteGraphQLDataSource {
+        fetcher = require('make-fetch-happen').defaults({
+          onRetry() {
+            console.log('We will retry!')
+          },
+        });
+      })({
+        url,
+        name,
+      });
+    }
+  }),
+});
+```
+
+###### `buildService`
+
+`Function`
+</td>
+<td>
+
+Define this function to customize your gateway's data transport to some or all of your subgraphs. This customization can include using a protocol besides HTTP. For details, see [The `buildService` function](#the-buildservice-function).
+</td>
+</tr>
+
+
+</tbody>
+</table>
+
+##### The `buildService` function
+
+If you provide this function, the gateway calls it once for each subgraph. The function must return an object that implements the [`GraphQLDataSource` interface](https://github.com/apollographql/apollo-server/blob/570f548b88/packages/apollo-gateway/src/datasources/types.ts), such as an instance of [RemoteGraphQLDataSource](#class-remotegraphqldatasource) or a subclass of it.
+
+The example below demonstrates adding an `x-user-id` HTTP header to every request the gateway sends to a subgraph:
+
+```js{9-11}
+class AuthenticatedDataSource extends RemoteGraphQLDataSource {
+  willSendRequest({ request, context }) {
+    request.http.headers.set('x-user-id', context.userId);
+  }
+}
+
+const gateway = new ApolloGateway({
+  // ...other options...
+  supergraphSdl: new IntrospectAndCompose({
+    // ...,
+    buildService({ name, url }) {
+      return new AuthenticatedDataSource({ url });
+    },
+  }),
+});
+```
+
+###### `pollIntervalInMs`
+
+`number`
+</td>
+<td>
+
+Define this function to customize your gateway's data transport to some or all of your subgraphs. This customization can include using a protocol besides HTTP. For details, see [The `buildService` function](#the-buildservice-function).
+</td>
+</tr>
+
+
 </tbody>
 </table>

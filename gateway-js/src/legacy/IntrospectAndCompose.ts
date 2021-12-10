@@ -20,7 +20,7 @@ import {
 import { waitUntil } from '../utilities/waitUntil';
 
 export interface IntrospectAndComposeOptions {
-  serviceList: ServiceEndpointDefinition[];
+  subgraphs: ServiceEndpointDefinition[];
   introspectionHeaders?:
     | HeadersInit
     | ((
@@ -41,7 +41,7 @@ export class IntrospectAndCompose extends CallableInstance<
   ReturnType<SupergraphSdlHook>
 > {
   private update?: SupergraphSdlUpdateFunction;
-  private serviceList: Service[];
+  private subgraphs: Service[];
   private introspectionHeaders?:
     | HeadersInit
     | ((
@@ -58,12 +58,12 @@ export class IntrospectAndCompose extends CallableInstance<
 
   constructor(options: IntrospectAndComposeOptions) {
     super('instanceCallableMethod');
-    // this.buildService needs to be assigned before this.serviceList is built
+    // this.buildService needs to be assigned before this.subgraphs is built
     this.buildService = options.buildService;
     this.pollIntervalInMs = options.pollIntervalInMs;
-    this.serviceList = options.serviceList.map((serviceDefinition) => ({
-      ...serviceDefinition,
-      dataSource: this.createDataSource(serviceDefinition),
+    this.subgraphs = options.subgraphs.map((subgraph) => ({
+      ...subgraph,
+      dataSource: this.createDataSource(subgraph),
     }));
     this.introspectionHeaders = options.introspectionHeaders;
     this.logger = options.logger;
@@ -100,7 +100,7 @@ export class IntrospectAndCompose extends CallableInstance<
 
   private async updateSupergraphSdl() {
     const result = await getServiceDefinitionsFromRemoteEndpoint({
-      serviceList: this.serviceList,
+      serviceList: this.subgraphs,
       getServiceIntrospectionHeaders: async (service) => {
         return typeof this.introspectionHeaders === 'function'
           ? await this.introspectionHeaders(service)
@@ -113,7 +113,7 @@ export class IntrospectAndCompose extends CallableInstance<
       return null;
     }
 
-    return this.createSupergraphFromServiceList(result.serviceDefinitions!);
+    return this.createSupergraphFromSubgraphList(result.serviceDefinitions!);
   }
 
   private createDataSource(
@@ -127,8 +127,8 @@ export class IntrospectAndCompose extends CallableInstance<
     );
   }
 
-  private createSupergraphFromServiceList(serviceList: ServiceDefinition[]) {
-    const compositionResult = composeAndValidate(serviceList);
+  private createSupergraphFromSubgraphList(subgraphs: ServiceDefinition[]) {
+    const compositionResult = composeAndValidate(subgraphs);
 
     if (compositionHasErrors(compositionResult)) {
       const { errors } = compositionResult;
