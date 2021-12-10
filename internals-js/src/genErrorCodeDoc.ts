@@ -1,5 +1,5 @@
 import { assert } from './utils';
-import { ERROR_CODE_REGISTRY, REMOVED_ERRORS } from './error';
+import { ERRORS, REMOVED_ERRORS } from './error';
 
 const header = `---
 title: Federation error codes
@@ -32,7 +32,7 @@ function makeMardownArray(
   return out;
 }
 
-const rows = ERROR_CODE_REGISTRY.registeredDefinitions().map(def => [
+const rows = Object.values(ERRORS).map(def => [
   '`' + def.code + '`',
   def.description,
   def.metadata.addedIn,

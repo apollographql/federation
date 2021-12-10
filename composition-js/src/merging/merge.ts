@@ -177,7 +177,7 @@ function copyTypeReference(source: Type, dest: Schema): Type {
     default:
       const type = dest.type(source.name);
       assert(type, () => `Cannot find type ${source} in destination schema (with types: ${dest.types().join(', ')})`);
-      return type!;
+      return type;
   }
 }
 
@@ -341,7 +341,7 @@ class Merger {
     }
 
     if (!this.merged.schemaDefinition.rootType('query')) {
-      this.errors.push(ERRORS.NO_QUERIES.err("No queries found in any subgraph: a supergraph must have a query root type."));
+      this.errors.push(ERRORS.NO_QUERIES.err({ message: "No queries found in any subgraph: a supergraph must have a query root type." }));
     }
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
@@ -445,8 +445,11 @@ class Merger {
       mismatchAccessor,
       (elt, names) => `${elt} in ${names}`,
       (elt, names) => `${elt} in ${names}`,
-      (distribution, astNodes) => {
-        this.errors.push(code.err(message + join(distribution, ' and ', ' but '), astNodes));
+      (distribution, nodes) => {
+        this.errors.push(code.err({
+          message: message + join(distribution, ' and ', ' but '),
+          nodes
+        }));
       },
       elt => !elt
     );
@@ -469,8 +472,11 @@ class Merger {
       mismatchAccessor,
       supergraphElementPrinter,
       otherElementsPrinter,
-      (distribution, astNodes) => {
-        this.errors.push(code.err(message + distribution[0] + join(distribution.slice(1), ' and '), astNodes));
+      (distribution, nodes) => {
+        this.errors.push(code.err({
+          message: message + distribution[0] + join(distribution.slice(1), ' and '),
+          nodes
+        }));
       },
       ignorePredicate,
       includeMissingSources
@@ -684,10 +690,10 @@ class Merger {
     }
     if (extensionSubgraphs.length > 0 && defSubgraphs.length === 0) {
       for (const [i, subgraph] of extensionSubgraphs.entries()) {
-        this.errors.push(ERRORS.EXTENSION_WITH_NO_BASE.err(
-          `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
-          extensionASTs[i]
-        ));
+        this.errors.push(ERRORS.EXTENSION_WITH_NO_BASE.err({
+          message: `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
+          nodes: extensionASTs[i],
+        }));
       }
     }
   }
@@ -836,11 +842,11 @@ class Merger {
   private mergeField(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
     if (sources.every((s, i) => s === undefined || this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => source ? this.names[i] : undefined).filter(s => s !== undefined) as string[];
-      const asts = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
-      this.errors.push(ERRORS.EXTERNAL_MISSING_ON_BASE.err(
-        `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
-        asts
-      ));
+      const nodes = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
+      this.errors.push(ERRORS.EXTERNAL_MISSING_ON_BASE.err({
+        message: `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
+        nodes
+      }));
       return;
     }
 
@@ -1633,14 +1639,14 @@ class Merger {
               const typeInSubgraph = s.type(type.name);
               return typeInSubgraph !== undefined && (typeInSubgraph as ObjectType | InterfaceType).implementsInterface(itf.name);
             });
-            this.errors.push(ERRORS.INTERFACE_FIELD_NO_IMPLEM.err(
-              `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
-              + `which implements "${itf}" only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field "${itfField.name}".`,
-              sourceASTs(
+            this.errors.push(ERRORS.INTERFACE_FIELD_NO_IMPLEM.err({
+              message: `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
+                + `which implements "${itf}" only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field "${itfField.name}".`,
+              nodes: sourceASTs(
                 ...subgraphsWithTheField.map(s => this.subgraphByName(s).typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name)),
                 ...subgraphsWithTypeImplementingItf.map(s => this.subgraphByName(s).type(type.name))
               )
-            ));
+            }));
             continue;
           }
 

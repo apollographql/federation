@@ -41,7 +41,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, false);
   const validationResult = validateGraphComposition(supergraphQueryGraph, federatedQueryGraph);
   if (validationResult.errors) {
-    return { errors: validationResult.errors.map(e => ERRORS.SATISFIABILITY_ERROR.err(e.message)) };
+    return { errors: validationResult.errors.map(e => ERRORS.SATISFIABILITY_ERROR.err({ message: e.message })) };
   }
 
   // printSchema calls validateOptions, which can throw
