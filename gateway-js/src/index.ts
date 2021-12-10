@@ -205,6 +205,7 @@ export class ApolloGateway implements GraphQLService {
   // * An array of URLs means use these endpoints to obtain schema, if one is unavailable then try the next.
   // * `undefined` means the gateway is not using managed federation
   private schemaConfigDeliveryEndpoints?: string[];
+  private schemaDeliveryMaxRetries?: number;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -237,12 +238,22 @@ export class ApolloGateway implements GraphQLService {
     if (isManagedConfig(this.config)) {
       const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
       var endPoints: string[] | null = envEndpoint ? envEndpoint.split(",") : null;
+      if (this.config.schemaConfigDeliveryEndpoint && !this.config.schemaConfigDeliveryEndpoints) {
+        this.config.schemaConfigDeliveryEndpoints = [this.config.schemaConfigDeliveryEndpoint];
+      }
+
       this.schemaConfigDeliveryEndpoints =
         this.config.schemaConfigDeliveryEndpoints ??
           endPoints ?? [
             'https://uplink.api.apollographql.com/',
             'https://aws-prod.uplink.api.apollographql.com/' // TODO: verify this URL is correct
           ];
+
+      if (this.config.schemaDeliveryMaxRetries) {
+        this.schemaDeliveryMaxRetries = this.config.schemaDeliveryMaxRetries;
+      } else {
+        this.schemaDeliveryMaxRetries = this.schemaConfigDeliveryEndpoints.length * 3;
+      }
     }
 
     if (isManuallyManagedConfig(this.config)) {
@@ -925,6 +936,7 @@ export class ApolloGateway implements GraphQLService {
       endpoints: this.schemaConfigDeliveryEndpoints!,
       fetcher: this.fetcher,
       compositionId: this.compositionId ?? null,
+      maxRetries: this.schemaDeliveryMaxRetries!,
     });
 
     return (

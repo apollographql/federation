@@ -67,8 +67,22 @@ function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
 export const mockCloudConfigUrl =
   'https://example.cloud-config-url.com/cloudconfig/';
 
+export const mockAlternateCloudConfigUrl =
+  'https://example1.cloud-config-url.com/cloudconfig/';
+
 export const mockOutOfBandReporterUrl =
   'https://example.outofbandreporter.com/monitoring/';
+
+export function mockSupergraphSdlRequestAlternate(ifAfter: string | null) {
+  return gatewayNock(mockAlternateCloudConfigUrl).post('/', {
+    query: SUPERGRAPH_SDL_QUERY,
+    variables: {
+      ref: graphRef,
+      apiKey: apiKey,
+      ifAfterId: ifAfter,
+    },
+  });
+}
 
 export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null) {
   return gatewayNock(mockCloudConfigUrl).post('/', {

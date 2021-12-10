@@ -55,17 +55,19 @@ export async function loadSupergraphSdlFromUplinks({
   endpoints,
   fetcher,
   compositionId,
+  maxRetries,
 }: {
   graphRef: string;
   apiKey: string;
   endpoints: string[];
   fetcher: typeof fetch;
   compositionId: string | null;
+  maxRetries: number
 }) : Promise<SupergraphSdlResult | null> {
   var retries = 0;
   var lastException = null;
   var result: SupergraphSdlResult | null = null;
-  while (retries++ < endpoints.length && result == null) {
+  while (retries++ < maxRetries && result == null) {
     try {
       result = await loadSupergraphSdlFromStorage({
         graphRef,
