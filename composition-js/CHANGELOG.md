@@ -1,4 +1,4 @@
-# CHANGELOG for `@apollo/federation-internals`
+# CHANGELOG for `@apollo/composition`
 
 ## vNEXT
 
@@ -7,6 +7,7 @@
 ## v2.0.0-alpha.2
 
 - __BREAKING__: Bump graphql peer dependency to `^15.7.0` [PR #1200](https://github.com/apollographql/federation/pull/1200)
+- Add missing dependency to `@apollo/query-graphs`
 
 ## v2.0.0-alpha.1
 

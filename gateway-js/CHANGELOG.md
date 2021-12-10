@@ -1,12 +1,17 @@
 # CHANGELOG for `@apollo/gateway`
 
-## vNEXT
+## vNext
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
+
+## v2.0.0-alpha.2
 
 - Conditional schema update based on ifAfterId [PR #1152](https://github.com/apollographql/federation/pull/1152)
 - __BREAKING__: Bump graphql peer dependency to `^15.7.0` [PR #1200](https://github.com/apollographql/federation/pull/1200)
 - __BREAKING__: Remove legacy GCS fetcher for schema updates. If you're currently opted-in to the backwards compatibility provided by setting `schemaConfigDeliveryEndpoint: null`, you may be affected by this update. Please see the PR for additional details. [PR #1226](https://github.com/apollographql/federation/pull/1226)
+- Fix the handling of nested `@provides` directives [PR #1148](https://github.com/apollographql/federation/pull/1148).
+- Remove outdated composition code. A concrete consequence of which is the removal of the `@apollo/federation` package. If your code was importing the `ServiceDefinition` interface from `@apollo/federation`, this can now be imported from `@apollo/gateway` [PR #1208](https://github.com/apollographql/federation/pull/1208).
+- Fix query planner sending queries to a subgraph involving interfaces it doesn't know [#817](https://github.com/apollographql/federation/issues/817).
 
 ## v2.0.0-alpha.1
 
