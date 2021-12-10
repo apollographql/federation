@@ -72,9 +72,10 @@ impl Js {
                     .expect("unable to evaluate bridge module");
 
                 let snapshot = runtime.snapshot();
-                SNAPSHOT
-                    .set(snapshot.to_vec().into_boxed_slice())
-                    .expect("set SNAPSHOT");
+                // Ignore the result from set(). This is a bit racy, but
+                // it doesn't matter. We'll quickly get to the point where we
+                // have set the SNAPSHOT and stop repeating the work.
+                let _ = SNAPSHOT.set(snapshot.to_vec().into_boxed_slice());
 
                 // Once a JsRuntime has been snapshot, we cannot continue to use it, so
                 // we drop our current runtime and then start a new runtime from our
