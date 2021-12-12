@@ -11,7 +11,7 @@ function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, Que
   expect(compositionResults.errors).toBeUndefined();
   return [
     compositionResults.schema!.toAPISchema(),
-    new QueryPlanner(buildSchema(compositionResults.supergraphSdl!))
+    new QueryPlanner(buildSchema(compositionResults.supergraphSdl!)),
   ];
 }
 
@@ -27,8 +27,8 @@ test('can use same root operation from multiple subgraphs in parallel', () => {
         id: ID!
         prop1: String
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -41,8 +41,8 @@ test('can use same root operation from multiple subgraphs in parallel', () => {
         id: ID!
         prop2: String
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
   const operation = operationFromDocument(api, gql`
@@ -96,8 +96,8 @@ test('pick keys that minimize fetches', () => {
       type Country @key(fields: "iso") {
         iso: String!
       }
-    `
-  }
+    `,
+  };
 
   const subgraph2 = {
     name: 'Subgraph2',
@@ -117,8 +117,8 @@ test('pick keys that minimize fetches', () => {
         name: String!
         sign: String!
       }
-    `
-  }
+    `,
+  };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
   const operation = operationFromDocument(api, gql`
@@ -213,8 +213,8 @@ describe('@provides', () => {
           id: ID!
           subSubResponseValue: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -223,10 +223,10 @@ describe('@provides', () => {
           id: ID!
           subSubResponseValue: Int
         }
-      `
-    }
+      `,
+    };
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         doSomething {
@@ -333,8 +333,8 @@ describe('@provides', () => {
           id: ID!
           v: Value @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -353,10 +353,10 @@ describe('@provides', () => {
           id: ID!
           v: Value
         }
-      `
-    }
+      `,
+    };
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {
@@ -532,8 +532,8 @@ describe('@provides', () => {
           a: Int
           b: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -547,10 +547,10 @@ describe('@provides', () => {
           id: ID!
           b: Int
         }
-      `
-    }
+      `,
+    };
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {
@@ -761,8 +761,8 @@ describe('@provides', () => {
           a: Int @external
           b: Int @external
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -777,10 +777,10 @@ describe('@provides', () => {
           a: Int
           b: Int
         }
-      `
-    }
+      `,
+    };
 
-    let [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     let operation = operationFromDocument(api, gql`
       {
         noProvides {

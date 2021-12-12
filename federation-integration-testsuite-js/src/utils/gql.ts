@@ -1,4 +1,4 @@
-import { parse } from "graphql";
+import { parse } from 'graphql';
 import stripIndent from 'strip-indent';
 // This function signature is mostly lifted from the upstream `graphql-tag`.
 // The motivation for this `gql` implementation is the desire to preserve
@@ -11,7 +11,6 @@ export function gql(
   literals: string | readonly string[],
   ...args: any[]
 ) {
-
   if (typeof literals === 'string') {
     literals = [literals];
   }

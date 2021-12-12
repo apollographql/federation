@@ -38,7 +38,7 @@ export class HttpRequestCache implements CacheManager {
     // subsequent conditional requests (e.g., `If-None-Match: "MD%") to be
     // lacking content to conditionally request against and necessitating
     // a full request/response.
-    if (request.method === "HEAD" || response.status === 304) {
+    if (request.method === 'HEAD' || response.status === 304) {
       return response;
     }
 
@@ -55,12 +55,11 @@ export class HttpRequestCache implements CacheManager {
   }
 
   async match(request: Request) {
-    return this.cache.get(cacheKey(request)).then(response => {
+    return this.cache.get(cacheKey(request)).then((response) => {
       if (response) {
         const { body, ...requestInit } = response;
         return new Response(body, requestInit);
       }
-      return;
     });
   }
 }

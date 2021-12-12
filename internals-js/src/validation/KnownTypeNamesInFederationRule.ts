@@ -1,7 +1,7 @@
-import { ASTNode, ASTVisitor, GraphQLError, introspectionTypes, isTypeDefinitionNode, isTypeExtensionNode, isTypeSystemDefinitionNode, isTypeSystemExtensionNode, specifiedScalarTypes, ValidationContext } from "graphql";
-import { SDLValidationContext } from "graphql/validation/ValidationContext";
-import { isFederationTypeName } from "../federation";
-import { didYouMean, suggestionList } from "../suggestions";
+import { ASTNode, ASTVisitor, GraphQLError, introspectionTypes, isTypeDefinitionNode, isTypeExtensionNode, isTypeSystemDefinitionNode, isTypeSystemExtensionNode, specifiedScalarTypes, ValidationContext } from 'graphql';
+import { SDLValidationContext } from 'graphql/validation/ValidationContext';
+import { isFederationTypeName } from '../federation';
+import { didYouMean, suggestionList } from '../suggestions';
 
 /**
  * Modified version of the 'Known type names' GraphQL-js rule that allows types to only be defined as "extensions".
@@ -64,7 +64,7 @@ function isStandardTypeName(typeName: string): boolean {
 
 function isSDLNode(value: ASTNode | readonly ASTNode[]): boolean {
   return (
-    !Array.isArray(value) &&
-    (isTypeSystemDefinitionNode(value as ASTNode) || isTypeSystemExtensionNode(value as ASTNode))
+    !Array.isArray(value)
+    && (isTypeSystemDefinitionNode(value as ASTNode) || isTypeSystemExtensionNode(value as ASTNode))
   );
 }

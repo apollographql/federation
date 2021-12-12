@@ -20,14 +20,12 @@ function toHaveBeenCalledBefore(
   const pass = firstSpyEarliestCall < secondSpyEarliestCall;
 
   const message = pass
-    ? () =>
-        this.utils.matcherHint('.not.toHaveBeenCalledBefore') +
-        '\n\n' +
-        `Expected ${firstSpy.getMockName()} not to have been called before ${secondSpy.getMockName()}`
-    : () =>
-        this.utils.matcherHint('.toHaveBeenCalledBefore') +
-        '\n\n' +
-        `Expected ${firstSpy.getMockName()} to have been called before ${secondSpy.getMockName()}`;
+    ? () => this.utils.matcherHint('.not.toHaveBeenCalledBefore')
+        + '\n\n'
+        + `Expected ${firstSpy.getMockName()} not to have been called before ${secondSpy.getMockName()}`
+    : () => this.utils.matcherHint('.toHaveBeenCalledBefore')
+        + '\n\n'
+        + `Expected ${firstSpy.getMockName()} to have been called before ${secondSpy.getMockName()}`;
 
   return {
     message,

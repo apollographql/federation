@@ -1,10 +1,10 @@
 import { GraphQLRequest } from 'apollo-server-types';
 import { parse } from 'graphql';
 import { Headers, HeadersInit } from 'node-fetch';
-import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
-import { SERVICE_DEFINITION_QUERY } from './';
-import { CompositionUpdate, ServiceEndpointDefinition } from './config';
 import { ServiceDefinition } from '@apollo/federation-internals';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
+import { SERVICE_DEFINITION_QUERY } from '.';
+import { CompositionUpdate, ServiceEndpointDefinition } from './config';
 
 type Service = ServiceEndpointDefinition & {
   dataSource: GraphQLDataSource;
@@ -32,7 +32,8 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
   const promiseOfServiceList = serviceList.map(async ({ name, url, dataSource }) => {
     if (!url) {
       throw new Error(
-        `Tried to load schema for '${name}' but no 'url' was specified.`);
+        `Tried to load schema for '${name}' but no 'url' was specified.`,
+);
     }
 
     const request: GraphQLRequest = {
@@ -70,14 +71,13 @@ export async function getServiceDefinitionsFromRemoteEndpoint({
         throw new Error(errors?.map((e) => e.message).join('\n'));
       })
       .catch((err) => {
-        const errorMessage =
-          `Couldn't load service definitions for "${name}" at ${url}` +
-          (err && err.message ? ': ' + err.message || err : '');
+        const errorMessage = `Couldn't load service definitions for "${name}" at ${url}`
+          + (err && err.message ? ': ' + err.message || err : '');
 
         throw new Error(errorMessage);
       });
   });
 
   const serviceDefinitions = await Promise.all(promiseOfServiceList);
-  return { serviceDefinitions, isNewSchema }
+  return { serviceDefinitions, isNewSchema };
 }

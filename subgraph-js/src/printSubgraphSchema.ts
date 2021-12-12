@@ -57,9 +57,9 @@ export function printIntrospectionSchema(schema: GraphQLSchema): string {
 // their definitions).
 function isDefinedType(type: GraphQLNamedType): boolean {
   return (
-    !isSpecifiedScalarType(type) &&
-    !isIntrospectionType(type) &&
-    !isFederationType(type)
+    !isSpecifiedScalarType(type)
+    && !isIntrospectionType(type)
+    && !isFederationType(type)
   );
 }
 
@@ -186,20 +186,19 @@ function printObject(type: GraphQLObjectType): string {
   // exist.
   //
   // XXX revist extension checking
-  const isExtension =
-    type.extensionASTNodes && type.astNode && !type.astNode.fields;
+  const isExtension = type.extensionASTNodes && type.astNode && !type.astNode.fields;
 
   return (
-    printDescription(type) +
+    printDescription(type)
     // Apollo addition: print `extend` keyword on type extensions
-    (isExtension ? 'extend ' : '') +
-    `type ${type.name}` +
-    printImplementedInterfaces(type) +
+    + (isExtension ? 'extend ' : '')
+    + `type ${type.name}`
+    + printImplementedInterfaces(type)
     // Apollo addition: print @key usages
-    printFederationDirectives(type) +
+    + printFederationDirectives(type)
     // Apollo addition: print @tag usages (or other known directives)
-    printKnownDirectiveUsagesOnTypeOrField(type) +
-    printFields(type)
+    + printKnownDirectiveUsagesOnTypeOrField(type)
+    + printFields(type)
   );
 }
 
@@ -208,18 +207,17 @@ function printInterface(type: GraphQLInterfaceType): string {
   // See printObject for assumptions made.
   //
   // XXX revist extension checking
-  const isExtension =
-    type.extensionASTNodes && type.astNode && !type.astNode.fields;
+  const isExtension = type.extensionASTNodes && type.astNode && !type.astNode.fields;
 
   return (
-    printDescription(type) +
+    printDescription(type)
     // Apollo change: print `extend` keyword on interface extensions
-    (isExtension ? 'extend ' : '') +
-    `interface ${type.name}` +
-    printImplementedInterfaces(type) +
-    printFederationDirectives(type) +
-    printKnownDirectiveUsagesOnTypeOrField(type) +
-    printFields(type)
+    + (isExtension ? 'extend ' : '')
+    + `interface ${type.name}`
+    + printImplementedInterfaces(type)
+    + printFederationDirectives(type)
+    + printKnownDirectiveUsagesOnTypeOrField(type)
+    + printFields(type)
   );
 }
 
@@ -227,12 +225,12 @@ function printUnion(type: GraphQLUnionType): string {
   const types = type.getTypes();
   const possibleTypes = types.length ? ' = ' + types.join(' | ') : '';
   return (
-    printDescription(type) +
-    'union ' +
-    type.name +
+    printDescription(type)
+    + 'union '
+    + type.name
     // Apollo addition: print @tag usages
-    printKnownDirectiveUsagesOnTypeOrField(type) +
-    possibleTypes
+    + printKnownDirectiveUsagesOnTypeOrField(type)
+    + possibleTypes
   );
 }
 
@@ -240,11 +238,10 @@ function printEnum(type: GraphQLEnumType): string {
   const values = type
     .getValues()
     .map(
-      (value, i) =>
-        printDescription(value, '  ', !i) +
-        '  ' +
-        value.name +
-        printDeprecated(value.deprecationReason),
+      (value, i) => printDescription(value, '  ', !i)
+        + '  '
+        + value.name
+        + printDeprecated(value.deprecationReason),
     );
 
   return printDescription(type) + `enum ${type.name}` + printBlock(values);
@@ -259,17 +256,16 @@ function printInputObject(type: GraphQLInputObjectType): string {
 
 function printFields(type: GraphQLObjectType | GraphQLInterfaceType) {
   const fields = Object.values(type.getFields()).map(
-    (f, i) =>
-      printDescription(f, '  ', !i) +
-      '  ' +
-      f.name +
-      printArgs(f.args, '  ') +
-      ': ' +
-      String(f.type) +
-      printDeprecated(f.deprecationReason) +
+    (f, i) => printDescription(f, '  ', !i)
+      + '  '
+      + f.name
+      + printArgs(f.args, '  ')
+      + ': '
+      + String(f.type)
+      + printDeprecated(f.deprecationReason)
       // Apollo addition: print Apollo directives on fields
-      printFederationDirectives(f) +
-      printKnownDirectiveUsagesOnTypeOrField(f),
+      + printFederationDirectives(f)
+      + printKnownDirectiveUsagesOnTypeOrField(f),
   );
   return printBlock(fields);
 }
@@ -282,9 +278,7 @@ function printFederationDirectives(
   if (isInputObjectType(typeOrField)) return '';
 
   const federationDirectivesOnTypeOrField = gatherDirectives(typeOrField)
-    .filter((n) =>
-      federationDirectives.some((fedDir) => fedDir.name === n.name.value),
-    )
+    .filter((n) => federationDirectives.some((fedDir) => fedDir.name === n.name.value))
     .map(print);
   const dedupedDirectives = [...new Set(federationDirectivesOnTypeOrField)];
 
@@ -300,9 +294,7 @@ function printKnownDirectiveUsagesOnTypeOrField(
   if (isInputObjectType(typeOrField)) return '';
 
   const knownSubgraphDirectivesOnTypeOrField = gatherDirectives(typeOrField)
-    .filter((n) =>
-      otherKnownDirectives.some((directive) => directive.name === n.name.value),
-    )
+    .filter((n) => otherKnownDirectives.some((directive) => directive.name === n.name.value))
     .map(print);
 
   return knownSubgraphDirectivesOnTypeOrField.length > 0
@@ -325,19 +317,18 @@ function printArgs(args: GraphQLArgument[], indentation = '') {
   }
 
   return (
-    '(\n' +
-    args
+    '(\n'
+    + args
       .map(
-        (arg, i) =>
-          printDescription(arg, '  ' + indentation, !i) +
-          '  ' +
-          indentation +
-          printInputValue(arg),
+        (arg, i) => printDescription(arg, '  ' + indentation, !i)
+          + '  '
+          + indentation
+          + printInputValue(arg),
       )
-      .join('\n') +
-    '\n' +
-    indentation +
-    ')'
+      .join('\n')
+    + '\n'
+    + indentation
+    + ')'
   );
 }
 
@@ -352,13 +343,13 @@ function printInputValue(arg: GraphQLInputField) {
 
 function printDirective(directive: GraphQLDirective) {
   return (
-    printDescription(directive) +
-    'directive @' +
-    directive.name +
-    printArgs(directive.args) +
-    (directive.isRepeatable ? ' repeatable' : '') +
-    ' on ' +
-    directive.locations.join(' | ')
+    printDescription(directive)
+    + 'directive @'
+    + directive.name
+    + printArgs(directive.args)
+    + (directive.isRepeatable ? ' repeatable' : '')
+    + ' on '
+    + directive.locations.join(' | ')
   );
 }
 
@@ -377,20 +368,20 @@ function printDeprecated(reason: Maybe<string>): string {
 // happen across v15 and v16.
 function printSpecifiedByURL(scalar: GraphQLScalarType): string {
   if (
-    scalar.specifiedByUrl == null &&
+    scalar.specifiedByUrl == null
     // eslint-disable-next-line
     // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
-    scalar.specifiedByURL == null
+    && scalar.specifiedByURL == null
   ) {
     return '';
   }
   const astValue = print({
     kind: 'StringValue',
     value:
-      scalar.specifiedByUrl ??
+      scalar.specifiedByUrl
       // eslint-disable-next-line
       // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
-      scalar.specifiedByURL,
+      ?? scalar.specifiedByURL,
   });
   return ` @specifiedBy(url: ${astValue})`;
 }
@@ -407,8 +398,7 @@ function printDescription(
 
   const preferMultipleLines = description.length > 70;
   const blockString = printBlockString(description, preferMultipleLines);
-  const prefix =
-    indentation && !firstInBlock ? '\n' + indentation : indentation;
+  const prefix = indentation && !firstInBlock ? '\n' + indentation : indentation;
 
   return prefix + blockString.replace(/\n/g, '\n' + indentation) + '\n';
 }
@@ -426,11 +416,10 @@ export function printBlockString(
   const hasLeadingSpace = value[0] === ' ' || value[0] === '\t';
   const hasTrailingQuote = value[value.length - 1] === '"';
   const hasTrailingSlash = value[value.length - 1] === '\\';
-  const printAsMultipleLines =
-    !isSingleLine ||
-    hasTrailingQuote ||
-    hasTrailingSlash ||
-    preferMultipleLines;
+  const printAsMultipleLines = !isSingleLine
+    || hasTrailingQuote
+    || hasTrailingSlash
+    || preferMultipleLines;
 
   let result = '';
   // Format a multi-line block quote to account for leading space.

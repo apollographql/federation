@@ -1,10 +1,10 @@
 import gql from 'graphql-tag';
-import {ApolloGateway, LocalGraphQLDataSource} from '../../';
-import {fixtures, spanSerializer} from 'apollo-federation-integration-testsuite';
-import {fetch} from '../../__mocks__/apollo-server-env';
-import {InMemorySpanExporter, SimpleSpanProcessor} from '@opentelemetry/tracing'
-import {NodeTracerProvider} from '@opentelemetry/node';
+import { fixtures, spanSerializer } from 'apollo-federation-integration-testsuite';
+import { InMemorySpanExporter, SimpleSpanProcessor } from '@opentelemetry/tracing';
+import { NodeTracerProvider } from '@opentelemetry/node';
 import { buildSubgraphSchema } from '@apollo/subgraph';
+import { fetch } from '../../__mocks__/apollo-server-env';
+import { ApolloGateway, LocalGraphQLDataSource } from '../..';
 
 expect.addSnapshotSerializer(spanSerializer);
 
@@ -33,19 +33,18 @@ describe('opentelemetry', () => {
     });
   }
 
-  describe('with local data', () =>
-  {
+  describe('with local data', () => {
     async function gateway() {
       const gateway = new ApolloGateway({
         localServiceList: fixtures,
-        buildService: service => {
+        buildService: (service) =>
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-ignore
-          return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
-        },
+           new LocalGraphQLDataSource(buildSubgraphSchema([service]))
+        ,
       });
 
-      const {executor} = await gateway.load();
+      const { executor } = await gateway.load();
       return executor;
     }
 
@@ -60,7 +59,7 @@ describe('opentelemetry', () => {
       }
     `;
 
-      await execute(executor, source, {upc: '1'}, 'GetProduct');
+      await execute(executor, source, { upc: '1' }, 'GetProduct');
       expect(inMemorySpans.getFinishedSpans()).toMatchSnapshot();
     });
 
@@ -89,18 +88,15 @@ describe('opentelemetry', () => {
     `;
 
       try {
-        await execute(executor, source, {upc: '1'}, 'GetProduct');
-      }
-      catch(err) {}
+        await execute(executor, source, { upc: '1' }, 'GetProduct');
+      } catch (err) {}
       expect(inMemorySpans.getFinishedSpans()).toMatchSnapshot();
     });
   });
 
-
   it('receives spans on fetch failure', async () => {
-
     fetch.mockImplementationOnce(async () => {
-      throw Error("Nooo");
+      throw Error('Nooo');
     });
 
     const gateway = new ApolloGateway({
@@ -117,7 +113,7 @@ describe('opentelemetry', () => {
     }
     `;
 
-    await execute(executor, source, {upc: '1'}, 'GetProduct');
+    await execute(executor, source, { upc: '1' }, 'GetProduct');
     expect(inMemorySpans.getFinishedSpans()).toMatchSnapshot();
   });
 });

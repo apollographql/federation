@@ -2,15 +2,14 @@ import fs from 'fs';
 import { defineFeature, loadFeatures } from 'jest-cucumber';
 import path from 'path';
 import {
-  QueryPlan, QueryPlanner
-} from '..';
-import {
   Operation,
   Schema,
   buildSchema,
   parseOperation,
 } from '@apollo/federation-internals';
-
+import {
+  QueryPlan, QueryPlanner,
+} from '..';
 
 // This test looks over all directories under tests/features and finds "supergraphSdl.graphql" in
 // each of those directories. It runs all of the .feature cases in that directory against that schema.
@@ -23,9 +22,7 @@ const directories = fs
   .readdirSync(featuresPath, {
     withFileTypes: true,
   })
-  .flatMap((entry) =>
-    entry.isDirectory() ? path.join(featuresPath, entry.name) : [],
-  );
+  .flatMap((entry) => (entry.isDirectory() ? path.join(featuresPath, entry.name) : []));
 
 for (const directory of directories) {
   const schemaPath = path.join(directory, 'supergraphSdl.graphql');

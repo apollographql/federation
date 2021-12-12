@@ -37,7 +37,7 @@ export function introspect(sdl: string, query: string): ExecutionResult {
   }
   if (!schema) {
     return {
-      errors: [new GraphQLError("couldn't build schema from SDL")],
+      errors: [new GraphQLError('couldn\'t build schema from SDL')],
     };
   }
   return introspectOne(schema, query);
@@ -51,7 +51,6 @@ const introspectOne = (
 
   if (errors) {
     return { data, errors: [...errors] };
-  } else {
-    return { data, errors: [] };
   }
+    return { data, errors: [] };
 };

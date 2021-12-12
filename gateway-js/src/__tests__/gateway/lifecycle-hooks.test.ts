@@ -1,9 +1,4 @@
 import gql from 'graphql-tag';
-import { ApolloGateway } from '../..';
-import {
-  Experimental_DidResolveQueryPlanCallback,
-  Experimental_UpdateServiceDefinitions,
-} from '../../config';
 import {
   product,
   reviews,
@@ -13,6 +8,11 @@ import {
   documents,
 } from 'apollo-federation-integration-testsuite';
 import { Logger } from 'apollo-server-types';
+import { ApolloGateway } from '../..';
+import {
+  Experimental_DidResolveQueryPlanCallback,
+  Experimental_UpdateServiceDefinitions,
+} from '../../config';
 
 type GenericFunction = (...args: unknown[]) => unknown;
 
@@ -50,9 +50,7 @@ beforeEach(() => {
 describe('lifecycle hooks', () => {
   it('uses updateServiceDefinitions override', async () => {
     const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions = jest.fn(
-      async () => {
-        return { serviceDefinitions, isNewSchema: true };
-      },
+      async () => ({ serviceDefinitions, isNewSchema: true }),
     );
 
     const gateway = new ApolloGateway({
@@ -80,7 +78,7 @@ describe('lifecycle hooks', () => {
         type T {
           a: Int
         }
-      `
+      `,
     };
 
     const s2 = {
@@ -90,9 +88,8 @@ describe('lifecycle hooks', () => {
         type T {
           a: String
         }
-      `
+      `,
     };
-
 
     const gateway = new ApolloGateway({
       async experimental_updateServiceDefinitions() {
@@ -112,7 +109,7 @@ describe('lifecycle hooks', () => {
       logger,
     });
 
-    await expect(gateway.load()).rejects.toThrowError("A valid schema couldn't be composed");
+    await expect(gateway.load()).rejects.toThrowError('A valid schema couldn\'t be composed');
 
     const callbackArgs = experimental_didFailComposition.mock.calls[0][0];
     expect(callbackArgs.serviceList).toHaveLength(2);
@@ -147,7 +144,7 @@ describe('lifecycle hooks', () => {
     // We want to return a different composition across two ticks, so we mock it
     // slightly differenty
     mockUpdate.mockImplementationOnce(async () => {
-      const services = serviceDefinitions.filter(s => s.name !== 'books');
+      const services = serviceDefinitions.filter((s) => s.name !== 'books');
       return {
         serviceDefinitions: [
           ...services,
@@ -175,8 +172,8 @@ describe('lifecycle hooks', () => {
 
     let resolve1: GenericFunction;
     let resolve2: GenericFunction;
-    const schemaChangeBlocker1 = new Promise(res => (resolve1 = res));
-    const schemaChangeBlocker2 = new Promise(res => (resolve2 = res));
+    const schemaChangeBlocker1 = new Promise((res) => (resolve1 = res));
+    const schemaChangeBlocker2 = new Promise((res) => (resolve2 = res));
 
     gateway.onSchemaChange(
       jest
@@ -242,9 +239,7 @@ describe('lifecycle hooks', () => {
 
   it('registers schema change callbacks when experimental_pollInterval is set for unmanaged configs', async () => {
     const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions = jest.fn(
-      async (_config) => {
-        return { serviceDefinitions, isNewSchema: true };
-      },
+      async (_config) => ({ serviceDefinitions, isNewSchema: true }),
     );
 
     const gateway = new ApolloGateway({
@@ -255,7 +250,7 @@ describe('lifecycle hooks', () => {
     });
 
     let resolve: GenericFunction;
-    const schemaChangeBlocker = new Promise(res => (resolve = res));
+    const schemaChangeBlocker = new Promise((res) => (resolve = res));
     const schemaChangeCallback = jest.fn(() => resolve());
 
     gateway.onSchemaChange(schemaChangeCallback);
@@ -268,11 +263,11 @@ describe('lifecycle hooks', () => {
   });
 
   it('calls experimental_didResolveQueryPlan when executor is called', async () => {
-    const experimental_didResolveQueryPlan: Experimental_DidResolveQueryPlanCallback = jest.fn()
+    const experimental_didResolveQueryPlan: Experimental_DidResolveQueryPlanCallback = jest.fn();
 
     const gateway = new ApolloGateway({
       localServiceList: [
-        books
+        books,
       ],
       experimental_didResolveQueryPlan,
     });

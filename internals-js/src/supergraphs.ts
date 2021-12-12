@@ -1,10 +1,10 @@
-import { ASTNode, DocumentNode, GraphQLError } from "graphql";
+import { ASTNode, DocumentNode, GraphQLError } from 'graphql';
 import { err } from '@apollo/core-schema';
-import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./coreSpec";
-import { CoreFeature, CoreFeatures, graphQLBuiltIns, Schema } from "./definitions";
-import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./joinSpec";
-import { buildSchema, buildSchemaFromAST } from "./buildSchema";
-import { extractSubgraphsNamesAndUrlsFromSupergraph } from "./extractSubgraphsFromSupergraph";
+import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from './coreSpec';
+import { CoreFeature, CoreFeatures, graphQLBuiltIns, Schema } from './definitions';
+import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from './joinSpec';
+import { buildSchema, buildSchemaFromAST } from './buildSchema';
+import { extractSubgraphsNamesAndUrlsFromSupergraph } from './extractSubgraphsFromSupergraph';
 
 const SUPPORTED_FEATURES = new Set([
   'https://specs.apollo.dev/core/v0.1',
@@ -26,16 +26,16 @@ export function ErrUnsupportedFeature(feature: CoreFeature): Error {
 export function ErrForUnsupported(core: CoreFeature, ...features: readonly CoreFeature[]): Error {
   return err('ForUnsupported', {
     message:
-      `the \`for:\` argument is unsupported by version ${core.url.version} ` +
-      `of the core spec. Please upgrade to at least @core v0.2 (https://specs.apollo.dev/core/v0.2).`,
+      `the \`for:\` argument is unsupported by version ${core.url.version} `
+      + `of the core spec. Please upgrade to at least @core v0.2 (https://specs.apollo.dev/core/v0.2).`,
     features,
-    nodes: [core.directive.sourceAST, ...features.map(f => f.directive.sourceAST)].filter(n => !!n) as ASTNode[]
+    nodes: [core.directive.sourceAST, ...features.map((f) => f.directive.sourceAST)].filter((n) => !!n) as ASTNode[],
   });
 }
 
 const coreVersionZeroDotOneUrl = FeatureUrl.parse('https://specs.apollo.dev/core/v0.1');
 
-export function buildSupergraphSchema(supergraphSdl: string | DocumentNode): [Schema, {name: string, url: string}[]] {
+export function buildSupergraphSchema(supergraphSdl: string | DocumentNode): [Schema, { name: string, url: string }[]] {
   // We delay validation because `checkFeatureSupport` gives slightly more useful errors if, say, 'for' is used with core v0.1.
   const schema = typeof supergraphSdl === 'string'
     ? buildSchema(supergraphSdl, graphQLBuiltIns, false)
@@ -55,7 +55,7 @@ export function buildSupergraphSchema(supergraphSdl: string | DocumentNode): [Sc
 function checkFeatureSupport(coreFeatures: CoreFeatures) {
   const errors = [];
   if (coreFeatures.coreItself.url.equals(coreVersionZeroDotOneUrl)) {
-    const purposefulFeatures = [...coreFeatures.allFeatures()].filter(f => f.purpose)
+    const purposefulFeatures = [...coreFeatures.allFeatures()].filter((f) => f.purpose);
     if (purposefulFeatures.length > 0) {
       errors.push(ErrForUnsupported(coreFeatures.coreItself, ...purposefulFeatures));
     }
@@ -74,18 +74,19 @@ function checkFeatureSupport(coreFeatures: CoreFeatures) {
 }
 
 export function validateSupergraph(supergraph: Schema): [CoreFeatures, JoinSpecDefinition] {
-  const coreFeatures = supergraph.coreFeatures;
+  const { coreFeatures } = supergraph;
   if (!coreFeatures) {
-    throw new GraphQLError("Invalid supergraph: must be a core schema");
+    throw new GraphQLError('Invalid supergraph: must be a core schema');
   }
   const joinFeature = coreFeatures.getByIdentity(joinIdentity);
   if (!joinFeature) {
-    throw new GraphQLError("Invalid supergraph: must use the join spec");
+    throw new GraphQLError('Invalid supergraph: must use the join spec');
   }
   const joinSpec = JOIN_VERSIONS.find(joinFeature.url.version);
   if (!joinSpec) {
     throw new GraphQLError(
-      `Invalid supergraph: uses unsupported join spec version ${joinFeature.url.version} (supported versions: ${JOIN_VERSIONS.versions().join(', ')})`);
+      `Invalid supergraph: uses unsupported join spec version ${joinFeature.url.version} (supported versions: ${JOIN_VERSIONS.versions().join(', ')})`,
+);
   }
   return [coreFeatures, joinSpec];
 }

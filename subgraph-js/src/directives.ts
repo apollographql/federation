@@ -133,8 +133,7 @@ export function gatherDirectives(
     }
   }
 
-  if (type.astNode && hasDirectives(type.astNode))
-    directives = directives.concat(type.astNode.directives);
+  if (type.astNode && hasDirectives(type.astNode)) directives = directives.concat(type.astNode.directives);
 
   return directives;
 }
@@ -172,8 +171,7 @@ export function directiveDefinitionsAreCompatible(
   // toCompare's locations must exist in baseDefinition's locations
   if (
     toCompare.locations.some(
-      (location) =>
-        !baseDefinition.locations.find(
+      (location) => !baseDefinition.locations.find(
           (baseLocation) => baseLocation.value === location.value,
         ),
     )

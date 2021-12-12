@@ -10,14 +10,13 @@ import {
   buildOperationContext,
 } from '@apollo/gateway';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
-import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 import { mergeDeep } from 'apollo-utilities';
 
-import { queryPlanSerializer, astSerializer } from 'apollo-federation-integration-testsuite';
+import { queryPlanSerializer, astSerializer, fixtures } from 'apollo-federation-integration-testsuite';
 import gql from 'graphql-tag';
-import { fixtures } from 'apollo-federation-integration-testsuite';
 import { composeServices } from '@apollo/composition';
 import { buildSchema, operationFromDocument, ServiceDefinition } from '@apollo/federation-internals';
+import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
 
 const prettyFormat = require('pretty-format');
 
@@ -40,14 +39,12 @@ export async function execute(
   logger: Logger = console,
 ): Promise<GraphQLExecutionResult & { queryPlan: QueryPlan }> {
   const serviceMap = Object.fromEntries(
-    services.map(({ name, typeDefs, resolvers }) => {
-      return [
+    services.map(({ name, typeDefs, resolvers }) => [
         name,
         new LocalGraphQLDataSource(
           buildSubgraphSchema([{ typeDefs, resolvers }]),
         ),
-      ] as [string, LocalGraphQLDataSource];
-    }),
+      ] as [string, LocalGraphQLDataSource]),
   );
 
   const { schema, queryPlanner } = getFederatedTestingSchema(services);
@@ -70,7 +67,7 @@ export async function execute(
       cache: undefined as any,
       context: {},
       request,
-      logger
+      logger,
     },
     operationContext,
   );
@@ -110,7 +107,7 @@ export function getTestingSupergraphSdl(services: typeof fixtures = fixtures) {
 }
 
 export function wait(ms: number) {
-  return new Promise(r => setTimeout(r, ms));
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export function printPlan(queryPlan: QueryPlan): string {

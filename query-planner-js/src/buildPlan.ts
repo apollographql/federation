@@ -36,7 +36,7 @@ import {
   NamedFragments,
   operationToDocument,
   MapWithCachedArrays,
-} from "@apollo/federation-internals";
+} from '@apollo/federation-internals';
 import {
   advanceSimultaneousPathsWithOperation,
   Edge,
@@ -67,9 +67,9 @@ import {
   simultaneousPathsToString,
   SimultaneousPaths,
   terminateWithNonRequestedTypenameField,
-} from "@apollo/query-graphs";
-import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
-import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
+} from '@apollo/query-graphs';
+import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from 'graphql';
+import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from './QueryPlan';
 
 const debug = newDebugLogger('plan');
 
@@ -81,23 +81,28 @@ const MAX_COMPUTED_PLANS = 10000;
 
 function mapOptionsToSelections<RV extends Vertex>(
   selectionSet: SelectionSet,
-  options: SimultaneousPathsWithLazyIndirectPaths<RV>[]
-): [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][]  {
+  options: SimultaneousPathsWithLazyIndirectPaths<RV>[],
+): [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][] {
   // We reverse the selections because we're going to pop from `openPaths` and this ensure we end up handling things in the query order.
-  return selectionSet.selections(true).map(node => [node, options]);
+  return selectionSet.selections(true).map((node) => [node, options]);
 }
 
 class QueryPlanningTaversal<RV extends Vertex> {
   // The stack contains all states that aren't terminal.
   private bestPlan: [FetchDependencyGraph, OpPathTree<RV>, number] | undefined;
+
   private readonly isTopLevel: boolean;
+
   private conditionResolver: ConditionResolver;
 
   private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
+
   private readonly closedBranches: SimultaneousPaths<RV>[][] = [];
 
   constructor(
-    readonly supergraphSchema: Schema, readonly subgraphs: QueryGraph, selectionSet: SelectionSet,
+    readonly supergraphSchema: Schema,
+readonly subgraphs: QueryGraph,
+selectionSet: SelectionSet,
     readonly variableDefinitions: VariableDefinitions,
     private readonly startVertex: RV,
     private readonly rootKind: SchemaRootKind,
@@ -113,7 +118,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     );
 
     const initialPath: OpGraphPath<RV> = GraphPath.create(subgraphs, startVertex);
-    const initialOptions = [ new SimultaneousPathsWithLazyIndirectPaths([initialPath], initialContext, this.conditionResolver, excludedEdges, excludedConditions)];
+    const initialOptions = [new SimultaneousPathsWithLazyIndirectPaths([initialPath], initialContext, this.conditionResolver, excludedEdges, excludedConditions)];
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
   }
 
@@ -121,7 +126,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     if (this.isTopLevel && debug.enabled) {
       debug.group('Query planning open branches:');
       for (const [selection, options] of this.stack) {
-        debug.groupedValues(options, opt => `${simultaneousPathsToString(opt)}`, `${selection}:`);
+        debug.groupedValues(options, (opt) => `${simultaneousPathsToString(opt)}`, `${selection}:`);
       }
       debug.groupEnd();
     }
@@ -174,7 +179,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
         // Do note that we'll only need that `__typename` if there is no other selections inside `foo`, and so we might include
         // it unecessarally in practice: it's a very minor inefficiency though.
         if (operation.kind === 'FragmentElement') {
-          this.closedBranches.push([option.paths.map(p => terminateWithNonRequestedTypenameField(p))]);
+          this.closedBranches.push([option.paths.map((p) => terminateWithNonRequestedTypenameField(p))]);
         }
         return;
       }
@@ -223,10 +228,10 @@ class QueryPlanningTaversal<RV extends Vertex> {
       return [options[0].paths];
     }
 
-    const singlePathOptions = options.filter(opt => opt.paths.length === 1);
+    const singlePathOptions = options.filter((opt) => opt.paths.length === 1);
     if (singlePathOptions.length === 0) {
       // we can't easily compare multi-path options
-      return options.map(opt => opt.paths);
+      return options.map((opt) => opt.paths);
     }
 
     let minJumps = Number.MAX_SAFE_INTEGER;
@@ -243,7 +248,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
 
     // We then look at multi-path options. We can exclude those if the path with the least amount of jumps is
     // more than our minJumps
-    for (const option of singlePathOptions.filter(opt => opt.paths.length > 1)) {
+    for (const option of singlePathOptions.filter((opt) => opt.paths.length > 1)) {
       const jumps = option.paths.reduce((acc, p) => Math.min(acc, p.subgraphJumps()), Number.MAX_SAFE_INTEGER);
       if (jumps <= minJumps) {
         withMinJumps.push(option.paths);
@@ -275,7 +280,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     // However, there is likely ways to drop options in a more "intelligent" way.
 
     // We sort branches by those that have the most options first.
-    this.closedBranches.sort((b1, b2) => b1.length > b2.length ? -1 : (b1.length < b2.length ? 1 : 0));
+    this.closedBranches.sort((b1, b2) => (b1.length > b2.length ? -1 : (b1.length < b2.length ? 1 : 0)));
     let planCount = possiblePlans(this.closedBranches);
     let firstBranch = this.closedBranches[0];
     while (planCount > MAX_COMPUTED_PLANS && firstBranch.length > 1) {
@@ -324,7 +329,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       }
     }
 
-    const otherTrees = this.closedBranches.slice(0, idxFirstOfLengthOne).map(b => b.map(opt => PathTree.createFromOpPaths(this.subgraphs, this.startVertex, opt)));
+    const otherTrees = this.closedBranches.slice(0, idxFirstOfLengthOne).map((b) => b.map((opt) => PathTree.createFromOpPaths(this.subgraphs, this.startVertex, opt)));
     this.generateAllPlans(initialDependencyGraph, initialTree, otherTrees);
   }
 
@@ -334,8 +339,8 @@ class QueryPlanningTaversal<RV extends Vertex> {
     let totalCombinations = 1;
     for (let i = 0; i < others.length; ++i) {
       const eltSize = others[i].length;
-      assert(eltSize, "Got empty option: this shouldn't have happened");
-      if(!eltSize) {
+      assert(eltSize, 'Got empty option: this shouldn\'t have happened');
+      if (!eltSize) {
         totalCombinations = 0;
         break;
       }
@@ -343,7 +348,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       totalCombinations *= eltSize;
     }
 
-    for (let i = 0; i < totalCombinations; ++i){
+    for (let i = 0; i < totalCombinations; ++i) {
       const dependencyGraph = initialDependencyGraph.clone();
       let tree = initialTree;
       for (let j = 0; j < others.length; ++j) {
@@ -385,7 +390,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       this.costFunction,
       context,
       excludedEdges,
-      addConditionExclusion(excludedConditions, edge.conditions)
+      addConditionExclusion(excludedConditions, edge.conditions),
     ).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
@@ -394,11 +399,11 @@ class QueryPlanningTaversal<RV extends Vertex> {
 
   private onNewPlan(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>) {
     const cost = this.cost(dependencyGraph);
-    //if (isTopLevel) {
+    // if (isTopLevel) {
     //  console.log(`[PLAN] cost: ${cost}, path:\n${pathSet.toString('', true)}`);
-    //}
+    // }
     if (!this.bestPlan || cost < this.bestPlan[2]) {
-      debug.log(() => this.bestPlan ? `Found better with cost ${cost} (previous had cost ${this.bestPlan[2]}): ${tree}`: `Computed plan with cost ${cost}: ${tree}`);
+      debug.log(() => (this.bestPlan ? `Found better with cost ${cost} (previous had cost ${this.bestPlan[2]}): ${tree}` : `Computed plan with cost ${cost}: ${tree}`));
       this.bestPlan = [dependencyGraph, tree, cost];
     } else {
       debug.log(() => `Ignoring plan with cost ${cost} (a better plan with cost ${this.bestPlan![2]} exists): ${tree}`);
@@ -408,9 +413,9 @@ class QueryPlanningTaversal<RV extends Vertex> {
 
 function possiblePlans(closedBranches: SimultaneousPaths<any>[][]): number {
   let totalCombinations = 1;
-  for (let i = 0; i < closedBranches.length; ++i){
+  for (let i = 0; i < closedBranches.length; ++i) {
     const eltSize = closedBranches[i].length;
-    if(!eltSize) {
+    if (!eltSize) {
       totalCombinations = 0;
       break;
     }
@@ -438,7 +443,7 @@ function selectionCost(selection?: SelectionSet, depth: number = 1): number {
 }
 
 const defaultCostFunction: CostFunction = {
-  onFetchGroup: (group: FetchGroup) =>  selectionCost(group.selection),
+  onFetchGroup: (group: FetchGroup) => selectionCost(group.selection),
   reduceParallel: (values: number[]) => values,
   // That math goes the following way:
   // - we add the costs in a sequence (the `acc + ...`)
@@ -447,15 +452,14 @@ const defaultCostFunction: CostFunction = {
   // - but each group in a stage require a fetch, so we add a cost proportional to how many we have
   // - each group within a stage has its own cost plus a flat cost associated to doing that fetch (`fetchCost + s`).
   // - lastly, we also want to minimize the number of steps in the pipeline, so later stages are more costly (`idx * pipelineCost`)
-  reduceSequence: (values: (number[] | number)[]) =>
-    values.reduceRight(
+  reduceSequence: (values: (number[] | number)[]) => values.reduceRight(
       (acc: number, value, idx) => {
         const valueArray = Array.isArray(value) ? value : [value];
-        return acc + ((idx + 1) * pipeliningCost) * (fetchCost * valueArray.length) * (Math.max(...valueArray) + (valueArray.length - 1) * sameLevelFetchCost)
+        return acc + ((idx + 1) * pipeliningCost) * (fetchCost * valueArray.length) * (Math.max(...valueArray) + (valueArray.length - 1) * sameLevelFetchCost);
       },
-      0
+      0,
     ),
-  finalize: (roots: number[], rootsAreParallel: boolean) => roots.length === 0 ? 0 : (rootsAreParallel ? (Math.max(...roots) + (roots.length - 1) * sameLevelFetchCost) : sum(roots))
+  finalize: (roots: number[], rootsAreParallel: boolean) => (roots.length === 0 ? 0 : (rootsAreParallel ? (Math.max(...roots) + (roots.length - 1) * sameLevelFetchCost) : sum(roots))),
 };
 
 function isIntrospectionSelection(selection: Selection): boolean {
@@ -467,15 +471,15 @@ function withoutIntrospection(operation: Operation): Operation {
   // __typename. In general, we don't want o ignore __typename during query plans, but at top-level, we
   // can let the gateway execution deal with it rather than querying some service for that.
   if (!operation.selectionSet.selections().some(isIntrospectionSelection)) {
-    return operation
+    return operation;
   }
 
-  const newSelections = operation.selectionSet.selections().filter(s => !isIntrospectionSelection(s));
+  const newSelections = operation.selectionSet.selections().filter((s) => !isIntrospectionSelection(s));
   return new Operation(
     operation.rootKind,
     new SelectionSet(operation.selectionSet.parentType).addAll(newSelections),
     operation.variableDefinitions,
-    operation.name
+    operation.name,
   );
 }
 
@@ -502,22 +506,21 @@ export function computeQueryPlan(supergraphSchema: Schema, federatedQueryGraph: 
   const processor = fetchGroupToPlanProcessor(operation.variableDefinitions, operation.selectionSet.fragments);
   if (operation.rootKind === 'mutation') {
     const dependencyGraphs = computeRootSerialDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
-    const rootNode = processor.finalize(dependencyGraphs.flatMap(g => g.process(processor)), false);
+    const rootNode = processor.finalize(dependencyGraphs.flatMap((g) => g.process(processor)), false);
     debug.groupEnd('Mutation plan computed');
     return { kind: 'QueryPlan', node: rootNode };
-  } else {
-    const dependencyGraph =  computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
+  }
+    const dependencyGraph = computeRootParallelDependencyGraph(supergraphSchema, operation, federatedQueryGraph, root);
     const rootNode = processor.finalize(dependencyGraph.process(processor), true);
     debug.groupEnd('Query plan computed');
     return { kind: 'QueryPlan', node: rootNode };
-  }
 }
 
 function computeRootParallelDependencyGraph(
   supergraphSchema: Schema,
   operation: Operation,
   federatedQueryGraph: QueryGraph,
-  root: RootVertex
+  root: RootVertex,
 ): FetchDependencyGraph {
   return computeRootParallelBestPlan(supergraphSchema, operation.selectionSet, operation.variableDefinitions, federatedQueryGraph, root)[0];
 }
@@ -527,7 +530,7 @@ function computeRootParallelBestPlan(
   selection: SelectionSet,
   variables: VariableDefinitions,
   federatedQueryGraph: QueryGraph,
-  root: RootVertex
+  root: RootVertex,
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
   const planningTraversal = new QueryPlanningTaversal(
     supergraphSchema,
@@ -537,7 +540,7 @@ function computeRootParallelBestPlan(
     root,
     root.rootKind,
     defaultCostFunction,
-    emptyContext
+    emptyContext,
   );
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
@@ -547,12 +550,12 @@ function computeRootParallelBestPlan(
 
 function createEmptyPlan(
   federatedQueryGraph: QueryGraph,
-  root: RootVertex
+  root: RootVertex,
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
   return [
     FetchDependencyGraph.create(federatedQueryGraph),
     PathTree.createOp(federatedQueryGraph, root),
-    0
+    0,
   ];
 }
 
@@ -566,7 +569,7 @@ function computeRootSerialDependencyGraph(
   supergraphSchema: Schema,
   operation: Operation,
   federatedQueryGraph: QueryGraph,
-  root: RootVertex
+  root: RootVertex,
 ): FetchDependencyGraph[] {
   // We have to serially compute a plan for each top-level selection.
   const splittedRoots = splitTopLevelFields(operation.selectionSet);
@@ -597,24 +600,23 @@ function computeRootSerialDependencyGraph(
 }
 
 function splitTopLevelFields(selectionSet: SelectionSet): SelectionSet[] {
-  return selectionSet.selections().flatMap(selection => {
+  return selectionSet.selections().flatMap((selection) => {
     if (selection.kind === 'FieldSelection') {
       return [selectionSetOf(selectionSet.parentType, selection)];
-    } else {
-      return splitTopLevelFields(selection.selectionSet).map(s => selectionSetOfElement(selection.element(), s));
     }
+      return splitTopLevelFields(selection.selectionSet).map((s) => selectionSetOfElement(selection.element(), s));
   });
 }
 
 function fetchGroupToPlanProcessor(
   variableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments
+  fragments?: NamedFragments,
 ): FetchGroupProcessor<PlanNode, PlanNode, PlanNode | undefined> {
   return {
     onFetchGroup: (group: FetchGroup) => group.toPlanNode(variableDefinitions, fragments),
     reduceParallel: (values: PlanNode[]) => flatWrap('Parallel', values),
     reduceSequence: (values: PlanNode[]) => flatWrap('Sequence', values),
-    finalize: (roots: PlanNode[], rootsAreParallel) => roots.length == 0 ? undefined : flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)
+    finalize: (roots: PlanNode[], rootsAreParallel) => (roots.length == 0 ? undefined : flatWrap(rootsAreParallel ? 'Parallel' : 'Sequence', roots)),
   };
 }
 
@@ -632,7 +634,7 @@ function addToResponsePath(path: ResponsePath, responseName: string, type: Type)
 class LazySelectionSet {
   constructor(
     private _computed?: SelectionSet,
-    private readonly _toCloneOnWrite?: SelectionSet
+    private readonly _toCloneOnWrite?: SelectionSet,
   ) {
     assert(_computed || _toCloneOnWrite, 'Should have one of the argument');
   }
@@ -651,9 +653,8 @@ class LazySelectionSet {
   clone(): LazySelectionSet {
     if (this._computed) {
       return new LazySelectionSet(undefined, this._computed);
-    } else {
-      return this;
     }
+      return this;
   }
 }
 
@@ -689,7 +690,7 @@ class FetchGroup {
       isEntityFetch,
       new LazySelectionSet(new SelectionSet(parentType)),
       isEntityFetch ? new LazySelectionSet(new SelectionSet(parentType)) : undefined,
-      mergeAt
+      mergeAt,
     );
   }
 
@@ -703,7 +704,7 @@ class FetchGroup {
       this.isEntityFetch,
       this._selection.clone(),
       this._inputs?.clone(),
-      this.mergeAt
+      this.mergeAt,
     );
   }
 
@@ -734,7 +735,7 @@ class FetchGroup {
   }
 
   addInputs(selection: Selection | SelectionSet) {
-    assert(this._inputs, "Shouldn't try to add inputs to a root fetch group");
+    assert(this._inputs, 'Shouldn\'t try to add inputs to a root fetch group');
     if (selection instanceof SelectionSet) {
       this._inputs.forWrite().mergeIn(selection);
     } else {
@@ -755,7 +756,7 @@ class FetchGroup {
     // Note that because toMerge is not top-level, the first "level" of it's selection is going to be a typeCast into the entity type
     // used to get to the group (because the entities() operation, which is called, returns the _Entity and _needs_ type-casting).
     // But when we merge-in, the type cast can be skipped.
-    const selectionSet = selectionSetOfPath(mergePath, endOfPathSet => {
+    const selectionSet = selectionSetOfPath(mergePath, (endOfPathSet) => {
       assert(endOfPathSet, () => `Merge path ${mergePath} ends on a non-selectable type`);
       for (const typeCastSel of toMerge.selection.selections()) {
         assert(typeCastSel instanceof FragmentSelection, () => `Unexpected field selection ${typeCastSel} at top-level of ${toMerge} selection.`);
@@ -786,7 +787,7 @@ class FetchGroup {
       kind: 'Fetch',
       serviceName: this.subgraphName,
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
-      variableUsages: this.selection.usedVariables().map(v => v.name),
+      variableUsages: this.selection.usedVariables().map((v) => v.name),
       operation: stripIgnoredCharacters(print(operation)),
     };
 
@@ -845,7 +846,7 @@ class FetchDependencyGraph {
     private readonly inEdges: number[][],
     // For each groups, an optional path in its "unique" parent. If a group has more than one parent, then
     // this will be undefined. Even if the group has a unique parent, it's not guaranteed to be set.
-    private readonly pathsInParents: (OperationPath | undefined)[]
+    private readonly pathsInParents: (OperationPath | undefined)[],
   ) {}
 
   static create(federatedQueryGraph: QueryGraph) {
@@ -856,7 +857,7 @@ class FetchDependencyGraph {
       [],
       [],
       [],
-      []
+      [],
     );
   }
 
@@ -866,9 +867,9 @@ class FetchDependencyGraph {
       this.federatedQueryGraph,
       new MapWithCachedArrays<string, FetchGroup>(),
       new Array(this.groups.length),
-      this.adjacencies.map(a => a.concat()),
-      this.inEdges.map(a => a.concat()),
-      this.pathsInParents.concat()
+      this.adjacencies.map((a) => a.concat()),
+      this.inEdges.map((a) => a.concat()),
+      this.pathsInParents.concat(),
     );
 
     for (let i = 0; i < this.groups.length; i++) {
@@ -906,7 +907,7 @@ class FetchDependencyGraph {
     rootKind: SchemaRootKind, // always "query" for entity fetches
     mergeAt?: ResponsePath,
     directParent?: FetchGroup,
-    pathInParent?: OperationPath
+    pathInParent?: OperationPath,
   ): FetchGroup {
     this.onModification();
     const newGroup = FetchGroup.create(
@@ -932,7 +933,7 @@ class FetchDependencyGraph {
     mergeAt: ResponsePath,
     directParent: FetchGroup,
     pathInParent: OperationPath,
-    conditionsGroups: FetchGroup[]
+    conditionsGroups: FetchGroup[],
   ): FetchGroup {
     // Let's look if we can reuse a group we have, that is an existing dependent of the parent for
     // the same subgraph and same mergeAt and that is not part of our condition dependencies (the latter
@@ -967,7 +968,7 @@ class FetchDependencyGraph {
 
   // Returns true if `toCheck` is either part of `conditions`, or is a dependency (potentially recursively)
   // of one of the gorup of conditions.
-  private isDependedOn(toCheck: FetchGroup, conditions: FetchGroup[]): boolean  {
+  private isDependedOn(toCheck: FetchGroup, conditions: FetchGroup[]): boolean {
     const stack = conditions.concat();
     while (stack.length > 0) {
       const group = stack.pop()!;
@@ -989,7 +990,7 @@ class FetchDependencyGraph {
 
   addDependency(dependentGroup: FetchGroup, dependentOn: FetchGroup | FetchGroup[]) {
     this.onModification();
-    const groups = Array.isArray(dependentOn) ? dependentOn : [ dependentOn ];
+    const groups = Array.isArray(dependentOn) ? dependentOn : [dependentOn];
     for (const group of groups) {
       this.addEdge(group.index, dependentGroup.index);
     }
@@ -997,7 +998,7 @@ class FetchDependencyGraph {
 
   removeDependency(dependentGroup: FetchGroup, dependentOn: FetchGroup | FetchGroup[]) {
     this.onModification();
-    const groups = Array.isArray(dependentOn) ? dependentOn : [ dependentOn ];
+    const groups = Array.isArray(dependentOn) ? dependentOn : [dependentOn];
     for (const group of groups) {
       this.removeEdge(group.index, dependentGroup.index);
     }
@@ -1031,7 +1032,7 @@ class FetchDependencyGraph {
   }
 
   onMergedIn(mergedInto: FetchGroup, merged: FetchGroup) {
-    assert(!merged.isTopLevel, "Shouldn't remove top level groups");
+    assert(!merged.isTopLevel, 'Shouldn\'t remove top level groups');
     this.onModification();
     this.relocateDependentsOnMergedIn(mergedInto, merged.index);
     this.removeInternal(merged.index);
@@ -1070,21 +1071,25 @@ class FetchDependencyGraph {
     this.inEdges.splice(mergedIndex, 1);
 
     // But now, every group index above `merge.index` is one-off.
-    this.groups.forEach(g => {
+    this.groups.forEach((g) => {
       if (g.index > mergedIndex) {
         --g.index;
       }
     });
-    this.adjacencies.forEach(adj => { adj.forEach((v, i) => {
+    this.adjacencies.forEach((adj) => {
+ adj.forEach((v, i) => {
       if (v > mergedIndex) {
         adj[i] = v - 1;
       }
-    })});
-    this.inEdges.forEach(ins => { ins.forEach((v, i) => {
+    });
+});
+    this.inEdges.forEach((ins) => {
+ ins.forEach((v, i) => {
       if (v > mergedIndex) {
         ins[i] = v - 1;
       }
-    })});
+    });
+});
   }
 
   private onModification() {
@@ -1177,16 +1182,16 @@ class FetchDependencyGraph {
   }
 
   dependencies(group: FetchGroup): FetchGroup[] {
-    return this.inEdges[group.index].map(i => this.groups[i]);
+    return this.inEdges[group.index].map((i) => this.groups[i]);
   }
 
   dependents(group: FetchGroup): FetchGroup[] {
-    return this.adjacencies[group.index].map(i => this.groups[i]);
+    return this.adjacencies[group.index].map((i) => this.groups[i]);
   }
 
   private dfsRemoveRedundantEdges(parentVertex: number, startVertex: number) {
     const parentAdjacencies = this.adjacencies[parentVertex];
-    const stack = [ ...this.adjacencies[startVertex] ];
+    const stack = [...this.adjacencies[startVertex]];
     while (stack.length > 0) {
       const v = stack.pop()!;
       removeInPlace(v, parentAdjacencies);
@@ -1196,17 +1201,17 @@ class FetchDependencyGraph {
   }
 
   private outGroups(group: FetchGroup): FetchGroup[] {
-    return this.adjacencies[group.index].map(i => this.groups[i]);
+    return this.adjacencies[group.index].map((i) => this.groups[i]);
   }
 
   private inGroups(group: FetchGroup): FetchGroup[] {
-    return this.inEdges[group.index].map(i => this.groups[i]);
+    return this.inEdges[group.index].map((i) => this.groups[i]);
   }
 
   private processGroup<G, P, F>(
     processor: FetchGroupProcessor<G, P, F>,
     group: FetchGroup,
-    isRootGroup: boolean
+    isRootGroup: boolean,
   ): [G, UnhandledGroups] {
     const outGroups = this.outGroups(group);
     const processed = processor.onFetchGroup(group, isRootGroup);
@@ -1214,7 +1219,7 @@ class FetchDependencyGraph {
       return [processed, []];
     }
 
-    const allOutGroupsHaveThisAsIn = outGroups.every(g => this.inGroups(g).length === 1);
+    const allOutGroupsHaveThisAsIn = outGroups.every((g) => this.inGroups(g).length === 1);
     if (allOutGroupsHaveThisAsIn) {
       const nodes: (G | P)[] = [processed];
 
@@ -1228,17 +1233,16 @@ class FetchDependencyGraph {
         nextNodes = canHandle.concat(toHandle);
       }
       return [processor.reduceSequence(nodes), remainingNext];
-    } else {
+    }
       // We return just the group, with all other groups to be handled after, but remembering that
       // this group edge has been handled.
-      return [processed, outGroups.map(g => [g, this.inEdges[g.index].filter(e => e !== group.index)])];
-    }
+      return [processed, outGroups.map((g) => [g, this.inEdges[g.index].filter((e) => e !== group.index)])];
   }
 
   private processParallelGroups<G, P, F>(
     processor: FetchGroupProcessor<G, P, F>,
     groups: FetchGroup[],
-    remaining: UnhandledGroups
+    remaining: UnhandledGroups,
   ): [P, FetchGroup[], UnhandledGroups] {
     const parallelNodes: G[] = [];
     let remainingNext = remaining;
@@ -1253,7 +1257,7 @@ class FetchDependencyGraph {
     return [
       processor.reduceParallel(parallelNodes),
       toHandleNext,
-      remainingNext
+      remainingNext,
     ];
   }
 
@@ -1265,7 +1269,7 @@ class FetchDependencyGraph {
       if (newEdges.length == 0) {
         toHandle.push(g);
       } else {
-        unhandled.push([g, newEdges])
+        unhandled.push([g, newEdges]);
       }
     }
     unhandled.push(...r2);
@@ -1273,21 +1277,20 @@ class FetchDependencyGraph {
   }
 
   private mergeRemaingsAndRemoveIfFound(group: FetchGroup, inEdges: UnhandledInEdges, otherGroups: UnhandledGroups): UnhandledInEdges {
-    const idx = otherGroups.findIndex(g => g[0].index === group.index);
+    const idx = otherGroups.findIndex((g) => g[0].index === group.index);
     if (idx < 0) {
       return inEdges;
-    } else {
+    }
       const otherEdges = otherGroups[idx][1];
       otherGroups.splice(idx, 1);
       // The uhandled are the one that are unhandled on both side.
-      return inEdges.filter(e => otherEdges.includes(e))
-    }
+      return inEdges.filter((e) => otherEdges.includes(e));
   }
 
   process<G, P>(processor: FetchGroupProcessor<G, P, any>): G[] {
     this.reduce();
 
-    const rootNodes: G[] = this.rootGroups.values().map(rootGroup => {
+    const rootNodes: G[] = this.rootGroups.values().map((rootGroup) => {
       const [node, remaining] = this.processGroup(processor, rootGroup, true);
       assert(remaining.length == 0, `A root group should have no remaining groups unhandled`);
       return node;
@@ -1311,16 +1314,16 @@ class FetchDependencyGraph {
   }
 
   toString() : string {
-    return this.rootGroups.values().map(g => this.toStringInternal(g, "")).join('\n');
+    return this.rootGroups.values().map((g) => this.toStringInternal(g, '')).join('\n');
   }
 
   toStringInternal(group: FetchGroup, indent: string): string {
     const groupDependents = this.adjacencies[group.index];
-    return [indent + group.subgraphName + ' <- ' + groupDependents.map(i => this.groups[i].subgraphName).join(', ')]
+    return [indent + group.subgraphName + ' <- ' + groupDependents.map((i) => this.groups[i].subgraphName).join(', ')]
       .concat(groupDependents
-        .flatMap(g => this.adjacencies[g].length == 0
+        .flatMap((g) => (this.adjacencies[g].length == 0
           ? []
-          : this.toStringInternal(this.groups[g], indent + "  ")))
+          : this.toStringInternal(this.groups[g], indent + '  '))))
       .join('\n');
   }
 }
@@ -1331,7 +1334,7 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
   // Note that we can safely ignore the triggers of that first level as it will all be free transition, and we know we cannot have conditions.
   for (const [edge, _trigger, _conditions, child] of pathTree.childElements()) {
     assert(edge !== null, `The root edge should not be null`);
-    const source = edge.tail.source;
+    const { source } = edge.tail;
     // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
     const rootType = edge.tail.type as ObjectType;
     const group = dependencyGraph.getOrCreateRootFetchGroup(source, rootKind, rootType);
@@ -1341,7 +1344,7 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
 }
 
 function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
-  const source = pathTree.vertex.source;
+  const { source } = pathTree.vertex;
   // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
   const rootType = pathTree.vertex.type;
   assert(isCompositeType(rootType), () => `Should not have condition on non-selectable type ${rootType}`);
@@ -1364,12 +1367,12 @@ function createNewFetchSelectionContext(type: CompositeType, selections: Selecti
   // use fragments with no type-condition. We do the former mostly to preverve older behavior, but doing the latter
   // would technically procude slightly small query plans.
   const [name0, ifs0] = context.directives[0];
-  typeCast.applyDirective(schema.directive(name0)!, { 'if': ifs0 });
+  typeCast.applyDirective(schema.directive(name0)!, { if: ifs0 });
 
   for (let i = 1; i < context.directives.length; i++) {
     const [name, ifs] = context.directives[i];
     const fragment = new FragmentElement(type, type.name);
-    fragment.applyDirective(schema.directive(name)!, { 'if': ifs });
+    fragment.applyDirective(schema.directive(name)!, { if: ifs });
     inputSelection = selectionOfElement(fragment, selectionSetOf(type, inputSelection));
     path = [fragment].concat(path);
   }
@@ -1385,7 +1388,7 @@ function computeGroupsForTree(
   initialPath: OperationPath = [],
 ): FetchGroup[] {
   const stack: [OpPathTree, FetchGroup, ResponsePath, OperationPath][] = [[pathTree, startGroup, initialMergeAt, initialPath]];
-  const createdGroups = [ ];
+  const createdGroups = [];
   while (stack.length > 0) {
     const [tree, group, mergeAt, path] = stack.pop()!;
     if (tree.isLeaf()) {
@@ -1424,11 +1427,11 @@ function computeGroupsForTree(
             stack.push([child, newGroup, mergeAt, newPath]);
           } else {
             assert(edge.transition.kind === 'RootTypeResolution', () => `Unexpected non-collecting edge ${edge}`);
-            const rootKind = edge.transition.rootKind;
+            const { rootKind } = edge.transition;
             assert(!conditions, () => `Root type resolution edge ${edge} should not have conditions`);
 
             assert(isObjectType(edge.head.type) && isObjectType(edge.tail.type), () => `Expected an objects for the vertices of ${edge}`);
-            const type = edge.tail.type;
+            const { type } = edge.tail;
             assert(type === type.schema().schemaDefinition.rootType(rootKind), () => `Expected ${type} to be the root ${rootKind} type, but that is ${type.schema().schemaDefinition.rootType(rootKind)}`);
 
             // We're querying a field `q` of a subgraph, get one of the root type, and follow with a query on another
@@ -1452,19 +1455,19 @@ function computeGroupsForTree(
           const newPath = operation.appliedDirectives.length === 0 ? path : path.concat(operation);
           stack.push([child, group, mergeAt, newPath]);
         } else {
-          assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
+          assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`);
           let updatedGroup = group;
           let updatedMergeAt = mergeAt;
           let updatedPath = path;
           if (conditions) {
             // We have some @requires.
-            [updatedGroup, updatedMergeAt, updatedPath] =  handleRequires(
+            [updatedGroup, updatedMergeAt, updatedPath] = handleRequires(
               dependencyGraph,
               edge,
               conditions,
               group,
               mergeAt,
-              path
+              path,
             );
           }
 
@@ -1501,7 +1504,7 @@ function handleRequires(
   requiresConditions: OpPathTree,
   group: FetchGroup,
   mergeAt: ResponsePath,
-  path: OperationPath
+  path: OperationPath,
 ): [FetchGroup, ResponsePath, OperationPath] {
   // @requires should be on an entity type, and we only support object types right now
   const entityType = edge.head.type as ObjectType;
@@ -1613,7 +1616,7 @@ function handleRequires(
     // The post-require group needs both the inputs from `group` (the key to `group` subgraph essentially, and the additional requires conditions)
     postRequireGroup.addInputs(inputs);
     return [postRequireGroup, mergeAt, newPath];
-  } else {
+  }
     const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, group, mergeAt, path);
     // If we didn't created any group, that means the whole condition was fetched from the current group
     // and we're good.
@@ -1628,7 +1631,6 @@ function handleRequires(
     const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
     newGroup.addInputs(inputs);
     return [newGroup, mergeAt, newPath];
-  }
 }
 
 function inputsForRequire(graph: QueryGraph, entityType: ObjectType, edge: Edge, includeKeyInputs: boolean = true): [Selection, OperationPath] {
@@ -1654,7 +1656,7 @@ function operationForEntitiesFetch(
   subgraphSchema: Schema,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments
+  fragments?: NamedFragments,
 ): DocumentNode {
   const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
@@ -1668,8 +1670,8 @@ function operationForEntitiesFetch(
 
   const entitiesCall: SelectionSet = new SelectionSet(queryType);
   entitiesCall.add(new FieldSelection(
-    new Field(entities, { 'representations': representationsVariable }, variableDefinitions),
-    selectionSet
+    new Field(entities, { representations: representationsVariable }, variableDefinitions),
+    selectionSet,
   ));
 
   return operationToDocument(new Operation('query', entitiesCall, variableDefinitions).optimize(fragments));
@@ -1690,7 +1692,7 @@ function flatWrap(
   }
   return {
     kind,
-    nodes: nodes.flatMap(n => (n.kind === kind ? n.nodes : [n])),
+    nodes: nodes.flatMap((n) => (n.kind === kind ? n.nodes : [n])),
   };
 }
 
@@ -1698,7 +1700,7 @@ function operationForQueryFetch(
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  fragments?: NamedFragments
+  fragments?: NamedFragments,
 ): DocumentNode {
   const operation = new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables())).optimize(fragments);
   return operationToDocument(operation);

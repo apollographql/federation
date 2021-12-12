@@ -1,3 +1,4 @@
+import { GraphQLError } from 'graphql';
 import {
   baseType,
   CompositeType,
@@ -18,33 +19,31 @@ import {
   ObjectType,
   Schema,
   Type,
-} from "./definitions";
-import { addSubgraphToError, externalDirectiveName, federationBuiltIns, parseFieldSetArgument } from "./federation";
-import { CoreSpecDefinition, FeatureVersion } from "./coreSpec";
-import { JoinSpecDefinition } from "./joinSpec";
-import { Subgraph, Subgraphs } from "./federation";
-import { assert } from "./utils";
-import { validateSupergraph } from "./supergraphs";
-import { builtTypeReference } from "./buildSchema";
-import { GraphQLError } from "graphql";
-import { selectionOfElement, SelectionSet } from "./operations";
-import { isSubtype } from "./types";
+} from './definitions';
+import { addSubgraphToError, externalDirectiveName, federationBuiltIns, parseFieldSetArgument, Subgraph, Subgraphs } from './federation';
+import { CoreSpecDefinition, FeatureVersion } from './coreSpec';
+import { JoinSpecDefinition } from './joinSpec';
+import { assert } from './utils';
+import { validateSupergraph } from './supergraphs';
+import { builtTypeReference } from './buildSchema';
+import { selectionOfElement, SelectionSet } from './operations';
+import { isSubtype } from './types';
 
 function filteredTypes(
   supergraph: Schema,
   joinSpec: JoinSpecDefinition,
-  coreSpec: CoreSpecDefinition
+  coreSpec: CoreSpecDefinition,
 ): NamedType[] {
   // Note: we skip coreSpec to avoid having core__Purpose since we don't create core schema subgraph.
   // But once we support core schema subgraphs and start shipping federation core features, we may need
   // to revisit this.
-  return supergraph.types().filter(t => !joinSpec.isSpecType(t) && !coreSpec.isSpecType(t));
+  return supergraph.types().filter((t) => !joinSpec.isSpecType(t) && !coreSpec.isSpecType(t));
 }
 
-export function extractSubgraphsNamesAndUrlsFromSupergraph(supergraph: Schema): {name: string, url: string}[] {
+export function extractSubgraphsNamesAndUrlsFromSupergraph(supergraph: Schema): { name: string, url: string }[] {
   const [_, joinSpec] = validateSupergraph(supergraph);
   const [subgraphs] = collectEmptySubgraphs(supergraph, joinSpec);
-  return subgraphs.values().map(subgraph => {return { name: subgraph.name, url: subgraph.url }});
+  return subgraphs.values().map((subgraph) => ({ name: subgraph.name, url: subgraph.url }));
 }
 
 function collectEmptySubgraphs(supergraph: Schema, joinSpec: JoinSpecDefinition): [Subgraphs, Map<string, string>] {
@@ -82,19 +81,19 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
     if (!typeApplications.length) {
       // Imply the type is in all subgraphs (technically, some subgraphs may not have had this type, but adding it
       // in that case is harmless because it will be unreachable anyway).
-      subgraphs.values().map(sg => sg.schema).forEach(schema => schema.addType(newNamedType(type.kind, type.name)));
+      subgraphs.values().map((sg) => sg.schema).forEach((schema) => schema.addType(newNamedType(type.kind, type.name)));
     } else {
       for (const application of typeApplications) {
         const args = application.arguments();
         const subgraphName = graphEnumNameToSubgraphName.get(args.graph)!;
-        const schema = subgraphs.get(subgraphName)!.schema;
+        const { schema } = subgraphs.get(subgraphName)!;
         // We can have more than one type directive for a given subgraph
         let subgraphType = schema.type(type.name);
         if (!subgraphType) {
           subgraphType = schema.addType(newNamedType(type.kind, type.name));
         }
         if (args.key) {
-          const directive = subgraphType.applyDirective('key', {'fields': args.key});
+          const directive = subgraphType.applyDirective('key', { fields: args.key });
           if (args.extension) {
             directive.setOfExtension(subgraphType.newExtension());
           }
@@ -116,7 +115,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
         for (const application of implementsApplications) {
           const args = application.arguments();
           const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(args.graph)!)!;
-          const schema = subgraph.schema;
+          const { schema } = subgraph;
           (schema.type(type.name)! as (ObjectType | InterfaceType)).addImplementedInterface(args.interface);
           addedInterfaces.push(args.interface);
         }
@@ -124,7 +123,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
           // If the object/interface implements an interface but we had no @join__implements for it (which will
           // always be the case for join v0.1 in particular), then that means the object/interface should implement
           // the interface in all subgraphs (which contains both types).
-          const name = implementations.interface.name;
+          const { name } = implementations.interface;
           if (!addedInterfaces.includes(name)) {
             for (const subgraph of subgraphs) {
               const subgraphType = subgraph.schema.type(type.name);
@@ -153,7 +152,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
                 }
               }
             } else {
-              assert(ownerApplications.length == 1, () => `Found multiple join__owner directives on type ${type}`)
+              assert(ownerApplications.length == 1, () => `Found multiple join__owner directives on type ${type}`);
               const subgraph = subgraphs.get(graphEnumNameToSubgraphName.get(ownerApplications[0].arguments().graph)!)!;
               const subgraphField = addSubgraphField(field, subgraph);
               assert(subgraphField, () => `Found join__owner directive on ${type} but no corresponding join__type`);
@@ -165,10 +164,10 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
               const subgraphField = addSubgraphField(field, subgraph, args.type);
               assert(subgraphField, () => `Found join__field directive for graph ${subgraph.name} on field ${field.coordinate} but no corresponding join__type on ${type}`);
               if (args.requires) {
-                subgraphField.applyDirective('requires', {'fields': args.requires});
+                subgraphField.applyDirective('requires', { fields: args.requires });
               }
               if (args.provides) {
-                subgraphField.applyDirective('provides', {'fields': args.provides});
+                subgraphField.applyDirective('provides', { fields: args.provides });
               }
               if (args.external) {
                 subgraphField.applyDirective('external');
@@ -256,7 +255,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
         // We only look at objects because interfaces are handled by this own loop in practice.
         const implementations = itf.possibleRuntimeTypes();
         for (const field of itf.fields()) {
-          if (!implementations.every(implem => implem.field(field.name))) {
+          if (!implementations.every((implem) => implem.field(field.name))) {
             field.remove();
           }
         }
@@ -288,15 +287,14 @@ type AnyField = FieldDefinition<ObjectType | InterfaceType> | InputFieldDefiniti
 function addSubgraphField(supergraphField: AnyField, subgraph: Subgraph, encodedType?: string): AnyField | undefined {
   if (supergraphField instanceof FieldDefinition) {
     return addSubgraphObjectOrInterfaceField(supergraphField, subgraph, encodedType);
-  } else {
-    return addSubgraphInputField(supergraphField, subgraph, encodedType);
   }
+    return addSubgraphInputField(supergraphField, subgraph, encodedType);
 }
 
 function addSubgraphObjectOrInterfaceField(
   supergraphField: FieldDefinition<ObjectType | InterfaceType>,
   subgraph: Subgraph,
-  encodedType?: string
+  encodedType?: string,
 ): FieldDefinition<ObjectType | InterfaceType> | undefined {
   const subgraphType = subgraph.schema.type(supergraphField.parent.name);
   if (subgraphType) {
@@ -308,15 +306,14 @@ function addSubgraphObjectOrInterfaceField(
       field.addArgument(arg.name, copyType(arg.type!, subgraph.schema, subgraph.name), arg.defaultValue);
     }
     return field;
-  } else {
-    return undefined;
   }
+    return undefined;
 }
 
 function addSubgraphInputField(
   supergraphField: InputFieldDefinition,
   subgraph: Subgraph,
-  encodedType?: string
+  encodedType?: string,
 ): InputFieldDefinition | undefined {
   const subgraphType = subgraph.schema.type(supergraphField.parent.name);
   if (subgraphType) {
@@ -324,9 +321,8 @@ function addSubgraphInputField(
       ? decodeType(encodedType, subgraph.schema, subgraph.name)
       : copyType(supergraphField.type!, subgraph.schema, subgraph.name);
     return (subgraphType as InputObjectType).addField(supergraphField.name, copiedType);
-  } else {
-    return undefined;
   }
+    return undefined;
 }
 
 function decodeType(encodedType: string, subgraph: Schema, subgraphName: string): Type {
@@ -401,7 +397,7 @@ function addExternalFields(subgraph: Subgraph, supergraph: Schema, isFed1: boole
 function addExternalFieldsFromDirectiveFieldSet(
   subgraph: Subgraph,
   parentType: ObjectType | InterfaceType,
-  directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
+  directive: Directive<NamedType | FieldDefinition<CompositeType>, { fields: any }>,
   supergraph: Schema,
   forceNonExternal: boolean = false,
 ) {
@@ -411,7 +407,7 @@ function addExternalFieldsFromDirectiveFieldSet(
     const field = type.field(fieldName);
     if (field) {
       if (forceNonExternal && field.hasAppliedDirective(external)) {
-        field.appliedDirectivesOf(external).forEach(d => d.remove());
+        field.appliedDirectivesOf(external).forEach((d) => d.remove());
       }
       return field;
     }
@@ -516,7 +512,7 @@ function isExternalOrHasExternalImplementations(field: FieldDefinition<Composite
 }
 
 function selectsNonExternalLeafField(selection: SelectionSet): boolean {
-  return selection.selections().some(s => {
+  return selection.selections().some((s) => {
     if (s.kind === 'FieldSelection') {
       // If it's external, we're good and don't need to recurse.
       if (isExternalOrHasExternalImplementations(s.field.definition)) {
@@ -524,9 +520,8 @@ function selectsNonExternalLeafField(selection: SelectionSet): boolean {
       }
       // Otherwise, we select a non-external if it's a leaf, or the sub-selection does.
       return !s.selectionSet || selectsNonExternalLeafField(s.selectionSet);
-    } else {
-      return selectsNonExternalLeafField(s.selectionSet);
     }
+      return selectsNonExternalLeafField(s.selectionSet);
   });
 }
 

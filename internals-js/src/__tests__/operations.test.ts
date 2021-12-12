@@ -1,6 +1,6 @@
 import {
   Schema,
-  BuiltIns
+  BuiltIns,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
 import { parseOperation } from '../../dist/operations';

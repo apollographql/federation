@@ -78,8 +78,7 @@ export const entitiesField: GraphQLFieldConfig<any, any> = {
       // avoid throwing when used with Apollo Server 2 which doesn't have
       // `restrict`, or if the cache control plugin has been disabled.
       if (info.cacheControl?.cacheHint?.restrict) {
-        const cacheHint: CacheHint | undefined =
-          info.cacheControl.cacheHintFromType(type);
+        const cacheHint: CacheHint | undefined = info.cacheControl.cacheHintFromType(type);
 
         if (cacheHint) {
           info.cacheControl.cacheHint.restrict(cacheHint);
@@ -96,9 +95,7 @@ export const entitiesField: GraphQLFieldConfig<any, any> = {
       const result = resolveReference(reference, context, info);
 
       if (isPromise(result)) {
-        return result.then((x: any) =>
-          addTypeNameToPossibleReturn(x, __typename),
-        );
+        return result.then((x: any) => addTypeNameToPossibleReturn(x, __typename));
       }
 
       return addTypeNameToPossibleReturn(result, __typename);

@@ -28,7 +28,7 @@ describe('OrderedMap', () => {
 
     // keys are in alphabetical order
     expect(orderedMap.keys()).toEqual(['eight', 'five', 'four', 'nine', 'one', 'seven', 'six', 'three', 'two']);
-    const sortedArr = [8,5,4,9,1,7,6,3,2];
+    const sortedArr = [8, 5, 4, 9, 1, 7, 6, 3, 2];
     expect(orderedMap.values()).toEqual(sortedArr);
 
     // test using spread operator to make sure iterator is performing correctly
@@ -53,7 +53,7 @@ describe('OrderedMap', () => {
     const orderedMap = new OrderedMap<string, number>((a: string, b: string) => {
       if (a.length < b.length) {
         return -1;
-      } else if (b.length < a.length) {
+      } if (b.length < a.length) {
         return 1;
       }
       return 0;
@@ -64,7 +64,7 @@ describe('OrderedMap', () => {
     orderedMap.add('four', 4);
 
     expect(orderedMap.keys()).toEqual(['six', 'four', 'eight', 'seventy']);
-    const sortedArr = [6,4,8,70];
+    const sortedArr = [6, 4, 8, 70];
     expect(orderedMap.values()).toEqual(sortedArr);
 
     // test using spread operator to make sure iterator is performing correctly
@@ -83,8 +83,8 @@ describe('OrderedMap', () => {
     orderedMap.add(5, 50);
     orderedMap.add(8, 80);
 
-    const keys = [1,2,3,4,5,6,7,8,9];
-    const values = [10,20,30,40,50,60,70,80,90];
+    const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const values = [10, 20, 30, 40, 50, 60, 70, 80, 90];
     expect(orderedMap.keys()).toEqual(keys);
     expect(orderedMap.values()).toEqual(values);
     expect([...orderedMap]).toEqual(values);

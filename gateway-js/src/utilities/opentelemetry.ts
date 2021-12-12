@@ -10,4 +10,5 @@ export enum OpenTelemetrySpanNames {
 }
 
 const { name, version } = require('../../package.json');
+
 export const tracer = opentelemetry.trace.getTracer(`${name}/${version}`);

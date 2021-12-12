@@ -8,6 +8,6 @@ export default {
     );
   },
   print(selectionNodes: SelectionNode[]): string {
-    return selectionNodes.map(node => print(node)).join('\n');
+    return selectionNodes.map((node) => print(node)).join('\n');
   },
 } as Plugin;

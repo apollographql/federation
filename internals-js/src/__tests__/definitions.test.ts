@@ -1,4 +1,7 @@
 import {
+  printSchema as printGraphQLjsSchema,
+} from 'graphql';
+import {
   Schema,
   ObjectType,
   Type,
@@ -7,11 +10,8 @@ import {
   EnumType,
   SchemaElement,
   UnionType,
-  BuiltIns
+  BuiltIns,
 } from '../../dist/definitions';
-import {
-  printSchema as printGraphQLjsSchema
-} from 'graphql';
 import { defaultPrintOptions, printSchema } from '../../dist/print';
 import { buildSchema } from '../../dist/buildSchema';
 import { federationBuiltIns } from '../../dist/federation';
@@ -49,7 +49,7 @@ declare global {
   namespace jest {
     interface Matchers<R> {
       toHaveField(name: string, type?: Type): R;
-      toHaveDirective<TArgs extends {[key: string]: any}>(directive: DirectiveDefinition<TArgs>, args?: TArgs): R;
+      toHaveDirective<TArgs extends { [key: string]: any }>(directive: DirectiveDefinition<TArgs>, args?: TArgs): R;
     }
   }
 }
@@ -60,25 +60,25 @@ expect.extend({
     if (!field) {
       return {
         message: () => `Cannot find field '${name}' in Object Type ${parentType} with fields [${[...parentType.fields()]}]`,
-        pass: false
+        pass: false,
       };
     }
     if (field.name != name) {
       return {
         message: () => `Type ${parentType} has a field linked to name ${name} but that field name is actually ${field.name}`,
-        pass: false
+        pass: false,
       };
     }
     if (type && field.type != type) {
       return {
         message: () => `Expected field ${parentType}.${name} to have type ${type} but got type ${field.type}`,
-        pass: false
+        pass: false,
       };
     }
     return {
       message: () => `Expected ${parentType} not to have field ${name} but it does (${field})`,
-      pass: true
-    }
+      pass: true,
+    };
   },
 
   toHaveDirective(element: SchemaElement<any, any>, definition: DirectiveDefinition, args?: Record<string, any>) {
@@ -86,13 +86,13 @@ expect.extend({
     if (directives.length == 0) {
       return {
         message: () => `Cannot find directive @${definition} applied to element ${element} (whose applied directives are [${element.appliedDirectives.join(', ')}]`,
-        pass: false
+        pass: false,
       };
     }
     if (!args) {
       return {
         message: () => `Expected directive @${definition} to not be applied to ${element} but it is`,
-        pass: true
+        pass: true,
       };
     }
 
@@ -101,14 +101,14 @@ expect.extend({
         return {
           // Not 100% certain that message is correct but I don't think it's going to be used ...
           message: () => `Expected directive ${directive.name} applied to ${element} to have arguments ${JSON.stringify(args)} but got ${JSON.stringify(directive.arguments)}`,
-          pass: true
+          pass: true,
         };
       }
     }
     return {
       message: () => `Element ${element} has application of directive @${definition} but not with the requested arguments. Got applications: [${directives.join(', ')}]`,
-      pass: false
-    }
+      pass: false,
+    };
   },
 });
 
@@ -120,14 +120,13 @@ test('building a simple schema programatically', () => {
 
   queryType.addField('a', typeA);
   typeA.addField('q', queryType);
-  typeA.applyDirective(key, { fields: 'a'});
+  typeA.applyDirective(key, { fields: 'a' });
 
   expect(queryType).toBe(schema.schemaDefinition.root('query')!.type);
   expect(queryType).toHaveField('a', typeA);
   expect(typeA).toHaveField('q', queryType);
-  expect(typeA).toHaveDirective(key, { fields: 'a'});
+  expect(typeA).toHaveDirective(key, { fields: 'a' });
 });
-
 
 test('parse schema and modify', () => {
   const sdl = `
@@ -192,7 +191,7 @@ test('removal of all directives of a schema', () => {
   `, federationBuiltIns);
 
   for (const element of schema.allSchemaElement()) {
-    element.appliedDirectives.forEach(d => d.remove());
+    element.appliedDirectives.forEach((d) => d.remove());
   }
 
   expect(printSchema(schema)).toMatchString(`
@@ -449,7 +448,7 @@ test('handling of descriptions', () => {
   // Checking we get back the schema through printing it is mostly good enough, but let's just
   // make sure long descriptions don't get annoying formatting newlines for instance when acessed on the
   // schema directly.
-  const longComment = "Something that explains what the product is. This can just be the title of the product, but this can be more than that if we want to. But it should be useful you know, otherwise our customer won't buy it.";
+  const longComment = 'Something that explains what the product is. This can just be the title of the product, but this can be more than that if we want to. But it should be useful you know, otherwise our customer won\'t buy it.';
   const product = schema.type('Product');
   expectInterfaceType(product);
   expect(product.field('description')!.description).toBe(longComment);
@@ -509,7 +508,7 @@ test('handling of extensions', () => {
 
   const aunion = schema.type('AUnion');
   expectUnionType(aunion);
-  expect([...aunion.types()].map(t => t.name)).toEqual(['AType', 'AType2', 'AType3']);
+  expect([...aunion.types()].map((t) => t.name)).toEqual(['AType', 'AType2', 'AType3']);
 
   expect(printSchema(schema, { ...defaultPrintOptions, mergeTypesAndExtensions: true })).toMatchString(`
     directive @foo on SCALAR
@@ -575,12 +574,12 @@ test('default arguments for directives', () => {
   const d3 = v3.appliedDirectivesOf(exampleDirective)[0];
 
   expect(d1.arguments()).toEqual({});
-  expect(d2.arguments()).toEqual({ inputObject: {}});
-  expect(d3.arguments()).toEqual({ inputObject: { number: 3 }});
+  expect(d2.arguments()).toEqual({ inputObject: {} });
+  expect(d3.arguments()).toEqual({ inputObject: { number: 3 } });
 
-  expect(d1.arguments(true)).toEqual({ inputObject: { number: 3 }});
-  expect(d2.arguments(true)).toEqual({ inputObject: { number: 3 }});
-  expect(d3.arguments(true)).toEqual({ inputObject: { number: 3 }});
+  expect(d1.arguments(true)).toEqual({ inputObject: { number: 3 } });
+  expect(d2.arguments(true)).toEqual({ inputObject: { number: 3 } });
+  expect(d3.arguments(true)).toEqual({ inputObject: { number: 3 } });
 });
 
 test('correctly convert to a graphQL-js schema', () => {

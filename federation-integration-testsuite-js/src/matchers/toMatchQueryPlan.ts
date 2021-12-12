@@ -21,15 +21,13 @@ expect.extend({
     const pass = this.equals(received, expected);
 
     const message = pass
-      ? () =>
-          this.utils.matcherHint(matcherName, undefined, undefined, options) +
-          '\n\n' +
-          `Expected query plan to not equal:\n` +
-          indentLines(printExpectedFormatted(expected))
-      : () =>
-          this.utils.matcherHint(matcherName, undefined, undefined, options) +
-          '\n\n' +
-          diffFormatted(expected, received, {
+      ? () => this.utils.matcherHint(matcherName, undefined, undefined, options)
+          + '\n\n'
+          + `Expected query plan to not equal:\n`
+          + indentLines(printExpectedFormatted(expected))
+      : () => this.utils.matcherHint(matcherName, undefined, undefined, options)
+          + '\n\n'
+          + diffFormatted(expected, received, {
             aAnnotation: 'Expected',
             bAnnotation: 'Received',
             expand: this.expand ?? true,

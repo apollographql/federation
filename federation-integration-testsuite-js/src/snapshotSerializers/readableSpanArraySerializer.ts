@@ -1,5 +1,5 @@
 import { Plugin } from 'pretty-format';
-import { ReadableSpan } from '@opentelemetry/tracing'
+import { ReadableSpan } from '@opentelemetry/tracing';
 
 export default {
     test(value: any) {
@@ -18,10 +18,10 @@ export default {
         // 1. find the corresponding mirrors for itself and parent.
         // 2. push the parent in to the parent's children array.
 
-        const root = {children:[]};
+        const root = { children: [] };
         const spanMirrors = new Map<ReadableSpan | undefined, any>();
         spanMirrors.set(undefined, root);
-        spans.forEach((s) => spanMirrors.set(s, {name: s.name, attributes:s.attributes, children: [], status: s.status}));
+        spans.forEach((s) => spanMirrors.set(s, { name: s.name, attributes: s.attributes, children: [], status: s.status }));
         spans.forEach((s) => {
             const spanMirror = spanMirrors.get(s);
             const parentSpan = spans.find((s2) => s2.spanContext().spanId === s.parentSpanId);

@@ -8,10 +8,10 @@ import { ApolloServerPluginUsageReporting } from 'apollo-server-core';
 import { execute, toPromise } from 'apollo-link';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
-import { ApolloGateway } from '../..';
 import { Plugin, Config, Refs } from 'pretty-format';
 import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
+import { ApolloGateway } from '../..';
 
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally
@@ -26,10 +26,10 @@ function replaceFieldValuesSerializer(
   return {
     test(value: any) {
       return (
-        value &&
-        typeof value === 'object' &&
-        !value[alreadyProcessed] &&
-        fieldNames.some((n) => n in value)
+        value
+        && typeof value === 'object'
+        && !value[alreadyProcessed]
+        && fieldNames.some((n) => n in value)
       );
     },
 

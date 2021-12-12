@@ -11,8 +11,7 @@ export function plan(
   try {
     const composedSchema = buildSchema(schemaString);
     const operationDocument = parse(operationString);
-    const operation =
-      operationFromDocument(composedSchema, operationDocument, operationName);
+    const operation = operationFromDocument(composedSchema, operationDocument, operationName);
 
     const planner = new QueryPlanner(composedSchema);
     return { data: planner.buildQueryPlan(operation) };

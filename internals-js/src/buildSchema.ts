@@ -18,9 +18,9 @@ import {
   StringValueNode,
   ASTNode,
   SchemaExtensionNode,
-  parseType
-} from "graphql";
-import { Maybe } from "graphql/jsutils/Maybe";
+  parseType,
+} from 'graphql';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import {
   BuiltIns,
   Schema,
@@ -46,8 +46,8 @@ import {
   UnionType,
   InputObjectType,
   EnumType,
-  Extension
-} from "./definitions";
+  Extension,
+} from './definitions';
 
 function buildValue(value?: ValueNode): any {
   // TODO: Should we rewrite a version of valueFromAST instead of using valueFromASTUntyped? Afaict, what we're missing out on is
@@ -84,7 +84,7 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
     switch (definitionNode.kind) {
       case 'OperationDefinition':
       case 'FragmentDefinition':
-        throw new GraphQLError("Invalid executable definition found while building schema", definitionNode);
+        throw new GraphQLError('Invalid executable definition found while building schema', definitionNode);
       case 'SchemaDefinition':
         buildSchemaDefinitionInner(definitionNode, schema.schemaDefinition);
         break;
@@ -92,7 +92,8 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
         buildSchemaDefinitionInner(
           definitionNode,
           schema.schemaDefinition,
-          schema.schemaDefinition.newExtension());
+          schema.schemaDefinition.newExtension(),
+);
         break;
       case 'ScalarTypeDefinition':
       case 'ObjectTypeDefinition':
@@ -156,9 +157,9 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
   return directiveDefinitionNodes;
 }
 
-type NodeWithDirectives = {directives?: ReadonlyArray<DirectiveNode>};
-type NodeWithDescription = {description?: Maybe<StringValueNode>};
-type NodeWithArguments = {arguments?: ReadonlyArray<ArgumentNode>};
+type NodeWithDirectives = { directives?: ReadonlyArray<DirectiveNode> };
+type NodeWithDescription = { description?: Maybe<StringValueNode> };
+type NodeWithArguments = { arguments?: ReadonlyArray<ArgumentNode> };
 
 function withoutTrailingDefinition(str: string): NamedTypeKind {
   const endString = str.endsWith('Definition') ? 'Definition' : 'Extension';
@@ -186,7 +187,7 @@ function withNodeAttachedToError(operation: () => void, node: ASTNode) {
         e.positions,
         e.path,
         e,
-        e.extensions
+        e.extensions,
       );
     } else {
       throw e;
@@ -197,12 +198,13 @@ function withNodeAttachedToError(operation: () => void, node: ASTNode) {
 function buildSchemaDefinitionInner(
   schemaNode: SchemaDefinitionNode | SchemaExtensionNode,
   schemaDefinition: SchemaDefinition,
-  extension?: Extension<SchemaDefinition>
+  extension?: Extension<SchemaDefinition>,
 ) {
   for (const opTypeNode of schemaNode.operationTypes ?? []) {
     withNodeAttachedToError(
       () => schemaDefinition.setRoot(opTypeNode.operation, opTypeNode.type.name.value).setOfExtension(extension),
-      opTypeNode);
+      opTypeNode,
+);
   }
   schemaDefinition.sourceAST = schemaNode;
   schemaDefinition.description = 'description' in schemaNode ? schemaNode.description?.value : undefined;
@@ -212,7 +214,7 @@ function buildSchemaDefinitionInner(
 function buildAppliedDirectives(
   elementNode: NodeWithDirectives,
   element: SchemaElement<any, any>,
-  extension?: Extension<any>
+  extension?: Extension<any>,
 ) {
   for (const directive of elementNode.directives ?? []) {
     withNodeAttachedToError(() => {
@@ -234,7 +236,7 @@ function buildArgs(argumentsNode: NodeWithArguments): Record<string, any> {
 function buildNamedTypeInner(
   definitionNode: DefinitionNode & NodeWithDirectives & NodeWithDescription,
   type: NamedType,
-  extension?: Extension<any>
+  extension?: Extension<any>,
 ) {
   switch (definitionNode.kind) {
     case 'ObjectTypeDefinition':
@@ -256,7 +258,8 @@ function buildNamedTypeInner(
             }
             fieldBasedType.addImplementedInterface(itfName).setOfExtension(extension);
           },
-          itfNode);
+          itfNode,
+);
       }
       break;
     case 'UnionTypeDefinition':
@@ -271,7 +274,8 @@ function buildNamedTypeInner(
             }
             unionType.addType(name).setOfExtension(extension);
           },
-          namedType);
+          namedType,
+);
       }
       break;
     case 'EnumTypeDefinition':
@@ -313,17 +317,15 @@ function buildFieldDefinitionInner(fieldNode: FieldDefinitionNode, field: FieldD
 function ensureOutputType(type: Type, what: string, node: ASTNode): OutputType {
   if (isOutputType(type)) {
     return type;
-  } else {
-    throw new GraphQLError(`The type of ${what} must be Output Type but got: ${type}, a ${type.kind}.`, node);
   }
+    throw new GraphQLError(`The type of ${what} must be Output Type but got: ${type}, a ${type.kind}.`, node);
 }
 
 function ensureInputType(type: Type, what: string, node: ASTNode): InputType {
   if (isInputType(type)) {
     return type;
-  } else {
-    throw new GraphQLError(`The type of ${what} must be Input Type but got: ${type}, a ${type.kind}.`, node);
   }
+    throw new GraphQLError(`The type of ${what} must be Input Type but got: ${type}, a ${type.kind}.`, node);
 }
 
 export function builtTypeReference(encodedType: string, schema: Schema): Type {

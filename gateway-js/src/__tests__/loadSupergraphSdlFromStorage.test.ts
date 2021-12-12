@@ -1,3 +1,4 @@
+import mockedEnv from 'mocked-env';
 import { loadSupergraphSdlFromStorage } from '../loadSupergraphSdlFromStorage';
 import { getDefaultFetcher } from '../..';
 import {
@@ -10,7 +11,6 @@ import {
   mockSupergraphSdlRequestSuccess,
   mockSupergraphSdlRequestIfAfterUnchanged,
 } from './integration/nockMocks';
-import mockedEnv from 'mocked-env';
 
 describe('loadSupergraphSdlFromStorage', () => {
   let cleanUp: (() => void) | null = null;
@@ -465,7 +465,7 @@ describe('loadSupergraphSdlFromStorage', () => {
       ).rejects.toThrowError(message);
     });
 
-    it("throws on non-OK status codes when `errors` isn't present in a JSON response", async () => {
+    it('throws on non-OK status codes when `errors` isn\'t present in a JSON response', async () => {
       mockSupergraphSdlRequest().reply(500);
 
       const fetcher = getDefaultFetcher();
@@ -484,7 +484,7 @@ describe('loadSupergraphSdlFromStorage', () => {
 
     // if an additional request were made by the out of band reporter, nock would throw since it's unmocked
     // and this test would fail
-    it("Out of band reporting doesn't submit reports when endpoint is not configured", async () => {
+    it('Out of band reporting doesn\'t submit reports when endpoint is not configured', async () => {
       mockSupergraphSdlRequest().reply(400);
 
       const fetcher = getDefaultFetcher();
@@ -679,7 +679,7 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('successfully responds to SDL unchanged by returning null', async () => {
-    mockSupergraphSdlRequestIfAfterUnchanged("id-1234");
+    mockSupergraphSdlRequestIfAfterUnchanged('id-1234');
 
     const fetcher = getDefaultFetcher();
     const result = await loadSupergraphSdlFromStorage({
@@ -687,7 +687,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         apiKey,
         endpoint: mockCloudConfigUrl,
         fetcher,
-        compositionId: "id-1234",
+        compositionId: 'id-1234',
     });
     expect(result).toBeNull();
   });

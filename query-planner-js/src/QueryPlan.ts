@@ -95,8 +95,8 @@ export const trimSelectionNodes = (
         kind: Kind.FIELD,
         name: selection.name.value,
         selections:
-          selection.selectionSet &&
-          trimSelectionNodes(selection.selectionSet.selections),
+          selection.selectionSet
+          && trimSelectionNodes(selection.selectionSet.selections),
       });
     }
     if (selection.kind === Kind.INLINE_FRAGMENT) {

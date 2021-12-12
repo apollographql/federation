@@ -3,6 +3,15 @@ import gql from 'graphql-tag';
 import { DocumentNode, GraphQLObjectType, GraphQLSchema } from 'graphql';
 import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
+import {
+  accounts,
+  books,
+  documents,
+  fixturesWithUpdate,
+  inventory,
+  product,
+  reviews,
+} from 'apollo-federation-integration-testsuite';
 import { ApolloGateway } from '../..';
 import {
   mockSdlQuerySuccess,
@@ -16,15 +25,6 @@ import {
   mockSupergraphSdlRequestIfAfter,
   mockSupergraphSdlRequestSuccessIfAfter,
 } from './nockMocks';
-import {
-  accounts,
-  books,
-  documents,
-  fixturesWithUpdate,
-  inventory,
-  product,
-  reviews,
-} from 'apollo-federation-integration-testsuite';
 import { getTestingSupergraphSdl } from '../execution-utils';
 
 type GenericFunction = (...args: unknown[]) => unknown;
@@ -242,13 +242,13 @@ describe('Supergraph SDL update failures', () => {
     await errorLoggedPromise;
 
     expect(logger.error).toHaveBeenCalledWith(
-      'An error occurred while fetching your schema from Apollo: ' +
-        '\n' +
-        'Cannot query field "fail" on type "Query".',
+      'An error occurred while fetching your schema from Apollo: '
+        + '\n'
+        + 'Cannot query field "fail" on type "Query".',
     );
   });
 
-  it("Doesn't update and logs on receiving unparseable Supergraph SDL", async () => {
+  it('Doesn\'t update and logs on receiving unparseable Supergraph SDL', async () => {
     mockSupergraphSdlRequestSuccess();
     mockSupergraphSdlRequestIfAfter('originalId-1234').reply(
       200,

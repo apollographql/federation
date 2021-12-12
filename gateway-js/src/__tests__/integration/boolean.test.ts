@@ -1,5 +1,5 @@
-import { execute } from '../execution-utils';
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import { execute } from '../execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);

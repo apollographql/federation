@@ -7,13 +7,13 @@ function stringIsBoolean(str?: string) : boolean | undefined {
     return false;
   }
   switch (str.toLocaleLowerCase()) {
-    case "true":
-    case "yes":
-    case "1":
+    case 'true':
+    case 'yes':
+    case '1':
       return true;
-    case "false":
-    case "no":
-    case "0":
+    case 'false':
+    case 'no':
+    case '0':
       return false;
     default:
       return undefined;
@@ -21,9 +21,9 @@ function stringIsBoolean(str?: string) : boolean | undefined {
 }
 
 function indentString(indentLevel: number) : string {
-  let str = "";
+  let str = '';
   for (let i = 0; i < indentLevel; i++) {
-    str += chalk.blackBright("⎸ ");
+    str += chalk.blackBright('⎸ ');
   }
   return str;
 }
@@ -35,7 +35,7 @@ function isEnabled(name: string): boolean {
     return bool;
   }
 
-  const enabledNames = v!.split(',').map(n => n.trim());
+  const enabledNames = v!.split(',').map((n) => n.trim());
   return enabledNames.includes(name);
 }
 
@@ -94,11 +94,11 @@ export class DebugLogger {
   }
 
   private updateHeader(maxLength: number) {
-    let padding = "";
+    let padding = '';
     if (maxLength > this.name.length) {
       const toPad = maxLength - this.name.length;
       for (let i = 0; i < toPad; i++) {
-        padding += " ";
+        padding += ' ';
       }
     }
     this.header = chalk.blackBright('[' + padding + this.name + '] ');
@@ -154,7 +154,7 @@ export class DebugLogger {
   public groupedEntries<K, V>(
     map: Map<K, V>,
     keyPrintFn: (k: K) => string,
-    valuePrintFn: (v : V) => string
+    valuePrintFn: (v : V) => string,
   ): DebugLogger {
     if (!this.enabled) return this;
 

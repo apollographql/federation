@@ -1,16 +1,15 @@
 import gql from 'graphql-tag';
-import { execute } from '../execution-utils';
-
 import {
   astSerializer,
   queryPlanSerializer,
 } from 'apollo-federation-integration-testsuite';
+import { execute } from '../execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 describe('scope', () => {
-  it("doesn't wrap inline fragments with the supertype when @include is used", async () => {
+  it('doesn\'t wrap inline fragments with the supertype when @include is used', async () => {
     const query = `#graphql
     query GetProducts {
       topProducts {
@@ -111,7 +110,7 @@ describe('scope', () => {
     `);
   });
 
-  it("doesn't merge conditions on the same type when one has a @include", async () => {
+  it('doesn\'t merge conditions on the same type when one has a @include', async () => {
     const query = `#graphql
     query GetProducts {
       topProducts {
@@ -227,7 +226,7 @@ describe('scope', () => {
     `);
   });
 
-  it("doesn't merge conditions on the same type when one has a @include even for the same selected field", async () => {
+  it('doesn\'t merge conditions on the same type when one has a @include even for the same selected field', async () => {
     const query = `#graphql
     query GetProducts {
       topProducts {
@@ -343,7 +342,7 @@ describe('scope', () => {
     `);
   });
 
-  it("merges nested conditions when possible", async () => {
+  it('merges nested conditions when possible', async () => {
     const query = `#graphql
     query GetProducts {
       topProducts {
@@ -446,7 +445,7 @@ describe('scope', () => {
     `);
   });
 
-  it("doesn't merge nested conditions when both have directives", async () => {
+  it('doesn\'t merge nested conditions when both have directives', async () => {
     const query = `#graphql
     query GetProducts {
       topProducts {

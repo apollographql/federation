@@ -1,3 +1,4 @@
+import { ASTNode, GraphQLError, isValidNameError } from 'graphql';
 import {
   ArgumentDefinition,
   Directive,
@@ -14,12 +15,11 @@ import {
   sourceASTs,
   Type,
   UnionType,
-  VariableDefinitions
-} from "./definitions";
-import { ASTNode, GraphQLError, isValidNameError } from "graphql";
-import { isValidValue } from "./values";
-import { isIntrospectionName } from "./introspection";
-import { isSubtype, sameType } from "./types";
+  VariableDefinitions,
+} from './definitions';
+import { isValidValue } from './values';
+import { isIntrospectionName } from './introspection';
+import { isSubtype, sameType } from './types';
 
 // Note really meant to be called manually as it is part of `Schema.validate`, but separated for core-organization reasons.
 // This mostly apply the validations that graphQL-js does in `validateSchema` which we don't reuse because it applies to
@@ -31,8 +31,10 @@ export function validateSchema(schema: Schema): GraphQLError[] {
 
 class InputObjectCircularRefsValidator {
   private readonly visitedTypes = new Set<string>();
+
   // Array of types nodes used to produce meaningful errors
   private readonly fieldPath: InputFieldDefinition[] = [];
+
   // Position in the field path
   private readonly fieldPathIndexByTypeName = new Map<string, number>();
 
@@ -60,7 +62,7 @@ class InputObjectCircularRefsValidator {
           const pathStr = cyclePath.map((fieldObj) => fieldObj.name).join('.');
           this.onError(new GraphQLError(
             `Cannot reference Input Object "${fieldType.name}" within itself through a series of non-null fields: "${pathStr}".`,
-            sourceASTs(...cyclePath)
+            sourceASTs(...cyclePath),
           ));
         }
         this.fieldPath.pop();
@@ -72,7 +74,9 @@ class InputObjectCircularRefsValidator {
 
 class Validator {
   private readonly emptyVariables = new VariableDefinitions();
+
   private hasMissingTypes: boolean = false;
+
   private readonly errors: GraphQLError[] = [];
 
   constructor(readonly schema: Schema) {}
@@ -103,7 +107,7 @@ class Validator {
         this.validateArg(arg);
       }
       for (const application of directive.applications()) {
-        this.validateDirectiveApplication(directive, application)
+        this.validateDirectiveApplication(directive, application);
       }
     }
 
@@ -113,7 +117,7 @@ class Validator {
     // we found any type missing (in which case, there will be some errors and users should fix those
     // first).
     if (!this.hasMissingTypes) {
-      const refsValidator = new InputObjectCircularRefsValidator(e => this.errors.push(e));
+      const refsValidator = new InputObjectCircularRefsValidator((e) => this.errors.push(e));
       for (const type of this.schema.types()) {
         switch (type.kind) {
           case 'ObjectType':
@@ -139,7 +143,7 @@ class Validator {
     }
   }
 
-  private validateName(elt: { name: string, sourceAST?: ASTNode}) {
+  private validateName(elt: { name: string, sourceAST?: ASTNode }) {
     if (isIntrospectionName(elt.name)) {
       return;
     }
@@ -166,7 +170,7 @@ class Validator {
     if (type.implementsInterface(type.name)) {
       this.errors.push(new GraphQLError(
         `Type ${type} cannot implement itself because it would create a circular reference.`,
-        sourceASTs(type, type.interfaceImplementation(type.name)!)
+        sourceASTs(type, type.interfaceImplementation(type.name)!),
       ));
     }
 
@@ -176,7 +180,7 @@ class Validator {
         if (!field) {
           this.errors.push(new GraphQLError(
             `Interface field ${itfField.coordinate} expected but ${type} does not provide it.`,
-            sourceASTs(itfField, type)
+            sourceASTs(itfField, type),
           ));
           continue;
         }
@@ -187,7 +191,7 @@ class Validator {
         if (!isSubtype(itfField.type!, field.type!)) {
           this.errors.push(new GraphQLError(
             `Interface field ${itfField.coordinate} expects type ${itfField.type} but ${field.coordinate} of type ${field.type} is not a proper subtype.`,
-            sourceASTs(itfField, field)
+            sourceASTs(itfField, field),
           ));
         }
 
@@ -196,7 +200,7 @@ class Validator {
           if (!arg) {
             this.errors.push(new GraphQLError(
               `Interface field argument ${itfArg.coordinate} expected but ${field.coordinate} does not provide it.`,
-              sourceASTs(itfArg, field)
+              sourceASTs(itfArg, field),
             ));
             continue;
           }
@@ -206,7 +210,7 @@ class Validator {
           if (!sameType(itfArg.type!, arg.type!)) {
             this.errors.push(new GraphQLError(
               `Interface field argument ${itfArg.coordinate} expects type ${itfArg.type} but ${arg.coordinate} is type ${arg.type}.`,
-              sourceASTs(itfArg, arg)
+              sourceASTs(itfArg, arg),
             ));
           }
         }
@@ -219,7 +223,7 @@ class Validator {
           if (arg.isRequired()) {
             this.errors.push(new GraphQLError(
               `Field ${field.coordinate} includes required argument ${arg.name} that is missing from the Interface field ${itfField.coordinate}.`,
-              sourceASTs(arg, itfField)
+              sourceASTs(arg, itfField),
             ));
           }
         }
@@ -233,7 +237,7 @@ class Validator {
           } else {
             this.errors.push(new GraphQLError(
               `Type ${type} must implement ${itfOfItf} because it is implemented by ${itf}.`,
-              sourceASTs(type, itf, itfOfItf)
+              sourceASTs(type, itf, itfOfItf),
             ));
           }
         }
@@ -251,7 +255,7 @@ class Validator {
       if (field.isRequired() && field.isDeprecated()) {
         this.errors.push(new GraphQLError(
           `Required input field ${field.coordinate} cannot be deprecated.`,
-          sourceASTs(field.appliedDirectivesOf('deprecated')[0], field)
+          sourceASTs(field.appliedDirectivesOf('deprecated')[0], field),
         ));
       }
     }
@@ -263,7 +267,7 @@ class Validator {
     if (arg.isRequired() && arg.isDeprecated()) {
       this.errors.push(new GraphQLError(
         `Required argument ${arg.coordinate} cannot be deprecated.`,
-        sourceASTs(arg.appliedDirectivesOf('deprecated')[0], arg)
+        sourceASTs(arg.appliedDirectivesOf('deprecated')[0], arg),
       ));
     }
   }
@@ -283,7 +287,7 @@ class Validator {
       if (value.name === 'true' || value.name === 'false' || value.name === 'null') {
         this.errors.push(new GraphQLError(
           `Enum type ${type.coordinate} cannot include value: ${value}.`,
-          value.sourceAST
+          value.sourceAST,
         ));
       }
     }
@@ -300,14 +304,14 @@ class Validator {
         continue;
       }
       if (!isValidValue(value, argument, this.emptyVariables)) {
-        const parent = application.parent;
+        const { parent } = application;
         // The only non-named SchemaElement is the `schema` definition.
         const parentDesc = parent instanceof NamedSchemaElement
           ? parent.coordinate
           : 'schema';
         this.errors.push(new GraphQLError(
           `Invalid value for "${argument.coordinate}" of type "${argument.type}" in application of "${definition.coordinate}" to "${parentDesc}".`,
-          sourceASTs(application, argument)
+          sourceASTs(application, argument),
         ));
       }
     }

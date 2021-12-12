@@ -1,9 +1,9 @@
-import { execute } from '../execution-utils';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { buildSubgraphSchema } from '@apollo/subgraph';
-import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
-import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
+import { execute } from '../execution-utils';
+import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
+import { ApolloGateway } from '../..';
 
 it('supports simple aliases', async () => {
   const query = `#graphql
@@ -143,11 +143,11 @@ it('supports aliases of nested fields on subservices', async () => {
 it('supports aliases when using ApolloServer', async () => {
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
-    buildService: service => {
+    buildService: (service) =>
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
-    },
+       new LocalGraphQLDataSource(buildSubgraphSchema([service]))
+    ,
   });
 
   const { schema, executor } = await gateway.load();

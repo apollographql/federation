@@ -1,19 +1,16 @@
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
-import { getFederatedTestingSchema } from './execution-utils';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
 import { Schema, parseOperation } from '@apollo/federation-internals';
+import { getFederatedTestingSchema } from './execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
-
 
 describe('buildQueryPlan', () => {
   let schema: Schema;
   let queryPlanner: QueryPlanner;
 
-  const buildPlan = (operation: string): QueryPlan => {
-    return queryPlanner.buildQueryPlan(parseOperation(schema, operation));
-  }
+  const buildPlan = (operation: string): QueryPlan => queryPlanner.buildQueryPlan(parseOperation(schema, operation));
 
   beforeEach(() => {
     expect(

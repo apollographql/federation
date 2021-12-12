@@ -66,7 +66,7 @@ export class Vertex {
      * An identifier of the underlying schema containing the `type` this vertex points to.
      * This is mainly used in "federated" query graphs, where the `source` is a subgraph name.
      */
-    readonly source : string
+    readonly source : string,
   ) {}
 
   toString(): string {
@@ -85,7 +85,7 @@ export class RootVertex extends Vertex {
     readonly rootKind: SchemaRootKind,
     index: number,
     type: NamedType,
-    source : string
+    source : string,
   ) {
     super(index, type, source);
   }
@@ -163,7 +163,7 @@ export class Edge {
   }
 
   matchesSupergraphTransition(supergraph: Schema, otherTransition: Transition): boolean {
-    const transition = this.transition;
+    const { transition } = this;
     switch (transition.kind) {
       case 'FieldCollection':
         if (otherTransition.kind === 'FieldCollection') {
@@ -174,11 +174,11 @@ export class Edge {
             otherTransition.definition,
             ALL_SUBTYPING_RULES, // We can safely use all rules, even if merge didn't. It just mean some rules will never be needed.
             (union, maybeMember) => (supergraph.type(union.name)! as UnionType).hasTypeMember(maybeMember.name),
-            (maybeImplementer, itf) => (supergraph.type(maybeImplementer.name)! as (ObjectType | InterfaceType)).implementsInterface(itf)
+            (maybeImplementer, itf) => (supergraph.type(maybeImplementer.name)! as (ObjectType | InterfaceType)).implementsInterface(itf),
           );
-        } else {
-          return false;
         }
+          return false;
+
       case 'DownCast':
         return otherTransition.kind === 'DownCast' && transition.castedType.name === otherTransition.castedType.name;
       default:
@@ -188,7 +188,7 @@ export class Edge {
 
   label(): string {
     if (this.transition instanceof SubgraphEnteringTransition && !this._conditions) {
-      return "";
+      return '';
     }
     return this._conditions ? `${this._conditions} ⊢ ${this.transition}` : this.transition.toString();
   }
@@ -199,7 +199,7 @@ export class Edge {
       newHead,
       this.tail,
       this.transition,
-      this._conditions
+      this._conditions,
     );
   }
 
@@ -270,7 +270,7 @@ export class QueryGraph {
      * the name identifying them. Note that the `source` string in the `Vertex` of a query graph is guaranteed to be
      * valid key in this map.
      */
-    readonly sources: ReadonlyMap<string, Schema>
+    readonly sources: ReadonlyMap<string, Schema>,
   ) {
   }
 
@@ -351,7 +351,7 @@ export class QueryGraph {
    */
   verticesForType(typeName: string): Vertex[] {
     const indexes = this.typesToVertices.get(typeName);
-    return indexes == undefined ? [] : indexes.map(i => this.vertices[i]);
+    return indexes == undefined ? [] : indexes.map((i) => this.vertices[i]);
   }
 }
 
@@ -365,6 +365,7 @@ export class QueryGraph {
 export class QueryGraphState<VertexState, EdgeState = undefined> {
   // Store some "user" state for each vertex (accessed by index)
   private readonly verticesStates: (VertexState | undefined)[];
+
   private readonly adjacenciesStates: (EdgeState | undefined)[][];
 
   /**
@@ -451,10 +452,10 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
 
   toDebugString(
     vertexMapper: (s: VertexState) => string,
-    edgeMapper: (e: EdgeState) => string
+    edgeMapper: (e: EdgeState) => string,
   ): string {
-    const vs = this.verticesStates.map((state, idx) => ` ${idx}: ${!state ? "<null>" : vertexMapper(state)}`).join("\n");
-    const es = this.adjacenciesStates.map((adj, vIdx) => adj.map((state, eIdx) => ` ${vIdx}[${eIdx}]: ${!state ? "<null>" : edgeMapper(state)}`).join("\n")).join("\n");
+    const vs = this.verticesStates.map((state, idx) => ` ${idx}: ${!state ? '<null>' : vertexMapper(state)}`).join('\n');
+    const es = this.adjacenciesStates.map((adj, vIdx) => adj.map((state, eIdx) => ` ${vIdx}[${eIdx}]: ${!state ? '<null>' : edgeMapper(state)}`).join('\n')).join('\n');
     return `vertices = {${vs}\n}, edges = {${es}\n}`;
   }
 }
@@ -500,7 +501,7 @@ function buildGraphInternal(name: string, schema: Schema, addAdditionalAbstractT
  * @returns the built query graph.
  */
 export function buildSupergraphAPIQueryGraph(supergraph: Schema): QueryGraph {
-  return buildQueryGraph("supergraph", supergraph);
+  return buildQueryGraph('supergraph', supergraph);
 }
 
 /**
@@ -534,7 +535,7 @@ function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<SchemaRootK
   const schemas: Schema[] = [];
   for (const subgraph of subgraphs) {
     vertices += subgraph.verticesCount();
-    subgraph.rootKinds().forEach(k => rootKinds.add(k));
+    subgraph.rootKinds().forEach((k) => rootKinds.add(k));
     assert(subgraph.sources.size === 1, () => `Subgraphs should only have one sources, got ${subgraph.sources.size} ([${mapKeys(subgraph.sources).join(', ')}])`);
     schemas.push(firstOf(subgraph.sources.values())!);
   }
@@ -544,11 +545,11 @@ function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<SchemaRootK
 function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   const [verticesCount, rootKinds, schemas] = federatedProperties(subgraphs);
   const builder = new GraphBuilder(verticesCount);
-  rootKinds.forEach(k => builder.createRootVertex(
+  rootKinds.forEach((k) => builder.createRootVertex(
     k,
     new ObjectType(federatedGraphRootTypeName(k)),
     FEDERATED_GRAPH_ROOT_SOURCE,
-    FEDERATED_GRAPH_ROOT_SCHEMA
+    FEDERATED_GRAPH_ROOT_SCHEMA,
   ));
 
   // We first add all the vertices and edges from the subgraphs
@@ -564,7 +565,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
     const copyPointer = copyPointers[i];
     for (const rootKind of subgraph.rootKinds()) {
       const rootVertex = copyPointer.copiedVertex(subgraph.root(rootKind)!);
-      builder.addEdge(builder.root(rootKind)!, rootVertex, subgraphEnteringTransition)
+      builder.addEdge(builder.root(rootKind)!, rootVertex, subgraphEnteringTransition);
 
       for (const [j, otherSubgraph] of subgraphs.entries()) {
         if (i === j) {
@@ -587,8 +588,8 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
     const requireDirective = federationBuiltIns.requiresDirective(subgraphSchema);
     simpleTraversal(
       subgraph,
-      v => {
-        const type = v.type;
+      (v) => {
+        const { type } = v;
         for (const keyApplication of type.appliedDirectivesOf(keyDirective)) {
           // The @key directive creates an edge from every other subgraphs (having that type)
           // to the current subgraph. In other words, the fact this subgraph has a @key means
@@ -615,7 +616,8 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
             // certain type. But for now, it's true.
             assert(
               otherVertices.length == 1,
-              () => `Subgraph ${j} should have a single vertex for type ${type.name} but got ${otherVertices.length}: ${inspect(otherVertices)}`);
+              () => `Subgraph ${j} should have a single vertex for type ${type.name} but got ${otherVertices.length}: ${inspect(otherVertices)}`,
+);
 
             // The edge goes from the otherSubgraph to the current one.
             const head = copyPointers[j].copiedVertex(otherVertices[0]);
@@ -624,10 +626,10 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           }
         }
       },
-      e => {
+      (e) => {
         // Handling @requires
         if (e.transition.kind === 'FieldCollection') {
-          const type = e.head.type;
+          const { type } = e.head;
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const requiresApplication of field.appliedDirectivesOf(requireDirective)) {
@@ -640,7 +642,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           }
         }
         return true; // Always traverse edges
-      }
+      },
     );
   }
   // Now we handle @provides
@@ -649,16 +651,16 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
     const providesDirective = federationBuiltIns.providesDirective(subgraphSchema);
     simpleTraversal(
       subgraph,
-      _ => undefined,
-      e => {
+      (_) => undefined,
+      (e) => {
         // Handling @provides
         if (e.transition.kind === 'FieldCollection') {
-          const type = e.head.type;
+          const { type } = e.head;
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
             const fieldType = baseType(field.type!);
-            assert(isCompositeType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not a composite type`)
+            assert(isCompositeType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not a composite type`);
             const provided = parseFieldSetArgument(fieldType, providesApplication);
             const head = copyPointers[i].copiedVertex(e.head);
             const tail = copyPointers[i].copiedVertex(e.tail);
@@ -673,7 +675,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           }
         }
         return true; // Always traverse edges
-      }
+      },
     );
   }
   return builder.build(FEDERATED_GRAPH_ROOT_SOURCE);
@@ -681,7 +683,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
 
 function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, provided: SelectionSet) {
   const stack: [Vertex, SelectionSet][] = [[from, provided]];
-  const source = from.source;
+  const { source } = from;
   while (stack.length > 0) {
     const [v, selectionSet] = stack.pop()!;
     // We reverse the selections to cancel the reversing that the stack does.
@@ -689,7 +691,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
       const element = selection.element();
       if (element.kind == 'Field') {
         const fieldDef = element.definition;
-        const existingEdge = builder.edges(v).find(e => e.transition.kind === 'FieldCollection' && e.transition.definition.name === fieldDef.name);
+        const existingEdge = builder.edges(v).find((e) => e.transition.kind === 'FieldCollection' && e.transition.definition.name === fieldDef.name);
         if (existingEdge) {
           // If this is a leaf field, then we don't really have anything to do. Otherwise, we need to copy
           // the tail and continue propagating the provides from there.
@@ -702,8 +704,8 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // There is no exisiting edges, which means that it's an edge added by the provide.
           // We find the existing vertex it leads to, if it exists and create a new one otherwise.
           const fieldType = baseType(fieldDef.type!);
-          const existingTail = builder.verticesForType(fieldType.name).find(v => v.source === source);
-          const newTail = existingTail ? existingTail : builder.createNewVertex(fieldType, v.source, schema);
+          const existingTail = builder.verticesForType(fieldType.name).find((v) => v.source === source);
+          const newTail = existingTail || builder.createNewVertex(fieldType, v.source, schema);
           // If the field is a leaf, then just create the new edge and we're done. Othewise, we
           // should copy the vertex (unless we just created it), add the edge and continue.
           if (selection.selectionSet) {
@@ -715,9 +717,9 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           }
         }
       } else {
-        const typeCondition = element.typeCondition;
+        const { typeCondition } = element;
         if (typeCondition) {
-          const existingEdge = builder.edges(v).find(e => e.transition.kind === 'DownCast' && e.transition.castedType.name === typeCondition.name);
+          const existingEdge = builder.edges(v).find((e) => e.transition.kind === 'DownCast' && e.transition.castedType.name === typeCondition.name);
           // We always should have an edge: otherwise it would mean we list a type condition for a type that isn't in the subgraph, but the
           // @provides shouldn't have validated in the first place (another way to put it is, contrary to fields, there is no way currently
           // to mark a full type as @external).
@@ -743,10 +745,15 @@ interface SubgraphCopyPointer {
  */
 class GraphBuilder {
   private readonly vertices: Vertex[];
+
   private nextIndex: number = 0;
+
   private readonly adjacencies: Edge[][];
+
   private readonly typesToVertices: MultiMap<string, number> = new MultiMap();
+
   private readonly rootVertices: MapWithCachedArrays<SchemaRootKind, RootVertex> = new MapWithCachedArrays();
+
   private readonly sources: Map<string, Schema> = new Map();
 
   constructor(verticesCount?: number) {
@@ -756,7 +763,7 @@ class GraphBuilder {
 
   verticesForType(typeName: string): Vertex[] {
     const indexes = this.typesToVertices.get(typeName);
-    return indexes == undefined ? [] : indexes.map(i => this.vertices[i]);
+    return indexes == undefined ? [] : indexes.map((i) => this.vertices[i]);
   }
 
   root(kind: SchemaRootKind): Vertex | undefined {
@@ -807,15 +814,15 @@ class GraphBuilder {
     const offset = this.nextIndex;
     simpleTraversal(
       graph,
-      v => {
+      (v) => {
         this.getOrCopyVertex(v, offset, graph);
       },
-      e => {
+      (e) => {
         const newHead = this.getOrCopyVertex(e.head, offset, graph);
         const newTail = this.getOrCopyVertex(e.tail, offset, graph);
         this.addEdge(newHead, newTail, e.transition, e.conditions);
         return true; // Always traverse edges
-      }
+      },
     );
     this.nextIndex += graph.verticesCount();
     const that = this;
@@ -824,7 +831,7 @@ class GraphBuilder {
         const vertex = that.vertices[original.index + offset];
         assert(vertex, () => `Vertex ${original} has no copy for offset ${offset}`);
         return vertex;
-      }
+      },
     };
   }
 
@@ -883,7 +890,8 @@ class GraphBuilder {
       this.adjacencies,
       this.typesToVertices,
       this.rootVertices,
-      this.sources);
+      this.sources,
+);
   }
 }
 
@@ -894,12 +902,13 @@ class GraphBuilder {
  */
 class GraphBuilderFromSchema extends GraphBuilder {
   private readonly isFederatedSubgraph: boolean;
+
   private readonly forceTypeExplosion: boolean;
 
   constructor(
     private readonly name: string,
     private readonly schema: Schema,
-    private readonly supergraphSchema?: Schema
+    private readonly supergraphSchema?: Schema,
   ) {
     super();
     this.isFederatedSubgraph = isFederationSubgraphSchema(schema);
@@ -995,19 +1004,19 @@ class GraphBuilderFromSchema extends GraphBuilder {
     if (!supergraphType) {
       return;
     }
-    const supergraphRuntimeTypes = (supergraphType as InterfaceType).possibleRuntimeTypes().map(t => t.name);
+    const supergraphRuntimeTypes = (supergraphType as InterfaceType).possibleRuntimeTypes().map((t) => t.name);
     // Note that it's possible that the current subgraph does not even know some of the possible runtime types of the supergraph.
     // But as edges to interfaces can only come from the current subgraph, it does mean that whatever field led to this
     // interface was resolved in this subgraph and can never return one of those unknown runtime types. So we can ignore them.
     // TODO: We *must* revisit this once we add @key for interfaces as it will invalidate the "edges to interfaces can only
     // come from the current subgraph". Most likely, _if_ an interface has a key, then we should return early from this
     // function (add no field edges at all) if subgraph don't know of at least one implementation.
-    const localRuntimeTypes = supergraphRuntimeTypes.map(t => this.schema.type(t) as ObjectType).filter(t => t !== undefined);
+    const localRuntimeTypes = supergraphRuntimeTypes.map((t) => this.schema.type(t) as ObjectType).filter((t) => t !== undefined);
     // Same as for objects, we want `allFields` so we capture __typename (which will never be external and always provided
     // by all local runtime types, so will always have an edge added, which we want).
     for (const field of type.allFields()) {
       // To include the field, it must not be external himself, and it must be provided on every of the runtime types
-      if (field.hasAppliedDirective(externalDirectiveName) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
+      if (field.hasAppliedDirective(externalDirectiveName) || localRuntimeTypes.some((t) => !this.isDirectlyProvidedByType(t, field.name))) {
         continue;
       }
       this.addEdgeForField(field, head);
@@ -1120,7 +1129,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
           continue;
         }
         // Note that as everything comes from the same subgraph schema, using reference equality is fine.
-        const intersecting = t1Runtimes.filter(o1 => t2Runtimes.includes(o1));
+        const intersecting = t1Runtimes.filter((o1) => t2Runtimes.includes(o1));
         if (intersecting.length >= 2) {
           // Same remark as for t1 above.
           const t2Vertex = this.addTypeRecursively(t2);
@@ -1157,19 +1166,19 @@ class GraphBuilderFromSchema extends GraphBuilder {
 export function simpleTraversal(
   graph: QueryGraph,
   onVertex: (v: Vertex) => void,
-  onEdges: (e: Edge) => boolean
+  onEdges: (e: Edge) => boolean,
 ) {
   // A marked vertex (accessed by its index) is one that has already been traversed.
   const marked: boolean[] = new Array(graph.verticesCount());
   // The stack contains vertices that haven't been traversed yet but need to.
   const stack: Vertex[] = [];
 
-  const maybeAdd = function(vertex: Vertex) {
+  const maybeAdd = function (vertex: Vertex) {
     if (!marked[vertex.index]) {
       stack.push(vertex);
       marked[vertex.index] = true;
     }
-  }
+  };
 
   graph.roots().forEach(maybeAdd);
   while (stack.length > 0) {

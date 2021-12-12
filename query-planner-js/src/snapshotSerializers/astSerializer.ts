@@ -1,6 +1,6 @@
-import { QueryPlanInlineFragmentNode, QueryPlanSelectionNode } from '../';
 import { ASTNode, Kind, print, SelectionNode as GraphQLJSSelectionNode, visit } from 'graphql';
 import { Config, NewPlugin, Refs } from 'pretty-format';
+import { QueryPlanInlineFragmentNode, QueryPlanSelectionNode } from '..';
 
 export default {
   test(value: any) {
@@ -26,11 +26,11 @@ export default {
     // Avoid adding newlines for single line results.
     if (lines.length === 0) {
       return '';
-    } else if (lines.length === 1) {
+    } if (lines.length === 1) {
       return lines[0];
     }
 
-    return lines.map(line => {
+    return lines.map((line) => {
       // We re-indent the lines printed from `graphql-js` to respect the passed in `indentation`
       // and`config.indent` values.
       // This is important because Jest has started to ignore indentation when diffing snapshots,

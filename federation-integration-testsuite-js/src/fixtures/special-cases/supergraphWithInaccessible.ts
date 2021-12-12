@@ -7,8 +7,8 @@ import {
   parse,
   visit,
 } from 'graphql';
-import { fixtures } from '..';
 import { assert } from '@apollo/federation-internals';
+import { fixtures } from '..';
 
 const compositionResult = composeServices(fixtures);
 assert(!compositionResult.errors, () => `Unexpected errors composing test fixtures:\n${compositionResult.errors!.join('\n\n')}`);
@@ -30,8 +30,7 @@ const [inaccessibleDefinition, schemaDefinition] = parse(`#graphql
     }
   `).definitions as [DirectiveDefinitionNode, SchemaDefinitionNode];
 
-const [inaccessibleCoreUsage, inaccessibleUsage] =
-  schemaDefinition.directives as [DirectiveNode, DirectiveNode];
+const [inaccessibleCoreUsage, inaccessibleUsage] = schemaDefinition.directives as [DirectiveNode, DirectiveNode];
 
 // Append the AST with the inaccessible definition, and @core inaccessible usage
 let superGraphWithInaccessible: DocumentNode = visit(parsed, {
@@ -76,7 +75,7 @@ superGraphWithInaccessible = visit(
         };
       }
       return node;
-    }
+    },
   },
 );
 

@@ -1,3 +1,7 @@
+import { SDLValidationRule } from 'graphql/validation/ValidationContext';
+import { specifiedSDLRules } from 'graphql/validation/specifiedRules';
+import { ASTNode, DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule, Source } from 'graphql';
+import { assert, OrderedMap } from './utils';
 import {
   BuiltIns,
   Schema,
@@ -22,18 +26,14 @@ import {
   VariableDefinitions,
   InterfaceType,
   InputFieldDefinition,
-  isCompositeType
-} from "./definitions";
-import { assert, OrderedMap } from "./utils";
-import { SDLValidationRule } from "graphql/validation/ValidationContext";
-import { specifiedSDLRules } from "graphql/validation/specifiedRules";
-import { ASTNode, DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule, Source } from "graphql";
-import { defaultPrintOptions, printDirectiveDefinition } from "./print";
-import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
-import { buildSchema, buildSchemaFromAST } from "./buildSchema";
+  isCompositeType,
+} from './definitions';
+import { defaultPrintOptions, printDirectiveDefinition } from './print';
+import { KnownTypeNamesInFederationRule } from './validation/KnownTypeNamesInFederationRule';
+import { buildSchema, buildSchemaFromAST } from './buildSchema';
 import { parseSelectionSet, SelectionSet } from './operations';
-import { tagLocations, TAG_VERSIONS } from "./tagSpec";
-import { error } from "./error";
+import { tagLocations, TAG_VERSIONS } from './tagSpec';
+import { error } from './error';
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -64,7 +64,7 @@ const FEDERATION_TYPES = [
   entityTypeName,
   serviceTypeName,
   anyTypeName,
-  fieldSetTypeName
+  fieldSetTypeName,
 ];
 const FEDERATION_DIRECTIVES = [
   keyDirectiveName,
@@ -72,11 +72,11 @@ const FEDERATION_DIRECTIVES = [
   externalDirectiveName,
   requiresDirectiveName,
   providesDirectiveName,
-  tagDirectiveName
+  tagDirectiveName,
 ];
 const FEDERATION_ROOT_FIELDS = [
   serviceFieldName,
-  entitiesFieldName
+  entitiesFieldName,
 ];
 
 const FEDERATION_OMITTED_VALIDATION_RULES = [
@@ -86,14 +86,14 @@ const FEDERATION_OMITTED_VALIDATION_RULES = [
   // The `KnownTypeNamesRule` of graphQL-js only looks at type definitions, so this goes against our previous
   // desire to let a subgraph only have an extension for a type. Below, we add a replacement rules that looks
   // at both type definitions _and_ extensions.
-  KnownTypeNamesRule
+  KnownTypeNamesRule,
 ];
 
 const FEDERATION_SPECIFIC_VALIDATION_RULES = [
-  KnownTypeNamesInFederationRule
+  KnownTypeNamesInFederationRule,
 ];
 
-const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter(rule => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
+const FEDERATION_VALIDATION_RULES = specifiedSDLRules.filter((rule) => !FEDERATION_OMITTED_VALIDATION_RULES.includes(rule)).concat(FEDERATION_SPECIFIC_VALIDATION_RULES);
 
 // Returns a list of the coordinate of all the fields in the selection that are marked external.
 function validateFieldSetSelections(
@@ -120,7 +120,8 @@ function validateFieldSetSelections(
           throw new GraphQLError(
             `field "${field.coordinate}" should not be part of a @${directiveName} since it is already "effectively" provided by this subgraph `
             + `(while it is marked @${externalDirectiveName}, it is a @${keyDirectiveName} field of an extension type, which are not internally considered external for historical/backward compatibility reasons)`,
-            field.sourceAST);
+            field.sourceAST,
+);
         } else {
           throw new GraphQLError(`field "${field.coordinate}" should not be part of a @${directiveName} since it is already provided by this subgraph (it is not marked @${externalDirectiveName})`, field.sourceAST);
         }
@@ -150,7 +151,7 @@ function validateFieldSetSelections(
 
 function validateFieldSet(
   type: CompositeType,
-  directive: Directive<any, {fields: any}>,
+  directive: Directive<any, { fields: any }>,
   targetDescription: string,
   externalTester: ExternalTester,
   externalFieldCoordinatesCollector: string[],
@@ -181,9 +182,9 @@ function validateFieldSet(
         msg = msg.slice(0, msg.length - 1);
       }
       if (directive.name === keyDirectiveName) {
-        msg = msg + ' (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
+        msg += ' (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
       } else {
-        msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
+        msg += ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
       }
     }
     return new GraphQLError(`On ${targetDescription}, for ${directive}: ${msg}`, nodes);
@@ -191,7 +192,7 @@ function validateFieldSet(
 }
 
 function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
-  definition: DirectiveDefinition<{fields: any}>,
+  definition: DirectiveDefinition<{ fields: any }>,
   targetTypeExtractor: (element: TParent) => CompositeType,
   targetDescriptionExtractor: (element: TParent) => string,
   errorCollector: GraphQLError[],
@@ -210,7 +211,7 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
         isOnParentType
           ? `Cannot use ${definition.coordinate} on interface ${parentType.coordinate}: ${definition.coordinate} is not yet supported on interfaces`
           : `Cannot use ${definition.coordinate} on ${targetDescription} of parent type ${parentType}: ${definition.coordinate} is not yet supported within interfaces`,
-        sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type))
+        sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type)),
       ));
     }
     const error = validateFieldSet(type, application, targetDescription, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
@@ -243,7 +244,7 @@ function validateAllExternalFieldsUsed(
         errorCollector.push(new GraphQLError(
           `Field ${field.coordinate} is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
           + ' the field declaration has no use and should be removed (or the field should not be @external).',
-          field.sourceAST
+          field.sourceAST,
         ));
       }
     }
@@ -251,7 +252,7 @@ function validateAllExternalFieldsUsed(
 }
 
 function isFieldSatisfyingInterface(field: FieldDefinition<ObjectType | InterfaceType>): boolean {
-  return field.parent.interfaces().some(itf => itf.field(field.name));
+  return field.parent.interfaces().some((itf) => itf.field(field.name));
 }
 
 export class FederationBuiltIns extends BuiltIns {
@@ -293,7 +294,7 @@ export class FederationBuiltIns extends BuiltIns {
     }
 
     const directive = this.addBuiltInDirective(schema, 'tag').addLocations(...tagLocations);
-    directive.addArgument("name", new NonNullType(schema.stringType()));
+    directive.addArgument('name', new NonNullType(schema.stringType()));
   }
 
   prepareValidation(schema: Schema) {
@@ -310,10 +311,10 @@ export class FederationBuiltIns extends BuiltIns {
       if (entityType.membersCount() === 0) {
         entityType.remove();
       }
-      entityType = schema.builtInTypes<UnionType>('UnionType', true).find(u => u.name === entityTypeName)!
+      entityType = schema.builtInTypes<UnionType>('UnionType', true).find((u) => u.name === entityTypeName)!;
     }
     entityType.clearTypes();
-    for (const objectType of schema.types<ObjectType>("ObjectType")) {
+    for (const objectType of schema.types<ObjectType>('ObjectType')) {
       if (isEntityType(objectType)) {
         entityType.addType(objectType);
       }
@@ -325,8 +326,8 @@ export class FederationBuiltIns extends BuiltIns {
     }
 
     // Adds the _entities and _service fields to the root query type.
-    const queryRoot = schema.schemaDefinition.root("query");
-    const queryType = queryRoot ? queryRoot.type : schema.addType(new ObjectType("Query"));
+    const queryRoot = schema.schemaDefinition.root('query');
+    const queryType = queryRoot ? queryRoot.type : schema.addType(new ObjectType('Query'));
     const entityField = queryType.field(entitiesFieldName);
     if (hasEntities) {
       const anyType = schema.type(anyTypeName);
@@ -368,7 +369,7 @@ export class FederationBuiltIns extends BuiltIns {
             `The schema has a type named "${defaultName}" but it is not set as the ${k} root type ("${type.name}" is instead): `
             + 'this is not supported by federation. '
             + 'If a root type does not use its default name, there should be no other type with that default name.',
-            sourceASTs(type, existing)
+            sourceASTs(type, existing),
           ));
         }
         type.rename(defaultName);
@@ -382,13 +383,13 @@ export class FederationBuiltIns extends BuiltIns {
     const keyDirective = this.keyDirective(schema);
     validateAllFieldSet<CompositeType>(
       keyDirective,
-      type => type,
-      type => `type "${type}"`,
+      (type) => type,
+      (type) => `type "${type}"`,
       errors,
       externalTester,
       externalFieldsInFedDirectivesCoordinates,
       true,
-      true
+      true,
     );
     // Note that we currently reject @requires where a leaf field of the selection is not external,
     // because if it's provided by the current subgraph, why "requires" it? That said, it's not 100%
@@ -399,8 +400,8 @@ export class FederationBuiltIns extends BuiltIns {
     // it.
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.requiresDirective(schema),
-      field => field.parent,
-      field => `field "${field.coordinate}"`,
+      (field) => field.parent,
+      (field) => `field "${field.coordinate}"`,
       errors,
       externalTester,
       externalFieldsInFedDirectivesCoordinates,
@@ -413,7 +414,7 @@ export class FederationBuiltIns extends BuiltIns {
     // of a field already provides is 100% nonsensical.
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.providesDirective(schema),
-      field => {
+      (field) => {
         if (externalTester.isExternal(field)) {
           throw new GraphQLError(`Cannot have both @provides and @external on field "${field.coordinate}"`, field.sourceAST);
         }
@@ -421,11 +422,12 @@ export class FederationBuiltIns extends BuiltIns {
         if (!isCompositeType(type)) {
           throw new GraphQLError(
             `Invalid @provides directive on field "${field.coordinate}": field has type "${field.type}" which is not a Composite Type`,
-            field.sourceAST);
+            field.sourceAST,
+);
         }
         return type;
       },
-      field => `field ${field.coordinate}`,
+      (field) => `field ${field.coordinate}`,
       errors,
       externalTester,
       externalFieldsInFedDirectivesCoordinates,
@@ -451,7 +453,7 @@ export class FederationBuiltIns extends BuiltIns {
     return FEDERATION_VALIDATION_RULES;
   }
 
-  keyDirective(schema: Schema): DirectiveDefinition<{fields: any}> {
+  keyDirective(schema: Schema): DirectiveDefinition<{ fields: any }> {
     return this.getTypedDirective(schema, keyDirectiveName);
   }
 
@@ -463,15 +465,15 @@ export class FederationBuiltIns extends BuiltIns {
     return this.getTypedDirective(schema, externalDirectiveName);
   }
 
-  requiresDirective(schema: Schema): DirectiveDefinition<{fields: any}> {
+  requiresDirective(schema: Schema): DirectiveDefinition<{ fields: any }> {
     return this.getTypedDirective(schema, requiresDirectiveName);
   }
 
-  providesDirective(schema: Schema): DirectiveDefinition<{fields: any}> {
+  providesDirective(schema: Schema): DirectiveDefinition<{ fields: any }> {
     return this.getTypedDirective(schema, providesDirectiveName);
   }
 
-  tagDirective(schema: Schema): DirectiveDefinition<{name: string}> {
+  tagDirective(schema: Schema): DirectiveDefinition<{ name: string }> {
     return this.getTypedDirective(schema, tagDirectiveName);
   }
 
@@ -481,7 +483,7 @@ export class FederationBuiltIns extends BuiltIns {
     const definitions = document.definitions.concat();
     for (const directiveName of FEDERATION_DIRECTIVES) {
       const directive = schema.directive(directiveName);
-      assert(directive, 'This method should only have been called on a schema with federation built-ins')
+      assert(directive, 'This method should only have been called on a schema with federation built-ins');
       // If the directive is _not_ marked built-in, that means it was manually defined
       // in the document and we don't need to add it. Note that `onValidation` will
       // ensure that re-definition is valid.
@@ -493,7 +495,7 @@ export class FederationBuiltIns extends BuiltIns {
     return {
       kind: 'Document',
       loc: document.loc,
-      definitions
+      definitions,
     };
   }
 }
@@ -513,7 +515,7 @@ export function isFederationTypeName(typeName: string): boolean {
 }
 
 export function isFederationField(field: FieldDefinition<CompositeType>): boolean {
-  if (field.parent === field.schema().schemaDefinition.root("query")?.type) {
+  if (field.parent === field.schema().schemaDefinition.root('query')?.type) {
     return FEDERATION_ROOT_FIELDS.includes(field.name);
   }
   return false;
@@ -524,7 +526,7 @@ export function isFederationDirective(directive: DirectiveDefinition | Directive
 }
 
 export function isEntityType(type: NamedType): boolean {
-  return type.kind == "ObjectType" && type.hasAppliedDirective(keyDirectiveName);
+  return type.kind == 'ObjectType' && type.hasAppliedDirective(keyDirectiveName);
 }
 
 function buildSubgraph(name: string, source: DocumentNode | string): Schema {
@@ -543,18 +545,18 @@ function buildSubgraph(name: string, source: DocumentNode | string): Schema {
 
 export function parseFieldSetArgument(
   parentType: CompositeType,
-  directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
-  fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
+  directive: Directive<NamedType | FieldDefinition<CompositeType>, { fields: any }>,
+  fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name),
 ): SelectionSet {
   return parseSelectionSet(parentType, validateFieldSetValue(directive), new VariableDefinitions(), undefined, fieldAccessor);
 }
 
-function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>): string {
-  const fields = directive.arguments().fields;
+function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<CompositeType>, { fields: any }>): string {
+  const { fields } = directive.arguments();
   if (typeof fields !== 'string') {
     throw new GraphQLError(
       `Invalid value for argument ${directive.definition!.argument('fields')!.coordinate} on ${directive.parent.coordinate}: must be a string.`,
-      directive.sourceAST
+      directive.sourceAST,
     );
   }
   return fields;
@@ -593,7 +595,7 @@ export class Subgraphs {
   add(subgraph: Subgraph): Subgraph;
   add(name: string, url: string, schema: Schema | DocumentNode | string): Subgraph;
   add(subgraphOrName: Subgraph | string, url?: string, schema?: Schema | DocumentNode | string): Subgraph {
-    const toAdd: Subgraph = typeof subgraphOrName  === 'string'
+    const toAdd: Subgraph = typeof subgraphOrName === 'string'
       ? new Subgraph(subgraphOrName, url!, schema instanceof Schema ? schema! : buildSubgraph(subgraphOrName, schema!))
       : subgraphOrName;
 
@@ -624,14 +626,14 @@ export class Subgraphs {
     return this.subgraphs.values();
   }
 
-  *[Symbol.iterator]() {
+  * [Symbol.iterator]() {
     for (const subgraph of this.subgraphs) {
       yield subgraph;
     }
   }
 
   toString(): string {
-    return '[' + this.subgraphs.keys().join(', ') + ']'
+    return '[' + this.subgraphs.keys().join(', ') + ']';
   }
 }
 
@@ -640,7 +642,7 @@ export class Subgraph {
     readonly name: string,
     readonly url: string,
     readonly schema: Schema,
-    validateSchema: boolean = true
+    validateSchema: boolean = true,
   ) {
     if (validateSchema) {
       schema.validate();
@@ -648,7 +650,7 @@ export class Subgraph {
   }
 
   toString() {
-    return `${this.name} (${this.url})`
+    return `${this.name} (${this.url})`;
   }
 }
 
@@ -657,19 +659,19 @@ export type SubgraphASTNode = ASTNode & { subgraph: string };
 export function addSubgraphToASTNode(node: ASTNode, subgraph: string): SubgraphASTNode {
   return {
     ...node,
-    subgraph
+    subgraph,
   };
 }
 
 export function addSubgraphToError(e: GraphQLError, subgraphName: string): GraphQLError {
-  const updatedCauses = errorCauses(e)!.map(cause => new GraphQLError(
+  const updatedCauses = errorCauses(e)!.map((cause) => new GraphQLError(
     `[${subgraphName}] ${cause.message}`,
-    cause.nodes ? cause.nodes.map(node => addSubgraphToASTNode(node, subgraphName)) : undefined,
+    cause.nodes ? cause.nodes.map((node) => addSubgraphToASTNode(node, subgraphName)) : undefined,
     cause.source,
     cause.positions,
     cause.path,
     cause.originalError,
-    cause.extensions
+    cause.extensions,
   ));
 
   return ErrGraphQLValidationFailed(updatedCauses);
@@ -693,7 +695,7 @@ export class ExternalTester {
         continue;
       }
       try {
-        parseFieldSetArgument(parent, key as Directive<any, {fields: any}>, (parentType, fieldName) => {
+        parseFieldSetArgument(parent, key as Directive<any, { fields: any }>, (parentType, fieldName) => {
           const field = parentType.field(fieldName);
           if (field && field.hasAppliedDirective(externalDirectiveName)) {
             this.fakeExternalFields.add(field.coordinate);

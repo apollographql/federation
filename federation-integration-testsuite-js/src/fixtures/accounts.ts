@@ -135,10 +135,10 @@ export const resolvers: GraphQLResolverMap<any> = {
     __resolveObject(object) {
       // Nested key example for @key(fields: "username name { first last }")
       if (object.username && object.name.first && object.name.last) {
-        users.find(user => user.username === object.username);
+        users.find((user) => user.username === object.username);
       }
 
-      return users.find(user => user.id === object.id);
+      return users.find((user) => user.id === object.id);
     },
     birthDate(user, args) {
       return args.locale
@@ -148,36 +148,32 @@ export const resolvers: GraphQLResolverMap<any> = {
         : user.birthDate;
     },
     metadata(object) {
-      const metaIndex = metadata.findIndex(m => m.id === object.id);
-      return metadata[metaIndex].metadata.map(obj => ({ name: obj.name }));
+      const metaIndex = metadata.findIndex((m) => m.id === object.id);
+      return metadata[metaIndex].metadata.map((obj) => ({ name: obj.name }));
     },
   },
   UserMetadata: {
     address(object) {
-      const metaIndex = metadata.findIndex(m =>
-        m.metadata.find(o => o.name === object.name),
-      );
+      const metaIndex = metadata.findIndex((m) => m.metadata.find((o) => o.name === object.name));
       return metadata[metaIndex].metadata[0].address;
     },
     description(object) {
-      const metaIndex = metadata.findIndex(m =>
-        m.metadata.find(o => o.name === object.name),
-      );
+      const metaIndex = metadata.findIndex((m) => m.metadata.find((o) => o.name === object.name));
       return metadata[metaIndex].metadata[0].description;
     },
   },
   Library: {
     userAccount({ name }, { id: userId }) {
       const libraryUserIds = libraryUsers[name];
-      return libraryUserIds &&
-        libraryUserIds.find((id: string) => id === userId)
+      return libraryUserIds
+        && libraryUserIds.find((id: string) => id === userId)
         ? { id: userId }
         : null;
     },
   },
   Mutation: {
     login(_, args) {
-      return users.find(user => user.username === args.username);
+      return users.find((user) => user.username === args.username);
     },
   },
 };

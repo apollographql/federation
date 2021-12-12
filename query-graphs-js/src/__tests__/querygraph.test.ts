@@ -1,5 +1,5 @@
-import { ObjectType } from "@apollo/federation-internals";
-import { FieldCollection, subgraphEnteringTransition } from "@apollo/query-graphs";
+import { ObjectType } from '@apollo/federation-internals';
+import { FieldCollection, subgraphEnteringTransition } from '@apollo/query-graphs';
 import { namedEdges, testGraphFromSchemaString } from './testUtils';
 
 test('building query graphs from schema handles object types', () => {

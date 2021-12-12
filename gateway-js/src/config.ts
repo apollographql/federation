@@ -1,12 +1,12 @@
-import { GraphQLError, GraphQLSchema } from "graphql";
-import { HeadersInit } from "node-fetch";
+import { GraphQLError, GraphQLSchema } from 'graphql';
+import { HeadersInit } from 'node-fetch';
 import { fetch } from 'apollo-server-env';
-import { GraphQLRequestContextExecutionDidStart, Logger } from "apollo-server-types";
-import { GraphQLDataSource } from './datasources/types';
+import { GraphQLRequestContextExecutionDidStart, Logger } from 'apollo-server-types';
 import { QueryPlan } from '@apollo/query-planner';
+import { ServiceDefinition } from '@apollo/federation-internals';
+import { GraphQLDataSource } from './datasources/types';
 import { OperationContext } from './operationContext';
 import { ServiceMap } from './executeQueryPlan';
-import { ServiceDefinition } from "@apollo/federation-internals";
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -190,8 +190,8 @@ export function isManuallyManagedConfig(
   config: GatewayConfig,
 ): config is ManuallyManagedGatewayConfig {
   return (
-    'experimental_updateServiceDefinitions' in config ||
-    'experimental_updateSupergraphSdl' in config
+    'experimental_updateServiceDefinitions' in config
+    || 'experimental_updateSupergraphSdl' in config
   );
 }
 
@@ -200,11 +200,11 @@ export function isManagedConfig(
   config: GatewayConfig,
 ): config is ManagedGatewayConfig {
   return (
-    'schemaConfigDeliveryEndpoint' in config ||
-    (!isRemoteConfig(config) &&
-      !isLocalConfig(config) &&
-      !isSupergraphSdlConfig(config) &&
-      !isManuallyManagedConfig(config))
+    'schemaConfigDeliveryEndpoint' in config
+    || (!isRemoteConfig(config)
+      && !isLocalConfig(config)
+      && !isSupergraphSdlConfig(config)
+      && !isManuallyManagedConfig(config))
   );
 }
 
@@ -218,8 +218,8 @@ export function isDynamicConfig(
   config: GatewayConfig,
 ): config is DynamicGatewayConfig {
   return (
-    isRemoteConfig(config) ||
-    isManagedConfig(config) ||
-    isManuallyManagedConfig(config)
+    isRemoteConfig(config)
+    || isManagedConfig(config)
+    || isManuallyManagedConfig(config)
   );
 }

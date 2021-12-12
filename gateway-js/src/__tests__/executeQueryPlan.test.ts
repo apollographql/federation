@@ -7,20 +7,19 @@ import {
 import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { GraphQLExecutionResult, GraphQLRequestContext } from 'apollo-server-types';
-import { AuthenticationError } from 'apollo-server-core';
-import { buildOperationContext } from '../operationContext';
-import { executeQueryPlan } from '../executeQueryPlan';
-import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
+import { AuthenticationError, ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import {
   astSerializer,
   queryPlanSerializer,
   superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
-import { ApolloGateway } from '..';
-import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
-import { getFederatedTestingSchema } from './execution-utils';
 import { Schema, Operation, parseOperation, buildSchemaFromAST } from '@apollo/federation-internals';
+import { buildOperationContext } from '../operationContext';
+import { executeQueryPlan } from '../executeQueryPlan';
+import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
+import { ApolloGateway } from '..';
+import { getFederatedTestingSchema } from './execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -30,21 +29,19 @@ describe('executeQueryPlan', () => {
     [serviceName: string]: LocalGraphQLDataSource;
   };
 
-  const parseOp = (operation: string, operationSchema?: Schema): Operation => {
-    return parseOperation((operationSchema ?? schema), operation);
-  }
+  const parseOp = (operation: string, operationSchema?: Schema): Operation => parseOperation((operationSchema ?? schema), operation);
 
   const buildPlan = (operation: string | Operation, operationQueryPlanner?: QueryPlanner, operationSchema?: Schema): QueryPlan => {
-    const op = typeof operation === 'string' ? parseOp(operation, operationSchema): operation;
+    const op = typeof operation === 'string' ? parseOp(operation, operationSchema) : operation;
     return (operationQueryPlanner ?? queryPlanner).buildQueryPlan(op);
-  }
+  };
 
   async function executePlan(
     queryPlan: QueryPlan,
     operation: Operation,
     executeRequestContext?: GraphQLRequestContext,
     executeSchema?: Schema,
-    executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource }
+    executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource },
   ): Promise<GraphQLExecutionResult> {
     const operationContext = buildOperationContext({
       schema: (executeSchema ?? schema).toAPISchema().toGraphQLJSSchema(),
@@ -82,8 +79,7 @@ describe('executeQueryPlan', () => {
   let queryPlanner: QueryPlanner;
   beforeEach(() => {
     expect(
-      () =>
-        ({ serviceMap, schema, queryPlanner } = getFederatedTestingSchema()),
+      () => ({ serviceMap, schema, queryPlanner } = getFederatedTestingSchema()),
     ).not.toThrow();
   });
 
@@ -158,8 +154,7 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should not send request to downstream services when all entities are undefined`, async () => {
-      const accountsEntitiesResolverSpy =
-        spyOnEntitiesResolverInService('accounts');
+      const accountsEntitiesResolverSpy = spyOnEntitiesResolverInService('accounts');
 
       const operationString = `#graphql
         query {
@@ -221,8 +216,7 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should send a request to downstream services for the remaining entities when some entities are undefined`, async () => {
-      const accountsEntitiesResolverSpy =
-        spyOnEntitiesResolverInService('accounts');
+      const accountsEntitiesResolverSpy = spyOnEntitiesResolverInService('accounts');
 
       const operationString = `#graphql
         query {
@@ -316,8 +310,7 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should not send request to downstream service when entities don't match type conditions`, async () => {
-      const reviewsEntitiesResolverSpy =
-        spyOnEntitiesResolverInService('reviews');
+      const reviewsEntitiesResolverSpy = spyOnEntitiesResolverInService('reviews');
 
       const operationString = `#graphql
         query {
@@ -350,8 +343,7 @@ describe('executeQueryPlan', () => {
     });
 
     it(`should send a request to downstream services for the remaining entities when some entities don't match type conditions`, async () => {
-      const reviewsEntitiesResolverSpy =
-        spyOnEntitiesResolverInService('reviews');
+      const reviewsEntitiesResolverSpy = spyOnEntitiesResolverInService('reviews');
 
       const operationString = `#graphql
         query {
@@ -1135,24 +1127,24 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
         { name: 'S1', typeDefs: s1 },
-        { name: 'S2', typeDefs: s2 }
+        { name: 'S2', typeDefs: s2 },
       ]);
 
       addResolversToSchema(serviceMap['S1'].schema, {
         Query: {
           getA() {
             return {
-              getA: {}
+              getA: {},
             };
           },
         },
         A: {
           q() {
             return Object.create(null);
-          }
-        }
+          },
+        },
       });
 
       addResolversToSchema(serviceMap['S2'].schema, {
@@ -1211,7 +1203,7 @@ describe('executeQueryPlan', () => {
           },
         }
       `);
-    })
+    });
 
     it('can query other subgraphs when the Query type is the type of a field after a mutation', async () => {
         const s1 = gql`
@@ -1230,9 +1222,9 @@ describe('executeQueryPlan', () => {
           }
         `;
 
-        const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+        const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
           { name: 'S1', typeDefs: s1 },
-          { name: 'S2', typeDefs: s2 }
+          { name: 'S2', typeDefs: s2 },
         ]);
 
         let hasMutated = false;
@@ -1248,7 +1240,7 @@ describe('executeQueryPlan', () => {
               hasMutated = true;
               return {};
             },
-          }
+          },
         });
 
         addResolversToSchema(serviceMap['S2'].schema, {
@@ -1305,7 +1297,7 @@ describe('executeQueryPlan', () => {
             },
           }
         `);
-    })
+    });
 
     it('can mutate other subgraphs when the Mutation type is the type of a field', async () => {
       const s1 = gql`
@@ -1328,9 +1320,9 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
         { name: 'S1', typeDefs: s1 },
-        { name: 'S2', typeDefs: s2 }
+        { name: 'S2', typeDefs: s2 },
       ]);
 
       let mutateOneCalled = false;
@@ -1340,21 +1332,21 @@ describe('executeQueryPlan', () => {
         Query: {
           getA() {
             return {
-              getA: {}
+              getA: {},
             };
           },
         },
         A: {
           m() {
             return Object.create(null);
-          }
+          },
         },
         Mutation: {
           mutateOne() {
             mutateOneCalled = true;
             return 1;
-          }
-        }
+          },
+        },
       });
 
       addResolversToSchema(serviceMap['S2'].schema, {
@@ -1418,7 +1410,7 @@ describe('executeQueryPlan', () => {
           },
         }
       `);
-    })
+    });
 
     it('can mutate other subgraphs when the Mutation type is the type of a field after a mutation', async () => {
         const s1 = gql`
@@ -1437,9 +1429,9 @@ describe('executeQueryPlan', () => {
           }
         `;
 
-        const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+        const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
           { name: 'S1', typeDefs: s1 },
-          { name: 'S2', typeDefs: s2 }
+          { name: 'S2', typeDefs: s2 },
         ]);
 
         let somethingMutationCount = 0;
@@ -1456,7 +1448,7 @@ describe('executeQueryPlan', () => {
               ++somethingMutationCount;
               return {};
             },
-          }
+          },
         });
 
         addResolversToSchema(serviceMap['S2'].schema, {
@@ -1518,7 +1510,7 @@ describe('executeQueryPlan', () => {
             },
           }
         `);
-    })
+    });
   });
 
   describe('interfaces on interfaces', () => {
@@ -1577,24 +1569,24 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
         { name: 'S1', typeDefs: s1 },
-        { name: 'S2', typeDefs: s2 }
+        { name: 'S2', typeDefs: s2 },
       ]);
 
-      const t1s_s1: any[] = [{ __typename: 'T1', a: 1, b: 'T1_v1'}, {__typename: 'T1', a: 2, b: 'T1_v2'}];
-      const t2s_s1: any[] = [{__typename: 'T2', b: 'k1'}, {__typename: 'T2', b: 'k2'}];
-      const t3s_s1: any[] = [{__typename: 'T3', a: 42, c: 'T3_v1'}];
-      const t4s_s1: any[] = [{__typename: 'T4', a: 0}, {__typename: 'T4', a: 10}, {__typename: 'T4', a: 20}];
+      const t1s_s1: any[] = [{ __typename: 'T1', a: 1, b: 'T1_v1' }, { __typename: 'T1', a: 2, b: 'T1_v2' }];
+      const t2s_s1: any[] = [{ __typename: 'T2', b: 'k1' }, { __typename: 'T2', b: 'k2' }];
+      const t3s_s1: any[] = [{ __typename: 'T3', a: 42, c: 'T3_v1' }];
+      const t4s_s1: any[] = [{ __typename: 'T4', a: 0 }, { __typename: 'T4', a: 10 }, { __typename: 'T4', a: 20 }];
 
-      const t2s_s2 = new Map<string, {a: number, b: string}>();
-      t2s_s2.set('k1', {a: 12 , b: 'k1'});
-      t2s_s2.set('k2', {a: 24 , b: 'k2'});
+      const t2s_s2 = new Map<string, { a: number, b: string }>();
+      t2s_s2.set('k1', { a: 12, b: 'k1' });
+      t2s_s2.set('k2', { a: 24, b: 'k2' });
 
-      const t4s_s2 = new Map<number, {a: number, b: string, c: string}>();
-      t4s_s2.set(0, {a: 0, b: 'b_0', c: 'c_0'});
-      t4s_s2.set(10, {a: 10, b: 'b_10', c: 'c_10'});
-      t4s_s2.set(20, {a: 20, b: 'b_20', c: 'c_20'});
+      const t4s_s2 = new Map<number, { a: number, b: string, c: string }>();
+      t4s_s2.set(0, { a: 0, b: 'b_0', c: 'c_0' });
+      t4s_s2.set(10, { a: 10, b: 'b_10', c: 'c_10' });
+      t4s_s2.set(20, { a: 20, b: 'b_20', c: 'c_20' });
 
       addResolversToSchema(serviceMap['S1'].schema, {
         Query: {
@@ -1608,12 +1600,12 @@ describe('executeQueryPlan', () => {
         T2: {
           __resolveReference(ref) {
             return t2s_s2.get(ref.b);
-          }
+          },
         },
         T4: {
           __resolveReference(ref) {
             return t4s_s2.get(ref.a);
-          }
+          },
         },
       });
 
@@ -1788,24 +1780,24 @@ describe('executeQueryPlan', () => {
         }
       `;
 
-      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
         { name: 'S1', typeDefs: s1 },
-        { name: 'S2', typeDefs: s2 }
+        { name: 'S2', typeDefs: s2 },
       ]);
 
-      const t1s_s1: any[] = [{ __typename: 'T1', a: 1, b: 'T1_v1'}, {__typename: 'T1', a: 2, b: 'T1_v2'}];
-      const t2s_s1: any[] = [{__typename: 'T2', a: 12}, {__typename: 'T2', a: 24}];
-      const t3s_s1: any[] = [{__typename: 'T3', a: 42, c: 'T3_v1'}];
-      const t4s_s1: any[] = [{__typename: 'T4', a: 0}, {__typename: 'T4', a: 10}, {__typename: 'T4', a: 20}];
+      const t1s_s1: any[] = [{ __typename: 'T1', a: 1, b: 'T1_v1' }, { __typename: 'T1', a: 2, b: 'T1_v2' }];
+      const t2s_s1: any[] = [{ __typename: 'T2', a: 12 }, { __typename: 'T2', a: 24 }];
+      const t3s_s1: any[] = [{ __typename: 'T3', a: 42, c: 'T3_v1' }];
+      const t4s_s1: any[] = [{ __typename: 'T4', a: 0 }, { __typename: 'T4', a: 10 }, { __typename: 'T4', a: 20 }];
 
-      const t2s_s2 = new Map<number, {a: number, b: string}>();
-      t2s_s2.set(12, {a: 12 , b: 'k1'});
-      t2s_s2.set(24, {a: 24 , b: 'k2'});
+      const t2s_s2 = new Map<number, { a: number, b: string }>();
+      t2s_s2.set(12, { a: 12, b: 'k1' });
+      t2s_s2.set(24, { a: 24, b: 'k2' });
 
-      const t4s_s2 = new Map<number, {a: number, b: string, c: string}>();
-      t4s_s2.set(0, {a: 0, b: 'b_0', c: 'c_0'});
-      t4s_s2.set(10, {a: 10, b: 'b_10', c: 'c_10'});
-      t4s_s2.set(20, {a: 20, b: 'b_20', c: 'c_20'});
+      const t4s_s2 = new Map<number, { a: number, b: string, c: string }>();
+      t4s_s2.set(0, { a: 0, b: 'b_0', c: 'c_0' });
+      t4s_s2.set(10, { a: 10, b: 'b_10', c: 'c_10' });
+      t4s_s2.set(20, { a: 20, b: 'b_20', c: 'c_20' });
 
       addResolversToSchema(serviceMap['S1'].schema, {
         Query: {
@@ -1819,12 +1811,12 @@ describe('executeQueryPlan', () => {
         T2: {
           __resolveReference(ref) {
             return t2s_s2.get(ref.b);
-          }
+          },
         },
         T4: {
           __resolveReference(ref) {
             return t4s_s2.get(ref.a);
-          }
+          },
         },
       });
 
@@ -1971,8 +1963,8 @@ describe('executeQueryPlan', () => {
         type MyTypeB implements MyInterface {
           name: String
         }
-      `
-    }
+      `,
+    };
 
     const s2 = {
       name: 'S2',
@@ -1984,15 +1976,15 @@ describe('executeQueryPlan', () => {
         type MyTypeC implements MyInterface {
           name: String
         }
-      `
-    }
+      `,
+    };
 
-    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+    const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([s1, s2]);
 
     addResolversToSchema(serviceMap['S1'].schema, {
       Query: {
         myField() {
-          return { __typename: 'MyTypeA', name: "foo" };
+          return { __typename: 'MyTypeA', name: 'foo' };
         },
       },
     });
@@ -2067,7 +2059,6 @@ describe('executeQueryPlan', () => {
         },
       }
       `);
-
 
     // Testing only getting name for `MyTypeB`, which is known by S1, but not returned
     // by `myField` in practice (so the result is "empty").

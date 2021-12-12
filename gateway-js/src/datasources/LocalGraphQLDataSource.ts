@@ -11,8 +11,7 @@ import { GraphQLDataSource, GraphQLDataSourceProcessOptions } from './types';
 
 export class LocalGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
-> implements GraphQLDataSource<TContext>
-{
+> implements GraphQLDataSource<TContext> {
   constructor(public readonly schema: GraphQLSchema) {
     enablePluginsForSchemaResolvers(schema);
   }

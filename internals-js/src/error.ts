@@ -1,4 +1,4 @@
-import { ASTNode, GraphQLError, Source } from "graphql";
+import { ASTNode, GraphQLError, Source } from 'graphql';
 
 export function error(
   code: string,

@@ -1,5 +1,5 @@
-import { ApolloGateway } from '../../..';
 import { graphqlErrorSerializer } from 'apollo-federation-integration-testsuite';
+import { ApolloGateway } from '../../..';
 
 expect.addSnapshotSerializer(graphqlErrorSerializer);
 
@@ -119,7 +119,7 @@ describe('core v0.1', () => {
 });
 
 describe('core v0.2', () => {
-  it("doesn't throw errors when using supported features", async () => {
+  it('doesn\'t throw errors when using supported features', async () => {
     const supergraphSdl = `#graphql
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.2")
@@ -188,7 +188,7 @@ describe('core v0.2', () => {
     expect(gateway.load()).resolves.toBeTruthy();
   });
 
-  it("doesn't throw errors when using unsupported features which have no `for:` argument", async () => {
+  it('doesn\'t throw errors when using unsupported features which have no `for:` argument', async () => {
     const supergraphSdl = `#graphql
       schema
         @core(feature: "https://specs.apollo.dev/core/v0.2")

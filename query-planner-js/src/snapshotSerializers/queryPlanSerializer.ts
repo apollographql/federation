@@ -1,6 +1,6 @@
 import { Config, Plugin, Refs } from 'pretty-format';
-import { PlanNode, QueryPlan } from '../';
 import { parse, Kind, visit, DocumentNode } from 'graphql';
+import { PlanNode, QueryPlan } from '..';
 
 export default {
   test(value: any) {
@@ -16,16 +16,16 @@ export default {
     printer: any,
   ): string {
     return (
-      'QueryPlan {' +
-      printNodes(
+      'QueryPlan {'
+      + printNodes(
         queryPlan.node ? [queryPlan.node] : undefined,
         config,
         indentation,
         depth,
         refs,
         printer,
-      ) +
-      '}'
+      )
+      + '}'
     );
   },
 } as Plugin;
@@ -44,11 +44,11 @@ function printNode(
 
   switch (node.kind) {
     case 'Fetch':
-      result +=
-        `Fetch(service: "${node.serviceName}")` +
-        ' {' +
-        config.spacingOuter +
-        (node.requires
+      result
+        += `Fetch(service: "${node.serviceName}")`
+        + ' {'
+        + config.spacingOuter
+        + (node.requires
           ? printer(
               // this is an array of selections, so we need to make it a proper
               // selectionSet so we can print it
@@ -58,21 +58,21 @@ function printNode(
               depth,
               refs,
               printer,
-            ) +
-            ' =>' +
-            config.spacingOuter
-          : '') +
-        printer(
+            )
+            + ' =>'
+            + config.spacingOuter
+          : '')
+        + printer(
           flattenEntitiesField(parse(node.operation)),
           config,
           indentationNext,
           depth,
           refs,
           printer,
-        ) +
-        config.spacingOuter +
-        indentation +
-        '}';
+        )
+        + config.spacingOuter
+        + indentation
+        + '}';
       break;
     case 'Flatten':
       result += `Flatten(path: "${node.path.join('.')}")`;
@@ -81,12 +81,11 @@ function printNode(
       result += node.kind;
   }
 
-  const nodes =
-    'nodes' in node ? node.nodes : 'node' in node ? [node.node] : [];
+  const nodes = 'nodes' in node ? node.nodes : 'node' in node ? [node.node] : [];
 
   if (nodes.length > 0) {
-    result +=
-      ' {' + printNodes(nodes, config, indentation, depth, refs, printer) + '}';
+    result
+      += ' {' + printNodes(nodes, config, indentation, depth, refs, printer) + '}';
   }
 
   return result;
@@ -110,9 +109,9 @@ function printNodes(
       const node = nodes[i];
       if (!node) continue;
 
-      result +=
-        indentationNext +
-        printNode(node, config, indentationNext, depth, refs, printer);
+      result
+        += indentationNext
+        + printNode(node, config, indentationNext, depth, refs, printer);
 
       if (i < nodes.length - 1) {
         result += ',' + config.spacingInner;
@@ -137,9 +136,9 @@ function flattenEntitiesField(node: DocumentNode) {
     OperationDefinition: ({ operation, selectionSet }) => {
       const firstSelection = selectionSet.selections[0];
       if (
-        operation === 'query' &&
-        firstSelection.kind === Kind.FIELD &&
-        firstSelection.name.value === '_entities'
+        operation === 'query'
+        && firstSelection.kind === Kind.FIELD
+        && firstSelection.name.value === '_entities'
       ) {
         return firstSelection.selectionSet;
       }

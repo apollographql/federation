@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
-import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { Logger } from 'apollo-server-types';
+import { ApolloGateway } from '../..';
 import { fetch } from '../../__mocks__/apollo-server-env';
 
 let logger: {
@@ -9,7 +9,7 @@ let logger: {
   debug: jest.MockedFunction<Logger['debug']>,
   error: jest.MockedFunction<Logger['error']>,
   info: jest.MockedFunction<Logger['info']>,
-}
+};
 
 beforeEach(() => {
   fetch.mockReset();
@@ -58,7 +58,7 @@ describe('ApolloGateway executor', () => {
   });
 
   it('should not crash if variables are not provided', async () => {
-    const me = { birthDate: '1988-10-21'};
+    const me = { birthDate: '1988-10-21' };
     fetch.mockJSONResponseOnce({ data: { me } });
     const gateway = new ApolloGateway({
       localServiceList: fixtures,

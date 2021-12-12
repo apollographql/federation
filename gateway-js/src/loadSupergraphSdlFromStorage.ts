@@ -20,7 +20,6 @@ export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql
   }
 `;
 
-
 type SupergraphSdlQueryResult =
   | SupergraphSdlQuerySuccess
   | SupergraphSdlQueryFailure;
@@ -36,7 +35,7 @@ interface SupergraphSdlQueryFailure {
 
 const { name, version } = require('../package.json');
 
-const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
+const fetchErrorMsg = 'An error occurred while fetching your schema from Apollo: ';
 
 export async function loadSupergraphSdlFromStorage({
   graphRef,
@@ -73,7 +72,7 @@ export async function loadSupergraphSdlFromStorage({
   const request: Request = new Request(endpoint, requestDetails);
 
   const OOBReport = new OutOfBandReporter();
-  const startTime = new Date()
+  const startTime = new Date();
   try {
     result = await fetcher(endpoint, requestDetails);
   } catch (e) {
@@ -84,7 +83,7 @@ export async function loadSupergraphSdlFromStorage({
       request,
       startedAt: startTime,
       endedAt: endTime,
-      fetcher
+      fetcher,
     });
 
     throw new Error(fetchErrorMsg + (e.message ?? e));
@@ -115,7 +114,7 @@ export async function loadSupergraphSdlFromStorage({
       response: result,
       startedAt: startTime,
       endedAt: endTime,
-      fetcher
+      fetcher,
     });
     throw new Error(fetchErrorMsg + result.status + ' ' + result.statusText);
   }
@@ -128,7 +127,7 @@ export async function loadSupergraphSdlFromStorage({
       // messages,
     } = routerConfig;
     return { id, supergraphSdl: supergraphSdl! };
-  } else if (routerConfig.__typename === 'FetchError') {
+  } if (routerConfig.__typename === 'FetchError') {
     // FetchError case
     const { code, message } = routerConfig;
     throw new Error(`${code}: ${message}`);

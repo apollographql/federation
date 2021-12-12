@@ -1,4 +1,4 @@
-import { FieldDefinition, CompositeType, SchemaRootKind } from "@apollo/federation-internals";
+import { FieldDefinition, CompositeType, SchemaRootKind } from '@apollo/federation-internals';
 
 /**
  * The type of query graphs edge "transitions".
@@ -27,6 +27,7 @@ export type Transition = FieldCollection | DownCast | KeyResolution | RootTypeRe
 
 export class KeyResolution {
   readonly kind = 'KeyResolution' as const;
+
   readonly collectOperationElements = false as const;
 
   toString() {
@@ -36,6 +37,7 @@ export class KeyResolution {
 
 export class RootTypeResolution {
   readonly kind = 'RootTypeResolution' as const;
+
   readonly collectOperationElements = false as const;
 
   constructor(readonly rootKind: SchemaRootKind) {
@@ -48,11 +50,12 @@ export class RootTypeResolution {
 
 export class FieldCollection {
   readonly kind = 'FieldCollection' as const;
+
   readonly collectOperationElements = true as const;
 
   constructor(
     readonly definition: FieldDefinition<CompositeType>,
-    readonly isPartOfProvide: boolean = false
+    readonly isPartOfProvide: boolean = false,
   ) {}
 
   toString() {
@@ -62,6 +65,7 @@ export class FieldCollection {
 
 export class DownCast {
   readonly kind = 'DownCast' as const;
+
   readonly collectOperationElements = true as const;
 
   constructor(readonly sourceType: CompositeType, readonly castedType: CompositeType) {}
@@ -73,6 +77,7 @@ export class DownCast {
 
 export class SubgraphEnteringTransition {
   readonly kind = 'SubgraphEnteringTransition' as const;
+
   readonly collectOperationElements = false as const;
 
   toString() {
@@ -81,4 +86,3 @@ export class SubgraphEnteringTransition {
 }
 
 export const subgraphEnteringTransition = new SubgraphEnteringTransition();
-

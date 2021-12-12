@@ -1,5 +1,6 @@
 import { RequestInit, Headers } from 'apollo-server-env';
-type RequestInitWithJSONBody = Omit<RequestInit, 'body'> & { body?: object }
+
+type RequestInitWithJSONBody = Omit<RequestInit, 'body'> & { body?: object };
 
 // Make this file a module
 // See: https://github.com/microsoft/TypeScript/issues/17736
@@ -20,21 +21,20 @@ function prepareHttpOptions(requestUrl: string, requestOpts: RequestInitWithJSON
   const requestHttp = {
     method: 'POST',
     headers,
-    url: requestUrl
+    url: requestUrl,
   };
 
   return {
     ...requestHttp,
-    body: JSON.stringify(requestOpts.body)
+    body: JSON.stringify(requestOpts.body),
   };
-
 }
 
 function toHaveFetched(
   this: jest.MatcherUtils,
   fetch: jest.SpyInstance,
   requestUrl: string,
-  requestOpts: RequestInitWithJSONBody = {}
+  requestOpts: RequestInitWithJSONBody = {},
 ): { message(): string; pass: boolean } {
   const httpOptions = prepareHttpOptions(requestUrl, requestOpts);
   let pass = false;
@@ -57,7 +57,7 @@ function toHaveFetchedNth(
   fetch: jest.SpyInstance,
   nthCall: number,
   requestUrl: string,
-  requestOpts: RequestInitWithJSONBody = {}
+  requestOpts: RequestInitWithJSONBody = {},
 ): { message(): string; pass: boolean } {
   const httpOptions = prepareHttpOptions(requestUrl, requestOpts);
   let pass = false;
@@ -74,7 +74,6 @@ function toHaveFetchedNth(
     pass,
   };
 }
-
 
 expect.extend({
   toHaveFetched,

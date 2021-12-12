@@ -22,7 +22,7 @@ function typeComparison<T>(
   t1: any,
   t2: any,
   typeTest: (t: any) => t is T,
-  test: (t1: T, t2: T) => boolean
+  test: (t1: T, t2: T) => boolean,
 ): boolean | undefined {
   if (typeTest(t1)) {
     return typeTest(t2) ? test(t1, t2) : false;
@@ -31,7 +31,7 @@ function typeComparison<T>(
 }
 
 function isSubset<T>(set: T[], maybeSubset: T[]): boolean {
-  return maybeSubset.every(v => set.includes(v));
+  return maybeSubset.every((v) => set.includes(v));
 }
 
 function isAccessible(element: SchemaElement<any, any>): boolean {
@@ -44,8 +44,8 @@ function isAccessible(element: SchemaElement<any, any>): boolean {
 function accessibleEnumValues(enumType: EnumType): string[] {
   return enumType
     .values
-    .filter(v => isAccessible(v))
-    .map(v => v.name);
+    .filter((v) => isAccessible(v))
+    .map((v) => v.name);
 }
 
 // We may compare the same enum name, but where one has only a subset of the values of the other
@@ -67,7 +67,7 @@ function isObjectInputSubtype(objectInputType: InputObjectType, maybeSubType: In
   }
   return maybeSubType.fields()
     .filter(isAccessible)
-    .every(subtypeField => {
+    .every((subtypeField) => {
       const field = objectInputType.field(subtypeField.name);
       return field && isAccessible(field) ? isStructuralInputSubType(field.type!, subtypeField.type!) : false;
     });
@@ -108,7 +108,7 @@ export function isStructuralFieldSubtype(
   maybeSubType: FieldDefinition<any>,
   allowedRules: SubtypingRule[] = DEFAULT_SUBTYPING_RULES,
   unionMembershipTester: (union: UnionType, maybeMember: ObjectType) => boolean = (u, m) => u.hasTypeMember(m),
-  implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i)
+  implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i),
 ): boolean {
   if (fieldDef.name !== maybeSubType.name) {
     return false;
@@ -124,4 +124,3 @@ export function isStructuralFieldSubtype(
   }
   return true;
 }
-

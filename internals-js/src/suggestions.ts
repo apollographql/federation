@@ -49,4 +49,3 @@ export function didYouMean(suggestions: readonly string[]): string {
   const lastItem = selected.pop();
   return message + selected.join(', ') + ', or ' + lastItem + '?';
 }
-

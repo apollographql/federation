@@ -1,6 +1,6 @@
 import { buildSchema, extractSubgraphsFromSupergraph, ObjectType, printSchema, Schema, Subgraphs } from '@apollo/federation-internals';
-import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
+import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import './matchers';
 
 function assertCompositionSuccess(r: CompositionResult): asserts r is CompositionSuccess {
@@ -10,7 +10,7 @@ function assertCompositionSuccess(r: CompositionResult): asserts r is Compositio
 }
 
 function errorMessages(r: CompositionResult): string[] {
-  return r.errors?.map(e => e.message) ?? [];
+  return r.errors?.map((e) => e.message) ?? [];
 }
 
 // Returns [the supergraph schema, its api schema, the extracted subgraphs]
@@ -34,8 +34,8 @@ describe('composition', () => {
         type T @key(fields: "k") {
           k: ID
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -46,8 +46,8 @@ describe('composition', () => {
           a: Int
           b: String
         }
-      `
-    }
+      `,
+    };
 
     const result = composeServices([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
@@ -118,7 +118,7 @@ describe('composition', () => {
         b: String
       }
     `);
-  })
+  });
 
   it('preserves descriptions', () => {
     const subgraph1 = {
@@ -140,8 +140,8 @@ describe('composition', () => {
             x: String!
           ): String
         }
-      `
-    }
+      `,
+    };
 
     const subgraph2 = {
       name: 'Subgraph2',
@@ -153,8 +153,8 @@ describe('composition', () => {
           "The B value"
           B
         }
-      `
-    }
+      `,
+    };
 
     const result = composeServices([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
@@ -187,7 +187,7 @@ describe('composition', () => {
         ): String
       }
     `);
-  })
+  });
 
   it('include types from different subgraphs', () => {
     const subgraphA = {
@@ -254,7 +254,7 @@ describe('composition', () => {
     `);
   });
 
-  it("doesn't leave federation directives in the final schema", () => {
+  it('doesn\'t leave federation directives in the final schema', () => {
     const subgraphA = {
       typeDefs: gql`
         type Query {
@@ -417,7 +417,6 @@ describe('composition', () => {
         name: 'subgraphB',
       };
 
-
       const result = composeServices([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
 
@@ -574,7 +573,7 @@ describe('composition', () => {
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errorMessages(result)).toStrictEqual([
-          'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"'
+          'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"',
         ]);
       });
 
@@ -606,7 +605,7 @@ describe('composition', () => {
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errorMessages(result)).toStrictEqual([
-          'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"'
+          'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"',
         ]);
       });
 
@@ -1099,7 +1098,7 @@ describe('composition', () => {
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errorMessages(result)).toStrictEqual([
-          'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"'
+          'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"',
         ]);
       });
 
@@ -1131,7 +1130,7 @@ describe('composition', () => {
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
         expect(errorMessages(result)).toStrictEqual([
-          'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"'
+          'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"',
         ]);
       });
 
@@ -1262,7 +1261,7 @@ describe('composition', () => {
       expect(errorMessages(result)).toStrictEqual([
         'Interface field "I.a" is declared in subgraph \"subgraphA\" but type "B", which implements "I" only in subgraph \"subgraphB\" does not have field "a".',
       ]);
-    })
+    });
 
     it('errors if a type does not implement one of its interface post-merge with interface on interface', () => {
       const subgraphA = {
@@ -1307,7 +1306,7 @@ describe('composition', () => {
       expect(errorMessages(result)).toStrictEqual([
         'Interface field "J.a" is declared in subgraph \"subgraphA\" but type "B", which implements "J" only in subgraph \"subgraphB\" does not have field "a".',
       ]);
-    })
+    });
   });
 
   it('is not broken by similar field argument signatures (#1100)', () => {

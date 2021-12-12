@@ -1,3 +1,5 @@
+import { ArgumentNode, GraphQLError, Kind, print, ValueNode } from 'graphql';
+import { inspect } from 'util';
 import {
   ArgumentDefinition,
   InputObjectType,
@@ -17,11 +19,9 @@ import {
   Variable,
   VariableDefinition,
   VariableDefinitions,
-  Variables
+  Variables,
 } from './definitions';
-import { ArgumentNode, GraphQLError, Kind, print, ValueNode } from 'graphql';
 import { didYouMean, suggestionList } from './suggestions';
-import { inspect } from 'util';
 import { sameType } from './types';
 import { assert } from './utils';
 
@@ -34,7 +34,7 @@ export function valueToString(v: any, expectedType?: InputType): string {
     if (expectedType && isNonNullType(expectedType)) {
       throw buildError(`Invalid undefined/null value for non-null type ${expectedType}`);
     }
-    return "null";
+    return 'null';
   }
 
   if (expectedType && isNonNullType(expectedType)) {
@@ -51,21 +51,21 @@ export function valueToString(v: any, expectedType?: InputType): string {
   }
 
   if (Array.isArray(v)) {
-    let elementsType: InputType | undefined = undefined;
+    let elementsType: InputType | undefined;
     if (expectedType) {
       if (!isListType(expectedType)) {
         throw buildError(`Invalid list value for non-list type ${expectedType}`);
       }
       elementsType = expectedType.ofType;
     }
-    return '[' + v.map(e => valueToString(e, elementsType)).join(', ') + ']';
+    return '[' + v.map((e) => valueToString(e, elementsType)).join(', ') + ']';
   }
 
   if (typeof v === 'object') {
     if (expectedType && !isInputObjectType(expectedType)) {
       throw buildError(`Invalid object value for non-input-object type ${expectedType} (isCustomScalar? ${isCustomScalarType(expectedType)})`);
     }
-    return '{' + Object.keys(v).map(k => {
+    return '{' + Object.keys(v).map((k) => {
       const valueType = expectedType ? (expectedType as InputObjectType).field(k)?.type : undefined;
       return `${k}: ${valueToString(v[k], valueType)}`;
     }).join(', ') + '}';
@@ -93,7 +93,7 @@ export function valueEquals(a: any, b: any): boolean {
     return true;
   }
   if (Array.isArray(a)) {
-    return Array.isArray(b) && arrayValueEquals(a, b) ;
+    return Array.isArray(b) && arrayValueEquals(a, b);
   }
   if (typeof a === 'object') {
     return typeof b === 'object' && objectEquals(a, b);
@@ -113,7 +113,7 @@ function arrayValueEquals(a: any[], b: any[]): boolean {
   return true;
 }
 
-function objectEquals(a: {[key: string]: any}, b: {[key: string]: any}): boolean {
+function objectEquals(a: { [key: string]: any }, b: { [key: string]: any }): boolean {
   const keys1 = Object.keys(a);
   const keys2 = Object.keys(b);
   if (keys1.length != keys2.length) {
@@ -134,13 +134,12 @@ function objectEquals(a: {[key: string]: any}, b: {[key: string]: any}): boolean
   return true;
 }
 
-export function argumentsEquals(args1: {[key: string]: any}, args2: {[key: string]: any}): boolean {
+export function argumentsEquals(args1: { [key: string]: any }, args2: { [key: string]: any }): boolean {
   if (args1 === args2) {
     return true;
   }
   return objectEquals(args1, args2);
 }
-
 
 function buildError(message: string): Error {
   // Maybe not the right error for this?
@@ -165,10 +164,9 @@ function applyDefaultValues(value: any, type: InputType): any {
 
   if (isListType(type)) {
     if (Array.isArray(value)) {
-      return value.map(v => applyDefaultValues(v, type.ofType));
-    } else {
-      return applyDefaultValues(value, type.ofType);
+      return value.map((v) => applyDefaultValues(v, type.ofType));
     }
+      return applyDefaultValues(value, type.ofType);
   }
 
   if (isInputObjectType(type)) {
@@ -196,7 +194,7 @@ function applyDefaultValues(value: any, type: InputType): any {
     // Ensure every provided field is defined.
     for (const fieldName of Object.keys(value)) {
       if (!type.field(fieldName)) {
-        const suggestions = suggestionList(fieldName, type.fields().map(f => f.name));
+        const suggestions = suggestionList(fieldName, type.fields().map((f) => f.name));
         throw new GraphQLError(`Field "${fieldName}" is not defined by type "${type}".` + didYouMean(suggestions));
       }
     }
@@ -291,7 +289,7 @@ export function valueToAST(value: any, type: InputType): ValueNode | undefined {
   // though).
 
   if (typeof value === 'boolean') {
-    return { kind: Kind.BOOLEAN, value: value };
+    return { kind: Kind.BOOLEAN, value };
   }
 
   if (typeof value === 'number' && isFinite(value)) {
@@ -304,17 +302,17 @@ export function valueToAST(value: any, type: InputType): ValueNode | undefined {
   if (typeof value === 'string') {
     // Enum types use Enum literals.
     if (isEnumType(type)) {
-      return { kind: Kind.ENUM, value: value };
+      return { kind: Kind.ENUM, value };
     }
 
     // ID types can use Int literals.
     if (type === type.schema().idType() && integerStringRegExp.test(value)) {
-      return { kind: Kind.INT, value: value };
+      return { kind: Kind.INT, value };
     }
 
     return {
       kind: Kind.STRING,
-      value: value,
+      value,
     };
   }
 
@@ -363,7 +361,7 @@ function valueToASTUntyped(value: any): ValueNode | undefined {
   }
 
   if (typeof value === 'boolean') {
-    return { kind: Kind.BOOLEAN, value: value };
+    return { kind: Kind.BOOLEAN, value };
   }
 
   if (typeof value === 'number' && isFinite(value)) {
@@ -374,7 +372,7 @@ function valueToASTUntyped(value: any): ValueNode | undefined {
   }
 
   if (typeof value === 'string') {
-    return { kind: Kind.STRING, value: value };
+    return { kind: Kind.STRING, value };
   }
 
   throw buildError(`Invalid value, cannot be converted to AST: ${inspect(value, true, 10, true)}`);
@@ -443,7 +441,7 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
   if (isListType(locationType)) {
     const itemType: InputType = locationType.ofType;
     if (Array.isArray(value)) {
-      return value.every(item => isValidValueApplication(item, itemType, undefined, variableDefinitions));
+      return value.every((item) => isValidValueApplication(item, itemType, undefined, variableDefinitions));
     }
     // Equivalent of coercing non-null element as a list of one.
     return isValidValueApplication(value, itemType, locationDefault, variableDefinitions);
@@ -453,7 +451,7 @@ function isValidValueApplication(value: any, locationType: InputType, locationDe
     if (typeof value !== 'object') {
       return false;
     }
-    const isValid = locationType.fields().every(field => isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions));
+    const isValid = locationType.fields().every((field) => isValidValueApplication(value[field.name], field.type!, undefined, variableDefinitions));
     return isValid;
   }
 
@@ -504,7 +502,7 @@ export function valueFromAST(node: ValueNode, expectedType: InputType): any {
   if (isListType(expectedType)) {
     const baseType = expectedType.ofType;
     if (node.kind === Kind.LIST) {
-      return node.values.map(v => valueFromAST(v, baseType));
+      return node.values.map((v) => valueFromAST(v, baseType));
     }
     return [valueFromAST(node, baseType)];
   }
@@ -530,7 +528,7 @@ export function valueFromAST(node: ValueNode, expectedType: InputType): any {
       throw new GraphQLError(`Float can only represent integer or float value, but got a ${node.kind}.`);
     }
     if (!isFinite(parsed)) {
-      throw new GraphQLError( `Float cannot represent non numeric value ${parsed}.`);
+      throw new GraphQLError(`Float cannot represent non numeric value ${parsed}.`);
     }
     return parsed;
   }
@@ -608,7 +606,7 @@ function valueFromASTUntyped(node: ValueNode): any {
       return node.values.map(valueFromASTUntyped);
     case Kind.OBJECT:
       const obj = Object.create(null);
-      node.fields.forEach(f => obj[f.name.value] = valueFromASTUntyped(f.value));
+      node.fields.forEach((f) => obj[f.name.value] = valueFromASTUntyped(f.value));
       return obj;
     case Kind.VARIABLE:
       return new Variable(node.name.value);
@@ -618,8 +616,8 @@ function valueFromASTUntyped(node: ValueNode): any {
 export function argumentsFromAST(
   context: string,
   args: readonly ArgumentNode[] | undefined,
-  argsDefiner: { argument(name: string): ArgumentDefinition<any> | undefined }
-): {[key: string]: any} {
+  argsDefiner: { argument(name: string): ArgumentDefinition<any> | undefined },
+): { [key: string]: any } {
   const values = Object.create(null);
   if (args) {
     for (const argNode of args) {
@@ -627,7 +625,7 @@ export function argumentsFromAST(
       const expectedType = argsDefiner.argument(name)?.type;
       if (!expectedType) {
         throw new GraphQLError(
-          `Unknown argument "${name}" found in value: ${context} has no argument named "${name}"`
+          `Unknown argument "${name}" found in value: ${context} has no argument named "${name}"`,
         );
       }
       try {
@@ -651,7 +649,7 @@ export function variablesInValue(value: any): Variables {
 
 function collectVariables(value: any, variables: Variable[]) {
   if (isVariable(value)) {
-    if (!variables.some(v => v.name === value.name)) {
+    if (!variables.some((v) => v.name === value.name)) {
       variables.push(value);
     }
     return;
@@ -662,11 +660,10 @@ function collectVariables(value: any, variables: Variable[]) {
   }
 
   if (Array.isArray(value)) {
-    value.forEach(v => collectVariables(v, variables));
+    value.forEach((v) => collectVariables(v, variables));
   }
 
   if (typeof value === 'object') {
-    Object.keys(value).forEach(k => collectVariables(value[k], variables));
+    Object.keys(value).forEach((k) => collectVariables(value[k], variables));
   }
 }
-

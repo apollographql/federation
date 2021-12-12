@@ -1,9 +1,9 @@
-import { DirectiveLocationEnum, GraphQLError } from "graphql";
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
-import { DirectiveDefinition, NonNullType, Schema } from "./definitions";
-import { error } from "./error";
-import { sameType } from "./types";
-import { assert } from "./utils";
+import { DirectiveLocationEnum, GraphQLError } from 'graphql';
+import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from './coreSpec';
+import { DirectiveDefinition, NonNullType, Schema } from './definitions';
+import { error } from './error';
+import { sameType } from './types';
+import { assert } from './utils';
 
 export const tagIdentity = 'https://specs.apollo.dev/tag';
 
@@ -18,10 +18,10 @@ export class TagSpecDefinition extends FeatureDefinition {
 
   addElementsToSchema(schema: Schema) {
     const directive = this.addDirective(schema, 'tag').addLocations(...tagLocations);
-    directive.addArgument("name", new NonNullType(schema.stringType()));
+    directive.addArgument('name', new NonNullType(schema.stringType()));
   }
 
-  tagDirective(schema: Schema): DirectiveDefinition<{name: string}> {
+  tagDirective(schema: Schema): DirectiveDefinition<{ name: string }> {
     return this.directive(schema, 'tag')!;
   }
 
@@ -30,7 +30,7 @@ export class TagSpecDefinition extends FeatureDefinition {
     const hasUnknownArguments = Object.keys(definition.arguments()).length > 1;
     const nameArg = definition.argument('name');
     const hasValidNameArg = nameArg && sameType(nameArg.type!, new NonNullType(definition.schema().stringType()));
-    const hasValidLocations = definition.locations.every(loc => tagLocations.includes(loc));
+    const hasValidLocations = definition.locations.every((loc) => tagLocations.includes(loc));
     if (hasUnknownArguments || !hasValidNameArg || !hasValidLocations) {
       return error(
         'TAG_DIRECTIVE_DEFINITION_INVALID',

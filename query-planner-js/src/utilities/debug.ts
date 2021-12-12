@@ -3,9 +3,9 @@
 import chalk from 'chalk';
 
 function indentString(indentLevel: number) : string {
-  let str = "";
+  let str = '';
   for (let i = 0; i < indentLevel; i++) {
-    str += chalk.blackBright("⎸ ");
+    str += chalk.blackBright('⎸ ');
   }
   return str;
 }
@@ -73,7 +73,8 @@ export class DebugLogger {
   public groupedEntries<K, V>(
     map: Map<K, V>,
     keyPrintFn: (k: K) => string,
-    valuePrintFn: (v : V) => string) {
+    valuePrintFn: (v : V) => string,
+) {
     if (!this.enabled) return this;
 
     this.group();

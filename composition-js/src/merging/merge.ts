@@ -53,8 +53,8 @@ import {
   ExternalTester,
   isInterfaceType,
   sourceASTs,
-} from "@apollo/federation-internals";
-import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
+} from '@apollo/federation-internals';
+import { ASTNode, GraphQLError, DirectiveLocationEnum } from 'graphql';
 import {
   CompositionHint,
   HintID,
@@ -75,7 +75,7 @@ import {
   hintInconsistentExecutionDirectiveLocations,
   hintInconsistentArgumentPresence,
   hintInconsistentDescription,
-} from "../hints";
+} from '../hints';
 
 const coreSpec = CORE_VERSIONS.latest();
 const joinSpec = JOIN_VERSIONS.latest();
@@ -92,15 +92,15 @@ export type MergeResult = MergeSuccess | MergeFailure;
 // TODO: move somewhere else.
 export type CompositionOptions = {
   allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
-}
+};
 
 // TODO:" we currently cannot allow "list upgrades", meaning a subgraph returning `String`
 // and another returning `[String]`. To support it, we would need the execution code to
 // recognize situation and "coerce" results from the first subgraph (the one returning
 // `String`) into singleton lists.
 const defaultCompositionOptions: CompositionOptions = {
-  allowedFieldTypeMergingSubtypingRules: DEFAULT_SUBTYPING_RULES
-}
+  allowedFieldTypeMergingSubtypingRules: DEFAULT_SUBTYPING_RULES,
+};
 
 export interface MergeSuccess {
   supergraph: Schema;
@@ -136,9 +136,9 @@ function join(toJoin: string[], sep: string = ', ', firstSep?: string, lastSep: 
   }
   const last = toJoin[toJoin.length - 1];
   if (toJoin.length == 2) {
-    return first + (firstSep ? firstSep : lastSep) + last;
+    return first + (firstSep || lastSep) + last;
   }
-  return first + (firstSep ? firstSep : sep) + toJoin.slice(1, toJoin.length - 1) + lastSep + last;
+  return first + (firstSep || sep) + toJoin.slice(1, toJoin.length - 1) + lastSep + last;
 }
 
 function printHumanReadableList(names: string[], prefixSingle?: string, prefixPlural?: string): string {
@@ -158,13 +158,12 @@ function printHumanReadableList(names: string[], prefixSingle?: string, prefixPl
     : (prefixSingle ? prefixSingle + ' ' : '');
   if (toDisplay.length === names.length) {
     return prefix + join(toDisplay);
-  } else {
-    return prefix + toDisplay.join(', ') + ', ...';
   }
+    return prefix + toDisplay.join(', ') + ', ...';
 }
 
 function printSubgraphNames(names: string[]): string {
-  return printHumanReadableList(names.map(n => `"${n}"`), 'subgraph', 'subgraphs');
+  return printHumanReadableList(names.map((n) => `"${n}"`), 'subgraph', 'subgraphs');
 }
 
 function copyTypeReference(source: Type, dest: Schema): Type {
@@ -201,7 +200,7 @@ function isMergedDirective(definition: DirectiveDefinition | Directive): boolean
   if (definition instanceof Directive) {
     return false;
   }
-  return definition.locations.some(loc => executableDirectiveLocations.includes(loc));
+  return definition.locations.some((loc) => executableDirectiveLocations.includes(loc));
 }
 // Access the type set as a particular root in the provided `SchemaDefinition`, but ignoring "query" type
 // that only exists due to federation operations. In other words, if a subgraph don't have a query type,
@@ -241,7 +240,7 @@ function descriptionString(toIndent: string, indentation: string): string {
 }
 
 function typeKindToString(t: NamedType): string {
-  return t.kind.replace("Type", " Type");
+  return t.kind.replace('Type', ' Type');
 }
 
 function hasTagUsage(subgraph: Schema): boolean {
@@ -251,25 +250,31 @@ function hasTagUsage(subgraph: Schema): boolean {
 
 function locationString(locations: DirectiveLocationEnum[]): string {
   if (locations.length === 0) {
-    return "";
+    return '';
   }
   return (locations.length === 1 ? 'location ' : 'locations ') + '"' + locations.join(', ') + '"';
 }
 
 class Merger {
   readonly names: readonly string[];
+
   readonly subgraphsSchema: readonly Schema[];
+
   readonly errors: GraphQLError[] = [];
+
   readonly hints: CompositionHint[] = [];
+
   readonly merged: Schema = new Schema();
+
   readonly subgraphNamesToJoinSpecName: Map<string, string>;
+
   readonly externalTesters: readonly ExternalTester[];
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
-    this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
+    this.subgraphsSchema = subgraphs.values().map((subgraph) => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
-    this.externalTesters = this.subgraphsSchema.map(schema => new ExternalTester(schema));
+    this.externalTesters = this.subgraphsSchema.map((schema) => new ExternalTester(schema));
   }
 
   private prepareSupergraph(): Map<string, string> {
@@ -313,7 +318,7 @@ class Merger {
     // we merge types next, we actually rely on this having been called to detect "root types"
     // (in order to skip the _entities and _service fields on that particular type, and to avoid
     // calling root type a "value type" when hinting).
-    this.mergeSchemaDefinition(this.subgraphsSchema.map(s => s.schemaDefinition), this.merged.schemaDefinition);
+    this.mergeSchemaDefinition(this.subgraphsSchema.map((s) => s.schemaDefinition), this.merged.schemaDefinition);
 
     for (const type of this.merged.types()) {
       // We've already merged unions above
@@ -328,7 +333,7 @@ class Merger {
       if (coreSpec.isSpecDirective(definition) || joinSpec.isSpecDirective(definition)) {
         continue;
       }
-      this.mergeDirectiveDefinition(this.subgraphsSchema.map(s => s.directive(definition.name)), definition);
+      this.mergeDirectiveDefinition(this.subgraphsSchema.map((s) => s.directive(definition.name)), definition);
     }
 
     // Let's not leave merged directives that aren't used.
@@ -340,7 +345,7 @@ class Merger {
     }
 
     if (!this.merged.schemaDefinition.rootType('query')) {
-      this.errors.push(new GraphQLError("No queries found in any subgraph: a supergraph must have a query root type."));
+      this.errors.push(new GraphQLError('No queries found in any subgraph: a supergraph must have a query root type.'));
     }
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
@@ -373,12 +378,11 @@ class Merger {
 
     if (this.errors.length > 0) {
       return { errors: this.errors };
-    } else {
+    }
       return {
         supergraph: this.merged,
-        hints: this.hints
-      }
-    }
+        hints: this.hints,
+      };
   }
 
   // Amongst other thing, this will ensure all the definitions of a given name are of the same kind
@@ -400,7 +404,7 @@ class Merger {
         }
       }
     }
-    mismatchedTypes.forEach(t => this.reportMismatchedTypeDefinitions(t));
+    mismatchedTypes.forEach((t) => this.reportMismatchedTypeDefinitions(t));
   }
 
   private addDirectivesShallow() {
@@ -426,8 +430,8 @@ class Merger {
       'TYPE_KIND_MISMATCH',
       `Type "${mismatchedType}" has mismatched kind: it is defined as `,
       supergraphType,
-      this.subgraphsSchema.map(s => s.type(mismatchedType)),
-      typeKindToString
+      this.subgraphsSchema.map((s) => s.type(mismatchedType)),
+      typeKindToString,
     );
   }
 
@@ -436,7 +440,7 @@ class Merger {
     message: string,
     mismatchedElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
-    mismatchAccessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined
+    mismatchAccessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
   ) {
     this.reportMismatch(
       mismatchedElement,
@@ -447,7 +451,7 @@ class Merger {
       (distribution, astNodes) => {
         this.errors.push(error(code, message + join(distribution, ' and ', ' but '), astNodes));
       },
-      elt => !elt
+      (elt) => !elt,
     );
   }
 
@@ -470,7 +474,7 @@ class Merger {
       (distribution, astNodes) => {
         this.errors.push(error(code, message + distribution[0] + join(distribution.slice(1), ' and '), astNodes));
       },
-      ignorePredicate
+      ignorePredicate,
     );
   }
 
@@ -484,7 +488,7 @@ class Merger {
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
     includeMissingSources: boolean = false,
-    noEndOfMessageDot: boolean = false
+    noEndOfMessageDot: boolean = false,
   ) {
     this.reportMismatch(
       supergraphElement,
@@ -497,11 +501,11 @@ class Merger {
           hintId,
           message + distribution[0] + join(distribution.slice(1), ' and ') + (noEndOfMessageDot ? '' : '.'),
           supergraphElement instanceof NamedSchemaElement ? supergraphElement.coordinate : '<schema>',
-          astNodes
+          astNodes,
         ));
       },
       ignorePredicate,
-      includeMissingSources
+      includeMissingSources,
     );
   }
 
@@ -513,7 +517,7 @@ class Merger {
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     reporter: (distribution: string[], astNode: SubgraphASTNode[]) => void,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
-    includeMissingSources: boolean = false
+    includeMissingSources: boolean = false,
   ) {
     const distributionMap = new MultiMap<string, string>();
     const astNodes: SubgraphASTNode[] = [];
@@ -573,7 +577,7 @@ class Merger {
         }
       }
     }
-    implemented.forEach(itf => dest.addImplementedInterface(itf));
+    implemented.forEach((itf) => dest.addImplementedInterface(itf));
   }
 
   private mergeDescription<T extends SchemaElement<any, any>>(sources: (T | undefined)[], dest: T) {
@@ -616,12 +620,12 @@ class Merger {
           `${name} has inconsistent descriptions across subgraphs. `,
           dest,
           sources,
-          elt => elt.description,
+          (elt) => elt.description,
           (desc, subgraphs) => `The supergraph will use description (from ${subgraphs}):\n${descriptionString(desc, '  ')}`,
           (desc, subgraphs) => `\nIn ${subgraphs}, the description is:\n${descriptionString(desc!, '  ')}`,
-          elt => elt?.description === undefined,
-          false,  // Don't including sources with no description
-          true    // Skip the end-of-message '.' since it would look ugly in that specific case
+          (elt) => elt?.description === undefined,
+          false, // Don't including sources with no description
+          true, // Skip the end-of-message '.' since it would look ugly in that specific case
         );
       }
     }
@@ -665,7 +669,7 @@ class Merger {
 
     const defSubgraphs: string[] = [];
     const extensionSubgraphs: string[] = [];
-    const extensionASTs: (ASTNode|undefined)[] = [];
+    const extensionASTs: (ASTNode | undefined)[] = [];
 
     for (const [i, source] of sources.entries()) {
       if (!source) {
@@ -684,7 +688,7 @@ class Merger {
         this.errors.push(error(
           'EXTENSION_WITH_NO_BASE',
           `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
-          extensionASTs[i]
+          extensionASTs[i],
         ));
       }
     }
@@ -727,7 +731,7 @@ class Merger {
         if (isValueType) {
           this.hintOnInconsistentValueTypeField(sources, dest, destField);
         }
-        const subgraphFields = sources.map(t => t?.field(destField.name));
+        const subgraphFields = sources.map((t) => t?.field(destField.name));
         this.mergeField(subgraphFields, destField);
       }
     }
@@ -754,7 +758,7 @@ class Merger {
         dest,
         sources,
         // All we use the string of the next line for is to categorize source with a @key of the others.
-        type => type.hasAppliedDirective('key') ? 'yes' : 'no',
+        (type) => (type.hasAppliedDirective('key') ? 'yes' : 'no'),
         // Note that the first callback is for element that are "like the supergraph". As the supergraph has no @key ...
         (_, subgraphs) => `it has no key in ${subgraphs}`,
         (_, subgraphs) => ` but has one in ${subgraphs}`,
@@ -767,22 +771,22 @@ class Merger {
   private hintOnInconsistentValueTypeField(
     sources: (ObjectType | InterfaceType | InputObjectType | undefined)[],
     dest: ObjectType | InterfaceType | InputObjectType,
-    field: FieldDefinition<any> | InputFieldDefinition
+    field: FieldDefinition<any> | InputFieldDefinition,
   ) {
     let hintId: HintID;
     let typeDescription: string;
     switch (dest.kind) {
       case 'ObjectType':
         hintId = hintInconsistentObjectValueTypeField;
-        typeDescription = 'non-entity object'
+        typeDescription = 'non-entity object';
         break;
       case 'InterfaceType':
         hintId = hintInconsistentInterfaceValueTypeField;
-        typeDescription = 'interface'
+        typeDescription = 'interface';
         break;
       case 'InputObjectType':
         hintId = hintInconsistentInputObjectField;
-        typeDescription = 'input object'
+        typeDescription = 'input object';
         break;
     }
     for (const source of sources) {
@@ -795,7 +799,7 @@ class Merger {
           `Field "${field.coordinate}" of ${typeDescription} type "${dest}" is not defined in all the subgraphs defining "${dest}" (but can always be resolved from these subgraphs): `,
           dest,
           sources,
-          type => type.field(field.name) ? 'yes' : 'no',
+          (type) => (type.field(field.name) ? 'yes' : 'no'),
           (_, subgraphs) => `"${field.coordinate}" is defined in ${subgraphs}`,
           (_, subgraphs) => ` but not in ${subgraphs}`,
         );
@@ -824,7 +828,7 @@ class Merger {
   }
 
   private withoutExternal(sources: (FieldDefinition<any> | undefined)[]): (FieldDefinition<any> | undefined)[] {
-    return sources.map((s, i) => s !== undefined && this.isExternal(i, s) ? undefined : s);
+    return sources.map((s, i) => (s !== undefined && this.isExternal(i, s) ? undefined : s));
   }
 
   private hasExternal(sources: (FieldDefinition<any> | undefined)[]): boolean {
@@ -833,12 +837,12 @@ class Merger {
 
   private mergeField(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
     if (sources.every((s, i) => s === undefined || this.isExternal(i, s))) {
-      const definingSubgraphs = sources.map((source, i) => source ? this.names[i] : undefined).filter(s => s !== undefined) as string[];
-      const asts = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
+      const definingSubgraphs = sources.map((source, i) => (source ? this.names[i] : undefined)).filter((s) => s !== undefined) as string[];
+      const asts = sources.map((source) => source?.sourceAST).filter((s) => s !== undefined) as ASTNode[];
       this.errors.push(error(
         'EXTERNAL_MISSING_ON_BASE',
         `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
-        asts
+        asts,
       ));
       return;
     }
@@ -851,7 +855,7 @@ class Merger {
     this.mergeAppliedDirectives(withoutExternal, dest);
     this.addArgumentsShallow(withoutExternal, dest);
     for (const destArg of dest.arguments()) {
-      const subgraphArgs = withoutExternal.map(f => f?.argument(destArg.name));
+      const subgraphArgs = withoutExternal.map((f) => f?.argument(destArg.name));
       this.mergeArgument(subgraphArgs, destArg);
     }
     const allTypesEqual = this.mergeTypeReference(withoutExternal, dest);
@@ -880,7 +884,7 @@ class Merger {
       // We also require the default is that of the supergraph (maybe we could relax that, but we should decide how we want
       // to deal with field with arguments in @key, @provides, @requires first as this could impact it).
       for (const destArg of dest.arguments()) {
-        const name = destArg.name;
+        const { name } = destArg;
         const arg = source.argument(name);
         if (!arg) {
           invalidArgsPresence.add(name);
@@ -901,7 +905,7 @@ class Merger {
         `Field "${dest.coordinate}" has incompatible types across subgraphs (where marked @external): it has `,
         dest,
         sources,
-        field => `type "${field.type}"`
+        (field) => `type "${field.type}"`,
       );
     }
     for (const arg of invalidArgsPresence) {
@@ -910,8 +914,8 @@ class Merger {
         'EXTERNAL_ARGUMENT_MISSING',
         `Field "${dest.coordinate}" is missing argument "${destArg.coordinate}" in some subgraphs where it is marked @external: `,
         destArg,
-        sources.map(s => s?.argument(destArg.name)),
-        arg => arg ? `argument "${arg.coordinate}"` : undefined,
+        sources.map((s) => s?.argument(destArg.name)),
+        (arg) => (arg ? `argument "${arg.coordinate}"` : undefined),
         (elt, subgraphs) => `${elt} is declared in ${subgraphs}`,
         (_, subgraphs) => ` but not in ${subgraphs} where ${dest.coordinate} is @external.`,
       );
@@ -922,8 +926,8 @@ class Merger {
         'EXTERNAL_ARGUMENT_TYPE_MISMATCH',
         `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where ${dest.coordinate} is marked @external): it has `,
         destArg,
-        sources.map(s => s?.argument(destArg.name)),
-        arg => `type "${arg.type}"`
+        sources.map((s) => s?.argument(destArg.name)),
+        (arg) => `type "${arg.type}"`,
       );
     }
     for (const arg of invalidArgsDefaults) {
@@ -932,8 +936,8 @@ class Merger {
         'EXTERNAL_ARGUMENT_TYPE_MISMATCH',
         `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where ${dest.coordinate} is marked @external): it has `,
         destArg,
-        sources.map(s => s?.argument(destArg.name)),
-        arg => `type "${arg.type}"`
+        sources.map((s) => s?.argument(destArg.name)),
+        (arg) => `type "${arg.type}"`,
       );
     }
   }
@@ -941,7 +945,7 @@ class Merger {
   private needsJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(
     sources: (T | undefined)[],
     parentName: string,
-    allTypesEqual: boolean
+    allTypesEqual: boolean,
   ): boolean {
     // If not all the types are equal, then we need to put a join__field to preserve the proper type information.
     if (!allTypesEqual) {
@@ -973,7 +977,7 @@ class Merger {
   private addJoinField<T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(
     sources: (T | undefined)[],
     dest: T,
-    allTypesEqual: boolean
+    allTypesEqual: boolean,
   ) {
     if (!this.needsJoinField(sources, dest.parent.name, allTypesEqual)) {
       return;
@@ -996,7 +1000,7 @@ class Merger {
     }
   }
 
-  private getFieldSet(element: SchemaElement<any, any>, directive: DirectiveDefinition<{fields: string}>): string | undefined {
+  private getFieldSet(element: SchemaElement<any, any>, directive: DirectiveDefinition<{ fields: string }>): string | undefined {
     const applications = element.appliedDirectivesOf(directive);
     assert(applications.length <= 1, () => `Found more than one application of ${directive} on ${element}`);
     return applications.length === 0 ? undefined : applications[0].arguments().fields;
@@ -1007,7 +1011,7 @@ class Merger {
   private mergeTypeReference<TType extends Type, TElement extends NamedSchemaElementWithType<TType, any, any, any>>(
     sources: (TElement | undefined)[],
     dest: TElement,
-    isContravariant: boolean = false
+    isContravariant: boolean = false,
   ): boolean {
     let destType: TType | undefined;
     let hasSubtypes = false;
@@ -1042,17 +1046,16 @@ class Merger {
     const isArgument = dest instanceof ArgumentDefinition;
     const elementKind: string = isArgument ? 'Argument' : 'Field';
 
-
     if (hasIncompatible) {
       this.reportMismatchError(
         `${elementKind.toUpperCase()}_TYPE_MISMATCH`,
         `${elementKind} "${dest.coordinate}" has incompatible types across subgraphs: it has `,
         dest,
         sources,
-        field => `type "${field.type}"`
+        (field) => `type "${field.type}"`,
       );
       return false;
-    } else if (hasSubtypes) {
+    } if (hasSubtypes) {
       // Note that we use the type `toString` representation as a way to group which subgraphs have the exact same type.
       // Doing so is actually equivalent of checking `sameType` (more precisely, it is equivalent if we ignore the kind
       // of named types, but if 2 subgraphs differs in kind for the same type name (say one has "X" be a scalar and the
@@ -1062,9 +1065,9 @@ class Merger {
         `${elementKind} "${dest.coordinate}" has mismatched, but compatible, types across subgraphs: `,
         dest,
         sources,
-        field => field.type!.toString(),
+        (field) => field.type!.toString(),
         (elt, subgraphs) => `will use type "${elt}" (from ${subgraphs}) in supergraph but "${dest.coordinate}" has `,
-        (elt, subgraphs) => `${isContravariant ? 'supertype' : 'subtype'} "${elt}" in ${subgraphs}`
+        (elt, subgraphs) => `${isContravariant ? 'supertype' : 'subtype'} "${elt}" in ${subgraphs}`,
       );
       return false;
     }
@@ -1081,7 +1084,7 @@ class Merger {
       maybeSubType,
       this.options.allowedFieldTypeMergingSubtypingRules,
       (union, maybeMember) => (this.merged.type(union.name)! as UnionType).hasTypeMember(maybeMember.name),
-      (maybeImplementer, itf) => (this.merged.type(maybeImplementer.name)! as (ObjectType | InterfaceType)).implementsInterface(itf)
+      (maybeImplementer, itf) => (this.merged.type(maybeImplementer.name)! as (ObjectType | InterfaceType)).implementsInterface(itf),
     );
   }
 
@@ -1107,12 +1110,12 @@ class Merger {
             `Argument "${dest.coordinate}" will not be added to "${dest.parent}" in the supergraph as it does not appear in all subgraphs: `,
             dest,
             sources,
-            _ => 'yes',
+            (_) => 'yes',
             // Note that the first callback is for element that are "like the supergraph" and we've pass `dest`.
             (_, subgraphs) => `it is defined in ${subgraphs}`,
             (_, subgraphs) => ` but not in ${subgraphs}`,
             undefined,
-            true // Do include undefined sources, that's the point
+            true, // Do include undefined sources, that's the point
           );
           // Note that we remove the element after the hint because we access the parent in the hint message.
           dest.remove();
@@ -1173,7 +1176,7 @@ class Merger {
         `${kind} "${dest.coordinate}" has incompatible default values across subgraphs: it has default value `,
         dest,
         sources,
-        arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined
+        (arg) => (arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined),
       );
     } else if (isInconsistent) {
       this.reportMismatchHint(
@@ -1181,9 +1184,9 @@ class Merger {
         `${kind} "${dest.coordinate}" has a default value in only some subgraphs: `,
         dest,
         sources,
-        arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined,
+        (arg) => (arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined),
         (_, subgraphs) => `will not use a default in the supergraph (there is no default in ${subgraphs}) but `,
-        (elt, subgraphs) => `"${dest.coordinate}" has default value ${elt} in ${subgraphs}`
+        (elt, subgraphs) => `"${dest.coordinate}" has default value ${elt} in ${subgraphs}`,
       );
     }
   }
@@ -1192,7 +1195,7 @@ class Merger {
     this.addFieldsShallow(sources, dest);
     for (const destField of dest.fields()) {
       this.hintOnInconsistentValueTypeField(sources, dest, destField);
-      const subgraphFields = sources.map(t => t?.field(destField.name));
+      const subgraphFields = sources.map((t) => t?.field(destField.name));
       this.mergeField(subgraphFields, destField);
     }
   }
@@ -1217,7 +1220,7 @@ class Merger {
   private hintOnInconsistentUnionMember(
     sources: (UnionType | undefined)[],
     dest: UnionType,
-    memberName: string
+    memberName: string,
   ) {
     for (const source of sources) {
       // As soon as we find a subgraph that has the type but not the member, we hint.
@@ -1229,7 +1232,7 @@ class Merger {
           `Member type "${memberName}" in union type "${dest}" is only defined in a subset of subgraphs defining "${dest}" (but can always be resolved from these subgraphs): `,
           dest,
           sources,
-          type => type.hasTypeMember(memberName) ? 'yes' : 'no',
+          (type) => (type.hasTypeMember(memberName) ? 'yes' : 'no'),
           (_, subgraphs) => `"${memberName}" is defined in ${subgraphs}`,
           (_, subgraphs) => ` but not in ${subgraphs}`,
         );
@@ -1251,7 +1254,7 @@ class Merger {
       }
     }
     for (const value of dest.values) {
-      const valueSources = sources.map(s => s?.value(value.name));
+      const valueSources = sources.map((s) => s?.value(value.name));
       this.mergeDescription(valueSources, value);
       this.mergeAppliedDirectives(valueSources, value);
       this.hintOnInconsistentEnumValue(sources, dest, value.name);
@@ -1261,7 +1264,7 @@ class Merger {
   private hintOnInconsistentEnumValue(
     sources: (EnumType | undefined)[],
     dest: EnumType,
-    valueName: string
+    valueName: string,
   ) {
     for (const source of sources) {
       // As soon as we find a subgraph that has the type but not the member, we hint.
@@ -1273,7 +1276,7 @@ class Merger {
           `Value "${valueName}" of enum type "${dest}" is only defined in a subset of the subgraphs defining "${dest}" (but can always be resolved from these subgraphs): `,
           dest,
           sources,
-          type => type.value(valueName) ? 'yes' : 'no',
+          (type) => (type.value(valueName) ? 'yes' : 'no'),
           (_, subgraphs) => `"${valueName}" is defined in ${subgraphs}`,
           (_, subgraphs) => ` but not in ${subgraphs}`,
         );
@@ -1285,7 +1288,7 @@ class Merger {
     this.addFieldsShallow(sources, dest);
     for (const destField of dest.fields()) {
       this.hintOnInconsistentValueTypeField(sources, dest, destField);
-      const subgraphFields = sources.map(t => t?.field(destField.name));
+      const subgraphFields = sources.map((t) => t?.field(destField.name));
       this.mergeInputField(subgraphFields, destField);
     }
   }
@@ -1323,13 +1326,13 @@ class Merger {
   private mergeTypeSystemDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
     this.addArgumentsShallow(sources, dest);
     for (const destArg of dest.arguments()) {
-      const subgraphArgs = sources.map(f => f?.argument(destArg.name));
+      const subgraphArgs = sources.map((f) => f?.argument(destArg.name));
       this.mergeArgument(subgraphArgs, destArg);
     }
 
-    let repeatable: boolean | undefined = undefined;
+    let repeatable: boolean | undefined;
     let inconsistentRepeatable = false;
-    let locations: DirectiveLocationEnum[] | undefined = undefined;
+    let locations: DirectiveLocationEnum[] | undefined;
     let inconsistentLocations = false;
     for (const source of sources) {
       if (!source) {
@@ -1349,7 +1352,7 @@ class Merger {
           inconsistentLocations = true;
         }
         // This create duplicates, but `addLocations` below eliminate them.
-        sourceLocations.forEach(loc => {
+        sourceLocations.forEach((loc) => {
           if (!locations!.includes(loc)) {
             locations!.push(loc);
           }
@@ -1365,7 +1368,7 @@ class Merger {
         `Type system directive "${dest}" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: `,
         dest,
         sources,
-        directive => directive.repeatable ? 'yes' : 'no',
+        (directive) => (directive.repeatable ? 'yes' : 'no'),
         // Note that the first callback is for element that are "like the supergraph". And the supergraph will be repeatable on inconsistencies.
         (_, subgraphs) => `it is repeatable in ${subgraphs}`,
         (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -1377,7 +1380,7 @@ class Merger {
         `Type system directive "${dest}" has inconsistent locations across subgraphs `,
         dest,
         sources,
-        directive => locationString(this.extractLocations(directive)),
+        (directive) => locationString(this.extractLocations(directive)),
         // Note that the first callback is for element that are "like the supergraph".
         (locs, subgraphs) => `and will use ${locs} (union of all subgraphs) in the supergraph, but has: ${subgraphs ? `${locs} in ${subgraphs} and ` : ''}`,
         (locs, subgraphs) => `${locs} in ${subgraphs}`,
@@ -1386,9 +1389,9 @@ class Merger {
   }
 
   private mergeExecutionDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
-    let repeatable: boolean | undefined = undefined;
+    let repeatable: boolean | undefined;
     let inconsistentRepeatable = false;
-    let locations: DirectiveLocationEnum[] | undefined = undefined;
+    let locations: DirectiveLocationEnum[] | undefined;
     let inconsistentLocations = false;
     for (const source of sources) {
       if (!source) {
@@ -1401,12 +1404,12 @@ class Merger {
           `Execution directive "${dest}" will not be part of the supergraph as it does not appear in all subgraphs: `,
           dest,
           sources,
-          _ => 'yes',
+          (_) => 'yes',
           // Note that the first callback is for element that are "like the supergraph" and we've pass `dest`.
           (_, subgraphs) => `it is defined in ${subgraphs}`,
           (_, subgraphs) => ` but not in ${subgraphs}`,
           undefined,
-          true
+          true,
         );
         return;
       }
@@ -1428,7 +1431,7 @@ class Merger {
           inconsistentLocations = true;
         }
         // Still an intersection: we can only allow locations that all subgraphs understand.
-        locations = locations.filter(loc => sourceLocations.includes(loc));
+        locations = locations.filter((loc) => sourceLocations.includes(loc));
         if (locations.length === 0) {
           const usages = dest.remove();
           assert(usages.length === 0, () => `Found usages of execution directive ${dest}: ${usages}`);
@@ -1437,7 +1440,7 @@ class Merger {
             `Execution directive "${dest}" has no location that is common to all subgraphs: `,
             dest,
             sources,
-            directive => locationString(this.extractLocations(directive)),
+            (directive) => locationString(this.extractLocations(directive)),
             // Note that the first callback is for element that are "like the supergraph" and only the subgraph will have no locations (the
             // source that do not have the directive are not included).
             () => `it will not appear in the subgraph as there no intersection between `,
@@ -1456,7 +1459,7 @@ class Merger {
         `Execution directive "${dest}" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: `,
         dest,
         sources,
-        directive => directive.repeatable ? 'yes' : 'no',
+        (directive) => (directive.repeatable ? 'yes' : 'no'),
         // Note that the first callback is for element that are "like the supergraph". And the supergraph will _not_ be repeatable on inconsistencies.
         (_, subgraphs) => `it is not repeatable in ${subgraphs}`,
         (_, subgraphs) => ` but is repeatable in ${subgraphs}`,
@@ -1468,7 +1471,7 @@ class Merger {
         `Execution directive "${dest}" has inconsistent locations across subgraphs `,
         dest,
         sources,
-        directive => locationString(this.extractLocations(directive)),
+        (directive) => locationString(this.extractLocations(directive)),
         // Note that the first callback is for element that are "like the supergraph".
         (locs, subgraphs) => `and will use ${locs} (intersection of all subgraphs) in the supergraph, but has: ${subgraphs ? `${locs} in ${subgraphs} and ` : ''}`,
         (locs, subgraphs) => `${locs} in ${subgraphs}`,
@@ -1478,7 +1481,7 @@ class Merger {
     // Doing args last, mostly so we don't bother adding if the directive doesn't make it in.
     this.addArgumentsShallow(sources, dest);
     for (const destArg of dest.arguments()) {
-      const subgraphArgs = sources.map(f => f?.argument(destArg.name));
+      const subgraphArgs = sources.map((f) => f?.argument(destArg.name));
       this.mergeArgument(subgraphArgs, destArg, true);
     }
   }
@@ -1492,7 +1495,7 @@ class Merger {
     if (MERGED_TYPE_SYSTEM_DIRECTIVES.includes(source.name)) {
       return source.locations;
     }
-    return source.locations.filter(loc => executableDirectiveLocations.includes(loc));
+    return source.locations.filter((loc) => executableDirectiveLocations.includes(loc));
   }
 
   private mergeAppliedDirectives(sources: (SchemaElement<any, any> | undefined)[], dest: SchemaElement<any, any>) {
@@ -1566,8 +1569,8 @@ class Merger {
     // TODO: we use valueEquals on the whole argument object rather than on individual values. This
     // work just fine given how valueEquals is defined today, but we might want to clean this nonetheless.
     return directives
-      .map(ds => ds.filter(d => !valueEquals(toRemove.arguments(), d.arguments()))).
-      filter(ds => ds.length);
+      .map((ds) => ds.filter((d) => !valueEquals(toRemove.arguments(), d.arguments())))
+      .filter((ds) => ds.length);
   }
 
   private mergeSchemaDefinition(sources: SchemaDefinition[], dest: SchemaDefinition) {
@@ -1582,7 +1585,7 @@ class Merger {
     for (const rootKind of allSchemaRootKinds) {
       let rootType: string | undefined;
       let isIncompatible = false;
-      for (const sourceType of sources.map(s => filteredRoot(s, rootKind))) {
+      for (const sourceType of sources.map((s) => filteredRoot(s, rootKind))) {
         if (!sourceType) {
           continue;
         }
@@ -1603,7 +1606,7 @@ class Merger {
   }
 
   private filterSubgraphs(predicate: (schema: Schema) => boolean): string[] {
-    return this.subgraphsSchema.map((s, i) => predicate(s) ? this.names[i] : undefined).filter(n => n !== undefined) as string[];
+    return this.subgraphsSchema.map((s, i) => (predicate(s) ? this.names[i] : undefined)).filter((n) => n !== undefined) as string[];
   }
 
   private subgraphByName(name: string): Schema {
@@ -1623,8 +1626,8 @@ class Merger {
           if (!field) {
             // This means that the type was defined (or at least implemented the interface) only in subgraphs where the interface didn't have
             // that field.
-            const subgraphsWithTheField = this.filterSubgraphs(s => s.typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name) !== undefined);
-            const subgraphsWithTypeImplementingItf = this.filterSubgraphs(s => {
+            const subgraphsWithTheField = this.filterSubgraphs((s) => s.typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name) !== undefined);
+            const subgraphsWithTypeImplementingItf = this.filterSubgraphs((s) => {
               const typeInSubgraph = s.type(type.name);
               return typeInSubgraph !== undefined && (typeInSubgraph as ObjectType | InterfaceType).implementsInterface(itf.name);
             });
@@ -1632,9 +1635,9 @@ class Merger {
               `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
               + `which implements "${itf}" only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field "${itfField.name}".`,
               sourceASTs(
-                ...subgraphsWithTheField.map(s => this.subgraphByName(s).typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name)),
-                ...subgraphsWithTypeImplementingItf.map(s => this.subgraphByName(s).type(type.name))
-              )
+                ...subgraphsWithTheField.map((s) => this.subgraphByName(s).typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name)),
+                ...subgraphsWithTypeImplementingItf.map((s) => this.subgraphByName(s).type(type.name)),
+              ),
             ));
             continue;
           }

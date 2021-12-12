@@ -47,7 +47,6 @@ export class OutOfBandReporter {
     tags?: string[];
     fetcher: typeof fetch;
   }) {
-
     // don't send report if the endpoint url is not configured
     if (!OutOfBandReporter.endpoint) {
       return;
@@ -97,7 +96,7 @@ export class OutOfBandReporter {
           : null,
         startedAt: startedAt.toISOString(),
         endedAt: endedAt.toISOString(),
-        tags: tags,
+        tags,
       },
     };
 

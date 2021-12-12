@@ -1,4 +1,5 @@
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { GraphQLError } from 'graphql';
+import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from './coreSpec';
 import {
   DirectiveDefinition,
   FieldDefinition,
@@ -6,8 +7,7 @@ import {
   isInterfaceType,
   isObjectType,
   Schema,
-} from "./definitions";
-import { GraphQLError } from "graphql";
+} from './definitions';
 
 export const inaccessibleIdentity = 'https://specs.apollo.dev/inaccessible';
 
@@ -29,7 +29,7 @@ export const INACCESSIBLE_VERSIONS = new FeatureDefinitions<InaccessibleSpecDefi
   .add(new InaccessibleSpecDefinition(new FeatureVersion(0, 1)));
 
 export function removeInaccessibleElements(schema: Schema) {
-  const coreFeatures = schema.coreFeatures;
+  const { coreFeatures } = schema;
   if (!coreFeatures) {
     return;
   }
@@ -41,13 +41,14 @@ export function removeInaccessibleElements(schema: Schema) {
   const inaccessibleSpec = INACCESSIBLE_VERSIONS.find(inaccessibleFeature.url.version);
   if (!inaccessibleSpec) {
     throw new GraphQLError(
-      `Cannot remove inaccessible elements: the schema uses unsupported inaccessible spec version ${inaccessibleFeature.url.version} (supported versions: ${INACCESSIBLE_VERSIONS.versions().join(', ')})`);
+      `Cannot remove inaccessible elements: the schema uses unsupported inaccessible spec version ${inaccessibleFeature.url.version} (supported versions: ${INACCESSIBLE_VERSIONS.versions().join(', ')})`,
+);
   }
 
   const inaccessibleDirective = inaccessibleSpec.inaccessibleDirective(schema);
   if (!inaccessibleDirective) {
     throw new GraphQLError(
-      `Invalid schema: declares ${inaccessibleSpec.url} spec but does not define a @inaccessible directive`
+      `Invalid schema: declares ${inaccessibleSpec.url} spec but does not define a @inaccessible directive`,
     );
   }
 
@@ -76,8 +77,8 @@ export function removeInaccessibleElements(schema: Schema) {
         //  - the type may an interface that other types implements: those other will simply not implement the (non-existing) interface.
       }
     } else if (isObjectType(type) || isInterfaceType(type)) {
-      const toRemove = (type.fields() as FieldDefinition<any>[]).filter(f => f.hasAppliedDirective(inaccessibleDirective));
-      toRemove.forEach(f => f.remove());
+      const toRemove = (type.fields() as FieldDefinition<any>[]).filter((f) => f.hasAppliedDirective(inaccessibleDirective));
+      toRemove.forEach((f) => f.remove());
     }
   }
 }

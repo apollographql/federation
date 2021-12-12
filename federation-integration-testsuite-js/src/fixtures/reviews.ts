@@ -112,7 +112,7 @@ const reviews = [
     authorID: '1',
     product: { __typename: 'Furniture', upc: '1' },
     body: 'Love it!',
-    metadata: [{ code: 418, message: "I'm a teapot" }],
+    metadata: [{ code: 418, message: 'I\'m a teapot' }],
   },
   {
     id: '2',
@@ -227,9 +227,7 @@ export const resolvers: GraphQLResolverMap<any> = {
     relatedReviews(book) {
       return book.similarBooks
         ? book.similarBooks
-            .map(({ isbn }: any) =>
-              reviews.filter((review) => review.product.isbn === isbn),
-            )
+            .map(({ isbn }: any) => reviews.filter((review) => review.product.isbn === isbn))
             .flat()
         : [];
     },

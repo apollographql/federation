@@ -30,14 +30,12 @@ export function partition<T>(
 ): [T[], T[]] {
   array.map;
   return array.reduce(
-    (accumulator, element, index) => {
-      return (
+    (accumulator, element, index) => (
         predicate(element, index, array)
           ? accumulator[0].push(element)
           : accumulator[1].push(element),
         accumulator
-      );
-    },
+      ),
     [[], []] as [T[], T[]],
   );
 }

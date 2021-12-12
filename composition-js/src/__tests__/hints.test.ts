@@ -49,35 +49,35 @@ expect.extend({
   toRaiseHint(mergeResult: MergeResult, id: HintID, message: string) {
     if (mergeResult.errors) {
       return {
-        message: () => `Expected subgraphs to merge but got errors: [${mergeResult.errors.map(e => e.message).join(', ')}]`,
-        pass: false
+        message: () => `Expected subgraphs to merge but got errors: [${mergeResult.errors.map((e) => e.message).join(', ')}]`,
+        pass: false,
       };
     }
 
-    const hints = mergeResult.hints;
-    const matchingHints = hints.filter(h => h.id.code === id.code);
+    const { hints } = mergeResult;
+    const matchingHints = hints.filter((h) => h.id.code === id.code);
     if (matchingHints.length === 0) {
       const details = hints.length === 0
         ? 'no hint was raised'
-        : `hints were raised with code(s): ${hints.map(h => h.id.code).join(', ')}`;
+        : `hints were raised with code(s): ${hints.map((h) => h.id.code).join(', ')}`;
       return {
         message: () => `Expected subgraphs merging to raise a ${id.code} hint, but ${details}`,
-        pass: false
+        pass: false,
       };
     }
     for (const hint of matchingHints) {
       if (hint.message === message) {
         return {
           message: () => `Expected subgraphs merging to not raise hint ${id.code} with message '${message}', but it did`,
-          pass: true
-        }
+          pass: true,
+        };
       }
     }
     return {
       message: () => `Subgraphs merging did raise ${matchingHints.length} hint(s) with code ${id.code}, but none had the expected message:\n  ${message}\n`
-         + `Instead, received messages:\n  ${matchingHints.map(h => h.message).join('\n  ')}`,
-      pass: false
-    }
+         + `Instead, received messages:\n  ${matchingHints.map((h) => h.message).join('\n  ')}`,
+      pass: false,
+    };
   },
 });
 
@@ -102,9 +102,9 @@ test('hints on merging field with nullable and non-nullable types', () => {
   expect(result).toRaiseHint(
     hintInconsistentFieldType,
     'Field "T.f" has mismatched, but compatible, types across subgraphs: '
-    + 'will use type "String" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "String!" in subgraph "Subgraph2".'
+    + 'will use type "String" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "String!" in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on merging field with subtype types', () => {
   const subgraph1 = gql`
@@ -139,9 +139,9 @@ test('hints on merging field with subtype types', () => {
   expect(result).toRaiseHint(
     hintInconsistentFieldType,
     'Field "T.f" has mismatched, but compatible, types across subgraphs: '
-    + 'will use type "I" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "Impl" in subgraph "Subgraph2".'
+    + 'will use type "I" (from subgraph "Subgraph1") in supergraph but "T.f" has subtype "Impl" in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on merging argument with nullable and non-nullable types', () => {
   const subgraph1 = gql`
@@ -164,9 +164,9 @@ test('hints on merging argument with nullable and non-nullable types', () => {
   expect(result).toRaiseHint(
     hintInconsistentArgumentType,
     'Argument "T.f(a:)" has mismatched, but compatible, types across subgraphs: '
-    + 'will use type "String!" (from subgraph "Subgraph1") in supergraph but "T.f(a:)" has supertype "String" in subgraph "Subgraph2".'
+    + 'will use type "String!" (from subgraph "Subgraph1") in supergraph but "T.f(a:)" has supertype "String" in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on merging argument with default value in only some subgraph', () => {
   const subgraph1 = gql`
@@ -189,9 +189,9 @@ test('hints on merging argument with default value in only some subgraph', () =>
   expect(result).toRaiseHint(
     hintInconsistentDefaultValue,
     'Argument "T.f(a:)" has a default value in only some subgraphs: '
-    + 'will not use a default in the supergraph (there is no default in subgraph "Subgraph2") but "T.f(a:)" has default value "foo" in subgraph "Subgraph1".'
+    + 'will not use a default in the supergraph (there is no default in subgraph "Subgraph2") but "T.f(a:)" has default value "foo" in subgraph "Subgraph1".',
   );
-})
+});
 
 test('hints on object being an entity in only some subgraph', () => {
   const subgraph1 = gql`
@@ -216,9 +216,9 @@ test('hints on object being an entity in only some subgraph', () => {
   expect(result).toRaiseHint(
     hintInconsistentEntity,
     'Type "T" is declared as an entity (has a @key applied) in only some subgraphs: '
-    + 'it has no key in subgraph "Subgraph2" but has one in subgraph "Subgraph1".'
+    + 'it has no key in subgraph "Subgraph2" but has one in subgraph "Subgraph1".',
   );
-})
+});
 
 test('hints on field of object value type not being in all subgraphs', () => {
   const subgraph1 = gql`
@@ -242,9 +242,9 @@ test('hints on field of object value type not being in all subgraphs', () => {
   expect(result).toRaiseHint(
     hintInconsistentObjectValueTypeField,
     'Field "T.b" of non-entity object type "T" is not defined in all the subgraphs defining "T" (but can always be resolved from these subgraphs): '
-    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on field of interface value type not being in all subgraphs', () => {
   const subgraph1 = gql`
@@ -268,9 +268,9 @@ test('hints on field of interface value type not being in all subgraphs', () => 
   expect(result).toRaiseHint(
     hintInconsistentInterfaceValueTypeField,
     'Field "T.b" of interface type "T" is not defined in all the subgraphs defining "T" (but can always be resolved from these subgraphs): '
-    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on field of input object value type not being in all subgraphs', () => {
   const subgraph1 = gql`
@@ -294,9 +294,9 @@ test('hints on field of input object value type not being in all subgraphs', () 
   expect(result).toRaiseHint(
     hintInconsistentInputObjectField,
     'Field "T.b" of input object type "T" is not defined in all the subgraphs defining "T" (but can always be resolved from these subgraphs): '
-    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on union member not being in all subgraphs', () => {
   const subgraph1 = gql`
@@ -335,9 +335,9 @@ test('hints on union member not being in all subgraphs', () => {
   expect(result).toRaiseHint(
     hintInconsistentUnionMember,
     'Member type "B" in union type "T" is only defined in a subset of subgraphs defining "T" (but can always be resolved from these subgraphs): '
-    + '"B" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + '"B" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on enum value not being in all subgraphs', () => {
   const subgraph1 = gql`
@@ -361,9 +361,9 @@ test('hints on enum value not being in all subgraphs', () => {
   expect(result).toRaiseHint(
     hintInconsistentEnumValue,
     'Value "V2" of enum type "T" is only defined in a subset of the subgraphs defining "T" (but can always be resolved from these subgraphs): '
-    + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + '"V2" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on type system directives having inconsistent repeatable', () => {
   // Note that the code currently only merge a handful of hard-coded type system directive, so we have
@@ -385,9 +385,9 @@ test('hints on type system directives having inconsistent repeatable', () => {
   expect(result).toRaiseHint(
     hintInconsistentTypeSystemDirectiveRepeatable,
     'Type system directive "@tag" is marked repeatable in the supergraph but it is inconsistently marked repeatable in subgraphs: '
-    + 'it is repeatable in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + 'it is repeatable in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on type system directives having inconsistent locations', () => {
   // Same as above, we kind of have to use tag.
@@ -408,9 +408,9 @@ test('hints on type system directives having inconsistent locations', () => {
     hintInconsistentTypeSystemDirectiveLocations,
     'Type system directive "@tag" has inconsistent locations across subgraphs '
     + 'and will use locations "FIELD_DEFINITION, INTERFACE" (union of all subgraphs) in the supergraph, but has: '
-    + 'location "FIELD_DEFINITION" in subgraph "Subgraph1" and location "INTERFACE" in subgraph "Subgraph2".'
+    + 'location "FIELD_DEFINITION" in subgraph "Subgraph1" and location "INTERFACE" in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on execution directives not being in all subgraphs', () => {
   const subgraph1 = gql`
@@ -429,9 +429,9 @@ test('hints on execution directives not being in all subgraphs', () => {
   expect(result).toRaiseHint(
     hintInconsistentExecutionDirectivePresence,
     'Execution directive "@t" will not be part of the supergraph as it does not appear in all subgraphs: '
-    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on execution directives having no locations intersection', () => {
   const subgraph1 = gql`
@@ -450,9 +450,9 @@ test('hints on execution directives having no locations intersection', () => {
   expect(result).toRaiseHint(
     hintNoExecutionDirectiveLocationsIntersection,
     'Execution directive "@t" has no location that is common to all subgraphs: '
-    + 'it will not appear in the subgraph as there no intersection between location "QUERY" in subgraph "Subgraph1" and location "FIELD" in subgraph "Subgraph2".'
+    + 'it will not appear in the subgraph as there no intersection between location "QUERY" in subgraph "Subgraph1" and location "FIELD" in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on execution directives having inconsistent repeatable', () => {
   const subgraph1 = gql`
@@ -471,9 +471,9 @@ test('hints on execution directives having inconsistent repeatable', () => {
   expect(result).toRaiseHint(
     hintInconsistentExecutionDirectiveRepeatable,
     'Execution directive "@t" will not be marked repeatable in the supergraph as it is inconsistently marked repeatable in subgraphs: '
-    + 'it is not repeatable in subgraph "Subgraph2" but is repeatable in subgraph "Subgraph1".'
+    + 'it is not repeatable in subgraph "Subgraph2" but is repeatable in subgraph "Subgraph1".',
   );
-})
+});
 
 test('hints on execution directives having inconsistent locations', () => {
   const subgraph1 = gql`
@@ -493,9 +493,9 @@ test('hints on execution directives having inconsistent locations', () => {
     hintInconsistentExecutionDirectiveLocations,
     'Execution directive "@t" has inconsistent locations across subgraphs '
     + 'and will use location "FIELD" (intersection of all subgraphs) in the supergraph, but has: '
-    + 'location "FIELD" in subgraph "Subgraph2" and locations "FIELD, QUERY" in subgraph "Subgraph1".'
+    + 'location "FIELD" in subgraph "Subgraph2" and locations "FIELD, QUERY" in subgraph "Subgraph1".',
   );
-})
+});
 
 test('hints on execution directives argument not being in all subgraphs', () => {
   const subgraph1 = gql`
@@ -514,9 +514,9 @@ test('hints on execution directives argument not being in all subgraphs', () => 
   expect(result).toRaiseHint(
     hintInconsistentArgumentPresence,
     'Argument "@t(a:)" will not be added to "@t" in the supergraph as it does not appear in all subgraphs: '
-    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".'
+    + 'it is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
   );
-})
+});
 
 test('hints on inconsistent description for schema definition', () => {
   const subgraph1 = gql`
@@ -557,9 +557,9 @@ test('hints on inconsistent description for schema definition', () => {
     + 'In subgraph "Subgraph2", the description is:\n'
     + '  """\n'
     + '  Entry point for the API\n'
-    + '  """'
+    + '  """',
   );
-})
+});
 
 test('hints on inconsistent description for field', () => {
   // We make sure the 2nd and 3rd subgraphs have the same description to
@@ -601,6 +601,6 @@ test('hints on inconsistent description for field', () => {
     + 'In subgraph "Subgraph1", the description is:\n'
     + '  """\n'
     + '  I don\'t know what I\'m doing\n'
-    + '  """'
+    + '  """',
   );
-})
+});

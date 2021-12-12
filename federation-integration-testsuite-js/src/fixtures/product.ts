@@ -190,7 +190,7 @@ export const resolvers: GraphQLResolverMap<any> = {
   Furniture: {
     __resolveReference(object) {
       return products.find(
-        product => product.upc === object.upc || product.sku === object.sku,
+        (product) => product.upc === object.upc || product.sku === object.sku,
       );
     },
   },
@@ -201,7 +201,7 @@ export const resolvers: GraphQLResolverMap<any> = {
       info.cacheControl?.cacheHint?.restrict({ maxAge: 30 });
       if (object.isbn) {
         const fetchedObject = products.find(
-          product => product.isbn === object.isbn,
+          (product) => product.isbn === object.isbn,
         );
         if (fetchedObject) {
           return { ...object, ...fetchedObject };
@@ -221,12 +221,12 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   Car: {
     __resolveReference(object) {
-      return vehicles.find(vehicles => vehicles.id === object.id);
+      return vehicles.find((vehicles) => vehicles.id === object.id);
     },
   },
   Van: {
     __resolveReference(object) {
-      return vehicles.find(vehicles => vehicles.id === object.id);
+      return vehicles.find((vehicles) => vehicles.id === object.id);
     },
   },
   Thing: {
@@ -236,18 +236,18 @@ export const resolvers: GraphQLResolverMap<any> = {
   },
   User: {
     vehicle(user) {
-      return vehicles.find(vehicles => vehicles.id === user.id);
+      return vehicles.find((vehicles) => vehicles.id === user.id);
     },
     thing(user) {
-      return vehicles.find(vehicles => vehicles.id === user.id);
+      return vehicles.find((vehicles) => vehicles.id === user.id);
     },
   },
   Query: {
     product(_, args) {
-      return products.find(product => product.upc === args.upc);
+      return products.find((product) => product.upc === args.upc);
     },
     vehicle(_, args) {
-      return vehicles.find(vehicles => vehicles.id === args.id);
+      return vehicles.find((vehicles) => vehicles.id === args.id);
     },
     topProducts(_, args) {
       return products.slice(0, args.first);

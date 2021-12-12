@@ -1,6 +1,6 @@
 import { QueryPlan, PlanNode } from '@apollo/query-planner';
-import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
 import prettyFormat from 'pretty-format';
+import { astSerializer, queryPlanSerializer } from '../snapshotSerializers';
 
 declare global {
   namespace jest {
@@ -33,10 +33,8 @@ function toCallService(
   // const receivedString = print(received);
   // const expectedString = print(expected);
 
-  const printReceived = (string: string) =>
-    this.utils.RECEIVED_COLOR(indentString(string));
-  const printExpected = (string: string) =>
-    this.utils.EXPECTED_COLOR(indentString(string));
+  const printReceived = (string: string) => this.utils.RECEIVED_COLOR(indentString(string));
+  const printExpected = (string: string) => this.utils.EXPECTED_COLOR(indentString(string));
 
   let pass = false;
   // let initialServiceCall = null;
@@ -57,41 +55,37 @@ function toCallService(
         node.nodes.forEach(walkExecutionNode);
         break;
       default:
-        return;
     }
   }
 
   walkExecutionNode(queryPlan.node);
 
   const message = pass
-    ? () =>
-        this.utils.matcherHint('.not.toCallService') +
-        '\n\n' +
-        `Expected query plan to not call service:\n` +
-        printExpected(service) +
-        '\n' +
-        `Received:\n` +
+    ? () => this.utils.matcherHint('.not.toCallService')
+        + '\n\n'
+        + `Expected query plan to not call service:\n`
+        + printExpected(service)
+        + '\n'
+        + `Received:\n`
         // FIXME print just the node
-        printReceived(
+        + printReceived(
           prettyFormat(queryPlan, {
             plugins: [queryPlanSerializer, astSerializer],
           }),
         )
-    : () => {
-        return (
-          this.utils.matcherHint('.toCallService') +
-          '\n\n' +
-          `Expected query plan to call service:\n` +
-          printExpected(service) +
-          '\n' +
-          `Received query plan:\n` +
-          printReceived(
+    : () => (
+          this.utils.matcherHint('.toCallService')
+          + '\n\n'
+          + `Expected query plan to call service:\n`
+          + printExpected(service)
+          + '\n'
+          + `Received query plan:\n`
+          + printReceived(
             prettyFormat(queryPlan, {
               plugins: [queryPlanSerializer, astSerializer],
             }),
           )
         );
-      };
   return {
     message,
     pass,

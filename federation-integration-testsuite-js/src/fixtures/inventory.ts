@@ -46,12 +46,12 @@ const inventory = [
 export const resolvers: GraphQLResolverMap<any> = {
   Furniture: {
     __resolveReference(object) {
-      return inventory.find(product => product.sku === object.sku);
+      return inventory.find((product) => product.sku === object.sku);
     },
   },
   Book: {
     __resolveReference(object) {
-      return inventory.find(product => product.isbn === object.isbn);
+      return inventory.find((product) => product.isbn === object.isbn);
     },
   },
   User: {

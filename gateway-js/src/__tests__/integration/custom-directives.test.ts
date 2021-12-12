@@ -1,10 +1,9 @@
 import gql from 'graphql-tag';
-import { execute } from '../execution-utils';
 import {
   astSerializer,
   queryPlanSerializer,
-} from 'apollo-federation-integration-testsuite';
-import { fixtures } from 'apollo-federation-integration-testsuite';
+ fixtures } from 'apollo-federation-integration-testsuite';
+import { execute } from '../execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -98,9 +97,9 @@ describe('custom executable directives', () => {
   });
 
   // With relaxed composition, instead of erroring out if a directive is not declared everywhere, we compose but don't
-  // include the directive in the supergraph and generate a hint. So the following test will complain that @stream 
+  // include the directive in the supergraph and generate a hint. So the following test will complain that @stream
   // is unknown in the query. Not that the hints tests do test we properly raise an hint in that case.
-  it.skip("returns validation errors when directives aren't present across all services", async () => {
+  it.skip('returns validation errors when directives aren\'t present across all services', async () => {
     const invalidService = {
       name: 'invalidService',
       typeDefs: gql`
@@ -135,7 +134,7 @@ describe('custom executable directives', () => {
   // Same as previous: we don't of error out on inconsistent execution directives. Here, we instead look at the intersection of locations
   // defined, and as that is empty, we don't include the directive in the supergraph (and raise a hint).
   // So the following test will complain that @stream is unknown in the query. Not that the hints tests do test we properly raise an hint in that case.
-  it.skip("returns validation errors when directives aren't identical across all services", async () => {
+  it.skip('returns validation errors when directives aren\'t identical across all services', async () => {
     const invalidService = {
       name: 'invalid',
       typeDefs: gql`

@@ -1,6 +1,6 @@
-import { execute, GraphQLError, parse } from "graphql";
-import { cleanErrorOfInaccessibleNames } from "../cleanErrorOfInaccessibleNames";
-import { buildSchema } from "@apollo/federation-internals";
+import { execute, GraphQLError, parse } from 'graphql';
+import { buildSchema } from '@apollo/federation-internals';
+import { cleanErrorOfInaccessibleNames } from '../cleanErrorOfInaccessibleNames';
 
 describe('cleanErrorOfInaccessibleNames', () => {
   const coreSchema = buildSchema(`
@@ -92,7 +92,7 @@ describe('cleanErrorOfInaccessibleNames', () => {
     );
   });
 
-  it("doesn't remove special-case double-quoted words from graphql error messages", () => {
+  it('doesn\'t remove special-case double-quoted words from graphql error messages', () => {
     const graphqlError = new GraphQLError(
       `Something something "resolveType" something something "isTypeOf".`,
     );

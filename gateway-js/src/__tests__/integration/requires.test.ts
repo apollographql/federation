@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
-import { execute } from '../execution-utils';
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import { execute } from '../execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -318,8 +318,8 @@ it('passes null values correctly', async () => {
         favoriteColor(user: any) {
           if (user.favorite !== null) {
             throw Error(
-              'Favorite color should be null. Instead, got: ' +
-                JSON.stringify(user.favorite),
+              'Favorite color should be null. Instead, got: '
+                + JSON.stringify(user.favorite),
             );
           }
           return 'unknown';
@@ -328,8 +328,8 @@ it('passes null values correctly', async () => {
           const color = user.dislikes[0];
           if (color !== null) {
             throw Error(
-              'Disliked colors should be null. Instead, got: ' +
-                JSON.stringify(user.dislikes),
+              'Disliked colors should be null. Instead, got: '
+                + JSON.stringify(user.dislikes),
             );
           }
           return 'unknown';

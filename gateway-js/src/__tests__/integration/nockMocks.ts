@@ -1,10 +1,10 @@
 import nock from 'nock';
+import { print } from 'graphql';
+import { fixtures } from 'apollo-federation-integration-testsuite';
 import { MockService } from './networkRequests.test';
 import { HEALTH_CHECK_QUERY, SERVICE_DEFINITION_QUERY } from '../..';
 import { SUPERGRAPH_SDL_QUERY } from '../../loadSupergraphSdlFromStorage';
-import { getTestingSupergraphSdl } from '../../__tests__/execution-utils';
-import { print } from 'graphql';
-import { fixtures } from 'apollo-federation-integration-testsuite';
+import { getTestingSupergraphSdl } from '../execution-utils';
 
 export const graphRef = 'federated-service@current';
 export const apiKey = 'service:federated-service:DD71EBbGmsuh-6suUVDwnA';
@@ -44,11 +44,9 @@ export function mockServiceHealthCheckSuccess(service: MockService) {
 }
 
 export function mockAllServicesHealthCheckSuccess() {
-  return fixtures.map((fixture) =>
-    mockServiceHealthCheck(fixture).reply(200, {
+  return fixtures.map((fixture) => mockServiceHealthCheck(fixture).reply(200, {
       data: { __typename: 'Query' },
-    }),
-  );
+    }));
 }
 
 // Supergraph SDL fetching mocks
@@ -64,18 +62,16 @@ function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
   });
 }
 
-export const mockCloudConfigUrl =
-  'https://example.cloud-config-url.com/cloudconfig/';
+export const mockCloudConfigUrl = 'https://example.cloud-config-url.com/cloudconfig/';
 
-export const mockOutOfBandReporterUrl =
-  'https://example.outofbandreporter.com/monitoring/';
+export const mockOutOfBandReporterUrl = 'https://example.outofbandreporter.com/monitoring/';
 
 export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null) {
   return gatewayNock(mockCloudConfigUrl).post('/', {
     query: SUPERGRAPH_SDL_QUERY,
     variables: {
       ref: graphRef,
-      apiKey: apiKey,
+      apiKey,
       ifAfterId: ifAfter,
     },
   });
@@ -135,7 +131,7 @@ export function mockOutOfBandReportRequestSuccess() {
     200,
     JSON.stringify({
       data: {
-        reportError: true
+        reportError: true,
       },
     }),
   );

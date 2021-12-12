@@ -6,13 +6,13 @@ import {
   orderPrintedDefinitions,
   ServiceDefinition,
   subgraphsFromServiceList,
-  error
-} from "@apollo/federation-internals";
-import { GraphQLError } from "graphql";
-import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
-import { mergeSubgraphs } from "./merging";
-import { validateGraphComposition } from "./validate";
-import { CompositionHint } from "./hints";
+  error,
+} from '@apollo/federation-internals';
+import { GraphQLError } from 'graphql';
+import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from '@apollo/query-graphs';
+import { mergeSubgraphs } from './merging';
+import { validateGraphComposition } from './validate';
+import { CompositionHint } from './hints';
 
 export type CompositionResult = CompositionFailure | CompositionSuccess;
 
@@ -41,7 +41,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, false);
   const validationResult = validateGraphComposition(supergraphQueryGraph, federatedQueryGraph);
   if (validationResult.errors) {
-    return { errors: validationResult.errors.map(e => error('COMPOSITION_SATISFIABILITY_ERROR', e.message)) };
+    return { errors: validationResult.errors.map((e) => error('COMPOSITION_SATISFIABILITY_ERROR', e.message)) };
   }
 
   // printSchema calls validateOptions, which can throw
@@ -49,7 +49,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   try {
     supergraphSdl = printSchema(
       supergraphSchema,
-      orderPrintedDefinitions(defaultPrintOptions)
+      orderPrintedDefinitions(defaultPrintOptions),
     );
   } catch (err) {
     return { errors: [err] };
@@ -58,11 +58,11 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   return {
     schema: supergraphSchema,
     supergraphSdl,
-    hints: mergeResult.hints
+    hints: mergeResult.hints,
   };
 }
 
-export function composeServices(services: ServiceDefinition[]): CompositionResult  {
+export function composeServices(services: ServiceDefinition[]): CompositionResult {
   const subgraphs = subgraphsFromServiceList(services);
   if (Array.isArray(subgraphs)) {
     // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place

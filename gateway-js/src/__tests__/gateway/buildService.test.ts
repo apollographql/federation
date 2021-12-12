@@ -1,9 +1,9 @@
-import { fetch } from '../../__mocks__/apollo-server-env';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
+import { fixtures } from 'apollo-federation-integration-testsuite';
+import { fetch } from '../../__mocks__/apollo-server-env';
 
 import { RemoteGraphQLDataSource } from '../../datasources/RemoteGraphQLDataSource';
-import { ApolloGateway, SERVICE_DEFINITION_QUERY } from '../../';
-import { fixtures } from 'apollo-federation-integration-testsuite';
+import { ApolloGateway, SERVICE_DEFINITION_QUERY } from '../..';
 import { GraphQLDataSourceRequestKind } from '../../datasources/types';
 
 beforeEach(() => {
@@ -15,15 +15,13 @@ it('calls buildService only once per service', async () => {
     data: { _service: { sdl: `extend type Query { thing: String }` } },
   });
 
-  const buildServiceSpy = jest.fn(() => {
-    return new RemoteGraphQLDataSource({
+  const buildServiceSpy = jest.fn(() => new RemoteGraphQLDataSource({
       url: 'https://api.example.com/foo',
-    });
-  });
+    }));
 
   const gateway = new ApolloGateway({
     serviceList: [{ name: 'foo', url: 'https://api.example.com/foo' }],
-    buildService: buildServiceSpy
+    buildService: buildServiceSpy,
   });
 
   await gateway.load();
@@ -34,8 +32,7 @@ it('calls buildService only once per service', async () => {
 it('correctly passes the context from ApolloServer to datasources', async () => {
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
-    buildService: _service => {
-      return new RemoteGraphQLDataSource({
+    buildService: (_service) => new RemoteGraphQLDataSource({
         url: 'https://api.example.com/foo',
         willSendRequest: (options) => {
           if (options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION) {
@@ -45,8 +42,7 @@ it('correctly passes the context from ApolloServer to datasources', async () => 
             );
           }
         },
-      });
-    },
+      }),
   });
 
   const { schema, executor } = await gateway.load();
@@ -94,7 +90,7 @@ function createSdlData(sdl: string): object {
   return {
     data: {
       _service: {
-        sdl: sdl,
+        sdl,
       },
     },
   };
@@ -112,14 +108,12 @@ it('makes enhanced introspection request using datasource', async () => {
         url: 'https://api.example.com/one',
       },
     ],
-    buildService: _service => {
-      return new RemoteGraphQLDataSource({
+    buildService: (_service) => new RemoteGraphQLDataSource({
         url: 'https://api.example.com/override',
         willSendRequest: ({ request }) => {
           request.http?.headers.set('custom-header', 'some-custom-value');
         },
-      });
-    },
+      }),
   });
 
   await gateway.load();
@@ -157,14 +151,12 @@ it('customizes request on a per-service basis', async () => {
         url: 'https://api.example.com/three',
       },
     ],
-    buildService: service => {
-      return new RemoteGraphQLDataSource({
+    buildService: (service) => new RemoteGraphQLDataSource({
         url: service.url,
         willSendRequest: ({ request }) => {
           request.http?.headers.set('service-name', service.name);
         },
-      });
-    },
+      }),
   });
 
   await gateway.load();

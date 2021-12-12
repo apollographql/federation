@@ -15,21 +15,21 @@ import {
   NonNullType,
   ObjectType,
   Type,
-  UnionType
-} from "./definitions";
+  UnionType,
+} from './definitions';
 
 export const ALL_SUBTYPING_RULES = [
   'direct' as const,
   'nonNullable_downgrade' as const,
   'list_upgrade' as const,
   'list_propagation' as const,
-  'nonNullable_propagation' as const
+  'nonNullable_propagation' as const,
 ];
 
 export type SubtypingRule = typeof ALL_SUBTYPING_RULES[number];
 
 // The subtyping rules that graphQL-js enforces in particular
-export const DEFAULT_SUBTYPING_RULES = ALL_SUBTYPING_RULES.filter(r => r !== "list_upgrade");
+export const DEFAULT_SUBTYPING_RULES = ALL_SUBTYPING_RULES.filter((r) => r !== 'list_upgrade');
 
 /**
  * Tests whether 2 types are the same type.
@@ -102,7 +102,7 @@ export function isSubtype(
   maybeSubType: Type,
   allowedRules: SubtypingRule[] = DEFAULT_SUBTYPING_RULES,
   unionMembershipTester: (union: UnionType, maybeMember: ObjectType) => boolean = (u, m) => u.hasTypeMember(m),
-  implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i)
+  implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i),
 ): boolean {
   return sameType(type, maybeSubType) || isStrictSubtype(type, maybeSubType, allowedRules, unionMembershipTester, implementsInterfaceTester);
 }
@@ -118,7 +118,7 @@ export function isStrictSubtype(
   maybeSubType: Type,
   allowedRules: SubtypingRule[] = DEFAULT_SUBTYPING_RULES,
   unionMembershipTester: (union: UnionType, maybeMember: ObjectType) => boolean = (u, m) => u.hasTypeMember(m),
-  implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i)
+  implementsInterfaceTester: (maybeImplementer: ObjectType | InterfaceType, itf: InterfaceType) => boolean = (m, i) => m.implementsInterface(i),
 ): boolean {
   switch (maybeSubType.kind) {
     case 'ListType':

@@ -1,12 +1,12 @@
+import { Schema, Operation } from '@apollo/federation-internals';
+import { buildFederatedQueryGraph, QueryGraph } from '@apollo/query-graphs';
+import { QueryPlan } from './QueryPlan';
+import { computeQueryPlan } from './buildPlan';
+
 export { queryPlanSerializer, astSerializer } from './snapshotSerializers';
 export { prettyFormatQueryPlan } from './prettyFormatQueryPlan';
 
 export * from './QueryPlan';
-import { QueryPlan } from './QueryPlan';
-
-import { Schema, Operation } from '@apollo/federation-internals';
-import { buildFederatedQueryGraph, QueryGraph } from "@apollo/query-graphs";
-import { computeQueryPlan } from './buildPlan';
 
 // There isn't much in this class yet, and I didn't want to make too many
 // changes at once, but since we were already storing a pointer to a

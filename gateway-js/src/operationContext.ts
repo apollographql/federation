@@ -32,19 +32,19 @@ export function buildOperationContext({
   const fragments: {
     [fragmentName: string]: FragmentDefinitionNode;
   } = Object.create(null);
-  operationDocument.definitions.forEach(definition => {
+  operationDocument.definitions.forEach((definition) => {
     switch (definition.kind) {
       case Kind.OPERATION_DEFINITION:
         operationCount++;
         if (!operationName && operationCount > 1) {
           throw new GraphQLError(
-            'Must provide operation name if query contains ' +
-              'multiple operations.',
+            'Must provide operation name if query contains '
+              + 'multiple operations.',
           );
         }
         if (
-          !operationName ||
-          (definition.name && definition.name.value === operationName)
+          !operationName
+          || (definition.name && definition.name.value === operationName)
         ) {
           operation = definition;
         }

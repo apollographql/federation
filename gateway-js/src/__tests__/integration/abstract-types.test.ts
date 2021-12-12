@@ -1,7 +1,6 @@
 import gql from 'graphql-tag';
-import { execute } from '../execution-utils';
-
 import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import { execute } from '../execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -735,7 +734,7 @@ describe('unions', () => {
     `);
   });
 
-  it("doesn't expand interfaces with inline type conditions if all possibilities are fufilled by one service", async () => {
+  it('doesn\'t expand interfaces with inline type conditions if all possibilities are fufilled by one service', async () => {
     const query = `#graphql
       query GetProducts {
         topProducts {
@@ -823,8 +822,8 @@ describe('unions', () => {
   // });
 });
 
-describe("doesn't result in duplicate fetches", () => {
-  it("when exploding types", async () => {
+describe('doesn\'t result in duplicate fetches', () => {
+  it('when exploding types', async () => {
     const query = `#graphql
       query {
         topProducts {
@@ -1046,7 +1045,7 @@ describe("doesn't result in duplicate fetches", () => {
     `);
   });
 
-it("when including the same nested fields under different type conditions", async () => {
+it('when including the same nested fields under different type conditions', async () => {
     const query = `#graphql
       query {
         topProducts {
@@ -1661,7 +1660,7 @@ it('when exploding types through multiple levels', async () => {
   //
   // Solving this requires us to filter on the types of response objects as
   // opposed to just collecting all objects in the path.
-it("when including the same nested fields under different type conditions that are split between services", async () => {
+it('when including the same nested fields under different type conditions that are split between services', async () => {
     const query = `#graphql
       query {
         topProducts {

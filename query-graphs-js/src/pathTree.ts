@@ -1,7 +1,7 @@
-import { arrayEquals, assert, copyWitNewLength } from "@apollo/federation-internals";
-import { GraphPath, OpGraphPath, OpTrigger, PathIterator } from "./graphPath";
-import { Edge, QueryGraph, RootVertex, isRootVertex, Vertex } from "./querygraph";
-import { isPathContext } from "./pathContext";
+import { arrayEquals, assert, copyWitNewLength } from '@apollo/federation-internals';
+import { GraphPath, OpGraphPath, OpTrigger, PathIterator } from './graphPath';
+import { Edge, QueryGraph, RootVertex, isRootVertex, Vertex } from './querygraph';
+import { isPathContext } from './pathContext';
 
 function opTriggerEquality(t1: OpTrigger, t2: OpTrigger): boolean {
   if (t1 === t2) {
@@ -21,12 +21,12 @@ type Child<TTrigger, RV extends Vertex, TNullEdge extends null | never> = {
   trigger: TTrigger,
   conditions: OpPathTree | null,
   tree: PathTree<TTrigger, RV, TNullEdge>
-}
+};
 
 function findTriggerIdx<TTrigger, TElements>(
   triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
   forIndex: [TTrigger, OpPathTree | null, TElements][],
-  trigger: TTrigger
+  trigger: TTrigger,
 ): number {
   for (let i = 0; i < forIndex.length; i++) {
     if (triggerEquality(forIndex[i][0], trigger)) {
@@ -48,7 +48,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
   static create<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never>(
     graph: QueryGraph,
     root: RV,
-    triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean
+    triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
   ): PathTree<TTrigger, RV, TNullEdge> {
     return new PathTree(graph, root, triggerEquality, []);
   }
@@ -64,7 +64,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       graph,
       opTriggerEquality,
       root,
-      paths.map(p => p[Symbol.iterator]())
+      paths.map((p) => p[Symbol.iterator]()),
     );
   }
 
@@ -72,7 +72,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     graph: QueryGraph,
     triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
     currentVertex: RV,
-    paths: PathIterator<TTrigger, TNullEdge>[]
+    paths: PathIterator<TTrigger, TNullEdge>[],
   ): PathTree<TTrigger, RV, TNullEdge> {
     const maxEdges = graph.outEdges(currentVertex).length;
     // We store 'null' edges at `maxEdges` index
@@ -126,7 +126,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
           index,
           trigger,
           conditions,
-          tree: this.createFromPaths(graph, triggerEquality, newVertex, subPaths)
+          tree: this.createFromPaths(graph, triggerEquality, newVertex, subPaths),
         };
       }
     }
@@ -143,7 +143,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     graph: QueryGraph,
     triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
     currentVertex: RV,
-    trees: PathTree<TTrigger, RV, TNullEdge>[]
+    trees: PathTree<TTrigger, RV, TNullEdge>[],
   ): PathTree<TTrigger, RV, TNullEdge> {
     const maxEdges = graph.outEdges(currentVertex).length;
     // We store 'null' edges at `maxEdges` index
@@ -194,7 +194,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
           index,
           trigger,
           conditions,
-          tree: this.mergeAllTreesInternal(graph, triggerEquality, newVertex, subTrees)
+          tree: this.mergeAllTreesInternal(graph, triggerEquality, newVertex, subTrees),
         };
       }
     }
@@ -210,7 +210,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     return this.childCount() === 0;
   }
 
-  *childElements(reverseOrder: boolean = false): Generator<[Edge | TNullEdge, TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>], void, undefined> {
+  * childElements(reverseOrder: boolean = false): Generator<[Edge | TNullEdge, TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>], void, undefined> {
     if (reverseOrder) {
       for (let i = this.childs.length - 1; i >= 0; i--) {
         yield this.element(i);
@@ -228,7 +228,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       (child.index === null ? null : this.graph.outEdge(this.vertex, child.index)) as Edge | TNullEdge,
       child.trigger,
       child.conditions,
-      child.tree
+      child.tree,
     ];
   }
 
@@ -239,7 +239,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       index: c1.index,
       trigger: c1.trigger,
       conditions: cond1 ? (cond2 ? cond1.mergeIfNotEqual(cond2) : cond1) : cond2,
-      tree: c1.tree.merge(c2.tree)
+      tree: c1.tree.merge(c2.tree),
     };
   }
 
@@ -300,12 +300,10 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
 
     // Note that we use '===' for trigger instead of `triggerEquality`: this method is all about avoid unnecessary merging
     // when we suspect conditions trees have been build from the exact same inputs and `===` is faster and good enough for this.
-    return arrayEquals(this.childs, that.childs, (c1, c2) => {
-      return c1.index === c2.index
+    return arrayEquals(this.childs, that.childs, (c1, c2) => c1.index === c2.index
         && c1.trigger === c2.trigger
         && (c1.conditions ? (c2.conditions ? c1.conditions.equalsSameRoot(c2.conditions) : false) : !c2.conditions)
-        && c1.tree.equalsSameRoot(c2.tree);
-    });
+        && c1.tree.equalsSameRoot(c2.tree));
   }
 
   // Like merge(), this create a new tree that contains the content of both `this` and `other` to this pathTree, but contrarily
@@ -340,9 +338,9 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     currentVertex = edge ? edge.tail : currentVertex;
     return [{
       index: edgeIndex,
-      trigger: trigger,
-      conditions: conditions,
-      tree: new PathTree<TTrigger, Vertex, TNullEdge>(this.graph, currentVertex, this.triggerEquality, this.childsFromPathElements(currentVertex, elements))
+      trigger,
+      conditions,
+      tree: new PathTree<TTrigger, Vertex, TNullEdge>(this.graph, currentVertex, this.triggerEquality, this.childsFromPathElements(currentVertex, elements)),
     }];
   }
 
@@ -363,22 +361,21 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
         this.triggerEquality,
         this.childs.concat({
           index: edgeIndex,
-          trigger: trigger,
-          conditions: conditions,
-          tree: new PathTree<TTrigger, Vertex, TNullEdge>(this.graph, currentVertex, this.triggerEquality, this.childsFromPathElements(currentVertex, elements))
-        })
+          trigger,
+          conditions,
+          tree: new PathTree<TTrigger, Vertex, TNullEdge>(this.graph, currentVertex, this.triggerEquality, this.childsFromPathElements(currentVertex, elements)),
+        }),
       );
-    } else {
+    }
       const newChilds = this.childs.concat();
       const existing = newChilds[idx];
       newChilds[idx] = {
         index: existing.index,
         trigger: existing.trigger,
         conditions: conditions ? (existing.conditions ? existing.conditions.merge(conditions) : conditions) : existing.conditions,
-        tree: existing.tree.mergePathInternal(elements)
+        tree: existing.tree.mergePathInternal(elements),
       };
       return new PathTree<TTrigger, RV, TNullEdge>(this.graph, this.vertex, this.triggerEquality, newChilds);
-    }
   }
 
   private findIndex(trigger: TTrigger, edgeIndex: number | TNullEdge): number {
@@ -397,26 +394,23 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
 
   private isAllInSameSubgraphInternal(target: string): boolean {
     return this.vertex.source === target
-      && this.childs.every(c => c.tree.isAllInSameSubgraphInternal(target));
+      && this.childs.every((c) => c.tree.isAllInSameSubgraphInternal(target));
   }
 
-  toString(indent: string = "", includeConditions: boolean = false): string {
+  toString(indent: string = '', includeConditions: boolean = false): string {
     return this.toStringInternal(indent, includeConditions);
   }
-
 
   private toStringInternal(indent: string, includeConditions: boolean): string {
     if (this.isLeaf()) {
       return this.vertex.toString();
     }
-    return this.vertex + ':\n' +
-      this.childs.map(child =>
-        indent
+    return this.vertex + ':\n'
+      + this.childs.map((child) => indent
         + ` -> [${child.index}] `
-        + (includeConditions && child.conditions ? `!! {\n${indent + "  "}${child.conditions!.toString(indent + "     ", true)}\n${indent} } ` : "")
+        + (includeConditions && child.conditions ? `!! {\n${indent + '  '}${child.conditions!.toString(indent + '     ', true)}\n${indent} } ` : '')
         + `${child.trigger} = `
-        + child.tree.toStringInternal(indent + "  ", includeConditions)
-      ).join('\n');
+        + child.tree.toStringInternal(indent + '  ', includeConditions)).join('\n');
   }
 }
 
@@ -431,7 +425,7 @@ export function isRootPathTree(tree: OpPathTree<any>): tree is OpRootPathTree {
 
 export function traversePathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never>(
   pathTree: PathTree<TTrigger, RV, TNullEdge>,
-  onEdges: (edge: Edge) => void
+  onEdges: (edge: Edge) => void,
 ) {
   for (const [edge, _, conditions, childTree] of pathTree.childElements()) {
     if (edge) {

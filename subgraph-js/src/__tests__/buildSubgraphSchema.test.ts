@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import { Kind, graphql, DocumentNode, execute } from 'graphql';
-import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { typeSerializer } from 'apollo-federation-integration-testsuite';
+import { buildSubgraphSchema } from '../buildSubgraphSchema';
 
 expect.addSnapshotSerializer(typeSerializer);
 

@@ -1,8 +1,8 @@
-import { 
+import {
   assert,
   OperationElement,
-} from "@apollo/federation-internals";
-import deepEqual from "deep-equal";
+} from '@apollo/federation-internals';
+import deepEqual from 'deep-equal';
 
 export function isPathContext(v: any): v is PathContext {
   return v instanceof PathContext;
@@ -11,7 +11,7 @@ export function isPathContext(v: any): v is PathContext {
 function addExtractedDirective(operation: OperationElement, directiveName: string, addTo: [string, any][]) {
   const applied = operation.appliedDirectivesOf(directiveName);
   if (applied.length > 0) {
-    assert(applied.length === 1, () => `${directiveName} shouldn't be repeated on ${operation}`)
+    assert(applied.length === 1, () => `${directiveName} shouldn't be repeated on ${operation}`);
     const value = applied[0].arguments()['if'];
     addTo.push([directiveName, value]);
   }
@@ -57,4 +57,3 @@ export class PathContext {
 }
 
 export const emptyContext = new PathContext([]);
-

@@ -1,6 +1,6 @@
 import {
   Schema,
-  BuiltIns
+  BuiltIns,
 } from '../../dist/definitions';
 import { buildSchema } from '../../dist/buildSchema';
 import { parseOperation } from '../../dist/operations';
@@ -12,7 +12,6 @@ function parseSchema(schema: string, builtIns?: BuiltIns): Schema {
     throw new Error('Error parsing the schema:\n' + e.toString());
   }
 }
-
 
 test('handles non-list value for list argument (as singleton)', () => {
   const schema = parseSchema(`

@@ -9,9 +9,9 @@ export function deepMerge(target: any, source: any): any {
     if (target[key] && isObject(source[key])) {
       deepMerge(target[key], source[key]);
     } else if (
-      Array.isArray(source[key]) &&
-      Array.isArray(target[key]) &&
-      source[key].length === target[key].length
+      Array.isArray(source[key])
+      && Array.isArray(target[key])
+      && source[key].length === target[key].length
     ) {
       let i = 0;
       for (; i < source[key].length; i++) {

@@ -1,9 +1,9 @@
 import gql from 'graphql-tag';
-import { execute } from '../execution-utils';
 import {
   astSerializer,
   queryPlanSerializer,
 } from 'apollo-federation-integration-testsuite';
+import { execute } from '../execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -170,7 +170,7 @@ describe('value types', () => {
     // Value type from a different service (reviews) also resolves correctly
     expect(furniture.reviews[0].metadata[0]).toEqual({
       code: 418,
-      message: "I'm a teapot",
+      message: 'I\'m a teapot',
     });
 
     // Sanity check, referenceable ID

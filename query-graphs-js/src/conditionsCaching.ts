@@ -1,7 +1,7 @@
-import { assert } from "@apollo/federation-internals";
-import { ConditionResolution, ConditionResolver, ExcludedConditions, ExcludedEdges, sameExcludedEdges } from "./graphPath";
-import { PathContext } from "./pathContext";
-import { Edge, QueryGraph, QueryGraphState } from "./querygraph";
+import { assert } from '@apollo/federation-internals';
+import { ConditionResolution, ConditionResolver, ExcludedConditions, ExcludedEdges, sameExcludedEdges } from './graphPath';
+import { PathContext } from './pathContext';
+import { Edge, QueryGraph, QueryGraphState } from './querygraph';
 
 export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionResolver): ConditionResolver {
   // For every edge having a condition, we cache the resolution its conditions when possible.
@@ -35,10 +35,9 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
       return sameExcludedEdges(forExcludedEdges, excludedEdges)
         ? cachedResolution
         : resolver(edge, context, excludedEdges, excludedConditions);
-    } else {
+    }
       const resolution = resolver(edge, context, excludedEdges, excludedConditions);
       cache.setEdgeState(edge, [resolution, excludedEdges]);
       return resolution;
-    }
   };
 }

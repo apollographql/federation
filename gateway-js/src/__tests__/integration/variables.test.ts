@@ -109,7 +109,7 @@ it('works with default variables in the schema', async () => {
         name: {
           first: 'Ada',
           last: 'Lovelace',
-        }
+        },
       },
     },
   });

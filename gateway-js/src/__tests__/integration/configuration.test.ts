@@ -63,8 +63,8 @@ describe('gateway configuration warnings', () => {
     await gateway.load(mockApolloConfig);
 
     expect(logger.warn).toHaveBeenCalledWith(
-      'A local gateway configuration is overriding a managed federation configuration.' +
-        '  To use the managed configuration, do not specify a service list or supergraphSdl locally.',
+      'A local gateway configuration is overriding a managed federation configuration.'
+        + '  To use the managed configuration, do not specify a service list or supergraphSdl locally.',
     );
   });
 
@@ -78,10 +78,10 @@ describe('gateway configuration warnings', () => {
     });
 
     expect(logger.warn).toHaveBeenCalledWith(
-      'Gateway found two manual update configurations when only one should be ' +
-        'provided. Gateway will default to using the provided `experimental_updateSupergraphSdl` ' +
-        'function when both `experimental_updateSupergraphSdl` and experimental_updateServiceDefinitions` ' +
-        'are provided.',
+      'Gateway found two manual update configurations when only one should be '
+        + 'provided. Gateway will default to using the provided `experimental_updateSupergraphSdl` '
+        + 'function when both `experimental_updateSupergraphSdl` and experimental_updateServiceDefinitions` '
+        + 'are provided.',
     );
 
     // Set to `null` so we don't try to call `stop` on it in the `afterEach`,
@@ -141,7 +141,7 @@ describe('gateway configuration warnings', () => {
 });
 
 describe('gateway startup errors', () => {
-  it("throws when static config can't be composed", async () => {
+  it('throws when static config can\'t be composed', async () => {
     const uncomposableSdl = gql`
       type Query {
         me: User
@@ -182,10 +182,9 @@ describe('gateway startup errors', () => {
       err = e;
     }
 
-    const expected =
-      "A valid schema couldn't be composed. The following composition errors were found:\n"
+    const expected = 'A valid schema couldn\'t be composed. The following composition errors were found:\n'
     + '	[accounts] On type "User", for @key(fields: "id"): Cannot query field "id" on type "User" (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).\n'
-    + '	[accounts] On type "Account", for @key(fields: "id"): Cannot query field "id" on type "Account" (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).'
+    + '	[accounts] On type "Account", for @key(fields: "id"): Cannot query field "id" on type "Account" (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
     expect(err.message).toBe(expected);
   });
 });
@@ -209,9 +208,7 @@ describe('gateway config / env behavior', () => {
     it('should allow not passing introspectionHeaders', async () => {
       const receivedHeaders = jest.fn();
       const nock = mockSdlQuerySuccess(service);
-      nock.on('request', (req: http.ClientRequest) =>
-        receivedHeaders(req.getHeaders()),
-      );
+      nock.on('request', (req: http.ClientRequest) => receivedHeaders(req.getHeaders()));
 
       gateway = new ApolloGateway({
         serviceList: [{ name: 'accounts', url: service.url }],
@@ -229,9 +226,7 @@ describe('gateway config / env behavior', () => {
     it('should use static headers', async () => {
       const receivedHeaders = jest.fn();
       const nock = mockSdlQuerySuccess(service);
-      nock.on('request', (req: http.ClientRequest) =>
-        receivedHeaders(req.getHeaders()),
-      );
+      nock.on('request', (req: http.ClientRequest) => receivedHeaders(req.getHeaders()));
 
       gateway = new ApolloGateway({
         serviceList: [{ name: 'accounts', url: service.url }],
@@ -252,9 +247,7 @@ describe('gateway config / env behavior', () => {
     it('should use dynamic async headers', async () => {
       const receivedHeaders = jest.fn();
       const nock = mockSdlQuerySuccess(service);
-      nock.on('request', (req: http.ClientRequest) =>
-        receivedHeaders(req.getHeaders()),
-      );
+      nock.on('request', (req: http.ClientRequest) => receivedHeaders(req.getHeaders()));
 
       gateway = new ApolloGateway({
         serviceList: [{ name: 'accounts', url: service.url }],
@@ -277,9 +270,7 @@ describe('gateway config / env behavior', () => {
     it('should use dynamic non-async headers', async () => {
       const receivedHeaders = jest.fn();
       const nock = mockSdlQuerySuccess(service);
-      nock.on('request', (req: http.ClientRequest) =>
-        receivedHeaders(req.getHeaders()),
-      );
+      nock.on('request', (req: http.ClientRequest) => receivedHeaders(req.getHeaders()));
 
       gateway = new ApolloGateway({
         serviceList: [{ name: 'accounts', url: service.url }],

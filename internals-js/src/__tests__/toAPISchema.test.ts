@@ -1,7 +1,7 @@
 import fs from 'fs';
+import path from 'path';
 import { Schema } from '../definitions';
 import { buildSchema } from '../buildSchema';
-import path from 'path';
 
 function directiveNames(schema: Schema): string[] {
   return [...schema.allDirectives()].map((directive) => directive.name);
@@ -47,7 +47,7 @@ describe('toAPISchema', () => {
 
   it(`does pass through other custom directives`, () => {
     expect(directiveNames(schema)).toEqual(
-      expect.arrayContaining([ 'transform', 'stream' ]),
+      expect.arrayContaining(['transform', 'stream']),
     );
   });
 });

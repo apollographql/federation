@@ -14,8 +14,6 @@ import {
   GraphQLSchema,
 } from 'graphql';
 import { Trace, google } from 'apollo-reporting-protobuf';
-import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
-import { OperationContext } from './operationContext';
 import {
   FetchNode,
   PlanNode,
@@ -25,11 +23,13 @@ import {
   QueryPlanFieldNode,
   getResponseName,
 } from '@apollo/query-planner';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { defaultRootName } from '@apollo/federation-internals';
+import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
+import { OperationContext } from './operationContext';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
-import { SpanStatusCode } from "@opentelemetry/api";
-import { OpenTelemetrySpanNames, tracer } from "./utilities/opentelemetry";
-import { defaultRootName } from '@apollo/federation-internals';
+import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -51,10 +51,9 @@ export async function executeQueryPlan<TContext>(
   requestContext: GraphQLRequestContext<TContext>,
   operationContext: OperationContext,
 ): Promise<GraphQLExecutionResult> {
-
   const logger = requestContext.logger || console;
 
-  return tracer.startActiveSpan(OpenTelemetrySpanNames.EXECUTE, async span => {
+  return tracer.startActiveSpan(OpenTelemetrySpanNames.EXECUTE, async (span) => {
     try {
       const errors: GraphQLError[] = [];
 
@@ -86,13 +85,12 @@ export async function executeQueryPlan<TContext>(
       }
 
       const result = await tracer.startActiveSpan(OpenTelemetrySpanNames.POST_PROCESSING, async (span) => {
-
         // FIXME: Re-executing the query is a pretty heavy handed way of making sure
         // only explicitly requested fields are included and field ordering follows
         // the original query.
         // It is also used to allow execution of introspection queries though.
         try {
-          const schema = operationContext.schema;
+          const { schema } = operationContext;
           ({ data } = await execute({
             schema,
             document: {
@@ -108,10 +106,10 @@ export async function executeQueryPlan<TContext>(
             fieldResolver: defaultFieldResolverWithAliasSupport,
           }));
         } catch (error) {
-          span.setStatus({ code:SpanStatusCode.ERROR });
+          span.setStatus({ code: SpanStatusCode.ERROR });
           if (error instanceof GraphQLError) {
             return { errors: [error] };
-          } else if (error instanceof Error) {
+          } if (error instanceof Error) {
             return {
               errors: [
                 new GraphQLError(
@@ -121,43 +119,40 @@ export async function executeQueryPlan<TContext>(
                   undefined,
                   undefined,
                   error as Error,
-                )
-              ]
+                ),
+              ],
             };
-          } else {
+          }
             // The above cases should cover the known cases, but if we received
             // something else in the `catch` — like an object or something, we
             // may not want to merely return this to the client.
             logger.error(
-              "Unexpected error during query plan execution: " + error);
+              'Unexpected error during query plan execution: ' + error,
+);
             return {
               errors: [
                 new GraphQLError(
-                  "Unexpected error during query plan execution",
-                )
-              ]
+                  'Unexpected error during query plan execution',
+                ),
+              ],
             };
-          }
+        } finally {
+          span.end();
         }
-        finally {
-          span.end()
-        }
-        if(errors.length > 0) {
-          span.setStatus({ code:SpanStatusCode.ERROR });
+        if (errors.length > 0) {
+          span.setStatus({ code: SpanStatusCode.ERROR });
         }
         return errors.length === 0 ? { data } : { errors, data };
       });
 
-      if(result.errors) {
-        span.setStatus({ code:SpanStatusCode.ERROR });
+      if (result.errors) {
+        span.setStatus({ code: SpanStatusCode.ERROR });
       }
       return result;
-    }
-    catch (err) {
-      span.setStatus({ code:SpanStatusCode.ERROR });
+    } catch (err) {
+      span.setStatus({ code: SpanStatusCode.ERROR });
       throw err;
-    }
-    finally {
+    } finally {
       span.end();
     }
   });
@@ -201,9 +196,7 @@ async function executeNode<TContext>(
     }
     case 'Parallel': {
       const childTraceNodes = await Promise.all(
-        node.nodes.map(async childNode =>
-          executeNode(context, childNode, results, path, captureTraces),
-        ),
+        node.nodes.map(async (childNode) => executeNode(context, childNode, results, path, captureTraces)),
       );
       return new Trace.QueryPlanNode({
         parallel: new Trace.QueryPlanNode.ParallelNode({
@@ -215,8 +208,7 @@ async function executeNode<TContext>(
       return new Trace.QueryPlanNode({
         flatten: new Trace.QueryPlanNode.FlattenNode({
           responsePath: node.path.map(
-            id =>
-              new Trace.QueryPlanNode.ResponsePathElement(
+            (id) => new Trace.QueryPlanNode.ResponsePathElement(
                 typeof id === 'string' ? { fieldName: id } : { index: id },
               ),
           ),
@@ -258,11 +250,10 @@ async function executeFetch<TContext>(
   _path: ResponsePath,
   traceNode: Trace.QueryPlanNode.FetchNode | null,
 ): Promise<void> {
-
   const logger = context.requestContext.logger || console;
   const service = context.serviceMap[fetch.serviceName];
 
-  return tracer.startActiveSpan(OpenTelemetrySpanNames.FETCH, {attributes:{service:fetch.serviceName}}, async span => {
+  return tracer.startActiveSpan(OpenTelemetrySpanNames.FETCH, { attributes: { service: fetch.serviceName } }, async (span) => {
     try {
       if (!service) {
         throw new Error(`Couldn't find service with name "${fetch.serviceName}"`);
@@ -283,8 +274,8 @@ async function executeFetch<TContext>(
         for (const variableName of fetch.variableUsages) {
           const providedVariables = context.requestContext.request.variables;
           if (
-              providedVariables &&
-              typeof providedVariables[variableName] !== 'undefined'
+              providedVariables
+              && typeof providedVariables[variableName] !== 'undefined'
           ) {
             variables[variableName] = providedVariables[variableName];
           }
@@ -302,7 +293,7 @@ async function executeFetch<TContext>(
           deepMerge(entity, dataReceivedFromService);
         }
       } else {
-        const requires = fetch.requires;
+        const { requires } = fetch;
 
         const representations: ResultMap[] = [];
         const representationToEntity: number[] = [];
@@ -330,7 +321,7 @@ async function executeFetch<TContext>(
         const dataReceivedFromService = await sendOperation(
             context,
             fetch.operation,
-            {...variables, representations},
+            { ...variables, representations },
         );
 
         if (!dataReceivedFromService) {
@@ -339,8 +330,8 @@ async function executeFetch<TContext>(
 
         if (
             !(
-                dataReceivedFromService._entities &&
-                Array.isArray(dataReceivedFromService._entities)
+                dataReceivedFromService._entities
+                && Array.isArray(dataReceivedFromService._entities)
             )
         ) {
           throw new Error(`Expected "data._entities" in response to be an array`);
@@ -358,13 +349,10 @@ async function executeFetch<TContext>(
           deepMerge(entities[representationToEntity[i]], receivedEntities[i]);
         }
       }
-    }
-    catch (err) {
-      span.setStatus({ code:SpanStatusCode.ERROR });
+    } catch (err) {
+      span.setStatus({ code: SpanStatusCode.ERROR });
       throw err;
-    }
-    finally
-    {
+    } finally {
       span.end();
     }
   });
@@ -385,8 +373,8 @@ async function executeFetch<TContext>(
         headers: new Headers({ 'apollo-federation-include-trace': 'ftv1' }),
       };
       if (
-        context.requestContext.metrics &&
-        context.requestContext.metrics.startHrTime
+        context.requestContext.metrics
+        && context.requestContext.metrics.startHrTime
       ) {
         traceNode.sentTimeOffset = durationHrTimeToNanos(
           process.hrtime(context.requestContext.metrics.startHrTime),
@@ -407,9 +395,7 @@ async function executeFetch<TContext>(
     });
 
     if (response.errors) {
-      const errors = response.errors.map((error) =>
-        downstreamServiceError(error, fetch.serviceName),
-      );
+      const errors = response.errors.map((error) => downstreamServiceError(error, fetch.serviceName));
       context.errors.push(...errors);
     }
 
@@ -473,7 +459,6 @@ function executeSelectionSet(
   source: Record<string, any> | null,
   selections: QueryPlanSelectionNode[],
 ): Record<string, any> | null {
-
   // If the underlying service has returned null for the parent (source)
   // then there is no need to iterate through the parent's selection set
   if (source === null) {
@@ -486,17 +471,15 @@ function executeSelectionSet(
     switch (selection.kind) {
       case Kind.FIELD:
         const responseName = getResponseName(selection as QueryPlanFieldNode);
-        const selections = (selection as QueryPlanFieldNode).selections;
+        const { selections } = selection as QueryPlanFieldNode;
 
         if (typeof source[responseName] === 'undefined') {
           throw new Error(`Field "${responseName}" was not found in response.`);
         }
         if (Array.isArray(source[responseName])) {
-          result[responseName] = source[responseName].map((value: any) =>
-            selections
+          result[responseName] = source[responseName].map((value: any) => (selections
               ? executeSelectionSet(operationContext, value, selections)
-              : value,
-          );
+              : value));
         } else if (selections) {
           result[responseName] = executeSelectionSet(
             operationContext,
@@ -559,9 +542,8 @@ function flattenResultsAtPath(value: any, path: ResponsePath): any {
   const [current, ...rest] = path;
   if (current === '@') {
     return value.flatMap((element: any) => flattenResultsAtPath(element, rest));
-  } else {
-    return flattenResultsAtPath(value[current], rest);
   }
+    return flattenResultsAtPath(value[current], rest);
 }
 
 function downstreamServiceError(
@@ -594,7 +576,7 @@ function downstreamServiceError(
 export const defaultFieldResolverWithAliasSupport: GraphQLFieldResolver<
   any,
   any
-> = function(source, args, contextValue, info) {
+> = function (source, args, contextValue, info) {
   // ensure source is a value for which property access is acceptable.
   if (typeof source === 'object' || typeof source === 'function') {
     // if this is an alias, check it first because a downstream service

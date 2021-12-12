@@ -18,10 +18,10 @@ import {
   SchemaDefinition,
   SchemaElement,
   SchemaRootKind,
-  UnionType
-} from "./definitions";
-import { assert } from "./utils";
-import { valueToString } from "./values";
+  UnionType,
+} from './definitions';
+import { assert } from './utils';
+import { valueToString } from './values';
 
 export type Options = {
   indentString: string;
@@ -33,17 +33,17 @@ export type Options = {
   showAllBuiltIns: boolean;
   showNonGraphQLBuiltIns: boolean;
   noDescriptions: boolean;
-}
+};
 
 export const defaultPrintOptions: Options = {
-  indentString: "  ",
+  indentString: '  ',
   definitionsOrder: ['schema', 'directives', 'types'],
   rootTypesOrder: ['query', 'mutation', 'subscription'],
   mergeTypesAndExtensions: false,
   showAllBuiltIns: false,
   showNonGraphQLBuiltIns: false,
   noDescriptions: false,
-}
+};
 
 export function orderPrintedDefinitions(options: Options): Options {
   return {
@@ -78,12 +78,12 @@ export function printSchema(schema: Schema, options: Options = defaultPrintOptio
   }
   const definitions: string[][] = new Array(3);
   definitions[options.definitionsOrder.indexOf('schema')] = printSchemaDefinitionAndExtensions(schema.schemaDefinition, options);
-  definitions[options.definitionsOrder.indexOf('directives')] = directives.map(directive => printDirectiveDefinition(directive, options));
-  definitions[options.definitionsOrder.indexOf('types')] = types.flatMap(type => printTypeDefinitionAndExtensions(type, options));
+  definitions[options.definitionsOrder.indexOf('directives')] = directives.map((directive) => printDirectiveDefinition(directive, options));
+  definitions[options.definitionsOrder.indexOf('types')] = types.flatMap((type) => printTypeDefinitionAndExtensions(type, options));
   return definitions.flat().join('\n\n');
 }
 
-function definitionAndExtensions<T extends ExtendableElement>(element: {extensions(): ReadonlySet<Extension<T>>}, options: Options): (Extension<any> | null | undefined)[] {
+function definitionAndExtensions<T extends ExtendableElement>(element: { extensions(): ReadonlySet<Extension<T>> }, options: Options): (Extension<any> | null | undefined)[] {
   return options.mergeTypesAndExtensions ? [undefined] : [null, ...element.extensions()];
 }
 
@@ -94,25 +94,26 @@ function printSchemaDefinitionAndExtensions(schemaDefinition: SchemaDefinition, 
   return printDefinitionAndExtensions(schemaDefinition, options, printSchemaDefinitionOrExtension);
 }
 
-function printDefinitionAndExtensions<T extends {extensions(): ReadonlySet<Extension<any>>}>(
+function printDefinitionAndExtensions<T extends { extensions(
+): ReadonlySet<Extension<any>> }>(
   t: T,
   options: Options,
-  printer: (t: T, options: Options, extension?: Extension<any> | null) => string | undefined
+  printer: (t: T, options: Options, extension?: Extension<any> | null) => string | undefined,
 ): string[] {
   return definitionAndExtensions(t, options)
-    .map(ext => printer(t, options, ext))
-    .filter(v => v !== undefined) as string[];
+    .map((ext) => printer(t, options, ext))
+    .filter((v) => v !== undefined) as string[];
 }
 
 function printIsExtension(extension?: Extension<any> | null): string {
   return extension ? 'extend ' : '';
 }
 
-function forExtension<T extends {ofExtension(): Extension<any> | undefined}>(ts: readonly T[], extension?: Extension<any> |null): readonly T[]  {
+function forExtension<T extends { ofExtension(): Extension<any> | undefined }>(ts: readonly T[], extension?: Extension<any> | null): readonly T[] {
   if (extension === undefined) {
     return ts;
   }
-  return ts.filter(r => (r.ofExtension() ?? null) === extension);
+  return ts.filter((r) => (r.ofExtension() ?? null) === extension);
 }
 
 function orderRoots(roots: readonly RootType[], options: Options): RootType[] {
@@ -122,9 +123,9 @@ function orderRoots(roots: readonly RootType[], options: Options): RootType[] {
 function printSchemaDefinitionOrExtension(
   schemaDefinition: SchemaDefinition,
   options: Options,
-  extension?: Extension<SchemaDefinition> | null
+  extension?: Extension<SchemaDefinition> | null,
 ): string | undefined {
-  const roots = forExtension(schemaDefinition.roots(),  extension);
+  const roots = forExtension(schemaDefinition.roots(), extension);
   const directives = forExtension(schemaDefinition.appliedDirectives, extension);
   if (!roots.length && !directives.length) {
     return undefined;
@@ -151,7 +152,7 @@ function printSchemaDefinitionOrExtension(
  * When using this naming convention, the schema description can be omitted.
  */
 function isSchemaOfCommonNames(schema: SchemaDefinition): boolean {
-  return schema.appliedDirectives.length === 0 && !schema.description && schema.roots().every(r => r.isDefaultRootName());
+  return schema.appliedDirectives.length === 0 && !schema.description && schema.roots().every((r) => r.isDefaultRootName());
 }
 
 /**
@@ -184,13 +185,13 @@ function printAppliedDirectives(
   appliedDirectives: readonly Directive<any>[],
   options: Options,
   onNewLines: boolean = false,
-  endWithNewLine: boolean = onNewLines
+  endWithNewLine: boolean = onNewLines,
 ): string {
   if (appliedDirectives.length == 0) {
-    return "";
+    return '';
   }
   const joinStr = onNewLines ? '\n' + options.indentString : ' ';
-  const directives = appliedDirectives.map(d => d.toString()).join(joinStr);
+  const directives = appliedDirectives.map((d) => d.toString()).join(joinStr);
   return onNewLines ? '\n' + options.indentString + directives + (endWithNewLine ? '\n' : '') : ' ' + directives;
 }
 
@@ -198,7 +199,7 @@ function printDescription(
   element: SchemaElement<any, any>,
   options: Options,
   indentation: string = '',
-  firstInBlock: boolean = true
+  firstInBlock: boolean = true,
 ): string {
   if (element.description === undefined || options.noDescriptions) {
     return '';
@@ -206,8 +207,7 @@ function printDescription(
 
   const preferMultipleLines = element.description.length > 70;
   const blockString = printBlockString(element.description, '', preferMultipleLines);
-  const prefix =
-    indentation && !firstInBlock ? '\n' + indentation : indentation;
+  const prefix = indentation && !firstInBlock ? '\n' + indentation : indentation;
 
   return prefix + blockString.replace(/\n/g, '\n' + indentation) + '\n';
 }
@@ -217,12 +217,12 @@ function printScalarDefinitionOrExtension(type: ScalarType, options: Options, ex
   if (extension && !directives.length) {
     return undefined;
   }
-  return `${printDescription(type, options)}${printIsExtension(extension)}scalar ${type.name}${printAppliedDirectives(directives, options, true, false)}`
+  return `${printDescription(type, options)}${printIsExtension(extension)}scalar ${type.name}${printAppliedDirectives(directives, options, true, false)}`;
 }
 
 function printImplementedInterfaces(implementations: readonly InterfaceImplementation<any>[]): string {
   return implementations.length
-    ? ' implements ' + implementations.map(i => i.interface.name).join(' & ')
+    ? ' implements ' + implementations.map((i) => i.interface.name).join(' & ')
     : '';
 }
 
@@ -248,7 +248,7 @@ function printUnionDefinitionOrExtension(type: UnionType, options: Options, exte
   if (!directives.length && !members.length) {
     return undefined;
   }
-  const possibleTypes = members.length ? ' = ' + members.map(m => m.type).join(' | ') : '';
+  const possibleTypes = members.length ? ' = ' + members.map((m) => m.type).join(' | ') : '';
   return printDescription(type, options)
     + printIsExtension(extension)
     + 'union ' + type
@@ -262,8 +262,7 @@ function printEnumDefinitionOrExtension(type: EnumType, options: Options, extens
   if (!directives.length && !values.length) {
     return undefined;
   }
-  const vals = values.map((v, i) =>
-    printDescription(v, options, options.indentString, !i)
+  const vals = values.map((v, i) => printDescription(v, options, options.indentString, !i)
     + options.indentString
     + v
     + printAppliedDirectives(v.appliedDirectives, options));
@@ -290,8 +289,7 @@ function printInputDefinitionOrExtension(type: InputObjectType, options: Options
 }
 
 function printFields(fields: readonly (FieldDefinition<any> | InputFieldDefinition)[], options: Options): string {
-  return printBlock(fields.map((f, i) =>
-    printDescription(f, options, options.indentString, !i)
+  return printBlock(fields.map((f, i) => printDescription(f, options, options.indentString, !i)
     + options.indentString
     + printField(f, options)
     + printAppliedDirectives(f.appliedDirectives, options)));
@@ -314,8 +312,8 @@ function printArgs(args: readonly ArgumentDefinition<any>[], options: Options, i
   // Note: this line means that, for args, we skip empty descriptions (because the empty string is falsy). This is inconsistent with
   // `printDescription` where we print such description in other places. _However_, this is what graphQL-js does as well, and for now,
   // we'd rather not have things diverge because of just that.
-  if (args.every(arg => !arg.description)) {
-    return '(' + args.map(arg => printArg(arg, options)).join(', ') + ')';
+  if (args.every((arg) => !arg.description)) {
+    return '(' + args.map((arg) => printArg(arg, options)).join(', ') + ')';
   }
 
   const formattedArgs = args
@@ -346,11 +344,10 @@ function printBlockString(
   const hasLeadingSpace = value[0] === ' ' || value[0] === '\t';
   const hasTrailingQuote = value[value.length - 1] === '"';
   const hasTrailingSlash = value[value.length - 1] === '\\';
-  const printAsMultipleLines =
-    !isSingleLine ||
-    hasTrailingQuote ||
-    hasTrailingSlash ||
-    preferMultipleLines;
+  const printAsMultipleLines = !isSingleLine
+    || hasTrailingQuote
+    || hasTrailingSlash
+    || preferMultipleLines;
 
   let result = '';
   // Format a multi-line block quote to account for leading space.

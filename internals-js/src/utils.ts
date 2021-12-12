@@ -14,7 +14,7 @@ export function assert(condition: any, message: string | (() => string)): assert
 }
 
 export function assertUnreachable(_: never): never {
-  throw new Error("Didn't expect to get here");
+  throw new Error('Didn\'t expect to get here');
 }
 
 export class MultiMap<K, V> extends Map<K, V[]> {
@@ -36,15 +36,17 @@ export class MultiMap<K, V> extends Map<K, V[]> {
  * Uses '<' '>' sorting by default
  * Collisions are fine, it will just overwrite the old value
  */
-export class OrderedMap<K,V> {
+export class OrderedMap<K, V> {
   private _keys: K[] = [];
-  private _values: Map<K,V> = new Map<K,V>();
+
+  private _values: Map<K, V> = new Map<K, V>();
+
   private _compareFn: (a: K, b: K) => number;
 
   private static defaultCompareFn<K>(a: K, b: K) {
     if (a < b) {
       return -1;
-    } else if (b < a) {
+    } if (b < a) {
       return 1;
     }
     return 0;
@@ -78,7 +80,7 @@ export class OrderedMap<K,V> {
   }
 
   values(): V[] {
-    return this._keys.map(key => {
+    return this._keys.map((key) => {
       const v = this._values.get(key);
       assert(v, 'value for known key not found in OrderedMap');
       return v;
@@ -102,7 +104,7 @@ export class OrderedMap<K,V> {
 
   // remove(key: K): void - not implemented
 
-  *[Symbol.iterator]() {
+  * [Symbol.iterator]() {
     for (let i = 0; i < this._keys.length; i += 1) {
       const v = this._values.get(this._keys[i]);
       assert(v, 'value for known key not found in OrderedMap');
@@ -120,7 +122,7 @@ export class OrderedMap<K,V> {
 export function arrayEquals<T>(
   a: readonly T[],
   b: readonly T[],
-  equalFct?: (e1: T, e2: T) => boolean
+  equalFct?: (e1: T, e2: T) => boolean,
 ): boolean {
   if (a === b) {
     return true;
@@ -180,7 +182,9 @@ export function setValues<V>(set: ReadonlySet<V>): V[] {
 
 export class MapWithCachedArrays<K, V> {
   private readonly map = new Map<K, V>();
+
   private cachedKeys?: readonly K[];
+
   private cachedValues?: readonly V[];
 
   private clearCaches() {

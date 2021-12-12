@@ -2,20 +2,21 @@ import gql from 'graphql-tag';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 
-import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
-import { ApolloGateway } from '../../';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { QueryPlanner } from '@apollo/query-planner';
+import { LocalGraphQLDataSource } from '../../datasources/LocalGraphQLDataSource';
+import { ApolloGateway } from '../..';
+
 it('caches the query plan for a request', async () => {
   const buildQueryPlanSpy = jest.spyOn(QueryPlanner.prototype, 'buildQueryPlan');
 
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
-    buildService: service => {
+    buildService: (service) =>
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
-    },
+       new LocalGraphQLDataSource(buildSubgraphSchema([service]))
+    ,
   });
 
   const { schema, executor } = await gateway.load();
@@ -68,11 +69,11 @@ it('supports multiple operations and operationName', async () => {
 
   const gateway = new ApolloGateway({
     localServiceList: fixtures,
-    buildService: service => {
+    buildService: (service) =>
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
-    },
+       new LocalGraphQLDataSource(buildSubgraphSchema([service]))
+    ,
   });
 
   const { schema, executor } = await gateway.load();
@@ -174,11 +175,11 @@ it('does not corrupt cached queryplan data across requests', async () => {
 
   const gateway = new ApolloGateway({
     localServiceList: [serviceA, serviceB],
-    buildService: service => {
+    buildService: (service) =>
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
-    },
+       new LocalGraphQLDataSource(buildSubgraphSchema([service]))
+    ,
   });
 
   const { schema, executor } = await gateway.load();

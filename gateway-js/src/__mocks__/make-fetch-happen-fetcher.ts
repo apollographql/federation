@@ -9,7 +9,7 @@ import {
   Response,
   BodyInit,
   Headers,
-  HeadersInit
+  HeadersInit,
 } from 'apollo-server-env';
 
 import fetcher from 'make-fetch-happen';
@@ -25,26 +25,20 @@ mockMakeFetchHappen.mockResponseOnce = (
   data?: BodyInit,
   headers?: Headers,
   status: number = 200,
-) => {
-  return mockMakeFetchHappen.mockImplementationOnce(async () => {
-    return new Response(data, {
+) => mockMakeFetchHappen.mockImplementationOnce(async () => new Response(data, {
       status,
       headers,
-    });
-  });
-};
+    }));
 
 mockMakeFetchHappen.mockJSONResponseOnce = (
   data = {},
   headers?: Headers,
   status?: number,
-) => {
-  return mockMakeFetchHappen.mockResponseOnce(
+) => mockMakeFetchHappen.mockResponseOnce(
     JSON.stringify(data),
-    Object.assign({ 'Content-Type': 'application/json' }, headers),
+    { 'Content-Type': 'application/json', ...headers },
     status,
   );
-};
 
 const makeFetchMock = {
   makeFetchHappenFetcher: mockMakeFetchHappen,

@@ -107,19 +107,19 @@ const books = [
 export const resolvers: GraphQLResolverMap<any> = {
   Book: {
     __resolveObject(object) {
-      return books.find(book => book.isbn === object.isbn);
+      return books.find((book) => book.isbn === object.isbn);
     },
     similarBooks(object) {
       return object.similarBooks
         ? object.similarBooks
-            .map((isbn: string) => books.find(book => book.isbn === isbn))
+            .map((isbn: string) => books.find((book) => book.isbn === isbn))
             .filter(Boolean)
         : [];
     },
   },
   Library: {
     __resolveReference(object) {
-      return libraries.find(library => library.id === object.id);
+      return libraries.find((library) => library.id === object.id);
     },
   },
   Query: {
@@ -130,7 +130,7 @@ export const resolvers: GraphQLResolverMap<any> = {
       return books;
     },
     library(_, { id }) {
-      return libraries.find(library => library.id === id);
+      return libraries.find((library) => library.id === id);
     },
   },
   MetadataOrError: {

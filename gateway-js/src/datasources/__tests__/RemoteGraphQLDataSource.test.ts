@@ -1,15 +1,14 @@
-import { fetch } from '../../__mocks__/apollo-server-env';
-import { makeFetchHappenFetcher } from '../../__mocks__/make-fetch-happen-fetcher';
-
 import {
   ApolloError,
   AuthenticationError,
   ForbiddenError,
 } from 'apollo-server-errors';
-
-import { RemoteGraphQLDataSource } from '../RemoteGraphQLDataSource';
 import { Headers } from 'apollo-server-env';
 import { GraphQLRequestContext } from 'apollo-server-types';
+import { fetch } from '../../__mocks__/apollo-server-env';
+import { makeFetchHappenFetcher } from '../../__mocks__/make-fetch-happen-fetcher';
+
+import { RemoteGraphQLDataSource } from '../RemoteGraphQLDataSource';
 import { GraphQLDataSourceRequestKind } from '../types';
 
 beforeEach(() => {
@@ -75,8 +74,7 @@ describe('constructing requests', () => {
     const query = '{ me { name } }';
 
     // This is a SHA-256 hash of `query` above.
-    const sha256Hash =
-      'b8d9506e34c83b0e53c2aa463624fcea354713bc38f95276e6f0bd893ffb5b88';
+    const sha256Hash = 'b8d9506e34c83b0e53c2aa463624fcea354713bc38f95276e6f0bd893ffb5b88';
 
     describe('miss', () => {
       const apqNotFoundResponse = {
@@ -368,8 +366,7 @@ describe('didReceiveResponse', () => {
           'request' | 'response' | 'context'
         >
       >) {
-        const surrogateKeys =
-          request.http && request.http.headers.get('surrogate-keys');
+        const surrogateKeys = request.http && request.http.headers.get('surrogate-keys');
         if (surrogateKeys) {
           context.surrogateKeys.push(...surrogateKeys.split(' '));
         }
@@ -435,6 +432,7 @@ describe('didReceiveResponse', () => {
   it('is only called once when apq is enabled', async () => {
     class MyDataSource extends RemoteGraphQLDataSource {
       url = 'https://api.example.com/foo';
+
       apq = true;
 
       didReceiveResponse<MyContext>({

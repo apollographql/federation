@@ -1,23 +1,21 @@
-import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
-import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from "./definitions";
-import { sameType } from "./types";
+import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from 'graphql';
+import { URL } from 'url';
 import { err } from '@apollo/core-schema';
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from './definitions';
+import { sameType } from './types';
 import { assert } from './utils';
 
 export const coreIdentity = 'https://specs.apollo.dev/core';
 
-export const ErrCoreCheckFailed = (causes: Error[]) =>
-  err('CheckFailed', {
+export const ErrCoreCheckFailed = (causes: Error[]) => err('CheckFailed', {
     message: 'one or more checks failed',
-    causes
-  })
+    causes,
+  });
 
 function buildError(message: string): Error {
   // Maybe not the right error for this?
   return new Error(message);
 }
-
 
 export const corePurposes = [
   'SECURITY' as const,
@@ -28,8 +26,8 @@ export type CorePurpose = typeof corePurposes[number];
 
 function purposesDescription(purpose: CorePurpose) {
   switch (purpose) {
-    case 'SECURITY': return "`SECURITY` features provide metadata necessary to securely resolve fields.";
-    case 'EXECUTION': return "`EXECUTION` features provide metadata necessary for operation execution.";
+    case 'SECURITY': return '`SECURITY` features provide metadata necessary to securely resolve fields.';
+    case 'EXECUTION': return '`EXECUTION` features provide metadata necessary for operation execution.';
   }
 }
 
@@ -72,12 +70,12 @@ export abstract class FeatureDefinition {
       : undefined;
   }
 
-  protected rootDirective<TApplicationArgs extends {[key: string]: any}>(schema: Schema): DirectiveDefinition<TApplicationArgs> | undefined {
+  protected rootDirective<TApplicationArgs extends { [key: string]: any }>(schema: Schema): DirectiveDefinition<TApplicationArgs> | undefined {
     const name = this.nameInSchema(schema);
     return name ? schema.directive(name) as DirectiveDefinition<TApplicationArgs> | undefined : undefined;
   }
 
-  protected directive<TApplicationArgs extends {[key: string]: any}>(schema: Schema, elementName: string): DirectiveDefinition<TApplicationArgs> | undefined {
+  protected directive<TApplicationArgs extends { [key: string]: any }>(schema: Schema, elementName: string): DirectiveDefinition<TApplicationArgs> | undefined {
     const name = this.elementNameInSchema(schema, elementName);
     return name ? schema.directive(name) as DirectiveDefinition<TApplicationArgs> | undefined : undefined;
   }
@@ -112,7 +110,7 @@ export abstract class FeatureDefinition {
   }
 
   toString(): string {
-    return `${this.identity}/${this.version}`
+    return `${this.identity}/${this.version}`;
   }
 }
 
@@ -120,10 +118,10 @@ export type CoreDirectiveArgs = {
   feature: string,
   as?: string,
   for?: string
-}
+};
 
 export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefinition, any>): directive is Directive<SchemaDefinition, CoreDirectiveArgs> {
-  const definition = directive.definition;
+  const { definition } = directive;
   if (!definition) {
     return false;
   }
@@ -163,9 +161,8 @@ export class CoreSpecDefinition extends FeatureDefinition {
       if (existing.coreItself.url.identity === this.identity) {
         // Already exists with the same version, let it be.
         return;
-      } else {
-        throw buildError(`Cannot add feature ${this} to the schema, it already uses ${existing.coreItself.url}`);
       }
+        throw buildError(`Cannot add feature ${this} to the schema, it already uses ${existing.coreItself.url}`);
     }
 
     const nameInSchema = as ?? this.url.name;
@@ -183,7 +180,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
 
     // Note: we don't use `applyFeatureToSchema` because it would complain the schema is not a core schema, which it isn't
     // until the next line.
-    const args: CoreDirectiveArgs = { feature: this.toString() }
+    const args: CoreDirectiveArgs = { feature: this.toString() };
     if (as) {
       args.as = as;
     }
@@ -242,7 +239,7 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
     if (definition.identity !== this.identity) {
       throw buildError(`Cannot add definition for ${definition} to the versions of definitions for ${this.identity}`);
     }
-    if (this._definitions.find(def => definition.version.equals(def.version))) {
+    if (this._definitions.find((def) => definition.version.equals(def.version))) {
       return this;
     }
     this._definitions.push(definition);
@@ -257,11 +254,11 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
    * known version can satisfy this version.
    */
   find(requested: FeatureVersion): T | undefined {
-    return this._definitions.find(def => def.version.satisfies(requested));
+    return this._definitions.find((def) => def.version.satisfies(requested));
   }
 
   versions(): FeatureVersion[] {
-    return this._definitions.map(def => def.version);
+    return this._definitions.map((def) => def.version);
   }
 
   latest(): T {
@@ -287,11 +284,11 @@ export class FeatureVersion {
    * ```
    */
   public static parse(input: string): FeatureVersion {
-    const match = input.match(this.VERSION_RE)
+    const match = input.match(this.VERSION_RE);
     if (!match) {
       throw new GraphQLError(`Expected a version string (of the form v1.2), got ${input}`);
     }
-    return new this(+match[1], +match[2])
+    return new this(+match[1], +match[2]);
   }
 
   /**
@@ -304,15 +301,15 @@ export class FeatureVersion {
    * expect(new FeatureVersion(2, 0).satisfies(new FeatureVersion(1, 9))).toBe(false)
    * expect(new FeatureVersion(0, 9).satisfies(new FeatureVersion(0, 8))).toBe(false)
    * ```
-   **/
+   * */
   public satisfies(required: FeatureVersion): boolean {
-    const {major, minor} = this
-    const {major: rMajor, minor: rMinor} = required
+    const { major, minor } = this;
+    const { major: rMajor, minor: rMinor } = required;
     return rMajor == major && (
       major == 0
         ? rMinor == minor
         : rMinor <= minor
-    )
+    );
   }
 
   /**
@@ -321,8 +318,8 @@ export class FeatureVersion {
    * of compatibility, so those will just return the same thing as `this.toString()`.
    */
   public get series() {
-    const {major} = this
-    return major > 0 ? `${major}.x` : String(this)
+    const { major } = this;
+    return major > 0 ? `${major}.x` : String(this);
   }
 
   /**
@@ -368,7 +365,7 @@ export class FeatureVersion {
    * @returns a version tag
    */
   public toString() {
-    return `v${this.major}.${this.minor}`
+    return `v${this.major}.${this.minor}`;
   }
 
   /**
@@ -378,12 +375,11 @@ export class FeatureVersion {
    * @returns true if versions are strictly equal
    */
   public equals(other: FeatureVersion) {
-    return this.major === other.major && this.minor === other.minor
+    return this.major === other.major && this.minor === other.minor;
   }
 
-  private static VERSION_RE = /^v(\d+)\.(\d+)$/
+  private static VERSION_RE = /^v(\d+)\.(\d+)$/;
 }
-
 
 export class FeatureUrl {
   constructor(
@@ -395,32 +391,32 @@ export class FeatureUrl {
 
   /// Parse a spec URL or throw
   public static parse(input: string, node?: ASTNode): FeatureUrl {
-    const url = new URL(input)
+    const url = new URL(input);
     if (!url.pathname || url.pathname === '/') {
-      throw new GraphQLError(`Missing path in feature url '${url}'`, node)
+      throw new GraphQLError(`Missing path in feature url '${url}'`, node);
     }
-    const path = url.pathname.split('/')
-    const verStr = path.pop()
+    const path = url.pathname.split('/');
+    const verStr = path.pop();
     if (!verStr) {
-      throw new GraphQLError(`Missing version component in feature url '${url}'`, node)
+      throw new GraphQLError(`Missing version component in feature url '${url}'`, node);
     }
-    const version = FeatureVersion.parse(verStr)
-    const name = path[path.length - 1]
+    const version = FeatureVersion.parse(verStr);
+    const name = path[path.length - 1];
     if (!name) {
-      throw new GraphQLError(`Missing feature name component in feature url '${url}'`, node)
+      throw new GraphQLError(`Missing feature name component in feature url '${url}'`, node);
     }
-    const element = url.hash ? url.hash.slice(1): undefined
-    url.hash = ''
-    url.search = ''
-    url.password = ''
-    url.username = ''
-    url.pathname = path.join('/')
-    return new FeatureUrl(url.toString(), name, version, element)
+    const element = url.hash ? url.hash.slice(1) : undefined;
+    url.hash = '';
+    url.search = '';
+    url.password = '';
+    url.username = '';
+    url.pathname = path.join('/');
+    return new FeatureUrl(url.toString(), name, version, element);
   }
 
   /// Decode a StringValueNode containing a feature url
   public static decode(node: StringValueNode): FeatureUrl {
-    return this.parse(node.value, node)
+    return this.parse(node.value, node);
   }
 
   /**
@@ -430,36 +426,36 @@ export class FeatureUrl {
    * @param request
    */
   public satisfies(requested: FeatureUrl): boolean {
-    return requested.identity === this.identity &&
-           this.version.satisfies(requested.version)
+    return requested.identity === this.identity
+           && this.version.satisfies(requested.version);
   }
 
   public equals(other: FeatureUrl) {
-    return this.identity === other.identity &&
-      this.version.equals(other.version)
+    return this.identity === other.identity
+      && this.version.equals(other.version);
   }
 
   get url() {
-    return this.element ?
-      `${this.identity}/${this.version}#${this.element}`
-      : `${this.identity}/${this.version}`
+    return this.element
+      ? `${this.identity}/${this.version}#${this.element}`
+      : `${this.identity}/${this.version}`;
   }
 
   get isDirective() {
-    return this.element?.startsWith('@')
+    return this.element?.startsWith('@');
   }
 
   get elementName() {
-    return this.isDirective ? this.element?.slice(1) : this.element
+    return this.isDirective ? this.element?.slice(1) : this.element;
   }
 
   get base(): FeatureUrl {
-    if (!this.element) return this
-    return new FeatureUrl(this.identity, this.name, this.version)
+    if (!this.element) return this;
+    return new FeatureUrl(this.identity, this.name, this.version);
   }
 
   toString() {
-    return this.url
+    return this.url;
   }
 }
 
@@ -470,16 +466,16 @@ export const CORE_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(coreIden
 export function removeFeatureElements(schema: Schema, feature: CoreFeature) {
   // Removing directives first, so that when we remove types, the checks that there is no references don't fail due a directive of a the feature
   // actually using the type.
-  const featureDirectives = schema.directives().filter(d => feature.isFeatureDefinition(d));
-  featureDirectives.forEach(d => d.remove().forEach(application => application.remove()));
+  const featureDirectives = schema.directives().filter((d) => feature.isFeatureDefinition(d));
+  featureDirectives.forEach((d) => d.remove().forEach((application) => application.remove()));
 
-  const featureTypes = schema.types().filter(t => feature.isFeatureDefinition(t));
-  featureTypes.forEach(type => {
+  const featureTypes = schema.types().filter((t) => feature.isFeatureDefinition(t));
+  featureTypes.forEach((type) => {
     const references = type.remove();
     if (references.length > 0) {
       throw new GraphQLError(
         `Cannot remove elements of feature ${feature} as feature type ${type} is referenced by elements: ${references.join(', ')}`,
-        references.map(r => r.sourceAST).filter(n => n !== undefined) as ASTNode[]
+        references.map((r) => r.sourceAST).filter((n) => n !== undefined) as ASTNode[],
       );
       }
   });

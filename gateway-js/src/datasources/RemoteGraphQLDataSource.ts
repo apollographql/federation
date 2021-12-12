@@ -13,15 +13,14 @@ import {
   ForbiddenError,
 } from 'apollo-server-errors';
 import { fetch, Request, Headers, Response } from 'apollo-server-env';
+import createSHA from 'apollo-server-core/dist/utils/createSHA';
 import { isObject } from '../utilities/predicates';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
-import createSHA from 'apollo-server-core/dist/utils/createSHA';
 import { parseCacheControlHeader } from './parseCacheControlHeader';
 
 export class RemoteGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
-> implements GraphQLDataSource<TContext>
-{
+> implements GraphQLDataSource<TContext> {
   fetcher: typeof fetch = fetch;
 
   constructor(
@@ -98,10 +97,9 @@ export class RemoteGraphQLDataSource<
     // Special handling of cache-control headers in response. Requires
     // Apollo Server 3, so we check to make sure the method we want is
     // there.
-    const overallCachePolicy =
-      this.honorSubgraphCacheControlHeader &&
-      options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION &&
-      options.incomingRequestContext.overallCachePolicy?.restrict
+    const overallCachePolicy = this.honorSubgraphCacheControlHeader
+      && options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION
+      && options.incomingRequestContext.overallCachePolicy?.restrict
         ? options.incomingRequestContext.overallCachePolicy
         : null;
 
@@ -126,8 +124,8 @@ export class RemoteGraphQLDataSource<
       // If we didn't receive notice to retry with APQ, then let's
       // assume this is the best result we'll get and return it!
       if (
-        !apqOptimisticResponse.errors ||
-        !apqOptimisticResponse.errors.find(
+        !apqOptimisticResponse.errors
+        || !apqOptimisticResponse.errors.find(
           (error) => error.message === 'PersistedQueryNotFound',
         )
       ) {
@@ -163,7 +161,7 @@ export class RemoteGraphQLDataSource<
     // This would represent an internal programming error since this shouldn't
     // be possible in the way that this method is invoked right now.
     if (!request.http) {
-      throw new Error("Internal error: Only 'http' requests are supported.");
+      throw new Error('Internal error: Only \'http\' requests are supported.');
     }
 
     // We don't want to serialize the `http` properties into the body that is
@@ -221,8 +219,7 @@ export class RemoteGraphQLDataSource<
     context: TContext;
     overallCachePolicy: CachePolicy | null;
   }): Promise<GraphQLResponse> {
-    const processedResponse =
-      typeof this.didReceiveResponse === 'function'
+    const processedResponse = typeof this.didReceiveResponse === 'function'
         ? await this.didReceiveResponse({ response, request, context })
         : response;
 
@@ -275,9 +272,8 @@ export class RemoteGraphQLDataSource<
     const contentType = fetchResponse.headers.get('Content-Type');
     if (contentType && contentType.startsWith('application/json')) {
       return fetchResponse.json();
-    } else {
-      return fetchResponse.text();
     }
+      return fetchResponse.text();
   }
 
   public async errorFromResponse(response: Response) {
