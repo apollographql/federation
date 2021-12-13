@@ -34,64 +34,45 @@ impl Js {
         name: &'static str,
         source: &'static str,
     ) -> Result<Ok, Error> {
-        // Try to load a snapshot if one exists
-        let mut runtime = match SNAPSHOT.get() {
-            Some(buffer) => {
-                let options = RuntimeOptions {
-                    startup_snapshot: Some(Snapshot::Boxed((*buffer).clone())),
-                    ..Default::default()
-                };
-                JsRuntime::new(options)
-            }
-            None => {
-                let options = RuntimeOptions {
-                    will_snapshot: true,
-                    ..Default::default()
-                };
-                let mut runtime = JsRuntime::new(options);
-                // The runtime automatically contains a Deno.core object with several
-                // functions for interacting with it.
-                runtime
-                    .execute_script("<init>", include_str!("../js-dist/runtime.js"))
-                    .expect("unable to initialize router bridge runtime environment");
+        let init_snapshot = || {
+            let options = RuntimeOptions {
+                will_snapshot: true,
+                ..Default::default()
+            };
+            let mut runtime = JsRuntime::new(options);
+            // The runtime automatically contains a Deno.core object with several
+            // functions for interacting with it.
+            runtime
+                .execute_script("<init>", include_str!("../js-dist/runtime.js"))
+                .expect("unable to initialize router bridge runtime environment");
 
-                runtime
-                    .execute_script(
-                        "url_polyfill.js",
-                        include_str!("../bundled/url_polyfill.js"),
-                    )
-                    .expect("unable to evaluate url_polyfill module");
+            runtime
+                .execute_script(
+                    "url_polyfill.js",
+                    include_str!("../bundled/url_polyfill.js"),
+                )
+                .expect("unable to evaluate url_polyfill module");
 
-                runtime
-                    .execute_script("<url_polyfill_assignment>", "whatwg_url_1 = url_polyfill;")
-                    .expect("unable to assign url_polyfill");
+            runtime
+                .execute_script("<url_polyfill_assignment>", "whatwg_url_1 = url_polyfill;")
+                .expect("unable to assign url_polyfill");
 
-                // Load the composition library.
-                runtime
-                    .execute_script("bridge.js", include_str!("../bundled/bridge.js"))
-                    .expect("unable to evaluate bridge module");
+            // Load the composition library.
+            runtime
+                .execute_script("bridge.js", include_str!("../bundled/bridge.js"))
+                .expect("unable to evaluate bridge module");
 
-                let snapshot = runtime.snapshot();
-                // Ignore the result from set(). This is a bit racy, but
-                // it doesn't matter. We'll quickly get to the point where we
-                // have set the SNAPSHOT and stop repeating the work.
-                let _ = SNAPSHOT.set(snapshot.to_vec().into_boxed_slice());
-
-                // Once a JsRuntime has been snapshot, we cannot continue to use it, so
-                // we drop our current runtime and then start a new runtime from our
-                // freshly created snapshot.
-
-                // XXX Required for some reason... (if we don't drop before creating, SIGSEGV)
-                drop(runtime);
-
-                let options = RuntimeOptions {
-                    startup_snapshot: Some(Snapshot::JustCreated(snapshot)),
-                    ..Default::default()
-                };
-
-                JsRuntime::new(options)
-            }
+            runtime.snapshot().to_vec().into_boxed_slice()
         };
+
+        // Try to get our snapshot
+        let buffer = SNAPSHOT.get_or_init(init_snapshot);
+        // Use our snapshot to provision our new runtime
+        let options = RuntimeOptions {
+            startup_snapshot: Some(Snapshot::Boxed((*buffer).clone())),
+            ..Default::default()
+        };
+        let mut runtime = JsRuntime::new(options);
 
         // We'll use this channel to get the results
         let (tx, rx) = channel();
