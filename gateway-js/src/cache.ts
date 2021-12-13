@@ -60,6 +60,7 @@ export class HttpRequestCache implements CacheManager {
         const { body, ...requestInit } = response;
         return new Response(body, requestInit);
       }
+      return; // eslint-disable-line no-useless-return
     });
   }
 }
