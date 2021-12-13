@@ -73,6 +73,26 @@ describe('loadSupergraphSdlFromStorage', () => {
     nock.cleanAll();
   });
 
+  it('Throws error if all Uplink URLs fail', async () => {
+    mockSupergraphSdlRequest("originalId-1234").reply(500);
+    mockSupergraphSdlRequestAlternate("originalId-1234").reply(500);
+
+    const fetcher = getDefaultFetcher();
+    await expect(
+      loadSupergraphSdlFromUplinks({
+        graphRef,
+        apiKey,
+        endpoints: [mockCloudConfigUrl, mockAlternateCloudConfigUrl],
+        fetcher,
+        compositionId: "originalId-1234",
+        maxRetries: 1
+      }),
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"An error occurred while fetching your schema from Apollo: 500 Internal Server Error"`,
+    );
+    nock.cleanAll();
+  })
+
   describe('errors', () => {
     it('throws on a malformed response', async () => {
       mockSupergraphSdlRequest().reply(200, 'Invalid JSON');
@@ -85,7 +105,6 @@ describe('loadSupergraphSdlFromStorage', () => {
           endpoint: mockCloudConfigUrl,
           fetcher,
           compositionId: null,
-
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"An error occurred while fetching your schema from Apollo: 200 invalid json response body at https://example.cloud-config-url.com/cloudconfig/ reason: Unexpected token I in JSON at position 0"`,
