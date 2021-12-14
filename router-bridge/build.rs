@@ -7,9 +7,7 @@ use std::process::Command;
 fn main() {
     println!("cargo:rerun-if-changed=js-src");
     update_bridge();
-    if let Err(e) = create_snapshot() {
-        panic!("failed to create snapshot: {}", e);
-    }
+    create_snapshot().expect("unable to create v8 snapshot: query_runtime.snap");
 }
 
 fn update_bridge() {
@@ -61,6 +59,8 @@ fn create_snapshot() -> Result<(), Box<dyn Error>> {
         .execute_script("bridge.js", &bridge_str)
         .expect("unable to evaluate bridge module");
 
+    // Create our base query snapshot which will be included in
+    // src/js.rs to initialise our JsRuntime().
     let mut snap = File::create("snapshots/query_runtime.snap")?;
     snap.write_all(&runtime.snapshot())?;
 
