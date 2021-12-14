@@ -11,15 +11,26 @@ import {
   mockSupergraphSdlRequestIfAfterUnchanged,
 } from './integration/nockMocks';
 import mockedEnv from 'mocked-env';
+import nock from 'nock';
 
 describe('loadSupergraphSdlFromStorage', () => {
   let cleanUp: (() => void) | null = null;
 
-  afterAll(async () => {
+  beforeEach(() => {
+    if (!nock.isActive()) {
+      nock.activate();
+    }
+    nock.cleanAll();
+  });
+
+  afterEach(() => {
     if (cleanUp) {
       cleanUp();
       cleanUp = null;
     }
+
+    expect(nock.activeMocks()).toEqual([]);
+    expect(nock.isDone()).toBe(true);
   });
 
   it('fetches Supergraph SDL as expected', async () => {
