@@ -1,6 +1,6 @@
 use deno_core::{JsRuntime, RuntimeOptions};
 use std::error::Error;
-use std::fs::File;
+use std::fs::{read_to_string, File};
 use std::io::Write;
 use std::process::Command;
 
@@ -38,14 +38,17 @@ fn create_snapshot() -> Result<(), Box<dyn Error>> {
         ..Default::default()
     };
     let mut runtime = JsRuntime::new(options);
+
     // The runtime automatically contains a Deno.core object with several
     // functions for interacting with it.
+    let runtime_str = read_to_string("js-dist/runtime.js")?;
     runtime
-        .execute_script("<init>", include_str!("js-dist/runtime.js"))
+        .execute_script("<init>", &runtime_str)
         .expect("unable to initialize router bridge runtime environment");
 
+    let polyfill_str = read_to_string("bundled/url_polyfill.js")?;
     runtime
-        .execute_script("url_polyfill.js", include_str!("bundled/url_polyfill.js"))
+        .execute_script("url_polyfill.js", &polyfill_str)
         .expect("unable to evaluate url_polyfill module");
 
     runtime
@@ -53,8 +56,9 @@ fn create_snapshot() -> Result<(), Box<dyn Error>> {
         .expect("unable to assign url_polyfill");
 
     // Load the composition library.
+    let bridge_str = read_to_string("bundled/bridge.js")?;
     runtime
-        .execute_script("bridge.js", include_str!("bundled/bridge.js"))
+        .execute_script("bridge.js", &bridge_str)
         .expect("unable to evaluate bridge module");
 
     let mut snap = File::create("snapshots/query_runtime.snap")?;
