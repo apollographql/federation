@@ -25,4 +25,5 @@ thiserror = "1.0.29"
 insta = "1.8.0"
 
 [build-dependencies]
+deno_core = "0.110.0"
 which = "4.2.2"

@@ -31,7 +31,7 @@ impl Js {
         name: &'static str,
         source: &'static str,
     ) -> Result<Ok, Error> {
-        let buffer = include_bytes!("../runtime.snap");
+        let buffer = include_bytes!("../snapshots/query_runtime.snap");
         // Use our snapshot to provision our new runtime
         let options = RuntimeOptions {
             startup_snapshot: Some(Snapshot::Static(buffer)),
