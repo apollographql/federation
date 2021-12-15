@@ -12,6 +12,7 @@
 
 ## v0.45.0
 
+- RemoteGraphQLDataSource will now use `make-fetch-happen` by default rather than `node-fetch` [PR #1284](https://github.com/apollographql/federation/pull/1284)
 - __NOOP__: Fix OOB testing w.r.t. nock hygiene. Pushed error reporting endpoint responsibilities up into the gateway class, but there should be no effect on the runtime at all. [PR #1309](https://github.com/apollographql/federation/pull/1309)
 - __BREAKING__: Remove legacy GCS fetcher for schema updates. If you're currently opted-in to the backwards compatibility provided by setting `schemaConfigDeliveryEndpoint: null`, you may be affected by this update. Please see the PR for additional details. [PR #1225](https://github.com/apollographql/federation/pull/1225)
 - __Multi-cloud Uplink capability__ [PR #1283](https://github.com/apollographql/federation/pull/1283): now, by default two separate Uplink services will be used for schema fetching, the system will round-robin and if one service fails, a retry will occur and the other service will be called. 

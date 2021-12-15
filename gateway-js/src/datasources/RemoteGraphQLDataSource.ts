@@ -17,18 +17,24 @@ import { isObject } from '../utilities/predicates';
 import { GraphQLDataSource, GraphQLDataSourceProcessOptions, GraphQLDataSourceRequestKind } from './types';
 import createSHA from 'apollo-server-core/dist/utils/createSHA';
 import { parseCacheControlHeader } from './parseCacheControlHeader';
-
+import fetcher from 'make-fetch-happen';
 export class RemoteGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
 > implements GraphQLDataSource<TContext>
 {
-  fetcher: typeof fetch = fetch;
+  fetcher: typeof fetch;
 
   constructor(
     config?: Partial<RemoteGraphQLDataSource<TContext>> &
       object &
       ThisType<RemoteGraphQLDataSource<TContext>>,
   ) {
+    this.fetcher = fetcher.defaults({
+      // although this is the default, we want to take extra care and be very
+      // explicity to ensure that mutations cannot be retried. please leave this
+      // intact.
+      retry: false,
+    });
     if (config) {
       return Object.assign(this, config);
     }
