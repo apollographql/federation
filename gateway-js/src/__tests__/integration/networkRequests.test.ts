@@ -1,4 +1,3 @@
-import nock from 'nock';
 import gql from 'graphql-tag';
 import { DocumentNode, GraphQLObjectType, GraphQLSchema } from 'graphql';
 import mockedEnv from 'mocked-env';
@@ -26,6 +25,7 @@ import {
   reviews,
 } from 'apollo-federation-integration-testsuite';
 import { getTestingSupergraphSdl } from '../execution-utils';
+import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 
 type GenericFunction = (...args: unknown[]) => unknown;
 export interface MockService {
@@ -63,7 +63,7 @@ let gateway: ApolloGateway | null = null;
 let cleanUp: (() => void) | null = null;
 
 beforeEach(() => {
-  if (!nock.isActive()) nock.activate();
+  nockBeforeEach();
 
   const warn = jest.fn();
   const debug = jest.fn();
@@ -79,9 +79,8 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  expect(nock.isDone()).toBeTruthy();
-  nock.cleanAll();
-  nock.restore();
+  nockAfterEach();
+
   if (gateway) {
     await gateway.stop();
     gateway = null;

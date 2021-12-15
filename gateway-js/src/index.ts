@@ -184,6 +184,8 @@ export class ApolloGateway implements GraphQLService {
   private fetcher: typeof fetch;
   private compositionId?: string;
   private state: GatewayState;
+  private errorReportingEndpoint: string | undefined =
+    process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT ?? undefined;
 
   // Observe query plan, service info, and operation info prior to execution.
   // The information made available here will give insight into the resulting
@@ -934,6 +936,7 @@ export class ApolloGateway implements GraphQLService {
       graphRef: this.apolloConfig!.graphRef!,
       apiKey: this.apolloConfig!.key!,
       endpoints: this.schemaConfigDeliveryEndpoints!,
+      errorReportingEndpoint: this.errorReportingEndpoint,
       fetcher: this.fetcher,
       compositionId: this.compositionId ?? null,
       maxRetries: this.schemaDeliveryMaxRetries!,
