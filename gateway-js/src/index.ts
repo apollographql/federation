@@ -239,7 +239,7 @@ export class ApolloGateway implements GraphQLService {
     // 3. If config is `undefined`, use the default uplink URL
     if (isManagedConfig(this.config)) {
       const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
-      var endPoints: string[] | null = envEndpoint ? envEndpoint.split(",") : null;
+      const endPoints = envEndpoint?.split(",") ?? null;
       if (this.config.schemaConfigDeliveryEndpoint && !this.config.schemaConfigDeliveryEndpoints) {
         this.config.schemaConfigDeliveryEndpoints = [this.config.schemaConfigDeliveryEndpoint];
       }
