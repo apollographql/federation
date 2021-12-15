@@ -22,13 +22,7 @@ pub struct IntrospectionError {
 
 impl Display for IntrospectionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(
-            &self
-                .message
-                .as_ref()
-                .map(std::string::String::as_str)
-                .unwrap_or("UNKNOWN"),
-        )
+        f.write_str(self.message.as_deref().unwrap_or("UNKNOWN"))
     }
 }
 
