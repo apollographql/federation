@@ -4,7 +4,7 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- _Nothing to see here. Stay tuned._
+- __NOOP__: Fix OOB testing w.r.t. nock hygiene. Pushed error reporting endpoint responsibilities up into the gateway class, but there should be no effect on the runtime at all. [PR #1309](https://github.com/apollographql/federation/pull/1309)
 
 ## v0.44.0
 

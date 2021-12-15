@@ -12,6 +12,7 @@ import { ApolloGateway } from '../..';
 import { Plugin, Config, Refs } from 'pretty-format';
 import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
+import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally
@@ -89,7 +90,6 @@ describe('reporting', () => {
   let gatewayServer: ApolloServer;
   let gatewayUrl: string;
   let reportPromise: Promise<any>;
-  let nockScope: nock.Scope;
 
   beforeEach(async () => {
     let reportResolver: (report: any) => void;
@@ -97,7 +97,8 @@ describe('reporting', () => {
       reportResolver = resolve;
     });
 
-    nockScope = nock('https://usage-reporting.api.apollographql.com')
+    nockBeforeEach();
+    nock('https://usage-reporting.api.apollographql.com')
       .post('/api/ingress/traces')
       .reply(200, (_: any, requestBody: string) => {
         reportResolver(requestBody);
@@ -137,7 +138,8 @@ describe('reporting', () => {
     if (gatewayServer) {
       await gatewayServer.stop();
     }
-    nockScope.done();
+
+    nockAfterEach();
   });
 
   it(`queries three services`, async () => {
