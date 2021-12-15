@@ -240,19 +240,19 @@ export class ApolloGateway implements GraphQLService {
     if (isManagedConfig(this.config)) {
       const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
       var endPoints: string[] | null = envEndpoint ? envEndpoint.split(",") : null;
-      if (this.config.schemaConfigDeliveryEndpoint && !this.config.schemaConfigDeliveryEndpoints) {
-        this.config.schemaConfigDeliveryEndpoints = [this.config.schemaConfigDeliveryEndpoint];
+      if (this.config.schemaConfigDeliveryEndpoint && !this.config.uplinkEndpoints) {
+        this.config.uplinkEndpoints = [this.config.schemaConfigDeliveryEndpoint];
       }
 
       this.schemaConfigDeliveryEndpoints =
-        this.config.schemaConfigDeliveryEndpoints ??
+        this.config.uplinkEndpoints ??
           endPoints ?? [
             'https://uplink.api.apollographql.com/',
             'https://aws.uplink.api.apollographql.com/'
           ];
 
-      if (this.config.schemaDeliveryMaxRetries != null) {
-        this.schemaDeliveryMaxRetries = this.config.schemaDeliveryMaxRetries;
+      if (this.config.uplinkMaxRetries != null) {
+        this.schemaDeliveryMaxRetries = this.config.uplinkMaxRetries;
       } else {
         this.schemaDeliveryMaxRetries = this.schemaConfigDeliveryEndpoints.length * 3;
       }

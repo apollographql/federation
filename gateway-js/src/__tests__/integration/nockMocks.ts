@@ -64,28 +64,17 @@ function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
   });
 }
 
-export const mockCloudConfigUrl =
-  'https://example.cloud-config-url.com/cloudconfig/';
-
-export const mockAlternateCloudConfigUrl =
+export const mockCloudConfigUrl1 =
   'https://example1.cloud-config-url.com/cloudconfig/';
+
+export const mockCloudConfigUrl2 =
+  'https://example2.cloud-config-url.com/cloudconfig/';
 
 export const mockOutOfBandReporterUrl =
   'https://example.outofbandreporter.com/monitoring/';
 
-export function mockSupergraphSdlRequestAlternate(ifAfter: string | null) {
-  return gatewayNock(mockAlternateCloudConfigUrl).post('/', {
-    query: SUPERGRAPH_SDL_QUERY,
-    variables: {
-      ref: graphRef,
-      apiKey: apiKey,
-      ifAfterId: ifAfter,
-    },
-  });
-}
-
-export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null) {
-  return gatewayNock(mockCloudConfigUrl).post('/', {
+export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null, url: string = mockCloudConfigUrl1) {
+  return gatewayNock(url).post('/', {
     query: SUPERGRAPH_SDL_QUERY,
     variables: {
       ref: graphRef,
