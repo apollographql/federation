@@ -54,6 +54,7 @@ import {
   sourceASTs,
   ErrorCodeDefinition,
   ERRORS,
+  joinStrings,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -127,21 +128,6 @@ export function mergeSubgraphs(subgraphs: Subgraphs, options: CompositionOptions
   return new Merger(subgraphs, { ...defaultCompositionOptions, ...options }).merge();
 }
 
-function join(toJoin: string[], sep: string = ', ', firstSep?: string, lastSep: string = ' and ') {
-  if (toJoin.length == 0) {
-    return '';
-  }
-  const first = toJoin[0];
-  if (toJoin.length == 1) {
-    return first;
-  }
-  const last = toJoin[toJoin.length - 1];
-  if (toJoin.length == 2) {
-    return first + (firstSep ? firstSep : lastSep) + last;
-  }
-  return first + (firstSep ? firstSep : sep) + toJoin.slice(1, toJoin.length - 1) + lastSep + last;
-}
-
 function printHumanReadableList(names: string[], prefixSingle?: string, prefixPlural?: string): string {
   assert(names.length > 0, 'Should not have been called with no names');
   if (names.length == 1) {
@@ -158,7 +144,7 @@ function printHumanReadableList(names: string[], prefixSingle?: string, prefixPl
     ? prefixPlural + ' '
     : (prefixSingle ? prefixSingle + ' ' : '');
   if (toDisplay.length === names.length) {
-    return prefix + join(toDisplay);
+    return prefix + joinStrings(toDisplay);
   } else {
     return prefix + toDisplay.join(', ') + ', ...';
   }
@@ -447,7 +433,7 @@ class Merger {
       (elt, names) => `${elt} in ${names}`,
       (distribution, nodes) => {
         this.errors.push(code.err({
-          message: message + join(distribution, ' and ', ' but '),
+          message: message + joinStrings(distribution, ' and ', ' but '),
           nodes
         }));
       },
@@ -474,7 +460,7 @@ class Merger {
       otherElementsPrinter,
       (distribution, nodes) => {
         this.errors.push(code.err({
-          message: message + distribution[0] + join(distribution.slice(1), ' and '),
+          message: message + distribution[0] + joinStrings(distribution.slice(1), ' and '),
           nodes
         }));
       },
@@ -504,7 +490,7 @@ class Merger {
       (distribution, astNodes) => {
         this.hints.push(new CompositionHint(
           hintId,
-          message + distribution[0] + join(distribution.slice(1), ' and ') + (noEndOfMessageDot ? '' : '.'),
+          message + distribution[0] + joinStrings(distribution.slice(1), ' and ') + (noEndOfMessageDot ? '' : '.'),
           supergraphElement instanceof NamedSchemaElement ? supergraphElement.coordinate : '<schema>',
           astNodes
         ));
