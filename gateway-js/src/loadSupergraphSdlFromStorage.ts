@@ -1,6 +1,6 @@
 import { fetch, Response, Request } from 'apollo-server-env';
 import { GraphQLError } from 'graphql';
-import { OutOfBandReporter } from './outOfBandReporter';
+import { submitOutOfBandReportIfConfigured } from './outOfBandReporter';
 import { SupergraphSdlQuery } from './__generated__/graphqlTypes';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
@@ -42,12 +42,14 @@ export async function loadSupergraphSdlFromStorage({
   graphRef,
   apiKey,
   endpoint,
+  errorReportingEndpoint,
   fetcher,
   compositionId,
 }: {
   graphRef: string;
   apiKey: string;
   endpoint: string;
+  errorReportingEndpoint?: string;
   fetcher: typeof fetch;
   compositionId: string | null;
 }) {
@@ -72,19 +74,19 @@ export async function loadSupergraphSdlFromStorage({
 
   const request: Request = new Request(endpoint, requestDetails);
 
-  const OOBReport = new OutOfBandReporter();
-  const startTime = new Date()
+  const startTime = new Date();
   try {
     result = await fetcher(endpoint, requestDetails);
   } catch (e) {
     const endTime = new Date();
 
-    await OOBReport.submitOutOfBandReportIfConfigured({
+    await submitOutOfBandReportIfConfigured({
       error: e,
       request,
+      endpoint: errorReportingEndpoint,
       startedAt: startTime,
       endedAt: endTime,
-      fetcher
+      fetcher,
     });
 
     throw new Error(fetchErrorMsg + (e.message ?? e));
@@ -109,13 +111,14 @@ export async function loadSupergraphSdlFromStorage({
       );
     }
   } else {
-    await OOBReport.submitOutOfBandReportIfConfigured({
+    await submitOutOfBandReportIfConfigured({
       error: new Error(fetchErrorMsg + result.status + ' ' + result.statusText),
       request,
+      endpoint: errorReportingEndpoint,
       response: result,
       startedAt: startTime,
       endedAt: endTime,
-      fetcher
+      fetcher,
     });
     throw new Error(fetchErrorMsg + result.status + ' ' + result.statusText);
   }

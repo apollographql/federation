@@ -1,5 +1,5 @@
 /// Wraps creating the Deno Js runtime collecting parameters and executing a script.
-use deno_core::{op_sync, JsRuntime};
+use deno_core::{op_sync, JsRuntime, RuntimeOptions, Snapshot};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::mpsc::channel;
@@ -31,7 +31,15 @@ impl Js {
         name: &'static str,
         source: &'static str,
     ) -> Result<Ok, Error> {
-        let mut runtime = JsRuntime::new(Default::default());
+        // The snapshot is created in our build.rs script and included in our binary image
+        let buffer = include_bytes!("../snapshots/query_runtime.snap");
+
+        // Use our snapshot to provision our new runtime
+        let options = RuntimeOptions {
+            startup_snapshot: Some(Snapshot::Static(buffer)),
+            ..Default::default()
+        };
+        let mut runtime = JsRuntime::new(options);
 
         // We'll use this channel to get the results
         let (tx, rx) = channel();
@@ -47,29 +55,6 @@ impl Js {
             }),
         );
         runtime.sync_ops_cache();
-
-        // The runtime automatically contains a Deno.core object with several
-        // functions for interacting with it.
-        runtime
-            .execute_script("<init>", include_str!("../js-dist/runtime.js"))
-            .expect("unable to initialize router bridge runtime environment");
-
-        runtime
-            .execute_script(
-                "url_polyfill.js",
-                include_str!("../bundled/url_polyfill.js"),
-            )
-            .expect("unable to evaluate url_polyfill module");
-
-        runtime
-            .execute_script("<url_polyfill_assignment>", "whatwg_url_1 = url_polyfill;")
-            .expect("unable to assign url_polyfill");
-
-        // Load the composition library.
-        runtime
-            .execute_script("bridge.js", include_str!("../bundled/bridge.js"))
-            .expect("unable to evaluate bridge module");
-
         for parameter in self.parameters.iter() {
             runtime
                 .execute_script(format!("<{}>", parameter.0).as_str(), &parameter.1)

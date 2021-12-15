@@ -10,17 +10,11 @@ import {
   mockSupergraphSdlRequestSuccess,
   mockSupergraphSdlRequestIfAfterUnchanged,
 } from './integration/nockMocks';
-import mockedEnv from 'mocked-env';
+import { nockAfterEach, nockBeforeEach } from './nockAssertions';
 
 describe('loadSupergraphSdlFromStorage', () => {
-  let cleanUp: (() => void) | null = null;
-
-  afterAll(async () => {
-    if (cleanUp) {
-      cleanUp();
-      cleanUp = null;
-    }
-  });
+  beforeEach(nockBeforeEach);
+  afterEach(nockAfterEach);
 
   it('fetches Supergraph SDL as expected', async () => {
     mockSupergraphSdlRequestSuccess();
@@ -501,13 +495,8 @@ describe('loadSupergraphSdlFromStorage', () => {
       );
     });
 
-    it('throws on 400 status response and successfully submits an out of band error', async () => {
-      cleanUp = mockedEnv({
-        APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
-      });
-
+    it('throws on 400 status response and does not submit an out of band error', async () => {
       mockSupergraphSdlRequest().reply(400);
-      mockOutOfBandReportRequestSuccess();
 
       const fetcher = getDefaultFetcher();
       await expect(
@@ -515,6 +504,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           graphRef,
           apiKey,
           endpoint: mockCloudConfigUrl,
+          errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
         }),
@@ -524,10 +514,6 @@ describe('loadSupergraphSdlFromStorage', () => {
     });
 
     it('throws on 413 status response and successfully submits an out of band error', async () => {
-      cleanUp = mockedEnv({
-        APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
-      });
-
       mockSupergraphSdlRequest().reply(413);
       mockOutOfBandReportRequestSuccess();
 
@@ -537,6 +523,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           graphRef,
           apiKey,
           endpoint: mockCloudConfigUrl,
+          errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
         }),
@@ -546,10 +533,6 @@ describe('loadSupergraphSdlFromStorage', () => {
     });
 
     it('throws on 422 status response and successfully submits an out of band error', async () => {
-      cleanUp = mockedEnv({
-        APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
-      });
-
       mockSupergraphSdlRequest().reply(422);
       mockOutOfBandReportRequestSuccess();
 
@@ -559,6 +542,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           graphRef,
           apiKey,
           endpoint: mockCloudConfigUrl,
+          errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
         }),
@@ -568,10 +552,6 @@ describe('loadSupergraphSdlFromStorage', () => {
     });
 
     it('throws on 408 status response and successfully submits an out of band error', async () => {
-      cleanUp = mockedEnv({
-        APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
-      });
-
       mockSupergraphSdlRequest().reply(408);
       mockOutOfBandReportRequestSuccess();
 
@@ -581,6 +561,7 @@ describe('loadSupergraphSdlFromStorage', () => {
           graphRef,
           apiKey,
           endpoint: mockCloudConfigUrl,
+          errorReportingEndpoint: mockOutOfBandReporterUrl,
           fetcher,
           compositionId: null,
         }),
@@ -591,10 +572,6 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('throws on 504 status response and successfully submits an out of band error', async () => {
-    cleanUp = mockedEnv({
-      APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
-    });
-
     mockSupergraphSdlRequest().reply(504);
     mockOutOfBandReportRequestSuccess();
 
@@ -604,6 +581,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         graphRef,
         apiKey,
         endpoint: mockCloudConfigUrl,
+        errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
         compositionId: null,
       }),
@@ -613,10 +591,6 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('throws when there is no response and successfully submits an out of band error', async () => {
-    cleanUp = mockedEnv({
-      APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
-    });
-
     mockSupergraphSdlRequest().replyWithError('no response');
     mockOutOfBandReportRequestSuccess();
 
@@ -626,6 +600,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         graphRef,
         apiKey,
         endpoint: mockCloudConfigUrl,
+        errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
         compositionId: null,
       }),
@@ -635,10 +610,6 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('throws on 502 status response and successfully submits an out of band error', async () => {
-    cleanUp = mockedEnv({
-      APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
-    });
-
     mockSupergraphSdlRequest().reply(502);
     mockOutOfBandReportRequestSuccess();
 
@@ -648,6 +619,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         graphRef,
         apiKey,
         endpoint: mockCloudConfigUrl,
+        errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
         compositionId: null,
       }),
@@ -657,10 +629,6 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('throws on 503 status response and successfully submits an out of band error', async () => {
-    cleanUp = mockedEnv({
-      APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT: mockOutOfBandReporterUrl,
-    });
-
     mockSupergraphSdlRequest().reply(503);
     mockOutOfBandReportRequestSuccess();
 
@@ -670,6 +638,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         graphRef,
         apiKey,
         endpoint: mockCloudConfigUrl,
+        errorReportingEndpoint: mockOutOfBandReporterUrl,
         fetcher,
         compositionId: null,
       }),
