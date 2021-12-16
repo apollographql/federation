@@ -1,8 +1,8 @@
 import gql from 'graphql-tag';
 import http from 'http';
 import mockedEnv from 'mocked-env';
-import {Logger} from 'apollo-server-types';
-import {ApolloGateway} from '../..';
+import { Logger } from 'apollo-server-types';
+import { ApolloGateway } from '../..';
 import {
   mockSdlQuerySuccess,
   mockSupergraphSdlRequestSuccess,
