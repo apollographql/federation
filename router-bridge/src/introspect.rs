@@ -2,7 +2,7 @@
 # Run introspection against a GraphQL schema and obtain the result
 */
 
-use crate::errors::Errors;
+use crate::error::Error;
 use crate::js::Js;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -78,7 +78,7 @@ impl IntrospectionResponse {
 /// A successful call to `batch_introspect` doesn't mean each query succeeded,
 /// refer to `IntrospectionResponse` to make sure each query ran successfully.
 pub type IntrospectionResult =
-    Result<Result<Vec<IntrospectionResponse>, IntrospectionError>, Errors>;
+    Result<Result<Vec<IntrospectionResponse>, IntrospectionError>, Error>;
 
 /// The `batch_introspect` function receives a [`string`] representing the SDL and invokes JavaScript
 /// introspection on it, with the `queries` to run against the SDL.

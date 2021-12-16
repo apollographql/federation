@@ -1,4 +1,4 @@
-use crate::errors::Errors;
+use crate::error::Error;
 /// Wraps creating the Deno Js runtime collecting parameters and executing a script.
 use deno_core::{op_sync, JsRuntime, RuntimeOptions, Snapshot};
 use serde::de::DeserializeOwned;
@@ -31,7 +31,7 @@ impl Js {
         &self,
         name: &'static str,
         source: &'static str,
-    ) -> Result<Ok, Errors> {
+    ) -> Result<Ok, Error> {
         // The snapshot is created in our build.rs script and included in our binary image
         let buffer = include_bytes!("../snapshots/query_runtime.snap");
 
@@ -71,7 +71,7 @@ impl Js {
                 source, e
             );
 
-            tx.send(Err(Errors::JSRuntimeError(message)))
+            tx.send(Err(Error::JSRuntimeError(message)))
                 .expect("channel must be open");
 
             deno_core::anyhow::Error::from(e)

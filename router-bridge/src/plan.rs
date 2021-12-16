@@ -2,7 +2,7 @@
 # Create a query plan
 */
 
-use crate::errors::Errors;
+use crate::error::Error;
 use crate::js::Js;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -150,7 +150,7 @@ impl PlanningError {
 pub fn plan<T: DeserializeOwned + 'static>(
     context: OperationalContext,
     options: QueryPlanOptions,
-) -> Result<Result<T, PlanningErrors>, Errors> {
+) -> Result<Result<T, PlanningErrors>, Error> {
     Js::new()
         .with_parameter("schemaString", context.schema)
         .with_parameter("queryString", context.query)
