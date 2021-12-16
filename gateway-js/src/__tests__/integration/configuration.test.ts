@@ -4,15 +4,15 @@ import mockedEnv from 'mocked-env';
 import {Logger} from 'apollo-server-types';
 import {ApolloGateway} from '../..';
 import {
+  mockSdlQuerySuccess,
+  mockSupergraphSdlRequestSuccess,
   mockApolloConfig,
   mockCloudConfigUrl1,
   mockCloudConfigUrl2,
   mockCloudConfigUrl3,
-  mockSdlQuerySuccess,
-  mockSupergraphSdlRequestSuccess,
 } from './nockMocks';
-import {getTestingSupergraphSdl} from '../execution-utils';
-import {MockService} from './networkRequests.test';
+import { getTestingSupergraphSdl } from '../execution-utils';
+import { MockService } from './networkRequests.test';
 
 let logger: Logger;
 
