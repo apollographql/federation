@@ -77,7 +77,8 @@ const debug = newDebugLogger('plan');
 // at to get it below this number to void query planning running forever.
 // Note that this number is a tad arbitrary: it's a nice round number that, on my laptop, ensure query planning don't
 // take more than a handful of seconds.
-const MAX_COMPUTED_PLANS = 10000;
+// Note: exported so we can have a test that explicitly requires more than this number.
+export const MAX_COMPUTED_PLANS = 10000;
 
 function mapOptionsToSelections<RV extends Vertex>(
   selectionSet: SelectionSet,
@@ -256,6 +257,21 @@ class QueryPlanningTaversal<RV extends Vertex> {
     return FetchDependencyGraph.create(this.subgraphs);
   }
 
+  // Moves the first closed branch to after any branch having more options.
+  // This method assumes that closed branches are sorted by decreasing number of options _except_ for the first element
+  // which may be out of order, and this method restore that order.
+  private reorderFirstBranch() {
+    const firstBranch = this.closedBranches[0];
+    let i = 1;
+    while (i < this.closedBranches.length && this.closedBranches[i].length > firstBranch.length) {
+      i++;
+    }
+    // `i` is the smallest index of an element having the same number or less options than the first one,
+    // so we switch that first branch with the element "before" `i` (which has more elements). 
+    this.closedBranches[0] = this.closedBranches[i - 1];
+    this.closedBranches[i - 1] = firstBranch;
+  }
+
   private computeBestPlanFromClosedBranches() {
     if (this.closedBranches.length === 0) {
       return;
@@ -277,29 +293,22 @@ class QueryPlanningTaversal<RV extends Vertex> {
     // We sort branches by those that have the most options first.
     this.closedBranches.sort((b1, b2) => b1.length > b2.length ? -1 : (b1.length < b2.length ? 1 : 0));
     let planCount = possiblePlans(this.closedBranches);
+    debug.log(() => `Query has ${planCount} possible plans`);
+
     let firstBranch = this.closedBranches[0];
     while (planCount > MAX_COMPUTED_PLANS && firstBranch.length > 1) {
       // we remove the right-most option of the first branch, and them move that branch to it's new place.
       const prevSize = firstBranch.length;
       firstBranch.pop();
       planCount -= planCount / prevSize;
-
-      // Move firstBranch to the end of all the branches having the same number of options (pre-removal)
-      for (let i = 1; i < this.closedBranches.length; i++) {
-        if (this.closedBranches[i].length < prevSize) {
-          // We've found the first element having the same number of elements than the updated one, so
-          // we switch the updated one with the "previous" (which has more elements). Note that we
-          // don't care about the order of branches having the same number of options so we can just
-          // switch (rather than move all elements in-between).
-          this.closedBranches[0] = this.closedBranches[i - 1];
-          this.closedBranches[i - 1] = firstBranch;
-          firstBranch = this.closedBranches[0];
-          break;
-        }
-      }
+      this.reorderFirstBranch();
       // Note that if firstBranch is our only branch, it's fine, we'll continue to remove options from
       // it (but that is beyond unlikely).
+      firstBranch = this.closedBranches[0];
+      debug.log(() => `Reduced plans to consider to ${planCount} plans`);
     }
+
+    debug.log(() => `All branches:${this.closedBranches.map((opts, i) => `\n${i}:${opts.map((opt => `\n - ${simultaneousPathsToString(opt)}`))}`)}`);
 
     // Note that usually, we'll have a majority of branches with just one option. We can group them in
     // a PathTree first with no fuss. When then need to do a cartesian product between this created
