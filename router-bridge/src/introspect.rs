@@ -77,17 +77,16 @@ impl IntrospectionResponse {
 /// A global introspect error would be raised here, often meaning the sdl is invalid.
 /// A successful call to `batch_introspect` doesn't mean each query succeeded,
 /// refer to `IntrospectionResponse` to make sure each query ran successfully.
-pub type IntrospectionResult =
-    Result<Result<Vec<IntrospectionResponse>, IntrospectionError>, Error>;
+pub type IntrospectionResult = Result<Vec<IntrospectionResponse>, IntrospectionError>;
 
 /// The `batch_introspect` function receives a [`string`] representing the SDL and invokes JavaScript
 /// introspection on it, with the `queries` to run against the SDL.
 ///
-pub fn batch_introspect(sdl: &str, queries: Vec<String>) -> IntrospectionResult {
+pub fn batch_introspect(sdl: &str, queries: Vec<String>) -> Result<IntrospectionResult, Error> {
     Js::new()
         .with_parameter("sdl", sdl)
         .with_parameter("queries", queries)
-        .execute::<Result<Vec<IntrospectionResponse>, IntrospectionError>>(
+        .execute::<IntrospectionResult>(
             "do_introspect",
             include_str!("../js-dist/do_introspect.js"),
         )
