@@ -293,7 +293,6 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('throws on 502 status response and successfully submits an out of band error', async () => {
-
     mockSupergraphSdlRequest().reply(502);
     mockOutOfBandReportRequestSuccess();
 
