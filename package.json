@@ -83,7 +83,7 @@
     "rollup": "2.61.1",
     "rollup-plugin-node-polyfills": "0.2.1",
     "strip-indent": "3.0.0",
-    "ts-jest": "27.1.1",
+    "ts-jest": "27.1.2",
     "typescript": "4.5.4",
     "winston": "3.3.3",
     "winston-transport": "4.4.1"
