@@ -39,7 +39,7 @@ const { name, version } = require('../package.json');
 
 const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
 
-var fetchCounter: number = 0;
+let fetchCounter = 0;
 
 export async function loadSupergraphSdlFromUplinks({
   graphRef,
@@ -58,10 +58,10 @@ export async function loadSupergraphSdlFromUplinks({
   compositionId: string | null;
   maxRetries: number
 }) : Promise<SupergraphSdlUpdate | null> {
-  var retries = 0;
-  var lastException = null;
-  var result: SupergraphSdlUpdate | null = null;
-  while (retries++ <= maxRetries && result === null) {
+  let retries = 0;
+  let lastException = null;
+  let result: SupergraphSdlUpdate | null = null;
+  while (retries++ <= maxRetries && result == null) {
     try {
       result = await loadSupergraphSdlFromStorage({
         graphRef,

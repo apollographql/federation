@@ -236,7 +236,7 @@ export class ApolloGateway implements GraphQLService {
 
     // 1. If config is set to a `string`, use it
     // 2. If the env var is set, use that
-    // 3. If config is `undefined`, use the default uplink URL
+    // 3. If config is `undefined`, use the default uplink URLs
     if (isManagedConfig(this.config)) {
       const rawEndpointsString = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
       const envEndpoints = rawEndpointsString?.split(",") ?? null;
@@ -251,11 +251,7 @@ export class ApolloGateway implements GraphQLService {
             ];
       }
 
-      if (this.config.uplinkMaxRetries != null) {
-        this.uplinkMaxRetries = this.config.uplinkMaxRetries;
-      } else {
-        this.uplinkMaxRetries = this.uplinkEndpoints?.length * 3;
-      }
+      this.uplinkMaxRetries = this.config.uplinkMaxRetries ?? this.uplinkEndpoints.length * 3;
     }
 
     if (isManuallyManagedConfig(this.config)) {

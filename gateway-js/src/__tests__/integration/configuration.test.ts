@@ -333,7 +333,7 @@ describe('gateway config / env behavior', () => {
       });
 
       expect(gateway['uplinkEndpoints']).toEqual(
-        ['code-config'],
+        [mockCloudConfigUrl1, mockCloudConfigUrl2, mockCloudConfigUrl3],
       );
 
       gateway = null;

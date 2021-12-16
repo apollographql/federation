@@ -33,7 +33,10 @@ describe('loadSupergraphSdlFromStorage', () => {
       fetcher,
       compositionId: null,
     });
-    expect(result).toMatchInlineSnapshot(sampleSchema);
+    expect(result).toMatchObject({
+      id: 'originalId-1234',
+      supergraphSdl: getTestingSupergraphSdl(),
+    });
   });
 
   it('Queries alternate Uplink URL if first one fails', async () => {
@@ -188,7 +191,6 @@ describe('loadSupergraphSdlFromStorage', () => {
     });
 
     it('throws on 413 status response and successfully submits an out of band error', async () => {
-
       mockSupergraphSdlRequest().reply(413);
       mockOutOfBandReportRequestSuccess();
 
@@ -208,7 +210,6 @@ describe('loadSupergraphSdlFromStorage', () => {
     });
 
     it('throws on 422 status response and successfully submits an out of band error', async () => {
-
       mockSupergraphSdlRequest().reply(422);
       mockOutOfBandReportRequestSuccess();
 
@@ -228,7 +229,6 @@ describe('loadSupergraphSdlFromStorage', () => {
     });
 
     it('throws on 408 status response and successfully submits an out of band error', async () => {
-
       mockSupergraphSdlRequest().reply(408);
       mockOutOfBandReportRequestSuccess();
 
@@ -269,7 +269,6 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('throws when there is no response and successfully submits an out of band error', async () => {
-
     mockSupergraphSdlRequest().replyWithError('no response');
     mockOutOfBandReportRequestSuccess();
 
@@ -289,7 +288,6 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('throws on 502 status response and successfully submits an out of band error', async () => {
-
     mockSupergraphSdlRequest().reply(502);
     mockOutOfBandReportRequestSuccess();
 
