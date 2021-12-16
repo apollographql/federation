@@ -1,3 +1,4 @@
+use crate::errors::Errors;
 /// Wraps creating the Deno Js runtime collecting parameters and executing a script.
 use deno_core::{op_sync, JsRuntime, RuntimeOptions, Snapshot};
 use serde::de::DeserializeOwned;
@@ -26,11 +27,11 @@ impl Js {
         self
     }
 
-    pub(crate) fn execute<Ok: DeserializeOwned + 'static, Error: DeserializeOwned + 'static>(
+    pub(crate) fn execute<Ok: DeserializeOwned + 'static>(
         &self,
         name: &'static str,
         source: &'static str,
-    ) -> Result<Ok, Error> {
+    ) -> Result<Ok, Errors> {
         // The snapshot is created in our build.rs script and included in our binary image
         let buffer = include_bytes!("../snapshots/query_runtime.snap");
 
@@ -44,10 +45,12 @@ impl Js {
         // We'll use this channel to get the results
         let (tx, rx) = channel();
 
+        let happy_tx = tx.clone();
+
         runtime.register_op(
             "op_result",
             op_sync(move |_state, value, _buffer: ()| {
-                tx.send(value).expect("channel must be open");
+                happy_tx.send(Ok(value)).expect("channel must be open");
 
                 Ok(serde_json::json!(null))
 
@@ -61,11 +64,17 @@ impl Js {
                 .expect("unable to evaluate service list in JavaScript runtime");
         }
 
-        runtime.execute_script(name, source).unwrap_or_else(|e| {
-            panic!(
+        // We are sending the error through the channel already
+        let _ = runtime.execute_script(name, source).map_err(|e| {
+            let message = format!(
                 "unable to invoke {} in JavaScript runtime \n error: \n {:?}",
                 source, e
-            )
+            );
+
+            tx.send(Err(Errors::JSRuntimeError(message)))
+                .expect("channel must be open");
+
+            deno_core::anyhow::Error::from(e)
         });
 
         rx.recv().expect("channel remains open")

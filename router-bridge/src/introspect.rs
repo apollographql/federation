@@ -2,6 +2,7 @@
 # Run introspection against a GraphQL schema and obtain the result
 */
 
+use crate::errors::Errors;
 use crate::js::Js;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -76,7 +77,8 @@ impl IntrospectionResponse {
 /// A global introspect error would be raised here, often meaning the sdl is invalid.
 /// A successful call to `batch_introspect` doesn't mean each query succeeded,
 /// refer to `IntrospectionResponse` to make sure each query ran successfully.
-pub type IntrospectionResult = Result<Vec<IntrospectionResponse>, IntrospectionError>;
+pub type IntrospectionResult =
+    Result<Result<Vec<IntrospectionResponse>, IntrospectionError>, Errors>;
 
 /// The `batch_introspect` function receives a [`string`] representing the SDL and invokes JavaScript
 /// introspection on it, with the `queries` to run against the SDL.
@@ -85,7 +87,7 @@ pub fn batch_introspect(sdl: &str, queries: Vec<String>) -> IntrospectionResult 
     Js::new()
         .with_parameter("sdl", sdl)
         .with_parameter("queries", queries)
-        .execute::<Vec<IntrospectionResponse>, IntrospectionError>(
+        .execute::<Result<Vec<IntrospectionResponse>, IntrospectionError>>(
             "do_introspect",
             include_str!("../js-dist/do_introspect.js"),
         )
@@ -123,6 +125,7 @@ mod tests {
             }",
             vec![DEFAULT_INTROSPECTION_QUERY.to_string()],
         )
+        .unwrap()
         .unwrap();
 
         assert_eq!(vec![expected_error], response[0].clone().errors.unwrap());
@@ -140,6 +143,7 @@ mod tests {
             }",
             vec![DEFAULT_INTROSPECTION_QUERY.to_string()],
         )
+        .unwrap()
         .unwrap();
         assert_eq!(expected_error, response[0].clone().errors.unwrap()[0]);
     }
