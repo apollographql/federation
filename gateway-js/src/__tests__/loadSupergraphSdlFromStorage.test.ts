@@ -35,7 +35,10 @@ describe('loadSupergraphSdlFromStorage', () => {
       fetcher,
       compositionId: null,
     });
-    expect(result).toMatchInlineSnapshot(sampleSchema);
+    expect(result).toMatchObject({
+      id: 'originalId-1234',
+      supergraphSdl: getTestingSupergraphSdl(),
+    });
   });
 
   it('Queries alternate Uplink URL if first one fails', async () => {
