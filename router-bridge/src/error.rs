@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Error, Serialize, Deserialize, Debug)]
+#[derive(Error, Serialize, Deserialize, Debug, Clone)]
 /// An error which occurred within the bridge.
 ///
 /// This does not include JS domain related errors, such as [`GraphQLError`].
