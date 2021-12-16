@@ -556,7 +556,7 @@ function doesTypeConditionMatch(
   }
 
   if (isAbstractType(conditionalType)) {
-    return schema.isSubType(conditionalType, type);
+    return schema.isSubType(conditionalType, type as any);
   }
 
   return false;
