@@ -1,5 +1,6 @@
 import { fetch, Response, Request } from 'apollo-server-env';
 import { GraphQLError } from 'graphql';
+import { SupergraphSdlUpdate } from './config';
 import { submitOutOfBandReportIfConfigured } from './outOfBandReporter';
 import { SupergraphSdlQuery } from './__generated__/graphqlTypes';
 
@@ -40,15 +41,6 @@ const fetchErrorMsg = "An error occurred while fetching your schema from Apollo:
 
 var fetchCounter: number = 0;
 
-export class SupergraphSdlResult {
-  id: string;
-  supergraphSdl: string;
-  constructor(id: string, supergraphSdl: string) {
-    this.id = id;
-    this.supergraphSdl = supergraphSdl;
-  }
-}
-
 export async function loadSupergraphSdlFromUplinks({
   graphRef,
   apiKey,
@@ -65,11 +57,11 @@ export async function loadSupergraphSdlFromUplinks({
   fetcher: typeof fetch;
   compositionId: string | null;
   maxRetries: number
-}) : Promise<SupergraphSdlResult | null> {
+}) : Promise<SupergraphSdlUpdate | null> {
   var retries = 0;
   var lastException = null;
-  var result: SupergraphSdlResult | null = null;
-  while (retries++ <= maxRetries && result == null) {
+  var result: SupergraphSdlUpdate | null = null;
+  while (retries++ <= maxRetries && result === null) {
     try {
       result = await loadSupergraphSdlFromStorage({
         graphRef,
@@ -83,7 +75,7 @@ export async function loadSupergraphSdlFromUplinks({
       lastException = e;
     }
   }
-  if (result == null && lastException != null) {
+  if (result === null && lastException !== null) {
     throw lastException;
   }
   return result;
@@ -103,7 +95,7 @@ export async function loadSupergraphSdlFromStorage({
   errorReportingEndpoint?: string;
   fetcher: typeof fetch;
   compositionId: string | null;
-}) : Promise<SupergraphSdlResult | null> {
+}) : Promise<SupergraphSdlUpdate | null> {
   let result: Response;
   const requestDetails = {
     method: 'POST',

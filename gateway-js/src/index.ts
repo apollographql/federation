@@ -206,8 +206,8 @@ export class ApolloGateway implements GraphQLService {
   // Configure the endpoints by which gateway will access its precomposed schema.
   // * An array of URLs means use these endpoints to obtain schema, if one is unavailable then try the next.
   // * `undefined` means the gateway is not using managed federation
-  private schemaConfigDeliveryEndpoints?: string[];
-  private schemaDeliveryMaxRetries?: number;
+  private uplinkEndpoints?: string[];
+  private uplinkMaxRetries?: number;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -238,23 +238,23 @@ export class ApolloGateway implements GraphQLService {
     // 2. If the env var is set, use that
     // 3. If config is `undefined`, use the default uplink URL
     if (isManagedConfig(this.config)) {
-      const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
-      const endPoints = envEndpoint?.split(",") ?? null;
+      const rawEndpointsString = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
+      const envEndpoints = rawEndpointsString?.split(",") ?? null;
+
       if (this.config.schemaConfigDeliveryEndpoint && !this.config.uplinkEndpoints) {
-        this.config.uplinkEndpoints = [this.config.schemaConfigDeliveryEndpoint];
+        this.uplinkEndpoints = [this.config.schemaConfigDeliveryEndpoint];
+      } else {
+        this.uplinkEndpoints = this.config.uplinkEndpoints ??
+          envEndpoints ?? [
+              'https://uplink.api.apollographql.com/',
+              'https://aws.uplink.api.apollographql.com/'
+            ];
       }
 
-      this.schemaConfigDeliveryEndpoints =
-        this.config.uplinkEndpoints ??
-          endPoints ?? [
-            'https://uplink.api.apollographql.com/',
-            'https://aws.uplink.api.apollographql.com/'
-          ];
-
       if (this.config.uplinkMaxRetries != null) {
-        this.schemaDeliveryMaxRetries = this.config.uplinkMaxRetries;
+        this.uplinkMaxRetries = this.config.uplinkMaxRetries;
       } else {
-        this.schemaDeliveryMaxRetries = this.schemaConfigDeliveryEndpoints.length * 3;
+        this.uplinkMaxRetries = this.uplinkEndpoints?.length * 3;
       }
     }
 
@@ -935,11 +935,11 @@ export class ApolloGateway implements GraphQLService {
     const result = await loadSupergraphSdlFromUplinks({
       graphRef: this.apolloConfig!.graphRef!,
       apiKey: this.apolloConfig!.key!,
-      endpoints: this.schemaConfigDeliveryEndpoints!,
+      endpoints: this.uplinkEndpoints!,
       errorReportingEndpoint: this.errorReportingEndpoint,
       fetcher: this.fetcher,
       compositionId: this.compositionId ?? null,
-      maxRetries: this.schemaDeliveryMaxRetries!,
+      maxRetries: this.uplinkMaxRetries!,
     });
 
     return (

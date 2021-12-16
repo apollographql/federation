@@ -70,6 +70,9 @@ export const mockCloudConfigUrl1 =
 export const mockCloudConfigUrl2 =
   'https://example2.cloud-config-url.com/cloudconfig/';
 
+export const mockCloudConfigUrl3 =
+  'https://example3.cloud-config-url.com/cloudconfig/';
+
 export const mockOutOfBandReporterUrl =
   'https://example.outofbandreporter.com/monitoring/';
 
@@ -84,8 +87,8 @@ export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null, url: str
   });
 }
 
-export function mockSupergraphSdlRequest(ifAfter: string | null = null) {
-  return mockSupergraphSdlRequestIfAfter(ifAfter);
+export function mockSupergraphSdlRequest(ifAfter: string | null = null, url: string = mockCloudConfigUrl1) {
+  return mockSupergraphSdlRequestIfAfter(ifAfter, url);
 }
 
 export function mockSupergraphSdlRequestSuccessIfAfter(

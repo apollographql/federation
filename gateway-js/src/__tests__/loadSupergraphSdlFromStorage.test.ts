@@ -17,7 +17,6 @@ import {
 } from './integration/nockMocks';
 import { getTestingSupergraphSdl } from "./execution-utils";
 import { nockAfterEach, nockBeforeEach } from './nockAssertions';
-import { sampleSchema } from './integration/sample-schema';
 
 describe('loadSupergraphSdlFromStorage', () => {
   beforeEach(nockBeforeEach);
@@ -25,13 +24,12 @@ describe('loadSupergraphSdlFromStorage', () => {
 
   it('fetches Supergraph SDL as expected', async () => {
     mockSupergraphSdlRequestSuccess();
-
     const fetcher = getDefaultFetcher();
     const result = await loadSupergraphSdlFromStorage({
       graphRef,
       apiKey,
       endpoint: mockCloudConfigUrl1,
-      errorReportingEndpoint: mockOutOfBandReporterUrl,
+      errorReportingEndpoint: undefined,
       fetcher,
       compositionId: null,
     });
@@ -39,8 +37,7 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('Queries alternate Uplink URL if first one fails', async () => {
-    mockSupergraphSdlRequest('originalId-1234').reply(500);
-    mockOutOfBandReportRequestSuccess();
+    mockSupergraphSdlRequest('originalId-1234', mockCloudConfigUrl1).reply(500);
     mockSupergraphSdlRequestIfAfter('originalId-1234', mockCloudConfigUrl2).reply(
       200,
       JSON.stringify({
@@ -59,7 +56,7 @@ describe('loadSupergraphSdlFromStorage', () => {
       graphRef,
       apiKey,
       endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
-      errorReportingEndpoint: mockOutOfBandReporterUrl,
+      errorReportingEndpoint: undefined,
       fetcher,
       compositionId: "originalId-1234",
       maxRetries: 1
@@ -72,10 +69,8 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 
   it('Throws error if all Uplink URLs fail', async () => {
-    mockSupergraphSdlRequest("originalId-1234").reply(500);
-    mockOutOfBandReportRequestSuccess();
+    mockSupergraphSdlRequest("originalId-1234", mockCloudConfigUrl1).reply(500);
     mockSupergraphSdlRequestIfAfter("originalId-1234", mockCloudConfigUrl2).reply(500);
-    mockOutOfBandReportRequestSuccess();
 
     const fetcher = getDefaultFetcher();
     await expect(
@@ -83,7 +78,7 @@ describe('loadSupergraphSdlFromStorage', () => {
         graphRef,
         apiKey,
         endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
-        errorReportingEndpoint: mockOutOfBandReporterUrl,
+        errorReportingEndpoint: undefined,
         fetcher,
         compositionId: "originalId-1234",
         maxRetries: 1

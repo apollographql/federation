@@ -1,16 +1,18 @@
 import gql from 'graphql-tag';
 import http from 'http';
 import mockedEnv from 'mocked-env';
-import { Logger } from 'apollo-server-types';
-import { ApolloGateway } from '../..';
+import {Logger} from 'apollo-server-types';
+import {ApolloGateway} from '../..';
 import {
-  mockSdlQuerySuccess,
-  mockSupergraphSdlRequestSuccess,
   mockApolloConfig,
   mockCloudConfigUrl1,
+  mockCloudConfigUrl2,
+  mockCloudConfigUrl3,
+  mockSdlQuerySuccess,
+  mockSupergraphSdlRequestSuccess,
 } from './nockMocks';
-import { getTestingSupergraphSdl } from '../execution-utils';
-import { MockService } from './networkRequests.test';
+import {getTestingSupergraphSdl} from '../execution-utils';
+import {MockService} from './networkRequests.test';
 
 let logger: Logger;
 
@@ -327,10 +329,10 @@ describe('gateway config / env behavior', () => {
 
       gateway = new ApolloGateway({
         logger,
-        uplinkEndpoints: ['code-config'],
+        uplinkEndpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2, mockCloudConfigUrl3],
       });
 
-      expect(gateway['schemaConfigDeliveryEndpoints']).toEqual(
+      expect(gateway['uplinkEndpoints']).toEqual(
         ['code-config'],
       );
 
@@ -349,7 +351,7 @@ describe('gateway config / env behavior', () => {
         schemaConfigDeliveryEndpoint: 'code-config',
       });
 
-      expect(gateway['schemaConfigDeliveryEndpoints']).toEqual(
+      expect(gateway['uplinkEndpoints']).toEqual(
         ['code-config'],
       );
 
