@@ -251,11 +251,7 @@ export class ApolloGateway implements GraphQLService {
             'https://aws.uplink.api.apollographql.com/'
           ];
 
-      if (this.config.uplinkMaxRetries != null) {
-        this.schemaDeliveryMaxRetries = this.config.uplinkMaxRetries;
-      } else {
-        this.schemaDeliveryMaxRetries = this.schemaConfigDeliveryEndpoints.length * 3;
-      }
+      this.uplinkDeliveryMaxRetries = this.config.uplinkMaxRetries ?? this.schemaConfigDeliveryEndpoints.length * 3;
     }
 
     if (isManuallyManagedConfig(this.config)) {
