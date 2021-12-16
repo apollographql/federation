@@ -66,9 +66,9 @@ export async function loadSupergraphSdlFromUplinks({
   compositionId: string | null;
   maxRetries: number
 }) : Promise<SupergraphSdlResult | null> {
-  var retries = 0;
-  var lastException = null;
-  var result: SupergraphSdlResult | null = null;
+  let retries = 0;
+  let lastException = null;
+  let result: SupergraphSdlResult | null = null;
   while (retries++ <= maxRetries && result == null) {
     try {
       result = await loadSupergraphSdlFromStorage({
