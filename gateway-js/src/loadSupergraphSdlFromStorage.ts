@@ -38,7 +38,7 @@ const { name, version } = require('../package.json');
 
 const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
 
-var fetchCounter: number = 0;
+let fetchCounter = 0;
 
 export class SupergraphSdlResult {
   id: string;
