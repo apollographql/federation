@@ -6,6 +6,12 @@
 
 - RemoteGraphQLDataSource will now use `make-fetch-happen` by default rather than `node-fetch` [PR #1284](https://github.com/apollographql/federation/pull/1284)
 - __NOOP__: Fix OOB testing w.r.t. nock hygiene. Pushed error reporting endpoint responsibilities up into the gateway class, but there should be no effect on the runtime at all. [PR #1309](https://github.com/apollographql/federation/pull/1309)
+- __Multi-cloud Uplink capability__ [PR #1283](https://github.com/apollographql/federation/pull/1283): now, by default two separate Uplink services will be used for schema fetching, the system will round-robin and if one service fails, a retry will occur and the other service will be called. 
+  - The Uplink URLs are `https://uplink.api.apollographql.com/` (GCP) and `https://aws.uplink.api.apollographql.com/` (AWS). 
+  - To override these defaults and configure what Uplink services, there are two options: 
+    - Option #1: use the existing environment variable `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT` which will now be treated as a comma-separated list of URLs. 
+    - Option #2: use the new `uplinkEndpoints`, which must be single URL or a comma-separated list of URLs for the Uplink End-points to be used, and `uplinkMaxRetries` which is how many times the Uplink URLs should be retried.
+  - The old `schemaConfigDeliveryEndpoint` configuration value still work, but is deprecated and will be removed in a subsequent release.
 
 ## v2.0.0-alpha.2
 
