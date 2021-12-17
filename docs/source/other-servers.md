@@ -9,7 +9,6 @@ The following open-source GraphQL server libraries support acting as a subgraph 
 .sticky {
   position: sticky;
   left: 0;
-  z-index: 2;
   background: white;
   border-right: 1px solid #DEE2E7;
 }
