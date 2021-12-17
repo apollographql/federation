@@ -29,7 +29,7 @@ composition implementation while we work toward something else.
 #![forbid(unsafe_code)]
 #![deny(missing_debug_implementations, nonstandard_style)]
 #![warn(missing_docs, future_incompatible, unreachable_pub, rust_2018_idioms)]
-use deno_core::{op_sync, DenoRuntime};
+use deno_core::{op_sync, JsRuntime};
 use std::sync::mpsc::channel;
 
 mod js_types;
@@ -45,7 +45,7 @@ pub fn harmonize(
     subgraph_definitions: Vec<SubgraphDefinition>,
 ) -> Result<CompositionOutput, BuildErrors> {
     // Initialize a runtime instance
-    let mut runtime = DenoRuntime::new(Default::default());
+    let mut runtime = JsRuntime::new(Default::default());
 
     // We'll use this channel to get the results
     let (tx, rx) = channel();
