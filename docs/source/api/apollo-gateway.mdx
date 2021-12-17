@@ -233,9 +233,7 @@ The default value is `false`.
 <tr>
 <td>
 
-###### `buildService` (deprecated)
-
-**This option is deprecated in favor of the drop-in replacement, [`IntrospectAndCompose`](#class-introspectandcompose).**
+###### `buildService`
 
 `Function`
 </td>
@@ -249,9 +247,7 @@ Define this function to customize your gateway's data transport to some or all o
 </tbody>
 </table>
 
-##### The `buildService` function (deprecated)
-
-**This option is deprecated in favor of the drop-in replacement, [`IntrospectAndCompose`](#class-introspectandcompose).**
+##### The `buildService` function
 
 If you provide this function, the gateway calls it once for each subgraph. The function must return an object that implements the [`GraphQLDataSource` interface](https://github.com/apollographql/apollo-server/blob/570f548b88/packages/apollo-gateway/src/datasources/types.ts), such as an instance of [RemoteGraphQLDataSource](#class-remotegraphqldatasource) or a subclass of it.
 
@@ -572,65 +568,55 @@ const gateway = new ApolloGateway({
 
 ###### Configuring the subgraph fetcher
 
-If you provide a [`buildService` function](#the-buildservice-function) to the constructor of `IntrospectAndCompose`, the function is called once for each of your graph's subgraphs. This function can return a `RemoteGraphQLDataSource` with a custom `fetcher`, which is then used for all communication with subgraphs:
+`IntrospectAndCompose` will use the data sources constructed by `ApolloGateway`. In order to customize the gateway's data sources, you can specify a [`buildService`](#buildservice) function.
 
-```js
-const gateway = new ApolloGateway({
-  supergraphSdl: new IntrospectAndCompose({
-    // ...,
-    buildService({ url, name }) {
-      return new (class extends RemoteGraphQLDataSource {
-        fetcher = require('make-fetch-happen').defaults({
-          onRetry() {
-            console.log('We will retry!')
-          },
-        });
-      })({
-        url,
-        name,
-      });
-    }
-  }),
-});
-```
+##### Options
 
-###### `buildService`
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
 
-`Function`
+<tbody>
+
+<tr>
+<td>
+
+###### `subgraphs`
+
+`Array<ServiceEndpointDefinition>`
 </td>
 <td>
 
-Define this function to customize your gateway's data transport to some or all of your subgraphs. This customization can include using a protocol besides HTTP. For details, see [The `buildService` function](#the-buildservice-function).
+An array of objects that each specify the `name` and `url` of one subgraph in your federated graph. On startup, `IntrospectAndCompose` uses this array to obtain your subgraph schemas via introspection and compose a supergraph schema.
+
+You can specify any string value for the `name` field, which is used for identifying the subgraph in log output and error messages, and for reporting metrics to Apollo Studio.
+
 </td>
 </tr>
 
+<tr>
+<td>
 
-</tbody>
-</table>
+###### `introspectionHeaders`
 
-##### The `buildService` function
+`Object | (service: ServiceEndpointDefinition) => Promise<Object> | Object`
+</td>
+<td>
 
-If you provide this function, the gateway calls it once for each subgraph. The function must return an object that implements the [`GraphQLDataSource` interface](https://github.com/apollographql/apollo-server/blob/570f548b88/packages/apollo-gateway/src/datasources/types.ts), such as an instance of [RemoteGraphQLDataSource](#class-remotegraphqldatasource) or a subclass of it.
+An object, or an (optionally) async function returning an object, containing the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
 
-The example below demonstrates adding an `x-user-id` HTTP header to every request the gateway sends to a subgraph:
+**If you are using managed federation,** do not provide this field.
 
-```js{9-11}
-class AuthenticatedDataSource extends RemoteGraphQLDataSource {
-  willSendRequest({ request, context }) {
-    request.http.headers.set('x-user-id', context.userId);
-  }
-}
+**If you define a [`buildService`](#buildservice) function in your `ApolloGateway` config, ** specify these headers in that function instead of providing this option. This ensures that your `buildService` function doesn't inadvertently overwrite the values of any headers you provide here.
+</td>
+</tr>
 
-const gateway = new ApolloGateway({
-  // ...other options...
-  supergraphSdl: new IntrospectAndCompose({
-    // ...,
-    buildService({ name, url }) {
-      return new AuthenticatedDataSource({ url });
-    },
-  }),
-});
-```
+<tr>
+<td>
 
 ###### `pollIntervalInMs`
 
@@ -638,10 +624,21 @@ const gateway = new ApolloGateway({
 </td>
 <td>
 
-Define this function to customize your gateway's data transport to some or all of your subgraphs. This customization can include using a protocol besides HTTP. For details, see [The `buildService` function](#the-buildservice-function).
+Specify this option to enable supergraph updates via subgraph polling. `IntrospectAndCompose` will poll each subgraph
 </td>
 </tr>
 
+###### `logger`
+
+[`Logger`](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L166-L172)
+</td>
+<td>
+
+An object to use for logging in place of `console`. If provided, this object must implement all methods of [the `Logger` interface](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L166-L172).
+
+`IntrospectAndCompose` doesn't share the same logger as the `ApolloGateway` it's configured with. In most cases, you probably want to pass the same logger to both `ApolloGateway` and `IntrospectAndCompose`.
+</td>
+</tr>
 
 </tbody>
 </table>
