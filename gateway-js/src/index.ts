@@ -67,8 +67,8 @@ import {
   SupergraphSdlUpdate,
   CompositionUpdate,
 } from './config';
-import { loadSupergraphSdlFromStorage } from './loadSupergraphSdlFromStorage';
 import { buildComposedSchema } from '@apollo/query-planner';
+import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { CoreSchema } from '@apollo/core-schema';
@@ -200,10 +200,11 @@ export class ApolloGateway implements GraphQLService {
   private updateServiceDefinitions: Experimental_UpdateComposition;
   // how often service defs should be loaded/updated (in ms)
   private experimental_pollInterval?: number;
-  // Configure the endpoint by which gateway will access its precomposed schema.
-  // * `string` means use that endpoint
+  // Configure the endpoints by which gateway will access its precomposed schema.
+  // * An array of URLs means use these endpoints to obtain schema, if one is unavailable then try the next.
   // * `undefined` means the gateway is not using managed federation
-  private schemaConfigDeliveryEndpoint?: string;
+  private uplinkEndpoints?: string[];
+  private uplinkMaxRetries?: number;
 
   constructor(config?: GatewayConfig) {
     this.config = {
@@ -232,13 +233,22 @@ export class ApolloGateway implements GraphQLService {
 
     // 1. If config is set to a `string`, use it
     // 2. If the env var is set, use that
-    // 3. If config is `undefined`, use the default uplink URL
+    // 3. If config is `undefined`, use the default uplink URLs
     if (isManagedConfig(this.config)) {
-      const envEndpoint = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
-      this.schemaConfigDeliveryEndpoint =
-        this.config.schemaConfigDeliveryEndpoint ??
-        envEndpoint ??
-        'https://uplink.api.apollographql.com/';
+      const rawEndpointsString = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
+      const envEndpoints = rawEndpointsString?.split(",") ?? null;
+
+      if (this.config.schemaConfigDeliveryEndpoint && !this.config.uplinkEndpoints) {
+        this.uplinkEndpoints = [this.config.schemaConfigDeliveryEndpoint];
+      } else {
+        this.uplinkEndpoints = this.config.uplinkEndpoints ??
+          envEndpoints ?? [
+              'https://uplink.api.apollographql.com/',
+              'https://aws.uplink.api.apollographql.com/'
+            ];
+      }
+
+      this.uplinkMaxRetries = this.config.uplinkMaxRetries ?? this.uplinkEndpoints.length * 3;
     }
 
     if (isManuallyManagedConfig(this.config)) {
@@ -958,13 +968,14 @@ export class ApolloGateway implements GraphQLService {
       );
     }
 
-    const result = await loadSupergraphSdlFromStorage({
+    const result = await loadSupergraphSdlFromUplinks({
       graphRef: this.apolloConfig!.graphRef!,
       apiKey: this.apolloConfig!.key!,
-      endpoint: this.schemaConfigDeliveryEndpoint!,
+      endpoints: this.uplinkEndpoints!,
       errorReportingEndpoint: this.errorReportingEndpoint,
       fetcher: this.fetcher,
       compositionId: this.compositionId ?? null,
+      maxRetries: this.uplinkMaxRetries!,
     });
 
     return (
