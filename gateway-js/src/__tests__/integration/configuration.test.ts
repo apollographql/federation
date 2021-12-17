@@ -7,7 +7,9 @@ import {
   mockSdlQuerySuccess,
   mockSupergraphSdlRequestSuccess,
   mockApolloConfig,
-  mockCloudConfigUrl,
+  mockCloudConfigUrl1,
+  mockCloudConfigUrl2,
+  mockCloudConfigUrl3,
 } from './nockMocks';
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { MockService } from './networkRequests.test';
@@ -111,7 +113,26 @@ describe('gateway configuration warnings', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      uplinkEndpoints: [mockCloudConfigUrl1],
+    });
+
+    await gateway.load(mockApolloConfig);
+
+    await gateway.stop();
+
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      expect.stringMatching(
+        /A local gateway configuration is overriding a managed federation configuration/,
+      ),
+    );
+  });
+
+  it('deprecated conflicting configurations are not warned about when absent', async () => {
+    mockSupergraphSdlRequestSuccess();
+
+    gateway = new ApolloGateway({
+      logger,
+      schemaConfigDeliveryEndpoint: mockCloudConfigUrl1,
     });
 
     await gateway.load(mockApolloConfig);
@@ -308,11 +329,30 @@ describe('gateway config / env behavior', () => {
 
       gateway = new ApolloGateway({
         logger,
+        uplinkEndpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2, mockCloudConfigUrl3],
+      });
+
+      expect(gateway['uplinkEndpoints']).toEqual(
+        [mockCloudConfigUrl1, mockCloudConfigUrl2, mockCloudConfigUrl3],
+      );
+
+      gateway = null;
+    });
+  });
+
+  describe('deprecated schema config delivery endpoint configuration', () => {
+    it('A code config overrides the env variable', async () => {
+      cleanUp = mockedEnv({
+        APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
+      });
+
+      gateway = new ApolloGateway({
+        logger,
         schemaConfigDeliveryEndpoint: 'code-config',
       });
 
-      expect(gateway['schemaConfigDeliveryEndpoint']).toEqual(
-        'code-config',
+      expect(gateway['uplinkEndpoints']).toEqual(
+        ['code-config'],
       );
 
       gateway = null;
