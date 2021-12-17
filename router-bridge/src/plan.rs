@@ -152,10 +152,10 @@ pub fn plan<T: DeserializeOwned + 'static>(
     options: QueryPlanOptions,
 ) -> Result<Result<T, PlanningErrors>, Error> {
     Js::new()
-        .with_parameter("schemaString", context.schema)
-        .with_parameter("queryString", context.query)
-        .with_parameter("options", options)
-        .with_parameter("operationName", context.operation_name)
+        .with_parameter("schemaString", context.schema)?
+        .with_parameter("queryString", context.query)?
+        .with_parameter("options", options)?
+        .with_parameter("operationName", context.operation_name)?
         .execute("do_plan", include_str!("../js-dist/do_plan.js"))
         .map(|inner: Result<T, Vec<PlanningError>>| {
             inner.map_err(|errors| PlanningErrors { errors })

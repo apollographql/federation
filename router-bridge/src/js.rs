@@ -16,15 +16,21 @@ impl Js {
         }
     }
 
-    pub(crate) fn with_parameter<T: Serialize>(mut self, name: &'static str, param: T) -> Js {
+    pub(crate) fn with_parameter<T: Serialize>(
+        mut self,
+        name: &'static str,
+        param: T,
+    ) -> Result<Js, Error> {
         let serialized = format!(
             "{} = {}",
             name,
-            serde_json::to_string(&param)
-                .unwrap_or_else(|_| panic!("unable to serialize {} into JavaScript runtime", name))
+            serde_json::to_string(&param).map_err(|error| Error::ParameterSerialization {
+                name: name.to_string(),
+                message: error.to_string()
+            })?
         );
         self.parameters.push((name, serialized));
-        self
+        Ok(self)
     }
 
     pub(crate) fn execute<Ok: DeserializeOwned + 'static>(
@@ -71,10 +77,10 @@ impl Js {
                 source, e
             );
 
-            tx.send(Err(Error::JSRuntimeError(message)))
+            tx.send(Err(Error::DenoRuntime(message)))
                 .expect("channel must be open");
 
-            deno_core::anyhow::Error::from(e)
+            e
         });
 
         rx.recv().expect("channel remains open")

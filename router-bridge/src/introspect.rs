@@ -84,8 +84,8 @@ pub type IntrospectionResult = Result<Vec<IntrospectionResponse>, IntrospectionE
 ///
 pub fn batch_introspect(sdl: &str, queries: Vec<String>) -> Result<IntrospectionResult, Error> {
     Js::new()
-        .with_parameter("sdl", sdl)
-        .with_parameter("queries", queries)
+        .with_parameter("sdl", sdl)?
+        .with_parameter("queries", queries)?
         .execute::<IntrospectionResult>(
             "do_introspect",
             include_str!("../js-dist/do_introspect.js"),
@@ -124,8 +124,8 @@ mod tests {
             }",
             vec![DEFAULT_INTROSPECTION_QUERY.to_string()],
         )
-        .unwrap()
-        .unwrap();
+        .expect("an uncaught deno error occured")
+        .expect("a javascript land error happened");
 
         assert_eq!(vec![expected_error], response[0].clone().errors.unwrap());
     }
@@ -142,8 +142,8 @@ mod tests {
             }",
             vec![DEFAULT_INTROSPECTION_QUERY.to_string()],
         )
-        .unwrap()
-        .unwrap();
+        .expect("an uncaught deno error occured")
+        .expect("a javascript land error happened");
         assert_eq!(expected_error, response[0].clone().errors.unwrap()[0]);
     }
     // This string is the result of calling getIntrospectionQuery() from the 'graphql' js package.
