@@ -3,6 +3,7 @@ import {
   fixtures,
   fixturesWithUpdate,
 } from 'apollo-federation-integration-testsuite';
+import { nockBeforeEach, nockAfterEach } from '../../__tests__/nockAssertions';
 import { RemoteGraphQLDataSource, ServiceEndpointDefinition } from '../..';
 import { IntrospectAndCompose } from '../IntrospectAndCompose';
 import { mockAllServicesSdlQuerySuccess } from '../../__tests__/integration/nockMocks';
@@ -11,15 +12,8 @@ import { waitUntil } from '../../utilities/waitUntil';
 import { Logger } from 'apollo-server-types';
 
 describe('IntrospectAndCompose', () => {
-  beforeEach(() => {
-    if (!nock.isActive()) nock.activate();
-  });
-
-  afterEach(async () => {
-    expect(nock.isDone()).toBeTruthy();
-    nock.cleanAll();
-    nock.restore();
-  });
+  beforeEach(nockBeforeEach);
+  afterEach(nockAfterEach);
 
   it('constructs', () => {
     expect(
@@ -34,34 +28,38 @@ describe('IntrospectAndCompose', () => {
     mockAllServicesSdlQuerySuccess();
     const instance = new IntrospectAndCompose({ subgraphs: fixtures });
     await expect(
-      instance({ update() {}, async healthCheck() {} }),
+      instance({
+        update() {},
+        async healthCheck() {},
+        getDataSource({ url }) {
+          return new RemoteGraphQLDataSource({ url });
+        },
+      }),
     ).resolves.toBeTruthy();
   });
-
-  function getDataSourceSpy(definition: ServiceEndpointDefinition) {
-    const datasource = new RemoteGraphQLDataSource({
-      url: definition.url,
-    });
-    const processSpy = jest.fn(datasource.process);
-    datasource.process = processSpy;
-    return { datasource, processSpy };
-  }
 
   it('uses `GraphQLDataSource`s provided by the `buildService` function', async () => {
     mockAllServicesSdlQuerySuccess();
 
-    const processSpies: jest.Mock[] = [];
+    const processSpies: jest.SpyInstance[] = [];
+    function getDataSourceSpy(definition: ServiceEndpointDefinition) {
+      const datasource = new RemoteGraphQLDataSource({
+        url: definition.url,
+      });
+      const processSpy = jest.spyOn(datasource, 'process');
+      processSpies.push(processSpy);
+      return datasource;
+    }
 
     const instance = new IntrospectAndCompose({
       subgraphs: fixtures,
-      buildService(def) {
-        const { datasource, processSpy } = getDataSourceSpy(def);
-        processSpies.push(processSpy);
-        return datasource;
-      },
     });
 
-    await instance({ update() {}, async healthCheck() {} });
+    await instance({
+      update() {},
+      async healthCheck() {},
+      getDataSource: getDataSourceSpy,
+    });
 
     expect(processSpies.length).toBe(fixtures.length);
     for (const processSpy of processSpies) {
@@ -100,6 +98,9 @@ describe('IntrospectAndCompose', () => {
         updateSpy(supergraphSdl);
       },
       async healthCheck() {},
+      getDataSource({ url }) {
+        return new RemoteGraphQLDataSource({ url });
+      },
     });
 
     await Promise.all([p1, p2, p3]);
@@ -132,12 +133,6 @@ describe('IntrospectAndCompose', () => {
     const instance = new IntrospectAndCompose({
       subgraphs: fixtures,
       pollIntervalInMs: 100,
-      buildService(service) {
-        return new RemoteGraphQLDataSource({
-          url: service.url,
-          fetcher,
-        });
-      },
     });
 
     const updateSpy = jest.fn();
@@ -146,6 +141,12 @@ describe('IntrospectAndCompose', () => {
         updateSpy(supergraphSdl);
       },
       async healthCheck() {},
+      getDataSource({ url }) {
+        return new RemoteGraphQLDataSource({
+          url,
+          fetcher,
+        });
+      },
     });
 
     // let the instance poll through all the active mocks
@@ -194,6 +195,9 @@ describe('IntrospectAndCompose', () => {
       const { cleanup } = await instance({
         update: updateSpy,
         async healthCheck() {},
+        getDataSource({ url }) {
+          return new RemoteGraphQLDataSource({ url });
+        },
       });
 
       await errorLoggedPromise;

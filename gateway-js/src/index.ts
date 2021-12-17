@@ -212,12 +212,6 @@ export class ApolloGateway implements GraphQLService {
   // * `undefined` means the gateway is not using managed federation
   private uplinkEndpoints?: string[];
   private uplinkMaxRetries?: number;
-  // The Promise<void> case is strictly for handling the case where the user-provided
-  // function throws an error.
-  private manualConfigPromise?: Promise<{
-    supergraphSdl: string;
-    cleanup?: () => Promise<void>;
-  } | void>;
   // Functions to call during gateway cleanup (when stop() is called)
   private toDispose: (() => Promise<void>)[] = [];
 
@@ -532,6 +526,7 @@ export class ApolloGateway implements GraphQLService {
       const result = await config.supergraphSdl({
         update: this.externalSupergraphUpdateCallback.bind(this),
         healthCheck: this.externalSubgraphHealthCheckCallback.bind(this),
+        getDataSource: this.externalGetDataSourceCallback.bind(this),
       });
       if (!result?.supergraphSdl) {
         throw new Error(
@@ -703,6 +698,13 @@ export class ApolloGateway implements GraphQLService {
           e.message,
       );
     }
+  }
+
+  private externalGetDataSourceCallback({
+    name,
+    url,
+  }: ServiceEndpointDefinition) {
+    return this.createAndCacheDataSource({ name, url });
   }
 
   private updateWithSupergraphSdl({ supergraphSdl, id }: SupergraphSdlUpdate) {
@@ -1066,8 +1068,9 @@ export class ApolloGateway implements GraphQLService {
     if (
       this.serviceMap[serviceDef.name] &&
       serviceDef.url === this.serviceMap[serviceDef.name].url
-    )
+    ) {
       return this.serviceMap[serviceDef.name].dataSource;
+    }
 
     const dataSource = this.createDataSource(serviceDef);
 

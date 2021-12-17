@@ -7,8 +7,6 @@ import { Logger } from 'apollo-server-types';
 import CallableInstance from 'callable-instance';
 import { HeadersInit } from 'node-fetch';
 import {
-  GraphQLDataSource,
-  RemoteGraphQLDataSource,
   ServiceEndpointDefinition,
   SupergraphSdlHook,
   SupergraphSdlUpdateFunction,
@@ -26,7 +24,6 @@ export interface IntrospectAndComposeOptions {
     | ((
         service: ServiceEndpointDefinition,
       ) => Promise<HeadersInit> | HeadersInit);
-  buildService?: (definition: ServiceEndpointDefinition) => GraphQLDataSource;
   pollIntervalInMs?: number;
   logger?: Logger;
 }
@@ -40,41 +37,31 @@ export class IntrospectAndCompose extends CallableInstance<
   Parameters<SupergraphSdlHook>,
   ReturnType<SupergraphSdlHook>
 > {
+  private config: IntrospectAndComposeOptions;
   private update?: SupergraphSdlUpdateFunction;
-  private subgraphs: Service[];
-  private introspectionHeaders?:
-    | HeadersInit
-    | ((
-        service: ServiceEndpointDefinition,
-      ) => Promise<HeadersInit> | HeadersInit);
-  private buildService?: (
-    definition: ServiceEndpointDefinition,
-  ) => GraphQLDataSource;
+  private subgraphs?: Service[];
   private serviceSdlCache: Map<string, string> = new Map();
   private pollIntervalInMs?: number;
   private timerRef: NodeJS.Timeout | null = null;
   private state: State;
-  private logger?: Logger;
 
   constructor(options: IntrospectAndComposeOptions) {
     super('instanceCallableMethod');
-    // this.buildService needs to be assigned before this.subgraphs is built
-    this.buildService = options.buildService;
+
+    this.config = options;
     this.pollIntervalInMs = options.pollIntervalInMs;
-    this.subgraphs = options.subgraphs.map((subgraph) => ({
-      ...subgraph,
-      dataSource: this.createDataSource(subgraph),
-    }));
-    this.introspectionHeaders = options.introspectionHeaders;
-    this.logger = options.logger;
     this.state = { phase: 'initialized' };
   }
 
   // @ts-ignore noUsedLocals
   private async instanceCallableMethod(
-    ...[{ update }]: Parameters<SupergraphSdlHook>
+    ...[{ update, getDataSource }]: Parameters<SupergraphSdlHook>
   ) {
     this.update = update;
+    this.subgraphs = this.config.subgraphs.map((subgraph) => ({
+      ...subgraph,
+      dataSource: getDataSource(subgraph),
+    }));
 
     const initialSupergraphSdl = await this.updateSupergraphSdl();
     // Start polling after we resolve the first supergraph
@@ -100,11 +87,11 @@ export class IntrospectAndCompose extends CallableInstance<
 
   private async updateSupergraphSdl() {
     const result = await getServiceDefinitionsFromRemoteEndpoint({
-      serviceList: this.subgraphs,
+      serviceList: this.subgraphs!,
       getServiceIntrospectionHeaders: async (service) => {
-        return typeof this.introspectionHeaders === 'function'
-          ? await this.introspectionHeaders(service)
-          : this.introspectionHeaders;
+        return typeof this.config.introspectionHeaders === 'function'
+          ? await this.config.introspectionHeaders(service)
+          : this.config.introspectionHeaders;
       },
       serviceSdlCache: this.serviceSdlCache,
     });
@@ -114,17 +101,6 @@ export class IntrospectAndCompose extends CallableInstance<
     }
 
     return this.createSupergraphFromSubgraphList(result.serviceDefinitions!);
-  }
-
-  private createDataSource(
-    serviceDef: ServiceEndpointDefinition,
-  ): GraphQLDataSource {
-    return (
-      this.buildService?.(serviceDef) ??
-      new RemoteGraphQLDataSource({
-        url: serviceDef.url,
-      })
-    );
   }
 
   private createSupergraphFromSubgraphList(subgraphs: ServiceDefinition[]) {
@@ -158,7 +134,7 @@ export class IntrospectAndCompose extends CallableInstance<
             this.update?.(maybeNewSupergraphSdl);
           }
         } catch (e) {
-          this.logger?.error(
+          this.config.logger?.error(
             'IntrospectAndCompose failed to update supergraph with the following error: ' +
               (e.message ?? e),
           );

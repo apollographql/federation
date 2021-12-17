@@ -179,10 +179,17 @@ export function isManuallyManagedSupergraphSdlGatewayConfig(
 export type SupergraphSdlUpdateFunction = (updatedSupergraphSdl: string) => void;
 
 export type SubgraphHealthCheckFunction = (supergraphSdl: string) => Promise<void>;
+
+export type GetDataSourceFunction = ({
+  name,
+  url,
+}: ServiceEndpointDefinition) => GraphQLDataSource;
+
 export interface SupergraphSdlHook {
   (options: {
     update: SupergraphSdlUpdateFunction;
     healthCheck: SubgraphHealthCheckFunction;
+    getDataSource: GetDataSourceFunction;
   }): Promise<{
     supergraphSdl: string;
     cleanup?: () => Promise<void>;
