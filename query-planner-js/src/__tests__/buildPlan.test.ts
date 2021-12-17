@@ -1,7 +1,10 @@
 import { astSerializer, queryPlanSerializer, QueryPlanner } from '@apollo/query-planner';
 import { composeServices } from '@apollo/composition';
-import { buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
+import { assert, buildSchema, operationFromDocument, Schema, ServiceDefinition } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
+import { MAX_COMPUTED_PLANS } from '../buildPlan';
+import { FetchNode } from '../QueryPlan';
+import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -940,4 +943,60 @@ describe('@provides', () => {
       }
       `);
   });
+});
+
+test('Correctly handle case where there is too many plans to consider', () => {
+  // Creating realistic examples where there is too many plan to consider is not trivial, but creating unrealistic examples
+  // is thankfully trivial. Here, we just have 2 subgraphs that are _exactly the same_ with a single type having plenty of
+  // fields. The reason this create plenty of possible query plans is that each field can be independently reached
+  // from either subgraph and so in theory the possible plans is the cartesian product of the 2 choices for each field (which
+  // gets very large very quickly). Obviously, there is no reason to do this in practice.
+
+  // Each leaf field is reachable from 2 subgraphs, so doubles the number of plans.
+  const fieldCount = Math.ceil(Math.log2(MAX_COMPUTED_PLANS)) + 1;
+  const fields = [...Array(fieldCount).keys()].map((i) => `f${i}`);
+
+  const typeDefs = gql`
+    type Query {
+      t: T
+    }
+
+    type T {
+      ${fields.map((f) => `${f}: Int\n`)}
+    }
+  `;
+
+  const [api, queryPlanner] = composeAndCreatePlanner({ name: 'S1', typeDefs }, { name: 'S2', typeDefs });
+  const operation = operationFromDocument(api, gql`
+    {
+      t {
+        ${fields.map((f) => `${f}\n`)}
+      }
+    }
+  `);
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  // Note: The way the code that handle multiple plans currently work, it mess up the order of fields a bit. It's not a
+  // big deal in practice cause everything gets re-order in practice during actual execution, but this means it's a tad
+  // harder to valid the plan automatically here with `toMatchInlineSnapshot`.
+  const mainNode = plan.node;
+  assert(mainNode, `Expected the plan to have a main node`);
+  expect(mainNode.kind).toBe('Fetch');
+  const fetchNode = mainNode as FetchNode;
+  expect(fetchNode.serviceName).toBe('S1');
+  expect(fetchNode.requires).toBeUndefined();
+  const fetchOp = parse(fetchNode.operation);
+  expect(fetchOp.definitions).toHaveLength(1);
+  // fetchOp is essentially:
+  // {
+  //   t {
+  //     ... all fields
+  //   }
+  // }
+  const mainSelection = (fetchOp.definitions[0] as OperationDefinitionNode).selectionSet;
+  const subSelection = (mainSelection.selections[0] as FieldNode).selectionSet;
+  const queriedFields = subSelection?.selections.map((s) => (s as FieldNode).name.value) ?? [];
+  fields.sort(); // Note that alphabetical order is not numerical order, hence this
+  queriedFields.sort();
+  expect(queriedFields).toStrictEqual(fields);
 });
