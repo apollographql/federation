@@ -2,6 +2,7 @@
 # Create a query plan
 */
 
+use crate::error::Error;
 use crate::js::Js;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -149,14 +150,16 @@ impl PlanningError {
 pub fn plan<T: DeserializeOwned + 'static>(
     context: OperationalContext,
     options: QueryPlanOptions,
-) -> Result<T, PlanningErrors> {
+) -> Result<Result<T, PlanningErrors>, Error> {
     Js::new()
-        .with_parameter("schemaString", context.schema)
-        .with_parameter("queryString", context.query)
-        .with_parameter("options", options)
-        .with_parameter("operationName", context.operation_name)
+        .with_parameter("schemaString", context.schema)?
+        .with_parameter("queryString", context.query)?
+        .with_parameter("options", options)?
+        .with_parameter("operationName", context.operation_name)?
         .execute("do_plan", include_str!("../js-dist/do_plan.js"))
-        .map_err(|errors| PlanningErrors { errors })
+        .map(|inner: Result<T, Vec<PlanningError>>| {
+            inner.map_err(|errors| PlanningErrors { errors })
+        })
 }
 
 #[cfg(test)]
@@ -183,13 +186,30 @@ mod tests {
     }
 
     #[test]
+    fn invalid_deserialization_doesnt_panic() {
+        assert!(
+            // There is no way a valid plan can deserialize into only one integer.
+            plan::<serde_json::Number>(
+                OperationalContext {
+                    schema: SCHEMA.to_string(),
+                    query: QUERY.to_string(),
+                    operation_name: "".to_string(),
+                },
+                QueryPlanOptions::default(),
+            )
+            .is_err(),
+        );
+    }
+
+    #[test]
     fn invalid_schema_is_caught() {
-        let result = Err::<String, _>(PlanningErrors {
+        let result = Err::<serde_json::Value, _>(PlanningErrors {
             errors: vec![PlanningError {
                 message: Some("Syntax Error: Unexpected Name \"Garbage\".".to_string()),
                 extensions: None,
             }],
         });
+
         assert_eq!(
             result,
             plan(
@@ -200,12 +220,13 @@ mod tests {
                 },
                 QueryPlanOptions::default(),
             )
+            .unwrap()
         );
     }
 
     #[test]
     fn invalid_query_is_caught() {
-        let result = Err::<String, _>(PlanningErrors {
+        let result = Err::<serde_json::Value, _>(PlanningErrors {
             errors: vec![PlanningError {
                 message: Some("Syntax Error: Unexpected Name \"Garbage\".".to_string()),
                 extensions: None,
@@ -221,6 +242,7 @@ mod tests {
                 },
                 QueryPlanOptions::default(),
             )
+            .unwrap()
         );
     }
 
@@ -228,7 +250,8 @@ mod tests {
     fn query_missing_subfields() {
         let expected_error_message =
             r#"Invalid empty selection set for field "User.reviews" of non-leaf type [Review]"#;
-        let result = Err::<String, _>(PlanningErrors {
+
+        let result = Err::<serde_json::Value, _>(PlanningErrors {
             errors: vec![PlanningError {
                 message: Some(expected_error_message.to_string()),
                 extensions: None,
@@ -246,13 +269,14 @@ mod tests {
                 },
                 QueryPlanOptions::default(),
             )
+            .unwrap()
         );
     }
 
     #[test]
     fn query_field_that_doesnt_exist() {
         let expected_error_message = r#"Cannot query field "thisDoesntExist" on type "Query"."#;
-        let result = Err::<String, _>(PlanningErrors {
+        let result = Err::<serde_json::Value, _>(PlanningErrors {
             errors: vec![PlanningError {
                 message: Some(expected_error_message.to_string()),
                 extensions: None,
@@ -270,6 +294,7 @@ mod tests {
                 },
                 QueryPlanOptions::default(),
             )
+            .unwrap()
         );
     }
 }

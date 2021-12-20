@@ -2,6 +2,7 @@
 # Run introspection against a GraphQL schema and obtain the result
 */
 
+use crate::error::Error;
 use crate::js::Js;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -81,11 +82,11 @@ pub type IntrospectionResult = Result<Vec<IntrospectionResponse>, IntrospectionE
 /// The `batch_introspect` function receives a [`string`] representing the SDL and invokes JavaScript
 /// introspection on it, with the `queries` to run against the SDL.
 ///
-pub fn batch_introspect(sdl: &str, queries: Vec<String>) -> IntrospectionResult {
+pub fn batch_introspect(sdl: &str, queries: Vec<String>) -> Result<IntrospectionResult, Error> {
     Js::new()
-        .with_parameter("sdl", sdl)
-        .with_parameter("queries", queries)
-        .execute::<Vec<IntrospectionResponse>, IntrospectionError>(
+        .with_parameter("sdl", sdl)?
+        .with_parameter("queries", queries)?
+        .execute::<IntrospectionResult>(
             "do_introspect",
             include_str!("../js-dist/do_introspect.js"),
         )
@@ -123,7 +124,8 @@ mod tests {
             }",
             vec![DEFAULT_INTROSPECTION_QUERY.to_string()],
         )
-        .unwrap();
+        .expect("an uncaught deno error occured")
+        .expect("a javascript land error happened");
 
         assert_eq!(vec![expected_error], response[0].clone().errors.unwrap());
     }
@@ -140,7 +142,8 @@ mod tests {
             }",
             vec![DEFAULT_INTROSPECTION_QUERY.to_string()],
         )
-        .unwrap();
+        .expect("an uncaught deno error occured")
+        .expect("a javascript land error happened");
         assert_eq!(expected_error, response[0].clone().errors.unwrap()[0]);
     }
     // This string is the result of calling getIntrospectionQuery() from the 'graphql' js package.

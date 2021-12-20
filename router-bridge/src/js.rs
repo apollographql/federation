@@ -1,3 +1,4 @@
+use crate::error::Error;
 /// Wraps creating the Deno Js runtime collecting parameters and executing a script.
 use deno_core::{op_sync, JsRuntime, RuntimeOptions, Snapshot};
 use serde::de::DeserializeOwned;
@@ -15,18 +16,24 @@ impl Js {
         }
     }
 
-    pub(crate) fn with_parameter<T: Serialize>(mut self, name: &'static str, param: T) -> Js {
+    pub(crate) fn with_parameter<T: Serialize>(
+        mut self,
+        name: &'static str,
+        param: T,
+    ) -> Result<Js, Error> {
         let serialized = format!(
             "{} = {}",
             name,
-            serde_json::to_string(&param)
-                .unwrap_or_else(|_| panic!("unable to serialize {} into JavaScript runtime", name))
+            serde_json::to_string(&param).map_err(|error| Error::ParameterSerialization {
+                name: name.to_string(),
+                message: error.to_string()
+            })?
         );
         self.parameters.push((name, serialized));
-        self
+        Ok(self)
     }
 
-    pub(crate) fn execute<Ok: DeserializeOwned + 'static, Error: DeserializeOwned + 'static>(
+    pub(crate) fn execute<Ok: DeserializeOwned + 'static>(
         &self,
         name: &'static str,
         source: &'static str,
@@ -44,10 +51,12 @@ impl Js {
         // We'll use this channel to get the results
         let (tx, rx) = channel();
 
+        let happy_tx = tx.clone();
+
         runtime.register_op(
             "op_result",
             op_sync(move |_state, value, _buffer: ()| {
-                tx.send(value).expect("channel must be open");
+                happy_tx.send(Ok(value)).expect("channel must be open");
 
                 Ok(serde_json::json!(null))
 
@@ -61,11 +70,17 @@ impl Js {
                 .expect("unable to evaluate service list in JavaScript runtime");
         }
 
-        runtime.execute_script(name, source).unwrap_or_else(|e| {
-            panic!(
+        // We are sending the error through the channel already
+        let _ = runtime.execute_script(name, source).map_err(|e| {
+            let message = format!(
                 "unable to invoke {} in JavaScript runtime \n error: \n {:?}",
                 source, e
-            )
+            );
+
+            tx.send(Err(Error::DenoRuntime(message)))
+                .expect("channel must be open");
+
+            e
         });
 
         rx.recv().expect("channel remains open")
