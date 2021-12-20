@@ -391,11 +391,11 @@ We're done! `Bill` now originates in a new subgraph, and it was resolvable durin
 
 </ExpansionPanel>
 
-<ExpansionPanel title="With serviceList">
+<ExpansionPanel title="With `IntrospectAndCompose`">
 
-> ⚠️ We strongly recommend _against_ using `serviceList`. For details, see [Limitations of `serviceList`](./gateway/#limitations-of-servicelist).
+> ⚠️ We strongly recommend _against_ using `IntrospectAndCompose`. For details, see [Limitations of `IntrospectAndCompose`](./gateway/#limitations-of-introspectandcompose).
 
-When you provide a `serviceList` to `ApolloGateway`, it performs composition _itself_ on startup after fetching all of your subgraph schemas. If this runtime composition fails, the gateway fails to start up, resulting in downtime.
+When you provide `IntrospectAndCompose` to `ApolloGateway`, it performs composition _itself_ on startup after fetching all of your subgraph schemas. If this runtime composition fails, the gateway fails to start up, resulting in downtime.
 
 To minimize downtime for your graph, you need to make sure all of your subgraph schemas successfully compose whenever your gateway starts up. When migrating an entity, this requires a **coordinated deployment** of your modified subgraphs and a restart of the gateway itself.
 
