@@ -28,7 +28,9 @@ To maximize uptime, Uplink is hosted simultaneously at _two_ endpoints, one in G
 * GCP: `https://uplink.api.apollographql.com/`
 * AWS: `https://aws.uplink.api.apollographql.com/`
 
-By default in versions of `@apollo/gateway` vTODO and later, your gateway polls the GCP URL at a regular interval. Whenever a poll request fails, the gateway retries the request with the AWS URL. It continues swapping between the two URLs until the request succeeds, or until reaching the maximum number of retries.
+By default in versions of `@apollo/gateway` vTODO and later, your gateway polls the GCP URL at a regular interval. Whenever a poll request fails, the gateway retries that request with the AWS URL. It continues swapping between the two URLs until the request succeeds, or until reaching the maximum number of retries.
+
+Even if a poll request fails all retries, the gateway continues polling at the next interval, and it continues using its most recently obtained configuration.
 
 > Verisons of `@apollo/gateway` prior to vTODO don't support multiple Uplink endpoints and only use the GCP URL by default.
 
@@ -65,17 +67,17 @@ Note that if you _also_ provide a list of endpoints via [environment variable](#
 
 #### Environment variable
 
-You can provide a comma-separated list of Uplink URLs as the value of the `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT` environment variable in your gateway's environment.
-
-For example, this configuration polls the AWS URL exclusively:
+You can provide a comma-separated list of Uplink URLs as the value of the `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT` environment variable in your gateway's environment:
 
 ```bash
-APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://aws.uplink.api.apollographql.com/
+APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://aws.uplink.api.apollographql.com/,https://uplink.api.apollographql.com/
 ```
+
+This example swaps the priority of the two Uplink URLs, which means the gateway polls the AWS URL first.
 
 ### Retry limit
 
-You can configure how many times your gateway retries a failed poll request like so:
+You can configure how many times your gateway retries a single failed poll request like so:
 
 ```js
 const { ApolloGateway } = require('@apollo/gateway');
@@ -87,4 +89,6 @@ const gateway = new ApolloGateway({
 });
 ```
 
-By default, the gateway retries a number of times equal to three times the number of [Uplink URLs](#uplink-urls).
+By default, the gateway retries a single poll request a number of times equal to three times the number of [Uplink URLs](#uplink-urls).
+
+> Even if a poll request fails all retries, the gateway continues polling at the next interval, and it continues using its most recently obtained configuration.
