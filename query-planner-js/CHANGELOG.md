@@ -6,6 +6,10 @@
 
 - _Nothing yet. Stay tuned._
 
+## v0.6.3
+
+- Updates to transitive dependencies.  No other substantial changes.
+
 ## v0.6.0
 
 - `FetchNode`s may now contain a property `inclusionConditions` which informs the executor whether or not a `FetchNode` can be skipped entirely at runtime. Inclusion conditions may consist of literals and variables, so must be resolved at execution time rather than during query planning. This change to the query plan format is backwards compatible - query plan executors may ignore this property altogether and the results will be the same. Utilizing this property is simply an optimization to allow an executor to skip sending subgraph requests which will evaluate to no data. [PR #1113](https://github.com/apollographql/federation/pull/1113)
