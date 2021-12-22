@@ -28,11 +28,11 @@ To maximize uptime, Uplink is hosted simultaneously at _two_ endpoints, one in G
 * GCP: `https://uplink.api.apollographql.com/`
 * AWS: `https://aws.uplink.api.apollographql.com/`
 
-By default in versions of `@apollo/gateway` vTODO and later, your gateway polls the GCP URL at a regular interval. Whenever a poll request fails, the gateway retries that request with the AWS URL. It continues swapping between the two URLs until the request succeeds, or until reaching the maximum number of retries.
+By default in versions of `@apollo/gateway` v0.45.0 and later, your gateway polls the GCP URL at a regular interval. Whenever a poll request fails, the gateway retries that request with the AWS URL. It continues swapping between the two URLs until the request succeeds, or until reaching the maximum number of retries.
 
 Even if a poll request fails all retries, the gateway continues polling at the next interval, and it continues using its most recently obtained configuration.
 
-> Verisons of `@apollo/gateway` prior to vTODO don't support multiple Uplink endpoints and only use the GCP URL by default.
+> Verisons of `@apollo/gateway` prior to v0.45.0 don't support multiple Uplink endpoints and only use the GCP URL by default.
 
 ## Configuring polling behavior
 
