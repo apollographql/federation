@@ -50,16 +50,16 @@ dependencies = [
 
 [[package]]
 name = "deno_core"
-version = "0.111.0"
+version = "0.112.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fe9d54c86cb2946be373f381cb1621903711691147eaecf6b9cd95376cb8eb8"
+checksum = "28b0a532994e7d5ddfc029a33a67709c91e6c8926b97e4825e4d3056ee11abfc"
 dependencies = [
  "anyhow",
  "futures",
  "indexmap",
- "lazy_static",
  "libc",
  "log",
+ "once_cell",
  "parking_lot",
  "pin-project",
  "serde",
@@ -319,6 +319,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
 
 [[package]]
+name = "once_cell"
+version = "1.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da32515d9f6e6e489d7bc9d84c71b060db7247dc035bbe44eac88cf87486d8d5"
+
+[[package]]
 name = "parking_lot"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -488,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "serde_v8"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fcfe34883023386ca624a87258ae9b6e0d6db2203f8f43b09febb8e03964b63"
+checksum = "487456399b8722492bdc4c1834397f91c935247590dae30f8e779b7f48e3181a"
 dependencies = [
  "serde",
  "serde_bytes",
