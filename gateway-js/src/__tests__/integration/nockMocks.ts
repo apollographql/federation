@@ -64,14 +64,20 @@ function gatewayNock(url: Parameters<typeof nock>[0]): nock.Scope {
   });
 }
 
-export const mockCloudConfigUrl =
-  'https://example.cloud-config-url.com/cloudconfig/';
+export const mockCloudConfigUrl1 =
+  'https://example1.cloud-config-url.com/cloudconfig/';
+
+export const mockCloudConfigUrl2 =
+  'https://example2.cloud-config-url.com/cloudconfig/';
+
+export const mockCloudConfigUrl3 =
+  'https://example3.cloud-config-url.com/cloudconfig/';
 
 export const mockOutOfBandReporterUrl =
   'https://example.outofbandreporter.com/monitoring/';
 
-export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null) {
-  return gatewayNock(mockCloudConfigUrl).post('/', {
+export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null, url: string = mockCloudConfigUrl1) {
+  return gatewayNock(url).post('/', {
     query: SUPERGRAPH_SDL_QUERY,
     variables: {
       ref: graphRef,
@@ -81,8 +87,8 @@ export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null) {
   });
 }
 
-export function mockSupergraphSdlRequest(ifAfter: string | null = null) {
-  return mockSupergraphSdlRequestIfAfter(ifAfter);
+export function mockSupergraphSdlRequest(ifAfter: string | null = null, url: string = mockCloudConfigUrl1) {
+  return mockSupergraphSdlRequestIfAfter(ifAfter, url);
 }
 
 export function mockSupergraphSdlRequestSuccessIfAfter(

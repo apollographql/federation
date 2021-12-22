@@ -11,7 +11,7 @@ import {
   mockSupergraphSdlRequestSuccess,
   mockSupergraphSdlRequest,
   mockApolloConfig,
-  mockCloudConfigUrl,
+  mockCloudConfigUrl1,
   mockSupergraphSdlRequestIfAfter,
   mockSupergraphSdlRequestSuccessIfAfter,
 } from './nockMocks';
@@ -99,13 +99,12 @@ it('Queries remote endpoints for their SDLs', async () => {
   expect(gateway.schema!.getType('User')!.description).toBe('This is my User');
 });
 
-// TODO(trevor:cloudconfig): Remove all usages of the experimental config option
 it('Fetches Supergraph SDL from remote storage', async () => {
   mockSupergraphSdlRequestSuccess();
 
   gateway = new ApolloGateway({
     logger,
-    schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    uplinkEndpoints: [mockCloudConfigUrl1],
   });
 
   await gateway.load(mockApolloConfig);
@@ -113,10 +112,9 @@ it('Fetches Supergraph SDL from remote storage', async () => {
   expect(gateway.schema?.getType('User')).toBeTruthy();
 });
 
-// TODO(trevor:cloudconfig): This test should evolve to demonstrate overriding the default in the future
 it('Fetches Supergraph SDL from remote storage using a configured env variable', async () => {
   cleanUp = mockedEnv({
-    APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: mockCloudConfigUrl,
+    APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: mockCloudConfigUrl1,
   });
   mockSupergraphSdlRequestSuccess();
 
@@ -150,11 +148,11 @@ it('Updates Supergraph SDL from remote storage', async () => {
 
   gateway = new ApolloGateway({
     logger,
-    schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    uplinkEndpoints: [mockCloudConfigUrl1],
   });
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
   gateway.experimental_pollInterval = 100;
-  gateway.onSchemaChange(schemaChangeCallback);
+  gateway.onSchemaLoadOrUpdate(schemaChangeCallback);
 
   await gateway.load(mockApolloConfig);
   expect(gateway['compositionId']).toMatchInlineSnapshot(`"originalId-1234"`);
@@ -169,7 +167,8 @@ describe('Supergraph SDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      uplinkEndpoints: [mockCloudConfigUrl1],
+      uplinkMaxRetries: 0
     });
 
     await expect(
@@ -197,7 +196,8 @@ describe('Supergraph SDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      uplinkEndpoints: [mockCloudConfigUrl1],
+      uplinkMaxRetries: 0
     });
 
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
@@ -230,7 +230,8 @@ describe('Supergraph SDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      uplinkEndpoints: [mockCloudConfigUrl1],
+      uplinkMaxRetries: 0
     });
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
@@ -267,7 +268,7 @@ describe('Supergraph SDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      uplinkEndpoints: [mockCloudConfigUrl1],
     });
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
@@ -297,7 +298,7 @@ describe('Supergraph SDL update failures', () => {
 
     gateway = new ApolloGateway({
       logger,
-      schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+      uplinkEndpoints: [mockCloudConfigUrl1],
     });
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
@@ -341,7 +342,7 @@ it('Rollsback to a previous schema when triggered', async () => {
 
   gateway = new ApolloGateway({
     logger,
-    schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+    uplinkEndpoints: [mockCloudConfigUrl1],
   });
   // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
   gateway.experimental_pollInterval = 100;
@@ -425,7 +426,7 @@ describe('Downstream service health checks', () => {
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
-        schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+        uplinkEndpoints: [mockCloudConfigUrl1],
       });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
@@ -448,7 +449,7 @@ describe('Downstream service health checks', () => {
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
-        schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+        uplinkEndpoints: [mockCloudConfigUrl1],
       });
 
       // This is the ideal, but our version of Jest has a bug with printing error snapshots.
@@ -508,7 +509,7 @@ describe('Downstream service health checks', () => {
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
-        schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+        uplinkEndpoints: [mockCloudConfigUrl1],
       });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
@@ -551,7 +552,7 @@ describe('Downstream service health checks', () => {
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
         logger,
-        schemaConfigDeliveryEndpoint: mockCloudConfigUrl,
+        uplinkEndpoints: [mockCloudConfigUrl1],
       });
       // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
       gateway.experimental_pollInterval = 100;
