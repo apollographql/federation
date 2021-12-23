@@ -147,7 +147,7 @@ You can specify any string value for the `name` field, which is used for identif
 </td>
 <td>
 
-An object, or an (optionally) async function returning an object, containing the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
+An object (or an optionally async function _returning_ an object) that contains the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
 
 **If you are using managed federation,** do not provide this field.
 
@@ -224,6 +224,42 @@ If `true`, the gateway sends a small query (`{ __typename }`) to all subgraphs o
 **On schema update,** the gateway does not roll over to the new schema or graph configuration if any of these requests fail. The gateway retries the requests at each polling interval until they succeed.
 
 The default value is `false`.
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `uplinkEndpoints`
+
+`Array<string>`
+</td>
+<td>
+
+A list of Apollo Uplink URLs the gateway uses to poll for its managed configuration. For details and defaults, see [Apollo Uplink](/managed-federation/uplink/).
+
+Provide this field **only** if you are using managed federation _and_ your use case specifically requires it (this is uncommon).
+
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `uplinkMaxRetries`
+
+`number`
+</td>
+<td>
+
+The maximum number of times the gateway retries a failed poll request to Apollo Uplink, cycling through its list of [`uplinkEndpoints`](#uplinkendpoints).
+
+The default value is three times your number of `uplinkEndpoints` (i.e., `6` in almost all cases).
+
+Provide this field **only** if you are using managed federation.
+
 </td>
 </tr>
 
