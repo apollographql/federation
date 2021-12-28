@@ -5,7 +5,7 @@ import { typeSerializer } from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(typeSerializer);
 
-const EMPTY_DOCUMENT = {
+const EMPTY_DOCUMENT: DocumentNode = {
   kind: Kind.DOCUMENT,
   definitions: [],
 };
@@ -100,9 +100,12 @@ type Money {
       }
     `);
 
-    const { data, errors } = await graphql(schema, query);
+    const { data, errors } = await graphql({
+      schema,
+      source: query
+    });
     expect(errors).toBeUndefined();
-    expect(data?._service.sdl).toEqual(`"""
+    expect((data as any)?._service.sdl).toEqual(`"""
 A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text
 """
 type User @key(fields: "id") {
@@ -261,15 +264,15 @@ type Query {
         },
       ]);
       const { data, errors } = await graphql(
-        schema,
-        query,
-        null,
-        null,
-        variables,
+        {
+          schema,
+          source: query,
+          variableValues: variables,
+        }
       );
       expect(errors).toBeUndefined();
-      expect(data?._entities[0].name).toEqual('Apollo Gateway');
-      expect(data?._entities[1].firstName).toEqual('James');
+      expect((data as any)?._entities[0].name).toEqual('Apollo Gateway');
+      expect((data as any)?._entities[1].firstName).toEqual('James');
     });
     it('executes resolveReference with default representation values', async () => {
       const query = `query GetEntities($representations: [_Any!]!) {
@@ -294,14 +297,14 @@ type Query {
         }
       `);
       const { data, errors } = await graphql(
-        schema,
-        query,
-        null,
-        null,
-        variables,
+        {
+          schema,
+          source: query,
+          variableValues: variables,
+        }
       );
       expect(errors).toBeUndefined();
-      expect(data?._entities[0].name).toEqual('Apollo Gateway');
+      expect((data as any)?._entities[0].name).toEqual('Apollo Gateway');
     });
   });
   describe('_service root field', () => {
@@ -326,9 +329,12 @@ type Query {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({
+        schema,
+        source: query
+      });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`type Review {
+      expect((data as any)?._service.sdl).toEqual(`type Review {
   id: ID
   title: String
 }
@@ -364,9 +370,12 @@ extend type Product @key(fields: "upc") {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({
+        schema,
+        source: query
+      });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`type Review {
+      expect((data as any)?._service.sdl).toEqual(`type Review {
   id: ID
   title: String
 }
@@ -395,9 +404,12 @@ extend interface Product @key(fields: "upc") {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({
+        schema,
+        source: query
+      });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`type Product @key(fields: "upc") {
+      expect((data as any)?._service.sdl).toEqual(`type Product @key(fields: "upc") {
   upc: String!
   name: String
   price: Int
@@ -418,9 +430,12 @@ extend interface Product @key(fields: "upc") {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({
+        schema,
+        source: query
+      });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl)
+      expect((data as any)?._service.sdl)
         .toEqual(`type Product @key(fields: "upc") @key(fields: "name") {
   upc: String!
   name: String
@@ -454,9 +469,12 @@ extend interface Product @key(fields: "upc") {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({
+        schema,
+        source: query
+      });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`type Review @key(fields: "id") {
+      expect((data as any)?._service.sdl).toEqual(`type Review @key(fields: "id") {
   id: ID!
   body: String
   author: User @provides(fields: "email")
@@ -489,9 +507,12 @@ extend type Product @key(fields: "upc") {
         }
       `);
 
-      const { data, errors } = await graphql(schema, query);
+      const { data, errors } = await graphql({
+        schema,
+        source: query
+      });
       expect(errors).toBeUndefined();
-      expect(data?._service.sdl).toEqual(`directive @custom on FIELD
+      expect((data as any)?._service.sdl).toEqual(`directive @custom on FIELD
 
 extend type User @key(fields: "email") {
   email: String @external
@@ -533,9 +554,9 @@ describe('legacy interface', () => {
       `union _Entity = Product`,
     );
     expect(
-      await execute(
+      await execute({
         schema,
-        gql`
+        document: gql`
           {
             product {
               price
@@ -543,7 +564,7 @@ describe('legacy interface', () => {
             }
           }
         `,
-      ),
+      }),
     ).toEqual({
       data: {
         product: { upc: '1234', price: 10 },
@@ -568,9 +589,9 @@ describe('legacy interface', () => {
       `union _Entity = Product`,
     );
     expect(
-      await execute(
+      await execute({
         schema,
-        gql`
+        document: gql`
           {
             product {
               price
@@ -578,7 +599,7 @@ describe('legacy interface', () => {
             }
           }
         `,
-      ),
+      }),
     ).toEqual({
       data: {
         product: { upc: '1234', price: 10 },

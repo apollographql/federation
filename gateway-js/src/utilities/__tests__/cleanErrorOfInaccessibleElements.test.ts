@@ -49,11 +49,13 @@ describe('cleanErrorOfInaccessibleNames', () => {
   const schema = coreSchema.toAPISchema().toGraphQLJSSchema();
 
   it('removes inaccessible type names from error messages', async () => {
-    const result = await execute(schema, parse('{fooField{someField}}'), {
-      fooField: {
-        __typename: 'Bar',
-        someField: 'test',
-      },
+    const result = await execute({
+      schema, document: parse('{fooField{someField}}'), rootValue:{
+        fooField: {
+          __typename: 'Bar',
+          someField: 'test',
+        },
+      }
     });
 
     const cleaned = cleanErrorOfInaccessibleNames(schema, result.errors![0]!);
