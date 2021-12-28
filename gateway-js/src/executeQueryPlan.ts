@@ -12,6 +12,7 @@ import {
   GraphQLFormattedError,
   isAbstractType,
   GraphQLSchema,
+  isTypeSubTypeOf
 } from 'graphql';
 import { Trace, google } from 'apollo-reporting-protobuf';
 import { GraphQLDataSource, GraphQLDataSourceRequestKind } from './datasources/types';
@@ -546,7 +547,7 @@ function doesTypeConditionMatch(
   }
 
   if (isAbstractType(conditionalType)) {
-    return schema.isSubType(conditionalType, type);
+    return isTypeSubTypeOf(schema, type, conditionalType)
   }
 
   return false;

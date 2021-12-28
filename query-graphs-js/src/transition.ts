@@ -1,4 +1,5 @@
-import { FieldDefinition, CompositeType, SchemaRootKind } from "@apollo/federation-internals";
+import { FieldDefinition, CompositeType } from "@apollo/federation-internals";
+import { OperationTypeNode } from "graphql";
 
 /**
  * The type of query graphs edge "transitions".
@@ -38,7 +39,7 @@ export class RootTypeResolution {
   readonly kind = 'RootTypeResolution' as const;
   readonly collectOperationElements = false as const;
 
-  constructor(readonly rootKind: SchemaRootKind) {
+  constructor(readonly rootKind: OperationTypeNode) {
   }
 
   toString() {

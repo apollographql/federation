@@ -47,14 +47,14 @@ export interface FlattenNode {
 export type QueryPlanSelectionNode = QueryPlanFieldNode | QueryPlanInlineFragmentNode;
 
 export interface QueryPlanFieldNode {
-  readonly kind: 'Field';
+  readonly kind: Kind.FIELD;
   readonly alias?: string;
   readonly name: string;
   readonly selections?: QueryPlanSelectionNode[];
 }
 
 export interface QueryPlanInlineFragmentNode {
-  readonly kind: 'InlineFragment';
+  readonly kind: Kind.INLINE_FRAGMENT;
   readonly typeCondition?: string;
   readonly selections: QueryPlanSelectionNode[];
 }

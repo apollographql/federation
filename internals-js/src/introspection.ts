@@ -1,4 +1,4 @@
-import { DirectiveLocation } from "graphql";
+import { DirectiveLocation, OperationTypeNode } from "graphql";
 import { EnumType, FieldDefinition, ListType, NonNullType, ObjectType, Schema } from "./definitions";
 
 export const introspectionFieldNames = [ '__schema', '__type' ];
@@ -76,10 +76,10 @@ export function addIntrospectionFields(schema: Schema) {
   schemaType.addField('subscriptionType', new NonNullType(typeType));
   schemaType.addField('directives', new NonNullType(new ListType(new NonNullType(directiveType))));
 
-  let queryRoot = schema.schemaDefinition.rootType('query');
+  let queryRoot = schema.schemaDefinition.rootType(OperationTypeNode.QUERY);
   if (!queryRoot) {
     queryRoot = schema.addType(new ObjectType('Query'));
-    schema.schemaDefinition.setRoot('query', queryRoot);
+    schema.schemaDefinition.setRoot(OperationTypeNode.QUERY, queryRoot);
   }
 
   queryRoot.addField(new FieldDefinition('__schema', true), new NonNullType(schemaType));

@@ -14,7 +14,6 @@ import {
   Operation,
   operationToDocument,
   Schema,
-  SchemaRootKind,
   Selection,
   selectionOfElement,
   SelectionSet,
@@ -48,7 +47,7 @@ import {
   SimultaneousPathsWithLazyIndirectPaths,
   advanceOptionsToString,
 } from "@apollo/query-graphs";
-import { print } from "graphql";
+import { OperationTypeNode, print } from "graphql";
 
 const debug = newDebugLogger('validation');
 
@@ -247,7 +246,7 @@ export function computeSubgraphPaths(supergraphPath: RootPath<Transition>, subgr
   }
 }
 
-function initialSubgraphPaths(kind: SchemaRootKind, subgraphs: QueryGraph): RootPath<Transition>[] {
+function initialSubgraphPaths(kind: OperationTypeNode, subgraphs: QueryGraph): RootPath<Transition>[] {
   const root = subgraphs.root(kind);
   assert(root, () => `The supergraph shouldn't have a ${kind} root if no subgraphs have one`);
   assert(
@@ -266,7 +265,7 @@ export class ValidationState {
   ) {
   }
 
-  static initial(supergraph: QueryGraph, kind: SchemaRootKind, subgraphs: QueryGraph) {
+  static initial(supergraph: QueryGraph, kind: OperationTypeNode, subgraphs: QueryGraph) {
     return new ValidationState(GraphPath.fromGraphRoot(supergraph, kind)!, initialSubgraphPaths(kind, subgraphs));
   }
 

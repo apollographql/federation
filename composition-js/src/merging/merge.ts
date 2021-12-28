@@ -30,7 +30,6 @@ import {
   isFederationType,
   Directive,
   isFederationField,
-  SchemaRootKind,
   CompositeType,
   Subgraphs,
   federationBuiltIns,
@@ -54,7 +53,7 @@ import {
   isInterfaceType,
   sourceASTs,
 } from "@apollo/federation-internals";
-import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
+import { ASTNode, GraphQLError, DirectiveLocation, OperationTypeNode } from "graphql";
 import {
   CompositionHint,
   HintID,
@@ -209,7 +208,7 @@ function isMergedDirective(definition: DirectiveDefinition | Directive): boolean
 // This mainly avoid us trying to set the supergraph root in the rare case where the supergraph has
 // no actual queries (knowing that subgraphs will _always_ have a queries since they have at least
 // the federation ones).
-function filteredRoot(def: SchemaDefinition, rootKind: SchemaRootKind): ObjectType | undefined {
+function filteredRoot(def: SchemaDefinition, rootKind: OperationTypeNode): ObjectType | undefined {
   const type = def.root(rootKind)?.type;
   return type && hasMergedFields(type) ? type : undefined;
 }
@@ -249,7 +248,7 @@ function hasTagUsage(subgraph: Schema): boolean {
   return !!directive && directive.applications().length > 0;
 }
 
-function locationString(locations: DirectiveLocationEnum[]): string {
+function locationString(locations: DirectiveLocation[]): string {
   if (locations.length === 0) {
     return "";
   }
@@ -339,7 +338,7 @@ class Merger {
       }
     }
 
-    if (!this.merged.schemaDefinition.rootType('query')) {
+    if (!this.merged.schemaDefinition.rootType(OperationTypeNode.QUERY)) {
       this.errors.push(new GraphQLError("No queries found in any subgraph: a supergraph must have a query root type."));
     }
 
@@ -1329,7 +1328,7 @@ class Merger {
 
     let repeatable: boolean | undefined = undefined;
     let inconsistentRepeatable = false;
-    let locations: DirectiveLocationEnum[] | undefined = undefined;
+    let locations: DirectiveLocation[] | undefined = undefined;
     let inconsistentLocations = false;
     for (const source of sources) {
       if (!source) {
@@ -1388,7 +1387,7 @@ class Merger {
   private mergeExecutionDirectiveDefinition(sources: (DirectiveDefinition | undefined)[], dest: DirectiveDefinition) {
     let repeatable: boolean | undefined = undefined;
     let inconsistentRepeatable = false;
-    let locations: DirectiveLocationEnum[] | undefined = undefined;
+    let locations: DirectiveLocation[] | undefined = undefined;
     let inconsistentLocations = false;
     for (const source of sources) {
       if (!source) {
@@ -1483,12 +1482,12 @@ class Merger {
     }
   }
 
-  private extractLocations(source: DirectiveDefinition): DirectiveLocationEnum[] {
+  private extractLocations(source: DirectiveDefinition): DirectiveLocation[] {
     // We sort the locations so that the return list of locations essentially act like a set.
     return this.filterExecutableDirectiveLocations(source).concat().sort();
   }
 
-  private filterExecutableDirectiveLocations(source: DirectiveDefinition): readonly DirectiveLocationEnum[] {
+  private filterExecutableDirectiveLocations(source: DirectiveDefinition): readonly DirectiveLocation[] {
     if (MERGED_TYPE_SYSTEM_DIRECTIVES.includes(source.name)) {
       return source.locations;
     }

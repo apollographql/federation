@@ -10,7 +10,9 @@ import {
   GraphQLError,
   InlineFragmentNode,
   Kind,
+  NameNode,
   OperationDefinitionNode,
+  OperationTypeNode,
   parse,
   SelectionNode,
   SelectionSetNode
@@ -30,7 +32,6 @@ import {
   ObjectType,
   runtimeTypesIntersects,
   Schema,
-  SchemaRootKind,
   mergeVariables,
   Variables,
   variablesInArguments,
@@ -304,14 +305,14 @@ export function sameOperationPaths(p1: OperationPath, p2: OperationPath): boolea
 }
 
 export type RootOperationPath = {
-  rootKind: SchemaRootKind,
+  rootKind: OperationTypeNode,
   path: OperationPath
 }
 
 // TODO Operations can also have directives
 export class Operation {
   constructor(
-    readonly rootKind: SchemaRootKind,
+    readonly rootKind: OperationTypeNode,
     readonly selectionSet: SelectionSet,
     readonly variableDefinitions: VariableDefinitions,
     readonly name?: string) {
@@ -402,15 +403,15 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
 
   toFragmentDefinitionNode() : FragmentDefinitionNode {
     return {
-      kind: 'FragmentDefinition',
+      kind: Kind.FRAGMENT_DEFINITION,
       name: {
-        kind: 'Name',
+        kind: Kind.NAME,
         value: this.name
       },
       typeCondition: {
-        kind: 'NamedType',
+        kind: Kind.NAMED_TYPE,
         name: {
-          kind: 'Name',
+          kind: Kind.NAME,
           value: this.typeCondition.name
         }
       },
@@ -672,7 +673,7 @@ export class SelectionSet {
   ): Selection {
     let selection: Selection;
     switch (node.kind) {
-      case 'Field':
+      case Kind.FIELD:
         const definition: FieldDefinition<any> | undefined  = fieldAccessor(this.parentType, node.name.value);
         validate(definition, () => `Cannot query field "${node.name.value}" on type "${this.parentType}".`, this.parentType.sourceAST);
         const type = baseType(definition.type!);
@@ -685,7 +686,7 @@ export class SelectionSet {
           selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fieldAccessor);
         }
         break;
-      case 'InlineFragment':
+      case Kind.INLINE_FRAGMENT:
         const element = new FragmentElement(this.parentType, node.typeCondition?.name.value);
         selection = new InlineFragmentSelection(
           element,
@@ -693,7 +694,7 @@ export class SelectionSet {
         );
         selection.selectionSet.addSelectionSetNode(node.selectionSet, variableDefinitions, fieldAccessor);
         break;
-      case 'FragmentSpread':
+      case Kind.FRAGMENT_SPREAD:
         const fragmentName = node.name.value;
         validate(this.fragments, () => `Cannot find fragment name "${fragmentName}" (no fragments were provided)`);
         selection = new FragmentSpreadSelection(this.parentType, this.fragments, fragmentName);
@@ -767,7 +768,7 @@ export class SelectionSet {
       return {
         kind: Kind.SELECTION_SET,
         selections: [{
-          kind: 'Field',
+          kind: Kind.FIELD,
           name: {
             kind: Kind.NAME,
             value: '...',
@@ -815,7 +816,7 @@ export class SelectionSet {
   }
 
   toOperationString(
-    rootKind: SchemaRootKind,
+    rootKind: OperationTypeNode,
     variableDefinitions: VariableDefinitions,
     operationName?: string,
     expandFragments: boolean = false,
@@ -938,7 +939,7 @@ export class FieldSelection {
 
     return entries.map(([n, v]) => {
       return {
-        kind: 'Argument',
+        kind: Kind.ARGUMENT,
         name: { kind: Kind.NAME, value: n },
         value: valueToAST(v, this.field.definition.argument(n)!.type!)!,
       };
@@ -962,9 +963,9 @@ export class FieldSelection {
   }
 
   toSelectionNode(): FieldNode {
-    const alias = this.field.alias ? { kind: Kind.NAME, value: this.field.alias, } : undefined;
+    const alias: NameNode | undefined = this.field.alias ? { kind: Kind.NAME, value: this.field.alias, } : undefined;
     return {
-      kind: 'Field',
+      kind: Kind.FIELD,
       name: {
         kind: Kind.NAME,
         value: this.field.name,
@@ -1216,8 +1217,8 @@ class FragmentSpreadSelection extends FragmentSelection {
         } as DirectiveNode;
       });
     return {
-      kind: 'FragmentSpread',
-      name: { kind: 'Name', value: this.namedFragment.name },
+      kind: Kind.FRAGMENT_SPREAD,
+      name: { kind: Kind.NAME, value: this.namedFragment.name },
       directives: directiveNodes,
     };
   }
@@ -1354,7 +1355,7 @@ function parseOperationAST(source: string): OperationDefinitionNode {
 
 export function operationToDocument(operation: Operation): DocumentNode {
   const operationAST: OperationDefinitionNode = {
-    kind: 'OperationDefinition',
+    kind: Kind.OPERATION_DEFINITION,
     operation: operation.rootKind,
     selectionSet: operation.selectionSet.toSelectionSetNode(),
     variableDefinitions: operation.variableDefinitions.toVariableDefinitionNodes(),

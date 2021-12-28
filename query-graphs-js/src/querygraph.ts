@@ -9,7 +9,6 @@ import {
   NamedType,
   ObjectType,
   Schema,
-  SchemaRootKind,
   Type,
   UnionType,
   baseType,
@@ -35,6 +34,7 @@ import {
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution } from './transition';
 import { isStructuralFieldSubtype } from './structuralSubtyping';
+import { OperationTypeNode } from 'graphql';
 
 // We use our federation reserved subgraph name to avoid risk of conflict with other subgraph names (wouldn't be a huge
 // deal, but safer that way). Using something short like `_` is also on purpose: it makes it stand out in debug messages
@@ -42,7 +42,7 @@ import { isStructuralFieldSubtype } from './structuralSubtyping';
 const FEDERATED_GRAPH_ROOT_SOURCE = FEDERATION_RESERVED_SUBGRAPH_NAME;
 const FEDERATED_GRAPH_ROOT_SCHEMA = new Schema();
 
-export function federatedGraphRootTypeName(rootKind: SchemaRootKind): string {
+export function federatedGraphRootTypeName(rootKind: OperationTypeNode): string {
   return `[${rootKind}]`;
 }
 
@@ -82,7 +82,7 @@ export class Vertex {
  */
 export class RootVertex extends Vertex {
   constructor(
-    readonly rootKind: SchemaRootKind,
+    readonly rootKind: OperationTypeNode,
     index: number,
     type: NamedType,
     source : string
@@ -95,7 +95,7 @@ export class RootVertex extends Vertex {
   }
 }
 
-function toRootVertex(vertex: Vertex, rootKind: SchemaRootKind): RootVertex {
+function toRootVertex(vertex: Vertex, rootKind: OperationTypeNode): RootVertex {
   return new RootVertex(rootKind, vertex.index, vertex.type, vertex.source);
 }
 
@@ -222,7 +222,7 @@ export class Edge {
  * On top of its set of vertices and edges, a query graph exposes:
  *  - its set of "sources": pointers to the graphQL schema on which the query graph was built.
  *  - a set of distinguished vertices called "root" vertices. A query graph has at most one root
- *    vertex per `SchemaRootKind`, and those vertices are usually entry points for traversals of
+ *    vertex per `OperationTypeNode`, and those vertices are usually entry points for traversals of
  *    a query graph.
  *
  * In practice, the code builds 2 "kind" of query graphs:
@@ -264,7 +264,7 @@ export class QueryGraph {
      */
     private readonly typesToVertices: MultiMap<string, number>,
     /** The set of distinguished root vertices (pointers to vertices in `vertices`), keyed by their kind.  */
-    private readonly rootVertices: MapWithCachedArrays<SchemaRootKind, RootVertex>,
+    private readonly rootVertices: MapWithCachedArrays<OperationTypeNode, RootVertex>,
     /**
      * The sources on which the query graph was built, that is a set (which can be of size 1) of graphQL schema keyed by
      * the name identifying them. Note that the `source` string in the `Vertex` of a query graph is guaranteed to be
@@ -287,10 +287,10 @@ export class QueryGraph {
   }
 
   /**
-   * The set of `SchemaRootKind` for which this query graph has a root vertex (for
-   * which `root(SchemaRootKind)` will _not_ return `undefined`).
+   * The set of `OperationTypeNode` for which this query graph has a root vertex (for
+   * which `root(OperationTypeNode)` will _not_ return `undefined`).
    */
-  rootKinds(): readonly SchemaRootKind[] {
+  rootKinds(): readonly OperationTypeNode[] {
     return this.rootVertices.keys();
   }
 
@@ -307,7 +307,7 @@ export class QueryGraph {
    * @param kind - the root kind for which to get the root vertex.
    * @returns the root vertex for `kind` if this query graph has one.
    */
-  root(kind: SchemaRootKind): RootVertex | undefined {
+  root(kind: OperationTypeNode): RootVertex | undefined {
     return this.rootVertices.get(kind);
   }
 
@@ -528,9 +528,9 @@ export function buildFederatedQueryGraph(supergraph: Schema, forQueryPlanning: b
   return federateSubgraphs(graphs);
 }
 
-function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<SchemaRootKind>, Schema[]] {
+function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<OperationTypeNode>, Schema[]] {
   let vertices = 0;
-  const rootKinds = new Set<SchemaRootKind>();
+  const rootKinds = new Set<OperationTypeNode>();
   const schemas: Schema[] = [];
   for (const subgraph of subgraphs) {
     vertices += subgraph.verticesCount();
@@ -746,7 +746,7 @@ class GraphBuilder {
   private nextIndex: number = 0;
   private readonly adjacencies: Edge[][];
   private readonly typesToVertices: MultiMap<string, number> = new MultiMap();
-  private readonly rootVertices: MapWithCachedArrays<SchemaRootKind, RootVertex> = new MapWithCachedArrays();
+  private readonly rootVertices: MapWithCachedArrays<OperationTypeNode, RootVertex> = new MapWithCachedArrays();
   private readonly sources: Map<string, Schema> = new Map();
 
   constructor(verticesCount?: number) {
@@ -759,7 +759,7 @@ class GraphBuilder {
     return indexes == undefined ? [] : indexes.map(i => this.vertices[i]);
   }
 
-  root(kind: SchemaRootKind): Vertex | undefined {
+  root(kind: OperationTypeNode): Vertex | undefined {
     return this.rootVertices.get(kind);
   }
 
@@ -785,13 +785,13 @@ class GraphBuilder {
     return vertex;
   }
 
-  createRootVertex(kind: SchemaRootKind, type: NamedType, source: string, schema: Schema) {
+  createRootVertex(kind: OperationTypeNode, type: NamedType, source: string, schema: Schema) {
     const vertex = this.createNewVertex(type, source, schema);
     assert(!this.rootVertices.has(kind), () => `Root vertex for ${kind} (${this.rootVertices.get(kind)}) already exists: cannot replace by ${vertex}`);
     this.setAsRoot(kind, vertex.index);
   }
 
-  setAsRoot(kind: SchemaRootKind, index: number) {
+  setAsRoot(kind: OperationTypeNode, index: number) {
     const vertex = this.vertices[index];
     assert(vertex, () => `Cannot set non-existing vertex at index ${index} as root ${kind}`);
     const rootVertex = toRootVertex(vertex, kind);
@@ -917,7 +917,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
    * In other words, calling this method on, say, the `Query` type of a schema will add vertices
    * and edges for all the type reachable from that `Query` type.
    */
-  addRecursivelyFromRoot(kind: SchemaRootKind, root: ObjectType) {
+  addRecursivelyFromRoot(kind: OperationTypeNode, root: ObjectType) {
     this.setAsRoot(kind, this.addTypeRecursively(root).index);
   }
 

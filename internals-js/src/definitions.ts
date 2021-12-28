@@ -1,16 +1,18 @@
 import {
-  ArgumentNode,
   ASTNode,
   buildASTSchema as buildGraphqlSchemaFromAST,
+  ConstArgumentNode,
+  ConstDirectiveNode,
+  ConstObjectValueNode,
+  ConstValueNode,
   DirectiveLocation,
-  DirectiveLocationEnum,
-  DirectiveNode,
   DocumentNode,
   GraphQLError,
   GraphQLSchema,
   Kind,
   ListTypeNode,
   NamedTypeNode,
+  OperationTypeNode,
   parse,
   printError,
   TypeNode,
@@ -70,25 +72,20 @@ export function printErrors(errors: GraphQLError[]): string {
 
 export const typenameFieldName = '__typename';
 
-export type QueryRootKind = 'query';
-export type MutationRootKind = 'mutation';
-export type SubscriptionRootKind = 'subscription';
-export type SchemaRootKind = QueryRootKind | MutationRootKind | SubscriptionRootKind;
+export const allSchemaRootKinds: OperationTypeNode[] = [OperationTypeNode.QUERY, OperationTypeNode.MUTATION, OperationTypeNode.SUBSCRIPTION];
 
-export const allSchemaRootKinds: SchemaRootKind[] = ['query', 'mutation', 'subscription'];
-
-export function defaultRootName(rootKind: SchemaRootKind): string {
+export function defaultRootName(rootKind: OperationTypeNode): string {
   return rootKind.charAt(0).toUpperCase() + rootKind.slice(1);
 }
 
-function checkDefaultSchemaRoot(type: NamedType): SchemaRootKind | undefined {
+function checkDefaultSchemaRoot(type: NamedType): OperationTypeNode | undefined {
   if (type.kind !== 'ObjectType') {
     return undefined;
   }
   switch (type.name) {
-    case 'Query': return 'query';
-    case 'Mutation': return 'mutation';
-    case 'Subscription': return 'subscription';
+    case 'Query': return OperationTypeNode.QUERY;
+    case 'Mutation': return OperationTypeNode.MUTATION;
+    case 'Subscription': return OperationTypeNode.SUBSCRIPTION;
     default: return undefined;
   }
 }
@@ -233,15 +230,15 @@ export function runtimeTypesIntersects(t1: CompositeType, t2: CompositeType): bo
   return false;
 }
 
-export const executableDirectiveLocations: DirectiveLocationEnum[] = [
-  'QUERY',
-  'MUTATION',
-  'SUBSCRIPTION',
-  'FIELD',
-  'FRAGMENT_DEFINITION',
-  'FRAGMENT_SPREAD',
-  'INLINE_FRAGMENT',
-  'VARIABLE_DEFINITION',
+export const executableDirectiveLocations: DirectiveLocation[] = [
+  DirectiveLocation.QUERY,
+  DirectiveLocation.MUTATION,
+  DirectiveLocation.SUBSCRIPTION,
+  DirectiveLocation.FIELD,
+  DirectiveLocation.FRAGMENT_DEFINITION,
+  DirectiveLocation.FRAGMENT_SPREAD,
+  DirectiveLocation.INLINE_FRAGMENT,
+  DirectiveLocation.VARIABLE_DEFINITION,
 ];
 
 /**
@@ -253,27 +250,27 @@ export function typeToAST(type: Type): TypeNode {
   switch (type.kind) {
     case 'ListType':
       return {
-        kind: 'ListType',
+        kind: Kind.LIST_TYPE,
         type: typeToAST(type.ofType)
       };
     case 'NonNullType':
       return {
-        kind: 'NonNullType',
+        kind: Kind.NON_NULL_TYPE,
         type: typeToAST(type.ofType) as NamedTypeNode | ListTypeNode
       };
     default:
       return {
-        kind: 'NamedType',
-        name: { kind: 'Name', value: type.name }
+        kind: Kind.NAMED_TYPE,
+        name: { kind: Kind.NAME, value: type.name }
       };
   }
 }
 
 export function typeFromAST(schema: Schema, node: TypeNode): Type {
   switch (node.kind) {
-    case 'ListType':
+    case Kind.LIST_TYPE:
       return new ListType(typeFromAST(schema, node.type));
-    case 'NonNullType':
+    case Kind.NON_NULL_TYPE:
       return new NonNullType(typeFromAST(schema, node.type) as NullableType);
     default:
       const type = schema.type(node.name.value);
@@ -339,14 +336,14 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
     return toAdd;
   }
 
-  appliedDirectivesToDirectiveNodes() : DirectiveNode[] | undefined {
+  appliedDirectivesToDirectiveNodes() : ConstDirectiveNode[] | undefined {
     if (this.appliedDirectives.length == 0) {
       return undefined;
     }
 
     return this.appliedDirectives.map(directive => {
       return {
-        kind: 'Directive',
+        kind: Kind.DIRECTIVE,
         name: {
           kind: Kind.NAME,
           value: directive.name,
@@ -787,14 +784,14 @@ export class BuiltIns {
   addBuiltInDirectives(schema: Schema) {
     for (const name of ['include', 'skip']) {
       this.addBuiltInDirective(schema, name)
-        .addLocations('FIELD', 'FRAGMENT_SPREAD', 'INLINE_FRAGMENT')
+        .addLocations(DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT)
         .addArgument('if', new NonNullType(schema.booleanType()));
     }
     this.addBuiltInDirective(schema, 'deprecated')
-      .addLocations('FIELD_DEFINITION', 'ENUM_VALUE', 'ARGUMENT_DEFINITION', 'INPUT_FIELD_DEFINITION')
+      .addLocations(DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.ENUM_VALUE, DirectiveLocation.ARGUMENT_DEFINITION, DirectiveLocation.INPUT_FIELD_DEFINITION)
       .addArgument('reason', schema.stringType(), 'No longer supported');
     this.addBuiltInDirective(schema, 'specifiedBy')
-      .addLocations('SCALAR')
+      .addLocations(DirectiveLocation.SCALAR)
       .addArgument('url', new NonNullType(schema.stringType()));
   }
 
@@ -1365,7 +1362,7 @@ export class Schema {
 
     // TODO: we should ensure first that there is no undefined types (or maybe throw properly when printing the AST
     // and catching that properly).
-    let errors: GraphQLError[] = validateSDL(this.toAST(), undefined, this.builtIns.validationRules());
+    let errors: GraphQLError[] = (validateSDL(this.toAST(), undefined, this.builtIns.validationRules()) as GraphQLError[]);
     errors = errors.concat(validateSchema(this));
 
     // We avoid adding federation-specific validations if the base schema is not proper graphQL as the later can easily trigger
@@ -1396,7 +1393,7 @@ export class Schema {
 }
 
 export class RootType extends BaseExtensionMember<SchemaDefinition> {
-  constructor(readonly rootKind: SchemaRootKind, readonly type: ObjectType) {
+  constructor(readonly rootKind: OperationTypeNode, readonly type: ObjectType) {
     super();
   }
 
@@ -1411,7 +1408,7 @@ export class RootType extends BaseExtensionMember<SchemaDefinition> {
 
 export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
   readonly kind = 'SchemaDefinition' as const;
-  protected readonly _roots = new MapWithCachedArrays<SchemaRootKind, RootType>();
+  protected readonly _roots = new MapWithCachedArrays<OperationTypeNode, RootType>();
   protected readonly _extensions = new Set<Extension<SchemaDefinition>>();
 
   roots(): readonly RootType[] {
@@ -1441,15 +1438,15 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
     return applied;
   }
 
-  root(rootKind: SchemaRootKind): RootType | undefined {
+  root(rootKind: OperationTypeNode): RootType | undefined {
     return this._roots.get(rootKind);
   }
 
-  rootType(rootKind: SchemaRootKind): ObjectType | undefined {
+  rootType(rootKind: OperationTypeNode): ObjectType | undefined {
     return this.root(rootKind)?.type;
   }
 
-  setRoot(rootKind: SchemaRootKind, nameOrType: ObjectType | string): RootType {
+  setRoot(rootKind: OperationTypeNode, nameOrType: ObjectType | string): RootType {
     let toSet: RootType;
     if (typeof nameOrType === 'string') {
       this.checkUpdate();
@@ -1751,7 +1748,7 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
    */
   isQueryRootType(): boolean {
     const schema = this.schema();
-    return schema.schemaDefinition.root('query')?.type === this;
+    return schema.schemaDefinition.root(OperationTypeNode.QUERY)?.type === this;
   }
 }
 
@@ -2367,7 +2364,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
 
   private readonly _args: MapWithCachedArrays<string, ArgumentDefinition<DirectiveDefinition>> = new MapWithCachedArrays();
   repeatable: boolean = false;
-  private readonly _locations: DirectiveLocationEnum[] = [];
+  private readonly _locations: DirectiveLocation[] = [];
   private readonly _referencers: Set<Directive<SchemaElement<any, any>, TApplicationArgs>> = new Set();
 
   constructor(name: string, readonly isBuiltIn: boolean = false) {
@@ -2414,11 +2411,11 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     this._args.delete(name);
   }
 
-  get locations(): readonly DirectiveLocationEnum[] {
+  get locations(): readonly DirectiveLocation[] {
     return this._locations;
   }
 
-  addLocations(...locations: DirectiveLocationEnum[]): DirectiveDefinition {
+  addLocations(...locations: DirectiveLocation[]): DirectiveDefinition {
     let modified = false;
     for (const location of locations) {
       if (!this._locations.includes(location)) {
@@ -2437,10 +2434,10 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
   }
 
   addAllTypeLocations(): DirectiveDefinition {
-    return this.addLocations('SCALAR', 'OBJECT', 'INTERFACE', 'UNION', 'ENUM', 'INPUT_OBJECT');
+    return this.addLocations(DirectiveLocation.SCALAR, DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE, DirectiveLocation.UNION, DirectiveLocation.ENUM, DirectiveLocation.INPUT_OBJECT);
   }
 
-  removeLocations(...locations: DirectiveLocationEnum[]): DirectiveDefinition {
+  removeLocations(...locations: DirectiveLocation[]): DirectiveDefinition {
     let modified = false;
     for (const location of locations) {
       const index = this._locations.indexOf(location);
@@ -2588,7 +2585,7 @@ export class Directive<
     this.onModification();
   }
 
-  argumentsToAST(): ArgumentNode[] | undefined {
+  argumentsToAST(): ConstArgumentNode[] | undefined {
     const entries = Object.entries(this._args);
     if (entries.length === 0) {
       return undefined;
@@ -2598,9 +2595,9 @@ export class Directive<
     assert(definition, () => `Cannot convert arguments of detached directive ${this}`);
     return entries.map(([n, v]) => {
       return {
-        kind: 'Argument',
+        kind: Kind.ARGUMENT,
         name: { kind: Kind.NAME, value: n },
-        value: valueToAST(v, definition.argument(n)!.type!)!,
+        value: valueToAST(v, definition.argument(n)!.type!)! as ConstObjectValueNode,
       };
     });
   }
@@ -2664,8 +2661,8 @@ export class Variable {
 
   toVariableNode(): VariableNode {
     return {
-      kind: 'Variable',
-      name: { kind: 'Name', value: this.name },
+      kind: Kind.VARIABLE,
+      name: { kind: Kind.NAME, value: this.name },
     }
   }
 
@@ -2720,10 +2717,10 @@ export class VariableDefinition extends DirectiveTargetElement<VariableDefinitio
 
   toVariableDefinitionNode(): VariableDefinitionNode {
     return {
-      kind: 'VariableDefinition',
+      kind: Kind.VARIABLE_DEFINITION,
       variable: this.variable.toVariableNode(),
       type: typeToAST(this.type),
-      defaultValue: valueToAST(this.defaultValue, this.type),
+      defaultValue: valueToAST(this.defaultValue, this.type) as ConstValueNode,
       directives: this.appliedDirectivesToDirectiveNodes()
     }
   }

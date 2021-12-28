@@ -20,7 +20,6 @@ import {
   OperationPath,
   sameOperationPaths,
   Schema,
-  SchemaRootKind,
   Selection,
   SelectionSet,
   selectionSetOf,
@@ -68,7 +67,7 @@ import {
   SimultaneousPaths,
   terminateWithNonRequestedTypenameField,
 } from "@apollo/query-graphs";
-import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
+import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse, OperationTypeNode } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
@@ -101,7 +100,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
     readonly supergraphSchema: Schema, readonly subgraphs: QueryGraph, selectionSet: SelectionSet,
     readonly variableDefinitions: VariableDefinitions,
     private readonly startVertex: RV,
-    private readonly rootKind: SchemaRootKind,
+    private readonly rootKind: OperationTypeNode,
     readonly costFunction: CostFunction,
     initialContext: PathContext,
     excludedEdges: ExcludedEdges = [],
@@ -267,7 +266,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       i++;
     }
     // `i` is the smallest index of an element having the same number or less options than the first one,
-    // so we switch that first branch with the element "before" `i` (which has more elements). 
+    // so we switch that first branch with the element "before" `i` (which has more elements).
     this.closedBranches[0] = this.closedBranches[i - 1];
     this.closedBranches[i - 1] = firstBranch;
   }
@@ -390,7 +389,7 @@ class QueryPlanningTaversal<RV extends Vertex> {
       edge.conditions!,
       this.variableDefinitions,
       edge.head,
-      'query',
+      OperationTypeNode.QUERY,
       this.costFunction,
       context,
       excludedEdges,
@@ -671,7 +670,7 @@ class FetchGroup {
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
     readonly subgraphName: string,
-    readonly rootKind: SchemaRootKind,
+    readonly rootKind: OperationTypeNode,
     readonly parentType: CompositeType,
     readonly isEntityFetch: boolean,
     private readonly _selection: LazySelectionSet,
@@ -684,7 +683,7 @@ class FetchGroup {
     dependencyGraph: FetchDependencyGraph,
     index: number,
     subgraphName: string,
-    rootKind: SchemaRootKind,
+    rootKind: OperationTypeNode,
     parentType: CompositeType,
     isEntityFetch: boolean,
     mergeAt?: ResponsePath,
@@ -889,7 +888,7 @@ class FetchDependencyGraph {
     return cloned;
   }
 
-  getOrCreateRootFetchGroup(subgraphName: string, rootKind: SchemaRootKind, parentType: CompositeType): FetchGroup {
+  getOrCreateRootFetchGroup(subgraphName: string, rootKind: OperationTypeNode, parentType: CompositeType): FetchGroup {
     let group = this.rootGroups.get(subgraphName);
     if (!group) {
       group = this.createRootFetchGroup(subgraphName, rootKind, parentType);
@@ -902,7 +901,7 @@ class FetchDependencyGraph {
     return this.rootGroups.keys();
   }
 
-  createRootFetchGroup(subgraphName: string, rootKind: SchemaRootKind, parentType: CompositeType): FetchGroup {
+  createRootFetchGroup(subgraphName: string, rootKind: OperationTypeNode, parentType: CompositeType): FetchGroup {
     const group = this.newFetchGroup(subgraphName, parentType, false, rootKind);
     this.rootGroups.set(subgraphName, group);
     return group;
@@ -912,7 +911,7 @@ class FetchDependencyGraph {
     subgraphName: string,
     parentType: CompositeType,
     isEntityFetch: boolean,
-    rootKind: SchemaRootKind, // always "query" for entity fetches
+    rootKind: OperationTypeNode, // always "query" for entity fetches
     mergeAt?: ResponsePath,
     directParent?: FetchGroup,
     pathInParent?: OperationPath
@@ -960,12 +959,12 @@ class FetchDependencyGraph {
       }
     }
     const entityType = this.subgraphSchemas.get(subgraphName)!.type(entityTypeName)! as UnionType;
-    return this.newFetchGroup(subgraphName, entityType, true, 'query', mergeAt, directParent, pathInParent);
+    return this.newFetchGroup(subgraphName, entityType, true, OperationTypeNode.QUERY, mergeAt, directParent, pathInParent);
   }
 
   newRootTypeFetchGroup(
     subgraphName: string,
-    rootKind: SchemaRootKind,
+    rootKind: OperationTypeNode,
     parentType: ObjectType,
     mergeAt: ResponsePath,
     directParent: FetchGroup,
@@ -993,7 +992,7 @@ class FetchDependencyGraph {
     mergeAt: ResponsePath,
   ): FetchGroup {
     const entityType = this.subgraphSchemas.get(subgraphName)!.type(entityTypeName)! as UnionType;
-    return this.newFetchGroup(subgraphName, entityType, true, 'query', mergeAt);
+    return this.newFetchGroup(subgraphName, entityType, true, OperationTypeNode.QUERY, mergeAt);
   }
 
   addDependency(dependentGroup: FetchGroup, dependentOn: FetchGroup | FetchGroup[]) {
@@ -1334,7 +1333,7 @@ class FetchDependencyGraph {
   }
 }
 
-function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpRootPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
+function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpRootPathTree, rootKind: OperationTypeNode): FetchDependencyGraph {
   // The root of the pathTree is one of the "fake" root of the subgraphs graph, which belongs to no subgraph but points to each ones.
   // So we "unpack" the first level of the tree to find out our top level groups (and initialize our stack).
   // Note that we can safely ignore the triggers of that first level as it will all be free transition, and we know we cannot have conditions.
@@ -1349,7 +1348,7 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
   return dependencyGraph;
 }
 
-function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
+function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree, rootKind: OperationTypeNode): FetchDependencyGraph {
   const source = pathTree.vertex.source;
   // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
   const rootType = pathTree.vertex.type;
@@ -1669,7 +1668,7 @@ function operationForEntitiesFetch(
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
   variableDefinitions.addAll(allVariableDefinitions.filter(selectionSet.usedVariables()));
 
-  const queryType = subgraphSchema.schemaDefinition.rootType('query');
+  const queryType = subgraphSchema.schemaDefinition.rootType(OperationTypeNode.QUERY);
   assert(queryType, `Subgraphs should always have a query root (they should at least provides _entities)`);
 
   const entities = queryType.field('_entities');
@@ -1681,7 +1680,7 @@ function operationForEntitiesFetch(
     selectionSet
   ));
 
-  return operationToDocument(new Operation('query', entitiesCall, variableDefinitions).optimize(fragments));
+  return operationToDocument(new Operation(OperationTypeNode.QUERY, entitiesCall, variableDefinitions).optimize(fragments));
 }
 
 // Wraps the given nodes in a ParallelNode or SequenceNode, unless there's only
@@ -1704,7 +1703,7 @@ function flatWrap(
 }
 
 function operationForQueryFetch(
-  rootKind: SchemaRootKind,
+  rootKind: OperationTypeNode,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
   fragments?: NamedFragments

@@ -6,7 +6,6 @@ import {
   NamedType,
   OperationElement,
   Schema,
-  SchemaRootKind,
   SelectionSet,
   typenameFieldName,
   isLeafType,
@@ -29,6 +28,7 @@ import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType } from "./querygraph";
 import { Transition } from "./transition";
 import { PathContext, emptyContext } from "./pathContext";
+import { OperationTypeNode } from "graphql";
 
 const debug = newDebugLogger('path');
 
@@ -166,7 +166,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    */
   static fromGraphRoot<TTrigger, TNullEdge extends null | never = never>(
     graph: QueryGraph,
-    rootKind: SchemaRootKind
+    rootKind: OperationTypeNode
   ): RootPath<TTrigger, TNullEdge> | undefined {
     const root = graph.root(rootKind);
     return root ? this.create(graph, root) : undefined;

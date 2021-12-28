@@ -1,3 +1,4 @@
+import { OperationTypeNode } from "graphql";
 import {
   ArgumentDefinition,
   Directive,
@@ -17,7 +18,6 @@ import {
   Schema,
   SchemaDefinition,
   SchemaElement,
-  SchemaRootKind,
   UnionType
 } from "./definitions";
 import { assert } from "./utils";
@@ -26,7 +26,7 @@ import { valueToString } from "./values";
 export type Options = {
   indentString: string;
   definitionsOrder: ('schema' | 'types' | 'directives')[],
-  rootTypesOrder: SchemaRootKind[],
+  rootTypesOrder: OperationTypeNode[],
   typeCompareFn?: (t1: NamedType, t2: NamedType) => number;
   directiveCompareFn?: (d1: DirectiveDefinition, d2: DirectiveDefinition) => number;
   mergeTypesAndExtensions: boolean;
@@ -38,7 +38,7 @@ export type Options = {
 export const defaultPrintOptions: Options = {
   indentString: "  ",
   definitionsOrder: ['schema', 'directives', 'types'],
-  rootTypesOrder: ['query', 'mutation', 'subscription'],
+  rootTypesOrder: [OperationTypeNode.QUERY, OperationTypeNode.MUTATION, OperationTypeNode.SUBSCRIPTION],
   mergeTypesAndExtensions: false,
   showAllBuiltIns: false,
   showNonGraphQLBuiltIns: false,
