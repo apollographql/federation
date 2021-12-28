@@ -47,7 +47,10 @@ const introspectOne = (
   schema: GraphQLSchema,
   query: string,
 ): ExecutionResult => {
-  const { data, errors } = graphqlSync(schema, query);
+  const { data, errors } = graphqlSync({
+    schema,
+    source: query
+  });
 
   if (errors) {
     return { data, errors: [...errors] };

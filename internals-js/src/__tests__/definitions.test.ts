@@ -10,6 +10,7 @@ import {
   BuiltIns
 } from '../../dist/definitions';
 import {
+  OperationTypeNode,
   printSchema as printGraphQLjsSchema
 } from 'graphql';
 import { defaultPrintOptions, printSchema } from '../../dist/print';
@@ -114,7 +115,7 @@ expect.extend({
 
 test('building a simple schema programatically', () => {
   const schema = new Schema(federationBuiltIns);
-  const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query'))).type;
+  const queryType = schema.schemaDefinition.setRoot(OperationTypeNode.QUERY, schema.addType(new ObjectType('Query'))).type;
   const typeA = schema.addType(new ObjectType('A'));
   const key = federationBuiltIns.keyDirective(schema);
 
@@ -122,7 +123,7 @@ test('building a simple schema programatically', () => {
   typeA.addField('q', queryType);
   typeA.applyDirective(key, { fields: 'a'});
 
-  expect(queryType).toBe(schema.schemaDefinition.root('query')!.type);
+  expect(queryType).toBe(schema.schemaDefinition.root(OperationTypeNode.QUERY)!.type);
   expect(queryType).toHaveField('a', typeA);
   expect(typeA).toHaveField('q', queryType);
   expect(typeA).toHaveDirective(key, { fields: 'a'});
@@ -153,7 +154,7 @@ test('parse schema and modify', () => {
   const inaccessibleDirective = schema.directive('inaccessible')!;
   expectObjectType(queryType);
   expectObjectType(typeA);
-  expect(schema.schemaDefinition.root('query')!.type).toBe(queryType);
+  expect(schema.schemaDefinition.root(OperationTypeNode.QUERY)!.type).toBe(queryType);
   expect(queryType).toHaveField('a', typeA);
   const f2 = typeA.field('f2');
   expect(f2).toHaveDirective(inaccessibleDirective);
@@ -561,7 +562,7 @@ test('default arguments for directives', () => {
   const schema = parseSchema(sdl);
   expect(printSchema(schema)).toMatchString(sdl);
 
-  const query = schema.schemaDefinition.root('query')!.type;
+  const query = schema.schemaDefinition.root(OperationTypeNode.QUERY)!.type;
   const exampleDirective = schema.directive('Example')!;
   expect(query).toHaveField('v1');
   expect(query).toHaveField('v2');

@@ -1,6 +1,7 @@
 import { ObjectType } from '../definitions';
 import { buildSchema } from '../buildSchema';
 import { removeInaccessibleElements } from '../inaccessibleSpec';
+import { OperationTypeNode } from 'graphql';
 
 describe('removeInaccessibleElements', () => {
   it(`removes @inaccessible fields`, () => {
@@ -29,7 +30,7 @@ describe('removeInaccessibleElements', () => {
 
     removeInaccessibleElements(schema);
 
-    const queryType = schema.schemaDefinition.rootType('query')!;
+    const queryType = schema.schemaDefinition.rootType(OperationTypeNode.QUERY)!;
 
     expect(queryType.field('someField')).toBeDefined();
     expect(queryType.field('privateField')).toBeUndefined();
@@ -214,7 +215,7 @@ describe('removeInaccessibleElements', () => {
 
     removeInaccessibleElements(schema);
 
-    expect(schema.schemaDefinition.rootType('query')).toBeUndefined();
+    expect(schema.schemaDefinition.rootType(OperationTypeNode.QUERY)).toBeUndefined();
     expect(schema.type('Query')).toBeUndefined();
 
     expect(() => schema.validate()).toThrow();
@@ -254,7 +255,7 @@ describe('removeInaccessibleElements', () => {
 
     removeInaccessibleElements(schema);
 
-    expect(schema.schemaDefinition.rootType('mutation')).toBeUndefined();
+    expect(schema.schemaDefinition.rootType(OperationTypeNode.MUTATION)).toBeUndefined();
     expect(schema.type('Mutation')).toBeUndefined();
   });
 
@@ -292,7 +293,7 @@ describe('removeInaccessibleElements', () => {
 
     removeInaccessibleElements(schema);
 
-    expect(schema.schemaDefinition.rootType('subscription')).toBeUndefined();
+    expect(schema.schemaDefinition.rootType(OperationTypeNode.SUBSCRIPTION)).toBeUndefined();
     expect(schema.type('Subscription')).toBeUndefined();
   });
 });
