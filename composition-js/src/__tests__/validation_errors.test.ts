@@ -28,8 +28,8 @@ describe('composition', () => {
         type A @key(fields: "id") {
           id: ID! @external
           x: Int @external
-          y: Int @requires(fields: "x") 
-          z: Int @requires(fields: "x") 
+          y: Int @requires(fields: "x")
+          z: Int @requires(fields: "x")
         }
       `
     };
@@ -43,8 +43,7 @@ describe('composition', () => {
         a {
           y
         }
-      }
-      cannot be satisfied by the subgraphs because:
+      }cannot be satisfied by the subgraphs because:
       - from subgraph "A": cannot find field "A.y".
       - from subgraph "B": cannot satisfy @require conditions on field "A.y" (please ensure that this is not due to key field "id" being accidentally marked @external).
       `,
@@ -54,8 +53,7 @@ describe('composition', () => {
         a {
           z
         }
-      }
-      cannot be satisfied by the subgraphs because:
+      }cannot be satisfied by the subgraphs because:
       - from subgraph "A": cannot find field "A.z".
       - from subgraph "B": cannot satisfy @require conditions on field "A.z" (please ensure that this is not due to key field "id" being accidentally marked @external).
       `
