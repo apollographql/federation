@@ -7,11 +7,11 @@ import { fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
 import { createHash } from 'apollo-graphql/lib/utilities/createHash';
 import { ApolloServer } from 'apollo-server';
 import { Logger } from 'apollo-server-types';
-import nock from 'nock';
 import { fetch } from '../../__mocks__/apollo-server-env';
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { mockAllServicesHealthCheckSuccess } from '../integration/nockMocks';
 import { waitUntil } from '../../utilities/waitUntil';
+import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 
 async function getSupergraphSdlGatewayServer() {
   const server = new ApolloServer({
@@ -27,7 +27,7 @@ async function getSupergraphSdlGatewayServer() {
 let logger: Logger;
 let gateway: ApolloGateway | null;
 beforeEach(() => {
-  if (!nock.isActive()) nock.activate();
+  nockBeforeEach();
 
   logger = {
     debug: jest.fn(),
@@ -38,9 +38,8 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  expect(nock.isDone()).toBeTruthy();
-  nock.cleanAll();
-  nock.restore();
+  nockAfterEach();
+
   if (gateway) {
     await gateway.stop();
     gateway = null;
@@ -217,6 +216,25 @@ describe('Using supergraphSdl dynamic configuration', () => {
     );
 
     await expect(healthCheckCallback!(supergraphSdl)).resolves.toBeUndefined();
+  });
+
+  it('calls `initialize` on an object provided to `supergraphSdl`', async () => {
+    const MockSdlUpdatingClass = {
+      initialize() {
+        return Promise.resolve({
+          supergraphSdl: getTestingSupergraphSdl(),
+        });
+      },
+    };
+    const initializeSpy = jest.spyOn(MockSdlUpdatingClass, 'initialize');
+
+    gateway = new ApolloGateway({
+      supergraphSdl: MockSdlUpdatingClass,
+    });
+
+    expect(initializeSpy).not.toHaveBeenCalled();
+    await gateway.load();
+    expect(initializeSpy).toHaveBeenCalled();
   });
 
   describe('errors', () => {

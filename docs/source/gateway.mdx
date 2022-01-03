@@ -64,9 +64,7 @@ In the above example, we provide a _static_ supergraph schema to the gateway. Th
 ```js:title=index.js
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
-const { readFileSync } = require('fs');
-
-const supergraphSdl = readFileSync('./supergraph.graphql').toString();
+const { readFile } = require('fs/promises');
 
 let supergraphUpdate;
 const gateway = new ApolloGateway({
@@ -74,7 +72,7 @@ const gateway = new ApolloGateway({
     // `update` is a function which we'll save for later use
     supergraphUpdate = update;
     return {
-      supergraphSdl,
+      supergraphSdl: await readFile('./supergraph.graphql', 'utf8'),
     }
   },
 });
@@ -126,7 +124,7 @@ const server = new ApolloServer({
       });
 
       return {
-        supergraphSdl: readFileSync('./supergraph.graphql').toString(),
+        supergraphSdl: await readFile('./supergraph.graphql', 'utf-8'),
         // cleanup is called when the gateway is stopped
         async cleanup() {
           watcher.close();
@@ -148,6 +146,10 @@ In the `supergraphSdl` callback, we also receive a `healthCheck` function. This 
 We've also wrapped our call to `update` and `healthCheck` in a `try` block. If an error occurs during either of these, we want to handle this gracefully. In this example, we continue running the existing supergraph schema and log an error.
 
 You might've also noticed we're returning a `cleanup` function. This is a callback that is called when the gateway is stopped. This allows us to cleanly shut down any ongoing processes (such as file watching or polling) when the gateway is shut down via a call to `ApolloServer.stop`. The gateway expects `cleanup` to return a `Promise` and will `await` it before shutting down.
+
+#### Advanced usage
+
+Your use case may grow to have some complexity which might be better managed within a class that handles the `update` and `healthCheck` functions as well as any additional state. In this case, you may instead provide an object (or class) with an `initialize` function. This function is called just the same as the `supergraphSdl` function discussed above. For a good example of this, check out the [`IntrospectAndCompose` source code](https://github.com/apollographql/federation/blob/main/packages/apollo-gateway/src/IntrospectAndCompose/index.ts).
 
 ### Composing subgraphs with `IntrospectAndCompose`
 

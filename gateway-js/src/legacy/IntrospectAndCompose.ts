@@ -4,18 +4,14 @@ import {
   ServiceDefinition,
 } from '@apollo/federation';
 import { Logger } from 'apollo-server-types';
-import CallableInstance from 'callable-instance';
 import { HeadersInit } from 'node-fetch';
-import {
-  ServiceEndpointDefinition,
-  SupergraphSdlHook,
-  SupergraphSdlUpdateFunction,
-} from '..';
+import { ServiceEndpointDefinition, SupergraphSdlUpdateFunction } from '..';
 import {
   getServiceDefinitionsFromRemoteEndpoint,
   Service,
 } from './loadServicesFromRemoteEndpoint';
 import { waitUntil } from '../utilities/waitUntil';
+import { SupergraphSdlObject, SupergraphSdlHookOptions } from '../config';
 
 export interface IntrospectAndComposeOptions {
   subgraphs: ServiceEndpointDefinition[];
@@ -33,10 +29,7 @@ type State =
   | { phase: 'polling'; pollingPromise?: Promise<void> }
   | { phase: 'stopped' };
 
-export class IntrospectAndCompose extends CallableInstance<
-  Parameters<SupergraphSdlHook>,
-  ReturnType<SupergraphSdlHook>
-> {
+export class IntrospectAndCompose implements SupergraphSdlObject {
   private config: IntrospectAndComposeOptions;
   private update?: SupergraphSdlUpdateFunction;
   private subgraphs?: Service[];
@@ -46,17 +39,12 @@ export class IntrospectAndCompose extends CallableInstance<
   private state: State;
 
   constructor(options: IntrospectAndComposeOptions) {
-    super('instanceCallableMethod');
-
     this.config = options;
     this.pollIntervalInMs = options.pollIntervalInMs;
     this.state = { phase: 'initialized' };
   }
 
-  // @ts-ignore noUsedLocals
-  private async instanceCallableMethod(
-    ...[{ update, getDataSource }]: Parameters<SupergraphSdlHook>
-  ) {
+  public async initialize({ update, getDataSource }: SupergraphSdlHookOptions) {
     this.update = update;
     this.subgraphs = this.config.subgraphs.map((subgraph) => ({
       ...subgraph,
@@ -70,7 +58,10 @@ export class IntrospectAndCompose extends CallableInstance<
     }
 
     return {
-      supergraphSdl: initialSupergraphSdl,
+      // on init, this supergraphSdl should never actually be `null`.
+      // `this.updateSupergraphSdl()` will only return null if the schema hasn't
+      // changed over the course of an _update_.
+      supergraphSdl: initialSupergraphSdl!,
       cleanup: async () => {
         if (this.state.phase === 'polling') {
           await this.state.pollingPromise;

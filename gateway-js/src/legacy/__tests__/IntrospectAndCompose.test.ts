@@ -28,7 +28,7 @@ describe('IntrospectAndCompose', () => {
     mockAllServicesSdlQuerySuccess();
     const instance = new IntrospectAndCompose({ subgraphs: fixtures });
     await expect(
-      instance({
+      instance.initialize({
         update() {},
         async healthCheck() {},
         getDataSource({ url }) {
@@ -55,7 +55,7 @@ describe('IntrospectAndCompose', () => {
       subgraphs: fixtures,
     });
 
-    await instance({
+    await instance.initialize({
       update() {},
       async healthCheck() {},
       getDataSource: getDataSourceSpy,
@@ -93,7 +93,7 @@ describe('IntrospectAndCompose', () => {
       pollIntervalInMs: 10,
     });
 
-    const { cleanup } = await instance({
+    const { cleanup } = await instance.initialize({
       update(supergraphSdl) {
         updateSpy(supergraphSdl);
       },
@@ -136,7 +136,7 @@ describe('IntrospectAndCompose', () => {
     });
 
     const updateSpy = jest.fn();
-    const { cleanup } = await instance({
+    const { cleanup } = await instance.initialize({
       update(supergraphSdl) {
         updateSpy(supergraphSdl);
       },
@@ -192,7 +192,7 @@ describe('IntrospectAndCompose', () => {
         throw new Error(thrownErrorMessage);
       });
 
-      const { cleanup } = await instance({
+      const { cleanup } = await instance.initialize({
         update: updateSpy,
         async healthCheck() {},
         getDataSource({ url }) {

@@ -523,7 +523,12 @@ export class ApolloGateway implements GraphQLService {
     config: ManuallyManagedSupergraphSdlGatewayConfig,
   ) {
     try {
-      const result = await config.supergraphSdl({
+      const initFunction =
+        typeof config.supergraphSdl === 'function'
+          ? config.supergraphSdl
+          : config.supergraphSdl.initialize;
+
+      const result = await initFunction({
         update: this.externalSupergraphUpdateCallback.bind(this),
         healthCheck: this.externalSubgraphHealthCheckCallback.bind(this),
         getDataSource: this.externalGetDataSourceCallback.bind(this),
