@@ -89,10 +89,10 @@ server.listen().then(({ url }) => {
 });
 ```
 
-There are a few things happening here, let's take a look at each of them individually.
+There are a few things happening here; let's take a look at each of them individually.
 
-Note that `supergraphSdl` is now an `async` function. This function is only called once when `ApolloServer` initializes the gateway. This function has two primary responsibilities:
-1. Provide us access to the `update` function, which we'll use to update the supergraph schema.
+Note that `supergraphSdl` is now an `async` function. This function is only called once when `ApolloServer` initializes the gateway, and has two primary responsibilities:
+1. Receive the `update` function, which we'll use to update the supergraph schema.
 2. Return the initial supergraph schema which the gateway will use at startup.
 
 With the `update` function, we can now programatically update the supergraph. Polling, webhooks, and file watchers are all good examples of ways we can go about updating the supergraph.
