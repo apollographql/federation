@@ -1366,10 +1366,9 @@ export class ApolloGateway implements GraphQLService {
     });
   }
 
-  // Stops all processes involved with the gateway (for now, just background
-  // schema polling). Can be called multiple times safely. Once it (async)
-  // returns, all gateway background activity will be finished.
-  public async stop() {
+  private async cleanupUserFunctions() {
+    if (this.toDispose.length === 0) return;
+
     await Promise.all(
       this.toDispose.map((p) =>
         p().catch((e) => {
@@ -1381,6 +1380,12 @@ export class ApolloGateway implements GraphQLService {
       ),
     );
     this.toDispose = [];
+  }
+
+  // Stops all processes involved with the gateway (for now, just background
+  // schema polling). Can be called multiple times safely. Once it (async)
+  // returns, all gateway background activity will be finished.
+  public async stop() {
     switch (this.state.phase) {
       case 'initialized':
       case 'failed to load':
@@ -1403,6 +1408,7 @@ export class ApolloGateway implements GraphQLService {
         return;
       case 'loaded':
         this.state = { phase: 'stopped' }; // nothing to do (we're not polling)
+        await this.cleanupUserFunctions();
         return;
       case 'waiting to poll': {
         // If we're waiting to poll, we can synchronously transition to fully stopped.
@@ -1411,6 +1417,7 @@ export class ApolloGateway implements GraphQLService {
         clearTimeout(this.state.pollWaitTimer);
         this.state = { phase: 'stopped' };
         doneWaiting();
+        await this.cleanupUserFunctions();
         return;
       }
       case 'polling': {
@@ -1430,6 +1437,7 @@ export class ApolloGateway implements GraphQLService {
         await pollingDonePromise;
         this.state = { phase: 'stopped' };
         stoppingDone!();
+        await this.cleanupUserFunctions();
         return;
       }
       case 'updating schema': {
