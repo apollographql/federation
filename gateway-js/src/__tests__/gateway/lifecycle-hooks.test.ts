@@ -13,6 +13,7 @@ import {
   documents,
 } from 'apollo-federation-integration-testsuite';
 import { Logger } from 'apollo-server-types';
+import resolvable from '@josephg/resolvable';
 
 // The order of this was specified to preserve existing test coverage. Typically
 // we would just import and use the `fixtures` array.
@@ -148,16 +149,14 @@ describe('lifecycle hooks', () => {
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
 
-    let resolve1: Function;
-    let resolve2: Function;
-    const schemaChangeBlocker1 = new Promise(res => (resolve1 = res));
-    const schemaChangeBlocker2 = new Promise(res => (resolve2 = res));
+    const schemaChangeBlocker1 = resolvable();
+    const schemaChangeBlocker2 = resolvable();
 
     gateway.onSchemaChange(
       jest
         .fn()
-        .mockImplementationOnce(() => resolve1())
-        .mockImplementationOnce(() => resolve2()),
+        .mockImplementationOnce(() => schemaChangeBlocker1.resolve())
+        .mockImplementationOnce(() => schemaChangeBlocker2.resolve()),
     );
 
     await gateway.load();
@@ -228,9 +227,8 @@ describe('lifecycle hooks', () => {
       logger,
     });
 
-    let resolve: Function;
-    const schemaChangeBlocker = new Promise(res => (resolve = res));
-    const schemaChangeCallback = jest.fn(() => resolve());
+    const schemaChangeBlocker = resolvable();
+    const schemaChangeCallback = jest.fn(() => schemaChangeBlocker.resolve());
 
     gateway.onSchemaChange(schemaChangeCallback);
     await gateway.load();

@@ -8,7 +8,7 @@ import { RemoteGraphQLDataSource, ServiceEndpointDefinition } from '../..';
 import { IntrospectAndCompose } from '..';
 import { mockAllServicesSdlQuerySuccess } from '../../__tests__/integration/nockMocks';
 import { wait } from '../../__tests__/execution-utils';
-import { waitUntil } from '../../utilities/waitUntil';
+import resolvable from '@josephg/resolvable';
 import { Logger } from 'apollo-server-types';
 
 describe('IntrospectAndCompose', () => {
@@ -75,18 +75,18 @@ describe('IntrospectAndCompose', () => {
     mockAllServicesSdlQuerySuccess();
     mockAllServicesSdlQuerySuccess(fixturesWithUpdate);
 
-    const [p1, r1] = waitUntil();
-    const [p2, r2] = waitUntil();
-    const [p3, r3] = waitUntil();
+    const p1 = resolvable();
+    const p2 = resolvable();
+    const p3 = resolvable();
 
     // `update` (below) is called each time we poll (and there's an update to
     // the supergraph), so this is a reasonable hook into "when" the poll
     // happens and drives this test cleanly with `Promise`s.
     const updateSpy = jest
       .fn()
-      .mockImplementationOnce(() => r1())
-      .mockImplementationOnce(() => r2())
-      .mockImplementationOnce(() => r3());
+      .mockImplementationOnce(() => p1.resolve())
+      .mockImplementationOnce(() => p2.resolve())
+      .mockImplementationOnce(() => p3.resolve());
 
     const instance = new IntrospectAndCompose({
       subgraphs: fixtures,
@@ -162,10 +162,10 @@ describe('IntrospectAndCompose', () => {
 
   describe('errors', () => {
     it('logs an error when `update` function throws', async () => {
-      const [errorLoggedPromise, resolveErrorLoggedPromise] = waitUntil();
+      const errorLoggedPromise = resolvable();
 
       const errorSpy = jest.fn(() => {
-        resolveErrorLoggedPromise();
+        errorLoggedPromise.resolve();
       });
       const logger: Logger = {
         error: errorSpy,

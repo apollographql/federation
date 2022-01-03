@@ -10,7 +10,6 @@ import {
   getServiceDefinitionsFromRemoteEndpoint,
   Service,
 } from './loadServicesFromRemoteEndpoint';
-import { waitUntil } from '../utilities/waitUntil';
 import { SupergraphSdlObject, SupergraphSdlHookOptions } from '../config';
 
 export interface IntrospectAndComposeOptions {
@@ -117,7 +116,11 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
   private poll() {
     this.timerRef = setTimeout(async () => {
       if (this.state.phase === 'polling') {
-        const [pollingPromise, donePolling] = waitUntil();
+        let pollingDone: () => void;
+        const pollingPromise = new Promise<void>((resolve) => {
+          pollingDone = resolve;
+        });
+
         this.state.pollingPromise = pollingPromise;
         try {
           const maybeNewSupergraphSdl = await this.updateSupergraphSdl();
@@ -130,7 +133,7 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
               (e.message ?? e),
           );
         }
-        donePolling!();
+        pollingDone!();
       }
 
       this.poll();

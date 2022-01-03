@@ -26,6 +26,7 @@ import {
 } from 'apollo-federation-integration-testsuite';
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
+import resolvable from '@josephg/resolvable';
 
 export interface Fixture {
   name: string;
@@ -137,13 +138,12 @@ it('Updates Supergraph SDL from remote storage', async () => {
 
   // This test is only interested in the second time the gateway notifies of an
   // update, since the first happens on load.
-  let secondUpdateResolve: Function;
-  const secondUpdate = new Promise((res) => (secondUpdateResolve = res));
+  const secondUpdate = resolvable();
   const schemaChangeCallback = jest
     .fn()
     .mockImplementationOnce(() => {})
     .mockImplementationOnce(() => {
-      secondUpdateResolve();
+      secondUpdate.resolve();
     });
 
   gateway = new ApolloGateway({
@@ -190,9 +190,8 @@ describe('Supergraph SDL update failures', () => {
     mockSupergraphSdlRequestIfAfter('originalId-1234').reply(500);
 
     // Spy on logger.error so we can just await once it's been called
-    let errorLogged: Function;
-    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
-    logger.error = jest.fn(() => errorLogged());
+    const errorLoggedPromise = resolvable();
+    logger.error = jest.fn(() => errorLoggedPromise.resolve());
 
     gateway = new ApolloGateway({
       logger,
@@ -224,9 +223,8 @@ describe('Supergraph SDL update failures', () => {
     });
 
     // Spy on logger.error so we can just await once it's been called
-    let errorLogged: Function;
-    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
-    logger.error = jest.fn(() => errorLogged());
+    const errorLoggedPromise = resolvable();
+    logger.error = jest.fn(() => errorLoggedPromise.resolve());
 
     gateway = new ApolloGateway({
       logger,
@@ -262,9 +260,8 @@ describe('Supergraph SDL update failures', () => {
     );
 
     // Spy on logger.error so we can just await once it's been called
-    let errorLogged: Function;
-    const errorLoggedPromise = new Promise((r) => (errorLogged = r));
-    logger.error = jest.fn(() => errorLogged());
+    const errorLoggedPromise = resolvable();
+    logger.error = jest.fn(() => errorLoggedPromise.resolve());
 
     gateway = new ApolloGateway({
       logger,
@@ -327,18 +324,15 @@ it('Rollsback to a previous schema when triggered', async () => {
   );
   mockSupergraphSdlRequestSuccessIfAfter('updatedId-5678');
 
-  let firstResolve: Function;
-  let secondResolve: Function;
-  let thirdResolve: Function;
-  const firstSchemaChangeBlocker = new Promise((res) => (firstResolve = res));
-  const secondSchemaChangeBlocker = new Promise((res) => (secondResolve = res));
-  const thirdSchemaChangeBlocker = new Promise((res) => (thirdResolve = res));
+  const firstSchemaChangeBlocker = resolvable();
+  const secondSchemaChangeBlocker = resolvable();
+  const thirdSchemaChangeBlocker = resolvable();
 
   const onChange = jest
     .fn()
-    .mockImplementationOnce(() => firstResolve())
-    .mockImplementationOnce(() => secondResolve())
-    .mockImplementationOnce(() => thirdResolve());
+    .mockImplementationOnce(() => firstSchemaChangeBlocker.resolve())
+    .mockImplementationOnce(() => secondSchemaChangeBlocker.resolve())
+    .mockImplementationOnce(() => thirdSchemaChangeBlocker.resolve());
 
   gateway = new ApolloGateway({
     logger,
@@ -497,14 +491,12 @@ describe('Downstream service health checks', () => {
       );
       mockAllServicesHealthCheckSuccess();
 
-      let resolve1: Function;
-      let resolve2: Function;
-      const schemaChangeBlocker1 = new Promise((res) => (resolve1 = res));
-      const schemaChangeBlocker2 = new Promise((res) => (resolve2 = res));
+      const schemaChangeBlocker1 = resolvable();
+      const schemaChangeBlocker2 = resolvable();
       const onChange = jest
         .fn()
-        .mockImplementationOnce(() => resolve1())
-        .mockImplementationOnce(() => resolve2());
+        .mockImplementationOnce(() => schemaChangeBlocker1.resolve())
+        .mockImplementationOnce(() => schemaChangeBlocker2.resolve());
 
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
@@ -546,8 +538,7 @@ describe('Downstream service health checks', () => {
       mockServiceHealthCheckSuccess(reviews);
       mockServiceHealthCheckSuccess(documents);
 
-      let resolve: Function;
-      const schemaChangeBlocker = new Promise((res) => (resolve = res));
+      const schemaChangeBlocker = resolvable();
 
       gateway = new ApolloGateway({
         serviceHealthCheck: true,
@@ -591,7 +582,7 @@ describe('Downstream service health checks', () => {
             [accounts]: 500: Internal Server Error"
           `);
           // finally resolve the promise which drives this test
-          resolve();
+          schemaChangeBlocker.resolve();
         });
 
       // @ts-ignore for testing purposes, replace the `updateSchema`

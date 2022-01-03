@@ -10,7 +10,7 @@ import { Logger } from 'apollo-server-types';
 import { fetch } from '../../__mocks__/apollo-server-env';
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { mockAllServicesHealthCheckSuccess } from '../integration/nockMocks';
-import { waitUntil } from '../../utilities/waitUntil';
+import resolvable from '@josephg/resolvable';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 
 async function getSupergraphSdlGatewayServer() {
@@ -91,17 +91,12 @@ describe('Using supergraphSdl dynamic configuration', () => {
   });
 
   it('starts and remains in `initialized` state until `supergraphSdl` Promise resolves', async () => {
-    const [
-      promiseGuaranteeingWeAreInTheCallback,
-      resolvePromiseGuaranteeingWeAreInTheCallback,
-    ] = waitUntil();
-    const [
-      promiseGuaranteeingWeStayInTheCallback,
-      resolvePromiseGuaranteeingWeStayInTheCallback,
-    ] = waitUntil();
+    const promiseGuaranteeingWeAreInTheCallback = resolvable();
+    const promiseGuaranteeingWeStayInTheCallback = resolvable();
+
     gateway = new ApolloGateway({
       async supergraphSdl() {
-        resolvePromiseGuaranteeingWeAreInTheCallback();
+        promiseGuaranteeingWeAreInTheCallback.resolve();
         await promiseGuaranteeingWeStayInTheCallback;
         return {
           supergraphSdl: getTestingSupergraphSdl(),
@@ -115,14 +110,13 @@ describe('Using supergraphSdl dynamic configuration', () => {
     await promiseGuaranteeingWeAreInTheCallback;
     expect(gateway.__testing().state.phase).toEqual('initialized');
 
-    resolvePromiseGuaranteeingWeStayInTheCallback();
+    promiseGuaranteeingWeStayInTheCallback.resolve();
     await gatewayLoaded;
     expect(gateway.__testing().state.phase).toEqual('loaded');
   });
 
   it('moves from `initialized` to `loaded` state after calling `load()` and after user Promise resolves', async () => {
-    const [userPromise, resolveSupergraph] =
-      waitUntil<{ supergraphSdl: string }>();
+    const userPromise = resolvable<{ supergraphSdl: string }>();
 
     gateway = new ApolloGateway({
       async supergraphSdl() {
@@ -137,7 +131,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
     const expectedCompositionId = createHash('sha256')
       .update(supergraphSdl)
       .digest('hex');
-    resolveSupergraph({ supergraphSdl });
+    userPromise.resolve({ supergraphSdl });
 
     await loadPromise;
     const { state, compositionId } = gateway.__testing();
@@ -146,8 +140,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
   });
 
   it('updates its supergraph after user calls update function', async () => {
-    const [userPromise, resolveSupergraph] =
-      waitUntil<{ supergraphSdl: string }>();
+    const userPromise = resolvable<{ supergraphSdl: string }>();
 
     let userUpdateFn: SupergraphSdlUpdateFunction;
     gateway = new ApolloGateway({
@@ -159,7 +152,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
 
     const supergraphSdl = getTestingSupergraphSdl();
     const expectedId = createHash('sha256').update(supergraphSdl).digest('hex');
-    resolveSupergraph({ supergraphSdl: getTestingSupergraphSdl() });
+    userPromise.resolve({ supergraphSdl: getTestingSupergraphSdl() });
     await gateway.load();
     expect(gateway.__testing().compositionId).toEqual(expectedId);
 
