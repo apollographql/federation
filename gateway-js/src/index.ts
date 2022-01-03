@@ -30,7 +30,7 @@ import {
   defaultFieldResolverWithAliasSupport,
 } from './executeQueryPlan';
 
-import { getServiceDefinitionsFromRemoteEndpoint } from './legacy/loadServicesFromRemoteEndpoint';
+import { getServiceDefinitionsFromRemoteEndpoint } from './IntrospectAndCompose/loadServicesFromRemoteEndpoint';
 import {
   GraphQLDataSource,
   GraphQLDataSourceRequestKind,
@@ -1518,4 +1518,4 @@ export {
   SupergraphSdlHook,
 } from './config';
 
-export { IntrospectAndCompose } from './legacy/IntrospectAndCompose';
+export { IntrospectAndCompose } from './IntrospectAndCompose';

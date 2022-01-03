@@ -5,7 +5,7 @@ import {
 } from 'apollo-federation-integration-testsuite';
 import { nockBeforeEach, nockAfterEach } from '../../__tests__/nockAssertions';
 import { RemoteGraphQLDataSource, ServiceEndpointDefinition } from '../..';
-import { IntrospectAndCompose } from '../IntrospectAndCompose';
+import { IntrospectAndCompose } from '..';
 import { mockAllServicesSdlQuerySuccess } from '../../__tests__/integration/nockMocks';
 import { wait } from '../../__tests__/execution-utils';
 import { waitUntil } from '../../utilities/waitUntil';
