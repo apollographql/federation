@@ -604,7 +604,22 @@ const gateway = new ApolloGateway({
 
 ###### Configuring the subgraph fetcher
 
-`IntrospectAndCompose` will use the data sources constructed by `ApolloGateway`. In order to customize the gateway's data sources, you can specify a [`buildService`](#buildservice) function.
+`IntrospectAndCompose` will use the data sources constructed by `ApolloGateway`. In order to customize the gateway's data sources, you can proved a [`buildService`](#buildservice) function to the `ApolloGateway` constructor. In the example below, `IntrospectAndCompose` will make authenticated requests to the subgraphs
+via the `AuthenticatedDataSource`s that we construct in the gateway's `buildService` function.
+
+```js
+const gateway = new ApolloGateway({
+  buildService({ name, url }) {
+    return new AuthenticatedDataSource({ url });
+  },
+  supergraphSdl: new IntrospectAndCompose({
+    subgraphs: [
+      { name: 'products', url: 'https://products-service.dev/graphql',
+      { name: 'reviews', url: 'https://reviews-service.dev/graphql' },
+    ],
+  }),
+});
+```
 
 ##### Options
 
@@ -660,7 +675,7 @@ An object, or an (optionally) async function returning an object, containing the
 </td>
 <td>
 
-Specify this option to enable supergraph updates via subgraph polling. `IntrospectAndCompose` will poll each subgraph
+Specify this option to enable supergraph updates via subgraph polling. `IntrospectAndCompose` will poll each subgraph at the given interval.
 </td>
 </tr>
 
