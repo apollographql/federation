@@ -714,4 +714,18 @@ export class ExternalTester {
   isFakeExternal(field: FieldDefinition<any> | InputFieldDefinition) {
     return this.fakeExternalFields.has(field.coordinate);
   }
+
+  selectsAnyExternalField(selectionSet: SelectionSet): boolean {
+    for (const selection of selectionSet.selections()) {
+      if (selection.kind === 'FieldSelection' && this.isExternal(selection.element().definition)) {
+        return true;
+      }
+      if (selection.selectionSet) {
+        if (this.selectsAnyExternalField(selection.selectionSet)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 }

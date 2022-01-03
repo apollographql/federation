@@ -6,7 +6,7 @@ function errorMessages(r: CompositionResult): string[] {
   return r.errors?.map(e => e.message) ?? [];
 }
 
-describe('composition', () => {
+describe('@requires', () => {
   it('fails if it cannot satisfy a @requires', () => {
     const subgraphA = {
       name: 'A',
@@ -61,4 +61,54 @@ describe('composition', () => {
       `
     ]);
   });
+
+  it('fails if it no usable post-@requires keys', () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type T1 @key(fields: "id") {
+          id: Int!
+          f1: String
+        }
+      `
+    };
+
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type Query {
+          getT1s: [T1]
+        }
+
+        type T1 {
+          id: Int!
+          f1: String @external
+          f2: T2! @requires(fields: "f1")
+        }
+
+        type T2 {
+          a: String
+        }
+      `
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(result.errors).toBeDefined();
+    expect(errorMessages(result)).toMatchStringArray([
+      `
+      The follow supergraph API query:
+      {
+        getT1s {
+          f2 {
+            ...
+          }
+        }
+      }
+      cannot be satisfied by the subgraphs because:
+      - from subgraph "B": @require condition on field "T1.f2" can be satisfied but missing usable key on "T1" in subgraph "B" to resume query.
+      - from subgraph "A": cannot find field "T1.f2".
+      `
+    ]);
+  });
+
 });

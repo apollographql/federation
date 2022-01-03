@@ -12,6 +12,7 @@
     - Option #1: use the existing environment variable `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT` which will now be treated as a comma-separated list of URLs. 
     - Option #2: use the new `uplinkEndpoints`, which must be single URL or a comma-separated list of URLs for the Uplink End-points to be used, and `uplinkMaxRetries` which is how many times the Uplink URLs should be retried.
   - The old `schemaConfigDeliveryEndpoint` configuration value still work, but is deprecated and will be removed in a subsequent release.
+- Continue resolving when an `@external` reference cannot be resolved. [#376](https://github.com/apollographql/federation/issues/376)
 
 ## v2.0.0-alpha.2
 

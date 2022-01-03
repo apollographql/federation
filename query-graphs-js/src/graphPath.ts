@@ -626,6 +626,12 @@ export type ConditionResolution = {
   satisfied: boolean,
   cost: number,
   pathTree?: OpPathTree
+  // Note that this is not guaranteed to be set even if satistied === false.
+  unsatisfiedConditionReason?: UnsatisfiedConditionReason
+}
+
+export enum UnsatisfiedConditionReason {
+  NO_POST_REQUIRE_KEY
 }
 
 export const noConditionsResolution: ConditionResolution = { satisfied: true, cost: 0 };
@@ -1130,11 +1136,14 @@ function advancePathWithDirectTransition<V extends Vertex>(
       assert(transition.kind === 'FieldCollection', () => `Shouldn't have conditions on direct transition ${transition}`);
       const field = transition.definition;
       const parentTypeInSubgraph = path.graph.sources.get(edge.head.source)!.type(field.parent.name)! as CompositeType;
+      const details = conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY
+        ? `@require condition on field "${field.coordinate}" can be satisfied but missing usable key on "${parentTypeInSubgraph}" in subgraph "${edge.head.source}" to resume query`
+        : `cannot satisfy @require conditions on field "${field.coordinate}"${warnOnKeyFieldsMarkedExternal(parentTypeInSubgraph)}`;
       deadEnds.push({
         sourceSubgraph: edge.head.source,
         destSubgraph: edge.head.source,
         reason: UnadvanceableReason.UNSATISFIABLE_REQUIRES_CONDITION,
-        details: `cannot satisfy @require conditions on field "${field.coordinate}"${warnOnKeyFieldsMarkedExternal(parentTypeInSubgraph)}`
+        details
       });
     }
   }
@@ -1206,13 +1215,17 @@ function warnOnKeyFieldsMarkedExternal(type: CompositeType): string {
   return ` (please ensure that this is not due to key ${fieldWithPlural} ${printedFields} being accidentally marked @external)`;
 }
 
-export function additionalKeyEdgeForRequireEdge(graph: QueryGraph, requireEdge: Edge): Edge {
-  // We need to add _one_ of the current entity key as condition. We pick the first one we find,
-  // which is not perfect, as maybe we can't satisfy that key but we could another, but this ensure
-  // query planning later knows which keys to use. We'd have to communicate that somehow otherwise.
-  const firstKeyEdge = graph.outEdges(requireEdge.head).find(e => e.transition.kind === 'KeyResolution');
-  assert(firstKeyEdge, () => `This should not have been called if for ${requireEdge} if ${requireEdge.head.type} has no key directive (all edges: [${graph.outEdges(requireEdge.head).join(', ')})])`);
-  return firstKeyEdge;
+export function getLocallySatisfiableKey(graph: QueryGraph, typeVertex: Vertex): SelectionSet | undefined  {
+  const type = typeVertex.type as CompositeType;
+  const externalTester = graph.externalTester(typeVertex.source);
+  const keyDirective = federationBuiltIns.keyDirective(type.schema());
+  for (const key of type.appliedDirectivesOf(keyDirective)) {
+    const selection = parseFieldSetArgument(type, key);
+    if (!externalTester.selectsAnyExternalField(selection)) {
+      return selection;
+    }
+  }
+  return undefined;
 }
 
 function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
@@ -1231,24 +1244,31 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   if (!resolution.satisfied) {
     return unsatisfiedConditionsResolution;
   }
-  let pathTree = resolution.pathTree;
-  let cost = resolution.cost;
+  const pathTree = resolution.pathTree;
   const lastEdge = path.lastEdge();
   if (edge.transition.kind === 'FieldCollection'
     && lastEdge !== null
     && lastEdge?.transition.kind !== 'KeyResolution'
     && (!pathTree || pathTree.isAllInSameSubgraph())) {
-    const additionalEdge = additionalKeyEdgeForRequireEdge(path.graph, edge);
-    const additionalResolution = conditionResolver(additionalEdge, context, excludedEdges, excludedConditions);
-    if (!additionalResolution.satisfied) {
-      return unsatisfiedConditionsResolution;
+
+    const postRequireKeyCondition = getLocallySatisfiableKey(path.graph, edge.head);
+    if (!postRequireKeyCondition) {
+      return { ...unsatisfiedConditionsResolution, unsatisfiedConditionReason: UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY };
     }
-    cost += additionalResolution.cost;
-    if (pathTree) {
-      pathTree = pathTree.merge(additionalResolution.pathTree!);
-    }
+
+    // We're in a case where we have a `@require` (we have a condition but we're a 'FieldCollection') and we
+    // have to jump to other subgraph to satisfy the require, which means we need to use a key on "the current
+    // subgraph" to resume collecting the field with the require. `getLocallySatisfiableKey` essentially tells
+    // us that we have such key, and that's good enough here. Not that the way the code is organised, we don't
+    // use an actual edge of the query graph, so we cannot use `conditionResolver` and so it's not easy to
+    // get a proper cost or tree. That's ok in the sense that the cost of the key is negligible because we
+    // know it's a "local" one (there is no subgraph jump) and the code to build plan will deal with adding
+    // that key anyway (so not having the tree is ok).
+    // TODO(Sylvain): the whole hanlding of @require is a bit too complex and hopefully we might be able to
+    // clean that up, but it's unclear to me how at the moment and it may not be a small change so this will
+    // have to do for now.
   }
-  return { satisfied: true, cost, pathTree }
+  return resolution;
 }
 
 function isTerminalOperation(operation: OperationElement): boolean {

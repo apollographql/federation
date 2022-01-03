@@ -61,12 +61,12 @@ import {
   unsatisfiedConditionsResolution,
   cachingConditionResolver,
   ConditionResolver,
-  additionalKeyEdgeForRequireEdge,
   addConditionExclusion,
   SimultaneousPathsWithLazyIndirectPaths,
   simultaneousPathsToString,
   SimultaneousPaths,
   terminateWithNonRequestedTypenameField,
+  getLocallySatisfiableKey,
 } from "@apollo/query-graphs";
 import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
@@ -663,6 +663,10 @@ class LazySelectionSet {
     } else {
       return this;
     }
+  }
+
+  toString() {
+    return this.forRead().toString();
   }
 }
 
@@ -1635,6 +1639,7 @@ function handleRequires(
     const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, mergeAt);
     newGroup.addDependencyOn(createdGroups);
     const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
+    debug.log(`Trying to add ${inputs} to ${newGroup}`);
     newGroup.addInputs(inputs);
     return [newGroup, mergeAt, newPath];
   }
@@ -1646,7 +1651,9 @@ function inputsForRequire(graph: QueryGraph, entityType: ObjectType, edge: Edge,
   fullSelectionSet.add(new FieldSelection(new Field(entityType.typenameField()!)));
   fullSelectionSet.mergeIn(edge.conditions!);
   if (includeKeyInputs) {
-    fullSelectionSet.mergeIn(additionalKeyEdgeForRequireEdge(graph, edge).conditions!);
+    const keyCondition = getLocallySatisfiableKey(graph, edge.head);
+    assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge}`);
+    fullSelectionSet.mergeIn(keyCondition);
   }
   return [selectionOfElement(typeCast, fullSelectionSet), [typeCast]];
 }
