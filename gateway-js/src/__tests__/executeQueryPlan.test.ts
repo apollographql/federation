@@ -1636,4 +1636,640 @@ describe('executeQueryPlan', () => {
       });
     });
   });
+
+  describe('@requires', () => {
+    test('handles null in required field correctly (with nullable fields)', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type T1 @key(fields: "id") {
+            id: Int!
+            f1: String
+          }
+        `
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Query {
+            getT1s: [T1]
+          }
+
+          extend type T1 @key(fields: "id") {
+            id: Int! @external
+            f1: String @external
+            f2: T2 @requires(fields: "f1")
+          }
+
+          type T2 {
+            a: String
+          }
+        `
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const s1_data = [
+        { id: 0, f1: "foo" },
+        { id: 1, f1: null },
+        { id: 2, f1: "bar" },
+      ];
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        T1: {
+          __resolveReference(ref) {
+            return s1_data[ref.id];
+          },
+        },
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        Query: {
+          getT1s() {
+            return [{id: 0}, {id: 1}, {id: 2}];
+          },
+        },
+        T1: {
+          __resolveReference(ref) {
+            // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+            return ref;
+          },
+          f2(o) {
+            return o.f1 === null ? null : { a: `t1:${o.f1}` };
+          }
+        }
+      });
+
+      const operationDocument = gql`
+        query {
+          getT1s {
+            id
+            f1
+            f2 {
+              a
+            }
+          }
+        }
+      `;
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                getT1s {
+                  id
+                  __typename
+                }
+              }
+            },
+            Flatten(path: "getT1s.@") {
+              Fetch(service: "S1") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    f1
+                    __typename
+                    id
+                  }
+                }
+              },
+            },
+            Flatten(path: "getT1s.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                    f1
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    f2 {
+                      a
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "getT1s": Array [
+            Object {
+              "f1": "foo",
+              "f2": Object {
+                "a": "t1:foo",
+              },
+              "id": 0,
+            },
+            Object {
+              "f1": null,
+              "f2": null,
+              "id": 1,
+            },
+            Object {
+              "f1": "bar",
+              "f2": Object {
+                "a": "t1:bar",
+              },
+              "id": 2,
+            },
+          ],
+        }
+        `);
+      expect(response.errors).toBeUndefined();
+    });
+
+    test('handles null in required field correctly (with @require field non-nullable)', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type T1 @key(fields: "id") {
+            id: Int!
+            f1: String
+          }
+        `
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Query {
+            getT1s: [T1]
+          }
+
+          extend type T1 @key(fields: "id") {
+            id: Int! @external
+            f1: String @external
+            f2: T2! @requires(fields: "f1")
+          }
+
+          type T2 {
+            a: String
+          }
+        `
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const s1_data = [
+        { id: 0, f1: "foo" },
+        { id: 1, f1: null },
+        { id: 2, f1: "bar" },
+      ];
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        T1: {
+          __resolveReference(ref) {
+            return s1_data[ref.id];
+          },
+        },
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        Query: {
+          getT1s() {
+            return [{id: 0}, {id: 1}, {id: 2}];
+          },
+        },
+        T1: {
+          __resolveReference(ref) {
+            // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+            return ref;
+          },
+          f2(o) {
+            return o.f1 === null ? null : { a: `t1:${o.f1}` };
+          }
+        }
+      });
+
+      const operationDocument = gql`
+        query {
+          getT1s {
+            id
+            f1
+            f2 {
+              a
+            }
+          }
+        }
+      `;
+
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                getT1s {
+                  id
+                  __typename
+                }
+              }
+            },
+            Flatten(path: "getT1s.@") {
+              Fetch(service: "S1") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    f1
+                    __typename
+                    id
+                  }
+                }
+              },
+            },
+            Flatten(path: "getT1s.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                    f1
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    f2 {
+                      a
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext);
+      // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "getT1s": Array [
+            Object {
+              "f1": "foo",
+              "f2": Object {
+                "a": "t1:foo",
+              },
+              "id": 0,
+            },
+            null,
+            Object {
+              "f1": "bar",
+              "f2": Object {
+                "a": "t1:bar",
+              },
+              "id": 2,
+            },
+          ],
+        }
+        `);
+
+      // We returning `null` for f2 which isn't nullable, so it bubbled up and we should have an error
+      expect(response.errors?.map((e) => e.message)).toStrictEqual(['Cannot return null for non-nullable field T1.f2.']);
+    });
+
+    test('handles null in required field correctly (with non-nullable required field)', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type T1 @key(fields: "id") {
+            id: Int!
+            f1: String!
+          }
+        `
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Query {
+            getT1s: [T1]
+          }
+
+          extend type T1 @key(fields: "id") {
+            id: Int! @external
+            f1: String! @external
+            f2: T2 @requires(fields: "f1")
+          }
+
+          type T2 {
+            a: String
+          }
+        `
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      const s1_data = [
+        { id: 0, f1: "foo" },
+        { id: 1, f1: null },
+        { id: 2, f1: "bar" },
+      ];
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        T1: {
+          __resolveReference(ref) {
+            return s1_data[ref.id];
+          },
+        },
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        Query: {
+          getT1s() {
+            return [{id: 0}, {id: 1}, {id: 2}];
+          },
+        },
+        T1: {
+          __resolveReference(ref) {
+            // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+            return ref;
+          },
+          f2(o) {
+            return o.f1 === null ? null : { a: `t1:${o.f1}` };
+          }
+        }
+      });
+
+      const operationDocument = gql`
+        query {
+          getT1s {
+            id
+            f1
+            f2 {
+              a
+            }
+          }
+        }
+      `;
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                getT1s {
+                  id
+                  __typename
+                }
+              }
+            },
+            Flatten(path: "getT1s.@") {
+              Fetch(service: "S1") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    f1
+                    __typename
+                    id
+                  }
+                }
+              },
+            },
+            Flatten(path: "getT1s.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                    f1
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    f2 {
+                      a
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext);
+      // `null` should bubble up since `f2` is now non-nullable. But we should still get the `id: 0` response.
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "getT1s": Array [
+            Object {
+              "f1": "foo",
+              "f2": Object {
+                "a": "t1:foo",
+              },
+              "id": 0,
+            },
+            null,
+            Object {
+              "f1": "bar",
+              "f2": Object {
+                "a": "t1:bar",
+              },
+              "id": 2,
+            },
+          ],
+        }
+        `);
+      expect(response.errors?.map((e) => e.message)).toStrictEqual(['Cannot return null for non-nullable field T1.f1.']);
+    });
+
+    test('handles errors in required field correctly (with nullable fields)', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type T1 @key(fields: "id") {
+            id: Int!
+            f1: String
+          }
+        `
+      }
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type Query {
+            getT1s: [T1]
+          }
+
+          extend type T1 @key(fields: "id") {
+            id: Int! @external
+            f1: String @external
+            f2: T2 @requires(fields: "f1")
+          }
+
+          type T2 {
+            a: String
+          }
+        `
+      }
+
+      const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema([ s1, s2 ]);
+
+      addResolversToSchema(serviceMap['S1'].schema, {
+        T1: {
+          __resolveReference(ref) {
+            return ref;
+          },
+          f1(o) {
+            switch (o.id) {
+              case 0: return "foo";
+              case 1: return [ "invalid" ]; // This will effectively throw
+              case 2: return "bar";
+              default: throw new Error('Not handled');
+            }
+          }
+        },
+      });
+
+      addResolversToSchema(serviceMap['S2'].schema, {
+        Query: {
+          getT1s() {
+            return [{id: 0}, {id: 1}, {id: 2}];
+          },
+        },
+        T1: {
+          __resolveReference(ref) {
+            // the ref has already the id and f1 is a require is triggered, and we resolve f2 below
+            return ref;
+          },
+          f2(o) {
+            return o.f1 === null ? null : { a: `t1:${o.f1}` };
+          }
+        }
+      });
+
+      const operationDocument = gql`
+        query {
+          getT1s {
+            id
+            f1
+            f2 {
+              a
+            }
+          }
+        }
+      `;
+      const operationContext = buildOperationContext({
+        schema,
+        operationDocument,
+      });
+
+      const queryPlan = queryPlanner.buildQueryPlan(operationContext);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S2") {
+              {
+                getT1s {
+                  id
+                  __typename
+                }
+              }
+            },
+            Flatten(path: "getT1s.@") {
+              Fetch(service: "S1") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    f1
+                    __typename
+                    id
+                  }
+                }
+              },
+            },
+            Flatten(path: "getT1s.@") {
+              Fetch(service: "S2") {
+                {
+                  ... on T1 {
+                    __typename
+                    id
+                    f1
+                  }
+                } =>
+                {
+                  ... on T1 {
+                    f2 {
+                      a
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const response = await executeQueryPlan(queryPlan, serviceMap, buildRequestContext(), operationContext);
+      expect(response.data).toMatchInlineSnapshot(`
+        Object {
+          "getT1s": Array [
+            Object {
+              "f1": "foo",
+              "f2": Object {
+                "a": "t1:foo",
+              },
+              "id": 0,
+            },
+            Object {
+              "f1": null,
+              "f2": null,
+              "id": 1,
+            },
+            Object {
+              "f1": "bar",
+              "f2": Object {
+                "a": "t1:bar",
+              },
+              "id": 2,
+            },
+          ],
+        }
+        `);
+      expect(response.errors?.map((e) => e.message)).toStrictEqual(['String cannot represent value: ["invalid"]']);
+    });
+  });
 });

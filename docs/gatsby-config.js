@@ -26,6 +26,7 @@ module.exports = {
           'Managed Federation': [
             'managed-federation/overview',
             'managed-federation/setup',
+            'managed-federation/uplink',
             'managed-federation/federated-schema-checks',
             'managed-federation/deployment',
             'managed-federation/error-reporting',
