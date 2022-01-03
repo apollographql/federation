@@ -661,8 +661,6 @@ The `name` field is a string which should be treated as a subgraph's unique iden
 
 An object, or an (optionally) async function returning an object, containing the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
 
-**If you are using managed federation,** do not provide this field.
-
 **If you define a [`buildService`](#buildservice) function in your `ApolloGateway` config, ** specify these headers in that function instead of providing this option. This ensures that your `buildService` function doesn't inadvertently overwrite the values of any headers you provide here.
 </td>
 </tr>
