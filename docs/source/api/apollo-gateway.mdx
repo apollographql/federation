@@ -644,7 +644,8 @@ const gateway = new ApolloGateway({
 
 An array of objects that each specify the `name` and `url` of one subgraph in your federated graph. On startup, `IntrospectAndCompose` uses this array to obtain your subgraph schemas via introspection and compose a supergraph schema.
 
-You can specify any string value for the `name` field, which is used for identifying the subgraph in log output and error messages, and for reporting metrics to Apollo Studio.
+The `name` field is a string which should be treated as a subgraph's unique identifier. It is used for query planning, logging, and reporting metrics to Apollo Studio.
+> For Studio users, subgraph names must also satisfy the following regex when publishing: `^[a-zA-Z][a-zA-Z0-9_-]{0,63}$`.
 
 </td>
 </tr>
