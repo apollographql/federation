@@ -387,13 +387,6 @@ export class ApolloGateway implements GraphQLService {
         'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
       );
     }
-
-    // TODO(trevor:removeServiceList)
-    if ('buildService' in this.config) {
-      this.logger.warn(
-        'The `buildService` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
-      );
-    }
   }
 
   public async load(options?: {

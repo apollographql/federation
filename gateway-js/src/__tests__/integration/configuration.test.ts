@@ -2,7 +2,7 @@ import gql from 'graphql-tag';
 import http from 'http';
 import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
-import { ApolloGateway, RemoteGraphQLDataSource } from '../..';
+import { ApolloGateway } from '../..';
 import {
   mockSdlQuerySuccess,
   mockSupergraphSdlRequestSuccess,
@@ -411,20 +411,6 @@ describe('deprecation warnings', () => {
 
     expect(logger.warn).toHaveBeenCalledWith(
       'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
-    );
-  });
-
-  it('warns with `buildService` option set', async () => {
-    new ApolloGateway({
-      serviceList: [{ name: 'accounts', url: 'http://localhost:4001' }],
-      buildService(definition) {
-        return new RemoteGraphQLDataSource({url: definition.url});
-      },
-      logger,
-    });
-
-    expect(logger.warn).toHaveBeenCalledWith(
-      'The `buildService` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
     );
   });
 });
