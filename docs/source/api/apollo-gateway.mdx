@@ -688,6 +688,22 @@ Specify this option to enable supergraph updates via subgraph polling. `Introspe
 <tr>
 <td>
 
+###### `subgraphHealthCheck`
+
+`boolean`
+</td>
+<td>
+
+> Note: this only applies to subgraphs that are configured for polling via the `pollIntervalInMs` option.
+Perform a health check on each subgraph before performing a supergraph update. Errors during health checks will result in skipping the supergraph update, but polling will continue. The health check is a simple GraphQL query (`query __ApolloServiceHealthCheck__ { __typename }`) to ensure that subgraphs are reachable and can successfully respond to GraphQL requests.
+
+**This option is the `IntrospectAndCompose` equivalent of `ApolloGateway`'s `serviceHealthCheck` option. If you are using `IntrospectAndCompose`, there is no need to enable `serviceHealthCheck` on your `ApolloGateway` instance.**
+</td>
+</tr>
+
+<tr>
+<td>
+
 ###### `logger`
 
 [`Logger`](https://github.com/apollographql/apollo-server/blob/main/packages/apollo-server-types/src/index.ts#L166-L172)

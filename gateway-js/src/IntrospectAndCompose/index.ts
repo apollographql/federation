@@ -5,7 +5,11 @@ import {
 } from '@apollo/federation';
 import { Logger } from 'apollo-server-types';
 import { HeadersInit } from 'node-fetch';
-import { ServiceEndpointDefinition, SupergraphSdlUpdateFunction } from '..';
+import {
+  ServiceEndpointDefinition,
+  SupergraphSdlUpdateFunction,
+  SubgraphHealthCheckFunction,
+} from '..';
 import {
   getServiceDefinitionsFromRemoteEndpoint,
   Service,
@@ -21,6 +25,7 @@ export interface IntrospectAndComposeOptions {
       ) => Promise<HeadersInit> | HeadersInit);
   pollIntervalInMs?: number;
   logger?: Logger;
+  subgraphHealthCheck?: boolean;
 }
 
 type State =
@@ -31,6 +36,7 @@ type State =
 export class IntrospectAndCompose implements SupergraphSdlObject {
   private config: IntrospectAndComposeOptions;
   private update?: SupergraphSdlUpdateFunction;
+  private healthCheck?: SubgraphHealthCheckFunction;
   private subgraphs?: Service[];
   private serviceSdlCache: Map<string, string> = new Map();
   private pollIntervalInMs?: number;
@@ -43,8 +49,13 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
     this.state = { phase: 'initialized' };
   }
 
-  public async initialize({ update, getDataSource }: SupergraphSdlHookOptions) {
+  public async initialize({ update, getDataSource, healthCheck }: SupergraphSdlHookOptions) {
     this.update = update;
+
+    if (this.config.subgraphHealthCheck) {
+      this.healthCheck = healthCheck;
+    }
+
     this.subgraphs = this.config.subgraphs.map((subgraph) => ({
       ...subgraph,
       dataSource: getDataSource(subgraph),
@@ -125,6 +136,8 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
         try {
           const maybeNewSupergraphSdl = await this.updateSupergraphSdl();
           if (maybeNewSupergraphSdl) {
+            // the healthCheck fn is only assigned if it's enabled in the config
+            await this.healthCheck?.(maybeNewSupergraphSdl);
             this.update?.(maybeNewSupergraphSdl);
           }
         } catch (e) {

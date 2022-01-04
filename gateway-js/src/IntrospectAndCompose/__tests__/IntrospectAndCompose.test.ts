@@ -7,7 +7,7 @@ import { nockBeforeEach, nockAfterEach } from '../../__tests__/nockAssertions';
 import { RemoteGraphQLDataSource, ServiceEndpointDefinition } from '../..';
 import { IntrospectAndCompose } from '..';
 import { mockAllServicesSdlQuerySuccess } from '../../__tests__/integration/nockMocks';
-import { wait } from '../../__tests__/execution-utils';
+import { getTestingSupergraphSdl, wait } from '../../__tests__/execution-utils';
 import resolvable from '@josephg/resolvable';
 import { Logger } from 'apollo-server-types';
 
@@ -24,7 +24,7 @@ describe('IntrospectAndCompose', () => {
     ).not.toThrow();
   });
 
-  it('is instance callable (simulating the gateway calling it)', async () => {
+  it('has an `initialize` property which is callable (simulating the gateway calling it)', async () => {
     mockAllServicesSdlQuerySuccess();
     const instance = new IntrospectAndCompose({ subgraphs: fixtures });
     await expect(
@@ -160,6 +160,41 @@ describe('IntrospectAndCompose', () => {
     expect(updateSpy).not.toHaveBeenCalled();
   });
 
+  it('issues subgraph health checks when enabled (and polling)', async () => {
+    mockAllServicesSdlQuerySuccess();
+    mockAllServicesSdlQuerySuccess(fixturesWithUpdate);
+
+    const healthCheckPromise = resolvable();
+    const healthCheckSpy = jest
+      .fn()
+      .mockImplementationOnce(() => healthCheckPromise.resolve());
+
+    const instance = new IntrospectAndCompose({
+      subgraphs: fixtures,
+      pollIntervalInMs: 10,
+      subgraphHealthCheck: true,
+    });
+
+    const { cleanup } = await instance.initialize({
+      update() {},
+      async healthCheck(supergraphSdl) {
+        healthCheckSpy(supergraphSdl);
+      },
+      getDataSource({ url }) {
+        return new RemoteGraphQLDataSource({ url });
+      },
+    });
+
+    await healthCheckPromise;
+
+    expect(healthCheckSpy).toHaveBeenCalledWith(
+      getTestingSupergraphSdl(fixturesWithUpdate),
+    );
+
+    // stop polling
+    await cleanup!();
+  });
+
   describe('errors', () => {
     it('logs an error when `update` function throws', async () => {
       const errorLoggedPromise = resolvable();
@@ -209,6 +244,63 @@ describe('IntrospectAndCompose', () => {
       expect(logger.error).toHaveBeenCalledWith(
         `IntrospectAndCompose failed to update supergraph with the following error: ${thrownErrorMessage}`,
       );
+    });
+
+    it('does not attempt to update when `healthCheck` function throws', async () => {
+      mockAllServicesSdlQuerySuccess();
+      mockAllServicesSdlQuerySuccess(fixturesWithUpdate);
+
+      const expectedErrorMsg = 'error reaching subgraph';
+      const errorLoggedPromise = resolvable();
+      const errorSpy = jest.fn(() => {
+        errorLoggedPromise.resolve();
+      });
+      const logger: Logger = {
+        error: errorSpy,
+        debug() {},
+        info() {},
+        warn() {},
+      };
+
+      const healthCheckPromise = resolvable();
+      const healthCheckSpy = jest
+        .fn()
+        .mockImplementationOnce(() => healthCheckPromise.resolve());
+      const updateSpy = jest
+        .fn()
+        .mockImplementationOnce(() => healthCheckPromise.resolve());
+
+      const instance = new IntrospectAndCompose({
+        subgraphs: fixtures,
+        pollIntervalInMs: 10,
+        subgraphHealthCheck: true,
+        logger,
+      });
+
+      const { cleanup } = await instance.initialize({
+        update() {
+          updateSpy();
+        },
+        async healthCheck(supergraphSdl) {
+          healthCheckSpy(supergraphSdl);
+          throw new Error(expectedErrorMsg);
+        },
+        getDataSource({ url }) {
+          return new RemoteGraphQLDataSource({ url });
+        },
+      });
+
+      await healthCheckPromise;
+      await errorLoggedPromise;
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        `IntrospectAndCompose failed to update supergraph with the following error: ${expectedErrorMsg}`,
+      );
+      expect(healthCheckSpy).toHaveBeenCalledTimes(1);
+      expect(updateSpy).not.toHaveBeenCalled();
+
+      // stop polling
+      await cleanup!();
     });
   });
 });
