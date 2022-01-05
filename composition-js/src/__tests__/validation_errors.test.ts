@@ -38,7 +38,7 @@ describe('@requires', () => {
     expect(result.errors).toBeDefined();
     expect(errorMessages(result)).toMatchStringArray([
       `
-      The follow supergraph API query:
+      The following supergraph API query:
       {
         a {
           y
@@ -49,7 +49,7 @@ describe('@requires', () => {
       - from subgraph "B": cannot satisfy @require conditions on field "A.y" (please ensure that this is not due to key field "id" being accidentally marked @external).
       `,
       `
-      The follow supergraph API query:
+      The following supergraph API query:
       {
         a {
           z

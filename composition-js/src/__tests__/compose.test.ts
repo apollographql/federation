@@ -9,8 +9,8 @@ function assertCompositionSuccess(r: CompositionResult): asserts r is Compositio
   }
 }
 
-function errorMessages(r: CompositionResult): string[] {
-  return r.errors?.map(e => e.message) ?? [];
+function errors(r: CompositionResult): [string, string][] {
+  return r.errors?.map(e => [e.extensions.code, e.message]) ?? [];
 }
 
 // Returns [the supergraph schema, its api schema, the extracted subgraphs]
@@ -573,8 +573,40 @@ describe('composition', () => {
 
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
-        expect(errorMessages(result)).toStrictEqual([
-          'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"'
+        expect(errors(result)).toStrictEqual([
+          ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"']
+        ]);
+      });
+
+      it('errors on incompatible types with @external', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T! @provides(fields: "f")
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: String @external
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f: Int
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errors(result)).toStrictEqual([
+          ['EXTERNAL_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs (where marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
         ]);
       });
 
@@ -605,8 +637,8 @@ describe('composition', () => {
 
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
-        expect(errorMessages(result)).toStrictEqual([
-          'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"'
+        expect(errors(result)).toStrictEqual([
+          ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"']
         ]);
       });
 
@@ -1068,6 +1100,67 @@ describe('composition', () => {
         expect(fInB).toBeDefined();
         expect(fInB?.type?.toString()).toBe('A!');
       });
+
+      it('errors on incompatible input field types', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              q: String
+            }
+
+            input T {
+              f: String
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            input T {
+              f: Int
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errors(result)).toStrictEqual([
+          ['FIELD_TYPE_MISMATCH', 'Field "T.f" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "Int" in subgraph "subgraphB"'],
+        ]);
+      });
+
+      it('errors on incompatible input field types', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              q: String
+            }
+
+            input T {
+              f: Int = 0
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            input T {
+              f: Int = 1
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errors(result)).toStrictEqual([
+          ['INPUT_FIELD_DEFAULT_MISMATCH', 'Input field "T.f" has incompatible default values across subgraphs: it has default value 0 in subgraph "subgraphA" but default value 1 in subgraph "subgraphB"'],
+        ]);
+      });
+
     });
 
     describe('for arguments', () => {
@@ -1098,8 +1191,144 @@ describe('composition', () => {
 
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
-        expect(errorMessages(result)).toStrictEqual([
-          'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"'
+        expect(errors(result)).toStrictEqual([
+          ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "Int" in subgraph "subgraphA" but type "String" in subgraph "subgraphB"']
+        ]);
+      });
+
+      it('errors on missing arguments to @external declaration', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T! @provides(fields: "f")
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f: String @external
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: Int): String
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errors(result)).toStrictEqual([
+          ['EXTERNAL_ARGUMENT_MISSING', 'Field "T.f" is missing argument "T.f(x:)" in some subgraphs where it is marked @external: argument "T.f(x:)" is declared in subgraph "subgraphB" but not in subgraph "subgraphA" (where "T.f" is @external).'],
+        ]);
+      });
+
+      it('errors on incompatible argument types in @external declaration', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            interface I {
+              f(x: String): String
+            }
+
+            type T implements I @key(fields: "id") {
+              id: ID!
+              f(x: String): String @external
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: Int): String
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errors(result)).toStrictEqual([
+          ['EXTERNAL_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs (where "T.f" is marked @external): it has type "Int" in subgraph "subgraphB" but type "String" in subgraph "subgraphA"'],
+        ]);
+      });
+
+      it('errors on incompatible argument default', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: Int = 0): String
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: Int = 1): String
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errors(result)).toStrictEqual([
+          ['FIELD_ARGUMENT_DEFAULT_MISMATCH', 'Argument "T.f(x:)" has incompatible default values across subgraphs: it has default value 0 in subgraph "subgraphA" but default value 1 in subgraph "subgraphB"'],
+        ]);
+      });
+
+      it('errors on incompatible argument default in @external declaration', () => {
+        const subgraphA = {
+          name: 'subgraphA',
+          typeDefs: gql`
+            type Query {
+              T: T!
+            }
+
+            interface I {
+              f(x: Int): String
+            }
+
+            type T implements I @key(fields: "id") {
+              id: ID!
+              f(x: Int): String @external
+            }
+          `,
+        };
+
+        const subgraphB = {
+          name: 'subgraphB',
+          typeDefs: gql`
+            type T @key(fields: "id") {
+              id: ID!
+              f(x: Int = 1): String
+            }
+          `,
+        };
+
+        const result = composeServices([subgraphA, subgraphB]);
+        expect(result.errors).toBeDefined();
+        expect(errors(result)).toStrictEqual([
+          ['EXTERNAL_ARGUMENT_DEFAULT_MISMATCH', 'Argument "T.f(x:)" has incompatible defaults across subgraphs (where "T.f" is marked @external): it has default value 1 in subgraph "subgraphB" but no default value in subgraph "subgraphA"'],
         ]);
       });
 
@@ -1130,8 +1359,8 @@ describe('composition', () => {
 
         const result = composeServices([subgraphA, subgraphB]);
         expect(result.errors).toBeDefined();
-        expect(errorMessages(result)).toStrictEqual([
-          'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"'
+        expect(errors(result)).toStrictEqual([
+          ['FIELD_ARGUMENT_TYPE_MISMATCH', 'Argument "T.f(x:)" has incompatible types across subgraphs: it has type "String" in subgraph "subgraphA" but type "[String]" in subgraph "subgraphB"']
         ]);
       });
 
@@ -1223,6 +1452,208 @@ describe('composition', () => {
     });
   });
 
+  describe('merge validations', () => {
+    it('errors when a subgraph is invalid', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type A {
+            b: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_GRAPHQL', '[subgraphA] Unknown type A'],
+      ]);
+    });
+
+    it('errors when the @tag definition is invalid', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            a: String
+          }
+
+          directive @tag on ENUM_VALUE
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type A {
+            b: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['TAG_DIRECTIVE_DEFINITION_INVALID', '[subgraphA] Found invalid @tag directive definition. Please ensure the directive definition in your schema\'s definitions matches the following:\n\tdirective @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION'],
+      ]);
+    });
+
+    it('reject a subgraph named "_"', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            a: String
+          }
+        `,
+        name: '_',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type A {
+            b: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_SUBGRAPH_NAME', 'Invalid name _ for a subgraph: this name is reserved'],
+      ]);
+    });
+
+    it('reject if no subgraphs have a query', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type A {
+            a: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type B {
+            b: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['NO_QUERIES', 'No queries found in any subgraph: a supergraph must have a query root type.'],
+      ]);
+    });
+
+    it('reject a type defined with different kinds in different subgraphs', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            q: A
+          }
+
+          type A {
+            a: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          interface A {
+            b: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['TYPE_KIND_MISMATCH', 'Type "A" has mismatched kind: it is defined as Object Type in subgraph "subgraphA" but Interface Type in subgraph "subgraphB"'],
+      ]);
+    });
+
+    it('errors if a type extension has no definition counterpart', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            q: String
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          extend type A @key(fields: "k") {
+            k: ID!
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['EXTENSION_WITH_NO_BASE', '[subgraphB] Type "A" is an extension type, but there is no type definition for "A" in any subgraph.'],
+      ]);
+    });
+
+    it('errors if an @external field is not defined in any other subgraph', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            q: String
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          interface I {
+            f: Int
+          }
+
+          type A implements I @key(fields: "k") {
+            k: ID!
+            f: Int @external
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['EXTERNAL_MISSING_ON_BASE', 'Field "A.f" is marked @external on all the subgraphs in which it is listed (subgraph "subgraphB").'],
+      ]);
+    });
+  });
+
   describe('post-merge validation', () => {
     it('errors if a type does not implement one of its interface post-merge', () => {
       const subgraphA = {
@@ -1259,8 +1690,8 @@ describe('composition', () => {
       const result = composeServices([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
-      expect(errorMessages(result)).toStrictEqual([
-        'Interface field "I.a" is declared in subgraph \"subgraphA\" but type "B", which implements "I" only in subgraph \"subgraphB\" does not have field "a".',
+      expect(errors(result)).toStrictEqual([
+        ['INTERFACE_FIELD_NO_IMPLEM', 'Interface field "I.a" is declared in subgraph \"subgraphA\" but type "B", which implements "I" only in subgraph \"subgraphB\" does not have field "a".'],
       ]);
     })
 
@@ -1304,8 +1735,8 @@ describe('composition', () => {
       const result = composeServices([subgraphA, subgraphB]);
 
       expect(result.errors).toBeDefined();
-      expect(errorMessages(result)).toStrictEqual([
-        'Interface field "J.a" is declared in subgraph \"subgraphA\" but type "B", which implements "J" only in subgraph \"subgraphB\" does not have field "a".',
+      expect(errors(result)).toStrictEqual([
+        ['INTERFACE_FIELD_NO_IMPLEM', 'Interface field "J.a" is declared in subgraph \"subgraphA\" but type "B", which implements "J" only in subgraph \"subgraphB\" does not have field "a".'],
       ]);
     })
   });
@@ -1351,5 +1782,49 @@ describe('composition', () => {
         b(x: Int): Int
       }
     `);
+  });
+
+  // We have specific validation tests in `validation_errors.test.ts` but this one test
+  // just check the associated error code is correct (since we check most composition error
+  // codes in this fiel)
+  it('use the proper error code for composition validation errors', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type Query {
+          a: A
+        }
+
+        type A {
+          x: Int
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type A {
+          x: Int
+          y: Int
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+
+    expect(result.errors).toBeDefined();
+    expect(errors(result)).toStrictEqual([
+      ['SATISFIABILITY_ERROR', `The following supergraph API query:
+{
+  a {
+    y
+  }
+}
+cannot be satisfied by the subgraphs because:
+- from subgraph "subgraphA":
+  - cannot find field "A.y".
+  - cannot move to subgraph "subgraphB", which has field "A.y", because type "A" has no @key defined in subgraph "subgraphB".`],
+    ]);
   });
 });

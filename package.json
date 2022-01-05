@@ -25,7 +25,9 @@
     "test:ci": "npm test -- --ci --maxWorkers=2  --reporters=default --reporters=jest-junit",
     "codegen": "graphql-codegen --config codegen.yml",
     "codegen:check": "npm run codegen && git diff --exit-code",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "error-code-doc": "node ./internals-js/dist/genErrorCodeDoc.js > ./docs/source/errors.md",
+    "error-code-doc:check": "npm run error-code-doc && git diff --exit-code"
   },
   "engines": {
     "node": ">=12.13.0 <17.0",

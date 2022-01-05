@@ -40,7 +40,6 @@ import {
   NamedSchemaElement,
   executableDirectiveLocations,
   errorCauses,
-  error,
   tagDirectiveName,
   isObjectType,
   SubgraphASTNode,
@@ -53,6 +52,8 @@ import {
   ExternalTester,
   isInterfaceType,
   sourceASTs,
+  ErrorCodeDefinition,
+  ERRORS,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocationEnum } from "graphql";
 import {
@@ -176,7 +177,7 @@ function copyTypeReference(source: Type, dest: Schema): Type {
     default:
       const type = dest.type(source.name);
       assert(type, () => `Cannot find type ${source} in destination schema (with types: ${dest.types().join(', ')})`);
-      return type!;
+      return type;
   }
 }
 
@@ -340,7 +341,7 @@ class Merger {
     }
 
     if (!this.merged.schemaDefinition.rootType('query')) {
-      this.errors.push(new GraphQLError("No queries found in any subgraph: a supergraph must have a query root type."));
+      this.errors.push(ERRORS.NO_QUERIES.err({ message: "No queries found in any subgraph: a supergraph must have a query root type." }));
     }
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
@@ -423,7 +424,7 @@ class Merger {
   private reportMismatchedTypeDefinitions(mismatchedType: string) {
     const supergraphType = this.merged.type(mismatchedType)!;
     this.reportMismatchError(
-      'TYPE_KIND_MISMATCH',
+      ERRORS.TYPE_KIND_MISMATCH,
       `Type "${mismatchedType}" has mismatched kind: it is defined as `,
       supergraphType,
       this.subgraphsSchema.map(s => s.type(mismatchedType)),
@@ -432,7 +433,7 @@ class Merger {
   }
 
   private reportMismatchError<TMismatched extends SchemaElement<any, any>>(
-    code: string,
+    code: ErrorCodeDefinition,
     message: string,
     mismatchedElement:TMismatched,
     subgraphElements: (TMismatched | undefined)[],
@@ -444,15 +445,18 @@ class Merger {
       mismatchAccessor,
       (elt, names) => `${elt} in ${names}`,
       (elt, names) => `${elt} in ${names}`,
-      (distribution, astNodes) => {
-        this.errors.push(error(code, message + join(distribution, ' and ', ' but '), astNodes));
+      (distribution, nodes) => {
+        this.errors.push(code.err({
+          message: message + join(distribution, ' and ', ' but '),
+          nodes
+        }));
       },
       elt => !elt
     );
   }
 
   private reportMismatchErrorWithSpecifics<TMismatched extends SchemaElement<any, any>>(
-    code: string,
+    code: ErrorCodeDefinition,
     message: string,
     mismatchedElement: TMismatched,
     subgraphElements: (TMismatched | undefined)[],
@@ -460,6 +464,7 @@ class Merger {
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string | undefined, subgraphs: string) => string,
     ignorePredicate?: (elt: TMismatched | undefined) => boolean,
+    includeMissingSources: boolean = false
   ) {
     this.reportMismatch(
       mismatchedElement,
@@ -467,10 +472,14 @@ class Merger {
       mismatchAccessor,
       supergraphElementPrinter,
       otherElementsPrinter,
-      (distribution, astNodes) => {
-        this.errors.push(error(code, message + distribution[0] + join(distribution.slice(1), ' and '), astNodes));
+      (distribution, nodes) => {
+        this.errors.push(code.err({
+          message: message + distribution[0] + join(distribution.slice(1), ' and '),
+          nodes
+        }));
       },
-      ignorePredicate
+      ignorePredicate,
+      includeMissingSources
     );
   }
 
@@ -681,11 +690,10 @@ class Merger {
     }
     if (extensionSubgraphs.length > 0 && defSubgraphs.length === 0) {
       for (const [i, subgraph] of extensionSubgraphs.entries()) {
-        this.errors.push(error(
-          'EXTENSION_WITH_NO_BASE',
-          `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
-          extensionASTs[i]
-        ));
+        this.errors.push(ERRORS.EXTENSION_WITH_NO_BASE.err({
+          message: `[${subgraph}] Type "${dest}" is an extension type, but there is no type definition for "${dest}" in any subgraph.`,
+          nodes: extensionASTs[i],
+        }));
       }
     }
   }
@@ -834,12 +842,11 @@ class Merger {
   private mergeField(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
     if (sources.every((s, i) => s === undefined || this.isExternal(i, s))) {
       const definingSubgraphs = sources.map((source, i) => source ? this.names[i] : undefined).filter(s => s !== undefined) as string[];
-      const asts = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
-      this.errors.push(error(
-        'EXTERNAL_MISSING_ON_BASE',
-        `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
-        asts
-      ));
+      const nodes = sources.map(source => source?.sourceAST).filter(s => s !== undefined) as ASTNode[];
+      this.errors.push(ERRORS.EXTERNAL_MISSING_ON_BASE.err({
+        message: `Field "${dest.coordinate}" is marked @external on all the subgraphs in which it is listed (${printSubgraphNames(definingSubgraphs)}).`,
+        nodes
+      }));
       return;
     }
 
@@ -897,7 +904,7 @@ class Merger {
 
     if (hasInvalidTypes) {
       this.reportMismatchError(
-        'EXTERNAL_TYPE_MISMATCH',
+        ERRORS.EXTERNAL_TYPE_MISMATCH,
         `Field "${dest.coordinate}" has incompatible types across subgraphs (where marked @external): it has `,
         dest,
         sources,
@@ -907,20 +914,22 @@ class Merger {
     for (const arg of invalidArgsPresence) {
       const destArg = dest.argument(arg)!;
       this.reportMismatchErrorWithSpecifics(
-        'EXTERNAL_ARGUMENT_MISSING',
+        ERRORS.EXTERNAL_ARGUMENT_MISSING,
         `Field "${dest.coordinate}" is missing argument "${destArg.coordinate}" in some subgraphs where it is marked @external: `,
         destArg,
         sources.map(s => s?.argument(destArg.name)),
         arg => arg ? `argument "${arg.coordinate}"` : undefined,
         (elt, subgraphs) => `${elt} is declared in ${subgraphs}`,
-        (_, subgraphs) => ` but not in ${subgraphs} where ${dest.coordinate} is @external.`,
+        (_, subgraphs) => ` but not in ${subgraphs} (where "${dest.coordinate}" is @external).`,
+        undefined,
+        true
       );
     }
     for (const arg of invalidArgsTypes) {
       const destArg = dest.argument(arg)!;
       this.reportMismatchError(
-        'EXTERNAL_ARGUMENT_TYPE_MISMATCH',
-        `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where ${dest.coordinate} is marked @external): it has `,
+        ERRORS.EXTERNAL_ARGUMENT_TYPE_MISMATCH,
+        `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where "${dest.coordinate}" is marked @external): it has `,
         destArg,
         sources.map(s => s?.argument(destArg.name)),
         arg => `type "${arg.type}"`
@@ -929,11 +938,11 @@ class Merger {
     for (const arg of invalidArgsDefaults) {
       const destArg = dest.argument(arg)!;
       this.reportMismatchError(
-        'EXTERNAL_ARGUMENT_TYPE_MISMATCH',
-        `Argument "${destArg.coordinate}" has incompatible types across subgraphs (where ${dest.coordinate} is marked @external): it has `,
+        ERRORS.EXTERNAL_ARGUMENT_DEFAULT_MISMATCH,
+        `Argument "${destArg.coordinate}" has incompatible defaults across subgraphs (where "${dest.coordinate}" is marked @external): it has `,
         destArg,
         sources.map(s => s?.argument(destArg.name)),
-        arg => `type "${arg.type}"`
+        arg => arg.defaultValue !== undefined ? `default value ${valueToString(arg.defaultValue, arg.type)}` : 'no default value'
       );
     }
   }
@@ -1045,7 +1054,7 @@ class Merger {
 
     if (hasIncompatible) {
       this.reportMismatchError(
-        `${elementKind.toUpperCase()}_TYPE_MISMATCH`,
+        isArgument ? ERRORS.ARGUMENT_TYPE_MISMATCH : ERRORS.FIELD_TYPE_MISMATCH,
         `${elementKind} "${dest.coordinate}" has incompatible types across subgraphs: it has `,
         dest,
         sources,
@@ -1163,17 +1172,19 @@ class Merger {
       }
       hasSeenSource = true;
     }
-    if (!isInconsistent && !isIncompatible) {
+    // Note that we set the default if isIncompatible mostly to help the building of the error message. But
+    // as we'll error out, it doesn't really matter.
+    if (!isInconsistent || isIncompatible) {
       dest.defaultValue = destDefault;
     }
 
     if (isIncompatible) {
       this.reportMismatchError(
-        `${kind.toUpperCase().replace(' ', '_')}_DEFAULT_MISMATCH`,
-        `${kind} "${dest.coordinate}" has incompatible default values across subgraphs: it has default value `,
+        kind === 'Argument' ? ERRORS.ARGUMENT_DEFAULT_MISMATCH : ERRORS.INPUT_FIELD_DEFAULT_MISMATCH,
+        `${kind} "${dest.coordinate}" has incompatible default values across subgraphs: it has `,
         dest,
         sources,
-        arg => arg.defaultValue !== undefined ? valueToString(arg.defaultValue, arg.type) : undefined
+        arg => arg.defaultValue !== undefined ? `default value ${valueToString(arg.defaultValue, arg.type)}` : 'no default value'
       );
     } else if (isInconsistent) {
       this.reportMismatchHint(
@@ -1628,14 +1639,14 @@ class Merger {
               const typeInSubgraph = s.type(type.name);
               return typeInSubgraph !== undefined && (typeInSubgraph as ObjectType | InterfaceType).implementsInterface(itf.name);
             });
-            this.errors.push(new GraphQLError(
-              `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
-              + `which implements "${itf}" only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field "${itfField.name}".`,
-              sourceASTs(
+            this.errors.push(ERRORS.INTERFACE_FIELD_NO_IMPLEM.err({
+              message: `Interface field "${itfField.coordinate}" is declared in ${printSubgraphNames(subgraphsWithTheField)} but type "${type}", `
+                + `which implements "${itf}" only in ${printSubgraphNames(subgraphsWithTypeImplementingItf)} does not have field "${itfField.name}".`,
+              nodes: sourceASTs(
                 ...subgraphsWithTheField.map(s => this.subgraphByName(s).typeOfKind<InterfaceType>(itf.name, 'InterfaceType')?.field(itfField.name)),
                 ...subgraphsWithTypeImplementingItf.map(s => this.subgraphByName(s).type(type.name))
               )
-            ));
+            }));
             continue;
           }
 
