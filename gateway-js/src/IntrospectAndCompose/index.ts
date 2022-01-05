@@ -51,7 +51,6 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
   }
 
   public async initialize({ update, getDataSource, healthCheck }: SupergraphSdlHookOptions) {
-    console.log(this);
     this.update = update;
 
     if (this.config.subgraphHealthCheck) {
@@ -63,7 +62,14 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
       dataSource: getDataSource(subgraph),
     }));
 
-    const initialSupergraphSdl = await this.updateSupergraphSdl();
+    let initialSupergraphSdl: string | null = null;
+    try {
+      initialSupergraphSdl = await this.updateSupergraphSdl();
+    } catch (e) {
+      this.logUpdateFailure(e);
+      throw e;
+    }
+
     // Start polling after we resolve the first supergraph
     if (this.pollIntervalInMs) {
       this.beginPolling();
@@ -103,7 +109,11 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
       return null;
     }
 
-    return this.createSupergraphFromSubgraphList(result.serviceDefinitions!);
+    const supergraphSdl = this.createSupergraphFromSubgraphList(result.serviceDefinitions!);
+    // the healthCheck fn is only assigned if it's enabled in the config
+    await this.healthCheck?.(supergraphSdl);
+
+    return supergraphSdl;
   }
 
   private createSupergraphFromSubgraphList(subgraphs: ServiceDefinition[]) {
@@ -135,20 +145,22 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
         try {
           const maybeNewSupergraphSdl = await this.updateSupergraphSdl();
           if (maybeNewSupergraphSdl) {
-            // the healthCheck fn is only assigned if it's enabled in the config
-            await this.healthCheck?.(maybeNewSupergraphSdl);
             this.update?.(maybeNewSupergraphSdl);
           }
         } catch (e) {
-          this.config.logger?.error(
-            'IntrospectAndCompose failed to update supergraph with the following error: ' +
-              (e.message ?? e),
-          );
+          this.logUpdateFailure(e);
         }
         pollingPromise.resolve();
       }
 
       this.poll();
     }, this.pollIntervalInMs!);
+  }
+
+  private logUpdateFailure(e: any) {
+    this.config.logger?.error(
+      'IntrospectAndCompose failed to update supergraph with the following error: ' +
+        (e.message ?? e),
+    );
   }
 }

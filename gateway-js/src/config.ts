@@ -134,7 +134,7 @@ interface GatewayConfigBase {
 }
 
 // TODO(trevor:removeServiceList)
-export interface RemoteGatewayConfig extends GatewayConfigBase {
+export interface ServiceListGatewayConfig extends GatewayConfigBase {
   // @deprecated: use `supergraphSdl` in its function form instead
   serviceList: ServiceEndpointDefinition[];
   // @deprecated: use `supergraphSdl` in its function form instead
@@ -211,7 +211,9 @@ export interface ManuallyManagedSupergraphSdlGatewayConfig extends GatewayConfig
 type ManuallyManagedGatewayConfig =
   | ManuallyManagedServiceDefsGatewayConfig
   | ExperimentalManuallyManagedSupergraphSdlGatewayConfig
-  | ManuallyManagedSupergraphSdlGatewayConfig;
+  | ManuallyManagedSupergraphSdlGatewayConfig
+  // TODO(trevor:removeServiceList
+  | ServiceListGatewayConfig;
 
 // TODO(trevor:removeServiceList)
 interface LocalGatewayConfig extends GatewayConfigBase {
@@ -229,7 +231,6 @@ export type StaticGatewayConfig =
 
 type DynamicGatewayConfig =
   | ManagedGatewayConfig
-  | RemoteGatewayConfig
   | ManuallyManagedGatewayConfig;
 
 export type GatewayConfig = StaticGatewayConfig | DynamicGatewayConfig;
@@ -242,9 +243,9 @@ export function isLocalConfig(
 }
 
 // TODO(trevor:removeServiceList)
-export function isRemoteConfig(
+export function isServiceListConfig(
   config: GatewayConfig,
-): config is RemoteGatewayConfig {
+): config is ServiceListGatewayConfig {
   return 'serviceList' in config;
 }
 
@@ -262,7 +263,9 @@ export function isManuallyManagedConfig(
   return (
     isManuallyManagedSupergraphSdlGatewayConfig(config) ||
     'experimental_updateServiceDefinitions' in config ||
-    'experimental_updateSupergraphSdl' in config
+    'experimental_updateSupergraphSdl' in config ||
+    // TODO(trevor:removeServiceList)
+    'serviceList' in config
   );
 }
 
@@ -272,8 +275,7 @@ export function isManagedConfig(
 ): config is ManagedGatewayConfig {
   return (
     'schemaConfigDeliveryEndpoint' in config ||
-    (!isRemoteConfig(config) &&
-      !isLocalConfig(config) &&
+    (!isLocalConfig(config) &&
       !isStaticSupergraphSdlConfig(config) &&
       !isManuallyManagedConfig(config))
   );
@@ -290,9 +292,5 @@ export function isStaticConfig(
 export function isDynamicConfig(
   config: GatewayConfig,
 ): config is DynamicGatewayConfig {
-  return (
-    isRemoteConfig(config) ||
-    isManagedConfig(config) ||
-    isManuallyManagedConfig(config)
-  );
+  return isManagedConfig(config) || isManuallyManagedConfig(config);
 }

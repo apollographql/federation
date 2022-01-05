@@ -29,8 +29,6 @@ import {
   ServiceMap,
   defaultFieldResolverWithAliasSupport,
 } from './executeQueryPlan';
-
-import { getServiceDefinitionsFromRemoteEndpoint } from './IntrospectAndCompose/loadServicesFromRemoteEndpoint';
 import {
   GraphQLDataSource,
   GraphQLDataSourceRequestKind,
@@ -55,11 +53,10 @@ import {
   CompositionInfo,
   GatewayConfig,
   StaticGatewayConfig,
-  RemoteGatewayConfig,
-  ManagedGatewayConfig,
+  ServiceListGatewayConfig,
   isManuallyManagedConfig,
   isLocalConfig,
-  isRemoteConfig,
+  isServiceListConfig,
   isManagedConfig,
   isDynamicConfig,
   isStaticConfig,
@@ -79,6 +76,7 @@ import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { CoreSchema } from '@apollo/core-schema';
 import { featureSupport } from './core';
 import { createHash } from './utilities/createHash';
+import { IntrospectAndCompose } from './IntrospectAndCompose';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -180,7 +178,6 @@ export class ApolloGateway implements GraphQLService {
   >();
   private serviceDefinitions: ServiceDefinition[] = [];
   private compositionMetadata?: CompositionMetadata;
-  private serviceSdlCache = new Map<string, string>();
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
   private supergraphSdl?: string;
@@ -190,6 +187,10 @@ export class ApolloGateway implements GraphQLService {
   private state: GatewayState;
   private errorReportingEndpoint: string | undefined =
     process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT ?? undefined;
+
+  // This will no longer be necessary once the `serviceList` option is removed
+  // TODO(trevor:removeServiceList)
+  private internalIntrospectAndComposeInstance?: IntrospectAndCompose;
 
   // Observe query plan, service info, and operation info prior to execution.
   // The information made available here will give insight into the resulting
@@ -270,6 +271,15 @@ export class ApolloGateway implements GraphQLService {
           this.config.experimental_updateServiceDefinitions;
       } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
         // TODO: do nothing maybe?
+      } else if (isServiceListConfig(this.config)) {
+        // TODO(trevor:removeServiceList)
+        this.internalIntrospectAndComposeInstance = new IntrospectAndCompose({
+          subgraphs: this.config.serviceList,
+          pollIntervalInMs: this.config.experimental_pollInterval,
+          logger: this.logger,
+          subgraphHealthCheck: this.config.serviceHealthCheck,
+          introspectionHeaders: this.config.introspectionHeaders,
+        });
       } else {
         throw Error(
           'Programming error: unexpected manual configuration provided',
@@ -337,7 +347,7 @@ export class ApolloGateway implements GraphQLService {
 
     // Warn against using the pollInterval and a serviceList simultaneously
     // TODO(trevor:removeServiceList)
-    if (this.config.experimental_pollInterval && isRemoteConfig(this.config)) {
+    if (this.config.experimental_pollInterval && isServiceListConfig(this.config)) {
       this.logger.warn(
         'Polling running services is dangerous and not recommended in production. ' +
           'Polling should only be used against a registry. ' +
@@ -375,14 +385,14 @@ export class ApolloGateway implements GraphQLService {
     }
 
     // TODO(trevor:removeServiceList)
-    if ('serviceList' in this.config) {
+    if (isServiceListConfig(this.config)) {
       this.logger.warn(
         'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
       );
     }
 
     // TODO(trevor:removeServiceList)
-    if ('localServiceList' in this.config) {
+    if (isLocalConfig(this.config)) {
       this.logger.warn(
         'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
       );
@@ -451,7 +461,12 @@ export class ApolloGateway implements GraphQLService {
     // Handles initial assignment of `this.schema`, `this.queryPlanner`
     if (isStaticConfig(this.config)) {
       this.loadStatic(this.config);
-    } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
+    } else if (
+      isManuallyManagedSupergraphSdlGatewayConfig(this.config) ||
+      (isServiceListConfig(this.config) &&
+        // this setting is currently expected to override `serviceList` when they both exist
+        !('experimental_updateServiceDefinitions' in this.config))
+    ) {
       await this.loadManuallyManaged(this.config);
     } else {
       await this.loadDynamic(unrefTimer);
@@ -513,13 +528,16 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private async loadManuallyManaged(
-    config: ManuallyManagedSupergraphSdlGatewayConfig,
+    config:
+      | ManuallyManagedSupergraphSdlGatewayConfig
+      | ServiceListGatewayConfig,
   ) {
     try {
-      const supergraphSdlObject =
-        typeof config.supergraphSdl === 'object'
-          ? config.supergraphSdl
-          : { initialize: config.supergraphSdl };
+      const supergraphSdlObject = isServiceListConfig(config)
+        ? this.internalIntrospectAndComposeInstance!
+        : typeof config.supergraphSdl === 'object'
+        ? config.supergraphSdl
+        : { initialize: config.supergraphSdl };
 
       const result = await supergraphSdlObject.initialize({
         update: this.externalSupergraphUpdateCallback.bind(this),
@@ -1098,27 +1116,7 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  protected async loadServiceDefinitions(
-    config: RemoteGatewayConfig | ManagedGatewayConfig,
-  ): Promise<CompositionUpdate> {
-    // TODO(trevor:removeServiceList)
-    if (isRemoteConfig(config)) {
-      const serviceList = config.serviceList.map((serviceDefinition) => ({
-        ...serviceDefinition,
-        dataSource: this.createAndCacheDataSource(serviceDefinition),
-      }));
-
-      return getServiceDefinitionsFromRemoteEndpoint({
-        serviceList,
-        async getServiceIntrospectionHeaders(service) {
-          return typeof config.introspectionHeaders === 'function'
-            ? await config.introspectionHeaders(service)
-            : config.introspectionHeaders;
-        },
-        serviceSdlCache: this.serviceSdlCache,
-      });
-    }
-
+  protected async loadServiceDefinitions(): Promise<CompositionUpdate> {
     const canUseManagedConfig =
       this.apolloConfig?.graphRef && this.apolloConfig?.keyHash;
     if (!canUseManagedConfig) {
@@ -1405,8 +1403,13 @@ export class ApolloGateway implements GraphQLService {
         }
         return;
       case 'loaded':
-        this.state = { phase: 'stopped' }; // nothing to do (we're not polling)
-        await this.cleanupUserFunctions();
+        const stoppingDonePromise = this.cleanupUserFunctions();
+        this.state = {
+          phase: 'stopping',
+          stoppingDonePromise,
+        };
+        await stoppingDonePromise;
+        this.state = { phase: 'stopped' };
         return;
       case 'waiting to poll': {
         // If we're waiting to poll, we can synchronously transition to fully stopped.
@@ -1415,7 +1418,6 @@ export class ApolloGateway implements GraphQLService {
         clearTimeout(this.state.pollWaitTimer);
         this.state = { phase: 'stopped' };
         doneWaiting();
-        await this.cleanupUserFunctions();
         return;
       }
       case 'polling': {
@@ -1433,7 +1435,6 @@ export class ApolloGateway implements GraphQLService {
         await pollingDonePromise;
         this.state = { phase: 'stopped' };
         stoppingDonePromise.resolve();
-        await this.cleanupUserFunctions();
         return;
       }
       case 'updating schema': {
@@ -1505,6 +1506,7 @@ export {
   GatewayConfig,
   ServiceEndpointDefinition,
   CompositionInfo,
+  IntrospectAndCompose,
 };
 
 export * from './datasources';
@@ -1514,5 +1516,3 @@ export {
   SubgraphHealthCheckFunction,
   SupergraphSdlHook,
 } from './config';
-
-export { IntrospectAndCompose } from './IntrospectAndCompose';

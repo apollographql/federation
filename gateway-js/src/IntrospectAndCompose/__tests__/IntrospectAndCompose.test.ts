@@ -164,10 +164,13 @@ describe('IntrospectAndCompose', () => {
     mockAllServicesSdlQuerySuccess();
     mockAllServicesSdlQuerySuccess(fixturesWithUpdate);
 
-    const healthCheckPromise = resolvable();
+    const healthCheckPromiseOnLoad = resolvable();
+    const healthCheckPromiseOnUpdate = resolvable();
+
     const healthCheckSpy = jest
       .fn()
-      .mockImplementationOnce(() => healthCheckPromise.resolve());
+      .mockImplementationOnce(() => healthCheckPromiseOnLoad.resolve())
+      .mockImplementationOnce(() => healthCheckPromiseOnUpdate.resolve());
 
     const instance = new IntrospectAndCompose({
       subgraphs: fixtures,
@@ -185,9 +188,17 @@ describe('IntrospectAndCompose', () => {
       },
     });
 
-    await healthCheckPromise;
+    await Promise.all([
+      healthCheckPromiseOnLoad,
+      healthCheckPromiseOnUpdate,
+    ]);
 
-    expect(healthCheckSpy).toHaveBeenCalledWith(
+    expect(healthCheckSpy).toHaveBeenNthCalledWith(
+      1,
+      getTestingSupergraphSdl(fixtures),
+    );
+    expect(healthCheckSpy).toHaveBeenNthCalledWith(
+      2,
       getTestingSupergraphSdl(fixturesWithUpdate),
     );
 
@@ -246,6 +257,52 @@ describe('IntrospectAndCompose', () => {
       );
     });
 
+    it('fails to load when `healthCheck` function throws on startup', async () => {
+      mockAllServicesSdlQuerySuccess();
+
+      const expectedErrorMsg = 'error reaching subgraph';
+      const errorLoggedPromise = resolvable();
+      const errorSpy = jest.fn(() => {
+        errorLoggedPromise.resolve();
+      });
+      const logger: Logger = {
+        error: errorSpy,
+        debug() {},
+        info() {},
+        warn() {},
+      };
+
+      const updateSpy = jest.fn();
+
+      const instance = new IntrospectAndCompose({
+        subgraphs: fixtures,
+        pollIntervalInMs: 10,
+        subgraphHealthCheck: true,
+        logger,
+      });
+
+      await expect(
+        instance.initialize({
+          update() {
+            updateSpy();
+          },
+          async healthCheck() {
+            throw new Error(expectedErrorMsg);
+          },
+          getDataSource({ url }) {
+            return new RemoteGraphQLDataSource({ url });
+          },
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"error reaching subgraph"`);
+
+      await errorLoggedPromise;
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        `IntrospectAndCompose failed to update supergraph with the following error: ${expectedErrorMsg}`,
+      );
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
     it('does not attempt to update when `healthCheck` function throws', async () => {
       mockAllServicesSdlQuerySuccess();
       mockAllServicesSdlQuerySuccess(fixturesWithUpdate);
@@ -262,13 +319,17 @@ describe('IntrospectAndCompose', () => {
         warn() {},
       };
 
-      const healthCheckPromise = resolvable();
-      const healthCheckSpy = jest
+      const healthCheckPromiseOnLoad = resolvable();
+      const healthCheckPromiseOnUpdate = resolvable();
+      const healthCheckSpyWhichEventuallyThrows = jest
         .fn()
-        .mockImplementationOnce(() => healthCheckPromise.resolve());
-      const updateSpy = jest
-        .fn()
-        .mockImplementationOnce(() => healthCheckPromise.resolve());
+        .mockImplementationOnce(() => healthCheckPromiseOnLoad.resolve())
+        .mockImplementationOnce(() => {
+          healthCheckPromiseOnUpdate.resolve();
+          throw new Error(expectedErrorMsg);
+        });
+
+      const updateSpy = jest.fn();
 
       const instance = new IntrospectAndCompose({
         subgraphs: fixtures,
@@ -282,21 +343,24 @@ describe('IntrospectAndCompose', () => {
           updateSpy();
         },
         async healthCheck(supergraphSdl) {
-          healthCheckSpy(supergraphSdl);
-          throw new Error(expectedErrorMsg);
+          healthCheckSpyWhichEventuallyThrows(supergraphSdl);
         },
         getDataSource({ url }) {
           return new RemoteGraphQLDataSource({ url });
         },
       });
 
-      await healthCheckPromise;
-      await errorLoggedPromise;
+      await Promise.all([
+        healthCheckPromiseOnLoad,
+        healthCheckPromiseOnUpdate,
+        errorLoggedPromise,
+      ]);
 
       expect(errorSpy).toHaveBeenCalledWith(
         `IntrospectAndCompose failed to update supergraph with the following error: ${expectedErrorMsg}`,
       );
-      expect(healthCheckSpy).toHaveBeenCalledTimes(1);
+      expect(healthCheckSpyWhichEventuallyThrows).toHaveBeenCalledTimes(2);
+      // update isn't called on load so this shouldn't be called even once
       expect(updateSpy).not.toHaveBeenCalled();
 
       // stop polling

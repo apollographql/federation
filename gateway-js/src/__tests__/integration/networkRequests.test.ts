@@ -168,7 +168,7 @@ describe('Supergraph SDL update failures', () => {
     gateway = new ApolloGateway({
       logger,
       uplinkEndpoints: [mockCloudConfigUrl1],
-      uplinkMaxRetries: 0
+      uplinkMaxRetries: 0,
     });
 
     await expect(
@@ -196,7 +196,7 @@ describe('Supergraph SDL update failures', () => {
     gateway = new ApolloGateway({
       logger,
       uplinkEndpoints: [mockCloudConfigUrl1],
-      uplinkMaxRetries: 0
+      uplinkMaxRetries: 0,
     });
 
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
@@ -229,7 +229,7 @@ describe('Supergraph SDL update failures', () => {
     gateway = new ApolloGateway({
       logger,
       uplinkEndpoints: [mockCloudConfigUrl1],
-      uplinkMaxRetries: 0
+      uplinkMaxRetries: 0,
     });
     // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
     gateway.experimental_pollInterval = 100;
@@ -396,9 +396,8 @@ describe('Downstream service health checks', () => {
         var err = e;
       }
 
-      // TODO: smell that we should be awaiting something else
       expect(err.message).toMatchInlineSnapshot(`
-        "The gateway did not update its schema due to failed service health checks. The gateway will continue to operate with the previous schema and reattempt updates. The following error occurred during the health check:
+        "The gateway subgraphs health check failed. Updating to the provided \`supergraphSdl\` will likely result in future request failures to subgraphs. The following error occurred during the health check:
         [accounts]: 500: Internal Server Error"
       `);
 
