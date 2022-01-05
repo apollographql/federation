@@ -50,6 +50,7 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
   }
 
   public async initialize({ update, getDataSource, healthCheck }: SupergraphSdlHookOptions) {
+    console.log(this);
     this.update = update;
 
     if (this.config.subgraphHealthCheck) {
