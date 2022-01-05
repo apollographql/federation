@@ -19,7 +19,7 @@ import {
   VariableDefinitions,
   Variables
 } from './definitions';
-import { ArgumentNode, GraphQLError, Kind, print, ValueNode } from 'graphql';
+import { ArgumentNode, GraphQLError, Kind, print, ValueNode, ObjectFieldNode } from 'graphql';
 import { didYouMean, suggestionList } from './suggestions';
 import { inspect } from 'util';
 import { sameType } from './types';
@@ -270,7 +270,7 @@ export function valueToAST(value: any, type: InputType): ValueNode | undefined {
     if (typeof value !== 'object') {
       throw buildError(`Invalid non-objet value for input type ${type}, cannot be converted to AST: ${inspect(value, true, 10, true)}`);
     }
-    const fieldNodes = [];
+    const fieldNodes: ObjectFieldNode[] = [];
     for (const field of type.fields()) {
       if (!field.type) {
         throw buildError(`Cannot convert value ${valueToString(value)} as field ${field} has no type set`);
@@ -348,7 +348,7 @@ function valueToASTUntyped(value: any): ValueNode | undefined {
   }
 
   if (typeof value === 'object') {
-    const fieldNodes = [];
+    const fieldNodes: ObjectFieldNode[] = [];
     for (const key of Object.keys(value)) {
       const fieldValue = valueToASTUntyped(value[key]);
       if (fieldValue) {

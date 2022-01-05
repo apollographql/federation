@@ -29,7 +29,7 @@ import {
 import { assert, OrderedMap } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
-import { ASTNode, DocumentNode, GraphQLError, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule, print as printAST, Source } from "graphql";
+import { ASTNode, DocumentNode, GraphQLError, Kind, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule, print as printAST, Source, DirectiveLocation } from "graphql";
 import { defaultPrintOptions, printDirectiveDefinition } from "./print";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
@@ -318,7 +318,7 @@ export class FederationBuiltIns extends BuiltIns {
     // Note that we allow @key on interfaces in the definition to not break backward compatibility, because it has historically unfortunately be declared this way, but
     // @key is actually not supported on interfaces at the moment, so if if is "used" then it is rejected.
     const keyDirective = this.addBuiltInDirective(schema, keyDirectiveName)
-      .addLocations('OBJECT', 'INTERFACE');
+      .addLocations(DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE);
     // TODO: I believe fed 1 does not mark key repeatable and relax validation to accept repeating non-repeatable directive.
     // Do we want to perpetuate this? (Obviously, this is for historical reason and some graphQL implementations still do
     // not support 'repeatable'. But since this code does not kick in within users' code, not sure we have to accommodate
@@ -327,14 +327,14 @@ export class FederationBuiltIns extends BuiltIns {
     keyDirective.addArgument('fields', fieldSetType);
 
     this.addBuiltInDirective(schema, extendsDirectiveName)
-      .addLocations('OBJECT', 'INTERFACE');
+      .addLocations(DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE);
 
     this.addBuiltInDirective(schema, externalDirectiveName)
-      .addLocations('OBJECT', 'FIELD_DEFINITION');
+      .addLocations(DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION);
 
     for (const name of [requiresDirectiveName, providesDirectiveName]) {
       this.addBuiltInDirective(schema, name)
-        .addLocations('FIELD_DEFINITION')
+        .addLocations(DirectiveLocation.FIELD_DEFINITION)
         .addArgument('fields', fieldSetType);
     }
 
@@ -543,7 +543,7 @@ export class FederationBuiltIns extends BuiltIns {
     }
 
     return {
-      kind: 'Document',
+      kind: Kind.DOCUMENT,
       loc: document.loc,
       definitions
     };

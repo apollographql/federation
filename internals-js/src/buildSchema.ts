@@ -1,7 +1,7 @@
 import {
   DefinitionNode,
   DirectiveDefinitionNode,
-  DirectiveLocationEnum,
+  DirectiveLocation,
   DirectiveNode,
   DocumentNode,
   FieldDefinitionNode,
@@ -18,7 +18,8 @@ import {
   StringValueNode,
   ASTNode,
   SchemaExtensionNode,
-  parseType
+  parseType,
+  Kind,
 } from "graphql";
 import { Maybe } from "graphql/jsutils/Maybe";
 import {
@@ -332,9 +333,9 @@ export function builtTypeReference(encodedType: string, schema: Schema): Type {
 
 function buildTypeReferenceFromAST(typeNode: TypeNode, schema: Schema): Type {
   switch (typeNode.kind) {
-    case 'ListType':
+    case Kind.LIST_TYPE:
       return new ListType(buildTypeReferenceFromAST(typeNode.type, schema));
-    case 'NonNullType':
+    case Kind.NON_NULL_TYPE:
       const wrapped = buildTypeReferenceFromAST(typeNode.type, schema);
       if (wrapped.kind == 'NonNullType') {
         throw new GraphQLError(`Cannot apply the non-null operator (!) twice to the same type`, typeNode);
@@ -368,7 +369,7 @@ function buildDirectiveDefinitionInner(directiveNode: DirectiveDefinitionNode, d
     buildArgumentDefinitionInner(inputValueDef, directive.addArgument(inputValueDef.name.value));
   }
   directive.repeatable = directiveNode.repeatable;
-  const locations = directiveNode.locations.map(({ value }) => value as DirectiveLocationEnum);
+  const locations = directiveNode.locations.map(({ value }) => value as DirectiveLocation);
   directive.addLocations(...locations);
   directive.description = directiveNode.description?.value;
   directive.sourceAST = directiveNode;

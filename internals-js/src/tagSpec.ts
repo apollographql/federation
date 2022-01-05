@@ -1,4 +1,4 @@
-import { DirectiveLocationEnum, GraphQLError } from "graphql";
+import { DirectiveLocation, GraphQLError } from "graphql";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import { DirectiveDefinition, NonNullType, Schema } from "./definitions";
 import { ERRORS } from "./error";
@@ -7,7 +7,12 @@ import { assert } from "./utils";
 
 export const tagIdentity = 'https://specs.apollo.dev/tag';
 
-export const tagLocations: DirectiveLocationEnum[] = ['FIELD_DEFINITION', 'OBJECT', 'INTERFACE', 'UNION'];
+export const tagLocations = [
+  DirectiveLocation.FIELD_DEFINITION,
+  DirectiveLocation.OBJECT,
+  DirectiveLocation.INTERFACE,
+  DirectiveLocation.UNION,
+];
 
 const printedTagDefinition = 'directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION';
 
