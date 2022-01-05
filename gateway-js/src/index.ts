@@ -22,7 +22,7 @@ import {
   ServiceDefinition,
 } from '@apollo/federation';
 import loglevel from 'loglevel';
-
+import resolvable from '@josephg/resolvable';
 import { buildOperationContext, OperationContext } from './operationContext';
 import {
   executeQueryPlan,
@@ -1034,12 +1034,10 @@ export class ApolloGateway implements GraphQLService {
       return;
     }
 
-    let pollingDone: () => void;
+    const pollingDonePromise = resolvable();
     this.state = {
       phase: 'polling',
-      pollingDonePromise: new Promise<void>((res) => {
-        pollingDone = res;
-      }),
+      pollingDonePromise,
     };
 
     try {
@@ -1056,7 +1054,7 @@ export class ApolloGateway implements GraphQLService {
     }
 
     // Whether we were stopped or not, let any concurrent stop() call finish.
-    pollingDone!();
+    pollingDonePromise.resolve();
   }
 
   private createAndCacheDataSource(
@@ -1427,16 +1425,14 @@ export class ApolloGateway implements GraphQLService {
         // just wait on pollingDonePromise themselves because we want to make sure we fully
         // transition to state='stopped' before the other call returns.)
         const pollingDonePromise = this.state.pollingDonePromise;
-        let stoppingDone: () => void;
+        const stoppingDonePromise = resolvable();
         this.state = {
           phase: 'stopping',
-          stoppingDonePromise: new Promise<void>((res) => {
-            stoppingDone = res;
-          }),
+          stoppingDonePromise,
         };
         await pollingDonePromise;
         this.state = { phase: 'stopped' };
-        stoppingDone!();
+        stoppingDonePromise.resolve();
         await this.cleanupUserFunctions();
         return;
       }

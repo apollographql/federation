@@ -5,6 +5,7 @@ import {
 } from '@apollo/federation';
 import { Logger } from 'apollo-server-types';
 import { HeadersInit } from 'node-fetch';
+import resolvable from '@josephg/resolvable';
 import {
   ServiceEndpointDefinition,
   SupergraphSdlUpdateFunction,
@@ -128,10 +129,7 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
   private poll() {
     this.timerRef = setTimeout(async () => {
       if (this.state.phase === 'polling') {
-        let pollingDone: () => void;
-        const pollingPromise = new Promise<void>((resolve) => {
-          pollingDone = resolve;
-        });
+        const pollingPromise = resolvable();
 
         this.state.pollingPromise = pollingPromise;
         try {
@@ -147,7 +145,7 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
               (e.message ?? e),
           );
         }
-        pollingDone!();
+        pollingPromise.resolve();
       }
 
       this.poll();
