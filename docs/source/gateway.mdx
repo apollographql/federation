@@ -72,7 +72,7 @@ const gateway = new ApolloGateway({
     // `update` is a function which we'll save for later use
     supergraphUpdate = update;
     return {
-      supergraphSdl: await readFile('./supergraph.graphql', 'utf8'),
+      supergraphSdl: await readFile('./supergraph.graphql', 'utf-8'),
     }
   },
 });
