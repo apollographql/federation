@@ -1,6 +1,7 @@
 ---
 title: Apollo Uplink
 sidebar_title: Uplink
+description: Fetch your managed gateway's configuration
 ---
 
 When using [managed federation](./overview/), your federated gateway regularly polls an endpoint called **Apollo Uplink** for its latest supergraph schema and other configuration:
@@ -36,7 +37,11 @@ Even if a particular poll request fails _all_ of its retries, the gateway contin
 
 ## Configuring polling behavior
 
-You can configure the number of retries your gateway performs for a failed poll request, along with the list of Uplink URLs your gateway uses.
+You can configure the following aspects of your gateway's polling behavior:
+
+* The number of retries your gateway performs for a failed poll request
+* The interval at which your gateway polls
+* The list of Uplink URLs your gateway uses
 
 ### Retry limit
 
@@ -56,6 +61,21 @@ By default, the gateway retries a single poll request a number of times equal to
 
 > Even if a particular poll request fails _all_ of its retries, the gateway continues polling as usual at the next interval (with its own set of retries if needed). In the meantime, the gateway continues using its most recently obtained configuration.
 
+### Poll interval
+
+You can configure the interval at which your gateway polls Apollo Uplink like so:
+
+```js
+const { ApolloGateway } = require('@apollo/gateway');
+
+// ...
+
+const gateway = new ApolloGateway({
+  pollIntervalInMs: 15000 // 15 seconds
+});
+```
+
+The `pollIntervalInMs` option specifies the polling interval in milliseconds. This value must be at least `10000` (which is also the default value).
 
 ### Uplink URLs (advanced)
 
