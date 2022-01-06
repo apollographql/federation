@@ -28,8 +28,8 @@ describe('@requires', () => {
         type A @key(fields: "id") {
           id: ID! @external
           x: Int @external
-          y: Int @requires(fields: "x") 
-          z: Int @requires(fields: "x") 
+          y: Int @requires(fields: "x")
+          z: Int @requires(fields: "x")
         }
       `
     };
@@ -96,7 +96,7 @@ describe('@requires', () => {
     expect(result.errors).toBeDefined();
     expect(errorMessages(result)).toMatchStringArray([
       `
-      The follow supergraph API query:
+      The following supergraph API query:
       {
         getT1s {
           f2 {
