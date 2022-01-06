@@ -81,7 +81,7 @@ describe('@requires', () => {
         }
 
         type T1 {
-          id: Int!
+          id: Int! @shareable
           f1: String @external
           f2: T2! @requires(fields: "f1")
         }
@@ -110,5 +110,4 @@ describe('@requires', () => {
       `
     ]);
   });
-
 });

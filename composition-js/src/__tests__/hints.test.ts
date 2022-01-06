@@ -87,13 +87,13 @@ test('hints on merging field with nullable and non-nullable types', () => {
       a: Int
     }
 
-    type T {
+    type T @shareable {
       f: String
     }
   `;
 
   const subgraph2 = gql`
-    type T {
+    type T @shareable {
       f: String!
     }
   `;
@@ -116,7 +116,7 @@ test('hints on merging field with subtype types', () => {
       v: Int
     }
 
-    type T {
+    type T @shareable {
       f: I
     }
   `;
@@ -130,7 +130,7 @@ test('hints on merging field with subtype types', () => {
       v: Int
     }
 
-    type T {
+    type T @shareable {
       f: Impl
     }
   `;
@@ -149,13 +149,13 @@ test('hints on merging argument with nullable and non-nullable types', () => {
       a: Int
     }
 
-    type T {
+    type T @shareable {
       f(a: String!): String
     }
   `;
 
   const subgraph2 = gql`
-    type T {
+    type T @shareable {
       f(a: String): String
     }
   `;
@@ -174,13 +174,13 @@ test('hints on merging argument with default value in only some subgraph', () =>
       a: Int
     }
 
-    type T {
+    type T @shareable {
       f(a: String = "foo"): String
     }
   `;
 
   const subgraph2 = gql`
-    type T {
+    type T @shareable {
       f(a: String): String
     }
   `;
@@ -206,7 +206,7 @@ test('hints on object being an entity in only some subgraph', () => {
   `;
 
   const subgraph2 = gql`
-    type T {
+    type T @shareable {
       k: Int
       v2: Int
     }
@@ -226,14 +226,14 @@ test('hints on field of object value type not being in all subgraphs', () => {
       a: Int
     }
 
-    type T {
+    type T @shareable {
       a: Int
       b: Int
     }
   `;
 
   const subgraph2 = gql`
-    type T {
+    type T @shareable {
       a: Int
     }
   `;
@@ -306,7 +306,7 @@ test('hints on union member not being in all subgraphs', () => {
 
     union T = A | B | C
 
-    type A {
+    type A @shareable {
       a: Int
     }
 
@@ -314,7 +314,7 @@ test('hints on union member not being in all subgraphs', () => {
       b: Int
     }
 
-    type C {
+    type C @shareable {
       b: Int
     }
   `;
@@ -322,11 +322,11 @@ test('hints on union member not being in all subgraphs', () => {
   const subgraph2 = gql`
     union T = A | C
 
-    type A {
+    type A @shareable {
       a: Int
     }
 
-    type C {
+    type C @shareable {
       b: Int
     }
   `;
@@ -569,21 +569,21 @@ test('hints on inconsistent description for field', () => {
       a: Int
     }
 
-    type T {
+    type T @shareable {
       "I don't know what I'm doing"
       f: Int
     }
   `;
 
   const subgraph2 = gql`
-    type T {
+    type T @shareable {
       "Return a super secret integer"
       f: Int
     }
   `;
 
   const subgraph3 = gql`
-    type T {
+    type T @shareable {
       """
       Return a super secret integer
       """

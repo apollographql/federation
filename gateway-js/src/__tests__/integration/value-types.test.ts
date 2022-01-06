@@ -200,7 +200,7 @@ describe('value types', () => {
           valueType: ValueType
         }
 
-        type ValueType {
+        type ValueType @shareable {
           id: ID!
           user: User! @provides(fields: "name")
         }
@@ -226,7 +226,7 @@ describe('value types', () => {
           otherValueType: ValueType
         }
 
-        type ValueType {
+        type ValueType @shareable {
           id: ID!
           user: User! @provides(fields: "name")
         }

@@ -34,7 +34,7 @@ export const typeDefs = gql`
   type User @key(fields: "id") @key(fields: "username name { first last }") {
     id: ID!
     name: Name
-    username: String
+    username: String @shareable # Provided by the 'reviews' subgraph
     birthDate(locale: String): String
     account: AccountType
     metadata: [UserMetadata]

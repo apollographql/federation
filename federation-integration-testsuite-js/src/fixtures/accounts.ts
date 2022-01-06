@@ -54,7 +54,7 @@ export const typeDefs = gql`
   type User @key(fields: "id") @key(fields: "username name { first last }") @tag(name: "from-accounts") {
     id: ID! @tag(name: "accounts")
     name: Name @cacheControl(inheritMaxAge: true)
-    username: String
+    username: String @shareable # Provided by the 'reviews' subgraph
     birthDate(locale: String): String @tag(name: "admin") @tag(name: "dev")
     account: AccountType
     metadata: [UserMetadata]

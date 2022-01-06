@@ -849,7 +849,7 @@ describe("doesn't result in duplicate fetches", () => {
           type User @key(fields: "id") {
             id: ID!
             name: String
-            username: String
+            username: String @shareable
           }
         `,
       },
@@ -1085,7 +1085,7 @@ it("when including the same nested fields under different type conditions", asyn
           type User @key(fields: "id") {
             id: ID!
             name: String
-            username: String
+            username: String @shareable
           }
         `,
       },
@@ -1293,7 +1293,7 @@ it('when including multiple nested fields to the same service under different ty
           type User @key(fields: "id") {
             id: ID!
             name: String
-            username: String
+            username: String @shareable
           }
         `,
       },
@@ -1514,7 +1514,7 @@ it('when exploding types through multiple levels', async () => {
         type User @key(fields: "id") {
           id: ID!
           name: String
-          username: String
+          username: String @shareable
         }
       `,
     },
@@ -1700,7 +1700,7 @@ it("when including the same nested fields under different type conditions that a
           type User @key(fields: "id") {
             id: ID!
             name: String
-            username: String
+            username: String @shareable
           }
         `,
       },

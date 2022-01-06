@@ -477,7 +477,7 @@ describe('composition', () => {
           }
 
           type Product {
-            sku: String!
+            sku: String! @shareable
             name: String!
           }
         `,
@@ -556,7 +556,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f: String
+              f: String @shareable
             }
           `,
         };
@@ -566,7 +566,7 @@ describe('composition', () => {
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
-              f: Int
+              f: Int @shareable
             }
           `,
         };
@@ -620,7 +620,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f: String
+              f: String @shareable
             }
           `,
         };
@@ -630,7 +630,7 @@ describe('composition', () => {
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
-              f: [String]
+              f: [String] @shareable
             }
           `,
         };
@@ -652,7 +652,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f: String!
+              f: String! @shareable
             }
           `,
         };
@@ -662,7 +662,7 @@ describe('composition', () => {
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
-              f: String
+              f: String @shareable
             }
           `,
         };
@@ -696,7 +696,7 @@ describe('composition', () => {
               a: Int
             }
 
-            type A implements I {
+            type A implements I @shareable {
               a: Int
               b: Int
             }
@@ -708,7 +708,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f: I
+              f: I @shareable
             }
           `,
         };
@@ -716,14 +716,14 @@ describe('composition', () => {
         const subgraphB = {
           name: 'subgraphB',
           typeDefs: gql`
-            type A {
+            type A @shareable {
               a: Int
               b: Int
             }
 
             type T @key(fields: "id") {
               id: ID!
-              f: A
+              f: A @shareable
             }
           `,
         };
@@ -778,7 +778,7 @@ describe('composition', () => {
 
             union U = A | B
 
-            type A {
+            type A @shareable {
               a: Int
             }
 
@@ -788,7 +788,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f: U
+              f: U @shareable
             }
           `,
         };
@@ -796,13 +796,13 @@ describe('composition', () => {
         const subgraphB = {
           name: 'subgraphB',
           typeDefs: gql`
-            type A {
+            type A @shareable {
               a: Int
             }
 
             type T @key(fields: "id") {
               id: ID!
-              f: A
+              f: A @shareable
             }
           `,
         };
@@ -857,7 +857,7 @@ describe('composition', () => {
               a: Int
             }
 
-            type A implements I {
+            type A implements I @shareable {
               a: Int
               b: Int
             }
@@ -869,7 +869,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f: I
+              f: I @shareable
             }
           `,
         };
@@ -877,14 +877,14 @@ describe('composition', () => {
         const subgraphB = {
           name: 'subgraphB',
           typeDefs: gql`
-            type A {
+            type A @shareable {
               a: Int
               b: Int
             }
 
             type T @key(fields: "id") {
               id: ID!
-              f: A!
+              f: A! @shareable
             }
           `,
         };
@@ -943,7 +943,7 @@ describe('composition', () => {
               a: Int
             }
 
-            type A implements I {
+            type A implements I @shareable {
               a: Int
               b: Int
             }
@@ -955,7 +955,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f: [I]
+              f: [I] @shareable
             }
           `,
         };
@@ -963,14 +963,14 @@ describe('composition', () => {
         const subgraphB = {
           name: 'subgraphB',
           typeDefs: gql`
-            type A {
+            type A @shareable {
               a: Int
               b: Int
             }
 
             type T @key(fields: "id") {
               id: ID!
-              f: [A!]
+              f: [A!] @shareable
             }
           `,
         };
@@ -1029,7 +1029,7 @@ describe('composition', () => {
               a: Int
             }
 
-            type A implements I {
+            type A implements I @shareable {
               a: Int
               b: Int
             }
@@ -1041,7 +1041,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f: I!
+              f: I! @shareable
             }
           `,
         };
@@ -1049,14 +1049,14 @@ describe('composition', () => {
         const subgraphB = {
           name: 'subgraphB',
           typeDefs: gql`
-            type A {
+            type A @shareable {
               a: Int
               b: Int
             }
 
             type T @key(fields: "id") {
               id: ID!
-              f: A!
+              f: A! @shareable
             }
           `,
         };
@@ -1174,7 +1174,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-                f(x: Int): Int
+                f(x: Int): Int @shareable
             }
           `,
         };
@@ -1184,7 +1184,7 @@ describe('composition', () => {
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
-              f(x: String): Int
+              f(x: String): Int @shareable
             }
           `,
         };
@@ -1274,7 +1274,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f(x: Int = 0): String
+              f(x: Int = 0): String @shareable
             }
           `,
         };
@@ -1284,7 +1284,7 @@ describe('composition', () => {
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
-              f(x: Int = 1): String
+              f(x: Int = 1): String @shareable
             }
           `,
         };
@@ -1342,7 +1342,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f(x: String): String
+              f(x: String): String @shareable
             }
           `,
         };
@@ -1352,7 +1352,7 @@ describe('composition', () => {
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
-              f(x: [String]): String
+              f(x: [String]): String @shareable
             }
           `,
         };
@@ -1374,7 +1374,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f(x: String): String
+              f(x: String): String @shareable
             }
           `,
         };
@@ -1384,7 +1384,7 @@ describe('composition', () => {
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
-              f(x: String!): String
+              f(x: String!): String @shareable
             }
           `,
         };
@@ -1418,7 +1418,7 @@ describe('composition', () => {
 
             type T @key(fields: "id") {
               id: ID!
-              f(x: [Int]): Int
+              f(x: [Int]): Int @shareable
             }
           `,
         };
@@ -1428,7 +1428,7 @@ describe('composition', () => {
           typeDefs: gql`
             type T @key(fields: "id") {
               id: ID!
-              f(x: [Int!]): Int
+              f(x: [Int!]): Int @shareable
             }
           `,
         };
@@ -1750,7 +1750,7 @@ describe('composition', () => {
           t: T
         }
 
-        type T {
+        type T @shareable {
           a(x: String): Int
           b(x: Int): Int
         }
@@ -1760,7 +1760,7 @@ describe('composition', () => {
 
     const subgraphB = {
       typeDefs: gql`
-        type T {
+        type T @shareable {
           a(x: String): Int
           b(x: Int): Int
         }
@@ -1786,7 +1786,7 @@ describe('composition', () => {
 
   // We have specific validation tests in `validation_errors.test.ts` but this one test
   // just check the associated error code is correct (since we check most composition error
-  // codes in this fiel)
+  // codes in this file)
   it('use the proper error code for composition validation errors', () => {
     const subgraphA = {
       typeDefs: gql`
@@ -1794,7 +1794,7 @@ describe('composition', () => {
           a: A
         }
 
-        type A {
+        type A @shareable {
           x: Int
         }
       `,
@@ -1803,7 +1803,7 @@ describe('composition', () => {
 
     const subgraphB = {
       typeDefs: gql`
-        type A {
+        type A @shareable {
           x: Int
           y: Int
         }
@@ -1814,17 +1814,160 @@ describe('composition', () => {
     const result = composeServices([subgraphA, subgraphB]);
 
     expect(result.errors).toBeDefined();
-    expect(errors(result)).toStrictEqual([
-      ['SATISFIABILITY_ERROR', `The following supergraph API query:
-{
-  a {
-    y
-  }
-}
-cannot be satisfied by the subgraphs because:
-- from subgraph "subgraphA":
-  - cannot find field "A.y".
-  - cannot move to subgraph "subgraphB", which has field "A.y", because type "A" has no @key defined in subgraph "subgraphB".`],
-    ]);
+    expect(errors(result).map(([code]) => code)).toStrictEqual(['SATISFIABILITY_ERROR']);
+    expect(errors(result).map(([_, msg]) => msg)).toMatchStringArray([
+      `
+      The following supergraph API query:
+      {
+        a {
+          y
+        }
+      }
+      cannot be satisfied by the subgraphs because:
+      - from subgraph "subgraphA":
+        - cannot find field "A.y".
+        - cannot move to subgraph "subgraphB", which has field "A.y", because type "A" has no @key defined in subgraph "subgraphB".
+      `],
+    );
+  });
+
+  describe('field sharing', () => {
+    it ('errors if a non-shareable fields are shared in "value types"', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+
+          type A {
+            x: Int
+            y: Int
+            z: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type A {
+            x: Int
+            z: Int @shareable
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_FIELD_SHARING', 'Non-shareable field "A.x" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in all of them'],
+        ['INVALID_FIELD_SHARING', 'Non-shareable field "A.z" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+      ]);
+    });
+
+    it ('errors if a non-shareable fields are shared in an "entity type"', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+
+          type A @key(fields: "x") {
+            x: Int
+            y: Int
+            z: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type A @key(fields: "x") {
+            x: Int
+            z: Int @shareable
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_FIELD_SHARING', 'Non-shareable field "A.z" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+      ]);
+    });
+
+    it ('errors if a query is shared without @shareable', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            me: String
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            me: String
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_FIELD_SHARING', 'Non-shareable field "Query.me" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in all of them'],
+      ]);
+    });
+
+    it ('errors if provided fields are not marked @shareable', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            e: E
+          }
+
+          type E @key(fields: "id") {
+            id: ID!
+            a: Int
+            b: Int
+            c: Int
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            eWithProvided: E @provides(fields: "a c")
+          }
+
+          type E @key(fields: "id") {
+            id: ID!
+            a: Int @external
+            c: Int @external
+            d: Int
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+
+      expect(result.errors).toBeDefined();
+      expect(errors(result)).toStrictEqual([
+        ['INVALID_FIELD_SHARING', 'Non-shareable field "E.a" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+        ['INVALID_FIELD_SHARING', 'Non-shareable field "E.c" is resolved from multiple subgraphs: it is resolved from subgraphs "subgraphA" and "subgraphB" and defined as non-shareable in subgraph "subgraphA"'],
+      ]);
+    });
   });
 });

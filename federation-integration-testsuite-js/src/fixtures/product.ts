@@ -105,13 +105,13 @@ export const typeDefs = gql`
   }
 
   # Value type
-  type KeyValue {
+  type KeyValue @shareable {
     key: String!
     value: String!
   }
 
   # Value type
-  type Error {
+  type Error @shareable {
     code: Int
     message: String
   }
