@@ -1,7 +1,7 @@
 import { fetch } from 'apollo-server-env';
 import { Logger } from 'apollo-server-types';
 import resolvable from '@josephg/resolvable';
-import { SupergraphSdlObject, SupergraphSdlHookOptions } from '../config';
+import { SupergraphSdlManager, SupergraphSdlHookOptions } from '../config';
 import { SubgraphHealthCheckFunction, SupergraphSdlUpdateFunction } from '..';
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
 
@@ -21,7 +21,7 @@ type State =
   | { phase: 'polling'; pollingPromise?: Promise<void> }
   | { phase: 'stopped' };
 
-export class UplinkFetcher implements SupergraphSdlObject {
+export class UplinkFetcher implements SupergraphSdlManager {
   private config: UplinkFetcherOptions;
   private update?: SupergraphSdlUpdateFunction;
   private healthCheck?: SubgraphHealthCheckFunction;

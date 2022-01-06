@@ -363,8 +363,8 @@ describe('gateway config / env behavior', () => {
 });
 
 describe('deprecation warnings', () => {
-  it('warns with `experimental_updateSupergraphSdl` option set', async () => {
-    new ApolloGateway({
+  fit('warns with `experimental_updateSupergraphSdl` option set', async () => {
+    const gateway = new ApolloGateway({
       async experimental_updateSupergraphSdl() {
         return {
           id: 'supergraph',
@@ -374,13 +374,17 @@ describe('deprecation warnings', () => {
       logger,
     });
 
+    await gateway.load();
+
     expect(logger.warn).toHaveBeenCalledWith(
       'The `experimental_updateSupergraphSdl` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
     );
+
+    await gateway.stop();
   });
 
   it('warns with `experimental_updateServiceDefinitions` option set', async () => {
-    new ApolloGateway({
+    const gateway = new ApolloGateway({
       async experimental_updateServiceDefinitions() {
         return {
           isNewSchema: false,
@@ -389,30 +393,42 @@ describe('deprecation warnings', () => {
       logger,
     });
 
+    await gateway.load();
+
     expect(logger.warn).toHaveBeenCalledWith(
       'The `experimental_updateServiceDefinitions` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
     );
+
+    await gateway.stop();
   });
 
   it('warns with `serviceList` option set', async () => {
-    new ApolloGateway({
+    const gateway = new ApolloGateway({
       serviceList: [{ name: 'accounts', url: 'http://localhost:4001' }],
       logger,
     });
 
+    await gateway.load();
+
     expect(logger.warn).toHaveBeenCalledWith(
       'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
     );
+
+    await gateway.stop();
   });
 
   it('warns with `localServiceList` option set', async () => {
-    new ApolloGateway({
+    const gateway = new ApolloGateway({
       localServiceList: fixtures,
       logger,
     });
 
+    await gateway.load();
+
     expect(logger.warn).toHaveBeenCalledWith(
       'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
     );
+
+    await gateway.stop();
   });
 });

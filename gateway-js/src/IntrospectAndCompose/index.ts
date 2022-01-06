@@ -15,7 +15,7 @@ import {
   getServiceDefinitionsFromRemoteEndpoint,
   Service,
 } from './loadServicesFromRemoteEndpoint';
-import { SupergraphSdlObject, SupergraphSdlHookOptions } from '../config';
+import { SupergraphSdlManager, SupergraphSdlHookOptions } from '../config';
 
 export interface IntrospectAndComposeOptions {
   subgraphs: ServiceEndpointDefinition[];
@@ -34,7 +34,7 @@ type State =
   | { phase: 'polling'; pollingPromise?: Promise<void> }
   | { phase: 'stopped' };
 
-export class IntrospectAndCompose implements SupergraphSdlObject {
+export class IntrospectAndCompose implements SupergraphSdlManager {
   private config: IntrospectAndComposeOptions;
   private update?: SupergraphSdlUpdateFunction;
   private healthCheck?: SubgraphHealthCheckFunction;

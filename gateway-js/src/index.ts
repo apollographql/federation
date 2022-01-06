@@ -16,11 +16,7 @@ import {
   parse,
   Source,
 } from 'graphql';
-import {
-  composeAndValidate,
-  compositionHasErrors,
-  ServiceDefinition,
-} from '@apollo/federation';
+import { ServiceDefinition } from '@apollo/federation';
 import loglevel from 'loglevel';
 import { buildOperationContext, OperationContext } from './operationContext';
 import {
@@ -51,18 +47,16 @@ import {
   Experimental_UpdateComposition,
   CompositionInfo,
   GatewayConfig,
-  StaticGatewayConfig,
   isManuallyManagedConfig,
   isLocalConfig,
   isServiceListConfig,
   isManagedConfig,
   isDynamicConfig,
-  isStaticConfig,
-  CompositionMetadata,
   SupergraphSdlUpdate,
-  SupergraphSdlHook,
   isManuallyManagedSupergraphSdlGatewayConfig,
   ManagedGatewayConfig,
+  isStaticSupergraphSdlConfig,
+  SupergraphSdlManager,
 } from './config';
 import { buildComposedSchema } from '@apollo/query-planner';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -73,6 +67,7 @@ import { createHash } from './utilities/createHash';
 import { IntrospectAndCompose } from './IntrospectAndCompose';
 import { UplinkFetcher } from './UplinkFetcher';
 import { LegacyFetcher } from './LegacyFetcher';
+import { LocalCompose } from './LocalCompose';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -166,7 +161,6 @@ export class ApolloGateway implements GraphQLService {
       coreSupergraphSdl: string;
     }) => void
   >();
-  private compositionMetadata?: CompositionMetadata;
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
   private supergraphSdl?: string;
@@ -179,10 +173,6 @@ export class ApolloGateway implements GraphQLService {
   // The information made available here will give insight into the resulting
   // query plan and the inputs that generated it.
   private experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
-  // Observe composition failures and the ServiceList that caused them. This
-  // enables reporting any issues that occur during composition. Implementors
-  // will be interested in addressing these immediately.
-  private experimental_didFailComposition?: Experimental_DidFailCompositionCallback;
   // Used to communicated composition changes, and what definitions caused
   // those updates
   private experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
@@ -209,14 +199,11 @@ export class ApolloGateway implements GraphQLService {
     // set up experimental observability callbacks and config settings
     this.experimental_didResolveQueryPlan =
       config?.experimental_didResolveQueryPlan;
-    this.experimental_didFailComposition =
-      config?.experimental_didFailComposition;
     this.experimental_didUpdateComposition =
       config?.experimental_didUpdateComposition;
 
     this.pollIntervalInMs = config?.experimental_pollInterval;
 
-    this.issueDeprecationWarningsIfApplicable();
     if (isDynamicConfig(this.config)) {
       this.issueDynamicWarningsIfApplicable();
     }
@@ -297,36 +284,6 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
-  private issueDeprecationWarningsIfApplicable() {
-    // TODO(trevor:removeServiceList)
-    if ('experimental_updateSupergraphSdl' in this.config) {
-      this.logger.warn(
-        'The `experimental_updateSupergraphSdl` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
-      );
-    }
-
-    // TODO(trevor:removeServiceList)
-    if ('experimental_updateServiceDefinitions' in this.config) {
-      this.logger.warn(
-        'The `experimental_updateServiceDefinitions` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
-      );
-    }
-
-    // TODO(trevor:removeServiceList)
-    if (isServiceListConfig(this.config)) {
-      this.logger.warn(
-        'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
-      );
-    }
-
-    // TODO(trevor:removeServiceList)
-    if (isLocalConfig(this.config)) {
-      this.logger.warn(
-        'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
-      );
-    }
-  }
-
   public async load(options?: {
     apollo?: ApolloConfigFromAS2Or3;
     engine?: GraphQLServiceEngineConfig;
@@ -361,19 +318,36 @@ export class ApolloGateway implements GraphQLService {
     this.maybeWarnOnConflictingConfig();
 
     // Handles initial assignment of `this.schema`, `this.queryPlanner`
-    if (isStaticConfig(this.config)) {
-      this.loadStatic(this.config);
+    if (isStaticSupergraphSdlConfig(this.config)) {
+      const supergraphSdl = this.config.supergraphSdl;
+      await this.initializeSupergraphSdlManager({
+        initialize: async () => {
+          return {
+            supergraphSdl,
+          };
+        },
+      });
+    } else if (isLocalConfig(this.config)) {
+      // TODO(trevor:removeServiceList)
+      await this.initializeSupergraphSdlManager(new LocalCompose({
+        localServiceList: this.config.localServiceList,
+        logger: this.logger,
+      }));
     } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
       const supergraphSdlFetcher = typeof this.config.supergraphSdl === 'object'
         ? this.config.supergraphSdl
         : { initialize: this.config.supergraphSdl };
-      await this.loadSupergraphSdl(supergraphSdlFetcher);
+      await this.initializeSupergraphSdlManager(supergraphSdlFetcher);
     } else if (
       isServiceListConfig(this.config) &&
       // this setting is currently expected to override `serviceList` when they both exist
       !('experimental_updateServiceDefinitions' in this.config)
     ) {
-      await this.loadSupergraphSdl(
+      // TODO(trevor:removeServiceList)
+      this.logger.warn(
+        'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+      );
+      await this.initializeSupergraphSdlManager(
         new IntrospectAndCompose({
           subgraphs: this.config.serviceList,
           pollIntervalInMs: this.config.experimental_pollInterval,
@@ -395,7 +369,7 @@ export class ApolloGateway implements GraphQLService {
       }
       const uplinkEndpoints = this.getUplinkEndpoints(this.config);
 
-      await this.loadSupergraphSdl(
+      await this.initializeSupergraphSdlManager(
         new UplinkFetcher({
           graphRef: this.apolloConfig!.graphRef!,
           apiKey: this.apolloConfig!.key!,
@@ -422,7 +396,7 @@ export class ApolloGateway implements GraphQLService {
         subgraphHealthCheck: this.config.serviceHealthCheck,
       });
 
-      await this.loadSupergraphSdl(legacyFetcher);
+      await this.initializeSupergraphSdlManager(legacyFetcher);
     }
 
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
@@ -457,31 +431,11 @@ export class ApolloGateway implements GraphQLService {
       ];
   }
 
-  // Synchronously load a statically configured schema, update class instance's
-  // schema and query planner.
-  private loadStatic(config: StaticGatewayConfig) {
-    let schema: GraphQLSchema;
-    let supergraphSdl: string;
-    try {
-      ({ schema, supergraphSdl } = isLocalConfig(config)
-        ? this.createSchemaFromServiceList(config.localServiceList)
-        : this.createSchemaFromSupergraphSdl(config.supergraphSdl));
-      // TODO(trevor): #580 redundant parse
-      this.parsedSupergraphSdl = parse(supergraphSdl);
-      this.supergraphSdl = supergraphSdl;
-      this.updateWithSchemaAndNotify(schema, supergraphSdl, true);
-    } catch (e) {
-      this.state = { phase: 'failed to load' };
-      throw e;
-    }
-    this.state = { phase: 'loaded' };
-  }
-
   private getIdForSupergraphSdl(supergraphSdl: string) {
     return createHash('sha256').update(supergraphSdl).digest('hex');
   }
 
-  private async loadSupergraphSdl<T extends { initialize: SupergraphSdlHook }>(
+  private async initializeSupergraphSdlManager<T extends SupergraphSdlManager>(
     supergraphSdlFetcher: T,
   ) {
     try {
@@ -714,51 +668,6 @@ export class ApolloGateway implements GraphQLService {
           }),
       ),
     );
-  }
-
-  private createSchemaFromServiceList(serviceList: ServiceDefinition[]) {
-    this.logger.debug(
-      `Composing schema from service list: \n${serviceList
-        .map(({ name, url }) => `  ${url || 'local'}: ${name}`)
-        .join('\n')}`,
-    );
-
-    const compositionResult = composeAndValidate(serviceList);
-
-    if (compositionHasErrors(compositionResult)) {
-      const { errors } = compositionResult;
-      if (this.experimental_didFailComposition) {
-        this.experimental_didFailComposition({
-          errors,
-          serviceList,
-          ...(this.compositionMetadata && {
-            compositionMetadata: this.compositionMetadata,
-          }),
-        });
-      }
-      throw Error(
-        "A valid schema couldn't be composed. The following composition errors were found:\n" +
-          errors.map((e) => '\t' + e.message).join('\n'),
-      );
-    } else {
-      const { supergraphSdl } = compositionResult;
-      this.createServices(serviceList);
-
-      const schema = buildComposedSchema(parse(supergraphSdl));
-
-      this.logger.debug('Schema loaded and ready for execution');
-
-      // This is a workaround for automatic wrapping of all fields, which Apollo
-      // Server does in the case of implementing resolver wrapping for plugins.
-      // Here we wrap all fields with support for resolving aliases as part of the
-      // root value which happens because aliases are resolved by sub services and
-      // the shape of the root value already contains the aliased fields as
-      // responseNames
-      return {
-        schema: wrapSchemaWithAliasResolver(schema),
-        supergraphSdl,
-      };
-    }
   }
 
   private serviceListFromSupergraphSdl(

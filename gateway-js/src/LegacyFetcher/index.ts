@@ -1,7 +1,8 @@
+// TODO(trevor:removeServiceList) the whole file goes away
 import { Logger } from 'apollo-server-types';
 import resolvable from '@josephg/resolvable';
 import {
-  SupergraphSdlObject,
+  SupergraphSdlManager,
   SupergraphSdlHookOptions,
   DynamicGatewayConfig,
   isSupergraphSdlUpdate,
@@ -32,7 +33,7 @@ type State =
   | { phase: 'polling'; pollingPromise?: Promise<void> }
   | { phase: 'stopped' };
 
-export class LegacyFetcher implements SupergraphSdlObject {
+export class LegacyFetcher implements SupergraphSdlManager {
   private config: LegacyFetcherOptions;
   private update?: SupergraphSdlUpdateFunction;
   private healthCheck?: SubgraphHealthCheckFunction;
@@ -46,6 +47,21 @@ export class LegacyFetcher implements SupergraphSdlObject {
   constructor(options: LegacyFetcherOptions) {
     this.config = options;
     this.state = { phase: 'initialized' };
+    this.issueDeprecationWarnings();
+  }
+
+  private issueDeprecationWarnings() {
+    if ('experimental_updateSupergraphSdl' in this.config.gatewayConfig) {
+      this.config.logger?.warn(
+        'The `experimental_updateSupergraphSdl` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+      );
+    }
+
+    if ('experimental_updateServiceDefinitions' in this.config.gatewayConfig) {
+      this.config.logger?.warn(
+        'The `experimental_updateServiceDefinitions` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+      );
+    }
   }
 
   public async initialize({
