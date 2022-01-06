@@ -76,12 +76,18 @@ export const TagDirective = new GraphQLDirective({
   },
 });
 
+export const ShareableDirective = new GraphQLDirective({
+  name: 'shareable',
+  locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT],
+});
+
 export const federationDirectives = [
   KeyDirective,
   ExtendsDirective,
   ExternalDirective,
   RequiresDirective,
   ProvidesDirective,
+  ShareableDirective,
 ];
 
 export function isFederationDirective(directive: GraphQLDirective): boolean {

@@ -728,6 +728,7 @@ class Merger {
         }
         const subgraphFields = sources.map(t => t?.field(destField.name));
         this.mergeField(subgraphFields, destField);
+        this.validateFieldSharing(subgraphFields, destField);
       }
     }
   }
@@ -822,12 +823,20 @@ class Merger {
     return this.metadata(sourceIdx).isFieldExternal(field);
   }
 
+  private isFullyExternal(sourceIdx: number, field: FieldDefinition<any> | InputFieldDefinition) {
+    return this.metadata(sourceIdx).isFieldFullyExternal(field);
+  }
+
   private withoutExternal(sources: (FieldDefinition<any> | undefined)[]): (FieldDefinition<any> | undefined)[] {
     return sources.map((s, i) => s !== undefined && this.isExternal(i, s) ? undefined : s);
   }
 
   private hasExternal(sources: (FieldDefinition<any> | undefined)[]): boolean {
     return sources.some((s, i) => s !== undefined && this.isExternal(i, s));
+  }
+
+  private isShareable(sourceIdx: number, field: FieldDefinition<any>): boolean {
+    return this.metadata(sourceIdx).isFieldShareable(field);
   }
 
   private mergeField(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
@@ -858,6 +867,35 @@ class Merger {
     }
 
     this.addJoinField(sources, dest, allTypesEqual);
+  }
+
+  private validateFieldSharing(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>) {
+    const shareableSources: number[] = [];
+    const nonShareableSources: number[] = [];
+    const allResolving: FieldDefinition<any>[] = [];
+    for (const [i, source] of sources.entries()) {
+      if (!source || this.isFullyExternal(i, source)) {
+        continue;
+      }
+
+      allResolving.push(source);
+      if (this.isShareable(i, source)) {
+        shareableSources.push(i);
+      } else {
+        nonShareableSources.push(i);
+      }
+    }
+
+    if (nonShareableSources.length > 0 && (shareableSources.length > 0 || nonShareableSources.length > 1)) {
+      const resolvingSubgraphs = nonShareableSources.concat(shareableSources).map((s) => this.names[s]);
+      const nonShareables = shareableSources.length > 0
+        ? printSubgraphNames(nonShareableSources.map((s) => this.names[s]))
+        : 'all of them';
+      this.errors.push(ERRORS.INVALID_FIELD_SHARING.err({
+        message: `Non-shareable field "${dest.coordinate}" is resolved from multiple subgraphs: it is resolved from ${printSubgraphNames(resolvingSubgraphs)} and defined as non-shareable in ${nonShareables}`,
+        nodes: sourceASTs(...allResolving),
+      }));
+    }
   }
 
   private validateExternalFields(sources: (FieldDefinition<any> | undefined)[], dest: FieldDefinition<any>, allTypesEqual: boolean) {

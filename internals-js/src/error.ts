@@ -269,6 +269,11 @@ const INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH = makeCodeDefinition(
   'For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257)'
 );
 
+const INVALID_FIELD_SHARING = makeCodeDefinition(
+  'INVALID_FIELD_SHARING',
+  'A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs.'
+);
+
 const SATISFIABILITY_ERROR = makeCodeDefinition(
   'SATISFIABILITY_ERROR',
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
@@ -321,6 +326,7 @@ export const ERRORS = {
   EXTENSION_WITH_NO_BASE,
   EXTERNAL_MISSING_ON_BASE,
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
+  INVALID_FIELD_SHARING,
   SATISFIABILITY_ERROR,
 };
 

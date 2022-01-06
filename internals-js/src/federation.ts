@@ -52,6 +52,7 @@ import {
   ERROR_CATEGORIES,
   ERRORS,
 } from "./error";
+import { computeShareables } from "./sharing";
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -66,6 +67,8 @@ export const providesDirectiveName = 'provides';
 // TODO: so far, it seems we allow tag to appear without a corresponding definition, so we add it as a built-in.
 // If we change our mind, we should change this.
 export const tagDirectiveName = 'tag';
+
+export const shareableDirectiveName = 'shareable';
 
 export const serviceFieldName = '_service';
 export const entitiesFieldName = '_entities';
@@ -90,7 +93,8 @@ const FEDERATION_DIRECTIVES = [
   externalDirectiveName,
   requiresDirectiveName,
   providesDirectiveName,
-  tagDirectiveName
+  tagDirectiveName,
+  shareableDirectiveName,
 ];
 const FEDERATION_ROOT_FIELDS = [
   serviceFieldName,
@@ -358,12 +362,14 @@ function formatFieldsToReturnType([type, implems]: [string, FieldDefinition<Obje
 
 export class FederationMetadata {
   private _externalTester?: ExternalTester;
+  private _sharingPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
 
   constructor(readonly schema: Schema) {
   }
 
   private onInvalidate() {
     this._externalTester = undefined;
+    this._sharingPredicate = undefined;
   }
 
   private externalTester(): ExternalTester {
@@ -373,8 +379,23 @@ export class FederationMetadata {
     return this._externalTester;
   }
 
+  private sharingPredicate(): (field: FieldDefinition<CompositeType>) => boolean {
+    if (!this._sharingPredicate) {
+      this._sharingPredicate = computeShareables(this.schema);
+    }
+    return this._sharingPredicate;
+  }
+
   isFieldExternal(field: FieldDefinition<any> | InputFieldDefinition) {
     return this.externalTester().isExternal(field);
+  }
+
+  isFieldPartiallyExternal(field: FieldDefinition<any> | InputFieldDefinition) {
+    return this.externalTester().isPartiallyExternal(field);
+  }
+
+  isFieldFullyExternal(field: FieldDefinition<any> | InputFieldDefinition) {
+    return this.externalTester().isFullyExternal(field);
   }
 
   isFieldFakeExternal(field: FieldDefinition<any> | InputFieldDefinition) {
@@ -383,6 +404,10 @@ export class FederationMetadata {
 
   selectionSelectsAnyExternalField(selectionSet: SelectionSet): boolean {
     return this.externalTester().selectsAnyExternalField(selectionSet);
+  }
+
+  isFieldShareable(field: FieldDefinition<any>): boolean {
+    return this.sharingPredicate()(field);
   }
 }
 
@@ -426,6 +451,9 @@ export class FederationBuiltIns extends BuiltIns {
 
     const directive = this.addBuiltInDirective(schema, 'tag').addLocations(...tagLocations);
     directive.addArgument("name", new NonNullType(schema.stringType()));
+
+    this.addBuiltInDirective(schema, shareableDirectiveName)
+      .addLocations(DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION);
   }
 
   onConstructed(schema: Schema) {
@@ -633,6 +661,10 @@ export class FederationBuiltIns extends BuiltIns {
     return this.getTypedDirective(schema, tagDirectiveName);
   }
 
+  shareableDirective(schema: Schema): DirectiveDefinition<{}> {
+    return this.getTypedDirective(schema, shareableDirectiveName);
+  }
+
   maybeUpdateSubgraphDocument(schema: Schema, document: DocumentNode): DocumentNode {
     document = super.maybeUpdateSubgraphDocument(schema, document);
 
@@ -749,6 +781,29 @@ export function parseFieldSetArgument(
       originalError: e,
     });
   }
+}
+
+export function forEachFieldSetArgument(
+  parentType: CompositeType,
+  directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
+  callback: (field: FieldDefinition<CompositeType>) => void,
+  includeInterfaceFieldsImplementations: boolean,
+) {
+  parseFieldSetArgument(parentType, directive, (t, f) => {
+    const field = t.field(f);
+    if (field) {
+      callback(field);
+      if (includeInterfaceFieldsImplementations && isInterfaceType(t)) {
+        for (const implType of t.possibleRuntimeTypes()) {
+          const implField = implType.field(f);
+          if (implField) {
+            callback(implField);
+          }
+        }
+      }
+    }
+    return field;
+  });
 }
 
 function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>): string {
@@ -917,9 +972,11 @@ export function addSubgraphToError(e: GraphQLError, subgraphName: string, errorC
 
 class ExternalTester {
   private readonly fakeExternalFields = new Set<string>();
+  private readonly providedFields = new Set<string>();
 
   constructor(readonly schema: Schema) {
     this.collectFakeExternals();
+    this.collectProvidedFields();
   }
 
   private collectFakeExternals() {
@@ -947,6 +1004,27 @@ class ExternalTester {
     }
   }
 
+  private collectProvidedFields() {
+    const providesDirective = federationBuiltIns.providesDirective(this.schema);
+    if (!providesDirective) {
+      return;
+    }
+    for (const provides of providesDirective.applications()) {
+      const parent = provides.parent as FieldDefinition<CompositeType>;
+      try {
+        forEachFieldSetArgument(
+          parent.type as CompositeType,
+          provides as Directive<any, {fields: any}>,
+          (f) => this.providedFields.add(f.coordinate),
+          true
+        );
+      } catch (e) {
+        // This is not the right time to throw errors. If a directive is invalid, we'll throw
+        // an error later anyway, so just ignoring it for now.
+      }
+    }
+  }
+
   isExternal(field: FieldDefinition<any> | InputFieldDefinition) {
     return field.hasAppliedDirective(externalDirectiveName) && !this.isFakeExternal(field);
   }
@@ -967,5 +1045,13 @@ class ExternalTester {
       }
     }
     return false;
+  }
+
+  isPartiallyExternal(field: FieldDefinition<any> | InputFieldDefinition) {
+    return this.isExternal(field) && this.providedFields.has(field.coordinate);
+  }
+
+  isFullyExternal(field: FieldDefinition<any> | InputFieldDefinition) {
+    return this.isExternal(field) && !this.providedFields.has(field.coordinate);
   }
 }
