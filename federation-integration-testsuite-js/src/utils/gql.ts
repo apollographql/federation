@@ -1,4 +1,4 @@
-import { parse } from "graphql";
+import { parse, Kind } from "graphql";
 import stripIndent from 'strip-indent';
 // This function signature is mostly lifted from the upstream `graphql-tag`.
 // The motivation for this `gql` implementation is the desire to preserve
@@ -19,7 +19,7 @@ export function gql(
   let result = literals[0];
 
   args.forEach((arg, i) => {
-    if (arg && arg.kind === 'Document') {
+    if (arg && arg.kind === Kind.DOCUMENT) {
       result += arg.loc.source.body;
     } else {
       result += arg;
