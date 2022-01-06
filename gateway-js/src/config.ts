@@ -229,7 +229,7 @@ export type StaticGatewayConfig =
   | LocalGatewayConfig
   | StaticSupergraphSdlGatewayConfig;
 
-type DynamicGatewayConfig =
+export type DynamicGatewayConfig =
   | ManagedGatewayConfig
   | ManuallyManagedGatewayConfig;
 

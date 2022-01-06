@@ -40,13 +40,11 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
   private healthCheck?: SubgraphHealthCheckFunction;
   private subgraphs?: Service[];
   private serviceSdlCache: Map<string, string> = new Map();
-  private pollIntervalInMs?: number;
   private timerRef: NodeJS.Timeout | null = null;
   private state: State;
 
   constructor(options: IntrospectAndComposeOptions) {
     this.config = options;
-    this.pollIntervalInMs = options.pollIntervalInMs;
     this.state = { phase: 'initialized' };
   }
 
@@ -71,7 +69,7 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
     }
 
     // Start polling after we resolve the first supergraph
-    if (this.pollIntervalInMs) {
+    if (this.config.pollIntervalInMs) {
       this.beginPolling();
     }
 
@@ -154,7 +152,7 @@ export class IntrospectAndCompose implements SupergraphSdlObject {
       }
 
       this.poll();
-    }, this.pollIntervalInMs!);
+    }, this.config.pollIntervalInMs!);
   }
 
   private logUpdateFailure(e: any) {

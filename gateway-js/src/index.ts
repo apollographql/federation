@@ -22,7 +22,6 @@ import {
   ServiceDefinition,
 } from '@apollo/federation';
 import loglevel from 'loglevel';
-import resolvable from '@josephg/resolvable';
 import { buildOperationContext, OperationContext } from './operationContext';
 import {
   executeQueryPlan,
@@ -53,7 +52,6 @@ import {
   CompositionInfo,
   GatewayConfig,
   StaticGatewayConfig,
-  ServiceListGatewayConfig,
   isManuallyManagedConfig,
   isLocalConfig,
   isServiceListConfig,
@@ -61,22 +59,20 @@ import {
   isDynamicConfig,
   isStaticConfig,
   CompositionMetadata,
-  isSupergraphSdlUpdate,
-  isServiceDefinitionUpdate,
-  ServiceDefinitionUpdate,
   SupergraphSdlUpdate,
-  CompositionUpdate,
+  SupergraphSdlHook,
   isManuallyManagedSupergraphSdlGatewayConfig,
-  ManuallyManagedSupergraphSdlGatewayConfig,
+  ManagedGatewayConfig,
 } from './config';
 import { buildComposedSchema } from '@apollo/query-planner';
-import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { CoreSchema } from '@apollo/core-schema';
 import { featureSupport } from './core';
 import { createHash } from './utilities/createHash';
 import { IntrospectAndCompose } from './IntrospectAndCompose';
+import { UplinkFetcher } from './UplinkFetcher';
+import { LegacyFetcher } from './LegacyFetcher';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -126,12 +122,6 @@ type GatewayState =
   | { phase: 'loaded' }
   | { phase: 'stopping'; stoppingDonePromise: Promise<void> }
   | { phase: 'stopped' }
-  | {
-      phase: 'waiting to poll';
-      pollWaitTimer: NodeJS.Timer;
-      doneWaiting: () => void;
-    }
-  | { phase: 'polling'; pollingDonePromise: Promise<void> }
   | { phase: 'updating schema' };
 
 // We want to be compatible with `load()` as called by both AS2 and AS3, so we
@@ -176,7 +166,6 @@ export class ApolloGateway implements GraphQLService {
       coreSupergraphSdl: string;
     }) => void
   >();
-  private serviceDefinitions: ServiceDefinition[] = [];
   private compositionMetadata?: CompositionMetadata;
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
@@ -185,12 +174,6 @@ export class ApolloGateway implements GraphQLService {
   private fetcher: typeof fetch;
   private compositionId?: string;
   private state: GatewayState;
-  private errorReportingEndpoint: string | undefined =
-    process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT ?? undefined;
-
-  // This will no longer be necessary once the `serviceList` option is removed
-  // TODO(trevor:removeServiceList)
-  private internalIntrospectAndComposeInstance?: IntrospectAndCompose;
 
   // Observe query plan, service info, and operation info prior to execution.
   // The information made available here will give insight into the resulting
@@ -203,16 +186,8 @@ export class ApolloGateway implements GraphQLService {
   // Used to communicated composition changes, and what definitions caused
   // those updates
   private experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
-  // Used for overriding the default service list fetcher. This should return
-  // an array of ServiceDefinition. *This function must be awaited.*
-  private updateServiceDefinitions?: Experimental_UpdateComposition;
-  // how often service defs should be loaded/updated (in ms)
-  private experimental_pollInterval?: number;
-  // Configure the endpoints by which gateway will access its precomposed schema.
-  // * An array of URLs means use these endpoints to obtain schema, if one is unavailable then try the next.
-  // * `undefined` means the gateway is not using managed federation
-  private uplinkEndpoints?: string[];
-  private uplinkMaxRetries?: number;
+  // how often service defs should be loaded/updated
+  private pollIntervalInMs?: number;
   // Functions to call during gateway cleanup (when stop() is called)
   private toDispose: (() => Promise<void>)[] = [];
 
@@ -239,61 +214,14 @@ export class ApolloGateway implements GraphQLService {
     this.experimental_didUpdateComposition =
       config?.experimental_didUpdateComposition;
 
-    this.experimental_pollInterval = config?.experimental_pollInterval;
-
-    // 1. If config is set to a `string`, use it
-    // 2. If the env var is set, use that
-    // 3. If config is `undefined`, use the default uplink URLs
-    if (isManagedConfig(this.config)) {
-      const rawEndpointsString = process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
-      const envEndpoints = rawEndpointsString?.split(",") ?? null;
-
-      if (this.config.schemaConfigDeliveryEndpoint && !this.config.uplinkEndpoints) {
-        this.uplinkEndpoints = [this.config.schemaConfigDeliveryEndpoint];
-      } else {
-        this.uplinkEndpoints = this.config.uplinkEndpoints ??
-          envEndpoints ?? [
-              'https://uplink.api.apollographql.com/',
-              'https://aws.uplink.api.apollographql.com/'
-            ];
-      }
-
-      this.uplinkMaxRetries = this.config.uplinkMaxRetries ?? this.uplinkEndpoints.length * 3;
-    }
-
-    if (isManuallyManagedConfig(this.config)) {
-      // Use the provided updater function if provided by the user, else default
-      if ('experimental_updateSupergraphSdl' in this.config) {
-        this.updateServiceDefinitions =
-          this.config.experimental_updateSupergraphSdl;
-      } else if ('experimental_updateServiceDefinitions' in this.config) {
-        this.updateServiceDefinitions =
-          this.config.experimental_updateServiceDefinitions;
-      } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
-        // TODO: do nothing maybe?
-      } else if (isServiceListConfig(this.config)) {
-        // TODO(trevor:removeServiceList)
-        this.internalIntrospectAndComposeInstance = new IntrospectAndCompose({
-          subgraphs: this.config.serviceList,
-          pollIntervalInMs: this.config.experimental_pollInterval,
-          logger: this.logger,
-          subgraphHealthCheck: this.config.serviceHealthCheck,
-          introspectionHeaders: this.config.introspectionHeaders,
-        });
-      } else {
-        throw Error(
-          'Programming error: unexpected manual configuration provided',
-        );
-      }
-    } else {
-      this.updateServiceDefinitions = this.loadServiceDefinitions;
-    }
+    this.pollIntervalInMs = config?.experimental_pollInterval;
 
     this.issueDeprecationWarningsIfApplicable();
     if (isDynamicConfig(this.config)) {
       this.issueDynamicWarningsIfApplicable();
     }
 
+    this.logger.debug('Gateway successfully initialized (but not yet loaded)');
     this.state = { phase: 'initialized' };
   }
 
@@ -335,7 +263,7 @@ export class ApolloGateway implements GraphQLService {
       this.config.experimental_pollInterval &&
       this.config.experimental_pollInterval < 10000
     ) {
-      this.experimental_pollInterval = 10000;
+      this.pollIntervalInMs = 10000;
       this.logger.warn(
         'Polling Apollo services at a frequency of less than once per 10 ' +
           'seconds (10000) is disallowed. Instead, the minimum allowed ' +
@@ -403,6 +331,8 @@ export class ApolloGateway implements GraphQLService {
     apollo?: ApolloConfigFromAS2Or3;
     engine?: GraphQLServiceEngineConfig;
   }) {
+    this.logger.debug('Loading gateway...');
+
     if (this.state.phase !== 'initialized') {
       throw Error(
         `ApolloGateway.load called in surprising state ${this.state.phase}`,
@@ -428,48 +358,71 @@ export class ApolloGateway implements GraphQLService {
       };
     }
 
-    // Before @apollo/gateway v0.23, ApolloGateway didn't expect stop() to be
-    // called after it started. The only thing that stop() did at that point was
-    // cancel the poll timer, and so to prevent that timer from keeping an
-    // otherwise-finished Node process alive, ApolloGateway unconditionally
-    // called unref() on that timeout. As part of making the ApolloGateway
-    // lifecycle more predictable and concrete (and to allow for a future where
-    // there are other reasons to make sure to explicitly stop your gateway),
-    // v0.23 tries to avoid calling unref().
-    //
-    // Apollo Server v2.20 and newer calls gateway.stop() from its stop()
-    // method, so as long as you're using v2.20, ApolloGateway won't keep
-    // running after you stop your server, and your Node process can shut down.
-    // To make this change a bit less backwards-incompatible, we detect if it
-    // looks like you're using an older version of Apollo Server; if so, we
-    // still call unref(). Specifically: Apollo Server has always passed an
-    // options object to load(), and before v2.18 it did not pass the `apollo`
-    // key on it. So if we detect that particular pattern, we assume we're with
-    // pre-v2.18 Apollo Server and we still call unref(). So this will be a
-    // behavior change only for:
-    // - non-Apollo-Server uses of ApolloGateway (where you can add your own
-    //   call to gateway.stop())
-    // - Apollo Server v2.18 and v2.19 (where you can either do the small
-    //   compatible upgrade or add your own call to gateway.stop())
-    // - if you don't call stop() on your ApolloServer (but in that case other
-    //   things like usage reporting will also stop shutdown, so you should fix
-    //   that)
-    const unrefTimer = !!options && !options.apollo;
-
     this.maybeWarnOnConflictingConfig();
 
     // Handles initial assignment of `this.schema`, `this.queryPlanner`
     if (isStaticConfig(this.config)) {
       this.loadStatic(this.config);
+    } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
+      const supergraphSdlFetcher = typeof this.config.supergraphSdl === 'object'
+        ? this.config.supergraphSdl
+        : { initialize: this.config.supergraphSdl };
+      await this.loadSupergraphSdl(supergraphSdlFetcher);
     } else if (
-      isManuallyManagedSupergraphSdlGatewayConfig(this.config) ||
-      (isServiceListConfig(this.config) &&
-        // this setting is currently expected to override `serviceList` when they both exist
-        !('experimental_updateServiceDefinitions' in this.config))
+      isServiceListConfig(this.config) &&
+      // this setting is currently expected to override `serviceList` when they both exist
+      !('experimental_updateServiceDefinitions' in this.config)
     ) {
-      await this.loadManuallyManaged(this.config);
+      await this.loadSupergraphSdl(
+        new IntrospectAndCompose({
+          subgraphs: this.config.serviceList,
+          pollIntervalInMs: this.config.experimental_pollInterval,
+          logger: this.logger,
+          subgraphHealthCheck: this.config.serviceHealthCheck,
+          introspectionHeaders: this.config.introspectionHeaders,
+        }),
+      );
+    } else if (isManagedConfig(this.config)) {
+      const canUseManagedConfig =
+        this.apolloConfig?.graphRef && this.apolloConfig?.keyHash;
+      if (!canUseManagedConfig) {
+        throw new Error(
+          'When a manual configuration is not provided, gateway requires an Apollo ' +
+            'configuration. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ ' +
+            'for more information. Manual configuration options include: ' +
+            '`serviceList`, `supergraphSdl`, and `experimental_updateServiceDefinitions`.',
+        );
+      }
+      const uplinkEndpoints = this.getUplinkEndpoints(this.config);
+
+      await this.loadSupergraphSdl(
+        new UplinkFetcher({
+          graphRef: this.apolloConfig!.graphRef!,
+          apiKey: this.apolloConfig!.key!,
+          uplinkEndpoints,
+          maxRetries:
+            this.config.uplinkMaxRetries ?? uplinkEndpoints.length * 3,
+          subgraphHealthCheck: this.config.serviceHealthCheck,
+          fetcher: this.fetcher,
+          logger: this.logger,
+          pollIntervalInMs: this.pollIntervalInMs ?? 10000,
+        }),
+      );
     } else {
-      await this.loadDynamic(unrefTimer);
+      const updateServiceDefinitions =
+        'experimental_updateServiceDefinitions' in this.config
+          ? this.config.experimental_updateServiceDefinitions
+          : this.config.experimental_updateSupergraphSdl;
+
+      const legacyFetcher = new LegacyFetcher({
+        logger: this.logger,
+        gatewayConfig: this.config,
+        updateServiceDefinitions,
+        pollIntervalInMs: this.pollIntervalInMs,
+        subgraphHealthCheck: this.config.serviceHealthCheck,
+      });
+
+      await this.loadSupergraphSdl(legacyFetcher);
     }
 
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
@@ -485,6 +438,23 @@ export class ApolloGateway implements GraphQLService {
       schema: this.schema!,
       executor: this.executor,
     };
+  }
+
+  private getUplinkEndpoints(config: ManagedGatewayConfig) {
+    // 1. If config is set to a `string`, use it
+    // 2. If the env var is set, use that
+    // 3. If config is `undefined`, use the default uplink URLs
+    const rawEndpointsString =
+      process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
+    const envEndpoints = rawEndpointsString?.split(',') ?? null;
+    return config.uplinkEndpoints ??
+      (config.schemaConfigDeliveryEndpoint
+        ? [config.schemaConfigDeliveryEndpoint]
+        : null) ??
+      envEndpoints ?? [
+        'https://uplink.api.apollographql.com/',
+        'https://aws.uplink.api.apollographql.com/',
+      ];
   }
 
   // Synchronously load a statically configured schema, update class instance's
@@ -507,46 +477,22 @@ export class ApolloGateway implements GraphQLService {
     this.state = { phase: 'loaded' };
   }
 
-  // Asynchronously load a dynamically configured schema. `this.updateSchema`
-  // is responsible for updating the class instance's schema and query planner.
-  private async loadDynamic(unrefTimer: boolean) {
-    try {
-      await this.updateSchema();
-    } catch (e) {
-      this.state = { phase: 'failed to load' };
-      throw e;
-    }
-
-    this.state = { phase: 'loaded' };
-    if (this.shouldBeginPolling()) {
-      this.pollServices(unrefTimer);
-    }
-  }
-
   private getIdForSupergraphSdl(supergraphSdl: string) {
     return createHash('sha256').update(supergraphSdl).digest('hex');
   }
 
-  private async loadManuallyManaged(
-    config:
-      | ManuallyManagedSupergraphSdlGatewayConfig
-      | ServiceListGatewayConfig,
+  private async loadSupergraphSdl<T extends { initialize: SupergraphSdlHook }>(
+    supergraphSdlFetcher: T,
   ) {
     try {
-      const supergraphSdlObject = isServiceListConfig(config)
-        ? this.internalIntrospectAndComposeInstance!
-        : typeof config.supergraphSdl === 'object'
-        ? config.supergraphSdl
-        : { initialize: config.supergraphSdl };
-
-      const result = await supergraphSdlObject.initialize({
+      const result = await supergraphSdlFetcher.initialize({
         update: this.externalSupergraphUpdateCallback.bind(this),
         healthCheck: this.externalSubgraphHealthCheckCallback.bind(this),
         getDataSource: this.externalGetDataSourceCallback.bind(this),
       });
       if (!result?.supergraphSdl) {
         throw new Error(
-          'User provided `supergraphSdl` function did not return an object containing a `supergraphSdl` property',
+          'Provided `supergraphSdl` function did not return an object containing a `supergraphSdl` property',
         );
       }
       if (result?.cleanup) {
@@ -555,92 +501,13 @@ export class ApolloGateway implements GraphQLService {
 
       this.externalSupergraphUpdateCallback(result.supergraphSdl);
     } catch (e) {
-      this.logger.error(e.message ?? e);
       this.state = { phase: 'failed to load' };
+      await this.performCleanup();
+      this.logger.error(e.message ?? e);
       throw e;
     }
 
     this.state = { phase: 'loaded' };
-  }
-
-  private shouldBeginPolling() {
-    return isManagedConfig(this.config) || this.experimental_pollInterval;
-  }
-
-  private async updateSchema(): Promise<void> {
-    this.logger.debug('Checking for composition updates...');
-
-    if (!this.updateServiceDefinitions) {
-      throw new Error(
-        'Programming error: `updateSchema` was called unexpectedly.',
-      );
-    }
-    // This may throw, but an error here is caught and logged upstream
-    const result = await this.updateServiceDefinitions(this.config);
-
-    await this.maybePerformServiceHealthCheck(result);
-    if (isSupergraphSdlUpdate(result)) {
-      this.updateWithSupergraphSdl(result);
-    } else if (isServiceDefinitionUpdate(result)) {
-      this.updateByComposition(result);
-    } else {
-      throw new Error(
-        'Programming error: unexpected result type from `updateServiceDefinitions`',
-      );
-    }
-  }
-
-  private updateByComposition(result: ServiceDefinitionUpdate) {
-    if (
-      !result.serviceDefinitions ||
-      JSON.stringify(this.serviceDefinitions) ===
-        JSON.stringify(result.serviceDefinitions)
-    ) {
-      this.logger.debug('No change in service definitions since last check.');
-      return;
-    }
-
-    const previousSchema = this.schema;
-    const previousServiceDefinitions = this.serviceDefinitions;
-    const previousCompositionMetadata = this.compositionMetadata;
-
-    if (previousSchema) {
-      this.logger.info('New service definitions were found.');
-    }
-    this.compositionMetadata = result.compositionMetadata;
-    this.serviceDefinitions = result.serviceDefinitions;
-
-    const { schema, supergraphSdl } = this.createSchemaFromServiceList(
-      result.serviceDefinitions,
-    );
-
-    if (!supergraphSdl) {
-      this.logger.error(
-        "A valid schema couldn't be composed. Falling back to previous schema.",
-      );
-    } else {
-      this.updateWithSchemaAndNotify(schema, supergraphSdl);
-
-      if (this.experimental_didUpdateComposition) {
-        this.experimental_didUpdateComposition(
-          {
-            serviceDefinitions: result.serviceDefinitions,
-            schema,
-            ...(this.compositionMetadata && {
-              compositionMetadata: this.compositionMetadata,
-            }),
-          },
-          previousServiceDefinitions &&
-            previousSchema && {
-              serviceDefinitions: previousServiceDefinitions,
-              schema: previousSchema,
-              ...(previousCompositionMetadata && {
-                compositionMetadata: previousCompositionMetadata,
-              }),
-            },
-        );
-      }
-    }
   }
 
   /**
@@ -817,40 +684,6 @@ export class ApolloGateway implements GraphQLService {
     });
   }
 
-  private async maybePerformServiceHealthCheck(update: CompositionUpdate) {
-    // Run service health checks before we commit and update the new schema.
-    // This is the last chance to bail out of a schema update.
-    if (!this.config.serviceHealthCheck) return;
-
-    const serviceList = isSupergraphSdlUpdate(update)
-      ? // TODO(trevor): #580 redundant parse
-        // Parsing could technically fail and throw here, but parseability has
-        // already been confirmed slightly earlier in the code path
-        this.serviceListFromSupergraphSdl(parse(update.supergraphSdl))
-      : // Existence of this is determined in advance with an early return otherwise
-        update.serviceDefinitions!;
-    // Here we need to construct new datasources based on the new schema info
-    // so we can check the health of the services we're _updating to_.
-    const serviceMap = serviceList.reduce((serviceMap, serviceDef) => {
-      serviceMap[serviceDef.name] = {
-        url: serviceDef.url,
-        dataSource: this.createDataSource(serviceDef),
-      };
-      return serviceMap;
-    }, Object.create(null) as DataSourceMap);
-
-    try {
-      await this.serviceHealthCheck(serviceMap);
-    } catch (e) {
-      throw new Error(
-        'The gateway did not update its schema due to failed service health checks. ' +
-          'The gateway will continue to operate with the previous schema and reattempt updates. ' +
-          'The following error occurred during the health check:\n' +
-          e.message,
-      );
-    }
-  }
-
   /**
    * This can be used without an argument in order to perform an ad-hoc health check
    * of the downstream services like so:
@@ -992,89 +825,6 @@ export class ApolloGateway implements GraphQLService {
     };
   }
 
-  // TODO(trevor:removeServiceList): gateway shouldn't be responsible for polling
-  // in the future.
-  // This function waits an appropriate amount, updates composition, and calls itself
-  // again. Note that it is an async function whose Promise is not actually awaited;
-  // it should never throw itself other than due to a bug in its state machine.
-  private async pollServices(unrefTimer: boolean) {
-    switch (this.state.phase) {
-      case 'stopping':
-      case 'stopped':
-      case 'failed to load':
-        return;
-      case 'initialized':
-        throw Error('pollServices should not be called before load!');
-      case 'polling':
-        throw Error(
-          'pollServices should not be called while in the middle of polling!',
-        );
-      case 'waiting to poll':
-        throw Error(
-          'pollServices should not be called while already waiting to poll!',
-        );
-      case 'loaded':
-        // This is the normal case.
-        break;
-      case 'updating schema':
-        // This should never happen
-        throw Error(
-          "ApolloGateway.pollServices called from an unexpected state 'updating schema'",
-        );
-      default:
-        throw new UnreachableCaseError(this.state);
-    }
-
-    // Transition into 'waiting to poll' and set a timer. The timer resolves the
-    // Promise we're awaiting here; note that calling stop() also can resolve
-    // that Promise.
-    await new Promise<void>((doneWaiting) => {
-      this.state = {
-        phase: 'waiting to poll',
-        doneWaiting,
-        pollWaitTimer: setTimeout(() => {
-          // Note that we might be in 'stopped', in which case we just do
-          // nothing.
-          if (this.state.phase == 'waiting to poll') {
-            this.state.doneWaiting();
-          }
-        }, this.experimental_pollInterval || 10000),
-      };
-      if (unrefTimer) {
-        this.state.pollWaitTimer.unref();
-      }
-    });
-
-    // If we've been stopped, then we're done. The cast here is because TS
-    // doesn't understand that this.state can change during the await
-    // (https://github.com/microsoft/TypeScript/issues/9998).
-    if ((this.state as GatewayState).phase !== 'waiting to poll') {
-      return;
-    }
-
-    const pollingDonePromise = resolvable();
-    this.state = {
-      phase: 'polling',
-      pollingDonePromise,
-    };
-
-    try {
-      await this.updateSchema();
-    } catch (err) {
-      this.logger.error((err && err.message) || err);
-    }
-
-    if (this.state.phase === 'polling') {
-      // If we weren't stopped, we should transition back to the initial 'loading' state and trigger
-      // another call to itself. (Do that in a setImmediate to avoid unbounded stack sizes.)
-      this.state = { phase: 'loaded' };
-      setImmediate(() => this.pollServices(unrefTimer));
-    }
-
-    // Whether we were stopped or not, let any concurrent stop() call finish.
-    pollingDonePromise.resolve();
-  }
-
   private createAndCacheDataSource(
     serviceDef: ServiceEndpointDefinition,
   ): GraphQLDataSource {
@@ -1114,36 +864,6 @@ export class ApolloGateway implements GraphQLService {
     for (const serviceDef of services) {
       this.createAndCacheDataSource(serviceDef);
     }
-  }
-
-  protected async loadServiceDefinitions(): Promise<CompositionUpdate> {
-    const canUseManagedConfig =
-      this.apolloConfig?.graphRef && this.apolloConfig?.keyHash;
-    if (!canUseManagedConfig) {
-      throw new Error(
-        'When a manual configuration is not provided, gateway requires an Apollo ' +
-          'configuration. See https://www.apollographql.com/docs/apollo-server/federation/managed-federation/ ' +
-          'for more information. Manual configuration options include: ' +
-          '`serviceList`, `supergraphSdl`, and `experimental_updateServiceDefinitions`.',
-      );
-    }
-
-    const result = await loadSupergraphSdlFromUplinks({
-      graphRef: this.apolloConfig!.graphRef!,
-      apiKey: this.apolloConfig!.key!,
-      endpoints: this.uplinkEndpoints!,
-      errorReportingEndpoint: this.errorReportingEndpoint,
-      fetcher: this.fetcher,
-      compositionId: this.compositionId ?? null,
-      maxRetries: this.uplinkMaxRetries!,
-    });
-
-    return (
-      result ?? {
-        id: this.compositionId!,
-        supergraphSdl: this.supergraphSdl!,
-      }
-    );
   }
 
   private maybeWarnOnConflictingConfig() {
@@ -1362,7 +1082,7 @@ export class ApolloGateway implements GraphQLService {
     });
   }
 
-  private async cleanupUserFunctions() {
+  private async performCleanup() {
     if (this.toDispose.length === 0) return;
 
     await Promise.all(
@@ -1378,9 +1098,8 @@ export class ApolloGateway implements GraphQLService {
     this.toDispose = [];
   }
 
-  // Stops all processes involved with the gateway (for now, just background
-  // schema polling). Can be called multiple times safely. Once it (async)
-  // returns, all gateway background activity will be finished.
+  // Stops all processes involved with the gateway. Can be called multiple times
+  // safely. Once it (async) returns, all gateway background activity will be finished.
   public async stop() {
     switch (this.state.phase) {
       case 'initialized':
@@ -1403,7 +1122,7 @@ export class ApolloGateway implements GraphQLService {
         }
         return;
       case 'loaded':
-        const stoppingDonePromise = this.cleanupUserFunctions();
+        const stoppingDonePromise = this.performCleanup();
         this.state = {
           phase: 'stopping',
           stoppingDonePromise,
@@ -1411,32 +1130,6 @@ export class ApolloGateway implements GraphQLService {
         await stoppingDonePromise;
         this.state = { phase: 'stopped' };
         return;
-      case 'waiting to poll': {
-        // If we're waiting to poll, we can synchronously transition to fully stopped.
-        // We will terminate the current pollServices call and it will succeed quickly.
-        const doneWaiting = this.state.doneWaiting;
-        clearTimeout(this.state.pollWaitTimer);
-        this.state = { phase: 'stopped' };
-        doneWaiting();
-        return;
-      }
-      case 'polling': {
-        // We're in the middle of running updateSchema. We need to go into 'stopping'
-        // mode and let this run complete. First we set things up so that any concurrent
-        // calls to stop() will wait until we let them finish. (Those concurrent calls shouldn't
-        // just wait on pollingDonePromise themselves because we want to make sure we fully
-        // transition to state='stopped' before the other call returns.)
-        const pollingDonePromise = this.state.pollingDonePromise;
-        const stoppingDonePromise = resolvable();
-        this.state = {
-          phase: 'stopping',
-          stoppingDonePromise,
-        };
-        await pollingDonePromise;
-        this.state = { phase: 'stopped' };
-        stoppingDonePromise.resolve();
-        return;
-      }
       case 'updating schema': {
         // This should never happen
         throw Error(

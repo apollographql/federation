@@ -327,14 +327,17 @@ describe('gateway config / env behavior', () => {
         APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
       });
 
-      gateway = new ApolloGateway({
+      const config = {
         logger,
         uplinkEndpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2, mockCloudConfigUrl3],
-      });
+      };
+      gateway = new ApolloGateway(config);
 
-      expect(gateway['uplinkEndpoints']).toEqual(
-        [mockCloudConfigUrl1, mockCloudConfigUrl2, mockCloudConfigUrl3],
-      );
+      expect(gateway['getUplinkEndpoints'](config)).toEqual([
+        mockCloudConfigUrl1,
+        mockCloudConfigUrl2,
+        mockCloudConfigUrl3,
+      ]);
 
       gateway = null;
     });
@@ -346,14 +349,13 @@ describe('gateway config / env behavior', () => {
         APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT: 'env-config',
       });
 
-      gateway = new ApolloGateway({
+      const config = {
         logger,
         schemaConfigDeliveryEndpoint: 'code-config',
-      });
+      };
+      gateway = new ApolloGateway(config);
 
-      expect(gateway['uplinkEndpoints']).toEqual(
-        ['code-config'],
-      );
+      expect(gateway['getUplinkEndpoints'](config)).toEqual(['code-config']);
 
       gateway = null;
     });

@@ -14,9 +14,9 @@ import {
   mockSupergraphSdlRequestSuccess,
   mockSupergraphSdlRequestIfAfterUnchanged,
   mockSupergraphSdlRequestIfAfter
-} from './integration/nockMocks';
-import { getTestingSupergraphSdl } from "./execution-utils";
-import { nockAfterEach, nockBeforeEach } from './nockAssertions';
+} from '../../__tests__/integration/nockMocks';
+import { getTestingSupergraphSdl } from "../../__tests__/execution-utils";
+import { nockAfterEach, nockBeforeEach } from '../../__tests__/nockAssertions';
 
 describe('loadSupergraphSdlFromStorage', () => {
   beforeEach(nockBeforeEach);

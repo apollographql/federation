@@ -1,8 +1,10 @@
 import gql from 'graphql-tag';
 import { ApolloGateway } from '../..';
 import {
+  DynamicGatewayConfig,
   Experimental_DidResolveQueryPlanCallback,
   Experimental_UpdateServiceDefinitions,
+  ServiceDefinitionUpdate,
 } from '../../config';
 import {
   product,
@@ -11,6 +13,8 @@ import {
   accounts,
   books,
   documents,
+  fixtures,
+  fixturesWithUpdate,
 } from 'apollo-federation-integration-testsuite';
 import { Logger } from 'apollo-server-types';
 import resolvable from '@josephg/resolvable';
@@ -48,11 +52,10 @@ beforeEach(() => {
 
 describe('lifecycle hooks', () => {
   it('uses updateServiceDefinitions override', async () => {
-    const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions = jest.fn(
-      async () => {
+    const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions =
+      jest.fn(async () => {
         return { serviceDefinitions, isNewSchema: true };
-      },
-    );
+      });
 
     const gateway = new ApolloGateway({
       serviceList: serviceDefinitions,
@@ -68,38 +71,6 @@ describe('lifecycle hooks', () => {
     await gateway.stop();
   });
 
-  it('calls experimental_didFailComposition with a bad config', async () => {
-    const experimental_didFailComposition = jest.fn();
-
-    const gateway = new ApolloGateway({
-      async experimental_updateServiceDefinitions() {
-        return {
-          serviceDefinitions: [serviceDefinitions[0]],
-          compositionMetadata: {
-            formatVersion: 1,
-            id: 'abc',
-            implementingServiceLocations: [],
-            schemaHash: 'abc',
-          },
-          isNewSchema: true,
-        };
-      },
-      serviceList: [],
-      experimental_didFailComposition,
-      logger,
-    });
-
-    await expect(gateway.load()).rejects.toThrowError();
-
-    const callbackArgs = experimental_didFailComposition.mock.calls[0][0];
-    expect(callbackArgs.serviceList).toHaveLength(1);
-    expect(callbackArgs.errors[0]).toMatchInlineSnapshot(
-      `[GraphQLError: [product] Book -> \`Book\` is an extension type, but \`Book\` is not defined in any service]`,
-    );
-    expect(callbackArgs.compositionMetadata.id).toEqual('abc');
-    expect(experimental_didFailComposition).toBeCalled();
-  });
-
   it('calls experimental_didUpdateComposition on schema update', async () => {
     const compositionMetadata = {
       formatVersion: 1,
@@ -108,36 +79,28 @@ describe('lifecycle hooks', () => {
       schemaHash: 'hash1',
     };
 
-    const update: Experimental_UpdateServiceDefinitions = async () => ({
-      serviceDefinitions,
-      isNewSchema: true,
-      compositionMetadata: {
-        ...compositionMetadata,
-        id: '123',
-        schemaHash: 'hash2',
-      },
-    });
-
-    // This is the simplest way I could find to achieve mocked functions that leverage our types
-    const mockUpdate = jest.fn(update);
-
-    // We want to return a different composition across two ticks, so we mock it
-    // slightly differenty
-    mockUpdate.mockImplementationOnce(async () => {
-      const services = serviceDefinitions.filter(s => s.name !== 'books');
-      return {
-        serviceDefinitions: [
-          ...services,
-          {
-            name: 'book',
-            typeDefs: books.typeDefs,
-            url: 'http://localhost:32542',
+    const mockUpdate = jest
+      .fn<Promise<ServiceDefinitionUpdate>, [config: DynamicGatewayConfig]>()
+      .mockImplementationOnce(async () => {
+        return {
+          serviceDefinitions: fixtures,
+          isNewSchema: true,
+          compositionMetadata: {
+            ...compositionMetadata,
+            id: '123',
+            schemaHash: 'hash2',
           },
-        ],
-        isNewSchema: true,
-        compositionMetadata,
-      };
-    });
+        };
+      })
+      // We want to return a different composition across two ticks, so we mock it
+      // slightly differently
+      .mockImplementationOnce(async () => {
+        return {
+          serviceDefinitions: fixturesWithUpdate,
+          isNewSchema: true,
+          compositionMetadata,
+        };
+      });
 
     const mockDidUpdate = jest.fn();
 
@@ -146,13 +109,13 @@ describe('lifecycle hooks', () => {
       experimental_didUpdateComposition: mockDidUpdate,
       logger,
     });
-    // @ts-ignore for testing purposes, a short pollInterval is ideal so we'll override here
-    gateway.experimental_pollInterval = 100;
+    // for testing purposes, a short pollInterval is ideal so we'll override here
+    gateway['pollIntervalInMs'] = 100;
 
     const schemaChangeBlocker1 = resolvable();
     const schemaChangeBlocker2 = resolvable();
 
-    gateway.onSchemaChange(
+    gateway.onSchemaLoadOrUpdate(
       jest
         .fn()
         .mockImplementationOnce(() => schemaChangeBlocker1.resolve())
@@ -162,25 +125,27 @@ describe('lifecycle hooks', () => {
     await gateway.load();
 
     await schemaChangeBlocker1;
+
     expect(mockUpdate).toBeCalledTimes(1);
     expect(mockDidUpdate).toBeCalledTimes(1);
 
     await schemaChangeBlocker2;
+
     expect(mockUpdate).toBeCalledTimes(2);
     expect(mockDidUpdate).toBeCalledTimes(2);
 
     const [firstCall, secondCall] = mockDidUpdate.mock.calls;
 
-    expect(firstCall[0]!.schema).toBeDefined();
-    expect(firstCall[0].compositionMetadata!.schemaHash).toEqual('hash1');
+    const expectedFirstId = '562c22b3382b56b1651944a96e89a361fe847b9b32660eae5ecbd12adc20bf8b'
+    expect(firstCall[0]!.compositionId).toEqual(expectedFirstId);
     // first call should have no second "previous" argument
     expect(firstCall[1]).toBeUndefined();
 
-    expect(secondCall[0].schema).toBeDefined();
-    expect(secondCall[0].compositionMetadata!.schemaHash).toEqual('hash2');
+    expect(secondCall[0]!.compositionId).toEqual(
+      '0ced02894592ade4376276d11735b46723eb84850c32765cb78502ba5c29a563',
+    );
     // second call should have previous info in the second arg
-    expect(secondCall[1]!.schema).toBeDefined();
-    expect(secondCall[1]!.compositionMetadata!.schemaHash).toEqual('hash1');
+    expect(secondCall[1]!.compositionId).toEqual(expectedFirstId);
 
     await gateway.stop();
   });
@@ -214,11 +179,10 @@ describe('lifecycle hooks', () => {
   });
 
   it('registers schema change callbacks when experimental_pollInterval is set for unmanaged configs', async () => {
-    const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions = jest.fn(
-      async (_config) => {
+    const experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions =
+      jest.fn(async (_config) => {
         return { serviceDefinitions, isNewSchema: true };
-      },
-    );
+      });
 
     const gateway = new ApolloGateway({
       serviceList: [{ name: 'book', url: 'http://localhost:32542' }],
@@ -230,7 +194,7 @@ describe('lifecycle hooks', () => {
     const schemaChangeBlocker = resolvable();
     const schemaChangeCallback = jest.fn(() => schemaChangeBlocker.resolve());
 
-    gateway.onSchemaChange(schemaChangeCallback);
+    gateway.onSchemaLoadOrUpdate(schemaChangeCallback);
     await gateway.load();
 
     await schemaChangeBlocker;
@@ -240,12 +204,11 @@ describe('lifecycle hooks', () => {
   });
 
   it('calls experimental_didResolveQueryPlan when executor is called', async () => {
-    const experimental_didResolveQueryPlan: Experimental_DidResolveQueryPlanCallback = jest.fn()
+    const experimental_didResolveQueryPlan: Experimental_DidResolveQueryPlanCallback =
+      jest.fn();
 
     const gateway = new ApolloGateway({
-      localServiceList: [
-        books
-      ],
+      localServiceList: [books],
       experimental_didResolveQueryPlan,
     });
 
@@ -255,7 +218,7 @@ describe('lifecycle hooks', () => {
       { book(isbn: "0262510871") { year } }
     `;
 
-     // @ts-ignore
+    // @ts-ignore
     await executor({
       source,
       document: gql(source),
