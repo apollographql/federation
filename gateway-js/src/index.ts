@@ -1051,7 +1051,8 @@ export class ApolloGateway implements GraphQLService {
         this.state = { phase: 'stopped' };
         return;
       case 'updating schema': {
-        // This should never happen
+        // This should never happen since schema updates are sync and `stop`
+        // shouldn't be called mid-update
         throw Error(
           '`ApolloGateway.stop` called from an unexpected state `updating schema`',
         );
