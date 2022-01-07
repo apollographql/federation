@@ -1,5 +1,9 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## vNEXT
+
+- _Nothing yet! Stay tuned._
+
 ## v2.0.0-alpha.3
 
 - Assign and document error codes for all errors [PR #1274](https://github.com/apollographql/federation/pull/1274).
