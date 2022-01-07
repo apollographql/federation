@@ -104,14 +104,16 @@ const gateway = new ApolloGateway({
 </td>
 <td>
 
-When `supergraphSdl` is a `string`: A [supergraph schema](../#federated-schemas) ([generated with the Rover CLI](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema)) that's composed from your subgraph schemas. The supergraph schema includes directives that specify routing information for each subgraph.
+You provide your supergraph schema to the gateway with this option. You can provide it as a `string`, via a `SupergraphSdlHook`, or via a `SupergraphManager`.
 
-When `supergraphSdl` is a `SupergraphSdlHook`: An `async` function that returns an object containing a `supergraphSdl` string as well as a `cleanup` function. The hook accepts an object containing 3 properties:
-1. `update`: A function which updates the supergraph schema
-2. `healthCheck`: A function which issues a health check against the subgraphs
-3. `getDataSource`: A function which gets a data source for a particular subgraph from the gateway
+**When `supergraphSdl` is a `string`:** A [supergraph schema](../#federated-schemas) ([generated with the Rover CLI](https://www.apollographql.com/docs/rover/supergraphs/#composing-a-supergraph-schema)) that's composed from your subgraph schemas. The supergraph schema includes directives that specify routing information for each subgraph.
 
-When `supergraphSdl` is a `SupergraphManager`: An object containing an `initialize` property. `initialize` is an `async` function of the `SupergraphSdlHook` type mentioned directly above.
+**When `supergraphSdl` is a `SupergraphSdlHook`:** This is an `async` function that returns an object containing a `supergraphSdl` string as well as a `cleanup` function. The hook accepts an object containing the following properties:
+- `update`: A function that updates the supergraph schema
+- `healthCheck`: A function that issues a health check against the subgraphs
+- `getDataSource`: A function that gets a data source for a particular subgraph from the gateway
+
+**When `supergraphSdl` is a `SupergraphManager`:** An object containing an `initialize` property. `initialize` is an `async` function of the `SupergraphSdlHook` type mentioned directly above.
 
 **If you are using managed federation,** do not provide this field.
 
@@ -150,11 +152,11 @@ You can specify any string value for the `name` field, which is used for identif
 
 ###### `introspectionHeaders`
 
-**This option is deprecated in favor of the drop-in replacement, [`IntrospectAndCompose`](#class-introspectandcompose).**
-
 `Object | (service: ServiceEndpointDefinition) => (Promise<Object> | Object)`
 </td>
 <td>
+
+**This option is deprecated in favor of the drop-in replacement, [`IntrospectAndCompose`](#class-introspectandcompose).**
 
 An object (or an optionally async function _returning_ an object) that contains the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
 
@@ -569,13 +571,13 @@ The details of the `fetch` response sent by the subgraph.
 
 ## `class IntrospectAndCompose`
 
-The drop-in replacement for `serviceList`. This class is meant to be passed directly to `ApolloGateway`'s `supergraphSdl` constructor option.
+The drop-in replacement for `serviceList`. You pass an instance of this class directly to `ApolloGateway`'s `supergraphSdl` constructor option.
 
 ### Methods
 
 #### `constructor`
 
-Returns an initialized `IntrospectAndCompose` instance, which you can then pass to the `supergraphSdl` configuration option to the `ApolloGateway` constructor, like so:
+Returns an initialized `IntrospectAndCompose` instance, which you can then pass to the `supergraphSdl` configuration option of the `ApolloGateway` constructor, like so:
 
 ```javascript{3-7}
 const server = new ApolloServer({
@@ -611,7 +613,7 @@ const gateway = new ApolloGateway({
 
 ###### Configuring the subgraph fetcher
 
-`IntrospectAndCompose` will use the data sources constructed by `ApolloGateway`. In order to customize the gateway's data sources, you can proved a [`buildService`](#buildservice) function to the `ApolloGateway` constructor. In the example below, `IntrospectAndCompose` will make authenticated requests to the subgraphs
+`IntrospectAndCompose` uses the data sources constructed by `ApolloGateway`. To customize the gateway's data sources, you can provide a [`buildService`](#buildservice) function to the `ApolloGateway` constructor. In the example below, `IntrospectAndCompose` makes authenticated requests to the subgraphs
 via the `AuthenticatedDataSource`s that we construct in the gateway's `buildService` function.
 
 ```js
@@ -651,8 +653,11 @@ const gateway = new ApolloGateway({
 
 An array of objects that each specify the `name` and `url` of one subgraph in your federated graph. On startup, `IntrospectAndCompose` uses this array to obtain your subgraph schemas via introspection and compose a supergraph schema.
 
-The `name` field is a string which should be treated as a subgraph's unique identifier. It is used for query planning, logging, and reporting metrics to Apollo Studio.
-> For Studio users, subgraph names must also satisfy the following regex when publishing: `^[a-zA-Z][a-zA-Z0-9_-]{0,63}$`.
+The `name` field is a string that should be treated as a subgraph's unique identifier. It is used for query planning, logging, and reporting metrics to Apollo Studio.
+> For Studio users, subgraph names **must:**
+- Begin with a letter (capital or lowercase)
+- Include only letters, numbers, underscores (_), and hyphens (-)
+- Have a maximum of 64 characters
 
 </td>
 </tr>
@@ -666,7 +671,7 @@ The `name` field is a string which should be treated as a subgraph's unique iden
 </td>
 <td>
 
-An object, or an (optionally) async function returning an object, containing the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
+An object (or an optionally async function _returning_ an object)that contains the names and values of HTTP headers that the gateway includes _only_ when making introspection requests to your subgraphs.
 
 **If you define a [`buildService`](#buildservice) function in your `ApolloGateway` config, ** specify these headers in that function instead of providing this option. This ensures that your `buildService` function doesn't inadvertently overwrite the values of any headers you provide here.
 </td>
@@ -681,7 +686,7 @@ An object, or an (optionally) async function returning an object, containing the
 </td>
 <td>
 
-Specify this option to enable supergraph updates via subgraph polling. `IntrospectAndCompose` will poll each subgraph at the given interval.
+Specify this option to enable supergraph updates via subgraph polling. `IntrospectAndCompose` polls each subgraph at the given interval.
 </td>
 </tr>
 
@@ -694,10 +699,10 @@ Specify this option to enable supergraph updates via subgraph polling. `Introspe
 </td>
 <td>
 
-> Note: this only applies to subgraphs that are configured for polling via the `pollIntervalInMs` option.
-Perform a health check on each subgraph before performing a supergraph update. Errors during health checks will result in skipping the supergraph update, but polling will continue. The health check is a simple GraphQL query (`query __ApolloServiceHealthCheck__ { __typename }`) to ensure that subgraphs are reachable and can successfully respond to GraphQL requests.
+> This option applies only to subgraphs that are configured for polling via the `pollIntervalInMs` option.
+If `true`, the gateway performs a health check on each subgraph before performing a supergraph update. Errors during health checks will result in skipping the supergraph update, but polling will continue. The health check is a simple GraphQL query (`query __ApolloServiceHealthCheck__ { __typename }`) to ensure that subgraphs are reachable and can successfully respond to GraphQL requests.
 
-**This option is the `IntrospectAndCompose` equivalent of `ApolloGateway`'s `serviceHealthCheck` option. If you are using `IntrospectAndCompose`, there is no need to enable `serviceHealthCheck` on your `ApolloGateway` instance.**
+**This option is the `IntrospectAndCompose` equivalent of `ApolloGateway`'s `serviceHealthCheck` option. If you are using `IntrospectAndCompose`, enabling `serviceHealthCheck` on your `ApolloGateway` instance has no effect.**
 </td>
 </tr>
 

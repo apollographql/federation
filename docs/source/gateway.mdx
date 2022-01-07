@@ -59,7 +59,7 @@ On startup, the gateway processes your `supergraphSdl`, which includes routing i
 
 ### Updating the supergraph schema
 
-In the above example, we provide a _static_ supergraph schema to the gateway. This approach requires the gateway to be restarted in order to update the supergraph schema. This is less than ideal for many applications, so we also provide the ability to update the supergraph schema dynamically.
+In the above example, we provide a _static_ supergraph schema to the gateway. This approach requires the gateway to restart in order to update the supergraph schema. This is undesirable for many applications, so we also provide the ability to update the supergraph schema dynamically.
 
 ```js:title=index.js
 const { ApolloServer } = require('apollo-server');
@@ -87,15 +87,15 @@ server.listen().then(({ url }) => {
 });
 ```
 
-There are a few things happening here; let's take a look at each of them individually.
+There are a few things happening here. Let's take a look at each of them individually.
 
-Note that `supergraphSdl` is now an `async` function. This function is only called once when `ApolloServer` initializes the gateway, and has two primary responsibilities:
-1. Receive the `update` function, which we'll use to update the supergraph schema.
-2. Return the initial supergraph schema which the gateway will use at startup.
+Note that `supergraphSdl` is now an `async` function. This function is called exactly once, when `ApolloServer` initializes the gateway. It has the following responsibilities:
+- It receives the `update` function, which we use to update the supergraph schema.
+- It returns the initial supergraph schema, which the gateway uses at startup.
 
 With the `update` function, we can now programatically update the supergraph. Polling, webhooks, and file watchers are all good examples of ways we can go about updating the supergraph.
 
-The code below demonstrates a more complete example using a file watcher. In this example, we'll assume `rover` is updating the `supergraphSdl.graphql` file.
+The code below demonstrates a more complete example using a file watcher. In this example, assume that we're updating the `supergraphSdl.graphql` file with the Rover CLI.
 
 ```js:title=index.js
 const { ApolloServer } = require('apollo-server');
@@ -139,25 +139,25 @@ server.listen().then(({ url }) => {
 });
 ```
 
-This example is a bit more fleshed out. Let's take a look at what we've added.
+This example is a bit more complete. Let's take a look at what we've added.
 
-In the `supergraphSdl` callback, we also receive a `healthCheck` function. This allows us to run a health check against each of the services in our future supergraph schema. This is useful for ensuring that our services are responsive and that we don't perform an update when it's unsafe.
+In the `supergraphSdl` callback, we also receive a `healthCheck` function. This enables us to run a health check against each of the services in our future supergraph schema. This is useful for ensuring that our services are responsive and that we don't perform an update when it's unsafe.
 
 We've also wrapped our call to `update` and `healthCheck` in a `try` block. If an error occurs during either of these, we want to handle this gracefully. In this example, we continue running the existing supergraph schema and log an error.
 
-You might've also noticed we're returning a `cleanup` function. This is a callback that is called when the gateway is stopped. This allows us to cleanly shut down any ongoing processes (such as file watching or polling) when the gateway is shut down via a call to `ApolloServer.stop`. The gateway expects `cleanup` to return a `Promise` and will `await` it before shutting down.
+Finally, we return a `cleanup` function. This is a callback that's called when the gateway is stopped. This enables us to cleanly shut down any ongoing processes (such as file watching or polling) when the gateway is shut down via a call to `ApolloServer.stop`. The gateway expects `cleanup` to return a `Promise` and `await`s it before shutting down.
 
 #### Advanced usage
 
-Your use case may grow to have some complexity which might be better managed within a class that handles the `update` and `healthCheck` functions as well as any additional state. In this case, you may instead provide an object (or class) with an `initialize` function. This function is called just the same as the `supergraphSdl` function discussed above. For a good example of this, check out the [`IntrospectAndCompose` source code](https://github.com/apollographql/federation/blob/main/packages/apollo-gateway/src/IntrospectAndCompose/index.ts).
+In a more complex application, you might want to create a class that handles the `update` and `healthCheck` functions, along with any additional state. In this case, you can instead provide an object (or class) with an `initialize` function. This function is called just like the `supergraphSdl` function discussed above. For an example of this, see the [`IntrospectAndCompose` source code](https://github.com/apollographql/federation/blob/main/packages/apollo-gateway/src/supergraphManagers/IntrospectAndCompose/index.ts).
 
 ### Composing subgraphs with `IntrospectAndCompose`
 
-> Looking for `serviceList`? `IntrospectAndCompose` is the new drop-in replacement for the `serviceList` option. In the near future, the `serviceList` option will be removed; however, `IntrospectAndCompose` will continue to be supported. Apollo generally recommends approaches that utilize `rover` for managing local composition, though `IntrospectAndCompose` is still useful for various development and testing workflows.
+> Looking for `serviceList`? In `@apollo/gateway` version 0.46.0 and later,`IntrospectAndCompose` is the new drop-in replacement for the `serviceList` option. The `serviceList` option will be removed in an upcoming release of `@apollo/gateway`, but `IntrospectAndCompose` will continue to be supported. We recommend using the Rover CLI to manage local composition, but  `IntrospectAndCompose` is still useful for various development and testing workflows.
 
 > We strongly recommend _against_ using `IntrospectAndCompose` in production. For details, [see below](#limitations-of-introspectandcompose).
 
-Alternatively, you can provide a `serviceList` array to the `ApolloGateway` constructor, like so:
+Alternatively, you can provide a `subgraph` array to the `IntrospectAndCompose` constructor, like so:
 
 ```js:title=index.js
 const { ApolloGateway, IntrospectAndCompose } = require('@apollo/gateway');
