@@ -1,6 +1,6 @@
 # CHANGELOG for `@apollo/gateway`
 
-## vNext
+## v2.0.0-alpha.3
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
@@ -12,7 +12,11 @@
     - Option #1: use the existing environment variable `APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT` which will now be treated as a comma-separated list of URLs. 
     - Option #2: use the new `uplinkEndpoints`, which must be single URL or a comma-separated list of URLs for the Uplink End-points to be used, and `uplinkMaxRetries` which is how many times the Uplink URLs should be retried.
   - The old `schemaConfigDeliveryEndpoint` configuration value still work, but is deprecated and will be removed in a subsequent release.
-- Continue resolving when an `@external` reference cannot be resolved. [#376](https://github.com/apollographql/federation/issues/376)
+- Continue resolving when an `@external` reference cannot be resolved [#376](https://github.com/apollographql/federation/issues/376).
+- Fix issue reading some 0.x generated supergraphs [PR #1351](https://github.com/apollographql/federation/pull/1351).
+- Assign and document error codes for all errors [PR #1274](https://github.com/apollographql/federation/pull/1274).
+- Fix bug in handling of large number of query plan options [1316](https://github.com/apollographql/federation/pull/1316).
+- Remove unused dependency on `@apollographql/apollo-tools` [1304](https://github.com/apollographql/federation/pull/1304).
 
 ## v2.0.0-alpha.2
 
