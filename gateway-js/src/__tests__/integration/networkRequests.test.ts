@@ -19,6 +19,7 @@ import {
   accounts,
   books,
   documents,
+  Fixture,
   fixturesWithUpdate,
   inventory,
   product,
@@ -27,12 +28,6 @@ import {
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import resolvable from '@josephg/resolvable';
-
-export interface Fixture {
-  name: string;
-  url: string;
-  typeDefs: DocumentNode;
-}
 
 const simpleService: Fixture = {
   name: 'accounts',

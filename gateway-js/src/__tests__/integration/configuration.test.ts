@@ -12,8 +12,7 @@ import {
   mockCloudConfigUrl3,
 } from './nockMocks';
 import { getTestingSupergraphSdl } from '../execution-utils';
-import { Fixture } from './networkRequests.test';
-import { fixtures } from 'apollo-federation-integration-testsuite';
+import { fixtures, Fixture } from 'apollo-federation-integration-testsuite';
 
 let logger: Logger;
 
