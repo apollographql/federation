@@ -341,10 +341,23 @@ export class ApolloGateway implements GraphQLService {
         : { initialize: this.config.supergraphSdl };
       await this.initializeSupergraphManager(supergraphManager);
     } else if (
-      isServiceListConfig(this.config) &&
-      // this setting is currently expected to override `serviceList` when they both exist
-      !('experimental_updateServiceDefinitions' in this.config)
+      'experimental_updateServiceDefinitions' in this.config || 'experimental_updateSupergraphSdl' in this.config
     ) {
+      const updateServiceDefinitions =
+        'experimental_updateServiceDefinitions' in this.config
+          ? this.config.experimental_updateServiceDefinitions
+          : this.config.experimental_updateSupergraphSdl;
+
+      await this.initializeSupergraphManager(
+        new LegacyFetcher({
+          logger: this.logger,
+          gatewayConfig: this.config,
+          updateServiceDefinitions,
+          pollIntervalInMs: this.pollIntervalInMs,
+          subgraphHealthCheck: this.config.serviceHealthCheck,
+        }),
+      );
+    } else if (isServiceListConfig(this.config)) {
       // TODO(trevor:removeServiceList)
       this.logger.warn(
         'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
@@ -358,7 +371,8 @@ export class ApolloGateway implements GraphQLService {
           introspectionHeaders: this.config.introspectionHeaders,
         }),
       );
-    } else if (isManagedConfig(this.config)) {
+    } else {
+      // isManagedConfig(this.config)
       const canUseManagedConfig =
         this.apolloConfig?.graphRef && this.apolloConfig?.keyHash;
       if (!canUseManagedConfig) {
@@ -382,21 +396,6 @@ export class ApolloGateway implements GraphQLService {
           fetcher: this.fetcher,
           logger: this.logger,
           pollIntervalInMs: this.pollIntervalInMs ?? 10000,
-        }),
-      );
-    } else {
-      const updateServiceDefinitions =
-        'experimental_updateServiceDefinitions' in this.config
-          ? this.config.experimental_updateServiceDefinitions
-          : this.config.experimental_updateSupergraphSdl;
-
-      await this.initializeSupergraphManager(
-        new LegacyFetcher({
-          logger: this.logger,
-          gatewayConfig: this.config,
-          updateServiceDefinitions,
-          pollIntervalInMs: this.pollIntervalInMs,
-          subgraphHealthCheck: this.config.serviceHealthCheck,
         }),
       );
     }
