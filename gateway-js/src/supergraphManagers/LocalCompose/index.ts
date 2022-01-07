@@ -35,7 +35,7 @@ export class LocalCompose implements SupergraphManager {
 
   private issueDeprecationWarnings() {
     this.config.logger?.warn(
-      'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+      'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the `LocalCompose` supergraph manager exported by `@apollo/gateway`.',
     );
   }
 

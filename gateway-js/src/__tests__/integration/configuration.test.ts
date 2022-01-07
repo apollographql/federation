@@ -414,7 +414,7 @@ describe('deprecation warnings', () => {
     } catch {}
 
     expect(logger.warn).toHaveBeenCalledWith(
-      'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+      'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to its replacement `IntrospectAndCompose`. More information on `IntrospectAndCompose` can be found in the documentation.',
     );
   });
 
@@ -427,7 +427,7 @@ describe('deprecation warnings', () => {
     await gateway.load();
 
     expect(logger.warn).toHaveBeenCalledWith(
-      'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+      'The `localServiceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the `LocalCompose` supergraph manager exported by `@apollo/gateway`.',
     );
 
     await gateway.stop();

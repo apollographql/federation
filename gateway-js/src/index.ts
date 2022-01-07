@@ -370,7 +370,7 @@ export class ApolloGateway implements GraphQLService {
     } else if (isServiceListConfig(this.config)) {
       // TODO(trevor:removeServiceList)
       this.logger.warn(
-        'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
+        'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to its replacement `IntrospectAndCompose`. More information on `IntrospectAndCompose` can be found in the documentation.',
       );
       await this.initializeSupergraphManager(
         new IntrospectAndCompose({
@@ -1131,6 +1131,7 @@ export {
   ServiceEndpointDefinition,
   CompositionInfo,
   IntrospectAndCompose,
+  LocalCompose,
 };
 
 export * from './datasources';
