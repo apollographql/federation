@@ -552,7 +552,7 @@ export class ApolloGateway implements GraphQLService {
     name,
     url,
   }: ServiceEndpointDefinition) {
-    return this.createAndCacheDataSource({ name, url });
+    return this.getOrCreateDataSource({ name, url });
   }
 
   private updateWithSupergraphSdl({ supergraphSdl, id }: SupergraphSdlUpdate) {
@@ -745,7 +745,7 @@ export class ApolloGateway implements GraphQLService {
     };
   }
 
-  private createAndCacheDataSource(
+  private getOrCreateDataSource(
     serviceDef: ServiceEndpointDefinition,
   ): GraphQLDataSource {
     // If the DataSource has already been created, early return
@@ -782,7 +782,7 @@ export class ApolloGateway implements GraphQLService {
 
   private createServices(services: ServiceEndpointDefinition[]) {
     for (const serviceDef of services) {
-      this.createAndCacheDataSource(serviceDef);
+      this.getOrCreateDataSource(serviceDef);
     }
   }
 
