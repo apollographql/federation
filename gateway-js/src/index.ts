@@ -51,7 +51,6 @@ import {
   isLocalConfig,
   isServiceListConfig,
   isManagedConfig,
-  isDynamicConfig,
   SupergraphSdlUpdate,
   isManuallyManagedSupergraphSdlGatewayConfig,
   ManagedGatewayConfig,
@@ -206,9 +205,7 @@ export class ApolloGateway implements GraphQLService {
 
     this.pollIntervalInMs = config?.experimental_pollInterval;
 
-    if (isDynamicConfig(this.config)) {
-      this.issueDynamicWarningsIfApplicable();
-    }
+    this.issueConfigurationWarningsIfApplicable();
 
     this.logger.debug('Gateway successfully initialized (but not yet loaded)');
     this.state = { phase: 'initialized' };
@@ -245,7 +242,7 @@ export class ApolloGateway implements GraphQLService {
     });
   }
 
-  private issueDynamicWarningsIfApplicable() {
+  private issueConfigurationWarningsIfApplicable() {
     // Warn against a pollInterval of < 10s in managed mode and reset it to 10s
     if (
       isManagedConfig(this.config) &&
@@ -282,6 +279,12 @@ export class ApolloGateway implements GraphQLService {
           'provided. Gateway will default to using the provided `experimental_updateSupergraphSdl` ' +
           'function when both `experimental_updateSupergraphSdl` and experimental_updateServiceDefinitions` ' +
           'are provided.',
+      );
+    }
+
+    if ('schemaConfigDeliveryEndpoint' in this.config) {
+      this.logger.warn(
+        'The `schemaConfigDeliveryEndpoint` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the equivalent (array form) `uplinkEndpoints` configuration option.',
       );
     }
   }

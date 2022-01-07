@@ -325,10 +325,3 @@ export function isStaticConfig(
 ): config is StaticGatewayConfig {
   return isLocalConfig(config) || isStaticSupergraphSdlConfig(config);
 }
-
-// A dynamic config is one which loads asynchronously and (can) update via polling
-export function isDynamicConfig(
-  config: GatewayConfig,
-): config is DynamicGatewayConfig {
-  return isManagedConfig(config) || isManuallyManagedConfig(config);
-}

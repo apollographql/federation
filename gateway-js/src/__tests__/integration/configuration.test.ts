@@ -432,4 +432,15 @@ describe('deprecation warnings', () => {
 
     await gateway.stop();
   });
+
+  it('warns with `schemaConfigDeliveryEndpoint` option set', async () => {
+    new ApolloGateway({
+      schemaConfigDeliveryEndpoint: 'test',
+      logger,
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'The `schemaConfigDeliveryEndpoint` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the equivalent (array form) `uplinkEndpoints` configuration option.',
+    );
+  });
 });
