@@ -16,10 +16,11 @@ import {
   superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
-import { ApolloGateway, addResolversToSchema, GraphQLResolverMap } from '..';
+import { ApolloGateway } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { getFederatedTestingSchema } from './execution-utils';
 import { Schema, Operation, parseOperation, buildSchemaFromAST } from '@apollo/federation-internals';
+import { addResolversToSchema, GraphQLResolverMap } from '../schema-helper';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);

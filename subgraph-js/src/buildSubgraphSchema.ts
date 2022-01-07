@@ -15,7 +15,7 @@ import {
   modulesFromSDL,
   transformSchema,
   buildSchemaFromSDL,
-} from '@apollo/gateway';
+} from './schema-helper';
 
 import { federationDirectives, typeIncludesDirective } from './directives';
 

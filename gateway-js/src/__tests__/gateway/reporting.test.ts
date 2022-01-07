@@ -8,11 +8,12 @@ import { execute } from '@apollo/client/link/core';
 import { toPromise } from '@apollo/client/link/utils';
 import { createHttpLink } from '@apollo/client/link/http';
 import fetch from 'node-fetch';
-import { ApolloGateway, GraphQLSchemaModule } from '../..';
+import { ApolloGateway } from '../..';
 import { Plugin, Config, Refs } from 'pretty-format';
 import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
+import { GraphQLSchemaModule } from '../../schema-helper';
 
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally
