@@ -1,5 +1,5 @@
 import gql from 'graphql-tag';
-import { DocumentNode, GraphQLObjectType, GraphQLSchema } from 'graphql';
+import { GraphQLObjectType, GraphQLSchema } from 'graphql';
 import mockedEnv from 'mocked-env';
 import { Logger } from 'apollo-server-types';
 import { ApolloGateway } from '../..';
