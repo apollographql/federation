@@ -1271,3 +1271,4 @@ export {
 };
 
 export * from './datasources';
+export * from './schema-helper';

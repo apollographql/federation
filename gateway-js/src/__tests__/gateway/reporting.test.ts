@@ -1,6 +1,5 @@
 import { gunzipSync } from 'zlib';
 import nock from 'nock';
-import { GraphQLSchemaModule } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import { ApolloServer } from 'apollo-server';
@@ -9,7 +8,7 @@ import { execute } from '@apollo/client/link/core';
 import { toPromise } from '@apollo/client/link/utils';
 import { createHttpLink } from '@apollo/client/link/http';
 import fetch from 'node-fetch';
-import { ApolloGateway } from '../..';
+import { ApolloGateway, GraphQLSchemaModule } from '../..';
 import { Plugin, Config, Refs } from 'pretty-format';
 import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';

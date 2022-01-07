@@ -4,7 +4,6 @@ import {
   GraphQLObjectType,
   print,
 } from 'graphql';
-import { addResolversToSchema, GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { GraphQLExecutionResult, GraphQLRequestContext } from 'apollo-server-types';
 import { AuthenticationError } from 'apollo-server-core';
@@ -17,7 +16,7 @@ import {
   superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
-import { ApolloGateway } from '..';
+import { ApolloGateway, addResolversToSchema, GraphQLResolverMap } from '..';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 import { getFederatedTestingSchema } from './execution-utils';
 import { Schema, Operation, parseOperation, buildSchemaFromAST } from '@apollo/federation-internals';
