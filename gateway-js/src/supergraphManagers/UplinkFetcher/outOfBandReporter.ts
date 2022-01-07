@@ -4,7 +4,7 @@ import {
   ErrorCode,
   OobReportMutation,
   OobReportMutationVariables,
-} from '../__generated__/graphqlTypes';
+} from '../../__generated__/graphqlTypes';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
 export const OUT_OF_BAND_REPORTER_QUERY = /* GraphQL */`#graphql

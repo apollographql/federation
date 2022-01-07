@@ -56,7 +56,7 @@ import {
   isManuallyManagedSupergraphSdlGatewayConfig,
   ManagedGatewayConfig,
   isStaticSupergraphSdlConfig,
-  SupergraphSdlManager,
+  SupergraphManager,
 } from './config';
 import { buildComposedSchema } from '@apollo/query-planner';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -64,10 +64,12 @@ import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
 import { CoreSchema } from '@apollo/core-schema';
 import { featureSupport } from './core';
 import { createHash } from './utilities/createHash';
-import { IntrospectAndCompose } from './IntrospectAndCompose';
-import { UplinkFetcher } from './UplinkFetcher';
-import { LegacyFetcher } from './LegacyFetcher';
-import { LocalCompose } from './LocalCompose';
+import {
+  IntrospectAndCompose,
+  UplinkFetcher,
+  LegacyFetcher,
+  LocalCompose,
+} from './supergraphManagers';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -320,7 +322,7 @@ export class ApolloGateway implements GraphQLService {
     // Handles initial assignment of `this.schema`, `this.queryPlanner`
     if (isStaticSupergraphSdlConfig(this.config)) {
       const supergraphSdl = this.config.supergraphSdl;
-      await this.initializeSupergraphSdlManager({
+      await this.initializeSupergraphManager({
         initialize: async () => {
           return {
             supergraphSdl,
@@ -329,7 +331,7 @@ export class ApolloGateway implements GraphQLService {
       });
     } else if (isLocalConfig(this.config)) {
       // TODO(trevor:removeServiceList)
-      await this.initializeSupergraphSdlManager(new LocalCompose({
+      await this.initializeSupergraphManager(new LocalCompose({
         localServiceList: this.config.localServiceList,
         logger: this.logger,
       }));
@@ -337,7 +339,7 @@ export class ApolloGateway implements GraphQLService {
       const supergraphSdlFetcher = typeof this.config.supergraphSdl === 'object'
         ? this.config.supergraphSdl
         : { initialize: this.config.supergraphSdl };
-      await this.initializeSupergraphSdlManager(supergraphSdlFetcher);
+      await this.initializeSupergraphManager(supergraphSdlFetcher);
     } else if (
       isServiceListConfig(this.config) &&
       // this setting is currently expected to override `serviceList` when they both exist
@@ -347,7 +349,7 @@ export class ApolloGateway implements GraphQLService {
       this.logger.warn(
         'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the function form of the `supergraphSdl` configuration option.',
       );
-      await this.initializeSupergraphSdlManager(
+      await this.initializeSupergraphManager(
         new IntrospectAndCompose({
           subgraphs: this.config.serviceList,
           pollIntervalInMs: this.config.experimental_pollInterval,
@@ -369,7 +371,7 @@ export class ApolloGateway implements GraphQLService {
       }
       const uplinkEndpoints = this.getUplinkEndpoints(this.config);
 
-      await this.initializeSupergraphSdlManager(
+      await this.initializeSupergraphManager(
         new UplinkFetcher({
           graphRef: this.apolloConfig!.graphRef!,
           apiKey: this.apolloConfig!.key!,
@@ -396,7 +398,7 @@ export class ApolloGateway implements GraphQLService {
         subgraphHealthCheck: this.config.serviceHealthCheck,
       });
 
-      await this.initializeSupergraphSdlManager(legacyFetcher);
+      await this.initializeSupergraphManager(legacyFetcher);
     }
 
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
@@ -435,7 +437,7 @@ export class ApolloGateway implements GraphQLService {
     return createHash('sha256').update(supergraphSdl).digest('hex');
   }
 
-  private async initializeSupergraphSdlManager<T extends SupergraphSdlManager>(
+  private async initializeSupergraphManager<T extends SupergraphManager>(
     supergraphSdlFetcher: T,
   ) {
     try {

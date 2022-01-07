@@ -1,11 +1,6 @@
 // TODO(trevor:removeServiceList) the whole file goes away
 import { Logger } from 'apollo-server-types';
 import {
-  GetDataSourceFunction,
-  SupergraphSdlHookOptions,
-  SupergraphSdlManager,
-} from '../config';
-import {
   composeAndValidate,
   compositionHasErrors,
   ServiceDefinition,
@@ -17,14 +12,19 @@ import {
   parse,
 } from 'graphql';
 import { buildComposedSchema } from '@apollo/query-planner';
-import { defaultFieldResolverWithAliasSupport } from '../executeQueryPlan';
+import {
+  GetDataSourceFunction,
+  SupergraphSdlHookOptions,
+  SupergraphManager,
+} from '../../config';
+import { defaultFieldResolverWithAliasSupport } from '../../executeQueryPlan';
 
 export interface LocalComposeOptions {
   logger?: Logger;
   localServiceList: ServiceDefinition[];
 }
 
-export class LocalCompose implements SupergraphSdlManager {
+export class LocalCompose implements SupergraphManager {
   private config: LocalComposeOptions;
   private getDataSource?: GetDataSourceFunction;
 

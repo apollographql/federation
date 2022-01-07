@@ -2,23 +2,23 @@
 import { Logger } from 'apollo-server-types';
 import resolvable from '@josephg/resolvable';
 import {
-  SupergraphSdlManager,
+  SupergraphManager,
   SupergraphSdlHookOptions,
   DynamicGatewayConfig,
   isSupergraphSdlUpdate,
   isServiceDefinitionUpdate,
   ServiceDefinitionUpdate,
   GetDataSourceFunction,
-} from '../config';
+} from '../../config';
 import {
   Experimental_UpdateComposition,
   SubgraphHealthCheckFunction,
   SupergraphSdlUpdateFunction,
-} from '..';
+} from '../..';
 import { composeAndValidate, compositionHasErrors, ServiceDefinition } from '@apollo/federation';
 import { GraphQLSchema, isIntrospectionType, isObjectType, parse } from 'graphql';
 import { buildComposedSchema } from '@apollo/query-planner';
-import { defaultFieldResolverWithAliasSupport } from '../executeQueryPlan';
+import { defaultFieldResolverWithAliasSupport } from '../../executeQueryPlan';
 
 export interface LegacyFetcherOptions {
   pollIntervalInMs?: number;
@@ -33,7 +33,7 @@ type State =
   | { phase: 'polling'; pollingPromise?: Promise<void> }
   | { phase: 'stopped' };
 
-export class LegacyFetcher implements SupergraphSdlManager {
+export class LegacyFetcher implements SupergraphManager {
   private config: LegacyFetcherOptions;
   private update?: SupergraphSdlUpdateFunction;
   private healthCheck?: SubgraphHealthCheckFunction;

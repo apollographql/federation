@@ -1,8 +1,8 @@
 import { fetch, Response, Request } from 'apollo-server-env';
 import { GraphQLError } from 'graphql';
-import { SupergraphSdlUpdate } from '../config';
+import { SupergraphSdlUpdate } from '../../config';
 import { submitOutOfBandReportIfConfigured } from './outOfBandReporter';
-import { SupergraphSdlQuery } from '../__generated__/graphqlTypes';
+import { SupergraphSdlQuery } from '../../__generated__/graphqlTypes';
 
 // Magic /* GraphQL */ comment below is for codegen, do not remove
 export const SUPERGRAPH_SDL_QUERY = /* GraphQL */`#graphql

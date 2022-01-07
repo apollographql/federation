@@ -200,12 +200,12 @@ export interface SupergraphSdlHook {
   }>;
 }
 
-export interface SupergraphSdlManager {
+export interface SupergraphManager {
   initialize: SupergraphSdlHook
 }
 
 export interface ManuallyManagedSupergraphSdlGatewayConfig extends GatewayConfigBase {
-  supergraphSdl: SupergraphSdlHook | SupergraphSdlManager;
+  supergraphSdl: SupergraphSdlHook | SupergraphManager;
 }
 
 type ManuallyManagedGatewayConfig =
