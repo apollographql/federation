@@ -11,7 +11,7 @@ module.exports = {
         // algoliaIndexName: 'federation',
         algoliaFilters: [
           'docset:federation',
-          ['docset:server', 'docset:rover', 'docset:studio'],
+          ['docset:server', 'docset:rover', 'docset:router', 'docset:studio'],
         ],
         subtitle: 'Federation',
         description: 'A guide to using Apollo Federation',
