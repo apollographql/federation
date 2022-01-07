@@ -336,10 +336,10 @@ export class ApolloGateway implements GraphQLService {
         logger: this.logger,
       }));
     } else if (isManuallyManagedSupergraphSdlGatewayConfig(this.config)) {
-      const supergraphSdlFetcher = typeof this.config.supergraphSdl === 'object'
+      const supergraphManager = typeof this.config.supergraphSdl === 'object'
         ? this.config.supergraphSdl
         : { initialize: this.config.supergraphSdl };
-      await this.initializeSupergraphManager(supergraphSdlFetcher);
+      await this.initializeSupergraphManager(supergraphManager);
     } else if (
       isServiceListConfig(this.config) &&
       // this setting is currently expected to override `serviceList` when they both exist
@@ -390,15 +390,15 @@ export class ApolloGateway implements GraphQLService {
           ? this.config.experimental_updateServiceDefinitions
           : this.config.experimental_updateSupergraphSdl;
 
-      const legacyFetcher = new LegacyFetcher({
-        logger: this.logger,
-        gatewayConfig: this.config,
-        updateServiceDefinitions,
-        pollIntervalInMs: this.pollIntervalInMs,
-        subgraphHealthCheck: this.config.serviceHealthCheck,
-      });
-
-      await this.initializeSupergraphManager(legacyFetcher);
+      await this.initializeSupergraphManager(
+        new LegacyFetcher({
+          logger: this.logger,
+          gatewayConfig: this.config,
+          updateServiceDefinitions,
+          pollIntervalInMs: this.pollIntervalInMs,
+          subgraphHealthCheck: this.config.serviceHealthCheck,
+        }),
+      );
     }
 
     const mode = isManagedConfig(this.config) ? 'managed' : 'unmanaged';
@@ -438,10 +438,10 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private async initializeSupergraphManager<T extends SupergraphManager>(
-    supergraphSdlFetcher: T,
+    supergraphManager: T,
   ) {
     try {
-      const result = await supergraphSdlFetcher.initialize({
+      const result = await supergraphManager.initialize({
         update: this.externalSupergraphUpdateCallback.bind(this),
         healthCheck: this.externalSubgraphHealthCheckCallback.bind(this),
         getDataSource: this.externalGetDataSourceCallback.bind(this),
