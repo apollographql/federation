@@ -35,7 +35,7 @@ interface SupergraphSdlQueryFailure {
   errors: GraphQLError[];
 }
 
-const { name, version } = require('../../package.json');
+const { name, version } = require('../../../package.json');
 
 const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
 

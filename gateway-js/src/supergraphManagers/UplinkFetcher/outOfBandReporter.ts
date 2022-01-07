@@ -13,7 +13,7 @@ export const OUT_OF_BAND_REPORTER_QUERY = /* GraphQL */`#graphql
   }
 `;
 
-const { name, version } = require('../../package.json');
+const { name, version } = require('../../../package.json');
 
 type OobReportMutationResult =
   | OobReportMutationSuccess
