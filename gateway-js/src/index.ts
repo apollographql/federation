@@ -473,7 +473,7 @@ export class ApolloGateway implements GraphQLService {
 
   /**
    * @throws Error
-   * when called from a state other than `loaded`
+   * when called from a state other than `loaded` or `intialized`
    *
    * @throws Error
    * when the provided supergraphSdl is invalid
@@ -515,6 +515,10 @@ export class ApolloGateway implements GraphQLService {
     }
   }
 
+  /**
+   * @throws Error
+   * when any subgraph fails the health check
+   */
   private async externalSubgraphHealthCheckCallback(supergraphSdl: string) {
     const parsedSupergraphSdl =
       supergraphSdl === this.supergraphSdl
