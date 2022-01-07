@@ -169,56 +169,53 @@ function validateFieldSetSelections(
 function validateFieldSet(
   type: CompositeType,
   directive: Directive<any, {fields: any}>,
-  targetDescription: string,
   externalTester: ExternalTester,
   externalFieldCoordinatesCollector: string[],
   allowOnNonExternalLeafFields: boolean,
   onFields?: (field: FieldDefinition<any>) => void,
 ): GraphQLError | undefined {
   try {
-    const selectionSet = parseFieldSetArgument(type, directive, onFields ? (type, fieldName) => {
-      const field = type.field(fieldName);
-      if (field) {
-        onFields(field);
+    // Note that `parseFieldSetArgument` already properly format the error, hence the separate try-catch.
+    const fieldAcessor = onFields
+      ? (type: CompositeType, fieldName: string) => {
+        const field = type.field(fieldName);
+        if (field) {
+          onFields(field);
+        }
+        return field;
       }
-      return field;
-    } : undefined);
-    selectionSet.validate();
-    validateFieldSetSelections(directive.name, selectionSet, false, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
-    return undefined;
+      : undefined;
+    const selectionSet = parseFieldSetArgument(type, directive, fieldAcessor);
+
+    try {
+      validateFieldSetSelections(directive.name, selectionSet, false, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
+      return undefined;
+    } catch (e) {
+      if (!(e instanceof GraphQLError)) {
+        throw e;
+      }
+      const nodes = sourceASTs(directive);
+      if (e.nodes) {
+        nodes.push(...e.nodes);
+      }
+      const codeDef = errorCodeDef(e) ?? ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
+      return codeDef.err({
+        message: `${fieldSetErrorDescriptor(directive)}: ${e.message.trim()}`,
+        nodes,
+        originalError: e,
+      });
+    }
   } catch (e) {
-    if (!(e instanceof GraphQLError)) {
+    if (e instanceof GraphQLError) {
+      return e;
+    } else {
       throw e;
     }
-    const nodes = sourceASTs(directive);
-    if (e.nodes) {
-      nodes.push(...e.nodes);
-    }
-    let msg = e.message.trim();
-    // The rule for validating @requires in fed 1 was not properly recursive, so people upgrading
-    // may have a @require that selects some fields but without declaring those fields on the
-    // subgraph. As we fixed the validation, this will now fail, but we try here to provide some
-    // hint for those users for how to fix the problem.
-    // Note that this is a tad fragile to rely on the error message like that, but worth case, a
-    // future change make us not show the hint and that's not the end of the world.
-    if (msg.startsWith('Cannot query field')) {
-      if (msg.endsWith('.')) {
-        msg = msg.slice(0, msg.length - 1);
-      }
-      if (directive.name === keyDirectiveName) {
-        msg = msg + ' (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
-      } else {
-        msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
-      }
-    }
-
-    const codeDef = errorCodeDef(e) ?? ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
-    return codeDef.err({
-      message: `On ${targetDescription}, for ${directiveStrUsingASTIfPossible(directive)}: ${msg}`,
-      nodes,
-      originalError: e,
-    });
   }
+}
+
+function fieldSetErrorDescriptor(directive: Directive<any, {fields: any}>): string {
+  return `On ${fieldSetTargetDescription(directive)}, for ${directiveStrUsingASTIfPossible(directive)}`;
 }
 
 // This method is called to display @key, @provides or @requires directives in error message in place where the directive `fields`
@@ -228,10 +225,14 @@ function directiveStrUsingASTIfPossible(directive: Directive<any>): string {
   return directive.sourceAST ? printAST(directive.sourceAST) : directive.toString();
 }
 
+function fieldSetTargetDescription(directive: Directive<any, {fields: any}>): string {
+  const targetKind = directive.parent instanceof FieldDefinition ? "field" : "type";
+  return `${targetKind} "${directive.parent?.coordinate}"`;
+}
+
 function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   definition: DirectiveDefinition<{fields: any}>,
   targetTypeExtractor: (element: TParent) => CompositeType,
-  targetDescriptionExtractor: (element: TParent) => string,
   errorCollector: GraphQLError[],
   externalTester: ExternalTester,
   externalFieldCoordinatesCollector: string[],
@@ -242,21 +243,19 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   for (const application of definition.applications()) {
     const elt = application.parent as TParent;
     const type = targetTypeExtractor(elt);
-    const targetDescription = targetDescriptionExtractor(elt);
     const parentType = isOnParentType ? type : (elt.parent as NamedType);
     if (isInterfaceType(parentType)) {
       const code = ERROR_CATEGORIES.DIRECTIVE_UNSUPPORTED_ON_INTERFACE.get(definition.name);
       errorCollector.push(code.err({
         message: isOnParentType
           ? `Cannot use ${definition.coordinate} on interface "${parentType.coordinate}": ${definition.coordinate} is not yet supported on interfaces`
-          : `Cannot use ${definition.coordinate} on ${targetDescription} of parent type "${parentType}": ${definition.coordinate} is not yet supported within interfaces`,
+          : `Cannot use ${definition.coordinate} on ${fieldSetTargetDescription(application)} of parent type "${parentType}": ${definition.coordinate} is not yet supported within interfaces`,
         nodes: sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type)),
       }));
     }
     const error = validateFieldSet(
       type,
       application,
-      targetDescription,
       externalTester,
       externalFieldCoordinatesCollector,
       allowOnNonExternalLeafFields,
@@ -429,7 +428,6 @@ export class FederationBuiltIns extends BuiltIns {
     validateAllFieldSet<CompositeType>(
       keyDirective,
       type => type,
-      type => `type "${type}"`,
       errors,
       externalTester,
       externalFieldsInFedDirectivesCoordinates,
@@ -455,7 +453,6 @@ export class FederationBuiltIns extends BuiltIns {
     validateAllFieldSet<FieldDefinition<CompositeType>>(
       this.requiresDirective(schema),
       field => field.parent,
-      field => `field "${field.coordinate}"`,
       errors,
       externalTester,
       externalFieldsInFedDirectivesCoordinates,
@@ -481,7 +478,6 @@ export class FederationBuiltIns extends BuiltIns {
         }
         return type;
       },
-      field => `field "${field.coordinate}"`,
       errors,
       externalTester,
       externalFieldsInFedDirectivesCoordinates,
@@ -605,7 +601,44 @@ export function parseFieldSetArgument(
   directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
   fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
 ): SelectionSet {
-  return parseSelectionSet(parentType, validateFieldSetValue(directive), new VariableDefinitions(), undefined, fieldAccessor);
+  try {
+    const selectionSet = parseSelectionSet(parentType, validateFieldSetValue(directive), new VariableDefinitions(), undefined, fieldAccessor);
+    selectionSet.validate();
+    return selectionSet;
+  } catch (e) {
+    if (!(e instanceof GraphQLError)) {
+      throw e;
+    }
+
+    const nodes = sourceASTs(directive);
+    if (e.nodes) {
+      nodes.push(...e.nodes);
+    }
+    let msg = e.message.trim();
+    // The rule for validating @requires in fed 1 was not properly recursive, so people upgrading
+    // may have a @require that selects some fields but without declaring those fields on the
+    // subgraph. As we fixed the validation, this will now fail, but we try here to provide some
+    // hint for those users for how to fix the problem.
+    // Note that this is a tad fragile to rely on the error message like that, but worth case, a
+    // future change make us not show the hint and that's not the end of the world.
+    if (msg.startsWith('Cannot query field')) {
+      if (msg.endsWith('.')) {
+        msg = msg.slice(0, msg.length - 1);
+      }
+      if (directive.name === keyDirectiveName) {
+        msg = msg + ' (the field should be either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
+      } else {
+        msg = msg + ' (if the field is defined in another subgraph, you need to add it to this subgraph with @external).';
+      }
+    }
+
+    const codeDef = errorCodeDef(e) ?? ERROR_CATEGORIES.DIRECTIVE_INVALID_FIELDS.get(directive.name);
+    throw codeDef.err({
+      message: `${fieldSetErrorDescriptor(directive)}: ${msg}`,
+      nodes,
+      originalError: e,
+    });
+  }
 }
 
 function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>): string {

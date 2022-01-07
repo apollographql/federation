@@ -242,3 +242,30 @@ export function copyWitNewLength<T>(arr: T[], newLength: number): T[] {
   }
   return copy;
 }
+
+/**
+ * Checks whether the provided string value is defined and represents a "boolean-ish"
+ * value, returning that boolean value.
+ *
+ * @param str - the string to check.
+ * @return the boolean value contains in `str` if `str` represents a boolean-ish value,
+ * where "boolean-ish" is one of "true"/"false", "yes"/"no" or "0"/"1" (where the check
+ * is case-insensitive). Otherwise, `undefined` is returned.
+ */
+export function validateStringContainsBoolean(str?: string) : boolean | undefined {
+  if (!str) {
+    return false;
+  }
+  switch (str.toLocaleLowerCase()) {
+    case "true":
+    case "yes":
+    case "1":
+      return true;
+    case "false":
+    case "no":
+    case "0":
+      return false;
+    default:
+      return undefined;
+  }
+}

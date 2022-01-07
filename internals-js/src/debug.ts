@@ -1,24 +1,7 @@
 // Simple debugging facility.
 
 import chalk from 'chalk';
-
-function stringIsBoolean(str?: string) : boolean | undefined {
-  if (!str) {
-    return false;
-  }
-  switch (str.toLocaleLowerCase()) {
-    case "true":
-    case "yes":
-    case "1":
-      return true;
-    case "false":
-    case "no":
-    case "0":
-      return false;
-    default:
-      return undefined;
-  }
-}
+import { validateStringContainsBoolean } from './utils';
 
 function indentString(indentLevel: number) : string {
   let str = "";
@@ -30,7 +13,7 @@ function indentString(indentLevel: number) : string {
 
 function isEnabled(name: string): boolean {
   const v = process.env.APOLLO_FEDERATION_DEBUG;
-  const bool = stringIsBoolean(v);
+  const bool = validateStringContainsBoolean(v);
   if (bool !== undefined) {
     return bool;
   }
