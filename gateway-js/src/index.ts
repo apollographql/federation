@@ -1128,5 +1128,7 @@ export * from './datasources';
 export {
   SupergraphSdlUpdateFunction,
   SubgraphHealthCheckFunction,
+  GetDataSourceFunction,
   SupergraphSdlHook,
+  SupergraphManager
 } from './config';
