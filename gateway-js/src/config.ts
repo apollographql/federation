@@ -135,9 +135,13 @@ interface GatewayConfigBase {
 
 // TODO(trevor:removeServiceList)
 export interface ServiceListGatewayConfig extends GatewayConfigBase {
-  // @deprecated: use `supergraphSdl` in its function form instead
+  /**
+   * @deprecated: use `supergraphSdl` in its function form instead
+   */
   serviceList: ServiceEndpointDefinition[];
-  // @deprecated: use `supergraphSdl` in its function form instead
+  /**
+   * @deprecated: use `supergraphSdl` in its function form instead
+   */
   introspectionHeaders?:
     | HeadersInit
     | ((
@@ -149,22 +153,28 @@ export interface ManagedGatewayConfig extends GatewayConfigBase {
   /**
    * This configuration option shouldn't be used unless by recommendation from
    * Apollo staff.
+   *
+   * @deprecated: use `uplinkEndpoints` instead
    */
-  schemaConfigDeliveryEndpoint?: string; // deprecated
+  schemaConfigDeliveryEndpoint?: string;
   uplinkEndpoints?: string[];
   uplinkMaxRetries?: number;
 }
 
 // TODO(trevor:removeServiceList): migrate users to `supergraphSdl` function option
 interface ManuallyManagedServiceDefsGatewayConfig extends GatewayConfigBase {
-  // @deprecated: use `supergraphSdl` in its function form instead
+  /**
+   * @deprecated: use `supergraphSdl` in its function form instead
+   */
   experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
 }
 
 // TODO(trevor:removeServiceList): migrate users to `supergraphSdl` function option
 interface ExperimentalManuallyManagedSupergraphSdlGatewayConfig
   extends GatewayConfigBase {
-  // @deprecated: use `supergraphSdl` in its function form instead
+  /**
+   * @deprecated: use `supergraphSdl` in its function form instead
+   */
   experimental_updateSupergraphSdl: Experimental_UpdateSupergraphSdl;
 }
 
@@ -179,9 +189,13 @@ export function isManuallyManagedSupergraphSdlGatewayConfig(
   );
 }
 
-export type SupergraphSdlUpdateFunction = (updatedSupergraphSdl: string) => void;
+export type SupergraphSdlUpdateFunction = (
+  updatedSupergraphSdl: string,
+) => void;
 
-export type SubgraphHealthCheckFunction = (supergraphSdl: string) => Promise<void>;
+export type SubgraphHealthCheckFunction = (
+  supergraphSdl: string,
+) => Promise<void>;
 
 export type GetDataSourceFunction = ({
   name,
@@ -201,7 +215,7 @@ export interface SupergraphSdlHook {
 }
 
 export interface SupergraphManager {
-  initialize: SupergraphSdlHook
+  initialize: SupergraphSdlHook;
 }
 
 export interface ManuallyManagedSupergraphSdlGatewayConfig extends GatewayConfigBase {
@@ -217,7 +231,9 @@ type ManuallyManagedGatewayConfig =
 
 // TODO(trevor:removeServiceList)
 interface LocalGatewayConfig extends GatewayConfigBase {
-  // @deprecated: use `supergraphSdl` in its function form instead
+  /**
+   * @deprecated: use `supergraphSdl` in its function form instead
+   */
   localServiceList: ServiceDefinition[];
 }
 
