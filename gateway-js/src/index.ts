@@ -451,7 +451,13 @@ export class ApolloGateway implements GraphQLService {
         );
       }
       if (result?.cleanup) {
+        if (typeof result.cleanup === 'function') {
         this.toDispose.push(result.cleanup);
+        } else {
+          this.logger.error(
+            'Provided `supergraphSdl` function returned an invalid `cleanup` property (must be a function)',
+          );
+        }
       }
 
       this.externalSupergraphUpdateCallback(result.supergraphSdl);
