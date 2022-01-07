@@ -181,12 +181,7 @@ interface ExperimentalManuallyManagedSupergraphSdlGatewayConfig
 export function isManuallyManagedSupergraphSdlGatewayConfig(
   config: GatewayConfig,
 ): config is ManuallyManagedSupergraphSdlGatewayConfig {
-  return (
-    'supergraphSdl' in config &&
-    (typeof config.supergraphSdl === 'function' ||
-      (typeof config.supergraphSdl === 'object' &&
-        'initialize' in config.supergraphSdl))
-  );
+  return isSupergraphSdlHookConfig(config) || isSupergraphManagerConfig(config);
 }
 
 export type SupergraphSdlUpdateFunction = (
@@ -218,8 +213,16 @@ export interface SupergraphManager {
   initialize: SupergraphSdlHook;
 }
 
-export interface ManuallyManagedSupergraphSdlGatewayConfig extends GatewayConfigBase {
-  supergraphSdl: SupergraphSdlHook | SupergraphManager;
+type ManuallyManagedSupergraphSdlGatewayConfig =
+  | SupergraphSdlHookGatewayConfig
+  | SupergraphManagerGatewayConfig;
+
+export interface SupergraphSdlHookGatewayConfig extends GatewayConfigBase {
+  supergraphSdl: SupergraphSdlHook;
+}
+
+export interface SupergraphManagerGatewayConfig extends GatewayConfigBase {
+  supergraphSdl: SupergraphManager;
 }
 
 type ManuallyManagedGatewayConfig =
@@ -271,6 +274,24 @@ export function isStaticSupergraphSdlConfig(
   return 'supergraphSdl' in config && typeof config.supergraphSdl === 'string';
 }
 
+export function isSupergraphSdlHookConfig(
+  config: GatewayConfig,
+): config is SupergraphSdlHookGatewayConfig {
+  return (
+    'supergraphSdl' in config && typeof config.supergraphSdl === 'function'
+  );
+}
+
+export function isSupergraphManagerConfig(
+  config: GatewayConfig,
+): config is SupergraphManagerGatewayConfig {
+  return (
+    'supergraphSdl' in config &&
+    typeof config.supergraphSdl === 'object' &&
+    'initialize' in config.supergraphSdl
+  );
+}
+
 // A manually managed config means the user has provided a function which
 // handles providing service definitions to the gateway.
 export function isManuallyManagedConfig(
@@ -281,7 +302,7 @@ export function isManuallyManagedConfig(
     'experimental_updateServiceDefinitions' in config ||
     'experimental_updateSupergraphSdl' in config ||
     // TODO(trevor:removeServiceList)
-    'serviceList' in config
+    isServiceListConfig(config)
   );
 }
 
@@ -291,6 +312,7 @@ export function isManagedConfig(
 ): config is ManagedGatewayConfig {
   return (
     'schemaConfigDeliveryEndpoint' in config ||
+    'uplinkEndpoints' in config ||
     (!isLocalConfig(config) &&
       !isStaticSupergraphSdlConfig(config) &&
       !isManuallyManagedConfig(config))
