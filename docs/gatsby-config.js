@@ -21,6 +21,7 @@ module.exports = {
             'gateway',
             'entities',
             'value-types',
+            'query-plans',
             'migrating-from-stitching',
           ],
           'Managed Federation': [
