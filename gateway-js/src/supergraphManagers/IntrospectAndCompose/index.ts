@@ -12,7 +12,7 @@ import {
   SubgraphHealthCheckFunction,
 } from '../..';
 import {
-  getServiceDefinitionsFromRemoteEndpoint,
+  loadServicesFromRemoteEndpoint,
   Service,
 } from './loadServicesFromRemoteEndpoint';
 import { SupergraphManager, SupergraphSdlHookOptions } from '../../config';
@@ -93,7 +93,7 @@ export class IntrospectAndCompose implements SupergraphManager {
   }
 
   private async updateSupergraphSdl() {
-    const result = await getServiceDefinitionsFromRemoteEndpoint({
+    const result = await loadServicesFromRemoteEndpoint({
       serviceList: this.subgraphs!,
       getServiceIntrospectionHeaders: async (service) => {
         return typeof this.config.introspectionHeaders === 'function'

@@ -10,7 +10,7 @@ export type Service = ServiceEndpointDefinition & {
   dataSource: GraphQLDataSource;
 };
 
-export async function getServiceDefinitionsFromRemoteEndpoint({
+export async function loadServicesFromRemoteEndpoint({
   serviceList,
   getServiceIntrospectionHeaders,
   serviceSdlCache,

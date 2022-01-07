@@ -1,13 +1,13 @@
-import { getServiceDefinitionsFromRemoteEndpoint } from '../loadServicesFromRemoteEndpoint';
+import { loadServicesFromRemoteEndpoint } from '../loadServicesFromRemoteEndpoint';
 import { RemoteGraphQLDataSource } from '../../../datasources';
 
-describe('getServiceDefinitionsFromRemoteEndpoint', () => {
+describe('loadServicesFromRemoteEndpoint', () => {
   it('errors when no URL was specified', async () => {
     const serviceSdlCache = new Map<string, string>();
     const dataSource = new RemoteGraphQLDataSource({ url: '' });
     const serviceList = [{ name: 'test', dataSource }];
     await expect(
-      getServiceDefinitionsFromRemoteEndpoint({
+      loadServicesFromRemoteEndpoint({
         serviceList,
         serviceSdlCache,
         getServiceIntrospectionHeaders: async () => ({})
@@ -28,7 +28,7 @@ describe('getServiceDefinitionsFromRemoteEndpoint', () => {
     // of `EAI_AGAIN` or `ENOTFOUND`.  This `toThrowError` uses a Regex
     // to match either case.
     await expect(
-      getServiceDefinitionsFromRemoteEndpoint({
+      loadServicesFromRemoteEndpoint({
         serviceList,
         serviceSdlCache,
         getServiceIntrospectionHeaders: async () => ({}),
