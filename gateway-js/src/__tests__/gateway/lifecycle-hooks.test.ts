@@ -170,7 +170,7 @@ describe('lifecycle hooks', () => {
   it('warns when polling on the default fetcher', async () => {
     new ApolloGateway({
       serviceList: serviceDefinitions,
-      experimental_pollInterval: 10,
+      pollIntervalInMs: 10,
       logger,
     });
     expect(logger.warn).toHaveBeenCalledWith(
@@ -187,7 +187,7 @@ describe('lifecycle hooks', () => {
     const gateway = new ApolloGateway({
       serviceList: [{ name: 'book', url: 'http://localhost:32542' }],
       experimental_updateServiceDefinitions,
-      experimental_pollInterval: 100,
+      pollIntervalInMs: 100,
       logger,
     });
 

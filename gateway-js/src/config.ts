@@ -126,7 +126,11 @@ interface GatewayConfigBase {
   experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
   experimental_didFailComposition?: Experimental_DidFailCompositionCallback;
   experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
+  /**
+   * @deprecated use `pollIntervalInMs` instead
+   */
   experimental_pollInterval?: number;
+  pollIntervalInMs?: number;
   experimental_approximateQueryPlanStoreMiB?: number;
   experimental_autoFragmentization?: boolean;
   fetcher?: typeof fetch;

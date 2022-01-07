@@ -203,7 +203,8 @@ export class ApolloGateway implements GraphQLService {
     this.experimental_didUpdateComposition =
       config?.experimental_didUpdateComposition;
 
-    this.pollIntervalInMs = config?.experimental_pollInterval;
+    this.pollIntervalInMs =
+      config?.pollIntervalInMs ?? config?.experimental_pollInterval;
 
     this.issueConfigurationWarningsIfApplicable();
 
@@ -246,22 +247,22 @@ export class ApolloGateway implements GraphQLService {
     // Warn against a pollInterval of < 10s in managed mode and reset it to 10s
     if (
       isManagedConfig(this.config) &&
-      this.config.experimental_pollInterval &&
-      this.config.experimental_pollInterval < 10000
+      this.pollIntervalInMs &&
+      this.pollIntervalInMs < 10000
     ) {
       this.pollIntervalInMs = 10000;
       this.logger.warn(
         'Polling Apollo services at a frequency of less than once per 10 ' +
           'seconds (10000) is disallowed. Instead, the minimum allowed ' +
           'pollInterval of 10000 will be used. Please reconfigure your ' +
-          'experimental_pollInterval accordingly. If this is problematic for ' +
+          '`pollIntervalInMs` accordingly. If this is problematic for ' +
           'your team, please contact support.',
       );
     }
 
     // Warn against using the pollInterval and a serviceList simultaneously
     // TODO(trevor:removeServiceList)
-    if (this.config.experimental_pollInterval && isServiceListConfig(this.config)) {
+    if (this.pollIntervalInMs && isServiceListConfig(this.config)) {
       this.logger.warn(
         'Polling running services is dangerous and not recommended in production. ' +
           'Polling should only be used against a registry. ' +
@@ -285,6 +286,12 @@ export class ApolloGateway implements GraphQLService {
     if ('schemaConfigDeliveryEndpoint' in this.config) {
       this.logger.warn(
         'The `schemaConfigDeliveryEndpoint` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the equivalent (array form) `uplinkEndpoints` configuration option.',
+      );
+    }
+
+    if ('experimental_pollInterval' in this.config) {
+      this.logger.warn(
+        'The `experimental_pollInterval` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to the equivalent `pollIntervalInMs` configuration option.',
       );
     }
   }
@@ -368,7 +375,7 @@ export class ApolloGateway implements GraphQLService {
       await this.initializeSupergraphManager(
         new IntrospectAndCompose({
           subgraphs: this.config.serviceList,
-          pollIntervalInMs: this.config.experimental_pollInterval,
+          pollIntervalInMs: this.pollIntervalInMs,
           logger: this.logger,
           subgraphHealthCheck: this.config.serviceHealthCheck,
           introspectionHeaders: this.config.introspectionHeaders,
