@@ -244,7 +244,6 @@ describe('Supergraph SDL update failures', () => {
     await gateway.load(mockApolloConfig);
     await errorLoggedPromise;
 
-    // @ts-ignore
     expect(logger.error).toHaveBeenCalledWith(
       `UplinkFetcher failed to update supergraph with the following error: An error occurred while fetching your schema from Apollo: \nCannot query field "fail" on type "Query".`,
     );
