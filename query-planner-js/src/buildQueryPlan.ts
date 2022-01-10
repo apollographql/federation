@@ -828,7 +828,6 @@ function splitFields(
             debug.group(`For runtime parent type ${runtimeParentType}:`);
 
             const fieldDef = context.getFieldDef(
-
               runtimeParentType,
               field.fieldNode,
             );
@@ -838,16 +837,20 @@ function splitFields(
               fieldDef,
             }));
 
-            group.fields.push(
-              completeField(
-                context,
-                scope.refine(runtimeParentType),
-                group,
-                path,
-                fieldsWithRuntimeParentType,
-              ),
-            );
-            debug.groupEnd(() => `Updated fetch group: ${debugPrintGroup(group)}`);
+            if (shouldIncludeToFetchGroup(group, fieldsWithRuntimeParentType, context, runtimeParentType)) {
+              group.fields.push(
+                completeField(
+                  context,
+                  scope.refine(runtimeParentType),
+                  group,
+                  path,
+                  fieldsWithRuntimeParentType,
+                ),
+              );
+              debug.groupEnd(() => `Updated fetch group: ${debugPrintGroup(group)}`);
+            } else {
+              debug.groupEnd(() => `Group has been skipped: ${debugPrintGroup(group)}`);
+            }
           }
           debug.groupEnd();
         }
@@ -857,6 +860,28 @@ function splitFields(
       }
     }
   }
+}
+
+function shouldIncludeToFetchGroup(
+  group: FetchGroup,
+  fields: FieldSet,
+  context: QueryPlanningContext,
+  runtimeParentType: GraphQLObjectType
+  ): Boolean {
+  const { fieldDef } = fields[0];
+  const returnType = getNamedType(fieldDef.type);
+
+  if (isCompositeType(returnType)) {
+    return true;
+  }
+
+  const owningService = context.getOwningService(runtimeParentType, fieldDef);
+
+  if (owningService === undefined) {
+    return true
+  }
+
+  return owningService === group.serviceName || group.providedFields.some(f => f.fieldDef === fields[0].fieldDef)
 }
 
 function completeField(
