@@ -120,6 +120,7 @@ enum join__Graph {
     INVENTORY @join__graph(name: "inventory" url: "undefined")
     PRODUCT @join__graph(name: "product" url: "undefined")
     REVIEWS @join__graph(name: "reviews" url: "undefined")
+    DOCK @join__graph(name: "dock" url: "undefined")
 }
 
 type KeyValue {
@@ -274,6 +275,22 @@ type Van implements Vehicle
     id: String! @join__field(graph: PRODUCT)
     description: String @join__field(graph: PRODUCT)
     price: String @join__field(graph: PRODUCT)
+    retailPrice: String @join__field(graph: REVIEWS, requires: "price")
+}
+
+type Bicycle implements Vehicle {
+    id: String!
+    description: String
+    price: String
+    retailPrice: String
+}
+
+type Yacht implements Vehicle
+    @join__owner(graph: DOCK)
+{
+    id: String! @join__field(graph: DOCK)
+    description: String @join__field(graph: DOCK)
+    price: String @join__field(graph: DOCK)
     retailPrice: String @join__field(graph: REVIEWS, requires: "price")
 }
 
