@@ -1,4 +1,9 @@
-// TODO(trevor:removeServiceList) the whole file goes away
+/**
+ * Similar in concept to `IntrospectAndCompose`, but this handles
+ * the `experimental_updateComposition` and `experimental_updateSupergraphSdl`
+ * configuration options of the gateway and will be removed in a future release
+ * along with those options.
+ */
 import { Logger } from 'apollo-server-types';
 import resolvable from '@josephg/resolvable';
 import {
