@@ -29,7 +29,18 @@ import {
 import { assert, OrderedMap } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
-import { ASTNode, DocumentNode, GraphQLError, Kind, KnownTypeNamesRule, parse, PossibleTypeExtensionsRule, print as printAST, Source, DirectiveLocation } from "graphql";
+import {
+  ASTNode,
+  DocumentNode,
+  GraphQLError,
+  Kind,
+  KnownTypeNamesRule,
+  parse,
+  PossibleTypeExtensionsRule,
+  print as printAST,
+  Source,
+  DirectiveLocation,
+} from "graphql";
 import { defaultPrintOptions, printDirectiveDefinition } from "./print";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
