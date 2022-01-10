@@ -478,7 +478,6 @@ export class ApolloGateway implements GraphQLService {
     } catch (e) {
       this.state = { phase: 'failed to load' };
       await this.performCleanup();
-      this.logger.error(e.message ?? e);
       throw e;
     }
 

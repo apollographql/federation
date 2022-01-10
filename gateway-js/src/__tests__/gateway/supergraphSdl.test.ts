@@ -231,7 +231,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
   });
 
   describe('errors', () => {
-    it('fails to load if user-provided `supergraphSdl` function throws', async () => {
+    it('fails to load if `SupergraphManager` throws on initialization', async () => {
       const failureMessage = 'Error from supergraphSdl function';
       gateway = new ApolloGateway({
         async supergraphSdl() {
@@ -243,8 +243,6 @@ describe('Using supergraphSdl dynamic configuration', () => {
       await expect(gateway.load()).rejects.toThrowError(failureMessage);
 
       expect(gateway.__testing().state.phase).toEqual('failed to load');
-      expect(logger.error).toHaveBeenCalledWith(failureMessage);
-
       // we don't want the `afterEach` to call `gateway.stop()` in this case
       // since it would throw an error due to the gateway's failed to load state
       gateway = null;
