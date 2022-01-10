@@ -1,3 +1,3 @@
 export * from './resolverMap';
-export * from './buildSchemaFromSDL';
+export * from './addResolversToSchema';
 export * from './error';
