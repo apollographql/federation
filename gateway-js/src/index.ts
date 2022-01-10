@@ -477,7 +477,7 @@ export class ApolloGateway implements GraphQLService {
       this.externalSupergraphUpdateCallback(result.supergraphSdl);
     } catch (e) {
       this.state = { phase: 'failed to load' };
-      await this.performCleanup();
+      await this.performCleanupAndLogErrors();
       throw e;
     }
 
@@ -1015,7 +1015,7 @@ export class ApolloGateway implements GraphQLService {
     });
   }
 
-  private async performCleanup() {
+  private async performCleanupAndLogErrors() {
     if (this.toDispose.length === 0) return;
 
     await Promise.all(
@@ -1055,7 +1055,7 @@ export class ApolloGateway implements GraphQLService {
         }
         return;
       case 'loaded':
-        const stoppingDonePromise = this.performCleanup();
+        const stoppingDonePromise = this.performCleanupAndLogErrors();
         this.state = {
           phase: 'stopping',
           stoppingDonePromise,
