@@ -1,5 +1,5 @@
 import gql from 'graphql-tag';
-import { GraphQLResolverMap } from 'apollo-graphql';
+import { GraphQLResolverMap } from '../resolverMap';
 
 export const name = 'accounts';
 export const url = `https://${name}.api.com.invalid`;

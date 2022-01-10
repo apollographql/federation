@@ -9,13 +9,14 @@ import {
   specifiedDirectives,
 } from 'graphql';
 import {
-  buildSchemaFromSDL,
-  transformSchema,
   GraphQLSchemaModule,
-  modulesFromSDL,
-  addResolversToSchema,
   GraphQLResolverMap,
-} from 'apollo-graphql';
+  addResolversToSchema,
+  modulesFromSDL,
+  transformSchema,
+  buildSchemaFromSDL,
+} from './schema-helper';
+
 import { federationDirectives, typeIncludesDirective } from './directives';
 
 import { serviceField, entitiesField, EntityType } from './types';

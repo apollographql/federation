@@ -1,6 +1,5 @@
 import { gunzipSync } from 'zlib';
 import nock from 'nock';
-import { GraphQLSchemaModule } from 'apollo-graphql';
 import gql from 'graphql-tag';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import { ApolloServer } from 'apollo-server';
@@ -14,6 +13,7 @@ import { Plugin, Config, Refs } from 'pretty-format';
 import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
+import { GraphQLSchemaModule } from '../../schema-helper';
 
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally
