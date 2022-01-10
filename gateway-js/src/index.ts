@@ -43,7 +43,7 @@ import {
   ServiceEndpointDefinition,
   Experimental_DidFailCompositionCallback,
   Experimental_DidResolveQueryPlanCallback,
-  Experimental_DidUpdateCompositionCallback,
+  DidUpdateSupergraphCallback,
   Experimental_UpdateComposition,
   CompositionInfo,
   GatewayConfig,
@@ -175,7 +175,7 @@ export class ApolloGateway implements GraphQLService {
   // query plan and the inputs that generated it.
   private experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
   // Used to communicate supergraph updates
-  private didUpdateSupergraph?: Experimental_DidUpdateCompositionCallback;
+  private didUpdateSupergraph?: DidUpdateSupergraphCallback;
   // how often service defs should be loaded/updated
   private pollIntervalInMs?: number;
   // Functions to call during gateway cleanup (when stop() is called)
@@ -1126,7 +1126,7 @@ export {
   ServiceMap,
   Experimental_DidFailCompositionCallback,
   Experimental_DidResolveQueryPlanCallback,
-  Experimental_DidUpdateCompositionCallback,
+  DidUpdateSupergraphCallback,
   Experimental_UpdateComposition,
   GatewayConfig,
   ServiceEndpointDefinition,
