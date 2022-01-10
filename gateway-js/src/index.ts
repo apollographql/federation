@@ -505,15 +505,16 @@ export class ApolloGateway implements GraphQLService {
         throw new Error(
           "Can't call `update` callback after gateway has been stopped.",
         );
+      case 'stopping':
+        throw new Error(
+          "Can't call `update` callback while gateway is stopping.",
+        );
       case 'loaded':
       case 'initialized':
         // typical case
         break;
       default:
-        // this should never happen
-        throw new Error(
-          `Called \`update\` callback from unexpected state: "${this.state.phase}". This is a bug.`,
-        );
+        throw new UnreachableCaseError(this.state);
     }
 
     this.state = { phase: 'updating schema' };
