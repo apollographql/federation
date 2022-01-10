@@ -6,18 +6,10 @@ import {
   ServiceDefinition,
 } from '@apollo/federation';
 import {
-  GraphQLSchema,
-  isIntrospectionType,
-  isObjectType,
-  parse,
-} from 'graphql';
-import { buildComposedSchema } from '@apollo/query-planner';
-import {
   GetDataSourceFunction,
   SupergraphSdlHookOptions,
   SupergraphManager,
 } from '../../config';
-import { defaultFieldResolverWithAliasSupport } from '../../executeQueryPlan';
 
 export interface LocalComposeOptions {
   logger?: Logger;
@@ -43,9 +35,9 @@ export class LocalCompose implements SupergraphManager {
     this.getDataSource = getDataSource;
     let supergraphSdl: string | null = null;
     try {
-      ({ supergraphSdl } = this.createSchemaFromServiceList(
+      supergraphSdl = this.createSupergraphFromServiceList(
         this.config.localServiceList,
-      ));
+      );
     } catch (e) {
       this.logUpdateFailure(e);
       throw e;
@@ -55,7 +47,7 @@ export class LocalCompose implements SupergraphManager {
     };
   }
 
-  private createSchemaFromServiceList(serviceList: ServiceDefinition[]) {
+  private createSupergraphFromServiceList(serviceList: ServiceDefinition[]) {
     this.config.logger?.debug(
       `Composing schema from service list: \n${serviceList
         .map(({ name, url }) => `  ${url || 'local'}: ${name}`)
@@ -76,20 +68,9 @@ export class LocalCompose implements SupergraphManager {
         this.getDataSource?.(service);
       }
 
-      const schema = buildComposedSchema(parse(supergraphSdl));
-
       this.config.logger?.debug('Schema loaded and ready for execution');
 
-      // This is a workaround for automatic wrapping of all fields, which Apollo
-      // Server does in the case of implementing resolver wrapping for plugins.
-      // Here we wrap all fields with support for resolving aliases as part of the
-      // root value which happens because aliases are resolved by sub services and
-      // the shape of the root value already contains the aliased fields as
-      // responseNames
-      return {
-        schema: wrapSchemaWithAliasResolver(schema),
-        supergraphSdl,
-      };
+      return supergraphSdl;
     }
   }
 
@@ -99,24 +80,4 @@ export class LocalCompose implements SupergraphManager {
         (e.message ?? e),
     );
   }
-}
-
-// We can't use transformSchema here because the extension data for query
-// planning would be lost. Instead we set a resolver for each field
-// in order to counteract GraphQLExtensions preventing a defaultFieldResolver
-// from doing the same job
-function wrapSchemaWithAliasResolver(schema: GraphQLSchema): GraphQLSchema {
-  const typeMap = schema.getTypeMap();
-  Object.keys(typeMap).forEach((typeName) => {
-    const type = typeMap[typeName];
-
-    if (isObjectType(type) && !isIntrospectionType(type)) {
-      const fields = type.getFields();
-      Object.keys(fields).forEach((fieldName) => {
-        const field = fields[fieldName];
-        field.resolve = defaultFieldResolverWithAliasSupport;
-      });
-    }
-  });
-  return schema;
 }

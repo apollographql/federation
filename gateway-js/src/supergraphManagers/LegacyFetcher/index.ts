@@ -20,10 +20,11 @@ import {
   SubgraphHealthCheckFunction,
   SupergraphSdlUpdateFunction,
 } from '../..';
-import { composeAndValidate, compositionHasErrors, ServiceDefinition } from '@apollo/federation';
-import { GraphQLSchema, isIntrospectionType, isObjectType, parse } from 'graphql';
-import { buildComposedSchema } from '@apollo/query-planner';
-import { defaultFieldResolverWithAliasSupport } from '../../executeQueryPlan';
+import {
+  composeAndValidate,
+  compositionHasErrors,
+  ServiceDefinition,
+} from '@apollo/federation';
 
 export interface LegacyFetcherOptions {
   pollIntervalInMs?: number;
@@ -47,7 +48,6 @@ export class LegacyFetcher implements SupergraphManager {
   private state: State;
   private compositionId?: string;
   private serviceDefinitions?: ServiceDefinition[];
-  private schema?: GraphQLSchema;
 
   constructor(options: LegacyFetcherOptions) {
     this.config = options;
@@ -148,15 +148,13 @@ export class LegacyFetcher implements SupergraphManager {
       return null;
     }
 
-    const previousSchema = this.schema;
-
-    if (previousSchema) {
+    if (this.serviceDefinitions) {
       this.config.logger?.info('New service definitions were found.');
     }
 
     this.serviceDefinitions = result.serviceDefinitions;
 
-    const { schema, supergraphSdl } = this.createSchemaFromServiceList(
+    const supergraphSdl = this.createSupergraphFromServiceList(
       result.serviceDefinitions,
     );
 
@@ -165,12 +163,11 @@ export class LegacyFetcher implements SupergraphManager {
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
-      this.schema = schema;
       return supergraphSdl;
     }
   }
 
-  private createSchemaFromServiceList(serviceList: ServiceDefinition[]) {
+  private createSupergraphFromServiceList(serviceList: ServiceDefinition[]) {
     this.config.logger?.debug(
       `Composing schema from service list: \n${serviceList
         .map(({ name, url }) => `  ${url || 'local'}: ${name}`)
@@ -191,20 +188,9 @@ export class LegacyFetcher implements SupergraphManager {
         this.getDataSource?.(service);
       }
 
-      const schema = buildComposedSchema(parse(supergraphSdl));
-
       this.config.logger?.debug('Schema loaded and ready for execution');
 
-      // This is a workaround for automatic wrapping of all fields, which Apollo
-      // Server does in the case of implementing resolver wrapping for plugins.
-      // Here we wrap all fields with support for resolving aliases as part of the
-      // root value which happens because aliases are resolved by sub services and
-      // the shape of the root value already contains the aliased fields as
-      // responseNames
-      return {
-        schema: wrapSchemaWithAliasResolver(schema),
-        supergraphSdl,
-      };
+      return supergraphSdl;
     }
   }
 
@@ -240,24 +226,4 @@ export class LegacyFetcher implements SupergraphManager {
         (e.message ?? e),
     );
   }
-}
-
-// We can't use transformSchema here because the extension data for query
-// planning would be lost. Instead we set a resolver for each field
-// in order to counteract GraphQLExtensions preventing a defaultFieldResolver
-// from doing the same job
-function wrapSchemaWithAliasResolver(schema: GraphQLSchema): GraphQLSchema {
-  const typeMap = schema.getTypeMap();
-  Object.keys(typeMap).forEach((typeName) => {
-    const type = typeMap[typeName];
-
-    if (isObjectType(type) && !isIntrospectionType(type)) {
-      const fields = type.getFields();
-      Object.keys(fields).forEach((fieldName) => {
-        const field = fields[fieldName];
-        field.resolve = defaultFieldResolverWithAliasSupport;
-      });
-    }
-  });
-  return schema;
 }
