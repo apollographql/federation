@@ -331,7 +331,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
             supergraphSdl,
           };
         },
-        didUpdateSupergraph() {
+        experimental_didUpdateSupergraph() {
           updateCallback(getTestingSupergraphSdl(fixturesWithUpdate));
         },
       });

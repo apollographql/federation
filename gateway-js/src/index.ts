@@ -43,7 +43,7 @@ import {
   ServiceEndpointDefinition,
   Experimental_DidFailCompositionCallback,
   Experimental_DidResolveQueryPlanCallback,
-  DidUpdateSupergraphCallback,
+  Experimental_DidUpdateSupergraphCallback,
   Experimental_UpdateComposition,
   CompositionInfo,
   GatewayConfig,
@@ -175,7 +175,7 @@ export class ApolloGateway implements GraphQLService {
   // query plan and the inputs that generated it.
   private experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
   // Used to communicate supergraph updates
-  private didUpdateSupergraph?: DidUpdateSupergraphCallback;
+  private experimental_didUpdateSupergraph?: Experimental_DidUpdateSupergraphCallback;
   // how often service defs should be loaded/updated
   private pollIntervalInMs?: number;
   // Functions to call during gateway cleanup (when stop() is called)
@@ -199,8 +199,8 @@ export class ApolloGateway implements GraphQLService {
     // set up experimental observability callbacks and config settings
     this.experimental_didResolveQueryPlan =
       config?.experimental_didResolveQueryPlan;
-    this.didUpdateSupergraph =
-      config?.didUpdateSupergraph;
+    this.experimental_didUpdateSupergraph =
+      config?.experimental_didUpdateSupergraph;
 
     this.pollIntervalInMs =
       config?.pollIntervalInMs ?? config?.experimental_pollInterval;
@@ -598,8 +598,8 @@ export class ApolloGateway implements GraphQLService {
     } else {
       this.updateWithSchemaAndNotify(schema, generatedSupergraphSdl);
 
-      if (this.didUpdateSupergraph) {
-        this.didUpdateSupergraph(
+      if (this.experimental_didUpdateSupergraph) {
+        this.experimental_didUpdateSupergraph(
           {
             compositionId: id,
             supergraphSdl,
@@ -1126,7 +1126,7 @@ export {
   ServiceMap,
   Experimental_DidFailCompositionCallback,
   Experimental_DidResolveQueryPlanCallback,
-  DidUpdateSupergraphCallback,
+  Experimental_DidUpdateSupergraphCallback,
   Experimental_UpdateComposition,
   GatewayConfig,
   ServiceEndpointDefinition,

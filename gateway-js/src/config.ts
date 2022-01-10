@@ -65,7 +65,7 @@ export type CompositionInfo =
   | ServiceDefinitionCompositionInfo
   | SupergraphSdlCompositionInfo;
 
-export type DidUpdateSupergraphCallback = (
+export type Experimental_DidUpdateSupergraphCallback = (
   currentConfig: CompositionInfo,
   previousConfig?: CompositionInfo,
 ) => void;
@@ -124,7 +124,7 @@ interface GatewayConfigBase {
 
   // experimental observability callbacks
   experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
-  didUpdateSupergraph?: DidUpdateSupergraphCallback;
+  experimental_didUpdateSupergraph?: Experimental_DidUpdateSupergraphCallback;
   /**
    * @deprecated use `pollIntervalInMs` instead
    */

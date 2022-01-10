@@ -14,7 +14,7 @@ For now: all of the mentioned deprecated configurations will still continue to w
 * `experimental_{updateServiceDefinitions|supergraphSdl}` users should migrate their implementation to a custom `SupergraphSdlHook` or `SupergraphManager`.
 
 Since the gateway itself is no longer responsible for composition:
-* `experimental_didUpdateComposition` has been renamed more appropriately to `didUpdateSupergraph` (no signature change)
+* `experimental_didUpdateComposition` has been renamed more appropriately to `experimental_didUpdateSupergraph` (no signature change)
 * `experimental_compositionDidFail` hook is removed
 
 `experimental_pollInterval` is deprecated and will issue a warning. Its renamed equivalent is `pollIntervalInMs`.
