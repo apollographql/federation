@@ -4,6 +4,10 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- _Nothing yet! Stay tuned._
+
+## v0.46.0-alpha.0
+
 - __BREAKING__: This change improves the `supergraphSdl` configuration option to provide a clean and flexible interface for updating gateway schema on load and at runtime. This PR brings a number of updates and deprecations to the gateway. Previous options for loading the gateway's supergraph (`serviceList`, `localServiceList`, `experimental_updateServiceDefinitions`, `experimental_supergraphSdl`) are all deprecated going forward. The migration paths all point to the updated `supergraphSdl` configuration option.
 
 The most notable change here is the introduction of the concept of a `SupergraphManager` (one new possible type of `supergraphSdl`). This interface (when implemented) provides a means for userland code to update the gateway supergraph dynamically, perform subgraph healthchecks, and access subgraph datasources. All of the mentioned deprecated configurations now either use an implementation of a `SupergraphManager` internally or export one to be configured by the user (`IntrospectAndCompose` and `LocalCompose`).
