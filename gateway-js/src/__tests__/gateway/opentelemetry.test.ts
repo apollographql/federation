@@ -36,12 +36,16 @@ describe('opentelemetry', () => {
   describe('with local data', () =>
   {
     async function gateway() {
+      const localDataSources = Object.fromEntries(
+        fixtures.map((f) => [
+          f.name,
+          new LocalGraphQLDataSource(buildSubgraphSchema(f)),
+        ]),
+      );
       const gateway = new ApolloGateway({
         localServiceList: fixtures,
-        buildService: service => {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          return new LocalGraphQLDataSource(buildSubgraphSchema([service]));
+        buildService(service) {
+          return localDataSources[service.name];
         },
       });
 

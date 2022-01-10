@@ -7,8 +7,24 @@ import * as reviews from './reviews';
 import * as reviewsWithUpdate from './special-cases/reviewsWithUpdate';
 import * as accountsWithoutTag from './special-cases/accountsWithoutTag';
 import * as reviewsWithoutTag from './special-cases/reviewsWithoutTag';
+import { DocumentNode } from 'graphql';
+import { GraphQLResolverMap } from '../resolverMap';
 
-const fixtures = [accounts, books, documents, inventory, product, reviews];
+export interface Fixture {
+  name: string;
+  url: string;
+  typeDefs: DocumentNode;
+  resolvers?: GraphQLResolverMap<any>
+}
+
+const fixtures: Fixture[] = [
+  accounts,
+  books,
+  documents,
+  inventory,
+  product,
+  reviews,
+];
 
 const fixturesWithUpdate = [
   accounts,

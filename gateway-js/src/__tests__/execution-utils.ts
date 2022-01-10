@@ -109,8 +109,8 @@ export function getTestingSupergraphSdl(services: typeof fixtures = fixtures) {
   throw new Error(`Testing fixtures don't compose properly!\nCauses:\n${compositionResult.errors.join('\n\n')}`);
 }
 
-export function wait(ms: number) {
-  return new Promise(r => setTimeout(r, ms));
+export function wait(ms: number, toResolveTo?: any) {
+  return new Promise((r) => setTimeout(() => r(toResolveTo), ms));
 }
 
 export function printPlan(queryPlan: QueryPlan): string {
