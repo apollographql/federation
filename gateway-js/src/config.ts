@@ -124,7 +124,7 @@ interface GatewayConfigBase {
 
   // experimental observability callbacks
   experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
-  experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
+  didUpdateSupergraph?: Experimental_DidUpdateCompositionCallback;
   /**
    * @deprecated use `pollIntervalInMs` instead
    */

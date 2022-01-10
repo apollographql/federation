@@ -174,9 +174,8 @@ export class ApolloGateway implements GraphQLService {
   // The information made available here will give insight into the resulting
   // query plan and the inputs that generated it.
   private experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
-  // Used to communicated composition changes, and what definitions caused
-  // those updates
-  private experimental_didUpdateComposition?: Experimental_DidUpdateCompositionCallback;
+  // Used to communicate supergraph updates
+  private didUpdateSupergraph?: Experimental_DidUpdateCompositionCallback;
   // how often service defs should be loaded/updated
   private pollIntervalInMs?: number;
   // Functions to call during gateway cleanup (when stop() is called)
@@ -200,8 +199,8 @@ export class ApolloGateway implements GraphQLService {
     // set up experimental observability callbacks and config settings
     this.experimental_didResolveQueryPlan =
       config?.experimental_didResolveQueryPlan;
-    this.experimental_didUpdateComposition =
-      config?.experimental_didUpdateComposition;
+    this.didUpdateSupergraph =
+      config?.didUpdateSupergraph;
 
     this.pollIntervalInMs =
       config?.pollIntervalInMs ?? config?.experimental_pollInterval;
@@ -599,8 +598,8 @@ export class ApolloGateway implements GraphQLService {
     } else {
       this.updateWithSchemaAndNotify(schema, generatedSupergraphSdl);
 
-      if (this.experimental_didUpdateComposition) {
-        this.experimental_didUpdateComposition(
+      if (this.didUpdateSupergraph) {
+        this.didUpdateSupergraph(
           {
             compositionId: id,
             supergraphSdl,

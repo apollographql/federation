@@ -60,7 +60,6 @@ describe('lifecycle hooks', () => {
     const gateway = new ApolloGateway({
       serviceList: serviceDefinitions,
       experimental_updateServiceDefinitions,
-      experimental_didUpdateComposition: jest.fn(),
       logger,
     });
 
@@ -71,7 +70,7 @@ describe('lifecycle hooks', () => {
     await gateway.stop();
   });
 
-  it('calls experimental_didUpdateComposition on schema update', async () => {
+  it('calls didUpdateSupergraph on schema update', async () => {
     const compositionMetadata = {
       formatVersion: 1,
       id: 'abc',
@@ -106,7 +105,7 @@ describe('lifecycle hooks', () => {
 
     const gateway = new ApolloGateway({
       experimental_updateServiceDefinitions: mockUpdate,
-      experimental_didUpdateComposition: mockDidUpdate,
+      didUpdateSupergraph: mockDidUpdate,
       logger,
     });
     // for testing purposes, a short pollInterval is ideal so we'll override here
