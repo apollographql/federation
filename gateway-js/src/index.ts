@@ -426,9 +426,13 @@ export class ApolloGateway implements GraphQLService {
   }
 
   private getUplinkEndpoints(config: ManagedGatewayConfig) {
-    // 1. If config is set to a `string`, use it
-    // 2. If the env var is set, use that
-    // 3. If config is `undefined`, use the default uplink URLs
+    /**
+     * Configuration priority order:
+     * 1. `uplinkEndpoints` configuration option
+     * 2. (deprecated) `schemaConfigDeliveryEndpoint` configuration option
+     * 3. APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT environment variable
+     * 4. default (GCP and AWS)
+     */
     const rawEndpointsString =
       process.env.APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT;
     const envEndpoints = rawEndpointsString?.split(',') ?? null;
