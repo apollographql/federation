@@ -160,6 +160,12 @@ export interface ManagedGatewayConfig extends GatewayConfigBase {
    * @deprecated: use `uplinkEndpoints` instead
    */
   schemaConfigDeliveryEndpoint?: string;
+  /**
+   * This defaults to:
+   * ['https://uplink.api.apollographql.com/', 'https://aws.uplink.api.apollographql.com/']
+   * The first URL points to GCP, the second to AWS. This option should most likely
+   * be left to default unless you have a specific reason to change it.
+   */
   uplinkEndpoints?: string[];
   uplinkMaxRetries?: number;
 }
