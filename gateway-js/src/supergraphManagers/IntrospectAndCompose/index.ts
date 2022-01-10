@@ -84,8 +84,7 @@ export class IntrospectAndCompose implements SupergraphManager {
         }
         this.state = { phase: 'stopped' };
         if (this.timerRef) {
-          this.timerRef.unref();
-          clearInterval(this.timerRef);
+          clearTimeout(this.timerRef);
           this.timerRef = null;
         }
       },
