@@ -139,11 +139,11 @@ interface GatewayConfigBase {
 // TODO(trevor:removeServiceList)
 export interface ServiceListGatewayConfig extends GatewayConfigBase {
   /**
-   * @deprecated: use `supergraphSdl` in its function form instead
+   * @deprecated: use `supergraphSdl: new IntrospectAndCompose(...)` instead
    */
   serviceList: ServiceEndpointDefinition[];
   /**
-   * @deprecated: use `supergraphSdl` in its function form instead
+   * @deprecated: use `supergraphSdl: new IntrospectAndCompose(...)` instead
    */
   introspectionHeaders?:
     | HeadersInit
@@ -167,7 +167,7 @@ export interface ManagedGatewayConfig extends GatewayConfigBase {
 // TODO(trevor:removeServiceList): migrate users to `supergraphSdl` function option
 interface ManuallyManagedServiceDefsGatewayConfig extends GatewayConfigBase {
   /**
-   * @deprecated: use `supergraphSdl` in its function form instead
+   * @deprecated: use `supergraphSdl` instead (either as a `SupergraphSdlHook` or `SupergraphManager`)
    */
   experimental_updateServiceDefinitions: Experimental_UpdateServiceDefinitions;
 }
@@ -176,7 +176,7 @@ interface ManuallyManagedServiceDefsGatewayConfig extends GatewayConfigBase {
 interface ExperimentalManuallyManagedSupergraphSdlGatewayConfig
   extends GatewayConfigBase {
   /**
-   * @deprecated: use `supergraphSdl` in its function form instead
+   * @deprecated: use `supergraphSdl` instead (either as a `SupergraphSdlHook` or `SupergraphManager`)
    */
   experimental_updateSupergraphSdl: Experimental_UpdateSupergraphSdl;
 }
@@ -238,7 +238,7 @@ type ManuallyManagedGatewayConfig =
 // TODO(trevor:removeServiceList)
 interface LocalGatewayConfig extends GatewayConfigBase {
   /**
-   * @deprecated: use `supergraphSdl` in its function form instead
+   * @deprecated: use `supergraphSdl: new LocalCompose(...)` instead
    */
   localServiceList: ServiceDefinition[];
 }
