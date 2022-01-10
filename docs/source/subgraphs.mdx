@@ -197,7 +197,7 @@ The `sdl` field returns your subgraph's schema as an SDL string. This field has 
 * Unlike introspection, the `sdl` field is _not_ disabled by default in production environments (this is safe if you properly [secure your subgraph](#securing-your-subgraphs)).
 * Unlike introspection, the `sdl` field's returned string includes federation-specific directives like `@key`.
 
-Whenever your gateway needs to fetch a subgraph's schema (this occurs only if your gateway uses [the `serviceList` option](./gateway/#composing-with-servicelist)), it uses this field _instead of_ an introspection query so it can obtain federation-specific details.
+Whenever your gateway needs to fetch a subgraph's schema (this occurs only if your gateway uses [`IntrospectAndCompose`](./gateway/#composing-subgraphs-with-introspectandcompose)), it uses this field _instead of_ an introspection query so it can obtain federation-specific details.
 
 ### `Query._entities`
 

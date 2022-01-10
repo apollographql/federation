@@ -218,7 +218,7 @@ it('does not share service definition cache between gateways', async () => {
           url: 'https://api.example.com/repeat',
         },
       ],
-      experimental_didUpdateComposition: updateObserver,
+      experimental_didUpdateSupergraph: updateObserver,
     });
 
     await gateway.load();
@@ -237,7 +237,7 @@ it('does not share service definition cache between gateways', async () => {
           url: 'https://api.example.com/repeat',
         },
       ],
-      experimental_didUpdateComposition: updateObserver,
+      experimental_didUpdateSupergraph: updateObserver,
     });
 
     await gateway.load();
