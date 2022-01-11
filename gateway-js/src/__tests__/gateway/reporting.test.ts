@@ -14,6 +14,7 @@ import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import { GraphQLSchemaModule } from '../../schema-helper';
+import resolvable, { Resolvable } from '@josephg/resolvable';
 
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally
@@ -90,19 +91,16 @@ describe('reporting', () => {
   let backendServers: ApolloServer[];
   let gatewayServer: ApolloServer;
   let gatewayUrl: string;
-  let reportPromise: Promise<any>;
+  let reportPromise: Resolvable<any>;
 
   beforeEach(async () => {
-    let reportResolver: (report: any) => void;
-    reportPromise = new Promise<any>((resolve) => {
-      reportResolver = resolve;
-    });
+    reportPromise = resolvable();
 
     nockBeforeEach();
     nock('https://usage-reporting.api.apollographql.com')
       .post('/api/ingress/traces')
       .reply(200, (_: any, requestBody: string) => {
-        reportResolver(requestBody);
+        reportPromise.resolve(requestBody);
         return 'ok';
       });
 
@@ -234,6 +232,34 @@ describe('reporting', () => {
         "tracesPerQuery": Object {
           "# -
       {me{name{first last}}topProducts{name}}": Object {
+            "referencedFieldsByType": Object {
+              "Name": Object {
+                "fieldNames": Array [
+                  "first",
+                  "last",
+                ],
+                "isInterface": false,
+              },
+              "Product": Object {
+                "fieldNames": Array [
+                  "name",
+                ],
+                "isInterface": true,
+              },
+              "Query": Object {
+                "fieldNames": Array [
+                  "me",
+                  "topProducts",
+                ],
+                "isInterface": false,
+              },
+              "User": Object {
+                "fieldNames": Array [
+                  "name",
+                ],
+                "isInterface": false,
+              },
+            },
             "trace": Array [
               Object {
                 "cachePolicy": Object {
@@ -241,7 +267,6 @@ describe('reporting', () => {
                   "scope": "PRIVATE",
                 },
                 "clientName": "",
-                "clientReferenceId": "",
                 "clientVersion": "",
                 "details": Object {},
                 "durationNs": 12345,
@@ -249,6 +274,7 @@ describe('reporting', () => {
                   "nanos": 123000000,
                   "seconds": "1562203363",
                 },
+                "fieldExecutionWeight": 1,
                 "forbiddenOperation": false,
                 "fullQueryCacheHit": false,
                 "http": Object {

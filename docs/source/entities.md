@@ -225,7 +225,7 @@ We can perform this migration safely with the following steps:
 
     * _If you **are** using managed federation, Apollo Studio does **not** publish an updated configuration, and the gateway continues to resolve the `Bill` entity in the `payments` subgraph._
 
-    * _If you are **not** using managed federation, your gateway starts resolving the `Bill` entity in whichever subgraph is listed **last** in your gateway's [`serviceList`](/api/apollo-gateway/#constructor)._
+    * _If you are **not** using managed federation, your gateway starts resolving the `Bill` entity in whichever subgraph is listed **last** in your gateway's [`IntrospectAndCompose`](/api/apollo-gateway/#class-introspectandcompose) `subgraphs` list._
 
 4. In the `payments` subgraph's schema, remove the `Bill` entity. If you're using managed federation, register this schema change with Studio.
 
