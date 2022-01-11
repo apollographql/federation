@@ -102,7 +102,7 @@ type Money {
 
     const { data, errors } = await graphql({ schema, source: query });
     expect(errors).toBeUndefined();
-    expect((data as any)?._service.sdl).toEqual(`"""
+    expect((data?._service as any).sdl).toEqual(`"""
 A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text
 """
 type User @key(fields: "id") {
@@ -328,7 +328,7 @@ type Query {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data as any)?._service.sdl).toEqual(`type Review {
+      expect((data?._service as any).sdl).toEqual(`type Review {
   id: ID
   title: String
 }
@@ -366,7 +366,7 @@ extend type Product @key(fields: "upc") {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data as any)?._service.sdl).toEqual(`type Review {
+      expect((data?._service as any).sdl).toEqual(`type Review {
   id: ID
   title: String
 }
@@ -397,7 +397,7 @@ extend interface Product @key(fields: "upc") {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data as any)?._service.sdl).toEqual(`type Product @key(fields: "upc") {
+      expect((data?._service as any).sdl).toEqual(`type Product @key(fields: "upc") {
   upc: String!
   name: String
   price: Int
@@ -420,7 +420,7 @@ extend interface Product @key(fields: "upc") {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data as any)?._service.sdl)
+      expect((data?._service as any).sdl)
         .toEqual(`type Product @key(fields: "upc") @key(fields: "name") {
   upc: String!
   name: String
@@ -456,7 +456,7 @@ extend interface Product @key(fields: "upc") {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data as any)?._service.sdl).toEqual(`type Review @key(fields: "id") {
+      expect((data?._service as any).sdl).toEqual(`type Review @key(fields: "id") {
   id: ID!
   body: String
   author: User @provides(fields: "email")
@@ -491,7 +491,7 @@ extend type Product @key(fields: "upc") {
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
-      expect((data as any)?._service.sdl).toEqual(`directive @custom on FIELD
+      expect((data?._service as any).sdl).toEqual(`directive @custom on FIELD
 
 extend type User @key(fields: "email") {
   email: String @external

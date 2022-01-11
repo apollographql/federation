@@ -1401,7 +1401,7 @@ export class Schema {
     }
 
     if (errors.length > 0) {
-      throw ErrGraphQLValidationFailed([...errors]);
+      throw ErrGraphQLValidationFailed(errors as GraphQLError[]);
     }
 
     this.isValidated = true;
