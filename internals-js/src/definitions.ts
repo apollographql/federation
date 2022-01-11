@@ -19,7 +19,7 @@ import {
 } from "graphql";
 import { CoreDirectiveArgs, CoreSpecDefinition, CORE_VERSIONS, FeatureUrl, isCoreSpecDirectiveApplication, removeFeatureElements } from "./coreSpec";
 import { arrayEquals, assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
-import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST } from "./values";
+import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, astToConstAST } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
 import { printSchema, Options, defaultPrintOptions } from './print';
 import { sameType } from './types';
@@ -2828,15 +2828,13 @@ export class VariableDefinition extends DirectiveTargetElement<VariableDefinitio
   }
 
   toVariableDefinitionNode(): VariableDefinitionNode {
+    const ast = valueToAST(this.defaultValue, this.type);
+
     return {
       kind: Kind.VARIABLE_DEFINITION,
       variable: this.variable.toVariableNode(),
       type: typeToAST(this.type),
-      // TODO: This casting is necessary because valueToAST can return a VariableNode
-      //       which is not a member of ConstNodeValue. I'm not sure if the right thing to do here
-      //       is to have an intermediate function that transforms ValueNodes into ConstValueNodes
-      //       and replaces all VariableNodes with StringValueNodes
-      defaultValue: valueToAST(this.defaultValue, this.type) as ConstValueNode,
+      defaultValue: (ast !== undefined) ? astToConstAST(ast) : undefined,
       directives: this.appliedDirectivesToDirectiveNodes(),
     }
   }

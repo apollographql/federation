@@ -17,13 +17,22 @@ import {
   Variable,
   VariableDefinition,
   VariableDefinitions,
-  Variables
+  Variables,
 } from './definitions';
-import { ArgumentNode, GraphQLError, Kind, print, ValueNode, ObjectFieldNode } from 'graphql';
+import {
+  ArgumentNode,
+  GraphQLError,
+  Kind,
+  print,
+  ValueNode,
+  ObjectFieldNode,
+  ConstValueNode,
+  ConstObjectFieldNode,
+} from 'graphql';
 import { didYouMean, suggestionList } from './suggestions';
 import { inspect } from 'util';
 import { sameType } from './types';
-import { assert } from './utils';
+import { assert, assertUnreachable } from './utils';
 
 // Per-GraphQL spec, max and value for an Int type.
 const MAX_INT = 2147483647;
@@ -218,6 +227,34 @@ export function withDefaultValues(value: any, argument: ArgumentDefinition<any>)
 }
 
 const integerStringRegExp = /^-?(?:0|[1-9][0-9]*)$/;
+
+function objectFieldNodeToConst(field: ObjectFieldNode): ConstObjectFieldNode {
+  return { ...field, value: astToConstAST(field.value) };
+}
+
+export function astToConstAST(value: ValueNode): ConstValueNode {
+  if (value.kind === Kind.NULL
+    || value.kind === Kind.INT
+    || value.kind === Kind.FLOAT
+    || value.kind === Kind.STRING
+    || value.kind === Kind.BOOLEAN
+    || value.kind === Kind.ENUM
+    ) {
+    return value;
+  }
+  if (value.kind === Kind.LIST) {
+    const constValues = value.values.map(v => astToConstAST(v));
+    return { ...value, values: constValues };
+  }
+  if (value.kind === Kind.OBJECT) {
+    const constFields = value.fields.map(f => objectFieldNodeToConst(f));
+    return { ...value, fields: constFields };
+  }
+  if (value.kind === Kind.VARIABLE) {
+    return { kind: Kind.STRING, loc: value.loc, value: value.name.value };
+  }
+  assertUnreachable(value);
+}
 
 // Adapted from the `astFromValue` function in graphQL-js
 export function valueToAST(value: any, type: InputType): ValueNode | undefined {
