@@ -18,6 +18,7 @@ import {
   isEqualType,
   FieldNode,
   TypeDefinitionNode,
+  InputObjectTypeDefinitionNode,
   InputValueDefinitionNode,
   TypeExtensionNode,
   BREAK,
@@ -461,12 +462,10 @@ export function diffTypeNodes(
   firstNode: TypeDefinitionNode | TypeExtensionNode | DirectiveDefinitionNode,
   secondNode: TypeDefinitionNode | TypeExtensionNode | DirectiveDefinitionNode,
 ) {
+  // The fieldsDiff diff entries will contain both object type definitions
+  // differences, and input object type definitions differences
   const fieldsDiff: {
     [fieldName: string]: string[];
-  } = Object.create(null);
-
-  const inputValuesDiff: {
-    [inputName: string]: string[];
   } = Object.create(null);
 
   const unionTypesDiff: {
@@ -475,7 +474,19 @@ export function diffTypeNodes(
 
   const locationsDiff: Set<string> = new Set();
 
-  const argumentsDiff: {
+  // Arguments need to be compared on per-field basis, so that arguments from
+  // one field don't get conflated with arguments from a different field. Here
+  // we setup an object-of-objects, where each top-level key is the field name,
+  // and sub-keys are the argument name.
+  const fieldArgsDiff: {
+    [fieldName: string]: {
+      [argumentName: string]: string[];
+    }
+  } = Object.create(null);
+
+  // Since directive arguments aren't field-scoped, we keep a diff of them
+  // separate from the field arguments diff.
+  const directiveArgsDiff: {
     [argumentName: string]: string[];
   } = Object.create(null);
 
@@ -484,7 +495,10 @@ export function diffTypeNodes(
     definitions: [firstNode, secondNode],
   };
 
-  function fieldVisitor(node: FieldDefinitionNode) {
+  // Input objects fields aren't allowed to have arguments,
+  // so we use a simpler version of `fieldVisitor` that
+  // only looks at the name and types of the fields.
+  function inputFieldVisitor(node: InputValueDefinitionNode) {
     const fieldName = node.name.value;
 
     const type = print(node.type);
@@ -494,8 +508,6 @@ export function diffTypeNodes(
       return;
     }
 
-    // If we've seen this field twice and the types are the same, remove this
-    // field from the diff result
     const fieldTypes = fieldsDiff[fieldName];
     if (fieldTypes[0] === type) {
       delete fieldsDiff[fieldName];
@@ -504,33 +516,73 @@ export function diffTypeNodes(
     }
   }
 
-  /** Similar to fieldVisitor but specific for input values, so we don't store
-   * fields and arguments in the same place.
-   */
-
-  function inputValueVisitor(node: InputValueDefinitionNode) {
+  function fieldVisitor(node: FieldDefinitionNode) {
     const fieldName = node.name.value;
-
     const type = print(node.type);
 
-    if (!inputValuesDiff[fieldName]) {
-      inputValuesDiff[fieldName] = [type];
-      return;
+    if (!fieldsDiff[fieldName]) {
+      // If the field has no entry in the diff, it means we've never encountered
+      // the field before. We'll add the field and type into our diff object
+      fieldsDiff[fieldName] = [type];
+    } else {
+      // If the field has already been seen, we need to compare the previously
+      // recorded type with the current type. If the types match, we'll remove
+      // the diff entry, to signal they are equivalent. Otherwise, we'll append
+      // the newly recorded type into the array so it can be reported later.
+      const fieldTypes = fieldsDiff[fieldName];
+      if (fieldTypes[0] === type) {
+        delete fieldsDiff[fieldName];
+      } else {
+        fieldTypes.push(type);
+      }
     }
 
-    // If we've seen this input value twice and the types are the same,
-    // remove it from the diff result
-    const inputValueTypes = inputValuesDiff[fieldName];
-    if (inputValueTypes[0] === type) {
-      delete inputValuesDiff[fieldName];
-    } else {
-      inputValueTypes.push(type);
+    // Each field may have 1 or more arguments, and those arguments need to compared
+    // on a per-field basis, so that arguments from 1 field aren't conflated with
+    // arguments from other fields. Here we're setting the empty field-specific
+    // diff object to track the arguments by name.
+    if (!fieldArgsDiff[fieldName]) {
+      fieldArgsDiff[fieldName] = Object.create(null);
+    }
+
+    const argumentsDiff = fieldArgsDiff[fieldName];
+    const nodeArgs = Array.isArray(node.arguments) ? node.arguments : [];
+
+    nodeArgs.forEach(argument => {
+      const argumentName = argument.name.value;
+      const printedType = print(argument.type);
+
+      if (!argumentsDiff[argumentName]) {
+        // If this argument has never been seen on this field, we keep track of it's
+        // name and type so it can be compared later.
+        argumentsDiff[argumentName] = [printedType];
+      } else {
+        // If the argument name has already been seen on this field, we need to compare
+        // the types of the argument. If the types match, we remove the argument name
+        // from the diff object, to signal they are equivalent. If they types don't match,
+        // we append the type of the current field so they can be reported later
+        if (printedType === argumentsDiff[argumentName][0]) {
+          delete argumentsDiff[argumentName];
+        } else {
+          argumentsDiff[argumentName].push(printedType);
+        }
+      }
+    });
+
+    // If there are no entries in the arguments diff object for this specific field,
+    // it means either the field had no arguments, or the arguments were equivalent.
+    if (Object.keys(argumentsDiff).length === 0) {
+      delete fieldArgsDiff[fieldName];
     }
   }
 
   visit(document, {
     FieldDefinition: fieldVisitor,
-    InputValueDefinition: inputValueVisitor,
+    InputObjectTypeDefinition(node: InputObjectTypeDefinitionNode) {
+      if (Array.isArray(node.fields)) {
+        node.fields.forEach(inputFieldVisitor)
+      }
+    },
     UnionTypeDefinition(node) {
       if (!node.types) return BREAK;
       for (const namedTypeNode of node.types) {
@@ -563,16 +615,16 @@ export function diffTypeNodes(
       node.arguments.forEach(argument => {
         const argumentName = argument.name.value;
         const printedType = print(argument.type);
-        if (argumentsDiff[argumentName]) {
-          if (printedType === argumentsDiff[argumentName][0]) {
+        if (directiveArgsDiff[argumentName]) {
+          if (printedType === directiveArgsDiff[argumentName][0]) {
             // If the existing entry is equal to printedType, it means there's no
             // diff, so we can remove the entry from the diff object
-            delete argumentsDiff[argumentName];
+            delete directiveArgsDiff[argumentName];
           } else {
-            argumentsDiff[argumentName].push(printedType);
+            directiveArgsDiff[argumentName].push(printedType);
           }
         } else {
-          argumentsDiff[argumentName] = [printedType];
+          directiveArgsDiff[argumentName] = [printedType];
         }
       });
     },
@@ -590,10 +642,10 @@ export function diffTypeNodes(
     name: typeNameDiff,
     kind: kindDiff,
     fields: fieldsDiff,
-    inputValues: inputValuesDiff,
+    fieldArgs: fieldArgsDiff,
     unionTypes: unionTypesDiff,
     locations: Array.from(locationsDiff),
-    args: argumentsDiff,
+    directiveArgs: directiveArgsDiff
   };
 }
 
@@ -607,7 +659,7 @@ export function typeNodesAreEquivalent(
   firstNode: TypeDefinitionNode | TypeExtensionNode | DirectiveDefinitionNode,
   secondNode: TypeDefinitionNode | TypeExtensionNode | DirectiveDefinitionNode,
 ) {
-  const { name, kind, fields, inputValues, unionTypes, locations, args } = diffTypeNodes(
+  const { name, kind, fields, fieldArgs, unionTypes, locations, directiveArgs } = diffTypeNodes(
     firstNode,
     secondNode,
   );
@@ -616,10 +668,10 @@ export function typeNodesAreEquivalent(
     name.length === 0 &&
     kind.length === 0 &&
     Object.keys(fields).length === 0 &&
-    Object.keys(inputValues).length === 0 &&
+    Object.keys(fieldArgs).length === 0 &&
     Object.keys(unionTypes).length === 0 &&
     locations.length === 0 &&
-    Object.keys(args).length === 0
+    Object.keys(directiveArgs).length === 0
   );
 }
 
