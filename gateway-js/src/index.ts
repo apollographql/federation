@@ -590,7 +590,7 @@ export class ApolloGateway implements GraphQLService {
     }
 
     this.compositionId = result.id;
-    this.supergraphSdl = result.supergraphSdl;
+    this.supergraphSdl = supergraphSdl;
 
     if (!supergraphSdl) {
       this.logger.error(
@@ -603,7 +603,7 @@ export class ApolloGateway implements GraphQLService {
         this.experimental_didUpdateSupergraph(
           {
             compositionId: result.id,
-            supergraphSdl: result.supergraphSdl,
+            supergraphSdl,
             schema: schema.toGraphQLJSSchema(),
           },
           previousCompositionId && previousSupergraphSdl && previousSchema
