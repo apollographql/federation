@@ -118,14 +118,14 @@ function validateFieldSetSelections(
   directiveName: string,
   selectionSet: SelectionSet,
   hasExternalInParents: boolean,
-  externalTester: ExternalTester,
+  federationMetadata: FederationMetadata,
   externalFieldCoordinatesCollector: string[],
   allowOnNonExternalLeafFields: boolean,
 ): void {
   for (const selection of selectionSet.selections()) {
     if (selection.kind === 'FieldSelection') {
       const field = selection.element().definition;
-      const isExternal = externalTester.isExternal(field);
+      const isExternal = federationMetadata.isFieldExternal(field);
       // We collect the field as external before any other validation to avoid getting a (confusing)
       // "external unused" error on top of another error due to exiting that method too early.
       if (isExternal) {
@@ -141,7 +141,7 @@ function validateFieldSetSelections(
       const mustBeExternal = !selection.selectionSet && !allowOnNonExternalLeafFields && !hasExternalInParents;
       if (!isExternal && mustBeExternal) {
         const errorCode = ERROR_CATEGORIES.DIRECTIVE_FIELDS_MISSING_EXTERNAL.get(directiveName);
-        if (externalTester.isFakeExternal(field)) {
+        if (federationMetadata.isFieldFakeExternal(field)) {
           throw errorCode.err({
             message: `field "${field.coordinate}" should not be part of a @${directiveName} since it is already "effectively" provided by this subgraph `
               + `(while it is marked @${externalDirectiveName}, it is a @${keyDirectiveName} field of an extension type, which are not internally considered external for historical/backward compatibility reasons)`,
@@ -163,16 +163,16 @@ function validateFieldSetSelections(
         if (!newHasExternalInParents && isInterfaceType(parentType)) {
           for (const implem of parentType.possibleRuntimeTypes()) {
             const fieldInImplem = implem.field(field.name);
-            if (fieldInImplem && externalTester.isExternal(fieldInImplem)) {
+            if (fieldInImplem && federationMetadata.isFieldExternal(fieldInImplem)) {
               newHasExternalInParents = true;
               break;
             }
           }
         }
-        validateFieldSetSelections(directiveName, selection.selectionSet, newHasExternalInParents, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
+        validateFieldSetSelections(directiveName, selection.selectionSet, newHasExternalInParents, federationMetadata, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
       }
     } else {
-      validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
+      validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, federationMetadata, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
     }
   }
 }
@@ -180,7 +180,7 @@ function validateFieldSetSelections(
 function validateFieldSet(
   type: CompositeType,
   directive: Directive<any, {fields: any}>,
-  externalTester: ExternalTester,
+  federationMetadata: FederationMetadata,
   externalFieldCoordinatesCollector: string[],
   allowOnNonExternalLeafFields: boolean,
   onFields?: (field: FieldDefinition<any>) => void,
@@ -199,7 +199,7 @@ function validateFieldSet(
     const selectionSet = parseFieldSetArgument(type, directive, fieldAcessor);
 
     try {
-      validateFieldSetSelections(directive.name, selectionSet, false, externalTester, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
+      validateFieldSetSelections(directive.name, selectionSet, false, federationMetadata, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
       return undefined;
     } catch (e) {
       if (!(e instanceof GraphQLError)) {
@@ -245,7 +245,7 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   definition: DirectiveDefinition<{fields: any}>,
   targetTypeExtractor: (element: TParent) => CompositeType,
   errorCollector: GraphQLError[],
-  externalTester: ExternalTester,
+  federationMetadata: FederationMetadata,
   externalFieldCoordinatesCollector: string[],
   isOnParentType: boolean,
   allowOnNonExternalLeafFields: boolean,
@@ -267,7 +267,7 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
     const error = validateFieldSet(
       type,
       application,
-      externalTester,
+      federationMetadata,
       externalFieldCoordinatesCollector,
       allowOnNonExternalLeafFields,
       onFields);
@@ -282,17 +282,16 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
  * interface implementation. Otherwise, the field declaration is somewhat useless.
  */
 function validateAllExternalFieldsUsed(
-  schema: Schema,
-  externalTester: ExternalTester,
-  allExternalFieldsUsedInFederationDirectivesCoordinates: string[],
-  errorCollector: GraphQLError[],
+  schema: Schema, allExternalFieldsUsedInFederationDirectivesCoordinates: string[], errorCollector: GraphQLError[],
 ): void {
+  const metadata = federationMetadata(schema);
+  if (!metadata) return;
   for (const type of schema.types()) {
     if (!isObjectType(type) && !isInterfaceType(type)) {
       continue;
     }
     for (const field of type.fields()) {
-      if (!externalTester.isExternal(field) || allExternalFieldsUsedInFederationDirectivesCoordinates.includes(field.coordinate)) {
+      if (!metadata.isFieldExternal(field) || allExternalFieldsUsedInFederationDirectivesCoordinates.includes(field.coordinate)) {
         continue;
       }
 
@@ -357,6 +356,36 @@ function formatFieldsToReturnType([type, implems]: [string, FieldDefinition<Obje
   return `${joinStrings(implems.map(printFieldCoordinate))} ${implems.length == 1 ? 'has' : 'have'} type "${type}"`;
 }
 
+export class FederationMetadata {
+  private _externalTester?: ExternalTester;
+
+  constructor(readonly schema: Schema) {
+  }
+
+  private onInvalidate() {
+    this._externalTester = undefined;
+  }
+
+  private externalTester(): ExternalTester {
+    if (!this._externalTester) {
+      this._externalTester = new ExternalTester(this.schema);
+    }
+    return this._externalTester;
+  }
+
+  isFieldExternal(field: FieldDefinition<any> | InputFieldDefinition) {
+    return this.externalTester().isExternal(field);
+  }
+
+  isFieldFakeExternal(field: FieldDefinition<any> | InputFieldDefinition) {
+    return this.externalTester().isFakeExternal(field);
+  }
+
+  selectionSelectsAnyExternalField(selectionSet: SelectionSet): boolean {
+    return this.externalTester().selectsAnyExternalField(selectionSet);
+  }
+}
+
 export class FederationBuiltIns extends BuiltIns {
   addBuiltInTypes(schema: Schema) {
     super.addBuiltInTypes(schema);
@@ -397,6 +426,20 @@ export class FederationBuiltIns extends BuiltIns {
 
     const directive = this.addBuiltInDirective(schema, 'tag').addLocations(...tagLocations);
     directive.addArgument("name", new NonNullType(schema.stringType()));
+  }
+
+  onConstructed(schema: Schema) {
+    const existing = federationMetadata(schema);
+    if (!existing) {
+      (schema as any)['_federationMetadata'] = new FederationMetadata(schema);
+    }
+  }
+
+  onInvalidation(schema: Schema) {
+    super.onInvalidation(schema);
+    const metadata = federationMetadata(schema);
+    assert(metadata, 'Federation schema should have had its metadata set on construction');
+    FederationMetadata.prototype['onInvalidate'].call(metadata);
   }
 
   prepareValidation(schema: Schema) {
@@ -477,6 +520,8 @@ export class FederationBuiltIns extends BuiltIns {
       }
     }
 
+    const metadata = federationMetadata(schema);
+    assert(metadata, 'Federation schema should have had its metadata set on construction');
     const externalTester = new ExternalTester(schema);
 
     const externalFieldsInFedDirectivesCoordinates: string[] = [];
@@ -486,7 +531,7 @@ export class FederationBuiltIns extends BuiltIns {
       keyDirective,
       type => type,
       errors,
-      externalTester,
+      metadata,
       externalFieldsInFedDirectivesCoordinates,
       true,
       true,
@@ -511,7 +556,7 @@ export class FederationBuiltIns extends BuiltIns {
       this.requiresDirective(schema),
       field => field.parent,
       errors,
-      externalTester,
+      metadata,
       externalFieldsInFedDirectivesCoordinates,
       false,
       false,
@@ -536,13 +581,13 @@ export class FederationBuiltIns extends BuiltIns {
         return type;
       },
       errors,
-      externalTester,
+      metadata,
       externalFieldsInFedDirectivesCoordinates,
       false,
       false,
     );
 
-    validateAllExternalFieldsUsed(schema, externalTester, externalFieldsInFedDirectivesCoordinates, errors);
+    validateAllExternalFieldsUsed(schema, externalFieldsInFedDirectivesCoordinates, errors);
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = this.tagDirective(schema);
@@ -612,6 +657,10 @@ export class FederationBuiltIns extends BuiltIns {
 }
 
 export const federationBuiltIns = new FederationBuiltIns();
+
+export function federationMetadata(schema: Schema): FederationMetadata | undefined {
+  return (schema as any)['_federationMetadata'];
+}
 
 export function isFederationSubgraphSchema(schema: Schema): boolean {
   return schema.builtIns instanceof FederationBuiltIns;
@@ -866,7 +915,7 @@ export function addSubgraphToError(e: GraphQLError, subgraphName: string, errorC
   return ErrGraphQLValidationFailed(updatedCauses);
 }
 
-export class ExternalTester {
+class ExternalTester {
   private readonly fakeExternalFields = new Set<string>();
 
   constructor(readonly schema: Schema) {

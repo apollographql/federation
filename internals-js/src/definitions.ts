@@ -822,6 +822,10 @@ export class BuiltIns {
       .addArgument('url', new NonNullType(schema.stringType()));
   }
 
+  onConstructed(_: Schema) {
+    // No-op for graphQL built-ins, but overriden for federation built-ins.
+  }
+
   isGraphQLBuiltIn(element: NamedType | DirectiveDefinition | FieldDefinition<any>): boolean {
     if (isIntrospectionName(element.name)) {
       return true;
@@ -836,6 +840,10 @@ export class BuiltIns {
   }
 
   prepareValidation(_: Schema) {
+    // No-op for graphQL built-ins, but overriden for federation built-ins.
+  }
+
+  onInvalidation(_: Schema) {
     // No-op for graphQL built-ins, but overriden for federation built-ins.
   }
 
@@ -1081,7 +1089,7 @@ export class Schema {
   private readonly _directives = new MapWithCachedArrays<string, DirectiveDefinition>();
   private _coreFeatures?: CoreFeatures;
   private isConstructed: boolean = false;
-  private isValidated: boolean = false;
+  public isValidated: boolean = false;
 
   private cachedDocument?: DocumentNode;
   private apiSchema?: Schema;
@@ -1091,6 +1099,7 @@ export class Schema {
     Element.prototype['setParent'].call(this._schemaDefinition, this);
     builtIns.addBuiltInTypes(this);
     builtIns.addBuiltInDirectives(this);
+    builtIns.onConstructed(this);
     this.isConstructed = true;
   }
 
@@ -1374,6 +1383,7 @@ export class Schema {
 
   invalidate() {
     this.isValidated = false;
+    this.builtIns.onInvalidation(this);
   }
 
   validate() {

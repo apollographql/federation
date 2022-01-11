@@ -49,12 +49,13 @@ import {
   DEFAULT_SUBTYPING_RULES,
   providesDirectiveName,
   requiresDirectiveName,
-  ExternalTester,
   isInterfaceType,
   sourceASTs,
   ErrorCodeDefinition,
   ERRORS,
   joinStrings,
+  FederationMetadata,
+  federationMetadata,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -250,13 +251,11 @@ class Merger {
   readonly hints: CompositionHint[] = [];
   readonly merged: Schema = new Schema();
   readonly subgraphNamesToJoinSpecName: Map<string, string>;
-  readonly externalTesters: readonly ExternalTester[];
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
     this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
-    this.externalTesters = this.subgraphsSchema.map(schema => new ExternalTester(schema));
   }
 
   private prepareSupergraph(): Map<string, string> {
@@ -275,6 +274,12 @@ class Merger {
 
   private joinSpecName(subgraphIndex: number): string {
     return this.subgraphNamesToJoinSpecName.get(this.names[subgraphIndex])!;
+  }
+
+  private metadata(idx: number): FederationMetadata {
+    const metadata = federationMetadata(this.subgraphsSchema[idx]);
+    assert(metadata, () => `Subgraph ${this.names[idx]} at index ${idx} should have its federation metadata set`);
+    return metadata;
   }
 
   merge(): MergeResult {
@@ -814,7 +819,7 @@ class Merger {
   }
 
   private isExternal(sourceIdx: number, field: FieldDefinition<any> | InputFieldDefinition) {
-    return this.externalTesters[sourceIdx].isExternal(field);
+    return this.metadata(sourceIdx).isFieldExternal(field);
   }
 
   private withoutExternal(sources: (FieldDefinition<any> | undefined)[]): (FieldDefinition<any> | undefined)[] {

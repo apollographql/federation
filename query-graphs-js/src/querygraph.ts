@@ -31,7 +31,6 @@ import {
   ALL_SUBTYPING_RULES,
   externalDirectiveName,
   requiresDirectiveName,
-  ExternalTester,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution } from './transition';
@@ -243,12 +242,6 @@ export class Edge {
  * that points to "reachable" types (reachable from any kind of operations).
  */
 export class QueryGraph {
-  // Because of the "fake externals" of type extension that we still support for fed1 backward compatibility, checking
-  // is a field is truly external or not is kind of expensive and that's why we have `ExternalTester` which is costly
-  // to build initially but then allow checking field cheaply. Anyway, we sometimes need those for the source schema
-  // of the query graph, and storing it here is convenient if a bit hacky. Those testers are lazily created.
-  private readonly externalTesters: Map<string, ExternalTester> = new Map();
-
   /**
    * Creates a new query graph.
    *
@@ -359,16 +352,6 @@ export class QueryGraph {
   verticesForType(typeName: string): Vertex[] {
     const indexes = this.typesToVertices.get(typeName);
     return indexes == undefined ? [] : indexes.map(i => this.vertices[i]);
-  }
-
-  externalTester(source: string): ExternalTester {
-    let tester = this.externalTesters.get(source);
-    if (!tester) {
-      const schema = this.sources.get(source);
-      assert(schema, () => `Unknown source: ${source}`);
-      tester = new ExternalTester(schema);
-    }
-    return tester;
   }
 }
 

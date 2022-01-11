@@ -24,6 +24,7 @@ import {
   ObjectType,
   isObjectType,
   mapValues,
+  federationMetadata,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType } from "./querygraph";
@@ -1217,11 +1218,13 @@ function warnOnKeyFieldsMarkedExternal(type: CompositeType): string {
 
 export function getLocallySatisfiableKey(graph: QueryGraph, typeVertex: Vertex): SelectionSet | undefined  {
   const type = typeVertex.type as CompositeType;
-  const externalTester = graph.externalTester(typeVertex.source);
+  const schema = graph.sources.get(typeVertex.source);
+  const metadata = schema ? federationMetadata(schema) : undefined;
+  assert(metadata, () => `Could not find federation metadata for source ${typeVertex.source}`);
   const keyDirective = federationBuiltIns.keyDirective(type.schema());
   for (const key of type.appliedDirectivesOf(keyDirective)) {
     const selection = parseFieldSetArgument(type, key);
-    if (!externalTester.selectsAnyExternalField(selection)) {
+    if (!metadata.selectionSelectsAnyExternalField(selection)) {
       return selection;
     }
   }
