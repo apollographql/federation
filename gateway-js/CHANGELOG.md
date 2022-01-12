@@ -23,7 +23,7 @@ Some defensive code around gateway shutdown has been removed which was only rele
 
 [#1246](https://github.com/apollographql/federation/pull/1246)
 
-Upgrading graphql dependency to `16.2.0` [PR #1129] (https://github.com/apollographql/federation/pull/1129).
+Upgrading graphql dependency to `16.2.0` [PR #1129](https://github.com/apollographql/federation/pull/1129).
 
 ## v2.0.0-alpha.3
 
