@@ -1,5 +1,5 @@
-import { Subgraphs } from '@apollo/federation-internals';
 import { DocumentNode } from 'graphql';
+import { Subgraphs } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import {
   HintID,

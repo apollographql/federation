@@ -7,7 +7,7 @@ import {
   isObjectType,
   Schema,
 } from "./definitions";
-import { GraphQLError } from "graphql";
+import { GraphQLError, DirectiveLocation } from "graphql";
 
 export const inaccessibleIdentity = 'https://specs.apollo.dev/inaccessible';
 
@@ -17,7 +17,12 @@ export class InaccessibleSpecDefinition extends FeatureDefinition {
   }
 
   addElementsToSchema(schema: Schema) {
-    this.addDirective(schema, 'inaccessible').addLocations('FIELD_DEFINITION', 'OBJECT', 'INTERFACE', 'UNION');
+    this.addDirective(schema, 'inaccessible').addLocations(
+      DirectiveLocation.FIELD_DEFINITION,
+      DirectiveLocation.OBJECT,
+      DirectiveLocation.INTERFACE,
+      DirectiveLocation.UNION,
+    );
   }
 
   inaccessibleDirective(schema: Schema): DirectiveDefinition<Record<string, never>> {

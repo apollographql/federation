@@ -10,7 +10,7 @@ function assertCompositionSuccess(r: CompositionResult): asserts r is Compositio
 }
 
 function errors(r: CompositionResult): [string, string][] {
-  return r.errors?.map(e => [e.extensions.code, e.message]) ?? [];
+  return r.errors?.map(e => [e.extensions.code as string, e.message]) ?? [];
 }
 
 // Returns [the supergraph schema, its api schema, the extracted subgraphs]

@@ -1,6 +1,6 @@
-import { execute, GraphQLError, parse } from "graphql";
-import { cleanErrorOfInaccessibleNames } from "../cleanErrorOfInaccessibleNames";
-import { buildSchema } from "@apollo/federation-internals";
+import { execute, GraphQLError, parse } from 'graphql';
+import { cleanErrorOfInaccessibleNames } from '../cleanErrorOfInaccessibleNames';
+import { buildSchema } from '@apollo/federation-internals';
 
 describe('cleanErrorOfInaccessibleNames', () => {
   const coreSchema = buildSchema(`
@@ -49,19 +49,22 @@ describe('cleanErrorOfInaccessibleNames', () => {
   const schema = coreSchema.toAPISchema().toGraphQLJSSchema();
 
   it('removes inaccessible type names from error messages', async () => {
-    const result = await execute(schema, parse('{fooField{someField}}'), {
-      fooField: {
-        __typename: 'Bar',
-        someField: 'test',
+    const result = await execute({
+      schema,
+      document: parse('{fooField{someField}}'),
+      rootValue: {
+        fooField: {
+          __typename: 'Bar',
+          someField: 'test',
+        },
       },
     });
 
     const cleaned = cleanErrorOfInaccessibleNames(schema, result.errors![0]!);
     expect(cleaned.message).toMatchInlineSnapshot(
-      `"Abstract type \\"Foo\\" was resolve to a type [inaccessible type] that does not exist inside schema."`,
+      `"Abstract type \\"Foo\\" was resolved to a type [inaccessible type] that does not exist inside the schema."`,
     );
   });
-
   it('removes multiple/repeated inaccessible type names from error messages', async () => {
     const contrivedError = new GraphQLError(
       `Something something "Bar" and "Bar" again, as well as "Bar2".`,

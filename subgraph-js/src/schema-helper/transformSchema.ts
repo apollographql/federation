@@ -11,8 +11,6 @@ import {
   GraphQLNonNull,
   GraphQLFieldConfigMap,
   GraphQLFieldConfigArgumentMap,
-  GraphQLOutputType,
-  GraphQLInputType,
   isInterfaceType,
   GraphQLInterfaceType,
   isUnionType,
@@ -112,9 +110,7 @@ export function transformSchema(
   function replaceType<T extends GraphQLType>(
     type: GraphQLNonNull<T>
   ): GraphQLNonNull<T>;
-  function replaceType(type: GraphQLNamedType): GraphQLNamedType;
-  function replaceType(type: GraphQLOutputType): GraphQLOutputType;
-  function replaceType(type: GraphQLInputType): GraphQLInputType;
+  function replaceType<T extends GraphQLType>(type: T): T;
   function replaceType(type: GraphQLType): GraphQLType {
     if (isListType(type)) {
       return new GraphQLList(replaceType(type.ofType));
@@ -154,19 +150,19 @@ export function transformSchema(
     }));
   }
 
-  function replaceArgs(args: GraphQLFieldConfigArgumentMap) {
-    return mapValues(args, arg => ({
+  function replaceArgs(args: GraphQLFieldConfigArgumentMap): GraphQLFieldConfigArgumentMap {
+    return mapValues(args, (arg) => ({
       ...arg,
-      type: replaceType(arg.type)
+      type: replaceType(arg.type),
     }));
   }
 
-  function replaceDirectives(directives: GraphQLDirective[]) {
-    return directives.map(directive => {
+  function replaceDirectives(directives: readonly GraphQLDirective[]): readonly GraphQLDirective[] {
+    return directives.map((directive) => {
       const config = directive.toConfig();
       return new GraphQLDirective({
         ...config,
-        args: replaceArgs(config.args)
+        args: replaceArgs(config.args),
       });
     });
   }

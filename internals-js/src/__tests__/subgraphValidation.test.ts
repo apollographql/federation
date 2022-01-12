@@ -15,7 +15,7 @@ function buildForErrors(subgraphDefs: DocumentNode, subgraphName: string = 'S'):
     if (!causes) {
       throw e;
     }
-    return causes.map((err) => [err.extensions.code, err.message]);
+    return causes.map((err) => [err.extensions.code as string, err.message]);
   }
 }
 

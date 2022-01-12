@@ -75,7 +75,7 @@ function validationError(
   // involved though as there may be a lot of different reason why it doesn't validate. But by looking at the last edge on the
   // supergraph and the subgraphsPath, we should be able to roughly infer what's going on.
   const operation = print(operationToDocument(witness));
-  const message = `The following supergraph API query:\n${operation}`
+  const message = `The following supergraph API query:\n${operation}\n`
     + 'cannot be satisfied by the subgraphs because:\n'
     + displayReasons(subgraphsPathsUnadvanceables);
   return new ValidationError(message, unsatisfiablePath, subgraphsPaths, witness);
