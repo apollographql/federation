@@ -1,0 +1,11 @@
+{
+  "buildCommand": "compile",
+  "packages": [
+    "federation-js",
+    "gateway-js",
+    "query-planner-js",
+    "subgraph-js"
+  ],
+  "sandboxes": [],
+  "node": "16"
+}

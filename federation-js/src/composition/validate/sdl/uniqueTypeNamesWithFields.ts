@@ -67,7 +67,7 @@ export function UniqueTypeNamesWithFields(
       // By inspecting the diff, we can warn when field types mismatch.
       // A diff entry will exist when a field exists on one type and not the other, or if there is a type mismatch on the field
       // i.e. { sku: [Int, String!], color: [String] }
-      const { kind, fields, inputValues } = diffTypeNodes(node, duplicateTypeNode);
+      const { kind, fields, fieldArgs } = diffTypeNodes(node, duplicateTypeNode);
 
       const fieldsDiff = Object.entries(fields);
       // Error if the kinds don't match
@@ -126,35 +126,40 @@ export function UniqueTypeNamesWithFields(
           return false;
         });
 
-      const inputValuesDiff = Object.entries(inputValues);
+      const fieldArgDiffs = Object.values(fieldArgs);
 
       const typesHaveSameInputValuesShape =
-        inputValuesDiff.length === 0 ||
-        inputValuesDiff.every(([name, types]) => {
-          if (types.length === 2) {
-            possibleErrors.push(
-              errorWithCode(
-                'VALUE_TYPE_INPUT_VALUE_MISMATCH',
-                `${logServiceAndType(
-                  duplicateTypeNode.serviceName!,
-                  typeName,
-                )}A field's input type (\`${name}\`) was defined differently in different services. \`${
-                  duplicateTypeNode.serviceName
-                }\` and \`${
-                  node.serviceName
-                }\` define \`${name}\` as a ${types[1]} and ${
-                  types[0]
-                } respectively. In order to define \`${typeName}\` in multiple places, the input values and their types must be identical.`,
-                // TODO (Issue #705): when we can associate locations to service names
-                // add locations for each service where this field was defined
-                [node, duplicateTypeNode],
-              ),
-            );
-            return true;
-          }
-          return false;
+        fieldArgDiffs.length === 0 ||
+        fieldArgDiffs.every((fieldArgDiff) => {
+          const argTypeDiff = Object.entries(fieldArgDiff);
+          return (
+            argTypeDiff.length === 0 ||
+            argTypeDiff.every(([argName, types]) => {
+              if (types.length === 2) {
+                possibleErrors.push(
+                  errorWithCode(
+                    'VALUE_TYPE_INPUT_VALUE_MISMATCH',
+                    `${logServiceAndType(
+                      duplicateTypeNode.serviceName!,
+                      typeName,
+                    )}A field's input type (\`${argName}\`) was defined differently in different services. \`${
+                      duplicateTypeNode.serviceName
+                    }\` and \`${
+                      node.serviceName
+                    }\` define \`${argName}\` as a ${types[1]} and ${
+                      types[0]
+                    } respectively. In order to define \`${typeName}\` in multiple places, the input values and their types must be identical.`,
+                    // TODO (Issue #705): when we can associate locations to service names
+                    // add locations for each service where this field was defined
+                    [node, duplicateTypeNode],
+                  ),
+                );
+                return true;
+              }
+              return false;
+            })
+          );
         });
-
 
       // Once we determined that types have the same shape (name, kind, and field
       // names), we can provide useful errors
