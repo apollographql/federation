@@ -1,12 +1,9 @@
 import { gunzipSync } from 'zlib';
 import nock from 'nock';
 import { GraphQLSchemaModule } from 'apollo-graphql';
-import gql from 'graphql-tag';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import { ApolloServer } from 'apollo-server';
 import { ApolloServerPluginUsageReporting } from 'apollo-server-core';
-import { execute, toPromise } from 'apollo-link';
-import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
 import { ApolloGateway } from '../..';
 import { Plugin, Config, Refs } from 'pretty-format';
@@ -143,7 +140,7 @@ describe('reporting', () => {
   });
 
   it(`queries three services`, async () => {
-    const query = gql`
+    const query = `#graphql
       query {
         me {
           name {
@@ -157,12 +154,16 @@ describe('reporting', () => {
       }
     `;
 
-    const result = await toPromise(
-      execute(createHttpLink({ uri: gatewayUrl, fetch: fetch as any }), {
-        query,
-      }),
-    );
-    expect(result).toMatchInlineSnapshot(`
+    const result = await fetch(gatewayUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    });
+
+    const body = await result.json();
+    expect(body).toMatchInlineSnapshot(`
       Object {
         "data": Object {
           "me": Object {
@@ -191,6 +192,7 @@ describe('reporting', () => {
         },
       }
     `);
+
     const reportBody = await reportPromise;
     // nock returns binary bodies as hex strings
     const gzipReportBuffer = Buffer.from(reportBody, 'hex');
@@ -242,7 +244,6 @@ describe('reporting', () => {
                 "clientName": "",
                 "clientReferenceId": "",
                 "clientVersion": "",
-                "details": Object {},
                 "durationNs": 12345,
                 "endTime": Object {
                   "nanos": 123000000,

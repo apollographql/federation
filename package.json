@@ -59,7 +59,6 @@
     "@types/node-fetch": "2.5.12",
     "@types/whatwg-url": "8.2.1",
     "apollo-link": "1.2.14",
-    "apollo-link-http": "1.5.17",
     "apollo-server": "3.5.0",
     "apollo-server-env": "4.2.0",
     "bunyan": "1.8.15",

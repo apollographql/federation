@@ -1,4 +1,4 @@
-import { GraphQLResolveInfo } from 'graphql';
+import { GraphQLObjectType, GraphQLResolveInfo } from 'graphql';
 
 type GraphQLReferenceResolver<TContext> = (
   reference: object,
@@ -14,4 +14,10 @@ declare module 'graphql/type/definition' {
   interface GraphQLObjectTypeConfig<TSource, TContext> {
     resolveReference?: GraphQLReferenceResolver<TContext>;
   }
+}
+
+export function hasReferenceResolver(
+  type: GraphQLObjectType,
+): type is GraphQLObjectType {
+  return 'resolveReference' in type;
 }
