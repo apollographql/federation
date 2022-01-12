@@ -110,7 +110,7 @@ export function transformSchema(
   function replaceType<T extends GraphQLType>(
     type: GraphQLNonNull<T>
   ): GraphQLNonNull<T>;
-  function replaceType<T>(type: T): T;
+  function replaceType<T extends GraphQLType>(type: T): T;
   function replaceType(type: GraphQLType): GraphQLType {
     if (isListType(type)) {
       return new GraphQLList(replaceType(type.ofType));
