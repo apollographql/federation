@@ -337,7 +337,7 @@ function buildTypeReferenceFromAST(typeNode: TypeNode, schema: Schema): Type {
       return new ListType(buildTypeReferenceFromAST(typeNode.type, schema));
     case Kind.NON_NULL_TYPE:
       const wrapped = buildTypeReferenceFromAST(typeNode.type, schema);
-      if (wrapped.kind == 'NonNullType') {
+      if (wrapped.kind == Kind.NON_NULL_TYPE) {
         throw new GraphQLError(`Cannot apply the non-null operator (!) twice to the same type`, typeNode);
       }
       return new NonNullType(wrapped);

@@ -229,10 +229,14 @@ export function withDefaultValues(value: any, argument: ArgumentDefinition<any>)
 const integerStringRegExp = /^-?(?:0|[1-9][0-9]*)$/;
 
 function objectFieldNodeToConst(field: ObjectFieldNode): ConstObjectFieldNode {
-  return { ...field, value: astToConstAST(field.value) };
+  return { ...field, value: valueNodeToConstValueNode(field.value) };
 }
 
-export function astToConstAST(value: ValueNode): ConstValueNode {
+/**
+ * Transforms a ValueNode to a ConstValueNode. This should only be invoked when we know that the value node can be const
+ * as it will result in an exception if it contains a VariableNode
+ */
+export function valueNodeToConstValueNode(value: ValueNode): ConstValueNode {
   if (value.kind === Kind.NULL
     || value.kind === Kind.INT
     || value.kind === Kind.FLOAT
@@ -243,7 +247,7 @@ export function astToConstAST(value: ValueNode): ConstValueNode {
     return value;
   }
   if (value.kind === Kind.LIST) {
-    const constValues = value.values.map(v => astToConstAST(v));
+    const constValues = value.values.map(v => valueNodeToConstValueNode(v));
     return { ...value, values: constValues };
   }
   if (value.kind === Kind.OBJECT) {

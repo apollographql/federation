@@ -19,7 +19,7 @@ import {
 } from "graphql";
 import { CoreDirectiveArgs, CoreSpecDefinition, CORE_VERSIONS, FeatureUrl, isCoreSpecDirectiveApplication, removeFeatureElements } from "./coreSpec";
 import { arrayEquals, assert, mapValues, MapWithCachedArrays, setValues } from "./utils";
-import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, astToConstAST } from "./values";
+import { withDefaultValues, valueEquals, valueToString, valueToAST, variablesInValue, valueFromAST, valueNodeToConstValueNode } from "./values";
 import { removeInaccessibleElements } from "./inaccessibleSpec";
 import { printSchema, Options, defaultPrintOptions } from './print';
 import { sameType } from './types';
@@ -2834,7 +2834,7 @@ export class VariableDefinition extends DirectiveTargetElement<VariableDefinitio
       kind: Kind.VARIABLE_DEFINITION,
       variable: this.variable.toVariableNode(),
       type: typeToAST(this.type),
-      defaultValue: (ast !== undefined) ? astToConstAST(ast) : undefined,
+      defaultValue: (ast !== undefined) ? valueNodeToConstValueNode(ast) : undefined,
       directives: this.appliedDirectivesToDirectiveNodes(),
     }
   }
