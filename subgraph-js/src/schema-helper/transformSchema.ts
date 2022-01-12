@@ -11,8 +11,6 @@ import {
   GraphQLNonNull,
   GraphQLFieldConfigMap,
   GraphQLFieldConfigArgumentMap,
-  GraphQLOutputType,
-  GraphQLInputType,
   isInterfaceType,
   GraphQLInterfaceType,
   isUnionType,
@@ -112,10 +110,7 @@ export function transformSchema(
   function replaceType<T extends GraphQLType>(
     type: GraphQLNonNull<T>
   ): GraphQLNonNull<T>;
-  function replaceType(type: GraphQLNamedType): GraphQLNamedType;
-  function replaceType(type: GraphQLOutputType): GraphQLOutputType;
-  function replaceType(type: GraphQLInputType): GraphQLInputType;
-  function replaceType(type: GraphQLType): GraphQLType;
+  function replaceType<T>(type: T): T;
   function replaceType(type: GraphQLType): GraphQLType {
     if (isListType(type)) {
       return new GraphQLList(replaceType(type.ofType));

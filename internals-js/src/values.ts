@@ -251,7 +251,8 @@ export function astToConstAST(value: ValueNode): ConstValueNode {
     return { ...value, fields: constFields };
   }
   if (value.kind === Kind.VARIABLE) {
-    return { kind: Kind.STRING, loc: value.loc, value: value.name.value };
+    // VarableNode does not exist in ConstValueNode
+    throw new Error('Unexpected VariableNode in const AST');
   }
   assertUnreachable(value);
 }
