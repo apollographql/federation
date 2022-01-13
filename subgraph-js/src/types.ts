@@ -88,7 +88,7 @@ export const entitiesField: GraphQLFieldConfig<any, any> = {
       }
 
       const resolveReference = hasReferenceResolver(type)
-        ? type.resolveReference!
+        ? type.resolveReference
         : function defaultResolveReference() {
             return reference;
           };
