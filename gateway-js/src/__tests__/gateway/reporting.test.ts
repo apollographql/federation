@@ -235,6 +235,34 @@ describe('reporting', () => {
         "tracesPerQuery": Object {
           "# -
       {me{name{first last}}topProducts{name}}": Object {
+            "referencedFieldsByType": Object {
+              "Name": Object {
+                "fieldNames": Array [
+                  "first",
+                  "last",
+                ],
+                "isInterface": false,
+              },
+              "Product": Object {
+                "fieldNames": Array [
+                  "name",
+                ],
+                "isInterface": true,
+              },
+              "Query": Object {
+                "fieldNames": Array [
+                  "me",
+                  "topProducts",
+                ],
+                "isInterface": false,
+              },
+              "User": Object {
+                "fieldNames": Array [
+                  "name",
+                ],
+                "isInterface": false,
+              },
+            },
             "trace": Array [
               Object {
                 "cachePolicy": Object {
@@ -242,13 +270,13 @@ describe('reporting', () => {
                   "scope": "PRIVATE",
                 },
                 "clientName": "",
-                "clientReferenceId": "",
                 "clientVersion": "",
                 "durationNs": 12345,
                 "endTime": Object {
                   "nanos": 123000000,
                   "seconds": "1562203363",
                 },
+                "fieldExecutionWeight": 1,
                 "forbiddenOperation": false,
                 "fullQueryCacheHit": false,
                 "http": Object {
