@@ -6,7 +6,7 @@
 
 - Fix sending queries to service for type they don't know [PR #864](https://github.com/apollographql/federation/pull/864).
 
-- RemoteGraphQLDataSource will now use `make-fetch-happen` by default rather than `node-fetch` [PR #1284](https://github.com/apollographql/federation/pull/1284)
+- RemoteGraphQLDataSource will now use `make-fetch-happen` by default rather than `node-fetch` [PR #1380](https://github.com/apollographql/federation/pull/1380)
 
 ## v0.45.1
 
