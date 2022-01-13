@@ -1,6 +1,6 @@
+import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';
 import { ApolloGateway } from '@apollo/gateway';
 import { ApolloServer } from 'apollo-server';
-import { fetch } from '../../__mocks__/apollo-server-env';
 import { getTestingSupergraphSdl } from '../execution-utils';
 
 async function getSupergraphSdlGatewayServer() {
