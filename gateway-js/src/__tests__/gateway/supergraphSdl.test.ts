@@ -1,5 +1,6 @@
 import {
   ApolloGateway,
+  RemoteGraphQLDataSource,
   SubgraphHealthCheckFunction,
   SupergraphSdlUpdateFunction,
 } from '@apollo/gateway';
@@ -7,7 +8,7 @@ import { fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
 import { createHash } from 'apollo-graphql/lib/utilities/createHash';
 import { ApolloServer } from 'apollo-server';
 import { Logger } from 'apollo-server-types';
-import { fetch } from '../../__mocks__/apollo-server-env';
+import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';
 import { getTestingSupergraphSdl } from '../execution-utils';
 import { mockAllServicesHealthCheckSuccess } from '../integration/nockMocks';
 import resolvable from '@josephg/resolvable';
@@ -17,6 +18,9 @@ async function getSupergraphSdlGatewayServer() {
   const server = new ApolloServer({
     gateway: new ApolloGateway({
       supergraphSdl: getTestingSupergraphSdl(),
+      buildService({ url }) {
+        return new RemoteGraphQLDataSource({ url, fetcher: fetch });
+      }
     }),
   });
 
