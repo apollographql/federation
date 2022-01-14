@@ -13,6 +13,7 @@ import {
 } from 'graphql';
 import { PromiseOrValue } from 'graphql/jsutils/PromiseOrValue';
 import type { CacheHint } from 'apollo-server-types';
+import { hasReferenceResolver } from './schemaExtensions';
 
 export type Maybe<T> = null | undefined | T;
 
@@ -86,7 +87,7 @@ export const entitiesField: GraphQLFieldConfig<any, any> = {
         }
       }
 
-      const resolveReference = type.resolveReference
+      const resolveReference = hasReferenceResolver(type)
         ? type.resolveReference
         : function defaultResolveReference() {
             return reference;

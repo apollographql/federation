@@ -1,7 +1,0 @@
-{
-  "extends": "../../tsconfig.test",
-  "references": [
-    { "path": "../../" },
-    { "path": "../../../federation-integration-testsuite-js" },
-  ]
-}
