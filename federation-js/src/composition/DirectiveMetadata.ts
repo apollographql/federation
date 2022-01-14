@@ -1,5 +1,4 @@
 import {
-  ASTNode,
   DirectiveNode,
   FieldDefinitionNode,
   GraphQLInterfaceType,
@@ -13,7 +12,7 @@ import {
   UnionTypeDefinitionNode,
   UnionTypeExtensionNode,
   visit,
-  VisitFn,
+  ASTVisitFn,
 } from 'graphql';
 import { mapGetOrSet } from '../utilities';
 import { ServiceDefinition } from './types';
@@ -70,7 +69,7 @@ export class DirectiveMetadata {
   // `this.directiveUsagesPerSubgraph`.
   getTypeVisitor(
     subgraphName: string,
-  ): VisitFn<ASTNode, ObjectInterfaceOrUnionTypeNode> {
+  ): ASTVisitFn<ObjectInterfaceOrUnionTypeNode> {
     function collectDirectiveUsages(
       node: ObjectInterfaceOrUnionTypeNode | FieldDefinitionNode,
       usagesOnNode: DirectiveUsages,

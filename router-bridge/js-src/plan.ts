@@ -4,6 +4,7 @@ import {
   buildOperationContext,
   BuildQueryPlanOptions,
   buildComposedSchema,
+  QueryPlan,
 } from '@apollo/query-planner';
 
 export function plan(
@@ -11,7 +12,7 @@ export function plan(
   queryString: string,
   options: BuildQueryPlanOptions,
   operationName?: string,
-): ExecutionResult {
+): ExecutionResult<QueryPlan> {
   try {
     const schema = parse(schemaString);
     const query = parse(queryString);

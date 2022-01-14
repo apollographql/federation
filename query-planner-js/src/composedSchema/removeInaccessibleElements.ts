@@ -130,7 +130,7 @@ export function removeInaccessibleElements(
     return newFieldMapConfig;
   }
 
-  function removeInaccessibleTypes<T extends GraphQLNamedType>(types: T[]) {
+  function removeInaccessibleTypes<T extends GraphQLNamedType>(types: readonly T[]) {
     return types.filter((type) => !typesToRemove.has(type));
   }
 }

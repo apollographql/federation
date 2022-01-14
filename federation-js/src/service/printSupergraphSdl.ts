@@ -29,6 +29,7 @@ import {
   GraphQLField,
   GraphQLEnumValue,
   DEFAULT_DEPRECATION_REASON,
+  Kind,
 } from 'graphql';
 import type {
   FederationType,
@@ -241,7 +242,7 @@ function printTypeJoinDirectives(
   type: GraphQLObjectType | GraphQLInterfaceType,
   context: PrintingContext,
 ): string {
-  const metadata: FederationType = type.extensions?.federation;
+  const metadata: FederationType = type.extensions?.federation as FederationType;
   if (!metadata) return '';
 
   const { serviceName: ownerService, keys } = metadata;
@@ -380,9 +381,9 @@ function printFields(
 
   // Apollo addition: for entities, we want to print the block on a new line.
   // This is just a formatting nice-to-have.
-  const isEntity = Boolean(type.extensions?.federation?.keys);
-  const hasTags = Boolean(
-    type.extensions?.federation?.directiveUsages?.get('tag')?.length,
+  const isEntity = Boolean((type.extensions?.federation as any)?.keys);
+  const hasTags = Boolean((
+    type.extensions?.federation as any)?.directiveUsages?.get('tag')?.length,
   );
 
   return printBlock(fields, isEntity || hasTags);
@@ -403,7 +404,7 @@ function printJoinFieldDirectives(
   const directiveArgs: string[] = [];
 
   const fieldMetadata: FederationField | undefined =
-    field.extensions?.federation;
+    field.extensions?.federation as FederationField;
 
   let serviceName = fieldMetadata?.serviceName;
 
@@ -412,8 +413,8 @@ function printJoinFieldDirectives(
   // a field can be resolved from the owning service, the code we used
   // previously did include it in those cases. And especially since we want to
   // remove type ownership, I think it makes to keep the same behavior.
-  if (!serviceName && parentType.extensions?.federation.keys) {
-    serviceName = parentType.extensions?.federation.serviceName;
+  if (!serviceName && (parentType.extensions?.federation as any).keys) {
+    serviceName = (parentType.extensions?.federation as any).serviceName;
   }
 
   if (serviceName) {
@@ -472,7 +473,7 @@ function printBlock(items: string[], onNewLine?: boolean) {
     : '';
 }
 
-function printArgs(args: GraphQLArgument[], indentation = '') {
+function printArgs(args: readonly GraphQLArgument[], indentation = '') {
   if (args.length === 0) {
     return '';
   }
@@ -525,26 +526,26 @@ function printDeprecated(reason: Maybe<string>): string {
     return '';
   }
   if (reason !== DEFAULT_DEPRECATION_REASON) {
-    const astValue = print({ kind: 'StringValue', value: reason });
+    const astValue = print({ kind: Kind.STRING, value: reason });
     return ` @deprecated(reason: ${astValue})`;
   }
   return ' @deprecated';
 }
 
-// Apollo addition: support both specifiedByUrl and specifiedByURL - these
+// Apollo addition: support both specifiedByURL and specifiedByURL - these
 // happen across v15 and v16.
 function printSpecifiedByURL(scalar: GraphQLScalarType): string {
   if (
-    scalar.specifiedByUrl == null &&
+    scalar.specifiedByURL == null &&
     // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
     scalar.specifiedByURL == null
   ) {
     return '';
   }
   const astValue = print({
-    kind: 'StringValue',
+    kind: Kind.STRING,
     value:
-      scalar.specifiedByUrl ??
+      scalar.specifiedByURL ??
       // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
       scalar.specifiedByURL,
   });

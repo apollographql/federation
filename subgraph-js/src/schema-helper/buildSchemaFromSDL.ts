@@ -19,7 +19,7 @@ import {
   isScalarType,
   isEnumType,
   GraphQLEnumValueConfig,
-  DirectiveNode,
+  ConstDirectiveNode,
   ASTNode,
 } from 'graphql';
 
@@ -28,9 +28,10 @@ import {
   PossibleTypeExtensionsRule,
   KnownTypeNamesRule,
   UniqueDirectivesPerLocationRule,
-  ValidationRule,
  } from 'graphql/validation';
+
  import { validateSDL } from 'graphql/validation/validate';
+ import { SDLValidationRule } from "graphql/validation/ValidationContext";
 
 import { specifiedSDLRules } from 'graphql/validation/specifiedRules';
 import { GraphQLSchemaValidationError } from './error';
@@ -62,7 +63,7 @@ function mapValues<T, U = T>(
   return result;
 }
 
-const skippedSDLRules: ValidationRule[] = [
+const skippedSDLRules: SDLValidationRule[] = [
   KnownTypeNamesRule,
   UniqueDirectivesPerLocationRule,
   PossibleTypeExtensionsRule,
@@ -194,7 +195,7 @@ export function buildSchemaFromSDL(
 
   const schemaDefinitions: SchemaDefinitionNode[] = [];
   const schemaExtensions: SchemaExtensionNode[] = [];
-  const schemaDirectives: DirectiveNode[] = [];
+  const schemaDirectives: ConstDirectiveNode[] = [];
 
   for (const definition of documentAST.definitions) {
     if (isTypeDefinitionNode(definition)) {

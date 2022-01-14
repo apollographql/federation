@@ -19,7 +19,8 @@ import {
   typeFromAST,
   TypeNameMetaFieldDef,
   VariableDefinitionNode,
-  visit
+  visit,
+  OperationTypeNode,
 } from "graphql";
 import { FragmentMap } from "./buildQueryPlan";
 import {
@@ -31,7 +32,7 @@ import { FieldSet } from "./FieldSet";
 import { Scope } from "./Scope";
 import { getFieldDef } from "./utilities/graphql";
 
-const typenameField = {
+const typenameField: FieldNode = {
   kind: Kind.FIELD,
   name: {
     kind: Kind.NAME,
@@ -107,7 +108,7 @@ export class QueryPlanningContext {
     const document: DocumentNode = {
       kind: Kind.DOCUMENT,
       definitions: [
-        { kind: Kind.OPERATION_DEFINITION, selectionSet, operation: 'query' },
+        { kind: Kind.OPERATION_DEFINITION, selectionSet, operation: OperationTypeNode.QUERY },
         ...Array.from(fragments),
       ],
     };

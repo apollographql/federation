@@ -6,7 +6,7 @@ import {
   ObjectTypeExtensionNode,
   Kind,
   InterfaceTypeDefinitionNode,
-  VisitFn,
+  ASTVisitFn,
   specifiedDirectives,
 } from 'graphql';
 import {
@@ -268,8 +268,7 @@ export function replaceExtendedDefinitionsWithExtensions(
 // object type: _Service
 // Query fields: _service, _entities
 export function stripCommonPrimitives(document: DocumentNode) {
-  const typeDefinitionVisitor: VisitFn<
-    any,
+  const typeDefinitionVisitor: ASTVisitFn<
     ObjectTypeDefinitionNode | ObjectTypeExtensionNode
   > = (node) => {
     // Remove the `_entities` and `_service` fields from the `Query` type
