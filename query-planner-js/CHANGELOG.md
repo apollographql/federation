@@ -6,6 +6,10 @@
 
 - _Nothing yet. Stay tuned._
 
+## v0.6.4
+
+- Fix sending queries to service for type they don't know [PR #864](https://github.com/apollographql/federation/pull/864).
+
 ## v0.6.3
 
 - Updates to transitive dependencies.  No other substantial changes.

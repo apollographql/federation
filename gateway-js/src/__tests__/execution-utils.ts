@@ -117,8 +117,8 @@ export function getTestingSupergraphSdl(services: typeof fixtures = fixtures) {
   );
 }
 
-export function wait(ms: number) {
-  return new Promise(r => setTimeout(r, ms));
+export function wait(ms: number, toResolveTo?: any) {
+  return new Promise((r) => setTimeout(() => r(toResolveTo), ms));
 }
 
 export function printPlan(queryPlan: QueryPlan): string {

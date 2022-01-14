@@ -13,6 +13,7 @@ import { Plugin, Config, Refs } from 'pretty-format';
 import { Report, Trace } from 'apollo-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
+import resolvable, { Resolvable } from '@josephg/resolvable';
 
 // Normalize specific fields that change often (eg timestamps) to static values,
 // to make snapshot testing viable.  (If these helpers are more generally
@@ -89,19 +90,16 @@ describe('reporting', () => {
   let backendServers: ApolloServer[];
   let gatewayServer: ApolloServer;
   let gatewayUrl: string;
-  let reportPromise: Promise<any>;
+  let reportPromise: Resolvable<any>;
 
   beforeEach(async () => {
-    let reportResolver: (report: any) => void;
-    reportPromise = new Promise<any>((resolve) => {
-      reportResolver = resolve;
-    });
+    reportPromise = resolvable();
 
     nockBeforeEach();
     nock('https://usage-reporting.api.apollographql.com')
       .post('/api/ingress/traces')
       .reply(200, (_: any, requestBody: string) => {
-        reportResolver(requestBody);
+        reportPromise.resolve(requestBody);
         return 'ok';
       });
 
