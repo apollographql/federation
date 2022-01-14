@@ -4,9 +4,9 @@
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- Fix sending queries to service for type they don't know [PR #864](https://github.com/apollographql/federation/pull/864).
+- _Nothing yet! Stay tuned._
 
-## v0.46.0-alpha.0
+## v0.46.0
 
 - __BREAKING__: This change improves the `supergraphSdl` configuration option to provide a clean and flexible interface for updating gateway schema on load and at runtime. This PR brings a number of updates and deprecations to the gateway. Previous options for loading the gateway's supergraph (`serviceList`, `localServiceList`, `experimental_updateServiceDefinitions`, `experimental_supergraphSdl`) are all deprecated going forward. The migration paths all point to the updated `supergraphSdl` configuration option.
 
