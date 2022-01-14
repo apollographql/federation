@@ -26,6 +26,7 @@ Since the gateway itself is no longer responsible for composition:
 Some defensive code around gateway shutdown has been removed which was only relevant to users who are running the gateway within `ApolloServer` before v2.18. If you are still running one of these versions, server shutdown may not happen as smoothly.
 
 [#1246](https://github.com/apollographql/federation/pull/1246)
+- RemoteGraphQLDataSource will now use `make-fetch-happen` by default rather than `node-fetch` [PR #1380](https://github.com/apollographql/federation/pull/1380)
 
 ## v0.45.1
 

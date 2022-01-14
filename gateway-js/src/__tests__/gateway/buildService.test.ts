@@ -1,4 +1,4 @@
-import { fetch } from '../../__mocks__/apollo-server-env';
+import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';
 import { ApolloServerBase as ApolloServer } from 'apollo-server-core';
 
 import { RemoteGraphQLDataSource } from '../../datasources/RemoteGraphQLDataSource';

@@ -20,6 +20,7 @@ interface MakeFetchHappenMock extends jest.MockedFunction<typeof fetch> {
 }
 
 const mockMakeFetchHappen = jest.fn(fetcher) as unknown as MakeFetchHappenMock;
+const defaults = () => mockMakeFetchHappen;
 
 mockMakeFetchHappen.mockResponseOnce = (
   data?: BodyInit,
@@ -47,7 +48,8 @@ mockMakeFetchHappen.mockJSONResponseOnce = (
 };
 
 const makeFetchMock = {
-  makeFetchHappenFetcher: mockMakeFetchHappen,
+  fetch: mockMakeFetchHappen,
+  defaults,
 };
 
 jest.doMock('make-fetch-happen', () => makeFetchMock);
