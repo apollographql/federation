@@ -15,7 +15,7 @@ flowchart TB;
   parallel --> fetchReviews("Fetch (reviews)");
   parallel --> fetchUsers("Fetch (users)");
   fetchReviews --> subFetchHotels("Fetch (hotels)");
-  subFetchHotels --> collect("Collect (latestReviews,[],hotel)")
+  subFetchHotels --> flatten("Flatten (latestReviews,[],hotel)")
 ```
 
 A query plan is a blueprint for dividing a single incoming operation into _one or more_ operations that are each resolvable by a single subgraph. Some of these operations depend on the results of _other_ operations, so the query plan also defines any required ordering for their execution.
@@ -329,8 +329,6 @@ As shown, this query plan defines a `Sequence` that executes a `Fetch` on the Ho
 
 ### `Flatten` node
 
-> In query plan diagrams shown by the Apollo Studio Explorer, `Flatten` nodes are called `Collect` nodes instead.
-
 A `Flatten` node always appears inside a `Sequence` node, and it always _contains_ a `Fetch` node. It tells the gateway to merge the data returned by its `Fetch` node with data that was _previously_ `Fetch`ed during the current `Sequence`:
 
 ```graphql
@@ -341,9 +339,71 @@ Flatten(path: "hotels.@") {
 }
 ```
 
-The `Flatten` node's `path` argument tells the gateway _at what position_ to merge the newly returned data with the existing data. An `@` element in a `path` indicates that the _previous_ path element returns a list.
+The `Flatten` node's `path` argument tells the gateway _at what position_ to merge the newly returned data with the existing data. An `@` element in a `path` indicates that the immediately preceding path element returns a list.
 
 In the snippet above, the data returned by the `Flatten`'s `Fetch` is added to the `Sequence`'s existing data within the objects contained in the `hotels` list field.
+
+#### Expanded example
+
+Once again, let's return to the `GetHotels` query on our [example graph](#example-graph):
+
+```graphql
+query GetHotels {
+  hotels { # Resolved by Hotels subgraph
+    id
+    address
+    reviews { # Resolved by Reviews subgraph
+      rating
+    }
+  }
+}
+```
+
+The query plan for this operation first instructs the gateway to execute this query on the Hotels subgraph:
+
+```graphql
+{
+  hotels {
+    id
+    address
+    __typename # The gateway requests this to resolve references (see below)
+  }
+}
+```
+
+At this point, we still need review-related information for each hotel. The query plan next instructs the gateway to query the Reviews subgraph for a list of `Hotel` objects that each have this structure:
+
+```graphql
+{
+  reviews {
+    rating
+  }
+}
+```
+
+Now, the gateway needs to know _how to merge_ these `Hotel` objects with the data it already fetched from the Hotels subgraph. The `Flatten` node's `path` argument tells it exactly that:
+
+```graphql
+Flatten(path: "hotels.@") {
+  ...
+}
+```
+
+In other words, "Take the `Hotel` objects returned by the Reviews subgraph and merge them with the `Hotel` objects in the top-level `hotels` field returned by the _first_ query."
+
+When the gateway completes this merge, the resulting data exactly matches the structure of the client's original query:
+
+```graphql
+{
+  hotels {
+    id
+    address
+    reviews {
+      rating
+    }
+  }
+}
+```
 
 #### Resolving references with `Flatten`
 
