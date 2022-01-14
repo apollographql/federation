@@ -21,7 +21,6 @@ module.exports = {
             'gateway',
             'entities',
             'value-types',
-            'query-plans',
             'migrating-from-stitching',
           ],
           'Managed Federation': [
@@ -46,6 +45,7 @@ module.exports = {
           'Performance': [
             'performance/caching',
             'performance/monitoring',
+            'query-plans',
           ],
           'Debugging & Metrics': [
             'errors',
