@@ -1,5 +1,5 @@
-import { GraphQLResolverMap } from 'apollo-graphql';
 import gql from 'graphql-tag';
+import { GraphQLResolverMap } from '../resolverMap';
 
 export const name = 'reviews';
 export const url = `https://${name}.api.com`;
@@ -153,7 +153,7 @@ const reviews = [
   },
 ];
 
-export const resolvers: GraphQLResolverMap<any> = {
+export const resolvers: GraphQLResolverMap<unknown> = {
   Query: {
     review(_, args) {
       return { id: args.id };

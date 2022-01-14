@@ -1,10 +1,10 @@
-import { GraphQLSchemaModule } from 'apollo-graphql';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import { ApolloServer } from 'apollo-server';
 import fetch from 'node-fetch';
 import { ApolloGateway } from '../..';
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { ApolloServerPluginInlineTrace } from 'apollo-server-core';
+import { GraphQLSchemaModule } from '../../schema-helper';
 
 async function startFederatedServer(modules: GraphQLSchemaModule[]) {
   const schema = buildSubgraphSchema(modules);

@@ -2,7 +2,7 @@ import {
   GraphQLSchemaValidationError,
   GraphQLSchemaModule,
   GraphQLResolverMap,
-} from 'apollo-graphql';
+} from '../schema-helper';
 import { GraphQLRequest, GraphQLExecutionResult, Logger } from 'apollo-server-types';
 import {
   composeAndValidate,

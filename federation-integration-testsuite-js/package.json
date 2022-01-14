@@ -18,7 +18,6 @@
   },
   "homepage": "https://github.com/apollographql/federation#readme",
   "dependencies": {
-    "apollo-graphql": "^0.9.5",
     "graphql-tag": "^2.10.4",
     "pretty-format": "^27.4.6"
   },
