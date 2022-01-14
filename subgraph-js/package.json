@@ -1,6 +1,6 @@
 {
   "name": "@apollo/subgraph",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "description": "Apollo Subgraph Utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,8 +22,6 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "dependencies": {
   },
   "peerDependencies": {
     "graphql": "^15.7.0 || ^16.0.0"

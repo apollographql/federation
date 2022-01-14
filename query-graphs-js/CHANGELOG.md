@@ -4,6 +4,10 @@
 
 - _Nothing yet! Stay tuned._
 
+## v2.0.0-alpha.4
+
+- Add missing `deep-equal` dependency [PR #1391](https://github.com/apollographql/federation/pull/1391)
+
 ## v2.0.0-alpha.3
 
 - Fix issue with nested `@requires` directives [PR #1306](https://github.com/apollographql/federation/pull/1306).
