@@ -39,7 +39,7 @@ export class LocalGraphQLDataSource<
       throw new Error(result.errors.map((error) => error.message).join('\n\n'));
     }
 
-    const sdl = result.data && result.data._service && result.data._service.sdl;
+    const sdl = result.data && result.data._service && (result.data._service as any).sdl;
     return parse(sdl);
   }
 }
