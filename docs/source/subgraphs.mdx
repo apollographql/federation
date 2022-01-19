@@ -106,7 +106,7 @@ Finally, we use the `buildSubgraphSchema` function from the `@apollo/subgraph` p
 
 ```js:title=index.js
 const server = new ApolloServer({
-  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema({ typeDefs, resolvers })
 });
 
 server.listen(4001).then(({ url }) => {
@@ -149,7 +149,7 @@ const resolvers = {
 }
 
 const server = new ApolloServer({
-  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema({ typeDefs, resolvers })
 });
 
 server.listen(4001).then(({ url }) => {
