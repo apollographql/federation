@@ -35,7 +35,7 @@ Finally, modify your `ApolloServer` constructor by passing it a `schema` option 
 
 ```js:title=index.js
 const server = new ApolloServer({
-  schema: buildSubgraphSchema([{ typeDefs, resolvers }])
+  schema: buildSubgraphSchema({ typeDefs, resolvers })
 });
 ```
 
