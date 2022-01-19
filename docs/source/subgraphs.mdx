@@ -246,7 +246,35 @@ If you're developing your subgraph in your local environment, you can [mock the 
 
 ## Defining custom directives
 
-The method for defining [custom directives](https://www.apollographql.com/docs/apollo-server/schema/creating-directives/) differs slightly in Apollo Federation.
+The method for defining custom directives differs slightly in Apollo Federation, and it also depends on the version of Apollo Server you're using.
+
+### In Apollo Server 3.x
+
+[As documented here](https://www.apollographql.com/docs/apollo-server/schema/creating-directives/#implementing), in Apollo Server 3 you define a **transformer function** for each of your subgraph schema's custom directives.
+
+To apply transformer functions to your executable subgraph schema, you first _generate_ the subgraph schema with `buildSubgraphSchema` as usual:
+
+```js
+let subgraphSchema = buildSubgraphSchema({typeDefs, resolvers});
+```
+
+But instead of passing the result directly to the `ApolloServer` constructor, you first apply all of your transformer functions to it:
+
+```js
+// Transformer function for an @upper directive
+subgraphSchema = upperDirectiveTransformer(subgraphSchema, 'upper');
+```
+
+After applying all transformer functions, you provide your final subgraph schema to the `ApolloServer` constructor as usual:
+
+```js
+const server = new ApolloServer({
+  schema: subgraphSchema
+  // ...other options...
+});
+```
+
+### In Apollo Server 2.x
 
 **Without Apollo Federation**, you provide your directive definitions to the constructor of `ApolloServer` in the `schemaDirectives` argument, like so:
 
