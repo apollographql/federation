@@ -65,7 +65,7 @@
     "apollo-server-env": "4.2.1",
     "bunyan": "1.8.15",
     "deep-freeze": "0.0.1",
-    "graphql": "15.8.0",
+    "graphql": "16.2.0",
     "graphql-tag": "2.12.6",
     "jest": "27.4.7",
     "jest-config": "27.4.7",
