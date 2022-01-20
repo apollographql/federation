@@ -392,6 +392,8 @@ At composition time, `ApolloGateway` strips all definitions _and_ uses of type s
 
 Effectively, the gateway supports type system directives by _ignoring_ them, making them the responsibility of the subgraphs that define them.
 
+To learn about using custom directives in your subgraph schemas, see [Custom directives in subgraphs](./subgraphs/#custom-directives-in-subgraphs).
+
 ### Executable directives
 
 Executable directives are directives that are applied to one of [these locations](http://spec.graphql.org/June2018/#ExecutableDirectiveLocation). These directives are _defined_ in your schema, but they're _used_ in operations that are sent by clients.

@@ -244,13 +244,23 @@ If you're writing integration tests for your subgraph, you can test the return v
 
 If you're developing your subgraph in your local environment, you can [mock the return value](https://www.apollographql.com/docs/apollo-server/testing/mocking/) of the `_entities` field for your _other_ subgraphs so you don't have to connect those subgraphs to their respective data stores.
 
-## Defining custom directives
+## Custom directives in subgraphs
 
-The method for defining custom directives differs slightly in Apollo Federation, and it also depends on the version of Apollo Server you're using.
+The method for defining custom directives differs slightly for a federated graph, and it also depends on the version of Apollo Server you're using.
 
-### In Apollo Server 3.x
+> ⚠️ **Important considerations**
+>
+> Before you use directives in a federated graph, make sure to consider the following:
+>
+> * Custom directives are _not_ included in your graph's composed supergraph schema. The composition process strips all subgraph directives. Only a given subgraph is aware of its own directives.
+> * Because directives are specific to individual subgraphs, it's valid for different subgraphs to define the _same_ directive with _different_ logic. Composition does not detect or warn about such inconsistencies.
+> * If multiple subgraphs can resolve a particular field, each subgraph should almost always apply the exact same set of custom directives (with the exact same accompanying logic) to that field. Otherwise, the behavior of that field might vary depending on _which_ subgraph resolves it.
 
-[As documented here](https://www.apollographql.com/docs/apollo-server/schema/creating-directives/#implementing), in Apollo Server 3 you define a **transformer function** for each of your subgraph schema's custom directives.
+### Directives in Apollo Server 3.x
+
+Apollo Server 3 does not provide _built-in_ support for custom directives, but you can install certain `@graphql-tools` libraries to enable support. To get started with these libraries in Apollo Server, first read [Creating schema directives](https://www.apollographql.com/docs/apollo-server/schema/creating-directives/).
+
+As the linked article describes, in Apollo Server 3 you define a **transformer function** for each of your subgraph schema's custom directives.
 
 To apply transformer functions to your executable subgraph schema, you first _generate_ the subgraph schema with `buildSubgraphSchema` as usual:
 
@@ -274,7 +284,7 @@ const server = new ApolloServer({
 });
 ```
 
-### In Apollo Server 2.x
+### Directives in Apollo Server 2.x
 
 **Without Apollo Federation**, you provide your directive definitions to the constructor of `ApolloServer` in the `schemaDirectives` argument, like so:
 
