@@ -19,7 +19,7 @@ import {
   NamedTypeNode,
   lexicographicSortSchema,
 } from 'graphql';
-import { transformSchema } from 'apollo-graphql';
+import { transformSchema } from '../schema-helper';
 import {
   directivesWithNoDefinitionNeeded,
   isDirectiveWithNoDefinitionNeeded,

@@ -15,7 +15,7 @@ import {
   GraphQLError,
   GraphQLCompositeType,
 } from 'graphql';
-import { transformSchema } from 'apollo-graphql';
+import { transformSchema } from '../schema-helper';
 
 export function removeInaccessibleElements(
   schema: GraphQLSchema,
