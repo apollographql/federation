@@ -45,6 +45,7 @@ module.exports = {
           'Performance': [
             'performance/caching',
             'performance/monitoring',
+            'query-plans',
           ],
           'Debugging & Metrics': [
             'errors',
