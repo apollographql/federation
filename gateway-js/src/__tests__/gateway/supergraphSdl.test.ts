@@ -5,7 +5,7 @@ import {
   SupergraphSdlUpdateFunction,
 } from '@apollo/gateway';
 import { fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
-import { createHash } from 'apollo-graphql/lib/utilities/createHash';
+import { createHash } from '../../utilities/createHash';
 import { ApolloServer } from 'apollo-server';
 import { Logger } from 'apollo-server-types';
 import { fetch } from '../../__mocks__/make-fetch-happen-fetcher';

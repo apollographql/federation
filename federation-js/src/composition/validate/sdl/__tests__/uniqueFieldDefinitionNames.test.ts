@@ -4,6 +4,7 @@ import {
   DocumentNode,
   Kind,
   extendSchema,
+  GraphQLError,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
 import gql from 'graphql-tag';
@@ -68,7 +69,7 @@ describe('UniqueFieldDefinitionNames', () => {
 
       const errors = validateSDL(definitions, schema, [
         UniqueFieldDefinitionNames,
-      ]);
+      ]) as GraphQLError[];
       schema = extendSchema(schema, definitions, {
         assumeValidSDL: true,
       });
@@ -105,7 +106,7 @@ describe('UniqueFieldDefinitionNames', () => {
 
       const errors = validateSDL(definitions, schema, [
         UniqueFieldDefinitionNames,
-      ]);
+      ]) as GraphQLError[];
       schema = extendSchema(schema, definitions, { assumeValidSDL: true });
       errors.push(
         ...validateSDL(extensions, schema, [UniqueFieldDefinitionNames]),
@@ -138,7 +139,7 @@ describe('UniqueFieldDefinitionNames', () => {
 
       const errors = validateSDL(definitions, schema, [
         UniqueFieldDefinitionNames,
-      ]);
+      ]) as GraphQLError[];
       schema = extendSchema(schema, definitions, { assumeValidSDL: true });
       errors.push(
         ...validateSDL(extensions, schema, [UniqueFieldDefinitionNames]),
