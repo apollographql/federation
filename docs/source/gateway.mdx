@@ -149,7 +149,7 @@ Finally, we return a `cleanup` function. This is a callback that's called when t
 
 #### Advanced usage
 
-In a more complex application, you might want to create a class that handles the `update` and `healthCheck` functions, along with any additional state. In this case, you can instead provide an object (or class) with an `initialize` function. This function is called just like the `supergraphSdl` function discussed above. For an example of this, see the [`IntrospectAndCompose` source code](https://github.com/apollographql/federation/blob/main/packages/apollo-gateway/src/supergraphManagers/IntrospectAndCompose/index.ts).
+In a more complex application, you might want to create a class that handles the `update` and `healthCheck` functions, along with any additional state. In this case, you can instead provide an object (or class) with an `initialize` function. This function is called just like the `supergraphSdl` function discussed above. For an example of this, see the [`IntrospectAndCompose` source code](https://github.com/apollographql/federation/blob/main/gateway-js/src/supergraphManagers/IntrospectAndCompose/index.ts).
 
 ### Composing subgraphs with `IntrospectAndCompose`
 
