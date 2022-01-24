@@ -10,7 +10,8 @@ expression: "serde_json::to_string_pretty(&plan::<serde_json::Value>(Operational
       "kind": "Fetch",
       "serviceName": "accounts",
       "variableUsages": [],
-      "operation": "{me{name{first last}}}"
+      "operation": "{me{name{first last}}}",
+      "operationKind": "query"
     }
   }
 }
