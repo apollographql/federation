@@ -24,6 +24,7 @@ Scenario: supports mutations
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": ["username", "password"],
+          "operationKind": "mutation",
           "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
         },
         {
@@ -43,6 +44,7 @@ Scenario: supports mutations
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
           }
         },
@@ -63,6 +65,7 @@ Scenario: supports mutations
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
           }
         }
@@ -93,6 +96,7 @@ Scenario: mutations across service boundaries
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": ["upc", "body"],
+          "operationKind": "mutation",
           "operation": "mutation($upc:String!$body:String!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{__typename upc}}}"
         },
         {
@@ -112,6 +116,7 @@ Scenario: mutations across service boundaries
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}"
           }
         }
@@ -155,6 +160,7 @@ Scenario: multiple root mutations
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": ["username", "password"],
+          "operationKind": "mutation",
           "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
         },
         {
@@ -174,6 +180,7 @@ Scenario: multiple root mutations
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
           }
         },
@@ -194,6 +201,7 @@ Scenario: multiple root mutations
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
           }
         },
@@ -201,6 +209,7 @@ Scenario: multiple root mutations
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": ["upc", "body"],
+          "operationKind": "mutation",
           "operation": "mutation($upc:String!$body:String!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{__typename upc}}}"
         },
         {
@@ -220,6 +229,7 @@ Scenario: multiple root mutations
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Furniture{name}}}"
           }
         }
@@ -270,12 +280,14 @@ Scenario: multiple root mutations with correct service order
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": ["upc", "body", "updatedReview"],
+          "operationKind": "mutation",
           "operation": "mutation($upc:String!$body:String!$updatedReview:UpdateReviewInput!){reviewProduct(input:{upc:$upc body:$body}){__typename ...on Furniture{upc}}updateReview(review:$updatedReview){id body}}"
         },
         {
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": ["username", "password"],
+          "operationKind": "mutation",
           "operation": "mutation($username:String!$password:String!){login(username:$username password:$password){__typename id}}"
         },
         {
@@ -295,6 +307,7 @@ Scenario: multiple root mutations with correct service order
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{upc}}}}}}"
           }
         },
@@ -315,6 +328,7 @@ Scenario: multiple root mutations with correct service order
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{upc}}}"
           }
         },
@@ -322,6 +336,7 @@ Scenario: multiple root mutations with correct service order
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": ["reviewId"],
+          "operationKind": "mutation",
           "operation": "mutation($reviewId:ID!){deleteReview(id:$reviewId)}"
         }
       ]

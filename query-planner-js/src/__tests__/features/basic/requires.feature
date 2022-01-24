@@ -27,6 +27,7 @@ Scenario: supports passing additional fields defined by a requires
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
+          "operationKind": "query",
           "operation": "{me{__typename id}}"
         },
         {
@@ -46,6 +47,7 @@ Scenario: supports passing additional fields defined by a requires
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}}}}}}"
           }
         },
@@ -66,6 +68,7 @@ Scenario: supports passing additional fields defined by a requires
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
           }
         },
@@ -88,6 +91,7 @@ Scenario: supports passing additional fields defined by a requires
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
           }
         }

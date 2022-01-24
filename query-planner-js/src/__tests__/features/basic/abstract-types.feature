@@ -22,6 +22,7 @@ Scenario: handles an abstract type from the base service
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
+          "operationKind": "query",
           "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn upc price}...on Furniture{upc name price}}}"
         },
         {
@@ -41,6 +42,7 @@ Scenario: handles an abstract type from the base service
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
           }
         },
@@ -63,6 +65,7 @@ Scenario: handles an abstract type from the base service
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
           }
         }
@@ -91,6 +94,7 @@ Scenario: can request fields on extended interfaces
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
+          "operationKind": "query",
           "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
         },
         {
@@ -118,6 +122,7 @@ Scenario: can request fields on extended interfaces
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{inStock}...on Furniture{inStock}}}"
           }
         }
@@ -149,6 +154,7 @@ Scenario: can request fields on extended types that implement an interface
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
+          "operationKind": "query",
           "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
         },
         {
@@ -176,6 +182,7 @@ Scenario: can request fields on extended types that implement an interface
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{inStock}...on Furniture{inStock isHeavy}}}"
           }
         }
@@ -210,6 +217,7 @@ Scenario: prunes unfilled type conditions
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
+          "operationKind": "query",
           "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename sku}}}"
         },
         {
@@ -237,6 +245,7 @@ Scenario: prunes unfilled type conditions
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{inStock isCheckedOut}...on Furniture{inStock isHeavy}}}"
           }
         }
@@ -272,6 +281,7 @@ Scenario: fetches interfaces returned from other services
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
+          "operationKind": "query",
           "operation": "{me{__typename id}}"
         },
         {
@@ -291,6 +301,7 @@ Scenario: fetches interfaces returned from other services
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}"
           }
         },
@@ -314,6 +325,7 @@ Scenario: fetches interfaces returned from other services
                   }
                 ],
                 "variableUsages": [],
+                "operationKind": "query",
                 "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title}}}"
               }
             },
@@ -342,6 +354,7 @@ Scenario: fetches interfaces returned from other services
                   }
                 ],
                 "variableUsages": [],
+                "operationKind": "query",
                 "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}"
               }
             }
@@ -379,6 +392,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
+          "operationKind": "query",
           "operation": "{me{__typename id}}"
         },
         {
@@ -398,6 +412,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}"
           }
         },
@@ -429,6 +444,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                   }
                 ],
                 "variableUsages": [],
+                "operationKind": "query",
                 "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price}}}"
               }
             },
@@ -452,6 +468,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                       }
                     ],
                     "variableUsages": [],
+                    "operationKind": "query",
                     "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
                   }
                 },
@@ -474,6 +491,7 @@ Scenario: fetches composite fields from a foreign type casted to an interface [@
                       }
                     ],
                     "variableUsages": [],
+                    "operationKind": "query",
                     "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
                   }
                 }
@@ -508,6 +526,7 @@ Scenario: allows for extending an interface from another service with fields
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
+          "operationKind": "query",
           "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}"
         },
         {
@@ -535,6 +554,7 @@ Scenario: allows for extending an interface from another service with fields
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{body}}...on Furniture{reviews{body}}}}"
           }
         }
@@ -577,6 +597,7 @@ Scenario: handles unions from the same service
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
+          "operationKind": "query",
           "operation": "{me{__typename id}}"
         },
         {
@@ -596,6 +617,7 @@ Scenario: handles unions from the same service
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{reviews{product{__typename ...on Book{__typename isbn}...on Furniture{__typename upc}}}}}}"
           }
         },
@@ -624,6 +646,7 @@ Scenario: handles unions from the same service
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{price}...on Furniture{price brand{__typename ...on Ikea{asile}...on Amazon{referrer}}}}}"
           }
         }

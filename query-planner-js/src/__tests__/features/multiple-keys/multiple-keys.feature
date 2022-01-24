@@ -24,6 +24,7 @@ Feature: Query Planning > Multiple keys
               "kind": "Fetch",
               "serviceName": "reviews",
               "variableUsages": [],
+              "operationKind": "query",
               "operation": "{reviews{body author{__typename id}}}"
             },
             {
@@ -43,6 +44,7 @@ Feature: Query Planning > Multiple keys
                   }
                 ],
                 "variableUsages": [],
+                "operationKind": "query",
                 "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{ssn name}}}"
               }
             },
@@ -63,6 +65,7 @@ Feature: Query Planning > Multiple keys
                   }
                 ],
                 "variableUsages": [],
+                "operationKind": "query",
                 "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{risk}}}"
               }
             }

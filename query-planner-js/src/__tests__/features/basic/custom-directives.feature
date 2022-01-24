@@ -17,6 +17,7 @@ Scenario: successfully passes directives along in requests to an underlying serv
       "kind": "Fetch",
       "serviceName": "reviews",
       "variableUsages": [],
+      "operationKind": "query",
       "operation": "{topReviews{body@stream}}"
     }
   }
@@ -47,6 +48,7 @@ Scenario: successfully passes directives and their variables along in requests t
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": [],
+          "operationKind": "query",
           "operation": "{topReviews{body@stream author@transform(from:\"JSON\"){__typename id}}}"
         },
         {
@@ -66,6 +68,7 @@ Scenario: successfully passes directives and their variables along in requests t
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name@stream{first}}}}"
           }
         }

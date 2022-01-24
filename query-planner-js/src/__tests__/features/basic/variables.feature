@@ -21,6 +21,7 @@ Scenario: passes variables to root fields
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
+          "operationKind": "query",
           "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
         },
         {
@@ -40,6 +41,7 @@ Scenario: passes variables to root fields
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
           }
         },
@@ -62,6 +64,7 @@ Scenario: passes variables to root fields
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
           }
         }
@@ -91,6 +94,7 @@ Scenario: supports default variables in a variable definition
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
+          "operationKind": "query",
           "operation": "query($upc:String=\"1\"){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name}}}"
         },
         {
@@ -110,6 +114,7 @@ Scenario: supports default variables in a variable definition
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
           }
         },
@@ -132,6 +137,7 @@ Scenario: supports default variables in a variable definition
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{name}}}"
           }
         }
@@ -163,6 +169,7 @@ Scenario: passes variables to nested services
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
+          "operationKind": "query",
           "operation": "{me{__typename id}}"
         },
         {
@@ -182,6 +189,7 @@ Scenario: passes variables to nested services
               }
             ],
             "variableUsages": ["format"],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!$format:Boolean){_entities(representations:$representations){...on User{reviews{body(format:$format)}}}}"
           }
         }
@@ -216,6 +224,7 @@ Scenario: works with default variables in the schema
           "kind": "Fetch",
           "serviceName": "books",
           "variableUsages": ["libraryId"],
+          "operationKind": "query",
           "operation": "query($libraryId:ID!){library(id:$libraryId){__typename id name}}"
         },
         {
@@ -236,6 +245,7 @@ Scenario: works with default variables in the schema
               }
             ],
             "variableUsages": ["userId"],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!$userId:ID){_entities(representations:$representations){...on Library{userAccount(id:$userId){id name{first}}}}}"
           }
         }
@@ -261,6 +271,7 @@ Scenario: String arguments with quotes that need to be escaped.
       "kind": "Fetch",
       "serviceName": "product",
       "variableUsages": [],
+      "operationKind": "query",
       "operation": "{vehicle(id:\"{\\\"make\\\":\\\"Toyota\\\",\\\"model\\\":\\\"Rav4\\\",\\\"trim\\\":\\\"Limited\\\"}\"){__typename ...on Car{description}...on Van{description}}}"
     }
   }

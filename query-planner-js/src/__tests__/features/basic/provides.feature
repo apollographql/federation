@@ -19,6 +19,7 @@ Scenario: does not have to go to another service when field is given
       "kind": "Fetch",
       "serviceName": "reviews",
       "variableUsages": [],
+      "operationKind": "query",
       "operation": "{topReviews{author{username}}}"
     }
   }
@@ -50,6 +51,7 @@ Scenario: does not load fields provided even when going to other service
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": [],
+          "operationKind": "query",
           "operation": "{topReviews{author{__typename id username}}}"
         },
         {
@@ -69,6 +71,7 @@ Scenario: does not load fields provided even when going to other service
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on User{name{first}}}}"
           }
         }

@@ -68,7 +68,7 @@ import {
   terminateWithNonRequestedTypenameField,
   getLocallySatisfiableKey,
 } from "@apollo/query-graphs";
-import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
+import { DocumentNode, OperationDefinitionNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
@@ -801,6 +801,7 @@ class FetchGroup {
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
       variableUsages: this.selection.usedVariables().map(v => v.name),
       operation: stripIgnoredCharacters(print(operation)),
+      operationKind: (operation.definitions[0] as OperationDefinitionNode).operation,
     };
 
     return this.isTopLevel
