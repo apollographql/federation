@@ -45,7 +45,7 @@
     "apollo-federation-integration-testsuite": "file:federation-integration-testsuite-js"
   },
   "devDependencies": {
-    "@apollo/client": "3.5.7",
+    "@apollo/client": "3.5.8",
     "@graphql-codegen/cli": "2.4.0",
     "@graphql-codegen/typescript": "2.4.2",
     "@graphql-codegen/typescript-operations": "2.2.2",
@@ -65,7 +65,7 @@
     "@types/node": "12.20.42",
     "@types/node-fetch": "2.5.12",
     "@types/whatwg-url": "8.2.1",
-    "@typescript-eslint/eslint-plugin": "5.10.0",
+    "@typescript-eslint/eslint-plugin": "5.10.1",
     "apollo-server": "3.6.2",
     "apollo-server-env": "4.2.1",
     "bunyan": "1.8.15",
@@ -83,7 +83,7 @@
     "node-fetch": "2.6.7",
     "prettier": "2.5.1",
     "prompt-confirm": "2.0.4",
-    "rollup": "2.66.0",
+    "rollup": "2.66.1",
     "rollup-plugin-node-polyfills": "0.2.1",
     "strip-indent": "3.0.0",
     "ts-jest": "27.1.3",
