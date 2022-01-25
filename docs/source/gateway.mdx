@@ -2,10 +2,6 @@
 title: "The gateway"
 ---
 
-import {
-  ExpansionPanel,
-} from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
-
 After you set up at least one federation-ready [subgraph](./subgraphs/), you can configure a **gateway** to sit in front of your subgraphs. The gateway executes incoming operations across those subgraphs.
 
 The [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) package extends Apollo Server's functionality, enabling it to act as a gateway for an Apollo Federation architecture.
@@ -20,7 +16,7 @@ First, let's install the necessary packages:
 npm install @apollo/gateway apollo-server
 ```
 
-The `@apollo/gateway` package includes the [`ApolloGateway` class](/api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
+The `@apollo/gateway` package includes the [`ApolloGateway` class](./api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
 
 ```js:title=index.js
 const { ApolloServer } = require('apollo-server');
@@ -363,11 +359,11 @@ server.listen().then(({ url }) => {
 
 > In this example, multiple calls to `didReceiveResponse` are `push`ing a value onto the shared `context.serverIds` array. The order of these calls cannot be guaranteed. If you write logic that modifies the shared `context` object, make sure that modifications are not destructive, and that the order of modifications doesn't matter.
 
-To learn more about `buildService` and `RemoteGraphQLDataSource`, see the [API docs](/api/apollo-gateway/).
+To learn more about `buildService` and `RemoteGraphQLDataSource`, see the [API docs](./api/apollo-gateway/).
 
 ## Custom directive support
 
-The `@apollo/gateway` library supports the use of custom [directives](https://www.apollographql.com/docs/apollo-server/schema/directives/) in your subgraph schemas. This support differs depending on whether a given directive is a **type system directive** or an **executable directive**.
+The `@apollo/gateway` library supports the use of custom [directives](/apollo-server/schema/directives/) in your subgraph schemas. This support differs depending on whether a given directive is a **type system directive** or an **executable directive**.
 
 ### Type system directives
 

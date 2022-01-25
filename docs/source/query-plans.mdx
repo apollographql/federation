@@ -3,8 +3,6 @@ title: Query plans
 description: How your gateway plans operations across subgraphs
 ---
 
-import {CodeColumns, ExpansionPanel} from 'gatsby-theme-apollo-docs';
-
 > ⚠️ You definitely don't need to understand the details of query plans to get started with Apollo Federation! This information is provided primarily for advanced debugging purposes.
 
 Whenever your gateway receives an incoming GraphQL operation, it needs to figure out how to use your subgraphs to populate data for each of that operation's fields. To do this, the gateway generates a **query plan**:
@@ -433,10 +431,10 @@ Flatten(path: "hotels.@") {
 
 Instead of containing a GraphQL operation, this `Fetch` node contains two **GraphQL fragments**, separated by `=>`.
 
-* The first fragment is a **representation** of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](/entities/#resolving-entities).
+* The first fragment is a **representation** of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](./entities/#resolving-entities).
 * The second fragment contains the entity fields and subfields that the gateway needs the subgraph to resolve (in this case, `Hotel.reviews` and `Review.rating`).
 
-When the gateway sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](/subgraphs/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
+When the gateway sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](./subgraphs/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
 
 Now that you've learned about each query plan node, take another look at the example query plan in [Example graph](#example-graph) to see how these nodes work together in a complete query plan.
 

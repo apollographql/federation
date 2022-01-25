@@ -4,10 +4,6 @@ sidebar_title: "Part 2 - Composition in Apollo Studio"
 description: "Part 2 - Composition in Apollo Studio"
 ---
 
-import {Button} from '@apollo/space-kit/Button';
-import {Link} from 'gatsby';
-import {ExpansionPanel} from 'gatsby-theme-apollo-docs';
-
 [Back in Part 1](./quickstart/), we created a federated gateway and used the Rover CLI to compose a supergraph schema for it based on two subgraphs. Next, we'll move that composition process into the cloud.
 
 Our gateway currently loads its composed supergraph schema from a file on startup. This means that whenever the schema _changes_, the gateway needs to restart to load the new version.

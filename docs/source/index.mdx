@@ -5,9 +5,6 @@ description: Implement a single graph across multiple services
 ---
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
-import {
-  ExpansionPanel,
-} from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
 
 > 📣 **Apollo Federation 2 is available in public preview.** [View the Federation 2 docs.](https://www.apollographql.com/docs/federation/v2/)
 
@@ -44,7 +41,7 @@ Like the rest of the Apollo platform, Apollo Federation can (and should) be
 adopted **incrementally**:
 
 * If you currently use a monolithic GraphQL server, you can break its functionality out one service at a time.
-* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](/migrating-from-stitching/).
+* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](./migrating-from-stitching/).
 
 In both of these cases, all of your clients will continue to work throughout your incremental migration. In fact, clients have no way to distinguish between different graph implementations.
 
