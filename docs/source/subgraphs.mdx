@@ -5,15 +5,11 @@ sidebar_title: Subgraphs
 
 import FederationArchitecture from '../shared/diagrams/federation-architecture.mdx';
 
-import {
-  ExpansionPanel,
-} from 'gatsby-theme-apollo-docs/src/components/expansion-panel';
-
 This article describes how to create a **subgraph** for a federated graph using Apollo Server.
 
 ## Defining a subgraph
 
-> To be part of a supergraph, a subgraph must conform to the [Apollo Federation subgraph specification](/federation-spec/), which exposes the subgraph's capabilities to the gateway, as well as to tools like Apollo Studio.
+> To be part of a supergraph, a subgraph must conform to the [Apollo Federation subgraph specification](./federation-spec/), which exposes the subgraph's capabilities to the gateway, as well as to tools like Apollo Studio.
 
 Converting an existing monolithic graph into a single subgraph is a convenient first step in building a federated supergraph. To start, here's a *non-federated* Apollo Server setup:
 

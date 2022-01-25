@@ -4,8 +4,6 @@ sidebar_title: ⬅️ Backward compatibility
 description: FAQ
 ---
 
-import { ExpansionPanel } from 'gatsby-theme-apollo-docs';
-
 ## Do I need to modify my subgraph schemas to use Federation 2?
 
 **Eventually.** The process of [moving to Federation 2](./moving-to-federation-2/) has two phases:
@@ -30,7 +28,7 @@ An entity's `@key` consists of one or more of the entity's own `fields`. If any 
 
 <p style="margin-bottom: 0">✅</p>
 
-```graphql{1}
+```graphql {1}
 type User @key(fields: "id organization { id }") {
  id: ID!
  organization: Organization!
@@ -81,7 +79,7 @@ type ProductDimensions {
 }
 ```
 
-```graphql{5}
+```graphql {5}
 # Subgraph B
 extend type Product @key(fields:"sku") {
   sku: ID! @external
@@ -114,7 +112,7 @@ type ProductDimensions {
 }
 ```
 
-```graphql{5}
+```graphql {5}
 # Subgraph B
 extend type Product @key(fields:"sku") {
   sku: ID! @external
