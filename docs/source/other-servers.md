@@ -1,6 +1,5 @@
 ---
 title: Subgraph-compatible server libraries
-sidebar_title: Subgraph-compatible libraries
 ---
 
 The following open-source GraphQL server libraries support acting as a subgraph in a federated graph, and their support is tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility). Check out the repository for details on the compatibility tests listed in the table below.

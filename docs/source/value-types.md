@@ -1,6 +1,5 @@
 ---
 title: Value types
-sidebar_title: Reusing types (value types)
 description: Define the exact same type in multiple services
 ---
 

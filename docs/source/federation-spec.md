@@ -1,6 +1,5 @@
 ---
 title: Apollo Federation subgraph specification
-sidebar_title: Subgraph specification
 description: For implementing subgraphs in other languages
 ---
 

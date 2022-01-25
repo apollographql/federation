@@ -1,6 +1,5 @@
 ---
 title: Testing Workbench graphs locally
-sidebar_title: Testing graphs locally
 ---
 
 Apollo Workbench enables you to run a mocked version of any fully composing supergraph design on your local machine.

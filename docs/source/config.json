@@ -3,11 +3,64 @@
   "version": "v1",
   "sidebar": {
     "Introduction": "/",
-    "Get started": "/get-started",
-    "Why Apollo Client?": "/why-apollo",
-    "Caching": {
-      "Advanced topics": "/caching/advanced-topics",
-      "Overview": "/caching/overview"
+    "Quickstart": {
+      "Part 1 - Local schema composition": "/quickstart",
+      "Part 2 - Composition in Apollo Studio": "/quickstart-pt-2",
+      "Part 3 - Working with subgraphs": "/quickstart-pt-3"
+    },
+    "Core Concepts": {
+      "Subgraphs": "/subgraphs",
+      "The gateway": "/gateway",
+      "Entities": "/entities",
+      "Reusing types (value types)": "/value-types",
+      "Migrating from schema stitching": "/migrating-from-stitching"
+    },
+    "Managed Federation": {
+      "Overview": "/managed-federation/overview",
+      "Setup": "/managed-federation/setup",
+      "Uplink": "/managed-federation/uplink",
+      "Federated schema checks": "/managed-federation/federated-schema-checks",
+      "Deployment best practices": "/managed-federation/deployment",
+      "Opt-in error reporting": "/managed-federation/error-reporting",
+      "Studio features": "https://www.apollographql.com/docs/studio/federated-graphs/"
+    },
+    "Enterprise Guide": {
+      "Introduction": "/enterprise-guide/introduction",
+      "GraphQL consolidation": "/enterprise-guide/graphql-consolidation",
+      "Federated schema design": "/enterprise-guide/federated-schema-design",
+      "Graph administration": "/enterprise-guide/graph-administration",
+      "Graph security": "/enterprise-guide/graph-security",
+      "Change management": "/enterprise-guide/change-management",
+      "Federation case studies": "/enterprise-guide/federation-case-studies",
+      "Additional resources": "/enterprise-guide/additional-resources"
+    },
+    "Performance": {
+      "Caching": "/performance/caching",
+      "Monitoring": "/performance/monitoring",
+      "Query plans": "/query-plans"
+    },
+    "Debugging & Metrics": {
+      "Error codes": "/errors",
+      "Federated trace data": "/metrics",
+      "OpenTelemetry": "/opentelemetry"
+    },
+    "Third-Party Support": {
+      "Subgraph-compatible libraries": "/other-servers",
+      "Subgraph specification": "/federation-spec"
+    },
+    "Apollo Workbench": {
+      "Overview": "/workbench/overview",
+      "Setup": "/workbench/setup",
+      "Using with Federation 2": "/workbench/using-federation-2",
+      "Creating a new graph": "/workbench/create-new-graph",
+      "Importing a graph from Studio": "/workbench/import-studio-graph",
+      "Setting up Managed Federation": "/workbench/design-to-studio",
+      "Testing graphs locally": "/workbench/mocking",
+      "Exporting designs": "/workbench/exporting"
+    },
+    "API Reference": {
+      "@apollo/subgraph": "/api/apollo-subgraph",
+      "@apollo/gateway": "/api/apollo-gateway"
     }
   }
 }

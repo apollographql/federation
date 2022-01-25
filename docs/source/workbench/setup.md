@@ -1,6 +1,5 @@
 ---
 title: Setting up Apollo Workbench
-sidebar_title: Setup
 ---
 
 First, download the following required applications and extensions:
