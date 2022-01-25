@@ -945,6 +945,123 @@ describe('@provides', () => {
   });
 });
 
+describe('@requires', () => {
+  it('handles multiple requires within the same entity fetch', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          is: [I!]!
+        }
+
+        interface I {
+          id: ID!
+          f: Int
+          g: Int
+        }
+
+        type T1 implements I {
+          id: ID!
+          f: Int
+          g: Int
+        }
+
+        type T2 implements I @key(fields: "id") {
+          id: ID!
+          f: Int!
+          g: Int @external
+        }
+
+        type T3 implements I @key(fields: "id") {
+          id: ID!
+          f: Int
+          g: Int @external
+        }
+      `
+    }
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T2 @key(fields: "id") {
+          id: ID!
+          f: Int! @external
+          g: Int @requires(fields: "f")
+        }
+
+        type T3 @key(fields: "id") {
+          id: ID!
+          f: Int @external
+          g: Int @requires(fields: "f")
+        }
+      `
+    }
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(api, gql`
+      {
+        is {
+          g
+        }
+      }
+    `);
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
+    // into the same fetch group.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              is {
+                __typename
+                ... on T1 {
+                  g
+                }
+                ... on T2 {
+                  __typename
+                  id
+                  f
+                }
+                ... on T3 {
+                  __typename
+                  id
+                  f
+                }
+              }
+            }
+          },
+          Flatten(path: "is.@") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T2 {
+                  __typename
+                  id
+                  f
+                }
+                ... on T3 {
+                  __typename
+                  id
+                  f
+                }
+              } =>
+              {
+                ... on T2 {
+                  g
+                }
+                ... on T3 {
+                  g
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  })
+});
+
 test('Correctly handle case where there is too many plans to consider', () => {
   // Creating realistic examples where there is too many plan to consider is not trivial, but creating unrealistic examples
   // is thankfully trivial. Here, we just have 2 subgraphs that are _exactly the same_ with a single type having plenty of
