@@ -149,7 +149,7 @@ Finally, we return a `cleanup` function. This is a callback that's called when t
 
 #### Advanced usage
 
-In a more complex application, you might want to create a class that handles the `update` and `healthCheck` functions, along with any additional state. In this case, you can instead provide an object (or class) with an `initialize` function. This function is called just like the `supergraphSdl` function discussed above. For an example of this, see the [`IntrospectAndCompose` source code](https://github.com/apollographql/federation/blob/main/packages/apollo-gateway/src/supergraphManagers/IntrospectAndCompose/index.ts).
+In a more complex application, you might want to create a class that handles the `update` and `healthCheck` functions, along with any additional state. In this case, you can instead provide an object (or class) with an `initialize` function. This function is called just like the `supergraphSdl` function discussed above. For an example of this, see the [`IntrospectAndCompose` source code](https://github.com/apollographql/federation/blob/main/gateway-js/src/supergraphManagers/IntrospectAndCompose/index.ts).
 
 ### Composing subgraphs with `IntrospectAndCompose`
 
@@ -391,6 +391,8 @@ type ExampleType {
 At composition time, `ApolloGateway` strips all definitions _and_ uses of type system directives from your composed schema. This has no effect on your subgraph schemas, which retain this information.
 
 Effectively, the gateway supports type system directives by _ignoring_ them, making them the responsibility of the subgraphs that define them.
+
+To learn about using custom directives in your subgraph schemas, see [Custom directives in subgraphs](./subgraphs/#custom-directives-in-subgraphs).
 
 ### Executable directives
 

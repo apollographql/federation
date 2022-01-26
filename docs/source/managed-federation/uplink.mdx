@@ -29,11 +29,13 @@ To maximize uptime, Uplink is hosted simultaneously at _two_ endpoints, one in G
 * GCP: `https://uplink.api.apollographql.com/`
 * AWS: `https://aws.uplink.api.apollographql.com/`
 
-By default in versions of `@apollo/gateway` v0.45.0 and later, your gateway polls the GCP URL at a regular interval. Whenever a poll request fails, the gateway retries that request with the AWS URL. It continues swapping between the two URLs until the request succeeds, or until reaching the maximum number of retries.
+By default in versions of `@apollo/gateway` v0.45.0 and later, your gateway polls Uplink every ten seconds. Every time it does so, it cycles between Uplink endpoints in round-robin fashion.
 
-Even if a particular poll request fails _all_ of its retries, the gateway continues polling as usual at the next interval (with its own set of retries if needed). In the meantime, the gateway continues using its most recently obtained configuration.
+Whenever a poll request fails, the gateway retries that request (again, using round robin). It continues retrying until a request succeeds, or until reaching the defined maximum number of retries.
 
-> Versions of `@apollo/gateway` prior to v0.45.0 don't support multiple Uplink endpoints and only use the GCP URL by default.
+Even if a particular poll request fails _all_ of its retries, the gateway continues polling as usual at the next interval (with its own set of retries if needed). In the meantime, the gateway continues using its most recent successfully obtained configuration.
+
+> Versions of `@apollo/gateway` prior to v0.45.0 don't support multiple Uplink endpoints and only use the GCP endpoint by default.
 
 ## Configuring polling behavior
 
@@ -81,9 +83,7 @@ The `pollIntervalInMs` option specifies the polling interval in milliseconds. Th
 
 > ⚠️ Most gateways never need to configure their list of Apollo Uplink URLs. Consult this section only if advised to do so.
 
-You can provide a custom list of URLs for the gateway to use when polling Uplink. For example, you can prioritize the AWS URL or omit one of the URLs entirely.
-
-You can provide this list either in the `ApolloGateway` constructor or as an environment variable.
+You can provide a custom list of URLs for the gateway to use when polling Uplink. You can provide this list either in the `ApolloGateway` constructor or as an environment variable.
 
 #### `ApolloGateway` constructor
 
@@ -96,13 +96,13 @@ const { ApolloGateway } = require('@apollo/gateway');
 
 const gateway = new ApolloGateway({
   uplinkEndpoints: [
-    'https://aws.uplink.api.apollographql.com/',
+    // Omits AWS endpoint
     'https://uplink.api.apollographql.com/'
   ]
 });
 ```
 
-This example swaps the priority of the two Uplink URLs, which means the gateway polls the AWS URL first.
+This example omits the AWS endpoint, which means it's never polled.
 
 Note that if you _also_ provide a list of endpoints via [environment variable](#environment-variable), the environment variable takes precedence.
 
@@ -113,5 +113,3 @@ You can provide a comma-separated list of Uplink URLs as the value of the `APOLL
 ```bash
 APOLLO_SCHEMA_CONFIG_DELIVERY_ENDPOINT=https://aws.uplink.api.apollographql.com/,https://uplink.api.apollographql.com/
 ```
-
-This example swaps the priority of the two Uplink URLs, which means the gateway polls the AWS URL first.
