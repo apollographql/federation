@@ -50,9 +50,9 @@ dependencies = [
 
 [[package]]
 name = "deno_core"
-version = "0.116.0"
+version = "0.117.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb1c37269ffbbf5c92e883ad3decb5167aafe2295e026122588b9664e334f62c"
+checksum = "729590cf902ef79a4c2d226bd6bb2fef2cfdd00a3bbe9f84d059f5c32fad0880"
 dependencies = [
  "anyhow",
  "futures",
@@ -494,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "serde_v8"
-version = "0.27.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4652c035fe8467ec48d084a2119c63995cabfbeffa8e07fb85c87d078566e9b"
+checksum = "f052f4efe200433f4c5894d7f88e3fb9c106525f33add3dc2466bf615518727f"
 dependencies = [
  "serde",
  "serde_bytes",
