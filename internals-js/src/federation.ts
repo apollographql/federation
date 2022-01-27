@@ -26,7 +26,7 @@ import {
   InputFieldDefinition,
   isCompositeType
 } from "./definitions";
-import { assert, OrderedMap } from "./utils";
+import { assert, joinStrings, MultiMap, OrderedMap } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import {
@@ -49,9 +49,9 @@ import { tagLocations, TAG_VERSIONS } from "./tagSpec";
 import {
   errorCodeDef,
   ErrorCodeDefinition,
+  ERROR_CATEGORIES,
   ERRORS,
 } from "./error";
-import { ERROR_CATEGORIES } from ".";
 
 export const entityTypeName = '_Entity';
 export const serviceTypeName = '_Service';
@@ -311,6 +311,52 @@ function isFieldSatisfyingInterface(field: FieldDefinition<ObjectType | Interfac
   return field.parent.interfaces().some(itf => itf.field(field.name));
 }
 
+/**
+ * Register errors when, for an interface field, some of the implementations of that field are @external
+ * _and_ not all of those field implementation have the same type (which otherwise allowed because field
+ * implementation types can be a subtype of the interface field they implement).
+ * This is done because if that is the case, federation may later generate invalid query plans (see details
+ * on https://github.com/apollographql/federation/issues/1257).
+ * This "limitation" will be removed when we stop generating invalid query plans for it.
+ */
+function validateInterfaceRuntimeImplementationFieldsTypes(
+  itf: InterfaceType,
+  externalTester: ExternalTester, 
+  errorCollector: GraphQLError[],
+): void {
+  const runtimeTypes = itf.possibleRuntimeTypes();
+  for (const field of itf.fields()) {
+    const withExternalOrRequires: FieldDefinition<ObjectType>[] = [];
+    const typeToImplems: MultiMap<string, FieldDefinition<ObjectType>> = new MultiMap();
+    const nodes: ASTNode[] = [];
+    for (const type of runtimeTypes) {
+      const implemField = type.field(field.name);
+      if (!implemField) continue;
+      if (implemField.sourceAST) {
+        nodes.push(implemField.sourceAST);
+      }
+      if (externalTester.isExternal(implemField) || implemField.hasAppliedDirective(requiresDirectiveName)) {
+        withExternalOrRequires.push(implemField);
+      }
+      const returnType = implemField.type!;
+      typeToImplems.add(returnType.toString(), implemField);
+    }
+    if (withExternalOrRequires.length > 0 && typeToImplems.size > 1) {
+      const typeToImplemsArray = [...typeToImplems.entries()];
+      errorCollector.push(ERRORS.INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH.err({
+        message: `Some of the runtime implementations of interface field "${field.coordinate}" are marked @external or have a @require (${withExternalOrRequires.map(printFieldCoordinate)}) so all the implementations should use the same type (a current limitation of federation; see https://github.com/apollographql/federation/issues/1257), but ${formatFieldsToReturnType(typeToImplemsArray[0])} while ${joinStrings(typeToImplemsArray.slice(1).map(formatFieldsToReturnType), ' and ')}.`,
+        nodes
+      }));
+    }
+  }
+}
+
+const printFieldCoordinate = (f: FieldDefinition<CompositeType>): string => `"${f.coordinate}"`;
+
+function formatFieldsToReturnType([type, implems]: [string, FieldDefinition<ObjectType>[]]) {
+  return `${joinStrings(implems.map(printFieldCoordinate))} ${implems.length == 1 ? 'has' : 'have'} type "${type}"`;
+}
+
 export class FederationBuiltIns extends BuiltIns {
   addBuiltInTypes(schema: Schema) {
     super.addBuiltInTypes(schema);
@@ -505,6 +551,10 @@ export class FederationBuiltIns extends BuiltIns {
       if (error) {
         errors.push(error);
       }
+    }
+
+    for (const itf of schema.types<InterfaceType>('InterfaceType')) {
+      validateInterfaceRuntimeImplementationFieldsTypes(itf, externalTester, errors);
     }
 
     return errors;

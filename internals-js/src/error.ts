@@ -264,6 +264,11 @@ const EXTERNAL_MISSING_ON_BASE = makeCodeDefinition(
   { addedIn: FED1_CODE },
 );
 
+const INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH = makeCodeDefinition(
+  'INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH',
+  'For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257)'
+);
+
 const SATISFIABILITY_ERROR = makeCodeDefinition(
   'SATISFIABILITY_ERROR',
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
@@ -315,6 +320,7 @@ export const ERRORS = {
   ARGUMENT_DEFAULT_MISMATCH,
   EXTENSION_WITH_NO_BASE,
   EXTERNAL_MISSING_ON_BASE,
+  INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   SATISFIABILITY_ERROR,
 };
 

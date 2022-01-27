@@ -4,7 +4,7 @@
 
 ## vNEXT
 
-- _Nothing yet! Stay tuned._
+- Reject mismatching types for interface field implementation if some of those implementations are `@external`, since this can lead to invalid subgraph queries at runtime [PR #1318](https://github.com/apollographql/federation/pull/1318). This limitation should be lifted in the future once the root cause (the invalid runtime queries) is fixed by issue [#1257](https://github.com/apollographql/federation/issues/1257).
 
 ## v2.0.0-alpha.4
 

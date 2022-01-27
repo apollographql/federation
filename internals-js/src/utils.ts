@@ -269,3 +269,25 @@ export function validateStringContainsBoolean(str?: string) : boolean | undefine
       return undefined;
   }
 }
+
+/**
+ * Joins an array of string, much like `Array.prototype.join`, but with the ability to use a specific different
+ * separator for the first and/or last occurence.
+ *
+ * The goal is to make reading flow slightly better. For instance, if you have a list of subgraphs `s = ["A", "B", "C"]`,
+ * then `"subgraphs " + joinString(s)` will yield "subgraphs A, B and C".
+ */
+export function joinStrings(toJoin: string[], sep: string = ', ', firstSep?: string, lastSep: string = ' and ') {
+  if (toJoin.length == 0) {
+    return '';
+  }
+  const first = toJoin[0];
+  if (toJoin.length == 1) {
+    return first;
+  }
+  const last = toJoin[toJoin.length - 1];
+  if (toJoin.length == 2) {
+    return first + (firstSep ? firstSep : lastSep) + last;
+  }
+  return first + (firstSep ? firstSep : sep) + toJoin.slice(1, toJoin.length - 1) + lastSep + last;
+}
