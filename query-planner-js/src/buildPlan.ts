@@ -7,7 +7,6 @@ import {
   Field,
   FieldSelection,
   FragmentElement,
-  FragmentSelection,
   isAbstractType,
   isCompositeType,
   isListType,
@@ -36,6 +35,8 @@ import {
   NamedFragments,
   operationToDocument,
   MapWithCachedArrays,
+  FragmentSelection,
+  sameType,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -767,12 +768,18 @@ class FetchGroup {
     assert(!toMerge.isTopLevel, () => `Shouldn't merge top level group ${toMerge} into ${this}`);
     // Note that because toMerge is not top-level, the first "level" of it's selection is going to be a typeCast into the entity type
     // used to get to the group (because the entities() operation, which is called, returns the _Entity and _needs_ type-casting).
-    // But when we merge-in, the type cast can be skipped.
-    const selectionSet = selectionSetOfPath(mergePath, endOfPathSet => {
+    // But when we merge-in, if the point we're merging in is already the entity, then the cast can be skipped.
+    const selectionSet = selectionSetOfPath(mergePath, (endOfPathSet) => {
       assert(endOfPathSet, () => `Merge path ${mergePath} ends on a non-selectable type`);
       for (const typeCastSel of toMerge.selection.selections()) {
         assert(typeCastSel instanceof FragmentSelection, () => `Unexpected field selection ${typeCastSel} at top-level of ${toMerge} selection.`);
-        endOfPathSet.mergeIn(typeCastSel.selectionSet);
+        const entityType = typeCastSel.element().typeCondition;
+        assert(entityType, () => `Unexpected fragment _without_ condition at start of ${toMerge}`);
+        if (sameType(endOfPathSet.parentType, entityType)) {
+          endOfPathSet.mergeIn(typeCastSel.selectionSet);
+        } else {
+          endOfPathSet.add(typeCastSel);
+        }
       }
     });
 
@@ -1390,6 +1397,18 @@ function createNewFetchSelectionContext(type: CompositeType, selections: Selecti
   return [inputSelection, path];
 }
 
+function extractPathInParentForKeyFetch(type: CompositeType, path: OperationPath): OperationPath {
+  // A "key fetch" (calls to the `_entities` operation) always have to start with some type-cast into
+  // the entity fetched (`type` in this function), so we can remove a type-cast into the entity from
+  // the parent path if it is the last thing in the past. And doing that removal ensures the code
+  // later reuse fetch groups for different entities, as long as they get otherwise merged into the
+  // parent at the same place.
+  const lastElement = path[path.length - 1];
+  return (lastElement && lastElement.kind === 'FragmentElement' && lastElement.typeCondition?.name === type.name)
+    ? path.slice(0, path.length - 1)
+    : path;
+}
+
 function computeGroupsForTree(
   dependencyGraph: FetchDependencyGraph,
   pathTree: OpPathTree<any>,
@@ -1419,11 +1438,12 @@ function computeGroupsForTree(
             const groupsForConditions = computeGroupsForTree(dependencyGraph, conditions, group, mergeAt, path);
             // Then we can "take the edge", creating a new group. That group depends
             // on the condition ones.
-            const newGroup = dependencyGraph.getOrCreateKeyFetchGroup(edge.tail.source, mergeAt, group, path, groupsForConditions);
+            const type = edge.tail.type as CompositeType; // We shouldn't have a key on a non-composite type
+            const pathInParent = extractPathInParentForKeyFetch(type, path);
+            const newGroup = dependencyGraph.getOrCreateKeyFetchGroup(edge.tail.source, mergeAt, group, pathInParent, groupsForConditions);
             createdGroups.push(newGroup);
             // The new group depends on the current group but 'newKeyFetchGroup' already handled that.
             newGroup.addDependencyOn(groupsForConditions);
-            const type = edge.tail.type as CompositeType; // We shouldn't have a key on a non-composite type
             const inputSelections = new SelectionSet(type);
             inputSelections.add(new FieldSelection(new Field(type.typenameField()!)));
             inputSelections.mergeIn(edge.conditions!);
@@ -1562,7 +1582,7 @@ function handleRequires(
     if (newGroupIsUseless) {
       // We can remove `newGroup` and attach `createdGroups` as dependencies of `group`'s parents. That said,
       // as we do so, we check if one/some of the created groups can be "merged" into the parent
-      // directly (assuming we have only 1 parent, it's the same subgraph/mergeAt and we known the path in this parent).
+      // directly (assuming we have only 1 parent, it's the same subgraph/mergeAt and we know the path in this parent).
       // If it can, that essentially means that the requires could have been fetched directly from the parent,
       // and that will likely be common.
       for (const created of createdGroups) {
@@ -1639,7 +1659,6 @@ function handleRequires(
     const newGroup = dependencyGraph.newKeyFetchGroup(group.subgraphName, mergeAt);
     newGroup.addDependencyOn(createdGroups);
     const [inputs, newPath] = inputsForRequire(dependencyGraph.federatedQueryGraph, entityType, edge);
-    debug.log(`Trying to add ${inputs} to ${newGroup}`);
     newGroup.addInputs(inputs);
     return [newGroup, mergeAt, newPath];
   }
