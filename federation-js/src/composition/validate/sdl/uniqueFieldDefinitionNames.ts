@@ -14,7 +14,6 @@ import {
   isInputObjectType,
 } from 'graphql';
 import { SDLValidationContext } from 'graphql/validation/ValidationContext';
-import { TypeMap } from 'graphql/type/schema';
 import { Maybe } from '../../types';
 import { diffTypeNodes, logServiceAndType } from '../../utils';
 
@@ -59,7 +58,7 @@ export function UniqueFieldDefinitionNames(
   context: SDLValidationContext,
 ): ASTVisitor {
   const schema = context.getSchema();
-  const existingTypeMap: TypeMap = schema
+  const existingTypeMap = schema
     ? schema.getTypeMap()
     : Object.create(null);
   interface FieldToNameNodeMap {

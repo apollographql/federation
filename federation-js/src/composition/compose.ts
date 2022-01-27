@@ -19,7 +19,7 @@ import {
   NamedTypeNode,
   lexicographicSortSchema,
 } from 'graphql';
-import { transformSchema } from 'apollo-graphql';
+import { transformSchema } from '../schema-helper';
 import {
   directivesWithNoDefinitionNeeded,
   isDirectiveWithNoDefinitionNeeded,
@@ -57,13 +57,13 @@ import { DirectiveMetadata } from './DirectiveMetadata';
 import { getJoinDefinitions } from '../joinSpec';
 import { CoreDirective } from '../coreSpec';
 
-const EmptyQueryDefinition = {
+const EmptyQueryDefinition: TypeDefinitionNode = {
   kind: Kind.OBJECT_TYPE_DEFINITION,
   name: { kind: Kind.NAME, value: defaultRootOperationNameLookup.query },
   fields: [],
   serviceName: null,
 };
-const EmptyMutationDefinition = {
+const EmptyMutationDefinition: TypeDefinitionNode = {
   kind: Kind.OBJECT_TYPE_DEFINITION,
   name: { kind: Kind.NAME, value: defaultRootOperationNameLookup.mutation },
   fields: [],
@@ -442,7 +442,7 @@ export function buildSchemaFromDefinitionsAndExtensions({
     ],
   };
 
-  errors = validateSDL(definitionsDocument, schema, compositionRules);
+  errors = validateSDL(definitionsDocument, schema, compositionRules) as GraphQLError[];
 
   try {
     schema = extendSchema(schema, definitionsDocument, {

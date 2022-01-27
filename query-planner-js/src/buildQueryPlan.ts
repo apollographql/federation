@@ -27,6 +27,7 @@ import {
   DirectiveNode,
   BooleanValueNode,
   VariableNode,
+  FieldNode,
 } from 'graphql';
 import {
   Field,
@@ -76,7 +77,7 @@ function stringIsTrue(str?: string) : boolean {
 
 const debug = new DebugLogger(stringIsTrue(process.env.APOLLO_QP_DEBUG));
 
-const typenameField = {
+const typenameField: FieldNode = {
   kind: Kind.FIELD,
   name: {
     kind: Kind.NAME,
@@ -389,7 +390,7 @@ function operationForRootFetch({
   selectionSet,
   variableUsages,
   internalFragments,
-  operation = 'query',
+  operation = OperationTypeNode.QUERY,
 }: {
   selectionSet: SelectionSetNode;
   variableUsages: VariableUsages;
@@ -419,7 +420,7 @@ function operationForEntitiesFetch({
   variableUsages: VariableUsages;
   internalFragments: Set<FragmentDefinitionNode>;
 }): DocumentNode {
-  const representationsVariable = {
+  const representationsVariable: VariableNode = {
     kind: Kind.VARIABLE,
     name: { kind: Kind.NAME, value: 'representations' },
   };
@@ -429,7 +430,7 @@ function operationForEntitiesFetch({
     definitions: [
       {
         kind: Kind.OPERATION_DEFINITION,
-        operation: 'query',
+        operation: OperationTypeNode.QUERY,
         variableDefinitions: ([
           {
             kind: Kind.VARIABLE_DEFINITION,

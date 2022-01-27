@@ -1,4 +1,4 @@
-import { DirectiveNode, GraphQLCompositeType, GraphQLObjectType, isTypeSubTypeOf, ValueNode } from "graphql";
+import { DirectiveNode, GraphQLCompositeType, GraphQLObjectType, isTypeSubTypeOf, Kind, ValueNode } from "graphql";
 import { QueryPlanningContext } from "./QueryPlanningContext";
 
 /**
@@ -161,25 +161,25 @@ export class Scope {
     // We distinguish different value types though a leading character with a single quote (so the int 3 has key "i'3") to
     // avoid conflicts.
     switch (value.kind) {
-      case 'Variable':
+      case Kind.VARIABLE:
         return value.name.value;
-      case 'IntValue':
+      case Kind.INT:
         return "i'" + value.value;
-      case 'FloatValue':
+      case Kind.FLOAT:
         return "f'" + value.value;
-      case 'EnumValue':
+      case Kind.ENUM:
         return "e'" + value.value;
-      case 'StringValue':
+      case Kind.STRING:
         // Using stringfy to enclose in double quotes (so that we don't have issues with, say, strings within
         // lists) _and_ getting proper escape of double quotes within the string.
         return `s'${JSON.stringify(value.value)}`;
-      case 'BooleanValue':
+      case Kind.BOOLEAN:
         return "b'" + String(value.value);
-      case 'NullValue':
+      case Kind.NULL:
         return "<null>";
-      case 'ListValue':
+      case Kind.LIST:
         return "[" + value.values.map(this.valueIdentityKey).join('-') + "]";
-      case 'ObjectValue':
+      case Kind.OBJECT:
         const fields = value.fields.map(f => f.name.value + '-' + this.valueIdentityKey(f.value));
         fields.sort(); // Field order is not semantically significant in graphQL.
         return "{" + fields.join('-') + "}";

@@ -161,7 +161,7 @@ function mergeSelectionSets(fieldNodes: FieldNode[]): SelectionSetNode {
   }
 
   return {
-    kind: 'SelectionSet',
+    kind: Kind.SELECTION_SET,
     selections: mergeFieldNodeSelectionSets(selections),
   };
 }

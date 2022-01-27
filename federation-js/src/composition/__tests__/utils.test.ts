@@ -1,6 +1,5 @@
 import gql from 'graphql-tag';
-import deepFreeze from 'deep-freeze';
-import { TypeDefinitionNode } from 'graphql';
+import { print, TypeDefinitionNode } from 'graphql';
 import { stripExternalFieldsFromTypeDefs, diffTypeNodes } from '../utils';
 import { astSerializer } from 'apollo-federation-integration-testsuite';
 
@@ -636,7 +635,7 @@ describe('Composition utility functions', () => {
             `);
     });
 
-    it("doesn't mutate the input DocumentNode", () => {
+    it("doesn't alter the input DocumentNode", () => {
       const typeDefs = gql`
         type Query {
           product: Product
@@ -650,14 +649,11 @@ describe('Composition utility functions', () => {
           updateProduct: Product
         }
       `;
+      const originalPrinted = print(typeDefs);
 
-      deepFreeze(typeDefs);
+      stripExternalFieldsFromTypeDefs(typeDefs, 'serviceA');
 
-      // Assert that mutation does, in fact, throw
-      expect(() => ((typeDefs as any).blah = [])).toThrow();
-      expect(() =>
-        stripExternalFieldsFromTypeDefs(typeDefs, 'serviceA'),
-      ).not.toThrow();
+      expect(print(typeDefs)).toEqual(originalPrinted);
     });
   });
 });

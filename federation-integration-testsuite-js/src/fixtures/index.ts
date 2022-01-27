@@ -8,7 +8,7 @@ import * as reviewsWithUpdate from './special-cases/reviewsWithUpdate';
 import * as accountsWithoutTag from './special-cases/accountsWithoutTag';
 import * as reviewsWithoutTag from './special-cases/reviewsWithoutTag';
 import { DocumentNode } from 'graphql';
-import { GraphQLResolverMap } from 'apollo-graphql';
+import { GraphQLResolverMap } from '../resolverMap';
 
 export interface Fixture {
   name: string;

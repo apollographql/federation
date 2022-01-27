@@ -49,16 +49,16 @@ describe('cleanErrorOfInaccessibleNames', () => {
   schema = toAPISchema(schema);
 
   it('removes inaccessible type names from error messages', async () => {
-    const result = await execute(schema, parse('{fooField{someField}}'), {
+    const result = await execute({ schema, document: parse('{fooField{someField}}'), rootValue: {
       fooField: {
         __typename: 'Bar',
         someField: 'test',
       },
-    });
+    }});
 
     const cleaned = cleanErrorOfInaccessibleNames(schema, result.errors?.[0]!);
     expect(cleaned.message).toMatchInlineSnapshot(
-      `"Abstract type \\"Foo\\" was resolve to a type [inaccessible type] that does not exist inside schema."`,
+      `"Abstract type \\"Foo\\" was resolved to a type [inaccessible type] that does not exist inside the schema."`,
     );
   });
 

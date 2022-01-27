@@ -4,6 +4,7 @@ import {
   GraphQLSchema,
   specifiedDirectives,
   extendSchema,
+  GraphQLError,
 } from 'graphql';
 import { validateSDL } from 'graphql/validation/validate';
 import { buildMapsFromServiceList } from '../../../compose';
@@ -76,7 +77,7 @@ describe('PossibleTypeExtensionsType', () => {
     const { definitions, extensions } = createDefinitionsDocumentForServices(
       serviceList,
     );
-    const errors = validateSDL(definitions, schema, [PossibleTypeExtensions]);
+    const errors = validateSDL(definitions, schema, [PossibleTypeExtensions]) as GraphQLError[];
     schema = extendSchema(schema, definitions, { assumeValidSDL: true });
     errors.push(...validateSDL(extensions, schema, [PossibleTypeExtensions]));
     expect(errors).toHaveLength(0);
@@ -97,7 +98,7 @@ describe('PossibleTypeExtensionsType', () => {
     const { definitions, extensions } = createDefinitionsDocumentForServices(
       serviceList,
     );
-    const errors = validateSDL(definitions, schema, [PossibleTypeExtensions]);
+    const errors = validateSDL(definitions, schema, [PossibleTypeExtensions]) as GraphQLError[];
     schema = extendSchema(schema, definitions, { assumeValidSDL: true });
     errors.push(...validateSDL(extensions, schema, [PossibleTypeExtensions]));
 
@@ -142,7 +143,7 @@ describe('PossibleTypeExtensionsType', () => {
     const { definitions, extensions } = createDefinitionsDocumentForServices(
       serviceList,
     );
-    const errors = validateSDL(definitions, schema, [PossibleTypeExtensions]);
+    const errors = validateSDL(definitions, schema, [PossibleTypeExtensions]) as GraphQLError[];
     schema = extendSchema(schema, definitions, { assumeValidSDL: true });
     errors.push(...validateSDL(extensions, schema, [PossibleTypeExtensions]));
     expect(errors).toMatchInlineSnapshot(`
@@ -193,7 +194,7 @@ describe('PossibleTypeExtensionsType', () => {
     const { definitions, extensions } = createDefinitionsDocumentForServices(
       serviceList,
     );
-    const errors = validateSDL(definitions, schema, [PossibleTypeExtensions]);
+    const errors = validateSDL(definitions, schema, [PossibleTypeExtensions]) as GraphQLError[];
     schema = extendSchema(schema, definitions, { assumeValidSDL: true });
     errors.push(...validateSDL(extensions, schema, [PossibleTypeExtensions]));
     schema = extendSchema(schema, extensions, { assumeValidSDL: true });

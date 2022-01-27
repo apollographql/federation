@@ -18,6 +18,7 @@ import {
   compositionHasErrors,
   CompositionResult,
 } from '../utils';
+import { isNotNullOrUndefined } from '../../utilities';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(typeSerializer);
@@ -911,14 +912,14 @@ describe('composition of schemas with directives', () => {
     const queryType = schema.getType('Query') as GraphQLObjectType;
     const field = queryType.getFields()['importantDirectives'];
 
-    expect(field.isDeprecated).toBe(true);
+    expect(isNotNullOrUndefined(field.deprecationReason)).toBe(true);
     expect(field.deprecationReason).toEqual(deprecationReason);
 
     if (isAtLeastGraphqlVersionFifteenPointOne) {
       const specifiedBy = schema.getDirective('specifiedBy');
       expect(specifiedBy).toMatchInlineSnapshot(`"@specifiedBy"`);
       const customScalar = schema.getType('MyScalar');
-      expect((customScalar as GraphQLScalarType).specifiedByUrl).toEqual(
+      expect((customScalar as GraphQLScalarType).specifiedByURL).toEqual(
         specUrl,
       );
     }
