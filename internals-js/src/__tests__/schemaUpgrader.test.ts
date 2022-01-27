@@ -1,5 +1,5 @@
-import { buildSubgraph, printSchema, Subgraphs, upgradeSubgraphsIfNecessary } from '..';
-import { UpgradeChangeID, UpgradeResult } from '../schemaUpgrader';
+import { buildSubgraph, Subgraphs } from '../federation';
+import { UpgradeChangeID, UpgradeResult, upgradeSubgraphsIfNecessary } from '../schemaUpgrader';
 import './matchers';
 
 function changeMessages(res: UpgradeResult, subgraphName: string, id: UpgradeChangeID): string[] {
@@ -35,7 +35,7 @@ test('upgrade complex schema', () => {
     }
   `;
 
-  // Note that no changes are really expected on that 2nd schema: it is just there to make the example not throw an example due to
+  // Note that no changes are really expected on that 2nd schema: it is just there to make the example not throw due to
   // then Product type extension having no "base".
   const s2 = `
     type Product @key(fields: "upc") {
@@ -71,9 +71,13 @@ test('upgrade complex schema', () => {
     'Updated directive @provides(fields: "upc description") on "Query.products" to @provides(fields: "description"): removed fields that were not truly @external'
   ]);
 
-  expect(printSchema(res.upgraded?.get('s1')?.schema!)).toMatchString(`
-    extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.0")
+  expect(res.upgraded?.get('s1')?.toString()).toMatchString(`
+    schema
+      @link(url: "https://specs.apollo.dev/link/v1.0")
+      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+    {
+      query: Query
+    }
 
     type Query {
       products: [Product!]! @provides(fields: "description")

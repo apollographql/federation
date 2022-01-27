@@ -3,7 +3,6 @@ import {
   arrayEquals,
   baseType,
   CompositeType,
-  entityTypeName,
   Field,
   FieldSelection,
   FragmentElement,
@@ -25,7 +24,6 @@ import {
   selectionSetOf,
   selectionSetOfPath,
   Type,
-  UnionType,
   Variable,
   VariableDefinition,
   VariableDefinitions,
@@ -37,6 +35,9 @@ import {
   MapWithCachedArrays,
   FragmentSelection,
   sameType,
+  FederationMetadata,
+  federationMetadata,
+  entitiesFieldName,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -889,6 +890,14 @@ class FetchDependencyGraph {
     );
   }
 
+  private federationMetadata(subgraphName: string): FederationMetadata {
+    const schema = this.subgraphSchemas.get(subgraphName);
+    assert(schema, () => `Unknown schema ${subgraphName}`)
+    const metadata = federationMetadata(schema);
+    assert(metadata, () => `Schema ${subgraphName} should be a federation subgraph`);
+    return metadata;
+  }
+
   clone(): FetchDependencyGraph {
     const cloned = new FetchDependencyGraph(
       this.subgraphSchemas,
@@ -979,7 +988,8 @@ class FetchDependencyGraph {
         return existing;
       }
     }
-    const entityType = this.subgraphSchemas.get(subgraphName)!.type(entityTypeName)! as UnionType;
+    const entityType = this.federationMetadata(subgraphName).entityType();
+    assert(entityType, () => `Subgraph ${subgraphName} has not entities defined`);
     return this.newFetchGroup(subgraphName, entityType, true, 'query', mergeAt, directParent, pathInParent);
   }
 
@@ -1012,7 +1022,8 @@ class FetchDependencyGraph {
     subgraphName: string,
     mergeAt: ResponsePath,
   ): FetchGroup {
-    const entityType = this.subgraphSchemas.get(subgraphName)!.type(entityTypeName)! as UnionType;
+    const entityType = this.federationMetadata(subgraphName).entityType();
+    assert(entityType, () => `Subgraph ${subgraphName} has not entities defined`);
     return this.newFetchGroup(subgraphName, entityType, true, 'query', mergeAt);
   }
 
@@ -1688,9 +1699,9 @@ function inputsForRequire(graph: QueryGraph, entityType: ObjectType, edge: Edge,
 
 const representationsVariable = new Variable('representations');
 function representationsVariableDefinition(schema: Schema): VariableDefinition {
-  const anyType = schema.type('_Any');
-  assert(anyType, `Cannot find _Any type in schema`);
-  const representationsType = new NonNullType(new ListType(new NonNullType(anyType)));
+  const metadata = federationMetadata(schema);
+  assert(metadata, 'Expected schema to be a federation subgraph')
+  const representationsType = new NonNullType(new ListType(new NonNullType(metadata.anyType())));
   return new VariableDefinition(schema, representationsVariable, representationsType);
 }
 
@@ -1707,7 +1718,7 @@ function operationForEntitiesFetch(
   const queryType = subgraphSchema.schemaDefinition.rootType('query');
   assert(queryType, `Subgraphs should always have a query root (they should at least provides _entities)`);
 
-  const entities = queryType.field('_entities');
+  const entities = queryType.field(entitiesFieldName);
   assert(entities, `Subgraphs should always have the _entities field`);
 
   const entitiesCall: SelectionSet = new SelectionSet(queryType);

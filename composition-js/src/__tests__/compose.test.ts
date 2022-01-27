@@ -244,7 +244,14 @@ describe('composition', () => {
       }
     `);
 
-    expect(printSchema(subgraphs.get('subgraphA')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type Product {
         sku: String!
         name: String!
@@ -255,7 +262,14 @@ describe('composition', () => {
       }
     `);
 
-    expect(printSchema(subgraphs.get('subgraphB')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type User {
         name: String
         email: String!
@@ -304,7 +318,14 @@ describe('composition', () => {
     `);
 
     // Of course, the federation directives should be rebuilt in the extracted subgraphs.
-    expect(printSchema(subgraphs.get('subgraphA')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type Product
         @key(fields: "sku")
       {
@@ -317,7 +338,14 @@ describe('composition', () => {
       }
     `);
 
-    expect(printSchema(subgraphs.get('subgraphB')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type Product
         @key(fields: "sku")
       {
@@ -1288,7 +1316,7 @@ describe('composition', () => {
 
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([
-        ['TAG_DIRECTIVE_DEFINITION_INVALID', '[subgraphA] Found invalid @tag directive definition. Please ensure the directive definition in your schema\'s definitions matches the following:\n\tdirective @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION'],
+        ['DIRECTIVE_DEFINITION_INVALID', '[subgraphA] Found invalid @tag directive definition. Please ensure the directive definition in your schema\'s definitions matches the following:\n\tdirective @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION'],
       ]);
     });
 
@@ -1726,4 +1754,122 @@ describe('composition', () => {
       ]);
     });
   });
+
+  it('handles renamed federation directives', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        extend schema @link(
+          url: "https://specs.apollo.dev/federation/v2.0",
+          import: [{ name: "@key", as: "@identity"}, {name: "@requires", as: "@gimme"}, {name: "@external", as: "@notInThisSubgraph"}]
+        )
+
+        type Query {
+          users: [User]
+        }
+
+        type User @identity(fields: "id") {
+          id: ID!
+          name: String!
+          birthdate: String! @notInThisSubgraph
+          age: Int! @gimme(fields: "birthdate")
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        extend schema @link(
+          url: "https://specs.apollo.dev/federation/v2.0",
+          import: [{ name: "@key", as: "@myKey"}]
+        )
+
+        type User @myKey(fields: "id") {
+          id: ID!
+          birthdate: String!
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    // Note that we don't use `composeAsFed2Subgraph` since we @link manually in that example.
+    const result = composeServices([subgraphA, subgraphB]);
+
+    assertCompositionSuccess(result);
+
+    const [supergraph, api] = schemas(result);
+    expect(printSchema(api)).toMatchString(`
+        type Query {
+          users: [User]
+        }
+
+        type User {
+          id: ID!
+          name: String!
+          birthdate: String!
+          age: Int!
+        }
+    `);
+
+    /*
+     * We validate that all the directives have been properly processed, namely:
+     *  - That `User` has a key in both subgraphs
+     *  - That `User.birthdate` is external in the first subgraph.
+     *  - That `User.age` does require `birthdate`.
+     */
+    expect(printSchema(supergraph)).toMatchString(`
+      schema
+        @core(feature: \"https://specs.apollo.dev/core/v0.2\")
+        @core(feature: \"https://specs.apollo.dev/join/v0.2\", for: EXECUTION)
+      {
+        query: Query
+      }
+
+      directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
+
+      directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+      directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+      enum core__Purpose {
+        """
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        """
+        SECURITY
+
+        """
+        \`EXECUTION\` features provide metadata necessary for operation execution.
+        """
+        EXECUTION
+      }
+
+      scalar join__FieldSet
+
+      enum join__Graph {
+        SUBGRAPHA @join__graph(name: "subgraphA", url: "")
+        SUBGRAPHB @join__graph(name: "subgraphB", url: "")
+      }
+
+      type Query
+        @join__type(graph: SUBGRAPHA)
+        @join__type(graph: SUBGRAPHB)
+      {
+        users: [User] @join__field(graph: SUBGRAPHA)
+      }
+
+      type User
+        @join__type(graph: SUBGRAPHA, key: "id")
+        @join__type(graph: SUBGRAPHB, key: "id")
+      {
+        id: ID!
+        name: String! @join__field(graph: SUBGRAPHA)
+        birthdate: String! @join__field(graph: SUBGRAPHA, external: true) @join__field(graph: SUBGRAPHB)
+        age: Int! @join__field(graph: SUBGRAPHA, requires: "birthdate")
+      }
+    `);
+  })
 });

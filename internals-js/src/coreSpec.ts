@@ -1,11 +1,15 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
 import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from "./definitions";
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition } from "./definitions";
 import { sameType } from "./types";
 import { err } from '@apollo/core-schema';
 import { assert } from './utils';
+import { ERRORS } from "./error";
 
 export const coreIdentity = 'https://specs.apollo.dev/core';
+export const linkIdentity = 'https://specs.apollo.dev/link';
+
+export const linkDirectiveDefaultName = 'link';
 
 export const ErrCoreCheckFailed = (causes: Error[]) =>
   err('CheckFailed', {
@@ -17,7 +21,6 @@ function buildError(message: string): Error {
   // Maybe not the right error for this?
   return new Error(message);
 }
-
 
 export const corePurposes = [
   'SECURITY' as const,
@@ -65,11 +68,14 @@ export abstract class FeatureDefinition {
     return feature?.nameInSchema;
   }
 
-  protected elementNameInSchema(schema: Schema, elementName: string): string | undefined {
-    const nameInSchema = this.nameInSchema(schema);
-    return nameInSchema
-      ? (elementName === nameInSchema ? nameInSchema : `${nameInSchema}__${elementName}`)
-      : undefined;
+  protected directiveNameInSchema(schema: Schema, directiveName: string): string | undefined {
+    const feature = this.featureInSchema(schema);
+    return feature ? feature.directiveNameInSchema(directiveName) : undefined;
+  }
+
+  protected typeNameInSchema(schema: Schema, directiveName: string): string | undefined {
+    const feature = this.featureInSchema(schema);
+    return feature ? feature.typeNameInSchema(directiveName) : undefined;
   }
 
   protected rootDirective<TApplicationArgs extends {[key: string]: any}>(schema: Schema): DirectiveDefinition<TApplicationArgs> | undefined {
@@ -78,12 +84,12 @@ export abstract class FeatureDefinition {
   }
 
   protected directive<TApplicationArgs extends {[key: string]: any}>(schema: Schema, elementName: string): DirectiveDefinition<TApplicationArgs> | undefined {
-    const name = this.elementNameInSchema(schema, elementName);
+    const name = this.directiveNameInSchema(schema, elementName);
     return name ? schema.directive(name) as DirectiveDefinition<TApplicationArgs> | undefined : undefined;
   }
 
   protected type<T extends NamedType>(schema: Schema, elementName: string): T | undefined {
-    const name = this.elementNameInSchema(schema, elementName);
+    const name = this.typeNameInSchema(schema, elementName);
     return name ? schema.type(name) as T : undefined;
   }
 
@@ -92,15 +98,15 @@ export abstract class FeatureDefinition {
   }
 
   protected addDirective(schema: Schema, name: string): DirectiveDefinition {
-    return schema.addDirectiveDefinition(this.elementNameInSchema(schema, name)!);
+    return schema.addDirectiveDefinition(this.directiveNameInSchema(schema, name)!);
   }
 
   protected addScalarType(schema: Schema, name: string): ScalarType {
-    return schema.addType(new ScalarType(this.elementNameInSchema(schema, name)!));
+    return schema.addType(new ScalarType(this.typeNameInSchema(schema, name)!));
   }
 
   protected addEnumType(schema: Schema, name: string): EnumType {
-    return schema.addType(new EnumType(this.elementNameInSchema(schema, name)!));
+    return schema.addType(new EnumType(this.typeNameInSchema(schema, name)!));
   }
 
   protected featureInSchema(schema: Schema): CoreFeature | undefined {
@@ -117,18 +123,48 @@ export abstract class FeatureDefinition {
 }
 
 export type CoreDirectiveArgs = {
+  url: undefined,
   feature: string,
   as?: string,
   for?: string
 }
 
-export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefinition, any>): directive is Directive<SchemaDefinition, CoreDirectiveArgs> {
+export type LinkDirectiveArgs = {
+  url: string,
+  feature: undefined,
+  as?: string,
+  for?: string,
+  import?: (string | CoreImport)[]
+}
+
+export type CoreOrLinkDirectiveArgs = CoreDirectiveArgs | LinkDirectiveArgs;
+
+export type CoreImport = {
+  name: string,
+  as?: string,
+};
+
+export function extractCoreFeatureImports(directive: Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>): CoreImport[] {
+  const args = directive.arguments();
+  if (!('import' in args)) {
+    return [];
+  }
+  const importArg = args.import;
+  const imports: CoreImport[] = importArg ? importArg.map((a) => typeof a === 'string' ? { name: a } : a) : [];
+  for (const i of imports) {
+    if (i.as && i.name.charAt(0) === '@' && i.as.charAt(0) !== '@') {
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err({
+        message: `Invalid @link import renaming: directive ${i.name} imported name should starts with a '@' character, but got "${i.as}"`,
+        nodes: directive.sourceAST
+      });
+    }
+  }
+  return imports;
+}
+
+export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefinition, any>): directive is Directive<SchemaDefinition, CoreOrLinkDirectiveArgs> {
   const definition = directive.definition;
   if (!definition) {
-    return false;
-  }
-  const featureArg = definition.argument('feature');
-  if (!featureArg || !sameType(featureArg.type!, new NonNullType(directive.schema().stringType()))) {
     return false;
   }
   const asArg = definition.argument('as');
@@ -138,19 +174,27 @@ export function isCoreSpecDirectiveApplication(directive: Directive<SchemaDefini
   if (!definition.repeatable || definition.locations.length !== 1 || definition.locations[0] !== DirectiveLocation.SCHEMA) {
     return false;
   }
+  const urlArg = definition.argument('url') ?? definition.argument('feature');
+  if (!urlArg || !sameType(urlArg.type!, new NonNullType(directive.schema().stringType()))) {
+    return false;
+  }
 
-  const args = (directive as Directive<SchemaDefinition, CoreDirectiveArgs>).arguments();
+  const args = directive.arguments();
   try {
-    const url = FeatureUrl.parse(args.feature);
-    return url.identity === coreIdentity && directive.name === (args.as ?? 'core');
+    const url = FeatureUrl.parse(args[urlArg.name] as string);
+    if (url.identity == coreIdentity) {
+      return directive.name === (args.as ?? 'core');
+    } else {
+      return url.identity === linkIdentity &&  directive.name === (args.as ?? linkDirectiveDefaultName);
+    }
   } catch (err) {
     return false;
   }
 }
 
 export class CoreSpecDefinition extends FeatureDefinition {
-  constructor(version: FeatureVersion) {
-    super(new FeatureUrl(coreIdentity, 'core', version));
+  constructor(version: FeatureVersion, identity: string = linkIdentity, name: string = linkDirectiveDefaultName) {
+    super(new FeatureUrl(identity, name, version));
   }
 
   addElementsToSchema(_: Schema): void {
@@ -171,7 +215,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
     const nameInSchema = as ?? this.url.name;
     const core = schema.addDirectiveDefinition(nameInSchema).addLocations(DirectiveLocation.SCHEMA);
     core.repeatable = true;
-    core.addArgument('feature', new NonNullType(schema.stringType()));
+    core.addArgument(this.urlArgName(), new NonNullType(schema.stringType()));
     core.addArgument('as', schema.stringType());
     if (this.supportPurposes()) {
       const purposeEnum = schema.addType(new EnumType(`${nameInSchema}__Purpose`));
@@ -180,10 +224,17 @@ export class CoreSpecDefinition extends FeatureDefinition {
       }
       core.addArgument('for', purposeEnum);
     }
+    if (this.supportImport()) {
+      if (schema.type(`${nameInSchema}__Import`)) {
+        console.trace();
+      }
+      const importType = schema.addType(new ScalarType(`${nameInSchema}__Import`));
+      core.addArgument('import', new ListType(importType));
+    }
 
     // Note: we don't use `applyFeatureToSchema` because it would complain the schema is not a core schema, which it isn't
     // until the next line.
-    const args: CoreDirectiveArgs = { feature: this.toString() }
+    const args = { [this.urlArgName()]: this.toString() } as unknown as CoreOrLinkDirectiveArgs;
     if (as) {
       args.as = as;
     }
@@ -192,6 +243,10 @@ export class CoreSpecDefinition extends FeatureDefinition {
 
   private supportPurposes() {
     return this.version.strictlyGreaterThan(new FeatureVersion(0, 1));
+  }
+
+  private supportImport() {
+    return this.url.name === linkDirectiveDefaultName;
   }
 
   private extractFeature(schema: Schema): CoreFeature {
@@ -205,10 +260,10 @@ export class CoreSpecDefinition extends FeatureDefinition {
     return features.coreItself;
   }
 
-  coreDirective(schema: Schema): DirectiveDefinition<CoreDirectiveArgs> {
+  coreDirective(schema: Schema): DirectiveDefinition<CoreOrLinkDirectiveArgs> {
     const feature = this.extractFeature(schema);
     const directive = schema.directive(feature.nameInSchema);
-    return directive as DirectiveDefinition<CoreDirectiveArgs>;
+    return directive as DirectiveDefinition<CoreOrLinkDirectiveArgs>;
   }
 
   coreVersion(schema: Schema): FeatureVersion {
@@ -218,15 +273,23 @@ export class CoreSpecDefinition extends FeatureDefinition {
 
   applyFeatureToSchema(schema: Schema, feature: FeatureDefinition, as?: string, purpose?: CorePurpose) {
     const coreDirective = this.coreDirective(schema);
-    const args: CoreDirectiveArgs = {
-      feature: feature.toString(),
+    const args = {
+      [this.urlArgName()]: feature.toString(),
       as,
-    };
+    } as CoreDirectiveArgs;
     if (this.supportPurposes() && purpose) {
       args.for = purpose;
     }
     schema.schemaDefinition.applyDirective(coreDirective, args);
     feature.addElementsToSchema(schema);
+  }
+
+  extractFeatureUrl(args: CoreOrLinkDirectiveArgs): FeatureUrl {
+    return FeatureUrl.parse(args[this.urlArgName()]!);
+  }
+
+  urlArgName(): 'feature' | 'url' {
+    return this.url.name === 'core' ? 'feature' : 'url';
   }
 }
 
@@ -463,9 +526,18 @@ export class FeatureUrl {
   }
 }
 
+export function findCoreSpecVersion(featureUrl: FeatureUrl): CoreSpecDefinition | undefined {
+  return featureUrl.name === 'core'
+    ? CORE_VERSIONS.find(featureUrl.version)
+    : (featureUrl.name === linkDirectiveDefaultName ? LINK_VERSIONS.find(featureUrl.version) : undefined)
+}
+
 export const CORE_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(coreIdentity)
-  .add(new CoreSpecDefinition(new FeatureVersion(0, 1)))
-  .add(new CoreSpecDefinition(new FeatureVersion(0, 2)));
+  .add(new CoreSpecDefinition(new FeatureVersion(0, 1), coreIdentity, 'core'))
+  .add(new CoreSpecDefinition(new FeatureVersion(0, 2), coreIdentity, 'core'));
+
+export const LINK_VERSIONS = new FeatureDefinitions<CoreSpecDefinition>(linkIdentity)
+  .add(new CoreSpecDefinition(new FeatureVersion(1, 0)));
 
 export function removeFeatureElements(schema: Schema, feature: CoreFeature) {
   // Removing directives first, so that when we remove types, the checks that there is no references don't fail due a directive of a the feature

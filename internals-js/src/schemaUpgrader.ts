@@ -1,29 +1,35 @@
 import { GraphQLError } from "graphql";
-import { addSubgraphToError, ERRORS, extendsDirectiveName, Extension, firstOf, keyDirectiveName, NamedType, printSubgraphNames, shareableDirectiveName, Subgraphs } from ".";
+import { ERRORS } from "./error";
 import {
   baseType,
   CompositeType,
   Directive,
   DirectiveDefinition,
   errorCauses,
+  Extension,
   FieldDefinition,
   InterfaceType,
   isCompositeType,
   isInterfaceType,
   isObjectType,
+  NamedType,
   ObjectType,
   Schema,
   SchemaElement,
-  sourceASTs
 } from "./definitions";
 import {
-  federationBuiltIns,
+  addSubgraphToError,
+  federationMetadata,
+  FederationMetadata,
   parseFieldSetArgument,
+  printSubgraphNames,
   removeInactiveProvidesAndRequires,
   setSchemaAsFed2Subgraph,
   Subgraph,
+  Subgraphs,
 } from "./federation";
-import { MultiMap } from "./utils";
+import { assert, firstOf, MultiMap } from "./utils";
+import { FEDERATION_SPEC_TYPES } from "./federationSpec";
 
 export type UpgradeResult = UpgradeSuccess | UpgradeFailure;
 
@@ -159,11 +165,12 @@ export function upgradeSubgraphsIfNecessary(subgraphs: Subgraphs): UpgradeResult
  *  3. do not have a definition for the same type in the same subgraph (this is a GraphQL extension otherwise).
  */
 function isFederationTypeExtension(type: NamedType): boolean {
-  // Note that we have to handle @extend as well.
-  const hasExtend = type.hasAppliedDirective(extendsDirectiveName);
+  const metadata = federationMetadata(type.schema());
+  assert(metadata, 'Should be a subgraph schema');
+  const hasExtend = type.hasAppliedDirective(metadata.extendsDirective());
   return (type.hasExtensionElements() || hasExtend)
     && (isObjectType(type) || isInterfaceType(type))
-    && type.hasAppliedDirective(keyDirectiveName)
+    && type.hasAppliedDirective(metadata.keyDirective())
     && (hasExtend || !type.hasNonExtensionElements());
 }
 
@@ -171,9 +178,11 @@ function isFederationTypeExtension(type: NamedType): boolean {
  * Whether the type is a root type but is declared has (only) an extension, which federation 1 actually accepts.
  */
 function isRootTypeExtension(type: NamedType): boolean {
+  const metadata = federationMetadata(type.schema());
+  assert(metadata, 'Should be a subgraph schema');
   return isObjectType(type)
     && type.isRootType()
-    && (type.hasAppliedDirective(extendsDirectiveName) || (type.hasExtensionElements() && !type.hasNonExtensionElements()));
+    && (type.hasAppliedDirective(metadata.extendsDirective()) || (type.hasExtensionElements() && !type.hasNonExtensionElements()));
 }
 
 function resolvesField(subgraph: Subgraph, field: FieldDefinition<ObjectType>): boolean  {
@@ -191,22 +200,40 @@ class SchemaUpgrader {
   private readonly usedExternalFieldsCoordinates = new Set<string>();
   private readonly schema: Schema;
   private readonly subgraph: Subgraph;
+  private readonly metadata: FederationMetadata;
 
   constructor(private readonly originalSubgraph: Subgraph, private readonly otherSubgraphs: Subgraph[]) {
     // Note that as we clone the original schema, the 'sourceAST' values in the elements of the new schema will be those of the original schema
     // and those won't be updated as we modify the schema to make it fed2-enabled. This is _important_ for us here as this is what ensures that
     // later merge errors "AST" nodes ends up pointing to the original schema, the one that make sense to the user.
     this.schema = originalSubgraph.schema.clone();
+    this.renameFederationTypes();
     setSchemaAsFed2Subgraph(this.schema);
     this.subgraph = new Subgraph(originalSubgraph.name, originalSubgraph.url, this.schema);
+    this.metadata = this.subgraph.metadata();
+  }
+
+  private renameFederationTypes() {
+    // When we set the upgraded schema as a fed2 schema, we only "import" the federation directives, but not the federation types. This
+    // means that those types will be called `_Entity`, `_Any`, ... in the fed1 original schema, but they should be called `federation__Entity`,
+    // `federation__Any`, ... in the new upgraded schema.
+    // But note that even "importing" those types would not completely work because fed2 essentially drops the `_` at the beginning of those
+    // type names (relying on the core schema prefixing instead) and so some special translation needs to happen.
+    for (const typeSpec of FEDERATION_SPEC_TYPES) {
+      const typeNameInOriginal = this.originalSubgraph.metadata().federationTypeNameInSchema(typeSpec.name);
+      const type = this.schema.type(typeNameInOriginal);
+      if (type) {
+        type.rename(`federation__${typeSpec.name}`);
+      }
+    }
   }
 
   private keys(type: ObjectType): Directive<ObjectType, { fields: any }>[] {
-    return type.appliedDirectivesOf(federationBuiltIns.keyDirective(this.schema));
+    return type.appliedDirectivesOf(this.metadata.keyDirective());
   }
 
   private external(elt: FieldDefinition<any>): Directive<any, {}> | undefined {
-    const applications = elt.appliedDirectivesOf(federationBuiltIns.externalDirective(this.schema));
+    const applications = elt.appliedDirectivesOf(this.metadata.externalDirective());
     return applications.length === 0 ? undefined : applications[0];
   }
 
@@ -236,37 +263,10 @@ class SchemaUpgrader {
     })];
   }
 
-  // TODO: This essentially imply fed 1 schema cannot have a user-defined @shareable directive. Hopefully no current user does,
-  // but if someone reports a problem, we'll have to find a solution.
-  private checkForShareableUses(type: NamedType): GraphQLError[] {
-    if (!isObjectType(type)) {
-      return [];
-    }
-
-    const errors: GraphQLError[] = [];
-    if (type.hasAppliedDirective(shareableDirectiveName)) {
-      errors.push(ERRORS.INVALID_GRAPHQL.err({
-        message: `Directive @${shareableDirectiveName} is only available in federation 2+ schema`,
-        nodes: sourceASTs(...type.appliedDirectivesOf(shareableDirectiveName)),
-      }));
-    }
-    for (const field of type.fields()) {
-      if (field.hasAppliedDirective(shareableDirectiveName)) {
-        errors.push(ERRORS.INVALID_GRAPHQL.err({
-          message: `Directive @${shareableDirectiveName} is only available in federation 2+ schema`,
-          nodes: sourceASTs(...field.appliedDirectivesOf(shareableDirectiveName)),
-        }));
-      }
-    }
-
-    return errors;
-  }
-
   private preUpgradeValidations(): GraphQLError[] {
     let errors: GraphQLError[] = [];
     for (const type of this.schema.types()) {
       errors = errors.concat(this.checkForExtensionWithNoBase(type));
-      errors = errors.concat(this.checkForShareableUses(type));
     }
     return errors;
   }
@@ -384,15 +384,15 @@ class SchemaUpgrader {
   private collectAllUsedExternaFields() {
     // Collects all external fields used by a key, requires or provides
     this.collectUsedExternaFields<CompositeType>(
-      federationBuiltIns.keyDirective(this.schema),
+      this.metadata.keyDirective(),
       type => type
     );
     this.collectUsedExternaFields<FieldDefinition<CompositeType>>(
-      federationBuiltIns.requiresDirective(this.schema),
+      this.metadata.requiresDirective(),
       field => field.parent!,
     );
     this.collectUsedExternaFields<FieldDefinition<CompositeType>>(
-      federationBuiltIns.providesDirective(this.schema),
+      this.metadata.providesDirective(),
       field => {
         const type = baseType(field.type!);
         return isCompositeType(type) ? type : undefined;
@@ -433,8 +433,8 @@ class SchemaUpgrader {
 
   private addShareable() {
     const originalMetadata = this.originalSubgraph.metadata();
-    const keyDirective = federationBuiltIns.keyDirective(this.schema);
-    const shareableDirective = federationBuiltIns.shareableDirective(this.schema);
+    const keyDirective = this.metadata.keyDirective();
+    const shareableDirective = this.metadata.shareableDirective();
     // We add shareable:
     // - to every "value type" (in the fed1 sense of non-root type and non-entity) if it is used in any other subgraphs
     // - to any (non-external) field of an entity/root-type that is not a key field and if another subgraphs resolve it (fully or partially through @provides)

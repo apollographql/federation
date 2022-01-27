@@ -64,7 +64,14 @@ describe('basic type extensions', () => {
       }
     `);
 
-    expect(printSchema(subgraphs.get('subgraphA')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type Product
         @key(fields: "sku")
       {
@@ -80,7 +87,14 @@ describe('basic type extensions', () => {
     // Note that the "upgrade" of fed1 schema removes extensions amongst other things, and
     // the extract subgraphs are essentially the upgraded subgraphs, so it is normal it isn't
     // an extension.
-    expect(printSchema(subgraphs.get('subgraphB')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type Product
         @key(fields: "sku")
       {
@@ -134,7 +148,14 @@ describe('basic type extensions', () => {
     `);
 
     // Same remark than in prevoius test
-    expect(printSchema(subgraphs.get('subgraphA')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type Product
         @key(fields: "sku")
       {
@@ -143,7 +164,14 @@ describe('basic type extensions', () => {
       }
     `);
 
-    expect(printSchema(subgraphs.get('subgraphB')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type Product
         @key(fields: "sku")
       {
@@ -209,7 +237,14 @@ describe('basic type extensions', () => {
       }
     `);
 
-    expect(printSchema(subgraphs.get('subgraphA')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type Product
         @key(fields: "sku")
       {
@@ -218,7 +253,14 @@ describe('basic type extensions', () => {
       }
     `);
 
-    expect(printSchema(subgraphs.get('subgraphB')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type Product {
         sku: String!
         name: String!
@@ -229,7 +271,14 @@ describe('basic type extensions', () => {
       }
     `);
 
-    expect(printSchema(subgraphs.get('subgraphC')!.schema)).toMatchString(`
+    expect(subgraphs.get('subgraphC')!.toString()).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+      {
+        query: Query
+      }
+
       type Product
         @key(fields: "sku")
       {
@@ -379,7 +428,7 @@ describe('shareable', () => {
 
     const subgraphB = {
       typeDefs: gql`
-        extend schema @link(url: "https://specs.apollo.dev/federation/v2.0")
+        extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@provides", "@external"])
 
         type Query {
           a2: A @provides(fields: "x")
@@ -413,7 +462,7 @@ describe('shareable', () => {
   it('handles provides with mixed fed1/fed2 schema (when the provides is in the fed1 schema)', () => {
     const subgraphA = {
       typeDefs: gql`
-        extend schema @link(url: "https://specs.apollo.dev/federation/v2.0")
+        extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
 
         type Query {
           a1: A
@@ -461,7 +510,7 @@ describe('shareable', () => {
   it('errors on provides with non-shared field with mixed fed1/fed2 schema', () => {
     const subgraphA = {
       typeDefs: gql`
-        extend schema @link(url: "https://specs.apollo.dev/federation/v2.0")
+        extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
 
         type Query {
           a1: A

@@ -14,7 +14,6 @@ import {
   UnionType,
   baseType,
   SelectionSet,
-  federationBuiltIns,
   isFederationSubgraphSchema,
   CompositeType,
   extractSubgraphsFromSupergraph,
@@ -29,8 +28,9 @@ import {
   firstOf,
   FEDERATION_RESERVED_SUBGRAPH_NAME,
   ALL_SUBTYPING_RULES,
-  externalDirectiveName,
-  requiresDirectiveName,
+  federationMetadata,
+  FederationMetadata,
+  DirectiveDefinition,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution } from './transition';
@@ -583,8 +583,10 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   // copying vertex and their edges, and it's easier to reason about this if we know all keys have already been created.
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
-    const keyDirective = federationBuiltIns.keyDirective(subgraphSchema);
-    const requireDirective = federationBuiltIns.requiresDirective(subgraphSchema);
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+    const keyDirective = subgraphMetadata.keyDirective();
+    const requireDirective = subgraphMetadata.requiresDirective();
     simpleTraversal(
       subgraph,
       v => {
@@ -646,7 +648,9 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
   // Now we handle @provides
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
-    const providesDirective = federationBuiltIns.providesDirective(subgraphSchema);
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+    const providesDirective = subgraphMetadata.providesDirective();
     simpleTraversal(
       subgraph,
       _ => undefined,
@@ -909,6 +913,11 @@ class GraphBuilderFromSchema extends GraphBuilder {
     this.forceTypeExplosion = supergraphSchema !== undefined && isFed1Supergraph(supergraphSchema);
   }
 
+  private hasDirective(field: FieldDefinition<any>, directiveFct: (metadata: FederationMetadata) => DirectiveDefinition): boolean {
+    const metadata = federationMetadata(this.schema);
+    return !!metadata && field.hasAppliedDirective(directiveFct(metadata));
+  }
+
   /**
    * Adds a vertex for the provided root object type (marking that vertex as a root vertex for the
    * provided `kind`) and recursively descend into the type definition to adds the related vertices
@@ -963,7 +972,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // We do skip introspection fields however.
     for (const field of type.allFields()) {
       // Field marked @external only exists to ensure subgraphs schema are valid graphQL, but they don't really exist as far as federation goes.
-      if (field.isSchemaIntrospectionField() || field.hasAppliedDirective(externalDirectiveName)) {
+      if (field.isSchemaIntrospectionField() || this.hasDirective(field, (m) => m.externalDirective())) {
         continue;
       }
       this.addEdgeForField(field, head);
@@ -983,7 +992,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     //   3) it does not have a @require (essentially, this method is called on type implementations of an interface
     //      to decide if we can avoid type-explosion, but if the field has a @require on an implementation, then we
     //      need to type-explode to make we handle that @require).
-    return field && !field.hasAppliedDirective(externalDirectiveName) && !field.hasAppliedDirective(requiresDirectiveName);
+    return field && !this.hasDirective(field, (m) => m.externalDirective()) && !this.hasDirective(field, (m) => m.requiresDirective());
   }
 
   private maybeAddInterfaceFieldsEdges(type: InterfaceType, head: Vertex) {
@@ -1007,7 +1016,7 @@ class GraphBuilderFromSchema extends GraphBuilder {
     // by all local runtime types, so will always have an edge added, which we want).
     for (const field of type.allFields()) {
       // To include the field, it must not be external himself, and it must be provided on every of the runtime types
-      if (field.hasAppliedDirective(externalDirectiveName) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
+      if (this.hasDirective(field, (m) => m.externalDirective()) || localRuntimeTypes.some(t => !this.isDirectlyProvidedByType(t, field.name))) {
         continue;
       }
       this.addEdgeForField(field, head);

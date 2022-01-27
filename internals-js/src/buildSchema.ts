@@ -23,9 +23,9 @@ import {
 } from "graphql";
 import { Maybe } from "graphql/jsutils/Maybe";
 import {
-  BuiltIns,
+  SchemaBlueprint,
   Schema,
-  graphQLBuiltIns,
+  defaultSchemaBlueprint,
   newNamedType,
   NamedTypeKind,
   NamedType,
@@ -62,39 +62,50 @@ function buildValue(value?: ValueNode): any {
   return value ? valueFromASTUntyped(value) : undefined;
 }
 
-export function buildSchema(source: string | Source, builtIns: BuiltIns = graphQLBuiltIns, validate: boolean = true): Schema {
-  return buildSchemaFromAST(parse(source), builtIns, validate);
+export type BuildSchemaOptions = {
+  blueprint?: SchemaBlueprint,
+  validate?: boolean,
 }
 
-export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIns = graphQLBuiltIns, validate: boolean = true): Schema {
-  const schema = new Schema(builtIns);
+export function buildSchema(source: string | Source, options?: BuildSchemaOptions): Schema {
+  return buildSchemaFromAST(parse(source), options);
+}
+
+export function buildSchemaFromAST(
+  documentNode: DocumentNode,
+  options?: BuildSchemaOptions,
+): Schema {
+  const { blueprint, validate } = {
+    blueprint: options?.blueprint ?? defaultSchemaBlueprint,
+    validate: options?.validate ?? true,
+  }
+  const schema = new Schema(blueprint);
   // We do a first pass to add all empty types and directives definition. This ensure any reference on one of
   // those can be resolved in the 2nd pass, regardless of the order of the definitions in the AST.
-  const directiveDefinitionNodes = buildNamedTypeAndDirectivesShallow(documentNode, schema);
+  const { directiveDefinitions, schemaDefinitions, schemaExtensions } = buildNamedTypeAndDirectivesShallow(documentNode, schema);
 
   // We then deal with directive definition first. This is mainly for the sake of core schemas: the core schema
   // handling in `Schema` detects that the schema is a core one when it see the application of `@core(feature: ".../core/...")`
   // to the schema element. But that detection necessitates that the corresponding directive definition has been fully
   // populated (and at this point, we don't really know the name of the `@core` directive since it can be renamed, so
   // we just handle all directives).
-  for (const directiveDefinitionNode of directiveDefinitionNodes) {
+  for (const directiveDefinitionNode of directiveDefinitions) {
     buildDirectiveDefinitionInner(directiveDefinitionNode, schema.directive(directiveDefinitionNode.name.value)!);
   }
+  for (const schemaDefinition of schemaDefinitions) {
+    buildSchemaDefinitionInner(schemaDefinition, schema.schemaDefinition);
+  }
+  for (const schemaExtension of schemaExtensions) {
+    buildSchemaDefinitionInner(schemaExtension, schema.schemaDefinition, schema.schemaDefinition.newExtension());
+  }
+
+  blueprint.onDirectiveDefinitionAndSchemaParsed(schema);
 
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
       case 'OperationDefinition':
       case 'FragmentDefinition':
         throw new GraphQLError("Invalid executable definition found while building schema", definitionNode);
-      case 'SchemaDefinition':
-        buildSchemaDefinitionInner(definitionNode, schema.schemaDefinition);
-        break;
-      case 'SchemaExtension':
-        buildSchemaDefinitionInner(
-          definitionNode,
-          schema.schemaDefinition,
-          schema.schemaDefinition.newExtension());
-        break;
       case 'ScalarTypeDefinition':
       case 'ObjectTypeDefinition':
       case 'InterfaceTypeDefinition':
@@ -117,7 +128,6 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
     }
   }
 
-  Schema.prototype['forceSetCachedDocument'].call(schema, documentNode);
   if (validate) {
     schema.validate();
   }
@@ -125,10 +135,22 @@ export function buildSchemaFromAST(documentNode: DocumentNode, builtIns: BuiltIn
   return schema;
 }
 
-function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: Schema): DirectiveDefinitionNode[] {
-  const directiveDefinitionNodes = [];
+function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: Schema): {
+  directiveDefinitions: DirectiveDefinitionNode[],
+  schemaDefinitions: SchemaDefinitionNode[],
+  schemaExtensions: SchemaExtensionNode[],
+}  {
+  const directiveDefinitions = [];
+  const schemaDefinitions = [];
+  const schemaExtensions = [];
   for (const definitionNode of documentNode.definitions) {
     switch (definitionNode.kind) {
+      case 'SchemaDefinition':
+        schemaDefinitions.push(definitionNode);
+        break;
+      case 'SchemaExtension':
+        schemaExtensions.push(definitionNode);
+        break;
       case 'ScalarTypeDefinition':
       case 'ObjectTypeDefinition':
       case 'InterfaceTypeDefinition':
@@ -149,12 +171,16 @@ function buildNamedTypeAndDirectivesShallow(documentNode: DocumentNode, schema: 
         }
         break;
       case 'DirectiveDefinition':
-        directiveDefinitionNodes.push(definitionNode);
+        directiveDefinitions.push(definitionNode);
         schema.addDirectiveDefinition(definitionNode.name.value);
         break;
     }
   }
-  return directiveDefinitionNodes;
+  return {
+    directiveDefinitions,
+    schemaDefinitions,
+    schemaExtensions,
+  }
 }
 
 type NodeWithDirectives = {directives?: ReadonlyArray<DirectiveNode>};

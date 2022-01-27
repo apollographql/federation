@@ -27,36 +27,35 @@ import {
   valueToString,
   InputFieldDefinition,
   allSchemaRootKinds,
-  isFederationType,
   Directive,
   isFederationField,
   SchemaRootKind,
   CompositeType,
   Subgraphs,
-  federationBuiltIns,
   CORE_VERSIONS,
   JOIN_VERSIONS,
   TAG_VERSIONS,
   NamedSchemaElement,
   executableDirectiveLocations,
   errorCauses,
-  tagDirectiveName,
   isObjectType,
   SubgraphASTNode,
   addSubgraphToASTNode,
   firstOf,
   Extension,
   DEFAULT_SUBTYPING_RULES,
-  providesDirectiveName,
-  requiresDirectiveName,
   isInterfaceType,
   sourceASTs,
   ErrorCodeDefinition,
   ERRORS,
   joinStrings,
   FederationMetadata,
-  federationMetadata,
   printSubgraphNames,
+  Subgraph,
+  federationIdentity,
+  linkIdentity,
+  coreIdentity,
+  FEDERATION_OPERATION_TYPES,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -84,7 +83,6 @@ import {
 const coreSpec = CORE_VERSIONS.latest();
 const joinSpec = JOIN_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
-
 
 const MERGED_TYPE_SYSTEM_DIRECTIVES = ['inaccessible', 'deprecated', 'specifiedBy', 'tag'];
 
@@ -141,8 +139,16 @@ function copyTypeReference(source: Type, dest: Schema): Type {
   }
 }
 
+const NON_MERGED_CORE_FEATURES = [ federationIdentity, linkIdentity, coreIdentity ];
+
 function isMergedType(type: NamedType): boolean {
-  return !isFederationType(type) && !type.isIntrospectionType();
+  if (type.isIntrospectionType() || FEDERATION_OPERATION_TYPES.map((s) => s.name).includes(type.name)) {
+    return false;
+  }
+
+  const coreFeatures = type.schema().coreFeatures;
+  const typeFeature = coreFeatures?.sourceFeature(type)?.url.identity
+  return !(typeFeature && NON_MERGED_CORE_FEATURES.includes(typeFeature));
 }
 
 function isMergedField(field: InputFieldDefinition | FieldDefinition<CompositeType>): boolean {
@@ -205,9 +211,8 @@ function typeKindToString(t: NamedType): string {
   return t.kind.replace("Type", " Type");
 }
 
-function hasTagUsage(subgraph: Schema): boolean {
-  const directive = subgraph.directive(tagDirectiveName);
-  return !!directive && directive.applications().length > 0;
+function hasTagUsage(subgraph: Subgraph): boolean {
+  return subgraph.metadata().tagDirective().applications().length > 0;
 }
 
 function locationString(locations: DirectiveLocation[]): string {
@@ -238,7 +243,7 @@ class Merger {
     coreSpec.addToSchema(this.merged);
     coreSpec.applyFeatureToSchema(this.merged, joinSpec, undefined, 'EXECUTION');
 
-    if (this.subgraphsSchema.some(hasTagUsage)) {
+    if (this.subgraphs.values().some(hasTagUsage)) {
       coreSpec.applyFeatureToSchema(this.merged, tagSpec);
     }
 
@@ -250,9 +255,7 @@ class Merger {
   }
 
   private metadata(idx: number): FederationMetadata {
-    const metadata = federationMetadata(this.subgraphsSchema[idx]);
-    assert(metadata, () => `Subgraph ${this.names[idx]} at index ${idx} should have its federation metadata set`);
-    return metadata;
+    return this.subgraphs.values()[idx].metadata();
   }
 
   merge(): MergeResult {
@@ -670,14 +673,14 @@ class Merger {
       }
 
       // There is either 1 join__type per-key, or if there is no key, just one for the type.
-      const sourceSchema = this.subgraphsSchema[idx];
-      const keys = source.appliedDirectivesOf(federationBuiltIns.keyDirective(sourceSchema));
+      const sourceMetadata = this.subgraphs.values()[idx].metadata();
+      const keys = source.appliedDirectivesOf(sourceMetadata.keyDirective());
       const name = this.joinSpecName(idx);
       if (!keys.length) {
         dest.applyDirective(joinTypeDirective, { graph: name });
       } else {
         for (const key of keys) {
-          const extension = key.ofExtension() || source.hasAppliedDirective(federationBuiltIns.extendsDirective(sourceSchema)) ? true : undefined;
+          const extension = key.ofExtension() || source.hasAppliedDirective(sourceMetadata.extendsDirective()) ? true : undefined;
           dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension });
         }
       }
@@ -965,9 +968,10 @@ class Merger {
     //   3) none of the field is @external.
     for (const [idx, source] of sources.entries()) {
       if (source) {
+        const sourceMeta = this.subgraphs.values()[idx].metadata();
         if (this.isExternal(idx, source)
-          || source.hasAppliedDirective(providesDirectiveName)
-          || source.hasAppliedDirective(requiresDirectiveName)
+          || source.hasAppliedDirective(sourceMeta.providesDirective())
+          || source.hasAppliedDirective(sourceMeta.requiresDirective())
         ) {
           return true;
         }
@@ -996,11 +1000,12 @@ class Merger {
       }
 
       const external = this.isExternal(idx, source);
+      const sourceMeta = this.subgraphs.values()[idx].metadata();
       const name = this.joinSpecName(idx);
       dest.applyDirective(joinFieldDirective, {
         graph: name,
-        requires: this.getFieldSet(source, federationBuiltIns.requiresDirective(this.subgraphsSchema[idx])),
-        provides: this.getFieldSet(source, federationBuiltIns.providesDirective(this.subgraphsSchema[idx])),
+        requires: this.getFieldSet(source, sourceMeta.requiresDirective()),
+        provides: this.getFieldSet(source, sourceMeta.providesDirective()),
         type: allTypesEqual ? undefined : source.type?.toString(),
         external: external ? true : undefined,
       });

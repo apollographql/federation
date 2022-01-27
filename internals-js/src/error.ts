@@ -110,10 +110,20 @@ const INVALID_GRAPHQL = makeCodeDefinition(
   'A schema is invalid GraphQL: it violates one of the rule of the specification.'
 );
 
-const TAG_DEFINITION_INVALID = makeCodeDefinition(
-  'TAG_DIRECTIVE_DEFINITION_INVALID',
-  'The @tag directive has an invalid defintion in the schema.',
-  { addedIn: FED1_CODE },
+const DIRECTIVE_DEFINITION_INVALID = makeCodeDefinition(
+  'DIRECTIVE_DEFINITION_INVALID',
+  'A built-in or federation directive has an invalid definition in the schema.',
+  { ...DEFAULT_METADATA, replaces: ['TAG_DEFINITION_INVALID'] },
+);
+
+const TYPE_DEFINITION_INVALID = makeCodeDefinition(
+  'TYPE_DEFINITION_INVALID',
+  'A built-in or federation type has an invalid definition in the schema.',
+);
+
+const UNKNOWN_FEDERATION_LINK_VERSION = makeCodeDefinition(
+  'UNKNOWN_FEDERATION_LINK_VERSION',
+  'The version of federation in a @link directive on the schema is unknown.',
 );
 
 const FIELDS_HAS_ARGS = makeFederationDirectiveErrorCodeCategory(
@@ -274,6 +284,11 @@ const INVALID_FIELD_SHARING = makeCodeDefinition(
   'A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs.'
 );
 
+const INVALID_LINK_DIRECTIVE_USAGE = makeCodeDefinition(
+  'INVALID_LINK_DIRECTIVE_USAGE',
+  'An application of the @link directive is invalid/does not respect the specification.'
+);
+
 const SATISFIABILITY_ERROR = makeCodeDefinition(
   'SATISFIABILITY_ERROR',
   'Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.',
@@ -290,7 +305,9 @@ export const ERROR_CATEGORIES = {
 
 export const ERRORS = {
   INVALID_GRAPHQL,
-  TAG_DEFINITION_INVALID,
+  DIRECTIVE_DEFINITION_INVALID,
+  TYPE_DEFINITION_INVALID,
+  UNKNOWN_FEDERATION_LINK_VERSION,
   KEY_FIELDS_HAS_ARGS,
   PROVIDES_FIELDS_HAS_ARGS,
   REQUIRES_FIELDS_HAS_ARGS,
@@ -327,6 +344,7 @@ export const ERRORS = {
   EXTERNAL_MISSING_ON_BASE,
   INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH,
   INVALID_FIELD_SHARING,
+  INVALID_LINK_DIRECTIVE_USAGE,
   SATISFIABILITY_ERROR,
 };
 

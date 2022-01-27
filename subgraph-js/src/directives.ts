@@ -19,7 +19,9 @@ import {
   ASTNode,
   visit,
   GraphQLSchema,
+  GraphQLList,
 } from 'graphql';
+import { LinkImportType } from './types';
 
 export const KeyDirective = new GraphQLDirective({
   name: 'key',
@@ -89,6 +91,9 @@ export const LinkDirective = new GraphQLDirective({
     url: {
       type: new GraphQLNonNull(GraphQLString),
     },
+    import: {
+      type: new GraphQLList(LinkImportType),
+    }
   },
 });
 

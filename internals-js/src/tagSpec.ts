@@ -3,7 +3,6 @@ import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } fro
 import { DirectiveDefinition, NonNullType, Schema } from "./definitions";
 import { ERRORS } from "./error";
 import { sameType } from "./types";
-import { assert } from "./utils";
 
 export const tagIdentity = 'https://specs.apollo.dev/tag';
 
@@ -31,13 +30,12 @@ export class TagSpecDefinition extends FeatureDefinition {
   }
 
   checkCompatibleDirective(definition: DirectiveDefinition): GraphQLError | undefined {
-    assert(definition.name === 'tag', () => `This method should not have been called on directive named ${definition.name}`);
     const hasUnknownArguments = Object.keys(definition.arguments()).length > 1;
     const nameArg = definition.argument('name');
     const hasValidNameArg = nameArg && sameType(nameArg.type!, new NonNullType(definition.schema().stringType()));
     const hasValidLocations = definition.locations.every(loc => tagLocations.includes(loc));
     if (hasUnknownArguments || !hasValidNameArg || !hasValidLocations) {
-      return ERRORS.TAG_DEFINITION_INVALID.err({
+      return ERRORS.DIRECTIVE_DEFINITION_INVALID.err({
         message: `Found invalid @tag directive definition. Please ensure the directive definition in your schema's definitions matches the following:\n\t${printedTagDefinition}`,
       }
       );

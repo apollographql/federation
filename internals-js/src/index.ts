@@ -10,6 +10,7 @@ export * from './debug';
 export * from './coreSpec';
 export * from './joinSpec';
 export * from './tagSpec';
+export * from './federationSpec';
 export * from './supergraphs';
 export * from './extractSubgraphsFromSupergraph';
 export * from './error';
