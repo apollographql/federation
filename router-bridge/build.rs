@@ -18,7 +18,7 @@ fn update_bridge() {
 
     assert!(Command::new(&npm)
         .current_dir(&repo_dir)
-        .args(&["install"])
+        .args(&["ci"])
         .status()
         .unwrap()
         .success());
