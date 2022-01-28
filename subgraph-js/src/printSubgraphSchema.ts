@@ -131,6 +131,10 @@ function isSchemaOfCommonNames(schema: GraphQLSchema): boolean {
     return false;
   }
 
+  if (schema.astNode?.description) {
+    return false
+  }
+
   const queryType = schema.getQueryType();
   if (queryType && queryType.name !== 'Query') {
     return false;

@@ -196,6 +196,7 @@ export function buildSchemaFromSDL(
   const schemaDefinitions: SchemaDefinitionNode[] = [];
   const schemaExtensions: SchemaExtensionNode[] = [];
   const schemaDirectives: ConstDirectiveNode[] = [];
+  let description: string | undefined
 
   for (const definition of documentAST.definitions) {
     if (isTypeDefinitionNode(definition)) {
@@ -221,6 +222,7 @@ export function buildSchemaFromSDL(
       schemaDirectives.push(
         ...(definition.directives ? definition.directives : [])
       );
+      description = definition.description?.value
     } else if (definition.kind === Kind.SCHEMA_EXTENSION) {
       schemaExtensions.push(definition);
     }
@@ -302,8 +304,14 @@ export function buildSchemaFromSDL(
         ? (schema.getType(typeName) as GraphQLObjectType<any, any>)
         : undefined
     ),
+    description,
     astNode: {
       kind: Kind.SCHEMA_DEFINITION,
+      description: !description ? undefined : {
+        kind: Kind.STRING,
+        value: description,
+        block: true
+      },
       directives: schemaDirectives,
       operationTypes: [] // satisfies typescript, will be ignored
     }
