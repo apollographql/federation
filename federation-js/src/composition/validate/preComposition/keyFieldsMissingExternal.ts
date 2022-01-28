@@ -7,7 +7,7 @@ import {
   GraphQLError,
   specifiedDirectives,
 } from 'graphql';
-import { buildSchemaFromSDL } from '../../../schema-helper';
+import { buildSchemaFromSDL } from '@apollo/subgraph/dist/schema-helper';
 import { knownSubgraphDirectives } from '@apollo/subgraph/dist/directives';
 import { ServiceDefinition } from '../../types';
 import {
