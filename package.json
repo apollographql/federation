@@ -93,12 +93,12 @@
   },
   "jest": {
     "projects": [
-      "<rootDir>/internals-js",
-      "<rootDir>/federation-integration-testsuite-js",
-      "<rootDir>/gateway-js",
-      "<rootDir>/query-planner-js",
       "<rootDir>/composition-js",
-      "<rootDir>/query-graphs-js"
+      "<rootDir>/gateway-js",
+      "<rootDir>/internals-js",
+      "<rootDir>/query-graphs-js",
+      "<rootDir>/query-planner-js",
+      "<rootDir>/subgraph-js"
     ]
   }
 }
