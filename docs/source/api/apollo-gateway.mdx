@@ -625,7 +625,7 @@ const gateway = new ApolloGateway({
   },
   supergraphSdl: new IntrospectAndCompose({
     subgraphs: [
-      { name: 'products', url: 'https://products-service.dev/graphql',
+      { name: 'products', url: 'https://products-service.dev/graphql' },
       { name: 'reviews', url: 'https://reviews-service.dev/graphql' },
     ],
   }),
