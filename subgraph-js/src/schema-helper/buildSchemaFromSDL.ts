@@ -21,6 +21,7 @@ import {
   GraphQLEnumValueConfig,
   ConstDirectiveNode,
   ASTNode,
+  StringValueNode,
 } from 'graphql';
 
 import { GraphQLResolverMap, GraphQLSchemaModule } from './resolverMap';
@@ -196,7 +197,7 @@ export function buildSchemaFromSDL(
   const schemaDefinitions: SchemaDefinitionNode[] = [];
   const schemaExtensions: SchemaExtensionNode[] = [];
   const schemaDirectives: ConstDirectiveNode[] = [];
-  let description: string | undefined
+  let description: StringValueNode | undefined
 
   for (const definition of documentAST.definitions) {
     if (isTypeDefinitionNode(definition)) {
@@ -222,7 +223,7 @@ export function buildSchemaFromSDL(
       schemaDirectives.push(
         ...(definition.directives ? definition.directives : [])
       );
-      description = definition.description?.value
+      description = definition.description
     } else if (definition.kind === Kind.SCHEMA_EXTENSION) {
       schemaExtensions.push(definition);
     }
@@ -304,14 +305,10 @@ export function buildSchemaFromSDL(
         ? (schema.getType(typeName) as GraphQLObjectType<any, any>)
         : undefined
     ),
-    description,
+    description: description?.value,
     astNode: {
       kind: Kind.SCHEMA_DEFINITION,
-      description: !description ? undefined : {
-        kind: Kind.STRING,
-        value: description,
-        block: true
-      },
+      description,
       directives: schemaDirectives,
       operationTypes: [] // satisfies typescript, will be ignored
     }

@@ -83,7 +83,7 @@ function printFilteredSchema(
 }
 
 function printSchemaDefinition(schema: GraphQLSchema): string | undefined {
-  if (isSchemaOfCommonNames(schema)) {
+  if (schema.description == null && isSchemaOfCommonNames(schema)) {
     return;
   }
 
@@ -129,10 +129,6 @@ function isSchemaOfCommonNames(schema: GraphQLSchema): boolean {
   // include it.
   if (schema.astNode?.directives?.length) {
     return false;
-  }
-
-  if (schema.astNode?.description) {
-    return false
   }
 
   const queryType = schema.getQueryType();
