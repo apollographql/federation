@@ -79,9 +79,9 @@ describe('printSubgraphSchema', () => {
   });
 
   it('prints a scalar without a directive correctly', () => {
-    const schema = gql`scalar JSON`
+    const schema = gql`scalar JSON`;
     const subgraphSchema = buildSubgraphSchema(schema);
-    
+
     expect(printSubgraphSchema(subgraphSchema)).toMatchInlineSnapshot(`
       "scalar JSON
 
