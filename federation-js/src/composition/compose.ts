@@ -19,7 +19,10 @@ import {
   NamedTypeNode,
   lexicographicSortSchema,
 } from 'graphql';
-import { transformSchema } from '../schema-helper';
+// Importing from 'dist' is not actually supported as part of the public API,
+// but this allows us not to duplicate things in the meantime while the
+// @apollo/federation package still exists.
+import { transformSchema } from '@apollo/subgraph/dist/schema-helper';
 import {
   directivesWithNoDefinitionNeeded,
   isDirectiveWithNoDefinitionNeeded,
