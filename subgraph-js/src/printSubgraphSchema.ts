@@ -380,7 +380,7 @@ function printSpecifiedByURL(scalar: GraphQLScalarType): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const value = (scalar as any).specifiedByUrl ?? scalar.specifiedByURL;
 
-  if (value === null) {
+  if (value == null) {
     return '';
   }
   const astValue = print({
