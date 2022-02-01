@@ -2,7 +2,7 @@
 
 ## vNEXT
 
-- Make sure scalars don't have the `specifiedBy` directive unless specified in the schema.
+- Make sure scalars don't print a `specifiedBy` directive unless specified in the subgraph. [PR #1463](https://github.com/apollographql/federation/pull/1463)
 
 ## v2.0.0-alpha.2
 
