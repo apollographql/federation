@@ -7,6 +7,9 @@ import {
   GraphQLError,
   specifiedDirectives,
 } from 'graphql';
+// Importing from 'dist' is not actually supported as part of the public API,
+// but this allows us not to duplicate things in the meantime while the
+// @apollo/federation package still exists.
 import { buildSchemaFromSDL } from '@apollo/subgraph/dist/schema-helper';
 import { knownSubgraphDirectives } from '@apollo/subgraph/dist/directives';
 import { ServiceDefinition } from '../../types';

@@ -5,6 +5,9 @@ import {
   typeNodesAreEquivalent,
   getFederationMetadata,
 } from '../../utils';
+// Importing from 'dist' is not actually supported as part of the public API,
+// but this allows us not to duplicate things in the meantime while the
+// @apollo/federation package still exists.
 import { isKnownSubgraphDirective } from '@apollo/subgraph/dist/directives';
 import { PostCompositionValidator } from '.';
 

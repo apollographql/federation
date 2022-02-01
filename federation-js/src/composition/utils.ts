@@ -42,6 +42,9 @@ import {
   ServiceDefinition,
 } from './types';
 import type { FederationType, FederationField, FieldSet } from './types';
+// Importing from 'dist' is not actually supported as part of the public API,
+// but this allows us not to duplicate things in the meantime while the
+// @apollo/federation package still exists.
 import type { ASTNodeWithDirectives } from '@apollo/subgraph/dist/directives';
 import { knownSubgraphDirectives } from '@apollo/subgraph/dist/directives';
 import { assert, isNotNullOrUndefined } from '../utilities';
