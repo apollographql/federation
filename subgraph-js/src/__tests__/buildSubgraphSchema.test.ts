@@ -80,6 +80,11 @@ type Money {
       }
     }`;
     const schema = buildSubgraphSchema(gql`
+      "Description text on 'SchemaDefinition' nodes supported as per the October 2021 Edition of the spec."
+      schema {
+        query: Query
+      }
+
       "A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text"
       type User @key(fields: "id") {
         """
@@ -98,11 +103,22 @@ type Money {
           arg3: String
         ): String
       }
+
+      extend type Query {
+        _dummyField: Boolean
+      }
     `);
 
     const { data, errors } = await graphql({ schema, source: query });
     expect(errors).toBeUndefined();
     expect((data?._service as any).sdl).toEqual(`"""
+Description text on 'SchemaDefinition' nodes supported as per the October 2021 Edition of the spec.
+"""
+schema {
+  query: Query
+}
+
+"""
 A user. This user is very complicated and requires so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so so much description text
 """
 type User @key(fields: "id") {
@@ -124,6 +140,10 @@ type User @key(fields: "id") {
     """
     arg3: String
   ): String
+}
+
+extend type Query {
+  _dummyField: Boolean
 }
 `);
   });
