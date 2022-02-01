@@ -197,7 +197,7 @@ export function buildSchemaFromSDL(
   const schemaDefinitions: SchemaDefinitionNode[] = [];
   const schemaExtensions: SchemaExtensionNode[] = [];
   const schemaDirectives: ConstDirectiveNode[] = [];
-  let description: StringValueNode | undefined
+  let description: StringValueNode | undefined;
 
   for (const definition of documentAST.definitions) {
     if (isTypeDefinitionNode(definition)) {
@@ -223,7 +223,7 @@ export function buildSchemaFromSDL(
       schemaDirectives.push(
         ...(definition.directives ? definition.directives : [])
       );
-      description = definition.description
+      description = definition.description;
     } else if (definition.kind === Kind.SCHEMA_EXTENSION) {
       schemaExtensions.push(definition);
     }
