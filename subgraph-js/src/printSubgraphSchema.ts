@@ -84,7 +84,7 @@ function printFilteredSchema(
 }
 
 function printSchemaDefinition(schema: GraphQLSchema): string | undefined {
-  if (isSchemaOfCommonNames(schema)) {
+  if (schema.description == null && isSchemaOfCommonNames(schema)) {
     return;
   }
 
