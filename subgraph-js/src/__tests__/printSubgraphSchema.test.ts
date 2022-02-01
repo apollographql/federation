@@ -1,6 +1,7 @@
 import { fixtures } from 'apollo-federation-integration-testsuite';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { printSubgraphSchema } from '../printSubgraphSchema';
+import gql from 'graphql-tag';
 
 describe('printSubgraphSchema', () => {
   it('prints a subgraph correctly', () => {
@@ -72,6 +73,20 @@ describe('printSubgraphSchema', () => {
         id: ID! @external
         name: String @external
         userAccount(id: ID! = 1): User @requires(fields: \\"name\\")
+      }
+      "
+    `);
+  });
+
+  it('prints a scalar without a directive correctly', () => {
+    const schema = gql`scalar JSON`
+    const subgraphSchema = buildSubgraphSchema(schema);
+    
+    expect(printSubgraphSchema(subgraphSchema)).toMatchInlineSnapshot(`
+      "scalar JSON
+
+      type Query {
+        _service: _Service!
       }
       "
     `);
