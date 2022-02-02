@@ -31,9 +31,6 @@
     "access": "public"
   },
   "peerDependencies": {
-    "graphql": "^15.7.0 || ^16.0.0"
-  },
-  "devDependencies": {
-    "@types/js-levenshtein": "1.1.1"
+    "graphql": "^16.0.0"
   }
 }
