@@ -51,7 +51,7 @@ The following open-source GraphQL server libraries support acting as a subgraph 
   </tr>
 
   <tr>
-    <td class="sticky">Dotnet</td>
+    <td class="sticky">C# (.NET)</td>
     <td> <a href="https://github.com/graphql-dotnet/graphql-dotnet">graphql-dotnet</a></td>
     <td>✔️</td>
     <td>✔️</td>
@@ -59,6 +59,18 @@ The following open-source GraphQL server libraries support acting as a subgraph 
     <td>❌</td>
     <td>❌</td>
     <td>❌</td>
+    <td>❌</td>
+  </tr>
+
+  <tr>
+    <td class="sticky">C# (.NET)</td>
+    <td> <a href="https://github.com/ChilliCream/hotchocolate">hotchocolate</a></td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
+    <td>✔️</td>
     <td>❌</td>
   </tr>
 
