@@ -6,6 +6,7 @@
 
 - Print description text for the `schema` definition node, as allowed per the October 2021 edition of the GraphQL specification [PR #1464](https://github.com/apollographql/federation/pull/1464).
 - Make sure scalars don't print a `specifiedBy` directive unless specified in the subgraph. [PR #1463](https://github.com/apollographql/federation/pull/1463)
+- Remove `graphql@15` from peer dependencies [PR #1472](https://github.com/apollographql/federation/pull/1472).
 
 ## v2.0.0-alpha.2
 

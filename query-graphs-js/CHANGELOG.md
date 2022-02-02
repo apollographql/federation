@@ -2,7 +2,7 @@
 
 ## vNEXT
 
-- _Nothing yet! Stay tuned._
+- Remove `graphql@15` from peer dependencies [PR #1472](https://github.com/apollographql/federation/pull/1472).
 
 ## v2.0.0-alpha.4
 
