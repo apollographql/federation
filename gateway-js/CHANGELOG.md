@@ -9,6 +9,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 - Reject mismatching types for interface field implementation if some of those implementations are `@external`, since this can lead to invalid subgraph queries at runtime [PR #1318](https://github.com/apollographql/federation/pull/1318). This limitation should be lifted in the future once the root cause (the invalid runtime queries) is fixed by issue [#1257](https://github.com/apollographql/federation/issues/1257).
 - Fix potentially inefficient query plans with multiple `@requires` [PR #1431](https://github.com/apollographql/federation/pull/1431).
 - Remove `graphql@15` from peer dependencies [PR #1472](https://github.com/apollographql/federation/pull/1472).
+
 ## v2.0.0-alpha.4
 
 - __BREAKING__: This change improves the `supergraphSdl` configuration option to provide a clean and flexible interface for updating gateway schema on load and at runtime. This PR brings a number of updates and deprecations to the gateway. Previous options for loading the gateway's supergraph (`serviceList`, `localServiceList`, `experimental_updateServiceDefinitions`, `experimental_supergraphSdl`) are all deprecated going forward. The migration paths all point to the updated `supergraphSdl` configuration option.
