@@ -41,6 +41,13 @@ const fetchErrorMsg = "An error occurred while fetching your schema from Apollo:
 
 let fetchCounter = 0;
 
+export class UplinkFetcherError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UplinkFetcherError';
+  }
+}
+
 export async function loadSupergraphSdlFromUplinks({
   graphRef,
   apiKey,
@@ -147,7 +154,7 @@ export async function loadSupergraphSdlFromStorage({
     }
 
     if ('errors' in response) {
-      throw new Error(
+      throw new UplinkFetcherError(
         [fetchErrorMsg, ...response.errors.map((error) => error.message)].join(
           '\n',
         ),

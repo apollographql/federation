@@ -4,6 +4,7 @@ import resolvable from '@josephg/resolvable';
 import { SupergraphManager, SupergraphSdlHookOptions } from '../../config';
 import { SubgraphHealthCheckFunction, SupergraphSdlUpdateFunction } from '../..';
 import { loadSupergraphSdlFromUplinks } from './loadSupergraphSdlFromStorage';
+export { UplinkFetcherError } from "./loadSupergraphSdlFromStorage"
 
 export interface UplinkFetcherOptions {
   pollIntervalInMs: number;
