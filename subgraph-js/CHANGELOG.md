@@ -6,6 +6,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- _Nothing yet! Stay tuned._
+
+## v0.2.0
+
 - Print description text for the `schema` definition node, as allowed per the October 2021 edition of the GraphQL specification [PR #1442](https://github.com/apollographql/federation/pull/1442).
 - Make sure scalars don't print a `specifiedBy` directive unless specified in the subgraph. [PR #1465](https://github.com/apollographql/federation/pull/1465)
 - Expand graphql peer dependency to include `^16.0.0` [PR #1428](https://github.com/apollographql/federation/pull/1428).
