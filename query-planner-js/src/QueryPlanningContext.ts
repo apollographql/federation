@@ -20,7 +20,6 @@ import {
   TypeNameMetaFieldDef,
   VariableDefinitionNode,
   visit,
-  OperationTypeNode,
 } from "graphql";
 import { FragmentMap } from "./buildQueryPlan";
 import {
@@ -108,7 +107,7 @@ export class QueryPlanningContext {
     const document: DocumentNode = {
       kind: Kind.DOCUMENT,
       definitions: [
-        { kind: Kind.OPERATION_DEFINITION, selectionSet, operation: OperationTypeNode.QUERY },
+        { kind: Kind.OPERATION_DEFINITION, selectionSet, operation: 'query' as any },
         ...Array.from(fragments),
       ],
     };

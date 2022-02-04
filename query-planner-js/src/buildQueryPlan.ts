@@ -390,7 +390,7 @@ function operationForRootFetch({
   selectionSet,
   variableUsages,
   internalFragments,
-  operation = OperationTypeNode.QUERY,
+  operation = 'query' as any,
 }: {
   selectionSet: SelectionSetNode;
   variableUsages: VariableUsages;
@@ -430,7 +430,7 @@ function operationForEntitiesFetch({
     definitions: [
       {
         kind: Kind.OPERATION_DEFINITION,
-        operation: OperationTypeNode.QUERY,
+        operation: 'query' as any,
         variableDefinitions: ([
           {
             kind: Kind.VARIABLE_DEFINITION,
