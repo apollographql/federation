@@ -139,7 +139,7 @@ export async function loadSupergraphSdlFromStorage({
       fetcher,
     });
 
-    throw new Error(fetchErrorMsg + (e.message ?? e));
+    throw new UplinkFetcherError(fetchErrorMsg + (e.message ?? e));
   }
 
   const endTime = new Date();
@@ -150,7 +150,7 @@ export async function loadSupergraphSdlFromStorage({
       response = await result.json();
     } catch (e) {
       // Bad response
-      throw new Error(fetchErrorMsg + result.status + ' ' + e.message ?? e);
+      throw new UplinkFetcherError(fetchErrorMsg + result.status + ' ' + e.message ?? e);
     }
 
     if ('errors' in response) {
@@ -162,7 +162,7 @@ export async function loadSupergraphSdlFromStorage({
     }
   } else {
     await submitOutOfBandReportIfConfigured({
-      error: new Error(fetchErrorMsg + result.status + ' ' + result.statusText),
+      error: new UplinkFetcherError(fetchErrorMsg + result.status + ' ' + result.statusText),
       request,
       endpoint: errorReportingEndpoint,
       response: result,
@@ -170,7 +170,7 @@ export async function loadSupergraphSdlFromStorage({
       endedAt: endTime,
       fetcher,
     });
-    throw new Error(fetchErrorMsg + result.status + ' ' + result.statusText);
+    throw new UplinkFetcherError(fetchErrorMsg + result.status + ' ' + result.statusText);
   }
 
   const { routerConfig } = response.data;
@@ -184,10 +184,10 @@ export async function loadSupergraphSdlFromStorage({
   } else if (routerConfig.__typename === 'FetchError') {
     // FetchError case
     const { code, message } = routerConfig;
-    throw new Error(`${code}: ${message}`);
+    throw new UplinkFetcherError(`${code}: ${message}`);
   } else if (routerConfig.__typename === 'Unchanged') {
     return null;
   } else {
-    throw new Error('Programming error: unhandled response failure');
+    throw new UplinkFetcherError('Programming error: unhandled response failure');
   }
 }
