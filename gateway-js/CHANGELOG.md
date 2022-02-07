@@ -30,6 +30,8 @@ Some defensive code around gateway shutdown has been removed which was only rele
 
 Upgrading graphql dependency to `16.2.0` [PR #1129](https://github.com/apollographql/federation/pull/1129).
 
+Use specific error classes when throwing errors due Apollo Uplink being unreacheable or returning an invalid response [PR #1473](https://github.com/apollographql/federation/pull/1473)
+
 ## v2.0.0-alpha.3
 
 - RemoteGraphQLDataSource will now use `make-fetch-happen` by default rather than `node-fetch` [PR #1284](https://github.com/apollographql/federation/pull/1284)
