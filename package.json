@@ -74,7 +74,7 @@
     "node-fetch": "2.6.7",
     "prettier": "2.5.1",
     "prompt-confirm": "2.0.4",
-    "rollup": "2.67.0",
+    "rollup": "2.67.1",
     "rollup-plugin-node-polyfills": "0.2.1",
     "strip-indent": "3.0.0",
     "ts-jest": "27.1.3",
