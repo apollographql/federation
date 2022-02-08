@@ -88,9 +88,10 @@ jobs:
       - oss/install_specific_npm_version:
           version: '7'
       - checkout
-      - oss/npm_clean_install_with_caching
       - run:
           command: npm i -D graphql@15.8.0
+      - run:
+          command: npm run clean && npm i
       - run:
           command: npm run test:ci
           environment:
