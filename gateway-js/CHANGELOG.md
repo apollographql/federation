@@ -6,7 +6,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
-- _Nothing yet! Stay tuned._
+- Use specific error classes when throwing errors due Apollo Uplink being unreacheable or returning an invalid response [PR #1473](https://github.com/apollographql/federation/pull/1473)
 
 ## v2.0.0-alpha.5
 
@@ -35,9 +35,7 @@ Some defensive code around gateway shutdown has been removed which was only rele
 
 [#1246](https://github.com/apollographql/federation/pull/1246)
 
-Upgrading graphql dependency to `16.2.0` [PR #1129](https://github.com/apollographql/federation/pull/1129).
-
-Use specific error classes when throwing errors due Apollo Uplink being unreacheable or returning an invalid response [PR #1473](https://github.com/apollographql/federation/pull/1473)
+- Upgrading graphql dependency to `16.2.0` [PR #1129](https://github.com/apollographql/federation/pull/1129).
 
 ## v2.0.0-alpha.3
 
