@@ -95,7 +95,7 @@ extend type Product @key(fields: "upc") {
 To reference an entity that originates in another subgraph, the `reviews` subgraph needs to define a **stub** of that entity to make its own schema valid. The stub includes just enough information for the subgraph to know how to uniquely identify a particular `Product`:
 
 * The `extend` keyword indicates that `Product` is an entity that's defined in another subgraph.
-* The `@key` directive indicates that `Product` uses the `upc` field as its primary key. This value must match the value of **exactly one** `@key` defined in the entity's _originating_ subgraph (even if the entity defines [_multiple_ primary keys](#defining-multiple-primary-keys)).
+* The `@key` directive indicates that `Product` uses the `upc` field as its primary key. This value must match the value of **exactly one** `@key` defined in the entity's _originating_ subgraph (even if the entity defines [_multiple_ primary keys](#multiple-primary-keys)).
 * The `upc` field must be present because it's part of the specified `@key`. It also requires the `@external` directive to indicate that it originates in another subgraph.
 
 This explicit syntax has several benefits:

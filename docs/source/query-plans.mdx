@@ -433,7 +433,7 @@ Flatten(path: "hotels.@") {
 
 Instead of containing a GraphQL operation, this `Fetch` node contains two **GraphQL fragments**, separated by `=>`.
 
-* The first fragment is a **representation** of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](/entities/#resolving).
+* The first fragment is a **representation** of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](/entities/#resolving-entities).
 * The second fragment contains the entity fields and subfields that the gateway needs the subgraph to resolve (in this case, `Hotel.reviews` and `Review.rating`).
 
 When the gateway sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](/subgraphs/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
