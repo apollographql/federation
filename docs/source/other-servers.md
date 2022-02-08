@@ -131,7 +131,7 @@ The following open-source GraphQL server libraries support acting as a subgraph 
     <td>✔️</td>
     <td>✔️</td>
     <td>✔️</td>
-    <td>❌</td>
+    <td>✔️</td>
   </tr>
 
   <tr>

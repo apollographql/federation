@@ -1,12 +1,19 @@
 # CHANGELOG for `@apollo/gateway`
 
-> The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
+This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The Federation v0.x equivalent for this package can be found [here](https://github.com/apollographql/federation/blob/version-0.x/gateway-js/CHANGELOG.md) on the `version-0.x` branch of this repo.
 
 ## vNEXT
+
+> The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
+
+- _Nothing yet! Stay tuned._
+
+## v2.0.0-alpha.5
 
 - Reject mismatching types for interface field implementation if some of those implementations are `@external`, since this can lead to invalid subgraph queries at runtime [PR #1318](https://github.com/apollographql/federation/pull/1318). This limitation should be lifted in the future once the root cause (the invalid runtime queries) is fixed by issue [#1257](https://github.com/apollographql/federation/issues/1257).
 - Fix potentially inefficient query plans with multiple `@requires` [PR #1431](https://github.com/apollographql/federation/pull/1431).
 - Remove `graphql@15` from peer dependencies [PR #1472](https://github.com/apollographql/federation/pull/1472).
+
 ## v2.0.0-alpha.4
 
 - __BREAKING__: This change improves the `supergraphSdl` configuration option to provide a clean and flexible interface for updating gateway schema on load and at runtime. This PR brings a number of updates and deprecations to the gateway. Previous options for loading the gateway's supergraph (`serviceList`, `localServiceList`, `experimental_updateServiceDefinitions`, `experimental_supergraphSdl`) are all deprecated going forward. The migration paths all point to the updated `supergraphSdl` configuration option.

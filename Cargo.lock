@@ -50,9 +50,9 @@ dependencies = [
 
 [[package]]
 name = "deno_core"
-version = "0.117.0"
+version = "0.118.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "729590cf902ef79a4c2d226bd6bb2fef2cfdd00a3bbe9f84d059f5c32fad0880"
+checksum = "68be6990e070141d1413797b84d8a05d3eb426fa18a9962ecf21d2f045014db4"
 dependencies = [
  "anyhow",
  "futures",
@@ -203,7 +203,7 @@ dependencies = [
 
 [[package]]
 name = "harmonizer"
-version = "2.0.0-alpha.4"
+version = "2.0.0-alpha.5"
 dependencies = [
  "apollo-federation-types",
  "deno_core",
@@ -494,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "serde_v8"
-version = "0.28.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f052f4efe200433f4c5894d7f88e3fb9c106525f33add3dc2466bf615518727f"
+checksum = "27266c014ef9b11fcf7f1a248f25603529432aab4d0ce777d6c6f6aea2b367bb"
 dependencies = [
  "serde",
  "serde_bytes",
