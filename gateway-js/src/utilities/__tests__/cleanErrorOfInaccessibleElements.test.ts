@@ -57,9 +57,9 @@ describe('cleanErrorOfInaccessibleNames', () => {
     }});
 
     const cleaned = cleanErrorOfInaccessibleNames(schema, result.errors?.[0]!);
-    expect(cleaned.message).toMatchInlineSnapshot(
-      `"Abstract type \\"Foo\\" was resolved to a type [inaccessible type] that does not exist inside the schema."`,
-    );
+    // graphql 15 and 16 changed the error message just a bit, but this is sufficient and will pass for both
+    expect(cleaned.message).toContain('Abstract type "Foo" was resolve');
+    expect(cleaned.message).toContain("to a type [inaccessible type] that does not exist");
   });
 
   it('removes multiple/repeated inaccessible type names from error messages', async () => {

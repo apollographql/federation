@@ -2,7 +2,6 @@ import { composeAndValidate } from '../composeAndValidate';
 import {
   GraphQLObjectType,
   DocumentNode,
-  GraphQLScalarType,
   specifiedDirectives,
   printSchema,
 } from 'graphql';
@@ -919,9 +918,11 @@ describe('composition of schemas with directives', () => {
       const specifiedBy = schema.getDirective('specifiedBy');
       expect(specifiedBy).toMatchInlineSnapshot(`"@specifiedBy"`);
       const customScalar = schema.getType('MyScalar');
-      expect((customScalar as GraphQLScalarType).specifiedByURL).toEqual(
-        specUrl,
-      );
+      // graphql v15 -> v16 incompatibility with specifiedByURL vs specifiedByUrl
+      const specifiedByUrl =
+        (customScalar as any).specifiedByURL ??
+        (customScalar as any).specifiedByUrl;
+      expect(specifiedByUrl).toEqual(specUrl);
     }
   });
 
