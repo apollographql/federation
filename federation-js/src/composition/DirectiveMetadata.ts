@@ -12,8 +12,8 @@ import {
   UnionTypeDefinitionNode,
   UnionTypeExtensionNode,
   visit,
-  ASTVisitFn,
 } from 'graphql';
+import { ASTVisitFn } from '../gql16types';
 import { mapGetOrSet } from '../utilities';
 import { ServiceDefinition } from './types';
 import type { FederationField, FederationType } from '../composition/types';

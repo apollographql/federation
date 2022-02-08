@@ -6,7 +6,6 @@ import {
   ObjectTypeExtensionNode,
   Kind,
   InterfaceTypeDefinitionNode,
-  ASTVisitFn,
   specifiedDirectives,
 } from 'graphql';
 import {
@@ -19,6 +18,7 @@ import {
 // but this allows us not to duplicate things in the meantime while the
 // @apollo/federation package still exists.
 import { knownSubgraphDirectives } from '@apollo/subgraph/dist/directives';
+import { ASTVisitFn } from '../gql16types';
 
 export function normalizeTypeDefs(typeDefs: DocumentNode) {
   // The order of this is important - `stripCommonPrimitives` must come after

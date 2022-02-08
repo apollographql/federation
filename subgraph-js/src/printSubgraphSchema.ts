@@ -371,7 +371,7 @@ function printDeprecated(reason: Maybe<string>): string {
 // happen across v15 and v16.
 function printSpecifiedByURL(scalar: GraphQLScalarType): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const value = (scalar as any).specifiedByUrl ?? scalar.specifiedByURL;
+  const value = (scalar as any).specifiedByUrl ?? (scalar as any).specifiedByURL;
 
   if (value == null) {
     return '';

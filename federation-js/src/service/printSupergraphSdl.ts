@@ -536,7 +536,7 @@ function printDeprecated(reason: Maybe<string>): string {
 // happen across v15 and v16.
 function printSpecifiedByURL(scalar: GraphQLScalarType): string {
   if (
-    scalar.specifiedByURL == null &&
+    (scalar as any).specifiedByURL == null &&
     // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
     scalar.specifiedByURL == null
   ) {
@@ -545,7 +545,7 @@ function printSpecifiedByURL(scalar: GraphQLScalarType): string {
   const astValue = print({
     kind: Kind.STRING,
     value:
-      scalar.specifiedByURL ??
+      (scalar as any).specifiedByURL ??
       // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
       scalar.specifiedByURL,
   });

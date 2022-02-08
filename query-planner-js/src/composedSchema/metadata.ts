@@ -15,7 +15,7 @@ declare module 'graphql' {
     federation?: FederationTypeMetadata;
   }
 
-  interface GraphQLFieldExtensions<_TSource, _TContext, _TArgs = any> {
+  interface GraphQLFieldExtensions<_TSource, _TContext, _TArgs = { [argName: string]: any }> {
     federation?: FederationFieldMetadata;
   }
 }
