@@ -81,7 +81,7 @@ jobs:
     steps:
       - common_test_steps
   
-  GraphQL v15.8.0 Support:
+  GraphQL v15 Support:
     docker:
       - image: cimg/node:16.0.0
     steps:
