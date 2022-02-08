@@ -1,5 +1,6 @@
 ---
 title: Entities in Apollo Federation
+sidebar_title: Entities
 description: Reference and extend types across subgraphs
 ---
 
@@ -65,11 +66,23 @@ type Organization {
 
 ## Referencing entities
 
-After you define an entity in one subgraph, _other_ subgraphs can then reference that entity. If a `products` subgraph defines the `Product` entity above, a `reviews` subgraph can then add a field of type `Product` to its `Review` type, like so:
+After you define an entity in one subgraph, _other_ subgraphs can then reference that entity in their schema.
+
+For example, let's say we have a `products` subgraph that defines the following `Product` entity:
+
+```graphql:title=products
+type Product @key(fields: "upc") {
+  upc: String!
+  name: String!
+  price: Int
+}
+```
+
+A `reviews` subgraph can then add a field of type `Product` to its `Review` type, like so:
 
 ```graphql{3}:title=reviews
 type Review {
-  rating: Int!
+  score: Int!
   product: Product!
 }
 
@@ -79,7 +92,7 @@ extend type Product @key(fields: "upc") {
 }
 ```
 
-Even though the `Product` entity is already defined in another subgraph, the `reviews` subgraph needs to define a **stub** of it to make its own schema valid. The stub includes just enough information for the subgraph to know how to uniquely identify a particular `Product`:
+To reference an entity that originates in another subgraph, the `reviews` subgraph needs to define a **stub** of that entity to make its own schema valid. The stub includes just enough information for the subgraph to know how to uniquely identify a particular `Product`:
 
 * The `extend` keyword indicates that `Product` is an entity that's defined in another subgraph.
 * The `@key` directive indicates that `Product` uses the `upc` field as its primary key. This value must match the value of **exactly one** `@key` defined in the entity's _originating_ subgraph (even if the entity defines [_multiple_ primary keys](#defining-multiple-primary-keys)).
@@ -118,11 +131,14 @@ Now we have a problem: this query starts its execution in the `reviews` subgraph
 
 Because of this, the gateway needs to fetch `price` from the `products` subgraph instead. But how does the gateway know _which_ products it needs to fetch the prices for?
 
-To solve this, we can implement special resolvers in _both_ of our subgraphs.
+To solve this, we add a resolver to _each_ subgraph:
+
+* A resolver in `reviews` to generate [representations](#entity-representations) of `Product` entities
+* A [reference resolver](#reference-resolvers) in `products` to return full `Product` objects from representations
 
 ### Entity representations
 
-In our example, the `reviews` subgraph needs to define a resolver for its stub `Product` entity. The `reviews` subgraph doesn't know much about `Product`s, but fortunately, it doesn't need to. All it needs to do is return data for the fields it _does_ know about, like so:
+In our example, the `reviews` subgraph needs to define a resolver for its stub version of the `Product` entity. The `reviews` subgraph doesn't know much about `Product`s, but fortunately, it doesn't need to. All it needs to do is return data for the fields it _does_ know about, like so:
 
 ```js{3-10}:title=resolvers.js
 // Reviews subgraph
@@ -144,7 +160,7 @@ This resolver's return value is a **representation** of a `Product` entity (beca
 * A `__typename` field
 * Values for the entity's primary key fields (`upc` in this example)
 
-Because an entity can be uniquely identified by its primary key fields, this is all the information we need to provide the gateway.
+Because an entity can be uniquely identified by its primary key fields, this is all the information the gateway needs to fetch additional fields for a `Product` object.
 
 ### Reference resolvers
 
@@ -178,7 +194,7 @@ query {
 
 Notice that this query _omits_ `price` but _adds_ `__typename`, even though it wasn't in the original query string! This is because the gateway knows it needs _all_ of the fields in each `Product`'s representation, including `__typename`.
 
-With these representations ready, the gateway can now execute a _second_ query on the `products` subgraph to fetch each product's `price`. To support this special query, the `products` subgraph needs to define a **reference resolver** for the `Product` entity:
+With these representations available, the gateway can now execute a _second_ query on the `products` subgraph to fetch each product's `price`. To support this special query, the `products` subgraph needs to define a **reference resolver** for the `Product` entity:
 
 ```js{4-6}:title=resolvers.js
 // Products subgraph
@@ -192,7 +208,9 @@ const resolvers = {
 }
 ```
 
-A reference resolver (always called `__resolveReference`) provides the gateway direct access to a particular entity's fields, without needing to write a deeply nested query to reach that entity. To use a reference resolver, the gateway must provide a valid [entity representation](#entity-representations).
+> In the example above, `fetchProductByUPC` is a hypothetical function that fetches a `Product`'s full details from a data store based on its `upc`.
+
+A reference resolver (always called `__resolveReference`) provides the gateway direct access to a particular entity's fields, without needing to use a custom query to reach that entity. To use a reference resolver, the gateway must provide a valid [entity representation](#entity-representations), which is why we created the resolver in the `reviews` subgraph first!
 
 > To learn more about `__resolveReference`, see the [API docs](/api/apollo-subgraph/#__resolvereference).
 
