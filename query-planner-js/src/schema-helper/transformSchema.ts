@@ -65,7 +65,7 @@ export function transformSchema(
     query: replaceMaybeType(schemaConfig.query),
     mutation: replaceMaybeType(schemaConfig.mutation),
     subscription: replaceMaybeType(schemaConfig.subscription),
-    directives: replaceDirectives(schemaConfig.directives)
+    directives: replaceDirectives(schemaConfig.directives) as GraphQLDirective[],
   });
 
   function recreateNamedType(type: GraphQLNamedType): GraphQLNamedType {

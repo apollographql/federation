@@ -24,6 +24,6 @@
     "access": "public"
   },
   "peerDependencies": {
-    "graphql": "^15.5.3 || ^16.0.0"
+    "graphql": "^15.8.0 || ^16.0.0"
   }
 }

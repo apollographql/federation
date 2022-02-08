@@ -14,10 +14,6 @@ declare module 'graphql' {
   interface GraphQLObjectTypeExtensions {
     federation?: FederationTypeMetadata;
   }
-
-  interface GraphQLFieldExtensions<_TSource, _TContext, _TArgs = any> {
-    federation?: FederationFieldMetadata;
-  }
 }
 
 export function getFederationMetadataForType(
@@ -29,7 +25,7 @@ export function getFederationMetadataForType(
 export function getFederationMetadataForField(
   field: GraphQLField<any, any>,
 ): FederationFieldMetadata | undefined {
-  return field.extensions?.federation;
+  return (field.extensions as any)?.federation;
 }
 
 export type GraphName = string;

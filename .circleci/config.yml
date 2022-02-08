@@ -80,6 +80,26 @@ jobs:
       - image: cimg/node:16.0.0
     steps:
       - common_test_steps
+  
+  GraphQL v15 Support:
+    docker:
+      - image: cimg/node:16.0.0
+    steps:
+      - oss/install_specific_npm_version:
+          version: '7'
+      - checkout
+      - run:
+          command: npm i -D graphql@15.8.0
+      - run:
+          command: npm run clean && npm i
+      - run:
+          command: npm run test:ci
+          environment:
+            JEST_JUNIT_OUTPUT_DIR: "reports/junit/"
+      - store_test_results:
+          path: reports/junit
+      - store_artifacts:
+          path: reports/junit
 
   GraphQL Types:
     description: "Assert generated GraphQL types are up to date"
@@ -288,6 +308,9 @@ workflows:
       - NodeJS 16:
           name: "JS: Node 16"
           <<: *common_non_publish_filters
+      - GraphQL v15 Support:
+          name: "Backcompat support: graphql@15"
+          <<: *common_non_publish_filters
       - GraphQL Types:
           name: "GraphQL Types (up to date)"
           <<: *common_non_publish_filters
@@ -306,6 +329,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
+            - "Backcompat support: graphql@15"
             - "GraphQL Types (up to date)"
       - oss/dry_run:
           name: "JS: Dry-run"
@@ -314,6 +338,7 @@ workflows:
             - "JS: Node 12"
             - "JS: Node 14"
             - "JS: Node 16"
+            - "Backcompat support: graphql@15"
             - Rust
             - "GraphQL Types (up to date)"
       - oss/confirmation:

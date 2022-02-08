@@ -535,19 +535,14 @@ function printDeprecated(reason: Maybe<string>): string {
 // Apollo addition: support both specifiedByURL and specifiedByURL - these
 // happen across v15 and v16.
 function printSpecifiedByURL(scalar: GraphQLScalarType): string {
-  if (
-    scalar.specifiedByURL == null &&
-    // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
-    scalar.specifiedByURL == null
-  ) {
+  // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
+  const specifiedByURL = scalar.specifiedByUrl ?? scalar.specifiedByURL;
+  if (specifiedByURL == null) {
     return '';
   }
   const astValue = print({
     kind: Kind.STRING,
-    value:
-      scalar.specifiedByURL ??
-      // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
-      scalar.specifiedByURL,
+    value: specifiedByURL,
   });
   return ` @specifiedBy(url: ${astValue})`;
 }

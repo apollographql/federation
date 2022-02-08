@@ -370,15 +370,14 @@ function printDeprecated(reason: Maybe<string>): string {
 // Apollo addition: support both specifiedByUrl and specifiedByURL - these
 // happen across v15 and v16.
 function printSpecifiedByURL(scalar: GraphQLScalarType): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const value = (scalar as any).specifiedByUrl ?? scalar.specifiedByURL;
-
-  if (value == null) {
+  // @ts-ignore (accomodate breaking change across 15.x -> 16.x)
+  const specifiedByURL = scalar.specifiedByUrl ?? scalar.specifiedByURL;
+  if (specifiedByURL == null) {
     return '';
   }
   const astValue = print({
     kind: Kind.STRING,
-    value,
+    value: specifiedByURL,
   });
   return ` @specifiedBy(url: ${astValue})`;
 }
