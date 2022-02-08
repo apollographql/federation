@@ -60,7 +60,7 @@ When considering how to split a single GraphQL schema across multiple subgraphs,
 
 Although this separation looks clean, it quickly causes issues. Specifically, a particular feature (or concern) usually spans multiple types.
 
-Consider the `recentPurchases` field of the `User` type in the above schema. Even though this field is a member of the `User` type, a list of `Product`s should probably be populated by the `products` subgraph, _not_ the `users` subgraph.
+Consider the `recentPurchases` field of the `User` type in the above schema. Even though this field is a member of the `User` type, a list of `Products` should probably be populated by the `products` subgraph, _not_ the `users` subgraph.
 
 By defining the `recentPurchases` field in the `products` subgraph instead:
 
