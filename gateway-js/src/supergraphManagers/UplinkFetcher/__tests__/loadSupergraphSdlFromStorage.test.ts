@@ -1,6 +1,7 @@
 import {
   loadSupergraphSdlFromStorage,
-  loadSupergraphSdlFromUplinks
+  loadSupergraphSdlFromUplinks,
+  UplinkFetcherError,
 } from '../loadSupergraphSdlFromStorage';
 import { getDefaultFetcher } from '../../..';
 import {
@@ -86,8 +87,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         compositionId: "originalId-1234",
         maxRetries: 1
       }),
-    ).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"An error occurred while fetching your schema from Apollo: 500 Internal Server Error"`,
+    ).rejects.toThrowError(
+      new UplinkFetcherError(
+        "An error occurred while fetching your schema from Apollo: 500 Internal Server Error",
+      )
     );
   })
 
@@ -105,8 +108,10 @@ describe('loadSupergraphSdlFromStorage', () => {
           fetcher,
           compositionId: null,
         }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"An error occurred while fetching your schema from Apollo: 200 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected token I in JSON at position 0"`,
+      ).rejects.toThrowError(
+        new UplinkFetcherError(
+          "An error occurred while fetching your schema from Apollo: 200 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected token I in JSON at position 0"
+        )
       );
     });
 
@@ -129,7 +134,9 @@ describe('loadSupergraphSdlFromStorage', () => {
           fetcher,
           compositionId: null,
         }),
-      ).rejects.toThrowError(message);
+      ).rejects.toThrowError(
+        new UplinkFetcherError(`An error occurred while fetching your schema from Apollo: \n${message}`)
+      );
     });
 
     it("throws on non-OK status codes when `errors` isn't present in a JSON response", async () => {
@@ -146,8 +153,10 @@ describe('loadSupergraphSdlFromStorage', () => {
           fetcher,
           compositionId: null,
         }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"An error occurred while fetching your schema from Apollo: 500 Internal Server Error"`,
+      ).rejects.toThrowError(
+        new UplinkFetcherError(
+          "An error occurred while fetching your schema from Apollo: 500 Internal Server Error"
+        )
       );
     });
 
@@ -166,8 +175,10 @@ describe('loadSupergraphSdlFromStorage', () => {
           fetcher,
           compositionId: null,
         }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input"`,
+      ).rejects.toThrowError(
+        new UplinkFetcherError(
+          "An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input",
+        )
       );
     });
 
@@ -185,8 +196,10 @@ describe('loadSupergraphSdlFromStorage', () => {
           fetcher,
           compositionId: null,
         }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input"`,
+      ).rejects.toThrowError(
+        new UplinkFetcherError(
+          "An error occurred while fetching your schema from Apollo: 400 invalid json response body at https://example1.cloud-config-url.com/cloudconfig/ reason: Unexpected end of JSON input",
+        )
       );
     });
 
@@ -204,8 +217,10 @@ describe('loadSupergraphSdlFromStorage', () => {
           fetcher,
           compositionId: null,
         }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"An error occurred while fetching your schema from Apollo: 413 Payload Too Large"`,
+      ).rejects.toThrowError(
+        new UplinkFetcherError(
+          "An error occurred while fetching your schema from Apollo: 413 Payload Too Large",
+        )
       );
     });
 
@@ -223,8 +238,10 @@ describe('loadSupergraphSdlFromStorage', () => {
           fetcher,
           compositionId: null,
         }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"An error occurred while fetching your schema from Apollo: 422 Unprocessable Entity"`,
+      ).rejects.toThrowError(
+        new UplinkFetcherError(
+          "An error occurred while fetching your schema from Apollo: 422 Unprocessable Entity",
+        )
       );
     });
 
@@ -242,8 +259,10 @@ describe('loadSupergraphSdlFromStorage', () => {
           fetcher,
           compositionId: null,
         }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"An error occurred while fetching your schema from Apollo: 408 Request Timeout"`,
+      ).rejects.toThrowError(
+        new UplinkFetcherError(
+          "An error occurred while fetching your schema from Apollo: 408 Request Timeout",
+        )
       );
     });
   });
@@ -263,8 +282,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         fetcher,
         compositionId: null,
       }),
-    ).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"An error occurred while fetching your schema from Apollo: 504 Gateway Timeout"`,
+    ).rejects.toThrowError(
+      new UplinkFetcherError(
+        "An error occurred while fetching your schema from Apollo: 504 Gateway Timeout",
+      )
     );
   });
 
@@ -282,8 +303,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         fetcher,
         compositionId: null,
       }),
-    ).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"An error occurred while fetching your schema from Apollo: request to https://example1.cloud-config-url.com/cloudconfig/ failed, reason: no response"`,
+    ).rejects.toThrowError(
+      new UplinkFetcherError(
+        "An error occurred while fetching your schema from Apollo: request to https://example1.cloud-config-url.com/cloudconfig/ failed, reason: no response",
+      )
     );
   });
 
@@ -301,8 +324,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         fetcher,
         compositionId: null,
       }),
-    ).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"An error occurred while fetching your schema from Apollo: 502 Bad Gateway"`,
+    ).rejects.toThrowError(
+      new UplinkFetcherError(
+        "An error occurred while fetching your schema from Apollo: 502 Bad Gateway",
+      )
     );
   });
 
@@ -320,8 +345,10 @@ describe('loadSupergraphSdlFromStorage', () => {
         fetcher,
         compositionId: null,
       }),
-    ).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"An error occurred while fetching your schema from Apollo: 503 Service Unavailable"`,
+    ).rejects.toThrowError(
+      new UplinkFetcherError(
+        "An error occurred while fetching your schema from Apollo: 503 Service Unavailable",
+      )
     );
   });
 
