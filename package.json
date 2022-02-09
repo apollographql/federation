@@ -94,8 +94,7 @@
       "<rootDir>/internals-js",
       "<rootDir>/query-graphs-js",
       "<rootDir>/query-planner-js",
-      "<rootDir>/subgraph-js",
-      "<rootDir>/federation-rs-integration"
+      "<rootDir>/subgraph-js"
     ]
   }
 }
