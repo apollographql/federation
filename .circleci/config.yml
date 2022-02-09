@@ -26,7 +26,7 @@ commands:
       - checkout
       - oss/npm_clean_install_with_caching
       - run:
-          command: npm run test:ci
+          command: npm run test:js:ci
           environment:
             JEST_JUNIT_OUTPUT_DIR: "reports/junit/"
       - store_test_results:
@@ -126,7 +126,7 @@ jobs:
                 version: stable
             - restore_cache:
                 keys:
-                  - rust-target-v1-macos-{{ checksum "Cargo.lock" }}
+                  - rust-target-v1-macos-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
             # Installing this with the curl nvm command was proving difficult,
             # so I've opted to just install the .pkg.  Should be the same net
             # result, even if liked the opportunity for symmetry with Linux.
@@ -145,17 +145,11 @@ jobs:
                 name: Assert npm version
                 command: test "$(npm --version)" = "${NPM_VERSION}"
             - run: npm clean-install
-            - rust/test:
-                # This is prefixed in the orb with 'cargo-'
-                cache_version: v2-macos
-            - rust/format:
-                with_cache: false # Only the first needs to restore cache.
-            - rust/clippy:
-                with_cache: false # Only the first needs to restore cache.
+            - run: npm run test:rs:ci
             - save_cache:
-                key: rust-target-v1-macos-{{ checksum "Cargo.lock" }}
+                key: rust-target-v1-macos-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
                 paths:
-                  - target/
+                  - federation-rs-integration/federation-rs/target/
       - when:
           condition:
             equal: [ *rust_linux_executor, << parameters.platform >> ]
@@ -164,7 +158,7 @@ jobs:
                 version: stable
             - restore_cache:
                 keys:
-                  - rust-target-v1-linux-{{ checksum "Cargo.lock" }}
+                  - rust-target-v1-linux-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
             - run:
                 name: Install nvm
                 command: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
@@ -182,17 +176,11 @@ jobs:
                 name: Assert npm version
                 command: test "$(npm --version)" = "${NPM_VERSION}"
             - run: npm clean-install
-            - rust/test:
-                # This is prefixed in the orb with 'cargo-'
-                cache_version: v2-linux
-            - rust/format:
-                with_cache: false # Only the first needs to restore cache.
-            - rust/clippy:
-                with_cache: false # Only the first needs to restore cache.
+            - run: npm run test:rs:ci
             - save_cache:
-                key: rust-target-v1-linux-{{ checksum "Cargo.lock" }}
+                key: rust-target-v1-linux-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
                 paths:
-                  - target/
+                  - federation-rs-integration/federation-rs/target/
       - when:
           condition:
             equal: [ *rust_windows_executor, << parameters.platform >> ]
@@ -219,7 +207,7 @@ jobs:
                   "@
             - restore_cache:
                 keys:
-                  - rust-target-v1-windows-{{ checksum "Cargo.lock" }}
+                  - rust-target-v1-windows-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
             - run:
                 name: Install desired Node.js version with nvm
                 command: |
@@ -257,14 +245,10 @@ jobs:
             - rust/test:
                 # This is prefixed in the orb with 'cargo-'
                 cache_version: v2-windows
-            - rust/format:
-                with_cache: false # Only the first needs to restore cache.
-            - rust/clippy:
-                with_cache: false # Only the first needs to restore cache.
             - save_cache:
-                key: rust-target-v1-windows-{{ checksum "Cargo.lock" }}
+                key: rust-target-v1-windows-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
                 paths:
-                  - target/
+                  - federation-rs-integration/federation-rs/target/
 
 # XXX We used to use this filter to only run a "Docs" job on docs branches.
 #     Now we use it to disable all jobs. It's unclear if there's a simpler way

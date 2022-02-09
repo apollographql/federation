@@ -1,15 +1,24 @@
-import * as shell from "shelljs";
-import { run } from "../shell";
+import { exec, cd } from "../shell";
+import * as path from "path";
 
 describe('federation-rs tests', () => {
   it('can run cargo xtask test', () => {
-    run(shell.exec('git clone https://github.com/apollographql/federation-rs'))
-    run(shell.rm("-rf", "federation-rs/target"));
-    run(shell.cd("federation-rs/router-bridge"));
-    run(shell.exec("npm link @apollo/query-planner"));
-    run(shell.cd("../harmonizer-2"));
-    run(shell.exec("npm link @apollo/composition"));
-    run(shell.cd(".."));
-    run(shell.exec("cargo xtask test"));
+    try {
+      cd("federation-rs")
+    } catch {
+      exec('git clone https://github.com/apollographql/federation-rs')
+      cd("federation-rs")
+    }
+    exec("git pull")
+
+    if (process.cwd().split(path.sep).pop() != "federation-rs") {
+      throw new Error("Current working directory is somehow not the federation-rs repository")
+    }
+    cd("router-bridge");
+    exec("npm link @apollo/query-planner");
+    cd("../harmonizer-2");
+    exec("npm link @apollo/composition");
+    cd("..");
+    exec("cargo xtask test");
   })
 })
