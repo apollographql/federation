@@ -1144,3 +1144,6 @@ export {
   SupergraphSdlHook,
   SupergraphManager
 } from './config';
+
+export { UplinkFetcherError } from "./supergraphManagers"
+
