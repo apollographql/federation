@@ -65,7 +65,7 @@ Next, update your application to configure your OpenTelemetry instrumentation _a
 
 **We recommend putting this configuration in its own file**, which you import at the very top of `index.js`. A sample file is provided below (note the lines that should either be deleted or uncommented).
 
-```js:title=open-telemetry.js
+```js title="open-telemetry.js"
 // Import required symbols
 const { Resource } = require('@opentelemetry/resources');
 const { SimpleSpanProcessor, ConsoleSpanExporter } = require ("@opentelemetry/sdk-trace-base");
@@ -181,7 +181,7 @@ npm install @opentelemetry/exporter-zipkin@1.0
 
 Then, import the `ZipkinExporter` in your dedicated OpenTelemetry file:
 
-```js:title=open-telemetry.js
+```js title="open-telemetry.js"
 const { ZipkinExporter } = require("@opentelemetry/exporter-zipkin");
 ```
 

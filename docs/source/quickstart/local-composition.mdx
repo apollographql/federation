@@ -16,7 +16,7 @@ To provide these details to Rover, we define a YAML configuration file.
 
 In your project directory, create a file called `supergraph-config.yaml` and paste the following into it:
 
-```yaml:title=supergraph-config.yaml
+```yaml title="supergraph-config.yaml"
 subgraphs:
   products:
     routing_url: https://rover.apollo.dev/quickstart/products/graphql
@@ -193,7 +193,7 @@ When we provide a _Rover-composed_ supergraph schema to our gateway, we pass it 
 
 Open your `index.js` file and replace its contents with the following:
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFileSync } = require('fs');

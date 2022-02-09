@@ -21,13 +21,13 @@ npm install @apollo/subgraph
 
 Next, import the `buildSubgraphSchema` function in the file where you initialize `ApolloServer`:
 
-```js:title=index.js
+```js title="index.js"
 const { buildSubgraphSchema } = require('@apollo/subgraph');
 ```
 
 Finally, modify your `ApolloServer` constructor by passing it a `schema` option instead of `typeDefs` and `resolvers`, like so:
 
-```js:title=index.js
+```js title="index.js"
 const server = new ApolloServer({
   schema: buildSubgraphSchema({ typeDefs, resolvers })
 });

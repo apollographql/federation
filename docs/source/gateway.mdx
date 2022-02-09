@@ -20,7 +20,7 @@ npm install @apollo/gateway@latest-2 apollo-server graphql
 
 The `@apollo/gateway` package includes the [`ApolloGateway` class](./api/apollo-gateway/). To configure Apollo Server to act as a gateway, you pass an instance of `ApolloGateway` to the `ApolloServer` constructor, like so:
 
-```js{8-12,14-17}:title=index.js
+```js {8-12,14-17} title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFileSync } = require('fs');
@@ -58,7 +58,7 @@ On startup, the gateway processes your `supergraphSdl`, which includes routing i
 
 In the above example, we provide a _static_ supergraph schema to the gateway. This approach requires the gateway to restart in order to update the supergraph schema. This is undesirable for many applications, so we also provide the ability to update the supergraph schema dynamically.
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { readFile } = require('fs/promises');
@@ -94,7 +94,7 @@ With the `update` function, we can now programatically update the supergraph. Po
 
 The code below demonstrates a more complete example using a file watcher. In this example, assume that we're updating the `supergraphSdl.graphql` file with the Rover CLI.
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway } = require('@apollo/gateway');
 const { watch } = require('fs');
@@ -156,7 +156,7 @@ In a more complex application, you might want to create a class that handles the
 
 Alternatively, you can provide a `subgraph` array to the `IntrospectAndCompose` constructor, like so:
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloGateway, IntrospectAndCompose } = require('@apollo/gateway');
 
 const gateway = new ApolloGateway({
@@ -227,7 +227,7 @@ After adding the `userId` to the shared `context` object, the gateway can then a
 
 <ExpansionPanel title="Expand example">
 
-```javascript{6-12,17-19,24-31}
+```javascript {6-12,17-19,24-31}
 const { ApolloServer } = require('apollo-server');
 const { ApolloGateway, RemoteGraphQLDataSource } = require('@apollo/gateway');
 const { readFileSync } = require('fs');

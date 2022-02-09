@@ -12,7 +12,7 @@ This article describes how to create a **subgraph** for a federated graph using 
 
 Converting an existing monolithic graph into a single subgraph is a convenient first step in building a federated supergraph. To start, here's a *non-federated* Apollo Server setup:
 
-```javascript:title=index.js
+```javascript title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
 
 const typeDefs = gql`
@@ -58,7 +58,7 @@ npm install @apollo/subgraph
 
 We also need to require the `buildSubgraphSchema` function from this package in our `index.js` file (we'll use it later):
 
-```js:title=index.js
+```js title="index.js"
 const { buildSubgraphSchema } = require('@apollo/subgraph');
 ```
 
@@ -112,7 +112,7 @@ The `@key` directive tells the gateway which field(s) of the `User` entity can u
 
 Next, we add a **reference resolver** for the `User` entity. A reference resolver tells the gateway how to fetch an entity by its `@key` fields:
 
-```js:title=index.js
+```js title="index.js"
 const resolvers = {
   Query: {
     me() {
@@ -135,7 +135,7 @@ const resolvers = {
 
 Finally, we use the `buildSubgraphSchema` function from the `@apollo/subgraph` package to augment our schema definition with federation support. We provide the result of this function to the `ApolloServer` constructor:
 
-```js:title=index.js
+```js title="index.js"
 const server = new ApolloServer({
   schema: buildSubgraphSchema({ typeDefs, resolvers })
 });
@@ -151,7 +151,7 @@ The server is now ready to act as a subgraph in a federated graph!
 
 Here are the snippets above combined (again, note that for this sample to be complete, you must define the `fetchUserById` function for your data source):
 
-```js:title=index.js
+```js title="index.js"
 const { ApolloServer, gql } = require('apollo-server');
 const { buildSubgraphSchema } = require('@apollo/subgraph');
 
@@ -250,7 +250,7 @@ _entities(representations: [_Any!]!): [_Entity]!
 
 You can query this field like so, providing a value for the `$representations` variable as shown:
 
-```graphql:title=Query
+```graphql title="Query"
 query ($representations: [_Any!]!) {
   _entities(representations: $representations) {
     ... on User {
@@ -261,7 +261,7 @@ query ($representations: [_Any!]!) {
 }
 ```
 
-```json:title=Variable
+```json title="Variable"
 {
   "representations": [
     {
@@ -324,7 +324,7 @@ const server = new ApolloServer({
 
 <ExpansionPanel title="Expand example">
 
-```js{15-17}
+```js {15-17}
 const { ApolloServer, gql, SchemaDirectiveVisitor } = require("apollo-server");
 
 // typeDefs and resolvers defined here

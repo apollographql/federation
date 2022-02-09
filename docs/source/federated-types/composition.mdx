@@ -64,14 +64,14 @@ For example, take a look at these two subgraph schemas:
 
 <CodeColumns>
 
-```graphql{3}
+```graphql {3}
 # Subgraph A
 type Event {
   timestamp: String!
 }
 ```
 
-```graphql{3}
+```graphql {3}
 # Subgraph B
 type Event {
   timestamp: Int!
@@ -165,7 +165,7 @@ type Position {
 
 Based on this hypothetical supergraph schema, the following query _should_ be valid:
 
-```graphql{5}
+```graphql {5}
 query GetPosition {
   positionA {
     x
@@ -195,7 +195,7 @@ If every subgraph that defines a type _could_ resolve every field of that type w
 
 <CodeColumns>
 
-```graphql{5}
+```graphql {5}
 # Subgraph A
 type Position @shareable {
   x: Int!
