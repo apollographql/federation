@@ -5,10 +5,7 @@
   "files": [],
   "include": [],
   "references": [
-    { "path": "./tsconfig.build-stage-01.json" },
-    // Note that stage-02 exists, but it's not TypeScript.
-    // See the package.json npm run scripts for details.
-    { "path": "./tsconfig.build-stage-03.json" },
+    { "path": "./tsconfig.build.json" },
     { "path": "./tsconfig.test.json" },
   ]
 }

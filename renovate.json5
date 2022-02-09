@@ -32,7 +32,7 @@
   // on this file, but I'm taking the short-cut route and not juggling with
   // that right now.  I can test the repository locally with my own copy of
   // Renovate and come up with another solution given some free time. -Jesse
-  "enabledManagers": ["npm", "cargo"],
+  "enabledManagers": ["npm"],
   postUpdateOptions: ["npmDedupe"],
   "packageRules": [
     // We set this to the lowest supported Node.js version to ensure we don't
