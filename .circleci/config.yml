@@ -7,7 +7,7 @@ orbs:
   # be found at http://github.com/apollographql/CircleCI-Orbs/.
   # We could use Renovate to bump this version via PR, but that's not set up now.
   oss: apollo/oss-ci-cd-tooling@0.0.20
-  # Rust steps which are used below (like `rust/install`, `rust/test`) are
+  # Rust steps which are used below (like `rust/install`) are
   # defined in this orb. For reference, the orb can be found here:
   # https://github.com/CircleCI-Public/rust-orb
   rust: circleci/rust@1.5.0
@@ -243,9 +243,6 @@ jobs:
                 name: npm clean-install
                 command: |
                   npm clean-install
-            - rust/test:
-                # This is prefixed in the orb with 'cargo-'
-                cache_version: v2-windows
             - save_cache:
                 key: rust-target-v1-windows-{{ checksum "federation-rs-integration/federation-rs/Cargo.lock" }}
                 paths:
