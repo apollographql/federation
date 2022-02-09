@@ -20,7 +20,7 @@
     "test:clean": "jest --clearCache",
     "test:watch": "jest --verbose --watchAll",
     "testonly": "npm test",
-    "test:js:ci": "npm test:js -- --ci --maxWorkers=2  --reporters=default --reporters=jest-junit",
+    "test:js:ci": "npm run test:js -- --ci --maxWorkers=2  --reporters=default --reporters=jest-junit",
     "test:rs:ci": "npm run test:rs -- --ci --maxWorkers=2  --reporters=default --reporters=jest-junit",
     "codegen": "graphql-codegen --config codegen.yml",
     "codegen:check": "npm run codegen && git diff --exit-code",
