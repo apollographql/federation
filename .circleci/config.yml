@@ -118,7 +118,9 @@ jobs:
       NPM_VERSION: 7.10.0
     steps:
       - checkout
-      - run: git clone https://github.com/apollographql/federation-rs ./federation-rs-integration/federation-rs
+      - run:
+          name: Cloning federation-rs for integration tests
+          command: git clone https://github.com/apollographql/federation-rs ./federation-rs-integration/federation-rs
       - when:
           condition:
             equal: [ *rust_macos_executor, << parameters.platform >> ]
