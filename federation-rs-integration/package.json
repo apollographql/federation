@@ -8,10 +8,5 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@types/jest": "^27.4.0",
-    "@types/shelljs": "^0.8.11",
-    "shelljs": "^0.8.5"
-  }
+  "license": "ISC"
 }
