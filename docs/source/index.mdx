@@ -99,7 +99,7 @@ Let's look at an example!
 
 Below, we define the schemas for three subgraphs in a basic e-commerce application. Each subgraph is implemented as a standalone back-end service:
 
-```graphql:title=accounts
+```graphql title="accounts"
 extend type Query {
   me: User
 }
@@ -110,7 +110,7 @@ type User @key(fields: "id") {
 }
 ```
 
-```graphql:title=products
+```graphql title="products"
 extend type Query {
   topProducts(first: Int = 5): [Product]
 }
@@ -122,7 +122,7 @@ type Product @key(fields: "upc") {
 }
 ```
 
-```graphql:title=reviews
+```graphql title="reviews"
 type Review {
   body: String
   author: User @provides(fields: "username")
@@ -275,7 +275,7 @@ type User {
 
 You provide a composed [supergraph schema](#supergraph-schema) to the `ApolloGateway` constructor, like so:
 
-```js{1,4}
+```js {1,4}
 const supergraphSdl = readFileSync('./supergraph.graphql').toString();
 
 const gateway = new ApolloGateway({

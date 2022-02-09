@@ -364,7 +364,7 @@ The exact steps depend on how you perform schema composition:
     }
     ```
 
-    ```graphql{2-5}
+    ```graphql {2-5}
     # Billing subgraph
     type Bill @key(fields: "id") {
       id: ID!
@@ -436,7 +436,7 @@ We're done! `Bill` now originates in a new subgraph, and it was resolvable durin
     }
     ```
 
-    ```graphql{2-5}
+    ```graphql {2-5}
     # Billing subgraph
     type Bill @key(fields: "id") {
       id: ID!
@@ -509,7 +509,7 @@ To minimize downtime for your graph, you need to make sure all of your subgraph 
     }
     ```
 
-    ```graphql{2-5}
+    ```graphql {2-5}
     # Billing subgraph
     type Bill @key(fields: "id") {
       id: ID!
@@ -667,7 +667,7 @@ As shown, you use the `@requires` directive to indicate which fields (and subfie
 
 In the above example, if a client requests a product's `shippingEstimate`, the gateway will first obtain the product's `size` and `weight` from the `products` subgraph, then pass those values to the `shipping` subgraph. This enables you to access those values directly from your resolver:
 
-```js{4}
+```js {4}
 {
   Product: {
     shippingEstimate(product) {

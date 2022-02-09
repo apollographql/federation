@@ -205,7 +205,7 @@ Apollo strongly recommends that we isolate query planning changes from other kin
 
 Consider the scenario of moving a field on an entity from one subgraph (Subgraph A) to another (Subgraph B). After the migration, Subgraph B takes on the responsibility for resolving the field.
 
-```graphql:title=Before
+```graphql title="Before"
 # Subgraph A
 type User @key(fields: "id") {
   id: ID!
@@ -218,7 +218,7 @@ extend type User @key(fields: "id") {
 }
 ```
 
-```graphql:title=After
+```graphql title="After"
 # Subgraph A
 type User @key(fields: "id") {
   id: ID!

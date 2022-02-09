@@ -17,7 +17,7 @@ example of using `ApolloGateway`, see [The gateway](../gateway/).
 
 Returns an initialized `ApolloGateway` instance, which you can then pass as the `gateway` configuration option to the `ApolloServer` constructor, like so:
 
-```javascript{2-6}
+```javascript {2-6}
 const server = new ApolloServer({
   gateway: new ApolloGateway({
     serviceList: [
@@ -312,7 +312,7 @@ If you provide this function, the gateway calls it once for each subgraph. The f
 
 The example below demonstrates adding an `x-user-id` HTTP header to every request the gateway sends to a subgraph:
 
-```js{9-11}
+```js {9-11}
 class AuthenticatedDataSource extends RemoteGraphQLDataSource {
   willSendRequest({ request, context }) {
     request.http.headers.set('x-user-id', context.userId);
@@ -595,7 +595,7 @@ The details of the `fetch` response sent by the subgraph.
 
 Returns an initialized `IntrospectAndCompose` instance, which you can then pass to the `supergraphSdl` configuration option of the `ApolloGateway` constructor, like so:
 
-```javascript{3-7}
+```javascript {3-7}
 const server = new ApolloServer({
   gateway: new ApolloGateway({
     supergraphSdl: new IntrospectAndCompose({

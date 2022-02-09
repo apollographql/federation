@@ -223,7 +223,7 @@ The query plan for the operation looks like this:
 
 <ExpansionPanel title="Click to expand">
 
-```graphql{2}
+```graphql {2}
 QueryPlan {
   Parallel {
     Fetch(service: "books") {
@@ -288,7 +288,7 @@ The query plan for the operation looks like this:
 
 <ExpansionPanel title="Click to expand">
 
-```graphql{2}
+```graphql {2}
 QueryPlan {
   Sequence {
     Fetch(service: "hotels") {
@@ -459,7 +459,7 @@ Your gateway can output the query plan for each incoming operation as it's calcu
 
 2. Add the `experimental_didResolveQueryPlan` option to the object you pass to your `ApolloGateway` constructor:
 
-    ```js{2-6}
+    ```js {2-6}
     const gateway = new ApolloGateway({
       experimental_didResolveQueryPlan: function(options) {
         if (options.requestContext.operationName !== 'IntrospectionQuery') {

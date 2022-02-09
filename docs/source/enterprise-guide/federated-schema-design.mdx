@@ -14,7 +14,7 @@ Throughout this section, we'll explore some proven best practices for GraphQL sc
 
 The [Apollo Federation specification](../federation-spec/) indicates that an Object or Interface type can be made into an entity by adding the `@key` directive to its definition in a subgraph schema. The `@key` directive defines a **primary key** for the entity and its `fields` argument will contain one or more of the type's fields. In the following example, the `Product` entity's primary key would be its `upc` field:
 
-```graphql:title=Products%20Subgraph
+```graphql title="Products Subgraph"
 type Product @key(fields: "upc") {
   upc: String!
   name: String!
@@ -26,7 +26,7 @@ In other words, setting the `upc` field as the key means that other subgraphs th
 
 After defining an entity in a schema, other subgraphs can reference that entity in their schemas. In order for the referencing service's schema to be valid, it must define a stub of the entity in its schema. For example, we can reference a `Product` type defined in the products subgraph as the return type corresponding to a `product` field on a `Review` type defined in reviews subgraph:
 
-```graphql:title=Reviews%20Subgraph
+```graphql title="Reviews Subgraph"
 type Review {
   rating: Int
   product: Product
@@ -41,7 +41,7 @@ Note that the GraphQL spec-compliant `extend` keyword is used before the referen
 
 Referencing entities is a key feature of federation, but it's only half of the story. While an entity will be owned by a single subgraph, other services may wish to add additional fields to the entity's type to provide a more holistic representation of the entity in the graph. Doing so is a simple as adding the additional field to the extended type in a non-originating service. For example, a reviews service's schema may add a `reviews` field to the extended `Producs` type that was originally defined in the products subgraph:
 
-```graphql:title=Reviews%20Subgraph
+```graphql title="Reviews Subgraph"
 type Review {
   rating: Int
   product: Product
@@ -444,7 +444,7 @@ In these instances, an **errors as data** approach is often preferable to return
 
 There are different ways to describe these happy and unhappy paths in a schema, but one of the most common is to use unions to represent collections of possible related states that may result from a given operation. Take the following example that includes a `User` type defined in an accounts service and extended to include a `suggestedProducts` field in a products service:
 
-```graphql:title=Accounts%20Subgraph
+```graphql title="Accounts Subgraph"
 type User @key(fields: "id") {
   id: ID!
   firstName: String
@@ -457,7 +457,7 @@ extend type Query {
 }
 ```
 
-```graphql:title=Products%20Subgraph
+```graphql title="Products Subgraph"
 type Product @key(fields: "sku") {
   sku: String!
   name: String
