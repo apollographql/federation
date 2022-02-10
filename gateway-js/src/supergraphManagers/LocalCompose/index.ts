@@ -72,7 +72,7 @@ export class LocalCompose implements SupergraphManager {
 
   private logUpdateFailure(e: any) {
     this.config.logger?.error(
-      'UplinkFetcher failed to update supergraph with the following error: ' +
+      'LocalCompose failed to update supergraph with the following error: ' +
         (e.message ?? e),
     );
   }

@@ -121,9 +121,10 @@ export function mockSupergraphSdlRequestSuccessIfAfter(
 }
 
 export function mockSupergraphSdlRequestIfAfterUnchanged(
-    ifAfter: string | null = null,
+  ifAfter: string | null = null,
+  url: string = mockCloudConfigUrl1,
 ) {
-  return mockSupergraphSdlRequestIfAfter(ifAfter).reply(
+  return mockSupergraphSdlRequestIfAfter(ifAfter, url).reply(
       200,
       JSON.stringify({
         data: {
