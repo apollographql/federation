@@ -82,7 +82,7 @@ export class UplinkFetcher implements SupergraphManager {
       fetcher: this.config.fetcher,
       compositionId: this.compositionId ?? null,
       maxRetries: this.config.maxRetries,
-      roundRobinSeed: this.fetchCount,
+      roundRobinSeed: this.fetchCount++,
     });
 
     if (!result) {

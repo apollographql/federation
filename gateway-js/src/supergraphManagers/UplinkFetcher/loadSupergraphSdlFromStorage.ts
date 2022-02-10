@@ -66,37 +66,24 @@ export async function loadSupergraphSdlFromUplinks({
   maxRetries: number,
   roundRobinSeed: number,
 }) : Promise<SupergraphSdlUpdate | null> {
-  let lastException = null;
-  let result: SupergraphSdlUpdate | null = null;
-
-  await retry(
-    async () => {
-      result = await loadSupergraphSdlFromStorage({
+  // This Promise resolves with either an updated supergraph or null if no change.
+  // This Promise can reject in the case that none of the retries are successful,
+  // in which case it will reject with the most frequently encountered error.
+  return retry(
+    () =>
+      loadSupergraphSdlFromStorage({
         graphRef,
         apiKey,
         endpoint: endpoints[roundRobinSeed++ % endpoints.length],
         errorReportingEndpoint,
         fetcher,
         compositionId,
-      });
-
-      // If we make it here, we didn't throw on this attempt. We'll clear
-      // any error we might've captured so we don't throw it below.
-      lastException = null;
-      return result;
-    },
+      }),
     {
       retries: maxRetries,
-      onRetry(err) {
-        lastException = err;
-      },
     },
   );
 
-  if (lastException !== null) {
-    throw lastException;
-  }
-  return result;
 }
 
 export async function loadSupergraphSdlFromStorage({

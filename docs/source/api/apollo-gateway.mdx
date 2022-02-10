@@ -267,7 +267,7 @@ Provide this field **only** if you are using managed federation _and_ your use c
 
 The maximum number of times the gateway retries a failed poll request to Apollo Uplink, cycling through its list of [`uplinkEndpoints`](#uplinkendpoints).
 
-The default value is three times your number of `uplinkEndpoints` (i.e., `6` in almost all cases).
+The default value is to try each of your uplinkEndpoints three times (i.e., 5 retries with the default list of two endpoints).
 
 Provide this field **only** if you are using managed federation.
 

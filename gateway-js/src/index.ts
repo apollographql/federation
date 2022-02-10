@@ -400,7 +400,7 @@ export class ApolloGateway implements GraphQLService {
           apiKey: this.apolloConfig!.key!,
           uplinkEndpoints,
           maxRetries:
-            this.config.uplinkMaxRetries ?? uplinkEndpoints.length * 3,
+            this.config.uplinkMaxRetries ?? uplinkEndpoints.length * 3 - 1, // -1 for the initial request
           subgraphHealthCheck: this.config.serviceHealthCheck,
           fetcher: this.fetcher,
           logger: this.logger,
