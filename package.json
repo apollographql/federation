@@ -16,7 +16,7 @@
     "test": "npm run test:js",
     "test:js": "jest --verbose",
     "test:rs": "jest --verbose --projects ./federation-rs-integration",
-    "test:all": "npm test & npm run test:rs",
+    "test:all": "npm test && npm run test:rs",
     "test:clean": "jest --clearCache",
     "test:watch": "jest --verbose --watchAll",
     "testonly": "npm test",
@@ -96,5 +96,9 @@
       "<rootDir>/query-planner-js",
       "<rootDir>/subgraph-js"
     ]
+  },
+  "volta": {
+    "node": "16.13.2",
+    "npm": "8.3.1"
   }
 }

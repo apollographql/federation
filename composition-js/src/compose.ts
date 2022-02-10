@@ -62,7 +62,7 @@ export function compose(subgraphs: Subgraphs): CompositionResult {
   };
 }
 
-export function composeServices(services: ServiceDefinition[]): CompositionResult  {
+export function composeServicess(services: ServiceDefinition[]): CompositionResult  {
   const subgraphs = subgraphsFromServiceList(services);
   if (Array.isArray(subgraphs)) {
     // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place

@@ -2,11 +2,8 @@
   "name": "federation-rs-integration",
   "version": "1.0.0",
   "description": "",
-  "main": "shell.ts",
-  "scripts": {
-    "clean": "rm -rf ./federation-rs ./node_modules"
-  },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "MIT",
+  "private": true
 }

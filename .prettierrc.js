@@ -15,7 +15,7 @@ module.exports = {
   requirePragma: true,
   overrides: [
     {
-      files: '{docs/{,source/**},.,{gateway-js,federation-rs-integration/federation-integration-testsuite-js,query-planner-js,subgraph-js}/**,test}/{*.js,*.ts}',
+      files: '{docs/{,source/**},.,{gateway-js,federation-rs-integration,federation-integration-testsuite-js,query-planner-js,subgraph-js}/**,test}/{*.js,*.ts}',
       options: {
         requirePragma: false,
         trailingComma: 'all',
