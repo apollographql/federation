@@ -22,6 +22,7 @@ Scenario: supports simple aliases
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
+          "operationKind": "query",
           "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{name title:name}}}"
         },
         {
@@ -41,6 +42,7 @@ Scenario: supports simple aliases
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
           }
         },
@@ -63,6 +65,7 @@ Scenario: supports simple aliases
               }
             ],
             "variableUsages": [],
+            "operationKind": "query",
             "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title:name name}}}"
           }
         }
@@ -98,6 +101,7 @@ Scenario: supports aliases of root fields on subservices
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
+          "operationKind": "query",
           "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename upc name title:name}}}"
         },
         {
@@ -128,6 +132,7 @@ Scenario: supports aliases of root fields on subservices
                   }
                 ],
                 "variableUsages": [],
+                "operationKind": "query",
                 "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{body}productReviews:reviews{body}}...on Furniture{reviews{body}productReviews:reviews{body}}}}"
               }
             },
@@ -151,6 +156,7 @@ Scenario: supports aliases of root fields on subservices
                       }
                     ],
                     "variableUsages": [],
+                    "operationKind": "query",
                     "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
                   }
                 },
@@ -173,6 +179,7 @@ Scenario: supports aliases of root fields on subservices
                       }
                     ],
                     "variableUsages": [],
+                    "operationKind": "query",
                     "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title:name name}}}"
                   }
                 }
@@ -216,6 +223,7 @@ Scenario: supports aliases of nested fields on subservices
           "kind": "Fetch",
           "serviceName": "product",
           "variableUsages": ["upc"],
+          "operationKind": "query",
           "operation": "query($upc:String!){product(upc:$upc){__typename ...on Book{__typename isbn}...on Furniture{__typename upc name title:name}}}"
         },
         {
@@ -246,6 +254,7 @@ Scenario: supports aliases of nested fields on subservices
                   }
                 ],
                 "variableUsages": [],
+                "operationKind": "query",
                 "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{reviews{content:body body}productReviews:reviews{body reviewer:author{name:username}}}...on Furniture{reviews{content:body body}productReviews:reviews{body reviewer:author{name:username}}}}}"
               }
             },
@@ -269,6 +278,7 @@ Scenario: supports aliases of nested fields on subservices
                       }
                     ],
                     "variableUsages": [],
+                    "operationKind": "query",
                     "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title year}}}"
                   }
                 },
@@ -291,6 +301,7 @@ Scenario: supports aliases of nested fields on subservices
                       }
                     ],
                     "variableUsages": [],
+                    "operationKind": "query",
                     "operation": "query($representations:[_Any!]!){_entities(representations:$representations){...on Book{title:name name}}}"
                   }
                 }

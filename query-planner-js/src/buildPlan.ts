@@ -69,7 +69,7 @@ import {
   terminateWithNonRequestedTypenameField,
   getLocallySatisfiableKey,
 } from "@apollo/query-graphs";
-import { DocumentNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
+import { stripIgnoredCharacters, print, GraphQLError, parse, OperationTypeNode } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
@@ -807,7 +807,8 @@ class FetchGroup {
       serviceName: this.subgraphName,
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
       variableUsages: this.selection.usedVariables().map(v => v.name),
-      operation: stripIgnoredCharacters(print(operation)),
+      operation: stripIgnoredCharacters(print(operationToDocument(operation))),
+      operationKind:schemaRootKindToOperationKind(operation.rootKind),
     };
 
     return this.isTopLevel
@@ -823,6 +824,14 @@ class FetchGroup {
     return this.isTopLevel
       ? `[${this.index}]${this.subgraphName}[${this._selection}]`
       : `[${this.index}]${this.subgraphName}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
+  }
+}
+
+function schemaRootKindToOperationKind(operation: SchemaRootKind): OperationTypeNode {
+  switch(operation) {
+    case "query": return OperationTypeNode.QUERY;
+    case "mutation": return OperationTypeNode.MUTATION;
+    case "subscription": return  OperationTypeNode.SUBSCRIPTION;
   }
 }
 
@@ -1690,7 +1699,7 @@ function operationForEntitiesFetch(
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
   fragments?: NamedFragments
-): DocumentNode {
+): Operation {
   const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
   variableDefinitions.addAll(allVariableDefinitions.filter(selectionSet.usedVariables()));
@@ -1707,7 +1716,7 @@ function operationForEntitiesFetch(
     selectionSet
   ));
 
-  return operationToDocument(new Operation('query', entitiesCall, variableDefinitions).optimize(fragments));
+  return new Operation('query', entitiesCall, variableDefinitions).optimize(fragments);
 }
 
 // Wraps the given nodes in a ParallelNode or SequenceNode, unless there's only
@@ -1734,7 +1743,6 @@ function operationForQueryFetch(
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
   fragments?: NamedFragments
-): DocumentNode {
-  const operation = new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables())).optimize(fragments);
-  return operationToDocument(operation);
+): Operation {
+  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables())).optimize(fragments);
 }

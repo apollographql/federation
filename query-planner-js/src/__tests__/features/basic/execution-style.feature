@@ -23,12 +23,14 @@ Scenario: supports parallel root fields
           "kind": "Fetch",
           "serviceName": "accounts",
           "variableUsages": [],
+          "operationKind": "query",
           "operation": "{me{username}}"
         },
         {
           "kind": "Fetch",
           "serviceName": "reviews",
           "variableUsages": [],
+          "operationKind": "query",
           "operation": "{topReviews{body}}"
         }
       ]

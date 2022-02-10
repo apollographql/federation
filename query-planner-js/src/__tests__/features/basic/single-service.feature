@@ -35,6 +35,7 @@ Scenario: does not remove __typename if that is all that is requested on an enti
       "kind": "Fetch",
       "serviceName": "accounts",
       "variableUsages": [],
+      "operationKind": "query",
       "operation": "{me{__typename}}"
     }
   }
@@ -59,6 +60,7 @@ Scenario: does not remove __typename if that is all that is requested on a value
       "kind": "Fetch",
       "serviceName": "accounts",
       "variableUsages": [],
+      "operationKind": "query",
       "operation": "{me{account{__typename}}}"
     }
   }
@@ -83,6 +85,7 @@ Scenario: does not remove __typename if that is all that is requested on a union
       "kind": "Fetch",
       "serviceName": "accounts",
       "variableUsages": [],
+      "operationKind": "query",
       "operation": "{me{accountType{__typename}}}"
     }
   }
