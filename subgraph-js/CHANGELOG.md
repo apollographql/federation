@@ -6,6 +6,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 > The changes noted within this `vNEXT` section have not been released yet.  New PRs and commits which introduce changes should include an entry in this `vNEXT` section as part of their development.  When a release is being prepared, a new header will be (manually) created below and the appropriate changes within that release will be moved into the new section.
 
+- _Nothing yet! Stay tuned._
+
+## v0.3.1
+
 - Improve typings for `GraphQLResolverMap` which previously prevented users from typing their `args` parameter on a resolver correctly. [PR #1499](https://github.com/apollographql/federation/pull/1499)
 
 ## v0.3.0

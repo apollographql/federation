@@ -8,6 +8,10 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - _Nothing yet! Stay tuned._
 
+## v0.35.1
+
+- Updates to transitive dependencies.  No other substantial changes.
+
 ## v0.35.0
 
 - __BREAKING__ Bump graphql@15 peer to ^15.8.0. Backport `ASTVisitFn` type from graphql@16 [PR #1482](https://github.com/apollographql/federation/pull/1482)
