@@ -68,7 +68,7 @@ import {
   terminateWithNonRequestedTypenameField,
   getLocallySatisfiableKey,
 } from "@apollo/query-graphs";
-import { DocumentNode, OperationDefinitionNode, stripIgnoredCharacters, print, GraphQLError, parse } from "graphql";
+import { stripIgnoredCharacters, print, GraphQLError, parse, OperationTypeNode } from "graphql";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, trimSelectionNodes } from "./QueryPlan";
 
 const debug = newDebugLogger('plan');
@@ -800,8 +800,8 @@ class FetchGroup {
       serviceName: this.subgraphName,
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
       variableUsages: this.selection.usedVariables().map(v => v.name),
-      operation: stripIgnoredCharacters(print(operation)),
-      operationKind: (operation.definitions[0] as OperationDefinitionNode).operation,
+      operation: stripIgnoredCharacters(print(operationToDocument(operation))),
+      operationKind: operation.rootKind as OperationTypeNode,
     };
 
     return this.isTopLevel
@@ -1672,7 +1672,7 @@ function operationForEntitiesFetch(
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
   fragments?: NamedFragments
-): DocumentNode {
+): Operation {
   const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
   variableDefinitions.addAll(allVariableDefinitions.filter(selectionSet.usedVariables()));
@@ -1689,7 +1689,7 @@ function operationForEntitiesFetch(
     selectionSet
   ));
 
-  return operationToDocument(new Operation('query', entitiesCall, variableDefinitions).optimize(fragments));
+  return new Operation('query', entitiesCall, variableDefinitions).optimize(fragments);
 }
 
 // Wraps the given nodes in a ParallelNode or SequenceNode, unless there's only
@@ -1716,7 +1716,6 @@ function operationForQueryFetch(
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
   fragments?: NamedFragments
-): DocumentNode {
-  const operation = new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables())).optimize(fragments);
-  return operationToDocument(operation);
+): Operation {
+  return new Operation(rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables())).optimize(fragments);
 }
