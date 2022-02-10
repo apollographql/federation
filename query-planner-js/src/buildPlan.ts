@@ -801,7 +801,7 @@ class FetchGroup {
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
       variableUsages: this.selection.usedVariables().map(v => v.name),
       operation: stripIgnoredCharacters(print(operationToDocument(operation))),
-      operationKind: operation.rootKind as OperationTypeNode,
+      operationKind:schemaRootKindToOperationKind(operation.rootKind),
     };
 
     return this.isTopLevel
@@ -817,6 +817,14 @@ class FetchGroup {
     return this.isTopLevel
       ? `[${this.index}]${this.subgraphName}[${this._selection}]`
       : `[${this.index}]${this.subgraphName}@(${this.mergeAt})[${this._inputs} => ${this._selection}]`;
+  }
+}
+
+function schemaRootKindToOperationKind(operation: SchemaRootKind): OperationTypeNode {
+  switch(operation) {
+    case "query": return OperationTypeNode.QUERY;
+    case "mutation": return OperationTypeNode.MUTATION;
+    case "subscription": return  OperationTypeNode.SUBSCRIPTION;
   }
 }
 
