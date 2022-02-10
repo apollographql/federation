@@ -368,3 +368,36 @@ describe('loadSupergraphSdlFromStorage', () => {
   });
 });
 
+
+describe("loadSupergraphSdlFromUplinks", () => {
+  beforeEach(nockBeforeEach);
+  afterEach(nockAfterEach);
+
+  it("doesn't retry in the unchanged / null case", async () => {
+    mockSupergraphSdlRequestIfAfterUnchanged("id-1234", mockCloudConfigUrl1);
+
+    // These mocks ensure we get through the test without other unrelated errors
+    // but also prove the bad behavior exists. TODO: remove when the code is
+    // corrected (this test won't pass otherwise).
+    mockSupergraphSdlRequestIfAfterUnchanged("id-1234", mockCloudConfigUrl2);
+    mockSupergraphSdlRequestIfAfterUnchanged("id-1234", mockCloudConfigUrl1);
+    mockSupergraphSdlRequestIfAfterUnchanged("id-1234", mockCloudConfigUrl2);
+    mockSupergraphSdlRequestIfAfterUnchanged("id-1234", mockCloudConfigUrl1);
+    mockSupergraphSdlRequestIfAfterUnchanged("id-1234", mockCloudConfigUrl2);
+
+    const fetcher = jest.fn(getDefaultFetcher());
+    const result = await loadSupergraphSdlFromUplinks({
+      graphRef,
+      apiKey,
+      endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
+      errorReportingEndpoint: mockOutOfBandReporterUrl,
+      fetcher: fetcher as any,
+      compositionId: "id-1234",
+      maxRetries: 5,
+    });
+
+    expect(result).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+});
+
