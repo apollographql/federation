@@ -1,5 +1,6 @@
 import { fetch, Response, Request } from 'apollo-server-env';
 import { GraphQLError } from 'graphql';
+import retry from 'async-retry';
 import { SupergraphSdlUpdate } from '../../config';
 import { submitOutOfBandReportIfConfigured } from './outOfBandReporter';
 import { SupergraphSdlQuery } from '../../__generated__/graphqlTypes';
@@ -65,11 +66,11 @@ export async function loadSupergraphSdlFromUplinks({
   maxRetries: number,
   roundRobinSeed: number,
 }) : Promise<SupergraphSdlUpdate | null> {
-  let retries = 0;
   let lastException = null;
   let result: SupergraphSdlUpdate | null = null;
-  while (retries++ <= maxRetries && result == null) {
-    try {
+
+  await retry(
+    async () => {
       result = await loadSupergraphSdlFromStorage({
         graphRef,
         apiKey,
@@ -78,11 +79,21 @@ export async function loadSupergraphSdlFromUplinks({
         fetcher,
         compositionId,
       });
-    } catch (e) {
-      lastException = e;
-    }
-  }
-  if (result === null && lastException !== null) {
+
+      // If we make it here, we didn't throw on this attempt. We'll clear
+      // any error we might've captured so we don't throw it below.
+      lastException = null;
+      return result;
+    },
+    {
+      retries: maxRetries,
+      onRetry(err) {
+        lastException = err;
+      },
+    },
+  );
+
+  if (lastException !== null) {
     throw lastException;
   }
   return result;

@@ -396,6 +396,7 @@ describe("loadSupergraphSdlFromUplinks", () => {
       fetcher: fetcher as any,
       compositionId: "id-1234",
       maxRetries: 5,
+      roundRobinSeed: 0,
     });
 
     expect(result).toBeNull();
