@@ -8,6 +8,8 @@ This CHANGELOG pertains only to Apollo Federation packages in the `0.x` range. T
 
 - Use specific error classes when throwing errors due Apollo Uplink being unreacheable or returning an invalid response [PR #1473](https://github.com/apollographql/federation/pull/1473)
 - Improve typings for `GraphQLResolverMap` which previously prevented users from typing their `args` parameter on a resolver correctly. [PR #1499](https://github.com/apollographql/federation/pull/1499)
+- __FIX__ Correct retry logic while fetching the supergraph schema from Uplink [PR #1503](https://github.com/apollographql/federation/pull/1503)
+
 
 ## v0.48.0
 

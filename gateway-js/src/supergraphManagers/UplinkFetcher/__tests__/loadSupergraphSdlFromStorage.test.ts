@@ -63,7 +63,8 @@ describe('loadSupergraphSdlFromStorage', () => {
       errorReportingEndpoint: undefined,
       fetcher,
       compositionId: "originalId-1234",
-      maxRetries: 1
+      maxRetries: 1,
+      roundRobinSeed: 0,
     });
 
     expect(result).toMatchObject({
@@ -85,7 +86,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         errorReportingEndpoint: undefined,
         fetcher,
         compositionId: "originalId-1234",
-        maxRetries: 1
+        maxRetries: 1,
+        roundRobinSeed: 0,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
@@ -365,6 +367,31 @@ describe('loadSupergraphSdlFromStorage', () => {
         compositionId: "id-1234",
     });
     expect(result).toBeNull();
+  });
+});
+
+
+describe("loadSupergraphSdlFromUplinks", () => {
+  beforeEach(nockBeforeEach);
+  afterEach(nockAfterEach);
+
+  it("doesn't retry in the unchanged / null case", async () => {
+    mockSupergraphSdlRequestIfAfterUnchanged("id-1234", mockCloudConfigUrl1);
+
+    const fetcher = jest.fn(getDefaultFetcher());
+    const result = await loadSupergraphSdlFromUplinks({
+      graphRef,
+      apiKey,
+      endpoints: [mockCloudConfigUrl1, mockCloudConfigUrl2],
+      errorReportingEndpoint: mockOutOfBandReporterUrl,
+      fetcher: fetcher as any,
+      compositionId: "id-1234",
+      maxRetries: 5,
+      roundRobinSeed: 0,
+    });
+
+    expect(result).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });
 

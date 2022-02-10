@@ -1,5 +1,6 @@
 import { fetch, Response, Request } from 'apollo-server-env';
 import { GraphQLError } from 'graphql';
+import retry from 'async-retry';
 import { SupergraphSdlUpdate } from '../../config';
 import { submitOutOfBandReportIfConfigured } from './outOfBandReporter';
 import { SupergraphSdlQuery } from '../../__generated__/graphqlTypes';
@@ -39,8 +40,6 @@ const { name, version } = require('../../../package.json');
 
 const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
 
-let fetchCounter = 0;
-
 export class UplinkFetcherError extends Error {
   constructor(message: string) {
     super(message);
@@ -56,6 +55,7 @@ export async function loadSupergraphSdlFromUplinks({
   fetcher,
   compositionId,
   maxRetries,
+  roundRobinSeed,
 }: {
   graphRef: string;
   apiKey: string;
@@ -63,29 +63,27 @@ export async function loadSupergraphSdlFromUplinks({
   errorReportingEndpoint: string | undefined,
   fetcher: typeof fetch;
   compositionId: string | null;
-  maxRetries: number
+  maxRetries: number,
+  roundRobinSeed: number,
 }) : Promise<SupergraphSdlUpdate | null> {
-  let retries = 0;
-  let lastException = null;
-  let result: SupergraphSdlUpdate | null = null;
-  while (retries++ <= maxRetries && result == null) {
-    try {
-      result = await loadSupergraphSdlFromStorage({
+  // This Promise resolves with either an updated supergraph or null if no change.
+  // This Promise can reject in the case that none of the retries are successful,
+  // in which case it will reject with the most frequently encountered error.
+  return retry(
+    () =>
+      loadSupergraphSdlFromStorage({
         graphRef,
         apiKey,
-        endpoint: endpoints[fetchCounter++ % endpoints.length],
+        endpoint: endpoints[roundRobinSeed++ % endpoints.length],
         errorReportingEndpoint,
         fetcher,
-        compositionId
-      });
-    } catch (e) {
-      lastException = e;
-    }
-  }
-  if (result === null && lastException !== null) {
-    throw lastException;
-  }
-  return result;
+        compositionId,
+      }),
+    {
+      retries: maxRetries,
+    },
+  );
+
 }
 
 export async function loadSupergraphSdlFromStorage({
