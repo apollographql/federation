@@ -242,6 +242,42 @@ The default value is `false`.
 <tr>
 <td>
 
+###### `uplinkEndpoints`
+
+`Array<string>`
+</td>
+<td>
+
+A list of Apollo Uplink URLs the gateway uses to poll for its managed configuration. For details and defaults, see [Apollo Uplink](/managed-federation/uplink/).
+
+Provide this field **only** if you are using managed federation _and_ your use case specifically requires it (this is uncommon).
+
+</td>
+</tr>
+
+
+<tr>
+<td>
+
+###### `uplinkMaxRetries`
+
+`number`
+</td>
+<td>
+
+The maximum number of times the gateway retries a failed poll request to Apollo Uplink, cycling through its list of [`uplinkEndpoints`](#uplinkendpoints).
+
+The default value is to try each of your uplinkEndpoints three times (i.e., 5 retries with the default list of two endpoints).
+
+Provide this field **only** if you are using managed federation.
+
+</td>
+</tr>
+
+
+<tr>
+<td>
+
 ###### `buildService`
 
 `Function`
