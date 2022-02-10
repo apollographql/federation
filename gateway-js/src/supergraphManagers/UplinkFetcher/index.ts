@@ -30,6 +30,7 @@ export class UplinkFetcher implements SupergraphManager {
   private errorReportingEndpoint: string | undefined =
     process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT ?? undefined;
   private compositionId?: string;
+  private fetchCount: number = 0;
 
   constructor(options: UplinkFetcherOptions) {
     this.config = options;
@@ -81,6 +82,7 @@ export class UplinkFetcher implements SupergraphManager {
       fetcher: this.config.fetcher,
       compositionId: this.compositionId ?? null,
       maxRetries: this.config.maxRetries,
+      roundRobinSeed: this.fetchCount,
     });
 
     if (!result) {

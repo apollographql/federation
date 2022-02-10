@@ -39,8 +39,6 @@ const { name, version } = require('../../../package.json');
 
 const fetchErrorMsg = "An error occurred while fetching your schema from Apollo: ";
 
-let fetchCounter = 0;
-
 export class UplinkFetcherError extends Error {
   constructor(message: string) {
     super(message);
@@ -56,6 +54,7 @@ export async function loadSupergraphSdlFromUplinks({
   fetcher,
   compositionId,
   maxRetries,
+  roundRobinSeed,
 }: {
   graphRef: string;
   apiKey: string;
@@ -63,7 +62,8 @@ export async function loadSupergraphSdlFromUplinks({
   errorReportingEndpoint: string | undefined,
   fetcher: typeof fetch;
   compositionId: string | null;
-  maxRetries: number
+  maxRetries: number,
+  roundRobinSeed: number,
 }) : Promise<SupergraphSdlUpdate | null> {
   let retries = 0;
   let lastException = null;
@@ -73,10 +73,10 @@ export async function loadSupergraphSdlFromUplinks({
       result = await loadSupergraphSdlFromStorage({
         graphRef,
         apiKey,
-        endpoint: endpoints[fetchCounter++ % endpoints.length],
+        endpoint: endpoints[roundRobinSeed++ % endpoints.length],
         errorReportingEndpoint,
         fetcher,
-        compositionId
+        compositionId,
       });
     } catch (e) {
       lastException = e;

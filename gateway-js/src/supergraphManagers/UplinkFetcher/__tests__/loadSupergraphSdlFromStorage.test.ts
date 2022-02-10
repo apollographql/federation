@@ -63,7 +63,8 @@ describe('loadSupergraphSdlFromStorage', () => {
       errorReportingEndpoint: undefined,
       fetcher,
       compositionId: "originalId-1234",
-      maxRetries: 1
+      maxRetries: 1,
+      roundRobinSeed: 0,
     });
 
     expect(result).toMatchObject({
@@ -85,7 +86,8 @@ describe('loadSupergraphSdlFromStorage', () => {
         errorReportingEndpoint: undefined,
         fetcher,
         compositionId: "originalId-1234",
-        maxRetries: 1
+        maxRetries: 1,
+        roundRobinSeed: 0,
       }),
     ).rejects.toThrowError(
       new UplinkFetcherError(
