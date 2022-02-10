@@ -10,10 +10,10 @@ export interface GraphQLResolverMap<TContext = {}> {
   [typeName: string]:
     | {
         [fieldName: string]:
-          | GraphQLFieldResolver<any, TContext>
+          | GraphQLFieldResolver<any, TContext, any>
           | {
               requires?: string;
-              resolve: GraphQLFieldResolver<any, TContext>;
+              resolve: GraphQLFieldResolver<any, TContext, any>;
             };
       }
     | GraphQLScalarType
