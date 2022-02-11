@@ -20,7 +20,6 @@ import {
   Type,
 } from "./definitions";
 import {
-  addSubgraphToError,
   newEmptyFederation2Schema,
   parseFieldSetArgument,
   removeInactiveProvidesAndRequires,
@@ -31,13 +30,12 @@ import { FederationMetadata, Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";
 import { builtTypeReference } from "./buildSchema";
-import { GraphQLError } from "graphql";
 import { isSubtype } from "./types";
 import { printSchema } from "./print";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import {  } from ".";
+import { errorCauses, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -295,11 +293,11 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema): Subgraphs {
         // it'll solve the issue and that's good, or we'll hit the other message anyway.
         const msg = `Error extracting subgraph ${subgraph.name} from the supergraph: this might due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n`
           + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the errors and generate a correct federation 2 supergraph.';
-        throw new Error(`${msg}.\n\nDetails:\n${errorToString(e, subgraph.name)}`);
+        throw new Error(`${msg}.\n\nDetails:\n${errorToString(e)}`);
       } else {
         const msg = `Unexpected error extracting subgraph ${subgraph.name} from the supergraph: this is either a bug, or the supergraph has been corrupted.`;
         const dumpMsg = maybeDumpSubgraphSchema(subgraph);
-        throw new Error(`${msg}.\n\nDetails:\n${errorToString(e, subgraph.name)}\n\n${dumpMsg}`);
+        throw new Error(`${msg}.\n\nDetails:\n${errorToString(e)}\n\n${dumpMsg}`);
       }
     }
   }
@@ -325,12 +323,13 @@ function maybeDumpSubgraphSchema(subgraph: Subgraph): string {
     return `The (invalid) extracted subgraph has been written in: ${file}.`;
   }
   catch (e2) {
-    return `Was not able to print generated subgraph because: ${errorToString(e2, subgraph.name)}`;
+    return `Was not able to print generated subgraph for "${subgraph.name}" because: ${errorToString(e2)}`;
   }
 }
 
-function errorToString(e: any, subgraphName: string): string {
-  return e instanceof GraphQLError ? addSubgraphToError(e, subgraphName).toString() : String(e);
+function errorToString(e: any,): string {
+  const causes = errorCauses(e);
+  return causes ? printErrors(causes) : String(e);
 }
 
 type AnyField = FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition;
