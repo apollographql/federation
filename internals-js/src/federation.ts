@@ -13,7 +13,6 @@ import {
   InterfaceType,
   isCompositeType,
   isInterfaceType,
-  isListType,
   isObjectType,
   isUnionType,
   ListType,
@@ -695,8 +694,9 @@ export class FederationBlueprint extends SchemaBlueprint {
       true,
       true,
       field => {
-        if (isListType(field.type!) || isUnionType(field.type!) || isInterfaceType(field.type!)) {
-          let kind: string = field.type!.kind;
+        const type = baseType(field.type!);
+        if (isUnionType(type) || isInterfaceType(type)) {
+          let kind: string = type.kind;
           kind = kind.slice(0, kind.length - 'Type'.length);
           throw ERRORS.KEY_FIELDS_SELECT_INVALID_TYPE.err({
             message: `field "${field.coordinate}" is a ${kind} type which is not allowed in @key`

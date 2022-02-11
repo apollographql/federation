@@ -339,21 +339,6 @@ describe('fieldset-based directives', () => {
     ]);
   });
 
-  it('rejects @key on a list field', () => {
-    const subgraph =  gql`
-      type Query {
-        t: T
-      }
-
-      type T @key(fields: "f") {
-        f: [Int]
-      }
-    `
-    expect(buildForErrors(subgraph)).toStrictEqual([
-      ['KEY_FIELDS_SELECT_INVALID_TYPE', '[S] On type "T", for @key(fields: "f"): field "T.f" is a List type which is not allowed in @key'],
-    ]);
-  });
-
   it('rejects @key on an interface field', () => {
     const subgraph =  gql`
       type Query {
