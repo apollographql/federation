@@ -1,14 +1,15 @@
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
-import { errorCauses } from '..';
-import { buildSubgraph } from "../federation"
+import { errorCauses } from '../definitions';
+import { asFed2SubgraphDocument, buildSubgraph } from "../federation"
 
 // Builds the provided subgraph (using name 'S' for the subgraph) and, if the
 // subgraph is invalid/has errors, return those errors as a list of [code, message].
 // If the subgraph is valid, return undefined.
 function buildForErrors(subgraphDefs: DocumentNode, subgraphName: string = 'S'): [string, string][] | undefined {
   try {
-    buildSubgraph(subgraphName, `http://${subgraphName}`, subgraphDefs).validate();
+    const doc = asFed2SubgraphDocument(subgraphDefs);
+    buildSubgraph(subgraphName, `http://${subgraphName}`, doc).validate();
     return undefined;
   } catch (e) {
     const causes = errorCauses(e);
@@ -335,7 +336,6 @@ describe('fieldset-based directives', () => {
     `
     expect(buildForErrors(subgraph)).toStrictEqual([
       ['REQUIRES_INVALID_FIELDS', '[S] On field "T.g", for @requires(fields: "f b"): Cannot query field "b" on type "T" (if the field is defined in another subgraph, you need to add it to this subgraph with @external).'],
-      ['EXTERNAL_UNUSED', '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).' ],
     ]);
   });
 

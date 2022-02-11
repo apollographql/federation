@@ -458,7 +458,7 @@ function addExternalFieldsFromDirectiveFieldSet(
 ) {
   const external = subgraph.metadata().externalDirective();
 
-  const accessor = function (type: CompositeType, fieldName: string): FieldDefinition<any> {
+  const fieldAccessor = function (type: CompositeType, fieldName: string): FieldDefinition<any> {
     const field = type.field(fieldName);
     if (field) {
       if (forceNonExternal && field.hasAppliedDirective(external)) {
@@ -479,7 +479,7 @@ function addExternalFieldsFromDirectiveFieldSet(
     }
     return created;
   };
-  parseFieldSetArgument(parentType, directive, accessor);
+  parseFieldSetArgument({parentType, directive, fieldAccessor});
 }
 
 function addExternalFieldsFromInterface(metadata: FederationMetadata, type: ObjectType | InterfaceType) {

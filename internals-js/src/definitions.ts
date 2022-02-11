@@ -820,28 +820,33 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
 
 export class SchemaBlueprint {
   onMissingDirectiveDefinition(_schema: Schema, _name: string): DirectiveDefinition | undefined {
-    // No-op for graphQL built-ins, but overriden for federation built-ins.
+    // No-op by default, but used for federation.
     return undefined;
   }
 
   onDirectiveDefinitionAndSchemaParsed(_: Schema) {
-    // No-op for graphQL built-ins, but overriden for federation built-ins.
+    // No-op by default, but used for federation.
+  }
+
+  ignoreParsedField(_type: NamedType, _fieldName: string): boolean {
+    // No-op by default, but used for federation.
+    return false;
   }
 
   onConstructed(_: Schema) {
-    // No-op for graphQL built-ins, but overriden for federation built-ins.
+    // No-op by default, but used for federation.
   }
 
-
   onAddedCoreFeature(_schema: Schema, _feature: CoreFeature) {
-    // No-op for graphQL built-ins, but overriden for federation built-ins.
+    // No-op by default, but used for federation.
   }
 
   onInvalidation(_: Schema) {
-    // No-op for graphQL built-ins, but overriden for federation built-ins.
+    // No-op by default, but used for federation.
   }
 
   onValidation(_schema: Schema): GraphQLError[] {
+    // No-op by default, but used for federation.
     return []
   }
 

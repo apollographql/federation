@@ -112,7 +112,7 @@ export function buildSchemaFromAST(
       case 'UnionTypeDefinition':
       case 'EnumTypeDefinition':
       case 'InputObjectTypeDefinition':
-        buildNamedTypeInner(definitionNode, schema.type(definitionNode.name.value)!);
+        buildNamedTypeInner(definitionNode, schema.type(definitionNode.name.value)!, blueprint);
         break;
       case 'ScalarTypeExtension':
       case 'ObjectTypeExtension':
@@ -123,7 +123,7 @@ export function buildSchemaFromAST(
         const toExtend = schema.type(definitionNode.name.value)!;
         const extension = toExtend.newExtension();
         extension.sourceAST = definitionNode;
-        buildNamedTypeInner(definitionNode, toExtend, extension);
+        buildNamedTypeInner(definitionNode, toExtend, blueprint, extension);
         break;
     }
   }
@@ -263,7 +263,8 @@ function buildArgs(argumentsNode: NodeWithArguments): Record<string, any> {
 function buildNamedTypeInner(
   definitionNode: DefinitionNode & NodeWithDirectives & NodeWithDescription,
   type: NamedType,
-  extension?: Extension<any>
+  blueprint: SchemaBlueprint,
+  extension?: Extension<any>,
 ) {
   switch (definitionNode.kind) {
     case 'ObjectTypeDefinition':
@@ -272,6 +273,9 @@ function buildNamedTypeInner(
     case 'InterfaceTypeExtension':
       const fieldBasedType = type as ObjectType | InterfaceType;
       for (const fieldNode of definitionNode.fields ?? []) {
+        if (blueprint.ignoreParsedField(type, fieldNode.name.value)) {
+          continue;
+        }
         const field = fieldBasedType.addField(fieldNode.name.value);
         field.setOfExtension(extension);
         buildFieldDefinitionInner(fieldNode, field);

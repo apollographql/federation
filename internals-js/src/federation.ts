@@ -27,7 +27,6 @@ import {
   SchemaElement,
   sourceASTs,
   UnionType,
-  VariableDefinitions,
 } from "./definitions";
 import { assert, joinStrings, MultiMap, printHumanReadableList, OrderedMap } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -110,18 +109,12 @@ function validateFieldSetSelections(
   selectionSet: SelectionSet,
   hasExternalInParents: boolean,
   federationMetadata: FederationMetadata,
-  externalFieldCoordinatesCollector: string[],
   allowOnNonExternalLeafFields: boolean,
 ): void {
   for (const selection of selectionSet.selections()) {
     if (selection.kind === 'FieldSelection') {
       const field = selection.element().definition;
       const isExternal = federationMetadata.isFieldExternal(field);
-      // We collect the field as external before any other validation to avoid getting a (confusing)
-      // "external unused" error on top of another error due to exiting that method too early.
-      if (isExternal) {
-        externalFieldCoordinatesCollector.push(field.coordinate);
-      }
       if (field.hasArguments()) {
         throw ERROR_CATEGORIES.FIELDS_HAS_ARGS.get(directiveName).err({
           message: `field ${field.coordinate} cannot be included because it has arguments (fields with argument are not allowed in @${directiveName})`,
@@ -160,10 +153,10 @@ function validateFieldSetSelections(
             }
           }
         }
-        validateFieldSetSelections(directiveName, selection.selectionSet, newHasExternalInParents, federationMetadata, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
+        validateFieldSetSelections(directiveName, selection.selectionSet, newHasExternalInParents, federationMetadata, allowOnNonExternalLeafFields);
       }
     } else {
-      validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, federationMetadata, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
+      validateFieldSetSelections(directiveName, selection.selectionSet, hasExternalInParents, federationMetadata, allowOnNonExternalLeafFields);
     }
   }
 }
@@ -172,13 +165,12 @@ function validateFieldSet(
   type: CompositeType,
   directive: Directive<any, {fields: any}>,
   federationMetadata: FederationMetadata,
-  externalFieldCoordinatesCollector: string[],
   allowOnNonExternalLeafFields: boolean,
   onFields?: (field: FieldDefinition<any>) => void,
 ): GraphQLError | undefined {
   try {
     // Note that `parseFieldSetArgument` already properly format the error, hence the separate try-catch.
-    const fieldAcessor = onFields
+    const fieldAccessor = onFields
       ? (type: CompositeType, fieldName: string) => {
         const field = type.field(fieldName);
         if (field) {
@@ -187,10 +179,10 @@ function validateFieldSet(
         return field;
       }
       : undefined;
-    const selectionSet = parseFieldSetArgument(type, directive, fieldAcessor);
+    const selectionSet = parseFieldSetArgument({parentType: type, directive, fieldAccessor});
 
     try {
-      validateFieldSetSelections(directive.name, selectionSet, false, federationMetadata, externalFieldCoordinatesCollector, allowOnNonExternalLeafFields);
+      validateFieldSetSelections(directive.name, selectionSet, false, federationMetadata, allowOnNonExternalLeafFields);
       return undefined;
     } catch (e) {
       if (!(e instanceof GraphQLError)) {
@@ -237,7 +229,6 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   targetTypeExtractor: (element: TParent) => CompositeType,
   errorCollector: GraphQLError[],
   federationMetadata: FederationMetadata,
-  externalFieldCoordinatesCollector: string[],
   isOnParentType: boolean,
   allowOnNonExternalLeafFields: boolean,
   onFields?: (field: FieldDefinition<any>) => void,
@@ -259,7 +250,6 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
       type,
       application,
       federationMetadata,
-      externalFieldCoordinatesCollector,
       allowOnNonExternalLeafFields,
       onFields);
     if (error) {
@@ -268,21 +258,95 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>(
   }
 }
 
+export function collectUsedExternalFieldsCoordinates(metadata: FederationMetadata): Set<string> {
+  const usedExternalCoordinates = new Set<string>();
+
+  // Collects all external fields used by a key, requires or provides
+  collectUsedExternaFieldsForDirective<CompositeType>(
+    metadata,
+    metadata.keyDirective(),
+    type => type,
+    usedExternalCoordinates,
+  );
+  collectUsedExternaFieldsForDirective<FieldDefinition<CompositeType>>(
+    metadata,
+    metadata.requiresDirective(),
+    field => field.parent!,
+    usedExternalCoordinates,
+  );
+  collectUsedExternaFieldsForDirective<FieldDefinition<CompositeType>>(
+    metadata,
+    metadata.providesDirective(),
+    field => {
+      const type = baseType(field.type!);
+      return isCompositeType(type) ? type : undefined;
+    },
+    usedExternalCoordinates,
+  );
+
+  // Collects all external fields used to satisfy an interface constraint
+  for (const itfType of metadata.schema.types<InterfaceType>('InterfaceType')) {
+    const runtimeTypes = itfType.possibleRuntimeTypes();
+    for (const field of itfType.fields()) {
+      for (const runtimeType of runtimeTypes) {
+        const implemField = runtimeType.field(field.name);
+        if (implemField && metadata.isFieldExternal(implemField)) {
+          usedExternalCoordinates.add(implemField.coordinate);
+        }
+      }
+    }
+  }
+
+  return usedExternalCoordinates;
+}
+
+function collectUsedExternaFieldsForDirective<TParent extends SchemaElement<any, any>>(
+  metadata: FederationMetadata,
+  definition: DirectiveDefinition<{fields: any}>,
+  targetTypeExtractor: (element: TParent) => CompositeType | undefined,
+  usedExternalCoordinates: Set<string>
+) {
+  for (const application of definition.applications()) {
+    const type = targetTypeExtractor(application.parent! as TParent);
+    if (!type) {
+      // Means the application is wrong: we ignore it here as later validation will detect it
+      continue;
+    }
+    // Note that we don't want to 'validate', because even if a field set is invalid for some reason, we still want to consider
+    // its field as "used". This avoid, when a `fields` argument is invalid, to get one error for the `fields` itself, but also
+    // a bunch of other errors that says some external fields are unused that are just a consequence of not considering that
+    // particular `fields` argument. In other words, this avoid cascading errors that would be confusing to the user without
+    // being of any concrete use.
+    forEachFieldSetArgument({
+      parentType: type,
+      directive: application as Directive<any, {fields: any}>,
+      callback: field => {
+        if (metadata.isFieldExternal(field)) {
+          usedExternalCoordinates.add(field.coordinate);
+        }
+      },
+      includeInterfaceFieldsImplementations: true,
+      validate: false,
+    });
+  }
+}
+
 /**
  * Checks that all fields marked @external is used in a federation directive (@key, @provides or @requires) _or_ to satisfy an
  * interface implementation. Otherwise, the field declaration is somewhat useless.
  */
-function validateAllExternalFieldsUsed(
-  schema: Schema, allExternalFieldsUsedInFederationDirectivesCoordinates: string[], errorCollector: GraphQLError[],
-): void {
+function validateAllExternalFieldsUsed(schema: Schema, errorCollector: GraphQLError[]): void {
   const metadata = federationMetadata(schema);
-  if (!metadata) return;
+  if (!metadata) {
+    return;
+  }
+  const allUsedExternals = collectUsedExternalFieldsCoordinates(metadata);
   for (const type of schema.types()) {
     if (!isObjectType(type) && !isInterfaceType(type)) {
       continue;
     }
     for (const field of type.fields()) {
-      if (!metadata.isFieldExternal(field) || allExternalFieldsUsedInFederationDirectivesCoordinates.includes(field.coordinate)) {
+      if (!metadata.isFieldExternal(field) || allUsedExternals.has(field.coordinate)) {
         continue;
       }
 
@@ -553,6 +617,21 @@ export class FederationBlueprint extends SchemaBlueprint {
     return super.onMissingDirectiveDefinition(schema, name);
   }
 
+  ignoreParsedField(type: NamedType, fieldName: string): boolean {
+    // Historically, federation 1 has accepted invalid schema, including some where the Query type included
+    // the definition of `_entities` (so `_entities(representations: [_Any!]!): [_Entity]!`) but _without_
+    // defining the `_Any` or `_Entity` type. So while we want to be stricter for fed2 (so this kind of
+    // really weird case can be fixed), we want fed2 to accept as much fed1 schema as possible. 
+    //
+    // So, to avoid this problem, we ignore the _entities and _service fields if we parse them from
+    // a fed1 input schema. Those will be added back anyway (along with the proper types) post-parsing.
+    if (!FEDERATION_OPERATION_FIELDS.includes(fieldName)) {
+      return false;
+    }
+    const metadata = federationMetadata(type.schema());
+    return !!metadata && !metadata.isFed2Schema();
+  }
+
   onConstructed(schema: Schema) {
     const existing = federationMetadata(schema);
     if (!existing) {
@@ -606,7 +685,6 @@ export class FederationBlueprint extends SchemaBlueprint {
 
     const externalTester = new ExternalTester(schema);
 
-    const externalFieldsInFedDirectivesCoordinates: string[] = [];
     // We validate the @key, @requires and @provides.
     const keyDirective = metadata.keyDirective();
     validateAllFieldSet<CompositeType>(
@@ -614,7 +692,6 @@ export class FederationBlueprint extends SchemaBlueprint {
       type => type,
       errors,
       metadata,
-      externalFieldsInFedDirectivesCoordinates,
       true,
       true,
       field => {
@@ -639,7 +716,6 @@ export class FederationBlueprint extends SchemaBlueprint {
       field => field.parent,
       errors,
       metadata,
-      externalFieldsInFedDirectivesCoordinates,
       false,
       false,
     );
@@ -664,12 +740,11 @@ export class FederationBlueprint extends SchemaBlueprint {
       },
       errors,
       metadata,
-      externalFieldsInFedDirectivesCoordinates,
       false,
       false,
     );
 
-    validateAllExternalFieldsUsed(schema, externalFieldsInFedDirectivesCoordinates, errors);
+    validateAllExternalFieldsUsed(schema, errors);
 
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = metadata.tagDirective();
@@ -694,6 +769,23 @@ export class FederationBlueprint extends SchemaBlueprint {
 
 const federationBlueprint = new FederationBlueprint();
 
+function findUnusedNamedForLinkDirective(schema: Schema): string | undefined {
+  if (!schema.directive(linkSpec.url.name)) {
+    return undefined;
+  }
+
+  // The schema already defines a directive named `@link` so we need to use an alias.
+  // To keep it simple, we add a number in the end (so we try `@link1`, and if that's taken `@link2`, ...)
+  const baseName = linkSpec.url.name;
+  let n = 1;
+  for (;;) {
+    const candidate = baseName + n;
+    if (!schema.directive(candidate)) {
+      return candidate;
+    }
+  }
+}
+
 export function setSchemaAsFed2Subgraph(schema: Schema) {
   let core = schema.coreFeatures;
   let spec: CoreSpecDefinition;
@@ -703,7 +795,8 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
     // of the argument below is, and why would be bother?
     assert(spec.url.version.satisfies(linkSpec.version), `Fed2 schema must use @link with version >= 1.0, but schema uses ${spec.url}`);
   } else {
-    linkSpec.addToSchema(schema);
+    const alias = findUnusedNamedForLinkDirective(schema);
+    linkSpec.addToSchema(schema, alias);
     spec = linkSpec;
     core = schema.coreFeatures;
     assert(core, 'Schema should now be a core schema');
@@ -783,17 +876,24 @@ export function buildSubgraph(
   url: string,
   source: DocumentNode | string
 ): Subgraph {
-  // We don't validate right away for 2 reasons:
-  // 1. we want to use `Subgraph.validate` instead in general as it adds the subgraph name to the error.
-  // 2. federation 1 subgraph won't always validate as is and we only want to run validation later on the "upgraded" schema. 
   const buildOptions = {
     blueprint: federationBlueprint,
     validate: false,
   };
-  const schema = typeof source === 'string'
-    ? buildSchema(new Source(source, name), buildOptions)
-    : buildSchemaFromAST(source, buildOptions)
-  return new Subgraph(name, url, schema).validate();
+  let subgraph: Subgraph;
+  try {
+    const schema = typeof source === 'string'
+      ? buildSchema(new Source(source, name), buildOptions)
+      : buildSchemaFromAST(source, buildOptions)
+    subgraph = new Subgraph(name, url, schema);
+  } catch (e) {
+    if (e instanceof GraphQLError) {
+      throw addSubgraphToError(e, name, ERRORS.INVALID_GRAPHQL);
+    } else {
+      throw e;
+    }
+  }
+  return subgraph.validate();
 }
 
 export function newEmptyFederation2Schema(): Schema {
@@ -856,15 +956,24 @@ function completeFed2SubgraphSchema(schema: Schema) {
   spec.addElementsToSchema(schema);
 }
 
-export function parseFieldSetArgument(
+export function parseFieldSetArgument({
+  parentType,
+  directive,
+  fieldAccessor,
+  validate,
+}: {
   parentType: CompositeType,
   directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
-  fieldAccessor: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined = (type, name) => type.field(name)
-): SelectionSet {
+  fieldAccessor?: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined,
+  validate?: boolean,
+}): SelectionSet {
   try {
-    const selectionSet = parseSelectionSet(parentType, validateFieldSetValue(directive), new VariableDefinitions(), undefined, fieldAccessor);
-    selectionSet.validate();
-    return selectionSet;
+    return parseSelectionSet({
+      parentType,
+      source: validateFieldSetValue(directive),
+      fieldAccessor,
+      validate,
+    });
   } catch (e) {
     if (!(e instanceof GraphQLError)) {
       throw e;
@@ -901,27 +1010,47 @@ export function parseFieldSetArgument(
   }
 }
 
-export function forEachFieldSetArgument(
+export function forEachFieldSetArgument({
+  parentType,
+  directive,
+  callback,
+  includeInterfaceFieldsImplementations,
+  validate,
+}: {
   parentType: CompositeType,
   directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
   callback: (field: FieldDefinition<CompositeType>) => void,
   includeInterfaceFieldsImplementations: boolean,
-) {
-  parseFieldSetArgument(parentType, directive, (t, f) => {
-    const field = t.field(f);
-    if (field) {
-      callback(field);
-      if (includeInterfaceFieldsImplementations && isInterfaceType(t)) {
-        for (const implType of t.possibleRuntimeTypes()) {
-          const implField = implType.field(f);
-          if (implField) {
-            callback(implField);
+  validate?: boolean,
+}) {
+  try {
+    parseFieldSetArgument({
+      parentType,
+      directive,
+      fieldAccessor: (t, f) => {
+        const field = t.field(f);
+        if (field) {
+          callback(field);
+          if (includeInterfaceFieldsImplementations && isInterfaceType(t)) {
+            for (const implType of t.possibleRuntimeTypes()) {
+              const implField = implType.field(f);
+              if (implField) {
+                callback(implField);
+              }
+            }
           }
         }
-      }
+        return field;
+      },
+      validate,
+    });
+  } catch (e) {
+    // If we explicitely requested no validation, then we shouldn't throw a (graphQL) error, but if we do, we swallow it.
+    const isGraphQLError = errorCauses(e) !== undefined
+    if (!isGraphQLError || validate === undefined || validate) {
+      throw e;
     }
-    return field;
-  });
+  }
 }
 
 function validateFieldSetValue(directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>): string {
@@ -965,8 +1094,9 @@ export function subgraphsFromServiceList(serviceList: ServiceDefinition[]): Subg
     try {
       subgraphs.add(buildSubgraph(service.name, service.url ?? '', service.typeDefs));
     } catch (e) {
-      if (e instanceof GraphQLError) {
-        errors.push(addSubgraphToError(e, service.name, ERRORS.INVALID_GRAPHQL));
+      const causes = errorCauses(e);
+      if (causes) {
+        errors = errors.concat(causes);
       } else {
         throw e;
       }
@@ -982,10 +1112,6 @@ export class Subgraphs {
   private readonly subgraphs = new OrderedMap<string, Subgraph>();
 
   add(subgraph: Subgraph): Subgraph {
-    if (subgraph.name === FEDERATION_RESERVED_SUBGRAPH_NAME) {
-      throw ERRORS.INVALID_SUBGRAPH_NAME.err({ message: `Invalid name ${FEDERATION_RESERVED_SUBGRAPH_NAME} for a subgraph: this name is reserved` });
-    }
-
     if (this.subgraphs.has(subgraph.name)) {
       throw new Error(`A subgraph named ${subgraph.name} already exists` + (subgraph.url ? ` (with url '${subgraph.url}')` : ''));
     }
@@ -1064,6 +1190,9 @@ export class Subgraph {
     readonly url: string,
     readonly schema: Schema,
   ) {
+    if (name === FEDERATION_RESERVED_SUBGRAPH_NAME) {
+      throw ERRORS.INVALID_SUBGRAPH_NAME.err({ message: `Invalid name ${FEDERATION_RESERVED_SUBGRAPH_NAME} for a subgraph: this name is reserved` });
+    }
   }
 
   metadata(): FederationMetadata {
@@ -1221,39 +1350,34 @@ class ExternalTester {
     const metadata = this.metadata();
     const extendsDirective =  metadata.extendsDirective();
     for (const key of metadata.keyDirective().applications()) {
-      const parent = key.parent as CompositeType;
-      if (!(key.ofExtension() || parent.hasAppliedDirective(extendsDirective))) {
+      const parentType = key.parent as CompositeType;
+      if (!(key.ofExtension() || parentType.hasAppliedDirective(extendsDirective))) {
         continue;
       }
-      try {
-        parseFieldSetArgument(parent, key as Directive<any, {fields: any}>, (parentType, fieldName) => {
-          const field = parentType.field(fieldName);
-          if (field && field.hasAppliedDirective(this.externalDirective)) {
+      forEachFieldSetArgument({
+        parentType,
+        directive: key as Directive<any, {fields: any}>,
+        callback: (field) => {
+          if (field.hasAppliedDirective(this.externalDirective)) {
             this.fakeExternalFields.add(field.coordinate);
           }
-          return field;
-        });
-      } catch (e) {
-        // This is not the right time to throw errors. If a directive is invalid, we'll throw
-        // an error later anyway, so just ignoring it for now.
-      }
+        },
+        includeInterfaceFieldsImplementations: false,
+        validate: false,
+      });
     }
   }
 
   private collectProvidedFields() {
     for (const provides of this.metadata().providesDirective().applications()) {
       const parent = provides.parent as FieldDefinition<CompositeType>;
-      try {
-        forEachFieldSetArgument(
-          baseType(parent.type!) as CompositeType,
-          provides as Directive<any, {fields: any}>,
-          (f) => this.providedFields.add(f.coordinate),
-          true
-        );
-      } catch (e) {
-        // This is not the right time to throw errors. If a directive is invalid, we'll throw
-        // an error later anyway, so just ignoring it for now.
-      }
+      forEachFieldSetArgument({
+        parentType: baseType(parent.type!) as CompositeType,
+        directive: provides as Directive<any, {fields: any}>,
+        callback: (f) => this.providedFields.add(f.coordinate),
+        includeInterfaceFieldsImplementations: true,
+        validate: false,
+      });
     }
   }
 
@@ -1332,7 +1456,16 @@ function removeInactiveApplications(
   onModified: (field: FieldDefinition<any>, original: ProvidesOrRequiresApplication, updated?: ProvidesOrRequiresApplication) => void
 ) {
   for (const application of field.appliedDirectivesOf(directiveDefinition)) {
-    const selection = parseFieldSetArgument(parentType, application);
+    let selection;
+    try {
+      selection = parseFieldSetArgument({parentType, directive: application});
+    } catch (e) {
+      // This method is sometimes called on federation directives that haven't been validated, and so parsing the
+      // `fields` argument may throw. In that case, we just silently ignore that particular directive application:
+      // it's not the job of this method to do validation, but we will always validate things in other places
+      // when needed so whatever error that directive has will be caught in a more appropriate place.
+      continue;
+    }
     if (selectsNonExternalLeafField(selection)) {
       application.remove();
       const updated = withoutNonExternalLeafFields(selection);

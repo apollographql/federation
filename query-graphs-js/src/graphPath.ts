@@ -1197,7 +1197,7 @@ function warnOnKeyFieldsMarkedExternal(type: CompositeType): string {
   }
   const keyFieldMarkedExternal: string[] = [];
   for (const key of keys) {
-    const fieldSet = parseFieldSetArgument(type, key);
+    const fieldSet = parseFieldSetArgument({ parentType: type, directive: key });
     for (const selection of fieldSet.selections()) {
       if (selection.kind === 'FieldSelection' && selection.field.definition.hasAppliedDirective(metadata.externalDirective())) {
         const fieldName = selection.field.name;
@@ -1222,7 +1222,7 @@ export function getLocallySatisfiableKey(graph: QueryGraph, typeVertex: Vertex):
   assert(metadata, () => `Could not find federation metadata for source ${typeVertex.source}`);
   const keyDirective = metadata.keyDirective();
   for (const key of type.appliedDirectivesOf(keyDirective)) {
-    const selection = parseFieldSetArgument(type, key);
+    const selection = parseFieldSetArgument({ parentType: type, directive: key });
     if (!metadata.selectionSelectsAnyExternalField(selection)) {
       return selection;
     }

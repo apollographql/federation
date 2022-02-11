@@ -1,10 +1,13 @@
-import { GraphQLError } from "graphql";
+import {
+    ASTNode,
+  GraphQLError,
+  Kind,
+  print as printAST,
+} from "graphql";
 import { ERRORS } from "./error";
 import {
   baseType,
-  CompositeType,
   Directive,
-  DirectiveDefinition,
   errorCauses,
   Extension,
   FieldDefinition,
@@ -12,6 +15,7 @@ import {
   isCompositeType,
   isInterfaceType,
   isObjectType,
+  NamedSchemaElement,
   NamedType,
   ObjectType,
   Schema,
@@ -21,7 +25,6 @@ import {
   addSubgraphToError,
   federationMetadata,
   FederationMetadata,
-  parseFieldSetArgument,
   printSubgraphNames,
   removeInactiveProvidesAndRequires,
   setSchemaAsFed2Subgraph,
@@ -30,6 +33,7 @@ import {
 } from "./federation";
 import { assert, firstOf, MultiMap } from "./utils";
 import { FEDERATION_SPEC_TYPES } from "./federationSpec";
+import { collectUsedExternalFieldsCoordinates, forEachFieldSetArgument } from ".";
 
 export type UpgradeResult = UpgradeSuccess | UpgradeFailure;
 
@@ -57,6 +61,10 @@ export type UpgradeChange =
   | InactiveProvidesOrRequiresFieldsRemoval
   | ShareableFieldAddition
   | ShareableTypeAddition
+  | KeyOnInterfaceRemoval
+  | ProvidesOrRequiresOnInterfaceFieldRemoval
+  | ProvidesOnNonCompositeRemoval
+  | FieldsArgumentCoercionToString
 ;
 
 export class ExternalOnTypeExtensionRemoval {
@@ -115,7 +123,7 @@ export class ShareableFieldAddition {
   constructor(readonly field: string, readonly declaringSubgraphs: string[]) {}
 
   toString() {
-    return `Added @shareable to field ${this.field}: it is also resolved by ${printSubgraphNames(this.declaringSubgraphs)}`;
+    return `Added @shareable to field "${this.field}": it is also resolved by ${printSubgraphNames(this.declaringSubgraphs)}`;
   }
 }
 
@@ -125,7 +133,47 @@ export class ShareableTypeAddition {
   constructor(readonly type: string, readonly declaringSubgraphs: string[]) {}
 
   toString() {
-    return `Added @shareable to type ${this.type}: it is a "value type" and is also declared in ${printSubgraphNames(this.declaringSubgraphs)}`;
+    return `Added @shareable to type "${this.type}": it is a "value type" and is also declared in ${printSubgraphNames(this.declaringSubgraphs)}`;
+  }
+}
+
+export class KeyOnInterfaceRemoval {
+  readonly id = 'KEY_ON_INTERFACE_REMOVAL' as const;
+
+  constructor(readonly type: string) {}
+
+  toString() {
+    return `Removed @key on interface "${this.type}": while allowed by federation 0.x, @key on interfaces were completely ignored/had no effect`;
+  }
+}
+
+export class ProvidesOrRequiresOnInterfaceFieldRemoval {
+  readonly id = 'PROVIDES_OR_REQUIRES_ON_INTERFACE_FIELD_REMOVAL' as const;
+
+  constructor(readonly field: string, readonly directive: string) {}
+
+  toString() {
+    return `Removed @${this.directive} on interface field "${this.field}": while allowed by federation 0.x, @${this.directive} on interface fields were completely ignored/had no effect`;
+  }
+}
+
+export class ProvidesOnNonCompositeRemoval {
+  readonly id = 'PROVIDES_ON_NON_COMPOSITE_REMOVAL' as const;
+
+  constructor(readonly field: string, readonly type: string) {}
+
+  toString() {
+    return `Removed @provides directive on field "${this.field}" as it is of non-composite type "${this.type}": while not rejected by federation 0.x, such @provide is non-sensical and was ignored`;
+  }
+}
+
+export class FieldsArgumentCoercionToString {
+  readonly id = 'FIELDS_ARGUMENT_COERCION_TO_STRING' as const;
+
+  constructor(readonly element: string, readonly directive: string, readonly before: string, readonly after: string) {}
+
+  toString() {
+    return `Coerced "fields" argument for directive @${this.directive} for "${this.element}" into a string: coerced from ${this.before} to ${this.after}`;
   }
 }
 
@@ -197,7 +245,6 @@ function resolvesField(subgraph: Subgraph, field: FieldDefinition<ObjectType>): 
 
 class SchemaUpgrader {
   private readonly changes = new MultiMap<UpgradeChangeID, UpgradeChange>();
-  private readonly usedExternalFieldsCoordinates = new Set<string>();
   private readonly schema: Schema;
   private readonly subgraph: Subgraph;
   private readonly metadata: FederationMetadata;
@@ -226,10 +273,6 @@ class SchemaUpgrader {
         type.rename(`federation__${typeSpec.name}`);
       }
     }
-  }
-
-  private keys(type: ObjectType): Directive<ObjectType, { fields: any }>[] {
-    return type.appliedDirectivesOf(this.metadata.keyDirective());
   }
 
   private external(elt: FieldDefinition<any>): Directive<any, {}> | undefined {
@@ -277,22 +320,22 @@ class SchemaUpgrader {
       return { errors: errors.map((e) => addSubgraphToError(e, this.subgraph.name, ERRORS.INVALID_GRAPHQL)) };
     }
 
+    this.fixFederationDirectivesArguments();
+
     // Note that we remove all external on type extensions first, so we don't have to care about it later in @key, @provides and @requires.
     this.removeExternalOnTypeExtensions();
 
-    removeInactiveProvidesAndRequires(
-      this.schema,
-      (field, original, updated) => {
-        if (updated) {
-          this.addChange(new InactiveProvidesOrRequiresFieldsRemoval(field.coordinate, original.toString(), updated.toString()));
-        } else {
-          this.addChange(new InactiveProvidesOrRequiresRemoval(field.coordinate, original.toString()));
-        }
-      }
-    );
+    this.fixInactiveProvidesAndRequires();
 
     this.removeTypeExtensions();
 
+    this.removeDirectivesOnInterface();
+
+    // Note that this rule rely on being after `removeDirectivesOnInterface` in practice (in that it doesn't check interfaces).
+    this.removeProvidesOnNonComposite();
+
+    // Note that this should come _after_ all the other changes that may remove/update federation directives, since those may create unused
+    // externals. Which is why this is toward  the end.
     this.removeUnusedExternals();
 
     this.addShareable();
@@ -312,44 +355,98 @@ class SchemaUpgrader {
     }
   }
 
-  private applyOnFieldsOfFieldSet(
-    parentType: CompositeType,
-    directive: Directive<any, {fields: any}>,
-    onField: (field: FieldDefinition<any>) => void
-  ) {
-    // When we do this, we're unsure the `fields` argument is valid, and so this may throw. We want
-    // to silence such errors at this point however: proper errors will be thrown post-upgrade when
-    // the schema is fully validated.
-    try {
-      parseFieldSetArgument(parentType, directive, (parentType, fieldName) => {
-        const field = parentType.field(fieldName);
-        if (field) {
-          onField(field);
+  private fixFederationDirectivesArguments() {
+    for (const directive of [this.metadata.keyDirective(), this.metadata.requiresDirective(), this.metadata.providesDirective()]) {
+      for (const application of directive.applications()) {
+        const fields = application.arguments().fields;
+        if (typeof fields !== 'string') {
+          // The one case we have seen in practice is user passing an array of string, so we handle that. If it's something else,
+          // it's probably just completely invalid, so we ignore the application and let validation complain later.
+          if (Array.isArray(fields) && fields.every((f) => typeof f === 'string')) {
+            this.replaceFederationDirectiveApplication(application, application.toString(), fields.join(' '), directive.sourceAST);
+          }
+          continue;
         }
-        return field;
-      });
-    } catch (e) {
-      // This essentially checks if the error is a GraphQLError one. If it isn't, we rethrow as this may be a
-      // programming error in this file and we don't want to silence that.
-      if (errorCauses(e) === undefined) {
-        throw e;
+
+        // While validating if the field is a string will work in most cases, this will not catch the case where the field argument was
+        // unquoted but parsed as an enum value (see federation/issues/850 in particular). So if we have the AST (which we will usually
+        // have in practice), use that to check that the argument was truly a string.
+        const nodes = application.sourceAST;
+        if (nodes && nodes.kind === 'Directive') {
+          for (const argNode of nodes.arguments ?? []) {
+            if (argNode.name.value === 'fields') {
+              if (argNode.value.kind === Kind.ENUM) {
+                // Note that we we mostly want here is replacing the sourceAST because that is what is later used by validation
+                // to detect the problem.
+                this.replaceFederationDirectiveApplication(application, printAST(nodes), fields, {
+                  ...nodes,
+                  arguments: [{
+                    ...argNode,
+                    value: {
+                      kind: Kind.STRING,
+                      value: fields
+                    }
+                  }]
+                })
+                break;
+              }
+            }
+          }
+        }
       }
-      // If it _is_ an expected validation error however, we ignore it.
     }
   }
 
+  private replaceFederationDirectiveApplication(
+    application: Directive<SchemaElement<any, any>, {fields: any}>,
+    before: string,
+    fields: string,
+    updatedSourceAST: ASTNode | undefined,
+  ) {
+    const directive = application.definition!;
+    // Note that in practice, federation directives can only be on either a type or a field, both of which are named.
+    const parent = application.parent as NamedSchemaElement<any, any, any>;
+    application.remove();
+    const newDirective = parent.applyDirective(directive, {fields});
+    newDirective.sourceAST = updatedSourceAST;
+    this.addChange(new FieldsArgumentCoercionToString(parent.coordinate, directive.name, before, newDirective.toString()));
+  }
+
+  private fixInactiveProvidesAndRequires() {
+    removeInactiveProvidesAndRequires(
+      this.schema,
+      (field, original, updated) => {
+        if (updated) {
+          this.addChange(new InactiveProvidesOrRequiresFieldsRemoval(field.coordinate, original.toString(), updated.toString()));
+        } else {
+          this.addChange(new InactiveProvidesOrRequiresRemoval(field.coordinate, original.toString()));
+        }
+      }
+    );
+  }
+
   private removeExternalOnTypeExtensions() {
-    for (const type of this.schema.types<ObjectType>('ObjectType')) {
-      for (const keyApplication of this.keys(type)) {
-        if (keyApplication.ofExtension()) {
-          this.applyOnFieldsOfFieldSet(type, keyApplication, field => {
+    for (const type of this.schema.types()) {
+      if (!isCompositeType(type)) {
+        continue;
+      }
+      if (!isFederationTypeExtension(type) && !isRootTypeExtension(type)) {
+        continue;
+      }
+      for (const keyApplication of type.appliedDirectivesOf(this.metadata.keyDirective())) {
+        forEachFieldSetArgument({
+          parentType: type,
+          directive: keyApplication,
+          callback: field => {
             const external = this.external(field);
             if (external) {
               this.addChange(new ExternalOnTypeExtensionRemoval(field.coordinate));
               external.remove();
             }
-          });
-        }
+          },
+          includeInterfaceFieldsImplementations: false,
+          validate: false,
+        });
       }
     }
   }
@@ -366,14 +463,14 @@ class SchemaUpgrader {
   }
 
   private removeUnusedExternals() {
-    this.collectAllUsedExternaFields();
+    const usedExternalFieldsCoordinates = collectUsedExternalFieldsCoordinates(this.metadata);
 
     for (const type of this.schema.types()) {
       if (!isObjectType(type) && !isInterfaceType(type)) {
         continue;
       }
       for (const field of type.fields()) {
-        if (this.external(field) !== undefined && !this.usedExternalFieldsCoordinates.has(field.coordinate)) {
+        if (this.metadata.isFieldExternal(field) && !usedExternalFieldsCoordinates.has(field.coordinate)) {
           this.addChange(new UnusedExternalRemoval(field.coordinate));
           field.remove();
         }
@@ -381,53 +478,34 @@ class SchemaUpgrader {
     }
   }
 
-  private collectAllUsedExternaFields() {
-    // Collects all external fields used by a key, requires or provides
-    this.collectUsedExternaFields<CompositeType>(
-      this.metadata.keyDirective(),
-      type => type
-    );
-    this.collectUsedExternaFields<FieldDefinition<CompositeType>>(
-      this.metadata.requiresDirective(),
-      field => field.parent!,
-    );
-    this.collectUsedExternaFields<FieldDefinition<CompositeType>>(
-      this.metadata.providesDirective(),
-      field => {
-        const type = baseType(field.type!);
-        return isCompositeType(type) ? type : undefined;
-      },
-    );
-
-    // Collects all external fields used to satisfy an interface constraint
-    for (const itfType of this.schema.types<InterfaceType>('InterfaceType')) {
-      const runtimeTypes = itfType.possibleRuntimeTypes();
-      for (const field of itfType.fields()) {
-        for (const runtimeType of runtimeTypes) {
-          const implemField = runtimeType.field(field.name);
-          if (implemField && this.external(implemField) !== undefined) {
-            this.usedExternalFieldsCoordinates.add(implemField.coordinate);
+  private removeDirectivesOnInterface() {
+    for (const type of this.schema.types<InterfaceType>('InterfaceType')) {
+      for (const application of type.appliedDirectivesOf(this.metadata.keyDirective())) {
+        this.addChange(new KeyOnInterfaceRemoval(type.name));
+        application.remove();
+      }
+      for (const field of type.fields()) {
+        for (const directive of [this.metadata.providesDirective(), this.metadata.requiresDirective()]) {
+          for (const application of field.appliedDirectivesOf(directive)) {
+            this.addChange(new ProvidesOrRequiresOnInterfaceFieldRemoval(field.coordinate, directive.name));
+            application.remove();
           }
         }
       }
     }
   }
 
-  private collectUsedExternaFields<TParent extends SchemaElement<any, any>>(
-    definition: DirectiveDefinition<{fields: any}>,
-    targetTypeExtractor: (element: TParent) => CompositeType | undefined,
-  ) {
-    for (const application of definition.applications()) {
-      const type = targetTypeExtractor(application.parent! as TParent);
-      if (!type) {
-        // Means the application is wrong: we ignore it here as later validation will detect it
-        continue;
-      }
-      this.applyOnFieldsOfFieldSet(type, application as Directive<any, {fields: any}>, field => {
-        if (this.external(field) !== undefined) {
-          this.usedExternalFieldsCoordinates.add(field.coordinate);
+  private removeProvidesOnNonComposite() {
+    for (const type of this.schema.types<ObjectType>('ObjectType')) {
+      for (const field of type.fields()) {
+        if (isCompositeType(baseType(field.type!))) {
+          continue;
         }
-      });
+        for (const application of field.appliedDirectivesOf(this.metadata.providesDirective())) {
+          this.addChange(new ProvidesOnNonCompositeRemoval(field.coordinate, field.type!.toString()));
+          application.remove();
+        }
+      }
     }
   }
 

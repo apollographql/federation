@@ -604,7 +604,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           // restriction, and this may be useful at least temporarily to allow convert a type to
           // an entity).
           assert(isInterfaceType(type) || isObjectType(type), () => `Invalid "@key" application on non Object || Interface type "${type}"`);
-          const conditions = parseFieldSetArgument(type, keyApplication);
+          const conditions = parseFieldSetArgument({ parentType: type, directive: keyApplication });
           for (const [j, otherSubgraph] of subgraphs.entries()) {
             if (i == j) {
               continue;
@@ -633,7 +633,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const requiresApplication of field.appliedDirectivesOf(requireDirective)) {
-            const conditions = parseFieldSetArgument(type, requiresApplication);
+            const conditions = parseFieldSetArgument({ parentType: type, directive: requiresApplication });
             const head = copyPointers[i].copiedVertex(e.head);
             // We rely on the fact that the edge indexes will be the same in the copied builder. But there is no real reason for
             // this to not be the case at this point so...
@@ -663,7 +663,7 @@ function federateSubgraphs(subgraphs: QueryGraph[]): QueryGraph {
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
             const fieldType = baseType(field.type!);
             assert(isCompositeType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not a composite type`)
-            const provided = parseFieldSetArgument(fieldType, providesApplication);
+            const provided = parseFieldSetArgument({ parentType: fieldType, directive: providesApplication });
             const head = copyPointers[i].copiedVertex(e.head);
             const tail = copyPointers[i].copiedVertex(e.tail);
             // We rely on the fact that the edge indexes will be the same in the copied builder. But there is no real reason for

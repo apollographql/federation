@@ -2,14 +2,11 @@ import {
     assert,
   baseType,
   CompositeType,
-  Directive,
   federationMetadata,
   FieldDefinition,
+  forEachFieldSetArgument,
   InterfaceType,
-  isInterfaceType,
-  NamedType,
   ObjectType,
-  parseFieldSetArgument,
   Schema
 } from ".";
 
@@ -27,11 +24,13 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
   const shareableFields: Set<String> = new Set();
   const addKeyFields = (type: CompositeType) => {
     for (const key of type.appliedDirectivesOf(keyDirective)) {
-      forEachFieldSetArgumentResolvingInterfaces(
-        type,
-        key,
-        (f) => shareableFields.add(f.coordinate)
-      );
+      forEachFieldSetArgument({
+        parentType: type,
+        directive: key,
+        callback: (f) => shareableFields.add(f.coordinate),
+        includeInterfaceFieldsImplementations: true,
+        validate: false,
+      });
     }
   };
 
@@ -45,11 +44,13 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
         shareableFields.add(field.coordinate);
       }
       for (const provides of field.appliedDirectivesOf(providesDirective)) {
-        forEachFieldSetArgumentResolvingInterfaces(
-          baseType(field.type!) as CompositeType,
-          provides,
-          (f) => shareableFields.add(f.coordinate)
-        );
+        forEachFieldSetArgument({
+          parentType: baseType(field.type!) as CompositeType,
+          directive: provides,
+          callback: (f) => shareableFields.add(f.coordinate),
+          includeInterfaceFieldsImplementations: true,
+          validate: false,
+        });
       }
     }
   }
@@ -61,31 +62,3 @@ export function computeShareables(schema: Schema): (field: FieldDefinition<Compo
   return (field) => shareableFields.has(field.coordinate);
 }
 
-function forEachFieldSetArgumentResolvingInterfaces(
-  parentType: CompositeType,
-  directive: Directive<NamedType | FieldDefinition<CompositeType>, {fields: any}>,
-  callback: (field: FieldDefinition<CompositeType>) => void,
-) {
-  try {
-    parseFieldSetArgument(parentType, directive, (t, f) => {
-      const field = t.field(f);
-      if (field) {
-        callback(field);
-        if (isInterfaceType(t)) {
-          for (const implType of t.possibleRuntimeTypes()) {
-            const implField = implType.field(f);
-            if (implField) {
-              callback(implField);
-            }
-          }
-        }
-      }
-      return field;
-    });
-  } catch (e) {
-    // Shareable computation can be run on a schema that hasn't yet be fully
-    // validated, so parsing a federation directive `fields` argument _can_
-    // fail, but we want to ignore this here and let later validation handle
-    // this more cleanly.
-  }
-}

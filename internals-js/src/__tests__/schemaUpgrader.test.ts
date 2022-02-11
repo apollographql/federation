@@ -18,7 +18,11 @@ test('upgrade complex schema', () => {
       products: [Product!]! @provides(fields: "upc description")
     }
 
-    extend type Product @key(fields: "upc") {
+    interface I @key(fields: "upc") {
+      upc: ID!
+    }
+
+    extend type Product implements I @key(fields: "upc") {
       upc: ID! @external
       name: String @external
       inventory: Int @requires(fields: "upc")
@@ -27,12 +31,13 @@ test('upgrade complex schema', () => {
 
     # A type with a genuine 'graphqQL' extension, to ensure the extend don't get removed.
     type Random {
-      x: Int
+      x: Int @provides(fields: "x")
     }
 
     extend type Random {
       y: Int
     }
+
   `;
 
   // Note that no changes are really expected on that 2nd schema: it is just there to make the example not throw due to
@@ -71,6 +76,14 @@ test('upgrade complex schema', () => {
     'Updated directive @provides(fields: "upc description") on "Query.products" to @provides(fields: "description"): removed fields that were not truly @external'
   ]);
 
+  expect(changeMessages(res, 's1', 'KEY_ON_INTERFACE_REMOVAL')).toStrictEqual([
+    'Removed @key on interface "I": while allowed by federation 0.x, @key on interfaces were completely ignored/had no effect'
+  ]);
+
+  expect(changeMessages(res, 's1', 'PROVIDES_ON_NON_COMPOSITE_REMOVAL')).toStrictEqual([
+    'Removed @provides directive on field "Random.x" as it is of non-composite type "Int": while not rejected by federation 0.x, such @provide is non-sensical and was ignored'
+  ]);
+
   expect(res.upgraded?.get('s1')?.toString()).toMatchString(`
     schema
       @link(url: "https://specs.apollo.dev/link/v1.0")
@@ -83,7 +96,11 @@ test('upgrade complex schema', () => {
       products: [Product!]! @provides(fields: "description")
     }
 
-    type Product
+    interface I {
+      upc: ID!
+    }
+
+    type Product implements I
       @key(fields: "upc")
     {
       upc: ID!
@@ -100,3 +117,47 @@ test('upgrade complex schema', () => {
     }
   `);
 });
+
+test('update federation directive non-string arguments', () => {
+  const s = `
+    type Query {
+      a: A
+    }
+
+    type A @key(fields: id) @key(fields: ["id", "x"]) {
+      id: String
+      x: Int
+    }
+  `;
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(buildSubgraph('s', 'http://s', s));
+  const res = upgradeSubgraphsIfNecessary(subgraphs);
+  expect(res.errors).toBeUndefined();
+
+  expect(changeMessages(res, 's', 'FIELDS_ARGUMENT_COERCION_TO_STRING')).toStrictEqual([
+    'Coerced "fields" argument for directive @key for "A" into a string: coerced from @key(fields: id) to @key(fields: "id")',
+    'Coerced "fields" argument for directive @key for "A" into a string: coerced from @key(fields: ["id", "x"]) to @key(fields: "id x")',
+  ]);
+
+  expect(res.upgraded?.get('s')?.toString()).toMatchString(`
+    schema
+      @link(url: "https://specs.apollo.dev/link/v1.0")
+      @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@requires", "@provides", "@external", "@shareable", "@tag", "@extends"])
+    {
+      query: Query
+    }
+
+    type Query {
+      a: A
+    }
+
+    type A
+      @key(fields: "id")
+      @key(fields: "id x")
+    {
+      id: String
+      x: Int
+    }
+  `);
+})
