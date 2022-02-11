@@ -18,6 +18,7 @@ The following errors may be raised by composition:
 
 | Code | Description | Since | Comment |
 |---|---|---|---|
+| `DIRECTIVE_DEFINITION_INVALID` | A built-in or federation directive has an invalid definition in the schema. | 2.0.0 | Replaces: `TAG_DEFINITION_INVALID` |
 | `EXTENSION_WITH_NO_BASE` | A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph. | 0.x |  |
 | `EXTERNAL_ARGUMENT_DEFAULT_MISMATCH` | An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgtaphs. | 2.0.0 |  |
 | `EXTERNAL_ARGUMENT_MISSING` | An `@external` field is missing some arguments present in the declaration(s) of that field in other subgraphs. | 2.0.0 |  |
@@ -31,7 +32,9 @@ The following errors may be raised by composition:
 | `INPUT_FIELD_DEFAULT_MISMATCH` | An input field has a default value that is incompatible with other declarations of that field in other subgraphs. | 2.0.0 |  |
 | `INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH` | For an interface field, some of its concrete implementations have @external or @requires and there is difference in those implementations return type (which is currently not supported; see https://github.com/apollographql/federation/issues/1257) | 2.0.0 |  |
 | `INTERFACE_FIELD_NO_IMPLEM` | After subgraph merging, an implemenation is missing a field of one of the interface it implements (which can happen for valid subgraphs). | 2.0.0 |  |
+| `INVALID_FIELD_SHARING` | A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs. | 2.0.0 |  |
 | `INVALID_GRAPHQL` | A schema is invalid GraphQL: it violates one of the rule of the specification. | 2.0.0 |  |
+| `INVALID_LINK_DIRECTIVE_USAGE` | An application of the @link directive is invalid/does not respect the specification. | 2.0.0 |  |
 | `INVALID_SUBGRAPH_NAME` | A subgraph name is invalid (subgraph names cannot be a single underscore ("_")). | 2.0.0 |  |
 | `KEY_FIELDS_HAS_ARGS` | The `fields` argument of a `@key` directive includes a field defined with arguments (which is not currently supported). | 2.0.0 |  |
 | `KEY_FIELDS_SELECT_INVALID_TYPE` | The `fields` argument of `@key` directive includes a field whose type is a list, interface, or union type. Fields of these types cannot be part of a `@key` | 0.x |  |
@@ -54,8 +57,9 @@ The following errors may be raised by composition:
 | `ROOT_QUERY_USED` | A subgraph's schema defines a type with the name `query`, while also specifying a _different_ type name as the root query object. This is not allowed. | 0.x |  |
 | `ROOT_SUBSCRIPTION_USED` | A subgraph's schema defines a type with the name `subscription`, while also specifying a _different_ type name as the root query object. This is not allowed. | 0.x |  |
 | `SATISFIABILITY_ERROR` | Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs. | 2.0.0 |  |
-| `TAG_DIRECTIVE_DEFINITION_INVALID` | The @tag directive has an invalid defintion in the schema. | 0.x |  |
+| `TYPE_DEFINITION_INVALID` | A built-in or federation type has an invalid definition in the schema. | 2.0.0 |  |
 | `TYPE_KIND_MISMATCH` | A type has the same name in different subgraphs, but a different kind. For instance, one definition is an object type but another is an interface. | 2.0.0 | Replaces: `VALUE_TYPE_KIND_MISMATCH`, `EXTENSION_OF_WRONG_KIND`, `ENUM_MISMATCH_TYPE` |
+| `UNKNOWN_FEDERATION_LINK_VERSION` | The version of federation in a @link directive on the schema is unknown. | 2.0.0 |  |
 
 
 ## Removed codes
